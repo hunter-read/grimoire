@@ -264,6 +264,7 @@ Tags are applied (or updated) every time the library is rescanned. Tags set via 
 | `DATA_PATH` | `/data` | Path for the database, thumbnails, and search cache |
 | `WORKERS` | `2` | Number of uvicorn worker processes |
 | `VALKEY_URL` | — | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
+| `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
 
 ### Volumes
 

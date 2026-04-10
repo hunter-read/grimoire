@@ -8,6 +8,7 @@ from ...indexer import scan_library, index_book_text
 from ..books import _invalidate_book_cache
 
 _SCAN_KEY = "grimoire:scan_status"
+_STOP_KEY = "grimoire:scan_stop"
 
 _DEFAULT_STATUS: dict = {
     "running": False,
@@ -27,21 +28,35 @@ _DEFAULT_STATUS: dict = {
 
 # In-process fallback when Valkey is unavailable (single-worker or no cache)
 _scan_status: dict = dict(_DEFAULT_STATUS)
-
 _stop_requested: bool = False
 
 
 def request_stop() -> None:
     global _stop_requested
     _stop_requested = True
+    if _valkey:
+        try:
+            _valkey.set(_STOP_KEY, "1", ex=3600)
+        except Exception:
+            pass
 
 
 def clear_stop() -> None:
     global _stop_requested
     _stop_requested = False
+    if _valkey:
+        try:
+            _valkey.delete(_STOP_KEY)
+        except Exception:
+            pass
 
 
 def is_stop_requested() -> bool:
+    if _valkey:
+        try:
+            return bool(_valkey.exists(_STOP_KEY))
+        except Exception:
+            pass
     return _stop_requested
 
 
@@ -75,8 +90,9 @@ def background_indexer():
     try:
         unindexed = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
         if not unindexed:
+            logger.debug("Background indexer: no unindexed books found, exiting.")
             return
-        logger.info(f"Background indexer: {len(unindexed)} books to index")
+        logger.info(f"Background indexer: starting — {len(unindexed)} book(s) to index")
         if not _get_status()["running"]:
             _set_status(
                 {
@@ -86,18 +102,26 @@ def background_indexer():
                     "indexed": 0,
                 }
             )
+        indexed_count = 0
         for book in unindexed:
             if is_stop_requested():
                 logger.info("Background indexer: stop requested, halting.")
                 break
+            logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
             try:
-                index_book_text(book, DATA_PATH, db)
+                result = index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
+                if result:
+                    indexed_count += 1
+                    logger.debug(f"Index end: '{book.filename}' — success")
+                else:
+                    logger.debug(f"Index end: '{book.filename}' — skipped or no text extracted")
             except Exception as e:
-                logger.error(f"Indexing error for {book.title}: {e}")
+                logger.error(f"Indexing error for '{book.filename}': {e}")
                 book.index_error = str(e)[:500]
                 book.index_failed = True
                 db.commit()
             _set_status({"indexed": _get_status()["indexed"] + 1})
+        logger.info(f"Background indexer: complete — {indexed_count}/{len(unindexed)} book(s) indexed")
     finally:
         db.close()
         if _get_status()["phase"] == "indexing":
@@ -122,6 +146,8 @@ def run_rescan_sync() -> None:
         _invalidate_book_cache()
         db = SessionLocal()
         try:
+            # --- Phase 1: file scan ---
+            logger.info("File scan start")
 
             def on_progress(sb, tb, sm, tm, st, tt):
                 _set_status(
@@ -134,9 +160,16 @@ def run_rescan_sync() -> None:
                         "total_tokens": tt,
                     }
                 )
+                logger.debug(
+                    f"File scan progress: books={sb}/{tb}, maps={sm}/{tm}, tokens={st}/{tt}"
+                )
 
             stats = scan_library(LIBRARY_PATH, DATA_PATH, db, on_progress=on_progress, should_stop=is_stop_requested)
-            logger.info(f"Rescan complete: {stats}")
+            logger.info(
+                f"File scan end: new_books={stats.get('new_books', 0)}, "
+                f"new_maps={stats.get('new_maps', 0)}, new_tokens={stats.get('new_tokens', 0)}, "
+                f"errors={stats.get('errors', 0)}"
+            )
             _set_status(
                 {
                     "new_books": stats.get("new_books", 0),
@@ -146,22 +179,33 @@ def run_rescan_sync() -> None:
             )
 
             if is_stop_requested():
+                logger.info("Rescan: stop requested after file scan, skipping indexing.")
                 return
 
+            # --- Phase 2: PDF indexing ---
             to_index = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
             _set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
+            logger.info(f"Index scan start: {len(to_index)} PDF(s) to index")
+            indexed_count = 0
             for book in to_index:
                 if is_stop_requested():
                     logger.info("Rescan: stop requested during indexing.")
                     break
+                logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
                 try:
-                    index_book_text(book, DATA_PATH, db)
+                    result = index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
+                    if result:
+                        indexed_count += 1
+                        logger.debug(f"Index end: '{book.filename}' — success")
+                    else:
+                        logger.debug(f"Index end: '{book.filename}' — skipped or no text extracted")
                 except Exception as e:
-                    logger.error(f"Indexing error for {book.title}: {e}")
+                    logger.error(f"Indexing error for '{book.filename}': {e}")
                     book.index_error = str(e)[:500]
                     book.index_failed = True
                     db.commit()
                 _set_status({"indexed": _get_status()["indexed"] + 1})
+            logger.info(f"Index scan end: {indexed_count}/{len(to_index)} PDF(s) indexed")
         finally:
             db.close()
     finally:

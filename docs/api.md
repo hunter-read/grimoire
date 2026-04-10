@@ -67,8 +67,9 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size, version |
-| `/api/scan-status` | GET | any | Current scan state |
-| `/api/rescan` | POST | gm/admin | Trigger a background rescan and reindex |
+| `/api/scan-status` | GET | admin | Current scan state |
+| `/api/rescan` | POST | admin | Trigger a background rescan and reindex |
+| `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job |
 
 **Stats response:**
 ```json
@@ -104,6 +105,12 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 ```
 
 `phase` is `"scanning"`, `"indexing"`, or `null` when idle.
+
+**Cancel-scan response:**
+```json
+{"status": "stop_requested"}
+```
+Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is cooperative — the running scan checks for the stop signal after each file and exits at the next safe checkpoint. Poll `/api/scan-status` until `running` is `false` to confirm it has stopped.
 
 ### Game Systems
 
@@ -322,6 +329,43 @@ Availability statuses: `available`, `tentative`, `unavailable`
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk |
+
+### Logs *(admin only)*
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/logs` | GET | admin | Retrieve recent log entries from the in-memory ring buffer |
+
+**Query parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `level` | `info` | Minimum log level: `debug`, `info`, `warning`, `error`, `critical`. Follows standard hierarchy — `debug` returns all levels, `info` returns info and above, etc. |
+| `limit` | `200` | Max entries to return (1–20000) |
+| `offset` | `0` | Skip this many of the most-recent matching entries (historical pagination, ignored when `after_seq` is set) |
+| `after_seq` | — | Return only entries with `seq` greater than this value. Use the `max_seq` from the previous response as a cursor for live polling. Exact even when hundreds of entries arrive between polls. |
+
+**Response:**
+```json
+{
+  "entries": [
+    {
+      "seq": 142,
+      "timestamp": "2026-04-10T12:34:56.789Z",
+      "level": "INFO",
+      "logger": "grimoire",
+      "message": "File scan start"
+    }
+  ],
+  "total": 42,
+  "max_seq": 142,
+  "level": "info",
+  "limit": 200,
+  "offset": 0
+}
+```
+
+> **Note:** Console/Docker log verbosity is controlled by the `LOG_LEVEL` environment variable (default `info`). The `/api/logs` endpoint always has access to `DEBUG`-level entries regardless of `LOG_LEVEL`, because the in-memory buffer captures all levels. The buffer holds up to 20 000 entries.
 
 **Cleanup response:**
 ```json

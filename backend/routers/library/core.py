@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from ...config import SessionLocal, VERSION
 from ...models import GameSystem, Book, GenericMap, Token
-from ...auth import require_gm_or_admin, optional_get_current_user, CurrentUser
+from ...auth import require_admin, optional_get_current_user, CurrentUser
 from ..settings import get_stats_api_key
 from . import _helpers
 
@@ -19,17 +19,17 @@ public_router = APIRouter(prefix="/api", tags=["library"])
     summary="Scan status",
     description="Returns current scan state: running, phase (scanning|indexing), progress counters, and new-item counts from the last scan.",
 )
-def get_scan_status():
+def get_scan_status(_: CurrentUser = Depends(require_admin)):
     return _helpers._get_status()
 
 
 @router.post(
     "/rescan",
     summary="Rescan and reindex library",
-    description="Triggers a background rescan of the library directory, adding new files and indexing unindexed PDFs. GM or admin role required.",
+    description="Triggers a background rescan of the library directory, adding new files and indexing unindexed PDFs. Admin role required.",
 )
 def rescan_library(
-    background_tasks: BackgroundTasks, _: CurrentUser = Depends(require_gm_or_admin)
+    background_tasks: BackgroundTasks, _: CurrentUser = Depends(require_admin)
 ):
     if _helpers._scan_status["running"]:
         return {"status": "already_running"}
@@ -40,9 +40,9 @@ def rescan_library(
 @router.post(
     "/cancel-scan",
     summary="Cancel running scan",
-    description="Requests a graceful stop of the currently running library scan or indexing job. GM or admin role required.",
+    description="Requests a graceful stop of the currently running library scan or indexing job. Admin role required.",
 )
-def cancel_scan(_: CurrentUser = Depends(require_gm_or_admin)):
+def cancel_scan(_: CurrentUser = Depends(require_admin)):
     if not _helpers._get_status()["running"]:
         return {"status": "not_running"}
     _helpers.request_stop()

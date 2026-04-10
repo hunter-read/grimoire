@@ -24,6 +24,7 @@ from .routers import bookmarks as bookmarks_router
 from .routers import maintenance as maintenance_router
 from .routers import settings as settings_router
 from .routers import campaigns as campaigns_router
+from .routers import logs as logs_router
 from .routers.library import run_rescan_sync
 from . import scheduler
 from . import session_creator
@@ -63,6 +64,7 @@ _TAGS = [
     },
     {"name": "settings", "description": "Application settings. **Admin only.**"},
     {"name": "maintenance", "description": "Admin housekeeping tasks."},
+    {"name": "logs", "description": "Application log retrieval. **Admin only.**"},
 ]
 
 
@@ -139,6 +141,7 @@ api.include_router(bookmarks_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(settings_router.router)
 api.include_router(campaigns_router.router)
+api.include_router(logs_router.router)
 app.include_router(api)
 
 

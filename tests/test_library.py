@@ -100,19 +100,27 @@ class TestScanStatus:
         ):
             assert isinstance(body[field], int), f"{field} should be int"
 
-    def test_player_can_view_scan_status(self, client, player_headers):
+    def test_player_cannot_view_scan_status(self, client, player_headers):
         resp = client.get("/api/scan-status", headers=player_headers)
-        assert resp.status_code == 200
+        assert resp.status_code == 403
+
+    def test_gm_cannot_view_scan_status(self, client, gm_headers):
+        resp = client.get("/api/scan-status", headers=gm_headers)
+        assert resp.status_code == 403
+
+    def test_unauthenticated_cannot_view_scan_status(self, client):
+        resp = client.get("/api/scan-status")
+        assert resp.status_code == 401
 
 
 class TestRescan:
-    def test_gm_can_trigger_rescan(self, client, gm_headers):
-        resp = client.post("/api/rescan", headers=gm_headers)
-        assert resp.status_code == 200
-
     def test_admin_can_trigger_rescan(self, client, admin_headers):
         resp = client.post("/api/rescan", headers=admin_headers)
         assert resp.status_code == 200
+
+    def test_gm_cannot_trigger_rescan(self, client, gm_headers):
+        resp = client.post("/api/rescan", headers=gm_headers)
+        assert resp.status_code == 403
 
     def test_player_cannot_trigger_rescan(self, client, player_headers):
         resp = client.post("/api/rescan", headers=player_headers)
@@ -144,15 +152,9 @@ class TestCancelScan:
             _helpers._scan_status["running"] = False
             _helpers.clear_stop()
 
-    def test_gm_can_cancel_scan(self, client, gm_headers):
-        from backend.routers.library import _helpers
-        _helpers._scan_status["running"] = True
-        try:
-            resp = client.post("/api/cancel-scan", headers=gm_headers)
-            assert resp.status_code == 200
-        finally:
-            _helpers._scan_status["running"] = False
-            _helpers.clear_stop()
+    def test_gm_cannot_cancel_scan(self, client, gm_headers):
+        resp = client.post("/api/cancel-scan", headers=gm_headers)
+        assert resp.status_code == 403
 
     def test_player_cannot_cancel_scan(self, client, player_headers):
         resp = client.post("/api/cancel-scan", headers=player_headers)
