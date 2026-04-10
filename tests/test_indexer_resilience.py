@@ -230,7 +230,7 @@ class TestGetSizeGuard:
     def test_scan_skips_inaccessible_map_file(self):
         """A map file that raises OSError on getsize is skipped gracefully."""
         tmp, lib = _mk_lib()
-        maps_dir = lib / "maps" / "Creator"
+        maps_dir = lib / "maps" / "ResilienceCreator"
         maps_dir.mkdir(parents=True)
         (maps_dir / "good.png").write_bytes(b"\x89PNG")
         (maps_dir / "bad.png").write_bytes(b"\x89PNG")
@@ -256,7 +256,7 @@ class TestGetSizeGuard:
     def test_scan_skips_inaccessible_token_file(self):
         """A token file that raises OSError on getsize is skipped gracefully."""
         tmp, lib = _mk_lib()
-        tokens_dir = lib / "tokens" / "Monsters"
+        tokens_dir = lib / "tokens" / "ResilienceMonsters"
         tokens_dir.mkdir(parents=True)
         (tokens_dir / "goblin.png").write_bytes(b"\x89PNG")
         (tokens_dir / "ghost.png").write_bytes(b"\x89PNG")
