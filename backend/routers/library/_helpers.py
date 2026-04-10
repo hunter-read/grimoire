@@ -57,7 +57,7 @@ def background_indexer():
     time.sleep(2)
     db = SessionLocal()
     try:
-        unindexed = db.query(Book).filter_by(indexed=False, mime_type="application/pdf").all()
+        unindexed = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
         if not unindexed:
             return
         logger.info(f"Background indexer: {len(unindexed)} books to index")
@@ -76,6 +76,7 @@ def background_indexer():
             except Exception as e:
                 logger.error(f"Indexing error for {book.title}: {e}")
                 book.index_error = str(e)[:500]
+                book.index_failed = True
                 db.commit()
             _set_status({"indexed": _get_status()["indexed"] + 1})
     finally:
@@ -124,13 +125,16 @@ def run_rescan_sync() -> None:
                 }
             )
 
-            to_index = db.query(Book).filter_by(indexed=False, mime_type="application/pdf").all()
+            to_index = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
             _set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
             for book in to_index:
                 try:
                     index_book_text(book, DATA_PATH, db)
                 except Exception as e:
-                    logger.error(f"Indexing error: {e}")
+                    logger.error(f"Indexing error for {book.title}: {e}")
+                    book.index_error = str(e)[:500]
+                    book.index_failed = True
+                    db.commit()
                 _set_status({"indexed": _get_status()["indexed"] + 1})
         finally:
             db.close()

@@ -36,6 +36,13 @@ class TestListBooks:
         ids = [b["id"] for b in resp.json()["books"]]
         assert book.id in ids
 
+    def test_list_includes_index_failed_field(self, client, admin_headers, book):
+        resp = client.get("/api/books", headers=admin_headers)
+        assert resp.status_code == 200
+        books = resp.json()["books"]
+        assert len(books) > 0
+        assert all("index_failed" in b for b in books)
+
     def test_filter_by_category(self, client, admin_headers, book):
         resp = client.get("/api/books?category=core", headers=admin_headers)
         assert resp.status_code == 200
@@ -65,6 +72,14 @@ class TestGetBook:
         assert body["title"] == "Player's Handbook"
         assert body["category"] == "core"
         assert body["page_count"] == 320
+
+    def test_get_book_includes_index_failed(self, client, admin_headers, book):
+        resp = client.get(f"/api/books/{book.id}", headers=admin_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "index_failed" in body
+        assert isinstance(body["index_failed"], bool)
+        assert body["index_failed"] is False
 
     def test_get_nonexistent_book(self, client, admin_headers):
         resp = client.get("/api/books/does-not-exist", headers=admin_headers)

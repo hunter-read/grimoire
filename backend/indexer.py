@@ -5,6 +5,7 @@ import re
 import json
 import logging
 import hashlib
+import threading
 from pathlib import Path
 import fitz  # PyMuPDF
 from PIL import Image
@@ -15,6 +16,29 @@ from sqlalchemy.orm import Session
 from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder
 
 logger = logging.getLogger("grimoire.indexer")
+
+_FITZ_TIMEOUT = 300  # seconds
+
+
+def _fitz_open_with_timeout(filepath: str, timeout: int = _FITZ_TIMEOUT):
+    """Open a PDF with fitz, raising TimeoutError if it hangs beyond `timeout` seconds."""
+    result = [None]
+    exc = [None]
+
+    def _open():
+        try:
+            result[0] = fitz.open(filepath)
+        except Exception as e:
+            exc[0] = e
+
+    t = threading.Thread(target=_open, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        raise TimeoutError(f"fitz.open() timed out after {timeout}s for {filepath}")
+    if exc[0] is not None:
+        raise exc[0]
+    return result[0]
 
 CATEGORY_MAP = {
     "core": ["core", "rulebook", "rules", "phb", "dmg", "mm", "basic"],
@@ -66,7 +90,7 @@ def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400)
     try:
         ext = Path(filepath).suffix.lower()
         if ext == ".pdf":
-            doc = fitz.open(filepath)
+            doc = _fitz_open_with_timeout(filepath)
             if len(doc) == 0:
                 return False
             page = doc[0]
@@ -94,7 +118,7 @@ def extract_text_from_pdf(filepath: str) -> list[dict]:
     """Extract text from all pages of a PDF. Returns list of {page, content}."""
     pages = []
     try:
-        doc = fitz.open(filepath)
+        doc = _fitz_open_with_timeout(filepath)
         for i, page in enumerate(doc):
             page_text = page.get_text().strip()
             if page_text:
@@ -200,6 +224,12 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     category = guess_category(relative_path)
                     title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
+                    try:
+                        file_size = os.path.getsize(filepath)
+                    except OSError:
+                        logger.warning(f"Cannot stat file, skipping: {filepath}")
+                        continue
+
                     book = Book(
                         game_system_id=system.id,
                         title=title,
@@ -207,7 +237,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         filepath=filepath,
                         relative_path=relative_path,
                         category=category,
-                        file_size=os.path.getsize(filepath),
+                        file_size=file_size,
                         mime_type="application/pdf" if ext == ".pdf" else f"image/{ext[1:]}",
                     )
 
@@ -221,7 +251,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                     if ext == ".pdf":
                         try:
-                            doc = fitz.open(filepath)
+                            doc = _fitz_open_with_timeout(filepath)
                             book.page_count = len(doc)
                             doc.close()
                         except Exception as e:
@@ -270,11 +300,17 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                 title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
+                try:
+                    file_size = os.path.getsize(filepath)
+                except OSError:
+                    logger.warning(f"Cannot stat file, skipping: {filepath}")
+                    continue
+
                 gmap = GenericMap(
                     filename=filename,
                     filepath=filepath,
                     relative_path=relative_path,
-                    file_size=os.path.getsize(filepath),
+                    file_size=file_size,
                 )
 
                 thumb_path = os.path.join(
@@ -326,11 +362,17 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                 title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
+                try:
+                    file_size = os.path.getsize(filepath)
+                except OSError:
+                    logger.warning(f"Cannot stat file, skipping: {filepath}")
+                    continue
+
                 token = Token(
                     filename=filename,
                     filepath=filepath,
                     relative_path=relative_path,
-                    file_size=os.path.getsize(filepath),
+                    file_size=file_size,
                 )
 
                 thumb_path = os.path.join(
@@ -459,13 +501,13 @@ def _apply_tags_from_library(library_path: str, session: Session) -> None:
 
 def index_book_text(book: Book, data_path: str, session: Session):
     """Extract and index text from a PDF for full-text search."""
-    if book.indexed or book.mime_type != "application/pdf":
+    if book.indexed or book.index_failed or book.mime_type != "application/pdf":
         return False
 
     pages = extract_text_from_pdf(book.filepath)
     if not pages:
         book.index_error = "No text extracted"
-        book.indexed = True
+        book.index_failed = True
         session.commit()
         return False
 

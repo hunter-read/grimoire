@@ -147,6 +147,7 @@ def get_system(system_id: str, current_user: CurrentUser = Depends(get_current_u
                     "publisher_url": b.publisher_url,
                     "year": b.year,
                     "indexed": b.indexed,
+                    "index_failed": b.index_failed,
                     "has_thumbnail": b.has_thumbnail,
                     "is_explicit": bool(b.is_explicit),
                 }

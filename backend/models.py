@@ -75,6 +75,7 @@ class Book(Base):
     has_thumbnail = Column(Boolean, default=False)
     is_explicit = Column(Boolean, default=False)
     indexed = Column(Boolean, default=False)
+    index_failed = Column(Boolean, default=False)
     index_error = Column(String(500), default="")
 
     created_at = Column(DateTime, default=_utcnow)
@@ -370,6 +371,13 @@ def init_db(db_path: str):
     Base.metadata.create_all(engine)
 
     with engine.connect() as conn:
+        # Runtime migrations for columns added after initial release
+        try:
+            conn.execute(text("ALTER TABLE books ADD COLUMN index_failed BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
         conn.execute(
             text(
                 """

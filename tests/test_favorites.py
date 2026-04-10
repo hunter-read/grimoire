@@ -131,6 +131,20 @@ class TestAddFavorite:
         assert resp.status_code == 401
 
 
+class TestFavoritesEnrichedShape:
+    def test_book_item_includes_index_failed(self, client, admin_headers, fav_book):
+        client.post(
+            "/api/favorites",
+            json={"item_type": "book", "item_id": fav_book.id},
+            headers=admin_headers,
+        )
+        resp = client.get("/api/favorites", headers=admin_headers)
+        items = resp.json()["items"]
+        book_items = [i for i in items if i.get("item_type") == "book"]
+        if book_items:
+            assert all("index_failed" in i for i in book_items)
+
+
 class TestFavoritesArePersisted:
     def test_added_book_appears_in_list(self, client, gm_headers, fav_book):
         # Clean add for gm user

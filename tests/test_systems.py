@@ -60,6 +60,14 @@ class TestGetSystem:
         resp = client.get(f"/api/systems/{system.id}", headers=admin_headers)
         assert "books" in resp.json()
 
+    def test_system_books_include_index_failed(self, client, admin_headers, system):
+        from tests.conftest import make_book
+        make_book(system_id=system.id)
+        resp = client.get(f"/api/systems/{system.id}", headers=admin_headers)
+        books = resp.json()["books"]
+        if books:
+            assert all("index_failed" in b for b in books)
+
     def test_get_nonexistent_system(self, client, admin_headers):
         resp = client.get("/api/systems/does-not-exist", headers=admin_headers)
         assert resp.status_code == 404

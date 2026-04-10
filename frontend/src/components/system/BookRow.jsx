@@ -53,6 +53,11 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
               indexed
             </span>
           )}
+          {book.index_failed && (
+            <span title={`Index failed${book.index_error ? `: ${book.index_error}` : ''}`} style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
+              index failed
+            </span>
+          )}
         </div>
       </div>
 

@@ -40,6 +40,7 @@ def list_favorites(user: CurrentUser = Depends(get_current_user)):
                         "has_thumbnail": b.has_thumbnail,
                         "page_count": b.page_count,
                         "indexed": b.indexed,
+                        "index_failed": b.index_failed,
                     }
                 )
             elif r.item_type == "map" and r.item_id in maps:

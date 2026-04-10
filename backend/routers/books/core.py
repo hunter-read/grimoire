@@ -53,6 +53,7 @@ def list_books(
                     "game_system_id": b.game_system_id,
                     "has_thumbnail": b.has_thumbnail,
                     "indexed": b.indexed,
+                    "index_failed": b.index_failed,
                     "is_explicit": bool(b.is_explicit),
                 }
                 for b in books
@@ -93,6 +94,7 @@ def get_book(book_id: str, current_user: CurrentUser = Depends(get_current_user)
             "publisher_url": book.publisher_url,
             "year": book.year,
             "indexed": book.indexed,
+            "index_failed": book.index_failed,
             "mime_type": book.mime_type,
             "has_thumbnail": book.has_thumbnail,
             "is_explicit": bool(book.is_explicit),
