@@ -140,11 +140,13 @@ def _count_eligible_files(directory: Path, extensions: set) -> int:
     return count
 
 
-def scan_library(library_path: str, data_path: str, session: Session, on_progress=None):
+def scan_library(library_path: str, data_path: str, session: Session, on_progress=None, should_stop=None):
     """Scan the library directory and register all files in the database.
 
     on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens, total_tokens)
     is called after each file is processed if provided.
+
+    should_stop() is an optional callable that returns True when the scan should abort early.
     """
     library = Path(library_path)
     books_dir = library / "books"
@@ -214,6 +216,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             scanned_tokens,
                             total_tokens,
                         )
+                    if should_stop and should_stop():
+                        logger.info("scan_library: stop requested during books scan.")
+                        return stats
 
                     relative_path = os.path.relpath(filepath, library_path)
 
@@ -291,6 +296,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         scanned_tokens,
                         total_tokens,
                     )
+                if should_stop and should_stop():
+                    logger.info("scan_library: stop requested during maps scan.")
+                    return stats
 
                 relative_path = os.path.relpath(filepath, library_path)
 
@@ -353,6 +361,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         scanned_tokens,
                         total_tokens,
                     )
+                if should_stop and should_stop():
+                    logger.info("scan_library: stop requested during tokens scan.")
+                    return stats
 
                 relative_path = os.path.relpath(filepath, library_path)
 

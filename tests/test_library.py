@@ -121,3 +121,43 @@ class TestRescan:
     def test_unauthenticated_cannot_rescan(self, client):
         resp = client.post("/api/rescan")
         assert resp.status_code == 401
+
+
+class TestCancelScan:
+    def test_cancel_when_not_running_returns_not_running(self, client, admin_headers):
+        # Ensure no scan is running
+        from backend.routers.library import _helpers
+        _helpers._scan_status["running"] = False
+        resp = client.post("/api/cancel-scan", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "not_running"
+
+    def test_cancel_while_running_returns_stop_requested(self, client, admin_headers):
+        from backend.routers.library import _helpers
+        _helpers._scan_status["running"] = True
+        try:
+            resp = client.post("/api/cancel-scan", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "stop_requested"
+            assert _helpers.is_stop_requested() is True
+        finally:
+            _helpers._scan_status["running"] = False
+            _helpers.clear_stop()
+
+    def test_gm_can_cancel_scan(self, client, gm_headers):
+        from backend.routers.library import _helpers
+        _helpers._scan_status["running"] = True
+        try:
+            resp = client.post("/api/cancel-scan", headers=gm_headers)
+            assert resp.status_code == 200
+        finally:
+            _helpers._scan_status["running"] = False
+            _helpers.clear_stop()
+
+    def test_player_cannot_cancel_scan(self, client, player_headers):
+        resp = client.post("/api/cancel-scan", headers=player_headers)
+        assert resp.status_code == 403
+
+    def test_unauthenticated_cannot_cancel_scan(self, client):
+        resp = client.post("/api/cancel-scan")
+        assert resp.status_code == 401

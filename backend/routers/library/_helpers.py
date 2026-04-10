@@ -28,6 +28,22 @@ _DEFAULT_STATUS: dict = {
 # In-process fallback when Valkey is unavailable (single-worker or no cache)
 _scan_status: dict = dict(_DEFAULT_STATUS)
 
+_stop_requested: bool = False
+
+
+def request_stop() -> None:
+    global _stop_requested
+    _stop_requested = True
+
+
+def clear_stop() -> None:
+    global _stop_requested
+    _stop_requested = False
+
+
+def is_stop_requested() -> bool:
+    return _stop_requested
+
 
 def _get_status() -> dict:
     if _valkey:
@@ -71,6 +87,9 @@ def background_indexer():
                 }
             )
         for book in unindexed:
+            if is_stop_requested():
+                logger.info("Background indexer: stop requested, halting.")
+                break
             try:
                 index_book_text(book, DATA_PATH, db)
             except Exception as e:
@@ -97,6 +116,7 @@ def run_rescan_sync() -> None:
         logger.info("Rescan already running, skipping.")
         return
 
+    clear_stop()
     _set_status({**_DEFAULT_STATUS, "running": True, "phase": "scanning"})
     try:
         _invalidate_book_cache()
@@ -115,7 +135,7 @@ def run_rescan_sync() -> None:
                     }
                 )
 
-            stats = scan_library(LIBRARY_PATH, DATA_PATH, db, on_progress=on_progress)
+            stats = scan_library(LIBRARY_PATH, DATA_PATH, db, on_progress=on_progress, should_stop=is_stop_requested)
             logger.info(f"Rescan complete: {stats}")
             _set_status(
                 {
@@ -125,9 +145,15 @@ def run_rescan_sync() -> None:
                 }
             )
 
+            if is_stop_requested():
+                return
+
             to_index = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
             _set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
             for book in to_index:
+                if is_stop_requested():
+                    logger.info("Rescan: stop requested during indexing.")
+                    break
                 try:
                     index_book_text(book, DATA_PATH, db)
                 except Exception as e:

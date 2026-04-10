@@ -37,6 +37,18 @@ def rescan_library(
     return {"status": "scan_started"}
 
 
+@router.post(
+    "/cancel-scan",
+    summary="Cancel running scan",
+    description="Requests a graceful stop of the currently running library scan or indexing job. GM or admin role required.",
+)
+def cancel_scan(_: CurrentUser = Depends(require_gm_or_admin)):
+    if not _helpers._get_status()["running"]:
+        return {"status": "not_running"}
+    _helpers.request_stop()
+    return {"status": "stop_requested"}
+
+
 @public_router.get(
     "/stats",
     summary="Library statistics",

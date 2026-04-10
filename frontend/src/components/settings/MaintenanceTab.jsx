@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LuTrash2, LuCircleCheck, LuRefreshCw } from 'react-icons/lu'
+import { LuTrash2, LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import api, { settings as settingsApi } from '../../api'
 import Spinner from '../Spinner'
 
@@ -17,6 +17,7 @@ function RescanSection() {
     new_books: 0, new_maps: 0, new_tokens: 0,
   })
   const [lastResult, setLastResult] = useState(null)
+  const [stopping, setStopping] = useState(false)
 
   useEffect(() => {
     const poll = () => {
@@ -37,8 +38,14 @@ function RescanSection() {
   const handleRescan = async () => {
     if (status.running) return
     setLastResult(null)
+    setStopping(false)
     setStatus(s => ({ ...s, running: true, phase: 'scanning' }))
     try { await api.post('/rescan') } catch (_) { setStatus(s => ({ ...s, running: false, phase: null })) }
+  }
+
+  const handleStop = async () => {
+    setStopping(true)
+    try { await api.post('/cancel-scan') } catch (_) {}
   }
 
   const { running, phase, indexed, to_index,
@@ -61,20 +68,39 @@ function RescanSection() {
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         Scan the library directory for new or changed files and update the search index.
       </p>
-      <button
-        onClick={handleRescan}
-        disabled={running}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '8px 18px', borderRadius: 6, fontSize: 14, fontWeight: 500,
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          color: running ? 'var(--gold)' : 'var(--text-dim)',
-          cursor: running ? 'default' : 'pointer',
-        }}
-      >
-        {running ? <Spinner size={13} /> : <LuRefreshCw size={13} />}
-        {running ? phaseLabel : 'Rescan Library'}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          onClick={handleRescan}
+          disabled={running}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '8px 18px', borderRadius: 6, fontSize: 14, fontWeight: 500,
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            color: running ? 'var(--gold)' : 'var(--text-dim)',
+            cursor: running ? 'default' : 'pointer',
+          }}
+        >
+          {running ? <Spinner size={13} /> : <LuRefreshCw size={13} />}
+          {running ? phaseLabel : 'Rescan Library'}
+        </button>
+        {running && (
+          <button
+            onClick={handleStop}
+            disabled={stopping}
+            title="Stop scan"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 6, fontSize: 14, fontWeight: 500,
+              background: 'rgba(180,60,60,0.12)', border: '1px solid rgba(180,60,60,0.35)',
+              color: stopping ? 'var(--text-muted)' : '#e07070',
+              cursor: stopping ? 'default' : 'pointer',
+            }}
+          >
+            <LuSquare size={13} />
+            {stopping ? 'Stopping…' : 'Stop'}
+          </button>
+        )}
+      </div>
 
       {/* Progress bar — scanning phase */}
       {running && phase === 'scanning' && (

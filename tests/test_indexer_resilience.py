@@ -277,3 +277,126 @@ class TestGetSizeGuard:
             db.close()
 
         assert isinstance(stats, dict)
+
+
+# ---------------------------------------------------------------------------
+# scan_library — should_stop callback
+# ---------------------------------------------------------------------------
+
+
+class TestShouldStop:
+    def _books_dir(self, lib: Path, system_folder: str) -> Path:
+        d = lib / "books" / system_folder
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def test_scan_aborts_books_when_stop_requested(self):
+        """should_stop returning True after the first book causes an early return."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "StopSystem")
+        for i in range(5):
+            (folder / f"book{i}.pdf").write_bytes(b"%PDF-1.4")
+
+        calls = [0]
+
+        def stop_after_one():
+            calls[0] += 1
+            return calls[0] > 1
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    stats = scan_library(str(lib), tmp, db, should_stop=stop_after_one)
+        finally:
+            db.close()
+
+        assert stats["new_books"] < 5
+
+    def test_scan_processes_all_files_when_stop_never_requested(self):
+        """should_stop always returning False lets the full scan complete."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "NoStopSystem")
+        for i in range(3):
+            (folder / f"book{i}.pdf").write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    stats = scan_library(str(lib), tmp, db, should_stop=lambda: False)
+        finally:
+            db.close()
+
+        assert stats["new_books"] == 3
+
+    def test_scan_aborts_maps_when_stop_requested(self):
+        """Stop during maps phase returns early from that loop."""
+        tmp, lib = _mk_lib()
+        maps_dir = lib / "maps" / "StopMaps"
+        maps_dir.mkdir(parents=True)
+        for i in range(4):
+            (maps_dir / f"map{i}.png").write_bytes(b"\x89PNG")
+
+        calls = [0]
+
+        def stop_after_one():
+            calls[0] += 1
+            return calls[0] > 1
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                stats = scan_library(str(lib), tmp, db, should_stop=stop_after_one)
+        finally:
+            db.close()
+
+        assert stats["new_maps"] < 4
+
+    def test_scan_aborts_tokens_when_stop_requested(self):
+        """Stop during tokens phase returns early from that loop."""
+        tmp, lib = _mk_lib()
+        tokens_dir = lib / "tokens" / "StopTokens"
+        tokens_dir.mkdir(parents=True)
+        for i in range(4):
+            (tokens_dir / f"token{i}.png").write_bytes(b"\x89PNG")
+
+        calls = [0]
+
+        def stop_after_one():
+            calls[0] += 1
+            return calls[0] > 1
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                stats = scan_library(str(lib), tmp, db, should_stop=stop_after_one)
+        finally:
+            db.close()
+
+        assert stats["new_tokens"] < 4
+
+    def test_scan_without_should_stop_completes_normally(self):
+        """Omitting should_stop entirely runs the full scan with no errors."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "NormalSystem")
+        (folder / "book.pdf").write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    stats = scan_library(str(lib), tmp, db)
+        finally:
+            db.close()
+
+        assert isinstance(stats, dict)
