@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LuUser, LuX, LuTag } from 'react-icons/lu'
+import { LuUser, LuX, LuTag, LuSearch } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import TokenFolderGroup from '../components/tokens/TokenFolderGroup'
@@ -199,59 +199,71 @@ export default function TokensView() {
 
   return (
     <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box', paddingBottom: bulkMode ? 80 : undefined }}>
-      <div style={{ marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 28, marginBottom: 8 }}>Tokens</h2>
-          <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
-            {tokens.total} token{tokens.total !== 1 ? 's' : ''} in your collection
-          </p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: isMobilePhone ? 'column' : 'row', alignItems: isMobilePhone ? 'flex-start' : 'center', gap: 8 }}>
-          {!bulkMode && (
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 28, marginBottom: 8 }}>Tokens</h2>
+        <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
+          {tokens.total} token{tokens.total !== 1 ? 's' : ''} in your collection
+        </p>
+      </div>
+
+      {/* Toolbar */}
+      {!bulkMode && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 180px', maxWidth: 260 }}>
+            <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
             <input
               type="text"
-              placeholder="Filter tokens..."
+              placeholder="Filter tokens…"
               value={filter}
               onChange={e => setFilter(e.target.value)}
               aria-label="Filter tokens"
-              style={{ width: isMobilePhone ? '100%' : 220, fontSize: 15, boxSizing: 'border-box' }}
+              style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
             />
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {folderEntries.length > 0 && !bulkMode && (
-              <>
-                <button onClick={() => {
-                  const keys = new Set()
-                  folderEntries.forEach(([folder, subfolders]) => {
-                    keys.add(folder)
-                    Object.keys(subfolders).filter(s => s).forEach(s => keys.add(`${folder}::${s}`))
-                  })
-                  setCollapsed(keys)
-                }} style={toolBtnStyle}>
-                  Collapse All
-                </button>
-                <button onClick={() => setCollapsed(new Set())} style={toolBtnStyle}>
-                  Expand All
-                </button>
-              </>
-            )}
-            {!isPlayer && (
-              <button
-                onClick={bulkMode ? exitBulkMode : enterBulkMode}
-                style={{
-                  ...toolBtnStyle,
-                  color: bulkMode ? 'var(--gold)' : 'var(--text-dim)',
-                  outline: bulkMode ? '1px solid var(--gold-dim)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}
-              >
-                <LuTag size={13} />
-                {bulkMode ? 'Cancel' : 'Bulk Tag'}
+            {filter && (
+              <button onClick={() => setFilter('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                <LuX size={12} />
               </button>
             )}
           </div>
+          {folderEntries.length > 0 && (
+            <>
+              <button onClick={() => {
+                const keys = new Set()
+                folderEntries.forEach(([folder, subfolders]) => {
+                  keys.add(folder)
+                  Object.keys(subfolders).filter(s => s).forEach(s => keys.add(`${folder}::${s}`))
+                })
+                setCollapsed(keys)
+              }} style={toolBtnStyle}>
+                Collapse All
+              </button>
+              <button onClick={() => setCollapsed(new Set())} style={toolBtnStyle}>
+                Expand All
+              </button>
+            </>
+          )}
+          {!isPlayer && (
+            <button
+              onClick={enterBulkMode}
+              style={{ ...toolBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <LuTag size={13} />
+              Bulk Tag
+            </button>
+          )}
         </div>
-      </div>
+      )}
+      {bulkMode && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <button
+            onClick={exitBulkMode}
+            style={{ ...toolBtnStyle, color: 'var(--gold)', outline: '1px solid var(--gold-dim)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <LuTag size={13} />
+            Cancel Bulk Tag
+          </button>
+        </div>
+      )}
 
       {!bulkMode && allTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24, alignItems: 'center' }}>

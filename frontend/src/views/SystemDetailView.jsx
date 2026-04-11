@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   LuArrowLeft, LuPencil, LuCheck, LuClipboard,
@@ -24,41 +24,25 @@ export default function SystemDetailView() {
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
   const [collapsedCats, setCollapsedCats] = useState(new Set())
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState(null)
-  const [searching, setSearching] = useState(false)
-  const searchTimer = useRef(null)
+  const [bookFilter, setBookFilter] = useState('')
 
   useEffect(() => { api.get(`/systems/${systemId}`).then(setSystem) }, [systemId])
-
-  const doSearch = useCallback((q) => {
-    if (q.length < 2) { setSearchResults(null); return }
-    setSearching(true)
-    api.get(`/search?q=${encodeURIComponent(q)}&system_id=${systemId}`)
-      .then(r => { setSearchResults(r); setSearching(false) })
-      .catch(() => setSearching(false))
-  }, [systemId])
-
-  const handleSearchInput = (e) => {
-    const v = e.target.value
-    setSearchQuery(v)
-    clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => doSearch(v), 350)
-  }
-
-  const clearSearch = () => {
-    setSearchQuery('')
-    setSearchResults(null)
-  }
 
   if (!system) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={32} /></div>
 
   const categories = {}
-  ;(system.books || []).forEach(book => {
-    const cat = book.category || 'core'
-    if (!categories[cat]) categories[cat] = []
-    categories[cat].push(book)
-  })
+  const filterQ = bookFilter.toLowerCase()
+  ;(system.books || [])
+    .filter(book => !filterQ || book.title?.toLowerCase().includes(filterQ))
+    .forEach(book => {
+      const cat = book.category || 'core'
+      if (!categories[cat]) categories[cat] = []
+      categories[cat].push(book)
+    })
+
+  const allCatKeys = Object.keys(categories)
+  const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
+  const expandAll   = () => setCollapsedCats(new Set())
 
   return (
     <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1200, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -129,53 +113,29 @@ export default function SystemDetailView() {
         />
       )}
 
-      {/* Search bar */}
-      <div style={{ position: 'relative', marginBottom: 28 }}>
-        <LuSearch size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={handleSearchInput}
-          placeholder={`Search within ${system.name}…`}
-          style={{ width: '100%', fontSize: 15, padding: '10px 40px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
-        />
-        {searching && <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}><Spinner size={16} /></div>}
-        {searchQuery && !searching && (
-          <button onClick={clearSearch} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-            <LuX size={15} />
-          </button>
-        )}
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 180px', maxWidth: 260 }}>
+          <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            value={bookFilter}
+            onChange={e => setBookFilter(e.target.value)}
+            placeholder="Filter books…"
+            style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
+          />
+          {bookFilter && (
+            <button onClick={() => setBookFilter('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+              <LuX size={12} />
+            </button>
+          )}
+        </div>
+        <button onClick={collapseAll} style={toolBtnStyle}>Collapse All</button>
+        <button onClick={expandAll} style={toolBtnStyle}>Expand All</button>
       </div>
 
-      {/* Search results */}
-      {searchResults && (
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-            {searchResults.total} result{searchResults.total !== 1 ? 's' : ''} for "{searchResults.query}"
-          </div>
-          {searchResults.total === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>No results found.</div>
-          )}
-          {searchResults.results.map((r, i) => (
-            <div
-              key={i}
-              onClick={() => navigate(`/library/book/${r.id}?page=${r.page_number}`)}
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 8, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                <span style={{ fontWeight: 600, fontSize: 15 }}>{r.title}</span>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 12 }}>p. {r.page_number}</span>
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: r.snippet }} />
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Books by category */}
-      {!searchResults && [...CATEGORY_ORDER, ...Object.keys(categories).filter(c => !CATEGORY_ORDER.includes(c))]
+      {[...CATEGORY_ORDER, ...Object.keys(categories).filter(c => !CATEGORY_ORDER.includes(c))]
         .filter(cat => categories[cat])
         .map(cat => {
           const books = categories[cat]
@@ -237,12 +197,19 @@ export default function SystemDetailView() {
           )
         })}
 
-      {!searchResults && Object.keys(categories).length === 0 && (
+      {allCatKeys.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
           <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
-          <p>No books found. Add PDFs to this system's directory and rescan.</p>
+          <p>{bookFilter ? 'No books match your filter.' : 'No books found. Add PDFs to this system\'s directory and rescan.'}</p>
         </div>
       )}
     </div>
   )
+}
+
+const toolBtnStyle = {
+  padding: '6px 12px', borderRadius: 6, fontSize: 13,
+  background: 'var(--bg-card)', color: 'var(--text-dim)',
+  border: '1px solid var(--border)', cursor: 'pointer',
+  flexShrink: 0,
 }
