@@ -22,7 +22,6 @@ const getSubPath = (m) => {
   return parts.slice(2, -1).join('/')
 }
 
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
 export default function MapsView() {
   const navigate = useNavigate()
@@ -207,7 +206,7 @@ export default function MapsView() {
             {maps.total} map{maps.total !== 1 ? 's' : ''} in your collection
           </p>
         </div>
-        <div style={{ display: 'flex', flexDirection: isMobilePhone ? 'column' : 'row', alignItems: isMobilePhone ? 'flex-start' : 'center', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
           {!bulkMode && (
             <input
               type="text"
@@ -215,10 +214,10 @@ export default function MapsView() {
               value={filter}
               onChange={e => setFilter(e.target.value)}
               aria-label="Filter maps"
-              style={{ width: isMobilePhone ? '100%' : 220, fontSize: 15, boxSizing: 'border-box' }}
+              style={{ width: '100%', minWidth: 220, fontSize: 15, boxSizing: 'border-box' }}
             />
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {folderEntries.length > 0 && !bulkMode && (
               <>
                 <button onClick={() => {

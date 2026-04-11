@@ -22,7 +22,6 @@ const getSubPath = (t) => {
   return parts.slice(2, -1).join('/')
 }
 
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
 export default function TokensView() {
   const navigate = useNavigate()

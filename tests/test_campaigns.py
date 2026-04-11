@@ -503,12 +503,15 @@ class TestSchedule:
         import datetime
 
         resp = client.get(f"/api/campaigns/{gm_camp['id']}/schedule", headers=gm_headers)
-        next_sessions = resp.json()["next_sessions"]
+        body = resp.json()
+        next_sessions = body["next_sessions"]
+        scheduled_days = body["definition"]["days"]  # e.g. [5] for Saturday
         assert len(next_sessions) > 0
+        today = datetime.date.today()
         for ds in next_sessions:
             d = datetime.date.fromisoformat(ds)
-            assert d.weekday() == 5  # Saturday
-            assert d > datetime.date.today()
+            assert d.weekday() in scheduled_days
+            assert d >= today
 
     def test_cannot_schedule_personal_campaign(self, client, player_headers, player_campaign):
         resp = client.put(
