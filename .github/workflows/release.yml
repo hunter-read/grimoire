@@ -39,6 +39,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -47,6 +50,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64/v8,linux/arm/v7
           build-args: |
             APP_VERSION=${{ steps.ver.outputs.version }}
           tags: |
