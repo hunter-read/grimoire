@@ -172,9 +172,18 @@ def set_availability(
         if data.status not in ("available", "tentative", "unavailable"):
             raise HTTPException(400, "status must be available | tentative | unavailable")
 
+        # Resolve the target user — GMs and admins may set another member's availability.
+        is_gm = c.owner_id == current_user.id or current_user.role == "admin"
+        if data.user_id is not None and data.user_id != current_user.id:
+            if not is_gm:
+                raise HTTPException(403, "Only the GM can set another member's availability")
+            target_user_id = data.user_id
+        else:
+            target_user_id = current_user.id
+
         is_cancelled = False
         if data.is_cancelled is not None:
-            if c.owner_id != current_user.id and current_user.role != "admin":
+            if not is_gm:
                 raise HTTPException(403, "Only the GM can cancel sessions")
             is_cancelled = data.is_cancelled
 
@@ -187,7 +196,7 @@ def set_availability(
             db.query(SessionAvailability)
             .filter_by(
                 campaign_id=campaign_id,
-                user_id=current_user.id,
+                user_id=target_user_id,
                 session_date=session_date,
             )
             .first()
@@ -199,7 +208,7 @@ def set_availability(
         else:
             avail = SessionAvailability(
                 campaign_id=campaign_id,
-                user_id=current_user.id,
+                user_id=target_user_id,
                 session_date=session_date,
                 status=data.status,
                 is_cancelled=is_cancelled,

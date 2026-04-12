@@ -70,3 +70,4 @@ class ScheduleUpsert(BaseModel):
 class AvailabilityUpdate(BaseModel):
     status: str  # available | tentative | unavailable
     is_cancelled: Optional[bool] = None  # GM only
+    user_id: Optional[int] = None  # GM/admin only — set another member's availability
