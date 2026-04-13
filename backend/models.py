@@ -77,6 +77,7 @@ class Book(Base):
     indexed = Column(Boolean, default=False)
     index_failed = Column(Boolean, default=False)
     index_error = Column(String(500), default="")
+    scan_failed = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
@@ -372,11 +373,15 @@ def init_db(db_path: str):
 
     with engine.connect() as conn:
         # Runtime migrations for columns added after initial release
-        try:
-            conn.execute(text("ALTER TABLE books ADD COLUMN index_failed BOOLEAN DEFAULT 0"))
-            conn.commit()
-        except Exception:
-            pass  # Column already exists
+        for migration in [
+            "ALTER TABLE books ADD COLUMN index_failed BOOLEAN DEFAULT 0",
+            "ALTER TABLE books ADD COLUMN scan_failed BOOLEAN DEFAULT 0",
+        ]:
+            try:
+                conn.execute(text(migration))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
 
         conn.execute(
             text(

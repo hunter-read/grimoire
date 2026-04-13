@@ -17,7 +17,7 @@ from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder
 
 logger = logging.getLogger("grimoire.indexer")
 
-_FITZ_TIMEOUT = 300  # seconds
+_FITZ_TIMEOUT = 30   # seconds — files that can't be opened in 30s are unreadable
 _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
 
 
@@ -119,7 +119,7 @@ def guess_category(filepath: str) -> str:
     return "core"
 
 
-_THUMBNAIL_TIMEOUT = 60  # seconds
+_THUMBNAIL_TIMEOUT = 30  # seconds
 
 
 def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, result: list, exc: list):
@@ -176,10 +176,10 @@ def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400)
             logger.warning(f"Thumbnail generation aborted by stop request for {filepath}")
             return False
     if t.is_alive():
-        logger.warning(f"Thumbnail generation timed out after {_THUMBNAIL_TIMEOUT}s for {filepath}")
+        logger.error(f"Thumbnail generation timed out after {_THUMBNAIL_TIMEOUT}s for {filepath}")
         return False
     if exc[0] is not None:
-        logger.warning(f"Thumbnail generation failed for {filepath}: {exc[0]}")
+        logger.error(f"Thumbnail generation failed for {filepath}: {exc[0]}")
         return False
     return bool(result[0])
 
@@ -320,63 +320,115 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         stats["errors"] += 1
                         continue
                     if existing:
-                        logger.debug(f"Already registered, skipping: {filename}")
-                        continue
+                        if existing.scan_failed:
+                            logger.debug(f"Already registered, skipping: {filename}")
+                            continue
+                        needs_thumbnail = not existing.has_thumbnail
+                        needs_page_count = ext == ".pdf" and existing.page_count == 0 and not existing.index_error
+                        if not needs_thumbnail and not needs_page_count:
+                            logger.debug(f"Already registered, skipping: {filename}")
+                            continue
+                        logger.debug(f"Resuming incomplete scan for: {filename}")
+                        book = existing
+                    else:
+                        category = guess_category(relative_path)
+                        title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
-                    category = guess_category(relative_path)
-                    title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
+                        try:
+                            file_size = os.path.getsize(filepath)
+                        except OSError:
+                            logger.warning(f"Cannot stat file, skipping: {filepath}")
+                            continue
 
-                    try:
-                        file_size = os.path.getsize(filepath)
-                    except OSError:
-                        logger.warning(f"Cannot stat file, skipping: {filepath}")
-                        continue
+                        book = Book(
+                            game_system_id=system.id,
+                            title=title,
+                            filename=filename,
+                            filepath=filepath,
+                            relative_path=relative_path,
+                            category=category,
+                            file_size=file_size,
+                            mime_type="application/pdf" if ext == ".pdf" else f"image/{ext[1:]}",
+                        )
 
-                    book = Book(
-                        game_system_id=system.id,
-                        title=title,
-                        filename=filename,
-                        filepath=filepath,
-                        relative_path=relative_path,
-                        category=category,
-                        file_size=file_size,
-                        mime_type="application/pdf" if ext == ".pdf" else f"image/{ext[1:]}",
-                    )
+                        # Commit the book record first so that if a subsequent
+                        # hang kills the worker, the file is already in the DB and
+                        # won't be re-processed on the next startup scan.
+                        session.add(book)
+                        logger.debug(f"DB: committing new book '{filename}'")
+                        try:
+                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
+                            stats["new_books"] += 1
+                            logger.info(f"New book saved: {title} ({category}) in {system_name}")
+                        except TimeoutError as e:
+                            logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                            session.rollback()
+                            stats["errors"] += 1
+                            continue
+                        except IntegrityError:
+                            session.rollback()
+                            logger.debug(f"Book already exists, skipping: {filepath}")
+                            continue
+                        needs_thumbnail = True
+                        needs_page_count = ext == ".pdf"
 
                     thumb_path = os.path.join(
                         thumb_dir,
                         "books",
-                        f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
+                        f"{slugify(book.title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                     )
-                    logger.info(f"Generating thumbnail: {filepath}")
-                    if generate_thumbnail(filepath, thumb_path, should_stop=should_stop):
-                        book.has_thumbnail = True
+                    if needs_thumbnail:
+                        # Set scan_failed before the potentially-hanging operation.
+                        # If the worker is killed mid-hang this flag persists, preventing
+                        # the file from being retried on the next scan. A clean cancel
+                        # clears it below so the file is resumed normally next time.
+                        book.scan_failed = True
+                        try:
+                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
+                        except (TimeoutError, IntegrityError) as e:
+                            logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
+                            session.rollback()
+                        logger.info(f"Generating thumbnail: {filepath}")
+                        if generate_thumbnail(filepath, thumb_path, should_stop=should_stop):
+                            book.has_thumbnail = True
+                        if should_stop and should_stop():
+                            # Cancelled — clear the flag so the file is resumed next scan.
+                            book.scan_failed = False
+                        try:
+                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit thumbnail '{filepath}'")
+                        except (TimeoutError, IntegrityError) as e:
+                            logger.error(f"DB hang saving thumbnail for '{filename}': {e}")
+                            session.rollback()
 
-                    if ext == ".pdf":
+                    if needs_page_count:
+                        if not book.scan_failed:
+                            book.scan_failed = True
+                            try:
+                                _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
+                            except (TimeoutError, IntegrityError) as e:
+                                logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
+                                session.rollback()
                         logger.info(f"Opening PDF for page count: {filepath}")
                         try:
                             doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
                             book.page_count = len(doc)
                             doc.close()
                             logger.debug(f"Page count: {book.page_count} pages in '{filename}'")
+                            book.scan_failed = False
+                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit page_count '{filepath}'")
                         except Exception as e:
-                            logger.warning(f"Could not read page count for '{filename}': {e}")
-                            book.index_error = str(e)[:500]
-                            stats["errors"] += 1
-
-                    session.add(book)
-                    logger.debug(f"DB: committing new book '{filename}'")
-                    try:
-                        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
-                        stats["new_books"] += 1
-                        logger.info(f"New book saved: {title} ({category}) in {system_name}")
-                    except TimeoutError as e:
-                        logger.error(f"DB hang: {e} — rolling back '{filename}'")
-                        session.rollback()
-                        stats["errors"] += 1
-                    except IntegrityError:
-                        session.rollback()
-                        logger.debug(f"Book already exists, skipping: {filepath}")
+                            if should_stop and should_stop():
+                                # Cancelled — clear the flag so the file is resumed next scan.
+                                book.scan_failed = False
+                            else:
+                                logger.error(f"Could not read page count for '{filename}': {e}")
+                                book.index_error = str(e)[:500]
+                                stats["errors"] += 1
+                            try:
+                                _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
+                            except (TimeoutError, IntegrityError) as e2:
+                                logger.error(f"DB hang saving index_error for '{filename}': {e2}")
+                                session.rollback()
 
     if maps_dir.exists():
         for root, dirs, files in os.walk(maps_dir):

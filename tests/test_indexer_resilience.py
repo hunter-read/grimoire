@@ -1,4 +1,4 @@
-"""Tests for indexer resilience: fitz timeout, getsize guard, and index_failed logic."""
+"""Tests for indexer resilience: fitz timeout, getsize guard, index_failed, and scan_failed logic."""
 from __future__ import annotations
 
 import os
@@ -400,3 +400,250 @@ class TestShouldStop:
             db.close()
 
         assert isinstance(stats, dict)
+
+
+# ---------------------------------------------------------------------------
+# scan_library — scan_failed / early-commit / resume behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestScanFailed:
+    """Tests for the scan_failed flag and the early-commit ordering that prevents
+    the infinite-hang loop when a worker is killed mid-operation."""
+
+    def _books_dir(self, lib: Path, system_folder: str = "ScanFailSystem") -> Path:
+        d = lib / "books" / system_folder
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def test_book_committed_before_thumbnail(self):
+        """The book record exists in the DB before generate_thumbnail is called,
+        so a worker kill during the thumbnail hang doesn't lose the file."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "EarlyCommitSystem")
+        (folder / "book.pdf").write_bytes(b"%PDF-1.4")
+
+        committed_before_thumb = []
+
+        db = SessionLocal()
+        try:
+            def check_committed(filepath, *args, **kwargs):
+                # At this point the book should already be in the DB
+                exists = db.query(Book).filter_by(filepath=filepath).first()
+                committed_before_thumb.append(exists is not None)
+                return False
+
+            with patch("backend.indexer.generate_thumbnail", side_effect=check_committed):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    scan_library(str(lib), tmp, db)
+        finally:
+            db.close()
+
+        assert committed_before_thumb, "generate_thumbnail was never called"
+        assert all(committed_before_thumb), "book was not in DB before thumbnail was attempted"
+
+    def test_scan_failed_set_before_thumbnail_hang(self):
+        """scan_failed=True is committed before generate_thumbnail runs, so a
+        worker kill mid-hang leaves the flag set and prevents infinite retries."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "ScanFailBefore")
+        pdf_path = str(folder / "hang.pdf")
+        (folder / "hang.pdf").write_bytes(b"%PDF-1.4")
+
+        scan_failed_before_thumb = []
+
+        db = SessionLocal()
+        try:
+            def check_scan_failed(filepath, *args, **kwargs):
+                book = db.query(Book).filter_by(filepath=filepath).first()
+                if book:
+                    db.refresh(book)
+                    scan_failed_before_thumb.append(book.scan_failed)
+                return False
+
+            with patch("backend.indexer.generate_thumbnail", side_effect=check_scan_failed):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    scan_library(str(lib), tmp, db)
+        finally:
+            db.close()
+
+        assert scan_failed_before_thumb, "generate_thumbnail was never called"
+        assert all(scan_failed_before_thumb), "scan_failed was not True before thumbnail attempt"
+
+    def test_scan_failed_cleared_after_successful_scan(self):
+        """After a clean scan completes, scan_failed is False on the saved book."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "ScanFailClear")
+        (folder / "good.pdf").write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=True):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 5
+                    mock_fitz.return_value = mock_doc
+                    scan_library(str(lib), tmp, db)
+
+            book = db.query(Book).filter_by(filename="good.pdf").first()
+            assert book is not None
+            assert book.scan_failed is False
+            assert book.page_count == 5
+        finally:
+            db.close()
+
+    def test_book_with_scan_failed_skipped_on_rescan(self):
+        """A book with scan_failed=True is skipped entirely on subsequent scans
+        — it does not cause a hang retry."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "ScanFailSkip")
+        pdf = folder / "problematic.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        # Pre-seed the DB with scan_failed=True (simulates a prior killed worker)
+        db = SessionLocal()
+        try:
+            book = Book(
+                title="Problematic",
+                filename="problematic.pdf",
+                filepath=str(pdf),
+                relative_path=os.path.relpath(str(pdf), str(lib)),
+                mime_type="application/pdf",
+                scan_failed=True,
+            )
+            db.add(book)
+            db.commit()
+
+            thumb_calls = []
+            fitz_calls = []
+
+            with patch("backend.indexer.generate_thumbnail", side_effect=lambda *a, **kw: thumb_calls.append(1) or False):
+                with patch("backend.indexer._fitz_open_with_timeout", side_effect=lambda *a, **kw: fitz_calls.append(1)):
+                    scan_library(str(lib), tmp, db)
+
+            assert len(thumb_calls) == 0, "generate_thumbnail should not be called for scan_failed book"
+            assert len(fitz_calls) == 0, "fitz should not be called for scan_failed book"
+        finally:
+            db.close()
+
+    def test_cancelled_scan_clears_scan_failed_for_resume(self):
+        """When a scan is cancelled via should_stop, scan_failed is cleared so the
+        file will be retried on the next scan rather than treated as broken."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "CancelResume")
+        pdf = folder / "resumable.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            # Stop immediately after thumbnail starts (simulates cancel mid-hang)
+            stop_now = [False]
+
+            def cancelling_thumbnail(filepath, output_path, should_stop=None, **kwargs):
+                stop_now[0] = True  # signal stop
+                return False
+
+            def should_stop():
+                return stop_now[0]
+
+            with patch("backend.indexer.generate_thumbnail", side_effect=cancelling_thumbnail):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    scan_library(str(lib), tmp, db, should_stop=should_stop)
+
+            book = db.query(Book).filter_by(filename="resumable.pdf").first()
+            assert book is not None, "book should be in DB after cancelled scan"
+            assert book.scan_failed is False, "scan_failed must be cleared on cancel so file is resumed next scan"
+        finally:
+            db.close()
+
+    def test_resume_completes_missing_thumbnail_after_cancel(self):
+        """A book saved without a thumbnail (due to cancel) gets its thumbnail
+        generated on the next scan."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "ResumeThumb")
+        pdf = folder / "needs_thumb.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            # First scan: commit book but simulate cancel before thumbnail completes
+            book = Book(
+                title="NeedsThumb",
+                filename="needs_thumb.pdf",
+                filepath=str(pdf),
+                relative_path=os.path.relpath(str(pdf), str(lib)),
+                mime_type="application/pdf",
+                has_thumbnail=False,
+                page_count=0,
+                scan_failed=False,
+            )
+            db.add(book)
+            db.commit()
+
+            # Second scan: should pick up the incomplete book and generate thumbnail
+            thumb_calls = []
+
+            def record_thumb(filepath, output_path, should_stop=None, **kwargs):
+                thumb_calls.append(filepath)
+                return True
+
+            with patch("backend.indexer.generate_thumbnail", side_effect=record_thumb):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 3
+                    mock_fitz.return_value = mock_doc
+                    scan_library(str(lib), tmp, db)
+
+            assert any("needs_thumb.pdf" in c for c in thumb_calls), \
+                "thumbnail should be generated for incomplete book on rescan"
+
+            db.refresh(book)
+            assert book.has_thumbnail is True
+            assert book.page_count == 3
+            assert book.scan_failed is False
+        finally:
+            db.close()
+
+    def test_resume_skips_book_with_index_error_already_set(self):
+        """A book that failed page-count extraction (index_error set) is not
+        retried for page count on rescan — only thumbnail is retried if missing."""
+        tmp, lib = _mk_lib()
+        folder = self._books_dir(lib, "ResumeIndexError")
+        pdf = folder / "broken.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            book = Book(
+                title="Broken",
+                filename="broken.pdf",
+                filepath=str(pdf),
+                relative_path=os.path.relpath(str(pdf), str(lib)),
+                mime_type="application/pdf",
+                has_thumbnail=True,
+                page_count=0,
+                index_error="fitz.open() timed out",
+                scan_failed=False,
+            )
+            db.add(book)
+            db.commit()
+
+            fitz_calls = []
+
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout",
+                           side_effect=lambda *a, **kw: fitz_calls.append(1)):
+                    scan_library(str(lib), tmp, db)
+
+            assert len(fitz_calls) == 0, "page count should not be retried when index_error is already set"
+        finally:
+            db.close()
