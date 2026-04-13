@@ -63,8 +63,6 @@ export default function SystemDetailView() {
     return next
   })
 
-<<<<<<< Updated upstream
-=======
   const categories = {}
   ;(system.books || [])
     .filter(book => selectedTags.size === 0 || [...selectedTags].every(t => (book.tags || []).includes(t)))
@@ -77,8 +75,6 @@ export default function SystemDetailView() {
   const allCatKeys = Object.keys(categories)
   const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
   const expandAll   = () => setCollapsedCats(new Set())
-
->>>>>>> Stashed changes
   return (
     <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1200, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
       {/* Header */}
