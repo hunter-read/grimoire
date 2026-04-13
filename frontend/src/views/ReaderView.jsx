@@ -6,7 +6,7 @@ import {
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
-import { getBookPrefs, saveBookPrefs } from '../hooks/useBookPrefs'
+import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import useReaderGestures from '../hooks/useReaderGestures'
 import TocSidebar from '../components/reader/TocSidebar'
@@ -87,6 +87,7 @@ export default function ReaderView() {
     api.get(`/books/${bookId}`).then(b => {
       setBook(b)
       setTotalPages(b.page_count || 0)
+      saveRecentBook(b)
     })
   }, [bookId])
 

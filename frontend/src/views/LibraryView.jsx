@@ -5,6 +5,7 @@ import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
 import FavoriteButton from '../components/FavoriteButton'
 import { getUserPrefs } from '../hooks/useUserPrefs'
+import { getRecentBooks, getBookPrefs } from '../hooks/useBookPrefs'
 
 function SystemCard({ system, onClick, compact }) {
   const [hovered, setHovered] = useState(false)
@@ -145,9 +146,62 @@ export default function LibraryView() {
 
   const compact = cardSize === 'compact'
   const minCard = compact ? '130px' : '220px'
+  const recentBooks = getRecentBooks()
 
   return (
     <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
+      {/* Recently Opened */}
+      {recentBooks.length > 0 && (
+        <div style={{ marginBottom: 40 }}>
+          <h3 style={{ fontSize: 16, color: 'var(--text-dim)', fontWeight: 500, marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Recently Opened
+          </h3>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {recentBooks.map(book => {
+              const lastPage = getBookPrefs(book.id).page || 1
+              const progress = book.page_count > 0 ? Math.min(lastPage / book.page_count, 1) : 0
+              return (
+                <div
+                  key={book.id}
+                  onClick={() => navigate(`/library/book/${book.id}?page=${lastPage}`)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
+                    maxWidth: 260, position: 'relative', overflow: 'hidden',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+                >
+                  {progress > 0 && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: 'var(--bg-deep)' }}>
+                      <div style={{ width: `${progress * 100}%`, height: '100%', background: 'var(--gold-dim)' }} />
+                    </div>
+                  )}
+                  <div style={{ width: 28, height: 36, borderRadius: 3, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {book.has_thumbnail
+                      ? <img src={mediaUrl(`/books/${book.id}/thumbnail`)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>📄</span>
+                    }
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                      {book.title}
+                    </div>
+                    {progress > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--gold-dim)', marginTop: 2 }}>
+                        p. {lastPage}{book.page_count > 0 ? ` / ${book.page_count}` : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 28, marginBottom: 8 }}>Your Collection</h2>
         <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
