@@ -73,6 +73,7 @@ class Book(Base):
     page_count = Column(Integer, default=0)
     mime_type = Column(String(100), default="application/pdf")
     has_thumbnail = Column(Boolean, default=False)
+    tags = Column(JSON, default=list)
     is_explicit = Column(Boolean, default=False)
     indexed = Column(Boolean, default=False)
     index_failed = Column(Boolean, default=False)
@@ -374,6 +375,12 @@ def init_db(db_path: str):
         # Runtime migrations for columns added after initial release
         try:
             conn.execute(text("ALTER TABLE books ADD COLUMN index_failed BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            conn.execute(text("ALTER TABLE books ADD COLUMN tags JSON DEFAULT '[]'"))
             conn.commit()
         except Exception:
             pass  # Column already exists

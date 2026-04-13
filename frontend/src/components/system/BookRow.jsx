@@ -58,6 +58,11 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
               index failed
             </span>
           )}
+          {(book.tags || []).map(tag => (
+            <span key={tag} style={{ fontSize: 11, padding: '1px 7px', borderRadius: 8, background: 'rgba(201,168,76,0.12)', border: '1px solid var(--gold-dim)', color: 'var(--gold)' }}>
+              {tag.charAt(0).toUpperCase() + tag.slice(1)}
+            </span>
+          ))}
         </div>
       </div>
 

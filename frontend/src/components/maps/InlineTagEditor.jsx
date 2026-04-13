@@ -56,7 +56,7 @@ export default function InlineTagEditor({ tags, onSave, onCancel }) {
         placeholder="Add tag…"
         style={{ fontSize: 13, padding: '2px 8px', borderRadius: 10, width: 100, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text)' }}
       />
-      <button onClick={onCancel} style={cancelBtnStyle}>Done</button>
+      <button onClick={() => { commit(); onCancel() }} style={cancelBtnStyle}>Done</button>
     </div>
   )
 }

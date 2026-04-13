@@ -24,6 +24,8 @@ export default function SystemDetailView() {
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
   const [collapsedCats, setCollapsedCats] = useState(new Set())
+  const [selectedTags, setSelectedTags] = useState(new Set())
+  const [showAllTags, setShowAllTags] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
@@ -53,13 +55,30 @@ export default function SystemDetailView() {
 
   if (!system) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={32} /></div>
 
-  const categories = {}
-  ;(system.books || []).forEach(book => {
-    const cat = book.category || 'core'
-    if (!categories[cat]) categories[cat] = []
-    categories[cat].push(book)
+  const allTags = [...new Set((system.books || []).flatMap(b => b.tags || []))].sort()
+
+  const toggleTag = (t) => setSelectedTags(prev => {
+    const next = new Set(prev)
+    next.has(t) ? next.delete(t) : next.add(t)
+    return next
   })
 
+<<<<<<< Updated upstream
+=======
+  const categories = {}
+  ;(system.books || [])
+    .filter(book => selectedTags.size === 0 || [...selectedTags].every(t => (book.tags || []).includes(t)))
+    .forEach(book => {
+      const cat = book.category || 'core'
+      if (!categories[cat]) categories[cat] = []
+      categories[cat].push(book)
+    })
+
+  const allCatKeys = Object.keys(categories)
+  const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
+  const expandAll   = () => setCollapsedCats(new Set())
+
+>>>>>>> Stashed changes
   return (
     <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1200, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
       {/* Header */}
@@ -146,6 +165,43 @@ export default function SystemDetailView() {
           </button>
         )}
       </div>
+
+      {/* Tag filter row */}
+      {!searchResults && allTags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24, alignItems: 'center' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>Tags:</span>
+          {(showAllTags ? allTags : allTags.slice(0, 15)).map(t => (
+            <button
+              key={t}
+              onClick={() => toggleTag(t)}
+              style={{
+                fontSize: 13, padding: '3px 10px', borderRadius: 10, cursor: 'pointer', border: 'none',
+                background: selectedTags.has(t) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
+                color: selectedTags.has(t) ? 'var(--gold)' : 'var(--text-dim)',
+                outline: selectedTags.has(t) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
+              }}
+            >
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+          {allTags.length > 15 && (
+            <button
+              onClick={() => setShowAllTags(v => !v)}
+              style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+            >
+              {showAllTags ? 'Show less' : `+${allTags.length - 15} more`}
+            </button>
+          )}
+          {selectedTags.size > 0 && (
+            <button
+              onClick={() => setSelectedTags(new Set())}
+              style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}
+            >
+              <LuX size={11} /> Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Search results */}
       {searchResults && (

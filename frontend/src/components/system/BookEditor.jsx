@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
+import InlineTagEditor from '../maps/InlineTagEditor'
 
 export default function BookEditor({ book, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -12,6 +13,8 @@ export default function BookEditor({ book, onSave, onClose }) {
     category:    book.category    || 'core',
     is_explicit: book.is_explicit || false,
   })
+  const [tags, setTags] = useState(book.tags || [])
+  const [editingTags, setEditingTags] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const field = (label, key, opts = {}) => (
@@ -30,6 +33,7 @@ export default function BookEditor({ book, onSave, onClose }) {
       ...form,
       authors: form.authors.split(',').map(a => a.trim()).filter(Boolean),
       year: form.year ? parseInt(form.year) : null,
+      tags,
     }
     api.patch(`/books/${book.id}`, payload)
       .then(() => { onSave({ ...book, ...payload }); setSaving(false) })
@@ -69,6 +73,28 @@ export default function BookEditor({ book, onSave, onClose }) {
         </div>
       </div>
 
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Tags</label>
+        {editingTags ? (
+          <InlineTagEditor
+            tags={tags}
+            onSave={setTags}
+            onCancel={() => setEditingTags(false)}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+            {tags.map(t => (
+              <span key={t} style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'rgba(201,168,76,0.15)', border: '1px solid var(--gold-dim)', color: 'var(--gold)' }}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </span>
+            ))}
+            <button onClick={() => setEditingTags(true)} style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+              {tags.length > 0 ? 'Edit tags' : '+ Add tags'}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onClose} style={{ padding: '6px 14px', borderRadius: 5, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: 13, cursor: 'pointer' }}>

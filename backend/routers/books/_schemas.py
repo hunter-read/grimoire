@@ -11,4 +11,5 @@ class BookUpdate(BaseModel):
     publisher: Optional[str] = None
     publisher_url: Optional[str] = None
     year: Optional[int] = None
+    tags: Optional[list[str]] = None
     is_explicit: Optional[bool] = None
