@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  LuArrowLeft, LuPencil, LuCheck, LuClipboard,
+  LuArrowLeft, LuPencil, LuClipboard,
   LuFileText, LuFolderOpen, LuSearch, LuX,
   LuChevronDown, LuChevronRight,
 } from 'react-icons/lu'
@@ -110,28 +110,53 @@ export default function SystemDetailView() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-            <FavoriteButton type="system" id={system.id} style={{ position: 'static', background: 'var(--bg-card)', border: '1px solid var(--border)', width: 36, height: 36, borderRadius: 6 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
             {system.character_builder_url && (
-              <a href={system.character_builder_url} target="_blank" rel="noopener" style={{
-                padding: '8px 16px', borderRadius: 6, fontSize: 15,
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', gap: 6,
-              }}>
-                <LuClipboard size={14} /> Character Builder
-              </a>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+                <a href={system.character_builder_url} target="_blank" rel="noopener" style={{
+                  padding: '8px 16px', borderRadius: 6, fontSize: 15,
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                  <LuClipboard size={14} /> Character Builder
+                </a>
+              </div>
             )}
-            {isEditor && (
-              <button onClick={() => setEditing(!editing)} style={{
-                padding: '8px 16px', borderRadius: 6, fontSize: 15,
-                background: editing ? 'var(--gold-dim)' : 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                color: editing ? 'var(--bg-deep)' : 'var(--text-dim)',
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-                {editing ? <><LuCheck size={14} /> Done</> : <><LuPencil size={14} /> Edit</>}
-              </button>
-            )}
+            <div style={{ position: 'relative' }}>
+              <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchInput}
+                placeholder={`Search within ${system.name}…`}
+                style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
+              />
+              {searching && <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}><Spinner size={14} /></div>}
+              {searchQuery && !searching && (
+                <button onClick={clearSearch} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                  <LuX size={12} />
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={collapseAll} disabled={!!searchResults || collapsedCats.size === allCatKeys.length} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === allCatKeys.length) ? 0.4 : 1 }}>Collapse All</button>
+              <button onClick={expandAll} disabled={!!searchResults || collapsedCats.size === 0} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === 0) ? 0.4 : 1 }}>Expand All</button>
+              {isEditor && (
+                <button
+                  onClick={() => setEditing(!editing)}
+                  style={{
+                    ...toolBtnStyle,
+                    color: editing ? 'var(--gold)' : 'var(--text-dim)',
+                    outline: editing ? '1px solid var(--gold-dim)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <LuPencil size={13} />
+                  {editing ? 'Done' : 'Edit'}
+                </button>
+              )}
+              <FavoriteButton type="system" id={system.id} style={{ position: 'static', background: 'var(--bg-card)', border: '1px solid var(--border)', width: 32, height: 32, borderRadius: 6 }} />
+            </div>
           </div>
         </div>
       </div>
@@ -289,7 +314,7 @@ export default function SystemDetailView() {
           )
         })}
 
-      {!searchResults && Object.keys(categories).length === 0 && (
+      {!searchResults && allCatKeys.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
           <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
           <p>No books found. Add PDFs to this system's directory and rescan.</p>
@@ -297,4 +322,11 @@ export default function SystemDetailView() {
       )}
     </div>
   )
+}
+
+const toolBtnStyle = {
+  padding: '6px 12px', borderRadius: 6, fontSize: 13,
+  background: 'var(--bg-card)', color: 'var(--text-dim)',
+  border: '1px solid var(--border)', cursor: 'pointer',
+  flexShrink: 0,
 }

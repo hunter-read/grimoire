@@ -82,6 +82,10 @@ async def lifespan(app: FastAPI):
         return
 
     def do_scan():
+        from .routers.library._helpers import clear_stop, _set_status, _DEFAULT_STATUS
+        # Clear any stale scan state left in Valkey from a previous crashed/frozen run.
+        clear_stop()
+        _set_status({**_DEFAULT_STATUS})
         try:
             logger.info(f"Scanning library at {LIBRARY_PATH}...")
             run_rescan_sync()

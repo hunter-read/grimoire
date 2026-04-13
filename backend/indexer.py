@@ -18,6 +18,29 @@ from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder
 logger = logging.getLogger("grimoire.indexer")
 
 _FITZ_TIMEOUT = 300  # seconds
+_DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
+
+
+def _run_with_timeout(fn, timeout: int, label: str):
+    """Run fn() in a daemon thread.  Returns its result, or raises TimeoutError if it
+    does not complete within `timeout` seconds.  `label` is used in log/error messages."""
+    result = [None]
+    exc = [None]
+
+    def _worker():
+        try:
+            result[0] = fn()
+        except Exception as e:
+            exc[0] = e
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        raise TimeoutError(f"DB operation timed out after {timeout}s: {label}")
+    if exc[0] is not None:
+        raise exc[0]
+    return result[0]
 
 
 def _fitz_open_with_timeout(filepath: str, timeout: int = _FITZ_TIMEOUT, should_stop=None):
@@ -96,16 +119,20 @@ def guess_category(filepath: str) -> str:
     return "core"
 
 
-def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400), should_stop=None) -> bool:
-    """Generate a thumbnail from the first page of a PDF or from an image."""
+_THUMBNAIL_TIMEOUT = 60  # seconds
+
+
+def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, result: list, exc: list):
+    """Worker executed in a daemon thread by generate_thumbnail."""
     try:
         ext = Path(filepath).suffix.lower()
         if ext == ".pdf":
-            doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
+            doc = fitz.open(filepath)
             if len(doc) == 0:
-                return False
+                result[0] = False
+                return
             page = doc[0]
-            mat = fitz.Matrix(2, 2)  # 2x render for quality before downsizing
+            mat = fitz.Matrix(2, 2)
             pix = page.get_pixmap(matrix=mat, alpha=False)
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             doc.close()
@@ -114,15 +141,47 @@ def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400)
             if img.mode != "RGB":
                 img = img.convert("RGB")
         else:
-            return False
+            result[0] = False
+            return
 
         img.thumbnail(size, Image.LANCZOS)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         img.save(output_path, "WEBP", quality=80)
-        return True
+        result[0] = True
     except Exception as e:
-        logger.warning(f"Thumbnail generation failed for {filepath}: {e}")
+        exc[0] = e
+
+
+def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400), should_stop=None) -> bool:
+    """Generate a thumbnail from the first page of a PDF or from an image.
+
+    Runs in a daemon thread with a timeout so a corrupt or pathologically large
+    file cannot hang the scan indefinitely.  If `should_stop` is provided the
+    wait is also interrupted when it returns True.
+    """
+    result = [None]
+    exc = [None]
+    t = threading.Thread(
+        target=_generate_thumbnail_task,
+        args=(filepath, output_path, size, result, exc),
+        daemon=True,
+    )
+    t.start()
+    poll_interval = 0.5
+    elapsed = 0.0
+    while t.is_alive() and elapsed < _THUMBNAIL_TIMEOUT:
+        t.join(poll_interval)
+        elapsed += poll_interval
+        if should_stop and should_stop():
+            logger.warning(f"Thumbnail generation aborted by stop request for {filepath}")
+            return False
+    if t.is_alive():
+        logger.warning(f"Thumbnail generation timed out after {_THUMBNAIL_TIMEOUT}s for {filepath}")
         return False
+    if exc[0] is not None:
+        logger.warning(f"Thumbnail generation failed for {filepath}: {exc[0]}")
+        return False
+    return bool(result[0])
 
 
 def extract_text_from_pdf(filepath: str, should_stop=None) -> list[dict]:
@@ -194,11 +253,27 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
             system_name = re.sub(r"\s*\(nsfw\)\s*", "", raw_name, flags=re.IGNORECASE).strip()
             system_slug = slugify(system_name)
 
-            system = session.query(GameSystem).filter_by(slug=system_slug).first()
+            logger.debug(f"DB: querying system '{system_slug}'")
+            try:
+                system = _run_with_timeout(
+                    lambda slug=system_slug: session.query(GameSystem).filter_by(slug=slug).first(),
+                    _DB_TIMEOUT, f"query system '{system_slug}'"
+                )
+            except TimeoutError as e:
+                logger.error(f"DB hang: {e} — skipping system '{system_name}'")
+                stats["errors"] += 1
+                continue
             if not system:
                 system = GameSystem(name=system_name, slug=system_slug, is_explicit=is_nsfw)
                 session.add(system)
-                session.flush()
+                logger.debug(f"DB: flushing new system '{system_name}'")
+                try:
+                    _run_with_timeout(session.flush, _DB_TIMEOUT, f"flush system '{system_name}'")
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — skipping system '{system_name}'")
+                    session.rollback()
+                    stats["errors"] += 1
+                    continue
                 stats["new_systems"] += 1
                 logger.info(f"New game system: {system_name}" + (" [explicit]" if is_nsfw else ""))
             elif is_nsfw and not system.is_explicit:
@@ -233,12 +308,21 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                     relative_path = os.path.relpath(filepath, library_path)
 
-                    existing = session.query(Book).filter_by(filepath=filepath).first()
+                    logger.info(f"Scanning book ({scanned_books}/{total_books}): {filepath}")
+                    logger.debug(f"DB: querying existing book '{filepath}'")
+                    try:
+                        existing = _run_with_timeout(
+                            lambda fp=filepath: session.query(Book).filter_by(filepath=fp).first(),
+                            _DB_TIMEOUT, f"query book '{filepath}'"
+                        )
+                    except TimeoutError as e:
+                        logger.error(f"DB hang: {e} — skipping '{filename}'")
+                        stats["errors"] += 1
+                        continue
                     if existing:
-                        logger.debug(f"File scan: already registered, skipping: {filename}")
+                        logger.debug(f"Already registered, skipping: {filename}")
                         continue
 
-                    logger.debug(f"File scan: new book found: {filename}")
                     category = guess_category(relative_path)
                     title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
@@ -264,23 +348,32 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         "books",
                         f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                     )
+                    logger.info(f"Generating thumbnail: {filepath}")
                     if generate_thumbnail(filepath, thumb_path, should_stop=should_stop):
                         book.has_thumbnail = True
 
                     if ext == ".pdf":
+                        logger.info(f"Opening PDF for page count: {filepath}")
                         try:
                             doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
                             book.page_count = len(doc)
                             doc.close()
+                            logger.debug(f"Page count: {book.page_count} pages in '{filename}'")
                         except Exception as e:
+                            logger.warning(f"Could not read page count for '{filename}': {e}")
                             book.index_error = str(e)[:500]
                             stats["errors"] += 1
 
                     session.add(book)
+                    logger.debug(f"DB: committing new book '{filename}'")
                     try:
-                        session.commit()
+                        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
                         stats["new_books"] += 1
-                        logger.info(f"New book: {title} ({category}) in {system_name}")
+                        logger.info(f"New book saved: {title} ({category}) in {system_name}")
+                    except TimeoutError as e:
+                        logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                        session.rollback()
+                        stats["errors"] += 1
                     except IntegrityError:
                         session.rollback()
                         logger.debug(f"Book already exists, skipping: {filepath}")
@@ -315,12 +408,21 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                 relative_path = os.path.relpath(filepath, library_path)
 
-                existing = session.query(GenericMap).filter_by(filepath=filepath).first()
+                logger.info(f"Scanning map ({scanned_maps}/{total_maps}): {filepath}")
+                logger.debug(f"DB: querying existing map '{filepath}'")
+                try:
+                    existing = _run_with_timeout(
+                        lambda fp=filepath: session.query(GenericMap).filter_by(filepath=fp).first(),
+                        _DB_TIMEOUT, f"query map '{filepath}'"
+                    )
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
                 if existing:
-                    logger.debug(f"File scan: already registered, skipping: {filename}")
+                    logger.debug(f"Already registered, skipping: {filename}")
                     continue
 
-                logger.debug(f"File scan: new map found: {filename}")
                 title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
                 try:
@@ -341,13 +443,20 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     "maps",
                     f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                 )
+                logger.info(f"Generating thumbnail: {filepath}")
                 if generate_thumbnail(filepath, thumb_path, should_stop=should_stop):
                     gmap.has_thumbnail = True
 
                 session.add(gmap)
+                logger.debug(f"DB: committing new map '{filename}'")
                 try:
-                    session.commit()
+                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit map '{filepath}'")
                     stats["new_maps"] += 1
+                    logger.info(f"New map saved: {title}")
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                    session.rollback()
+                    stats["errors"] += 1
                 except IntegrityError:
                     session.rollback()
                     logger.debug(f"Map already exists, skipping: {filepath}")
@@ -382,12 +491,21 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                 relative_path = os.path.relpath(filepath, library_path)
 
-                existing = session.query(Token).filter_by(filepath=filepath).first()
+                logger.info(f"Scanning token ({scanned_tokens}/{total_tokens}): {filepath}")
+                logger.debug(f"DB: querying existing token '{filepath}'")
+                try:
+                    existing = _run_with_timeout(
+                        lambda fp=filepath: session.query(Token).filter_by(filepath=fp).first(),
+                        _DB_TIMEOUT, f"query token '{filepath}'"
+                    )
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
                 if existing:
-                    logger.debug(f"File scan: already registered, skipping: {filename}")
+                    logger.debug(f"Already registered, skipping: {filename}")
                     continue
 
-                logger.debug(f"File scan: new token found: {filename}")
                 title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
                 try:
@@ -408,13 +526,20 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     "tokens",
                     f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                 )
+                logger.info(f"Generating thumbnail: {filepath}")
                 if generate_thumbnail(filepath, thumb_path, size=(200, 200), should_stop=should_stop):
                     token.has_thumbnail = True
 
                 session.add(token)
+                logger.debug(f"DB: committing new token '{filename}'")
                 try:
-                    session.commit()
+                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit token '{filepath}'")
                     stats["new_tokens"] += 1
+                    logger.info(f"New token saved: {title}")
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                    session.rollback()
+                    stats["errors"] += 1
                 except IntegrityError:
                     session.rollback()
                     logger.debug(f"Token already exists, skipping: {filepath}")
@@ -532,14 +657,21 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
     if book.indexed or book.index_failed or book.mime_type != "application/pdf":
         return False
 
+    logger.info(f"Indexing: extracting text from '{book.filepath}'")
     pages = extract_text_from_pdf(book.filepath, should_stop=should_stop)
     if not pages:
+        logger.warning(f"No text extracted from '{book.filename}', marking as failed")
         book.index_error = "No text extracted"
         book.index_failed = True
-        session.commit()
+        logger.debug(f"DB: committing index_failed for '{book.filename}'")
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index_failed '{book.filepath}'")
+        except TimeoutError as e:
+            logger.error(f"DB hang: {e} — rolling back index_failed for '{book.filename}'")
+            session.rollback()
         return False
 
-    # Insert into FTS5 table
+    logger.info(f"Indexing: inserting {len(pages)} pages for '{book.filename}' into search index")
     for page_data in pages:
         session.execute(
             text(
@@ -550,6 +682,12 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
 
     book.indexed = True
     book.index_error = ""
-    session.commit()
+    logger.debug(f"DB: committing index for '{book.filename}'")
+    try:
+        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index '{book.filepath}'")
+    except TimeoutError as e:
+        logger.error(f"DB hang: {e} — rolling back index for '{book.filename}'")
+        session.rollback()
+        return False
     logger.info(f"Indexed {len(pages)} pages for: {book.filename} ('{book.title}')")
     return True

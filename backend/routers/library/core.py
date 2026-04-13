@@ -31,7 +31,7 @@ def get_scan_status(_: CurrentUser = Depends(require_admin)):
 def rescan_library(
     background_tasks: BackgroundTasks, _: CurrentUser = Depends(require_admin)
 ):
-    if _helpers._scan_status["running"]:
+    if _helpers._get_status()["running"]:
         return {"status": "already_running"}
     background_tasks.add_task(_helpers.run_rescan_sync)
     return {"status": "scan_started"}

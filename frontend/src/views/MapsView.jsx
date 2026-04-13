@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LuMap, LuX, LuTag } from 'react-icons/lu'
+import { LuMap, LuX, LuTag, LuSearch } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import MapFolderGroup from '../components/maps/MapCreatorGroup'
@@ -22,7 +22,6 @@ const getSubPath = (m) => {
   return parts.slice(2, -1).join('/')
 }
 
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
 export default function MapsView() {
   const navigate = useNavigate()
@@ -199,7 +198,8 @@ export default function MapsView() {
   const totalSelected = selectedMapIds.size + selectedFolderPaths.size
 
   return (
-    <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box', paddingBottom: bulkMode ? 80 : undefined }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ padding: '32px 40px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box', flex: 1 }}>
       <div style={{ marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h2 style={{ fontSize: 28, marginBottom: 8 }}>Maps</h2>
@@ -207,35 +207,50 @@ export default function MapsView() {
             {maps.total} map{maps.total !== 1 ? 's' : ''} in your collection
           </p>
         </div>
-        <div style={{ display: 'flex', flexDirection: isMobilePhone ? 'column' : 'row', alignItems: isMobilePhone ? 'flex-start' : 'center', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
           {!bulkMode && (
-            <input
-              type="text"
-              placeholder="Filter maps..."
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-              aria-label="Filter maps"
-              style={{ width: isMobilePhone ? '100%' : 220, fontSize: 15, boxSizing: 'border-box' }}
-            />
+            <div style={{ position: 'relative' }}>
+              <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Filter maps…"
+                value={filter}
+                onChange={e => setFilter(e.target.value)}
+                aria-label="Filter maps"
+                style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
+              />
+              {filter && (
+                <button onClick={() => setFilter('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                  <LuX size={12} />
+                </button>
+              )}
+            </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {folderEntries.length > 0 && !bulkMode && (
-              <>
-                <button onClick={() => {
-                  const keys = new Set()
-                  folderEntries.forEach(([folder, subfolders]) => {
-                    keys.add(folder)
-                    Object.keys(subfolders).filter(s => s).forEach(s => keys.add(`${folder}::${s}`))
-                  })
-                  setCollapsed(keys)
-                }} style={toolBtnStyle}>
-                  Collapse All
-                </button>
-                <button onClick={() => setCollapsed(new Set())} style={toolBtnStyle}>
-                  Expand All
-                </button>
-              </>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {(() => {
+              const allKeys = new Set()
+              folderEntries.forEach(([folder, subfolders]) => {
+                allKeys.add(folder)
+                Object.keys(subfolders).filter(s => s).forEach(s => allKeys.add(`${folder}::${s}`))
+              })
+              const allCollapsed = folderEntries.length > 0 && [...allKeys].every(k => collapsed.has(k))
+              const allExpanded = collapsed.size === 0
+              const noFolders = folderEntries.length === 0
+              return (
+                <>
+                  <button
+                    onClick={() => setCollapsed(allKeys)}
+                    disabled={noFolders || bulkMode || allCollapsed}
+                    style={{ ...toolBtnStyle, opacity: (noFolders || bulkMode || allCollapsed) ? 0.4 : 1 }}
+                  >Collapse All</button>
+                  <button
+                    onClick={() => setCollapsed(new Set())}
+                    disabled={noFolders || bulkMode || allExpanded}
+                    style={{ ...toolBtnStyle, opacity: (noFolders || bulkMode || allExpanded) ? 0.4 : 1 }}
+                  >Expand All</button>
+                </>
+              )
+            })()}
             {!isPlayer && (
               <button
                 onClick={bulkMode ? exitBulkMode : enterBulkMode}
@@ -325,40 +340,53 @@ export default function MapsView() {
         </div>
       )}
 
+    </div>
+
       {/* Bulk action bar */}
       {bulkMode && (
-        <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
-          background: 'var(--bg-panel)', borderTop: '1px solid var(--border)',
-          padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <span style={{ fontSize: 14, color: totalSelected > 0 ? 'var(--text)' : 'var(--text-muted)', minWidth: 100, flexShrink: 0 }}>
-            {totalSelected > 0 ? `${totalSelected} selected` : 'Nothing selected'}
-          </span>
-          <input
-            ref={bulkInputRef}
-            type="text"
-            value={bulkInput}
-            onChange={e => setBulkInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && applyBulkTags()}
-            placeholder="Tags to add, comma-separated…"
-            style={{ flex: 1, maxWidth: 400, fontSize: 14 }}
-          />
-          <button
-            onClick={applyBulkTags}
-            disabled={!bulkInput.trim() || totalSelected === 0 || bulkApplying}
-            style={{
-              padding: '7px 18px', borderRadius: 6, fontSize: 14, cursor: 'pointer',
-              background: 'var(--gold-dim)', color: 'var(--bg-deep)', border: 'none',
-              opacity: (!bulkInput.trim() || totalSelected === 0 || bulkApplying) ? 0.5 : 1,
-            }}
-          >
-            {bulkApplying ? 'Applying…' : 'Add Tags'}
-          </button>
-          <button onClick={exitBulkMode} style={toolBtnStyle}>
-            Done
-          </button>
-        </div>
+        <>
+          <style>{`
+            .bulk-bar { display: grid; grid-template-areas: 'count input' 'apply done'; grid-template-columns: auto 1fr; gap: 8px; }
+            .bulk-bar-apply { justify-self: start; }
+            .bulk-bar-done  { justify-self: end; }
+            @media (min-width: 600px) {
+              .bulk-bar { grid-template-areas: 'count input apply done'; grid-template-columns: auto minmax(0, 400px) auto auto; align-items: center; justify-content: start; }
+            }
+          `}</style>
+          <div className="bulk-bar" style={{
+            position: 'sticky', bottom: 0, zIndex: 200,
+            background: 'var(--bg-panel)', borderTop: '1px solid var(--border)',
+            padding: '12px 16px', boxSizing: 'border-box',
+          }}>
+            <span style={{ gridArea: 'count', fontSize: 14, color: totalSelected > 0 ? 'var(--text)' : 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
+              {totalSelected > 0 ? `${totalSelected} selected` : 'Nothing selected'}
+            </span>
+            <input
+              ref={bulkInputRef}
+              type="text"
+              value={bulkInput}
+              onChange={e => setBulkInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && applyBulkTags()}
+              placeholder="Tags to add, comma-separated…"
+              style={{ gridArea: 'input', fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+            />
+            <button
+              onClick={applyBulkTags}
+              disabled={!bulkInput.trim() || totalSelected === 0 || bulkApplying}
+              className="bulk-bar-apply"
+              style={{
+                gridArea: 'apply', padding: '7px 18px', borderRadius: 6, fontSize: 14, cursor: 'pointer',
+                background: 'var(--gold-dim)', color: 'var(--bg-deep)', border: 'none',
+                opacity: (!bulkInput.trim() || totalSelected === 0 || bulkApplying) ? 0.5 : 1,
+              }}
+            >
+              {bulkApplying ? 'Applying…' : 'Add Tags'}
+            </button>
+            <button onClick={exitBulkMode} className="bulk-bar-done" style={{ gridArea: 'done', ...toolBtnStyle }}>
+              Done
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

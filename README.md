@@ -155,16 +155,63 @@ volumes:
 ### 6. Build from source
 
 ```bash
-# Build the Docker image
 docker build --build-arg APP_VERSION=1.0.0 -t grimoire:1.0.0 .
+```
 
-# Or run the backend directly (development)
+---
+
+## Running without Docker
+
+If you prefer to run Grimoire directly on the host, you need Python 3.12+ and Node 20+.
+
+### 1. Build the frontend
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+This produces a `frontend/dist/` directory that the backend serves as static files.
+
+### 2. Install backend dependencies
+
+```bash
 pip install -r backend/requirements.txt
-export LIBRARY_PATH=./library
-export DATA_PATH=./data
+```
+
+### 3. Set environment variables
+
+```bash
 export SECRET_KEY=$(openssl rand -hex 32)
+export LIBRARY_PATH=/path/to/your/library
+export DATA_PATH=/path/to/your/data
+```
+
+See [Configuration](#configuration) for the full list of environment variables.
+
+### 4. Start the server
+
+```bash
 uvicorn backend.main:app --host 0.0.0.0 --port 9481
 ```
+
+Open `http://localhost:9481`. On first launch you'll be prompted to create an admin account.
+
+### Persistent data
+
+The database, search index, and rendered thumbnails are all stored under `DATA_PATH`. Back this directory up to preserve your library metadata and user accounts.
+
+### Optional: Valkey/Redis page cache
+
+Set `VALKEY_URL` to a Redis-compatible URL to enable in-memory page caching:
+
+```bash
+export VALKEY_URL=redis://localhost:6379/0
+```
+
+Without it, rendered pages are cached to disk under `DATA_PATH`.
 
 ---
 
