@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   LuArrowLeft, LuChevronLeft, LuChevronRight, LuDownload,
-  LuFileText, LuColumns2, LuFile, LuSearch, LuList, LuBookmark, LuBookmarkPlus,
+  LuFileText, LuColumns2, LuFile, LuSearch, LuList, LuBookmark, LuBookmarkPlus, LuHeart,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
 import { getUserPrefs } from '../hooks/useUserPrefs'
+import { useFavorites } from '../context/FavoritesContext'
 import useReaderGestures from '../hooks/useReaderGestures'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
@@ -71,6 +72,8 @@ export default function ReaderView() {
   const [pendingNotes, setPendingNotes]           = useState('')
   const [zoom, setZoom] = useState(1)
   const [pan, setPan]   = useState({ x: 0, y: 0 })
+
+  const { isFavorite, toggleFavorite } = useFavorites()
 
   const directionRef       = useRef(1)   // 1 = forward, -1 = backward
   const axisRef            = useRef('x') // 'x' | 'y'
@@ -225,19 +228,25 @@ export default function ReaderView() {
     if (mode === 'spread') goToPage(currentPage, 'spread')
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard navigation
+  // Keyboard navigation + shortcuts
   const step = mode === 'spread' ? (currentPage === 1 ? 1 : 2) : 1
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (mode === 'pdf') return
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); goToPage(currentPage - step, undefined, 'x') }
-      if (e.key === 'ArrowRight') { e.preventDefault(); goToPage(currentPage + step, undefined, 'x') }
-      if (e.key === 'ArrowUp')    { e.preventDefault(); goToPage(currentPage - step, undefined, 'y') }
-      if (e.key === 'ArrowDown')  { e.preventDefault(); goToPage(currentPage + step, undefined, 'y') }
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (mode !== 'pdf') {
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); goToPage(currentPage - step, undefined, 'x') }
+        if (e.key === 'ArrowRight') { e.preventDefault(); goToPage(currentPage + step, undefined, 'x') }
+        if (e.key === 'ArrowUp')    { e.preventDefault(); goToPage(currentPage - step, undefined, 'y') }
+        if (e.key === 'ArrowDown')  { e.preventDefault(); goToPage(currentPage + step, undefined, 'y') }
+      }
+      if (e.key === 'f') toggleFavorite('book', bookId)
+      if (e.key === 't') togglePanel('toc')
+      if (e.key === 'b') togglePanel('bookmarks')
+      if (e.key === 's') togglePanel('search')
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [mode, currentPage, step, goToPage])
+  }, [mode, currentPage, step, goToPage, bookId, toggleFavorite])
 
   const wheelNav = getUserPrefs().wheelNav !== false
 
@@ -357,6 +366,14 @@ export default function ReaderView() {
         })()}
 
         <AddToCampaignButton resourceType="book" resourceId={bookId} />
+
+        <button
+          onClick={() => toggleFavorite('book', bookId)}
+          title={isFavorite('book', bookId) ? 'Remove from favorites' : 'Add to favorites'}
+          style={{ ...btnStyle, color: isFavorite('book', bookId) ? 'var(--gold)' : 'var(--text-muted)' }}
+        >
+          <LuHeart size={14} fill={isFavorite('book', bookId) ? 'var(--gold)' : 'none'} />
+        </button>
 
         {/* Add bookmark action — separate from the panel toggle */}
         {mode !== 'pdf' && (

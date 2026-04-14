@@ -28,6 +28,7 @@ export default function SystemDetailView() {
   const [collapsedCats, setCollapsedCats] = useState(new Set())
   const [selectedTags, setSelectedTags] = useState(new Set())
   const [showAllTags, setShowAllTags] = useState(false)
+  const [bookSort, setBookSort] = useState('title')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
@@ -65,6 +66,15 @@ export default function SystemDetailView() {
     next.has(t) ? next.delete(t) : next.add(t)
     return next
   })
+
+  const sortBooks = (books) => {
+    const sorted = [...books]
+    if (bookSort === 'title')     sorted.sort((a, b) => a.title.localeCompare(b.title))
+    if (bookSort === 'year')      sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
+    if (bookSort === 'size')      sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
+    if (bookSort === 'pages')     sorted.sort((a, b) => (b.page_count || 0) - (a.page_count || 0))
+    return sorted
+  }
 
   const categories = {}
   ;(system.books || [])
@@ -221,6 +231,27 @@ export default function SystemDetailView() {
         </div>
       )}
 
+      {/* Sort bar */}
+      {!searchResults && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>Sort:</span>
+          {[['title', 'A–Z'], ['year', 'Year'], ['pages', 'Pages'], ['size', 'Size']].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setBookSort(val)}
+              style={{
+                fontSize: 12, padding: '3px 10px', borderRadius: 6, cursor: 'pointer',
+                background: bookSort === val ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                color: bookSort === val ? 'var(--gold)' : 'var(--text-dim)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search results */}
       {searchResults && (
         <div style={{ marginBottom: 32 }}>
@@ -252,7 +283,7 @@ export default function SystemDetailView() {
       {!searchResults && [...CATEGORY_ORDER, ...Object.keys(categories).filter(c => !CATEGORY_ORDER.includes(c))]
         .filter(cat => categories[cat])
         .map(cat => {
-          const books = categories[cat]
+          const books = sortBooks(categories[cat])
           const CatIcon = CATEGORY_ICONS[cat] || LuFileText
           const isCollapsed = collapsedCats.has(cat)
           const toggle = () => setCollapsedCats(prev => {
