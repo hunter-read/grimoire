@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus } from 'react-icons/lu'
+import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus, LuDownload } from 'react-icons/lu'
 import TokenCard from './TokenCard'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import LazyGrid from '../LazyGrid'
@@ -24,7 +24,7 @@ function FolderCheckbox({ checked, indeterminate, onChange }) {
 
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
-export default function TokenFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectToken, bulkMode, selectedTokenIds, selectedFolderPaths, onToggleToken, onToggleFolder, cardSize = 'comfortable', canTag = true }) {
+export default function TokenFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectToken, bulkMode, selectedTokenIds, selectedFolderPaths, onToggleToken, onToggleFolder, cardSize = 'comfortable', canTag = true, onDownload }) {
   const isCollapsed = collapsed.has(folder)
   const allTokensInGroup = Object.values(subfolders).flat()
   const totalTokens = allTokensInGroup.length
@@ -78,6 +78,15 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
           <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
             {totalTokens} token{totalTokens !== 1 ? 's' : ''}
           </span>
+          {!bulkMode && (
+            <button
+              onClick={e => { e.stopPropagation(); onDownload?.({ title: `Tokens — ${toTitleCase(folder)}`, params: { type: 'token_folder', folder } }) }}
+              style={zipBtnStyle}
+              title={`Download all tokens in ${folder}`}
+            >
+              <LuDownload size={11} /> Download
+            </button>
+          )}
         </div>
 
         {/* Tags row (desktop only — mobile shows tags below when expanded) */}
@@ -182,6 +191,13 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
                               <LuTag size={11} /> {tags.length > 0 ? 'Edit' : 'Add tags'}
                             </button>
                           )}
+                          <button
+                            onClick={e => { e.stopPropagation(); onDownload?.({ title: `Tokens — ${toTitleCase(folder)} / ${subPath.split('/').map(toTitleCase).join(' / ')}`, params: { type: 'token_folder', folder: `${folder}/${subPath}` } }) }}
+                            style={zipBtnStyle}
+                            title={`Download tokens in ${subPath}`}
+                          >
+                            <LuDownload size={11} /> Download
+                          </button>
                         </>
                       )}
                       {editingFolder === editKey && !isMobilePhone && (
@@ -249,4 +265,11 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
 const tagPillStyle = {
   fontSize: 12, padding: '2px 8px', borderRadius: 10,
   background: 'var(--tag-bg)', border: '1px solid var(--tag-border)', color: 'var(--text-dim)',
+}
+
+const zipBtnStyle = {
+  display: 'inline-flex', alignItems: 'center', gap: 3,
+  padding: '2px 7px', borderRadius: 5, fontSize: 12, flexShrink: 0,
+  color: 'var(--text-muted)', border: '1px solid var(--border)',
+  background: 'var(--bg-card)', cursor: 'pointer',
 }

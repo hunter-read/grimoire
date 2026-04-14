@@ -98,3 +98,17 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
   0%, 100% { opacity: 0.4; }
   50%       { opacity: 0.8; }
 }
+
+/* SystemDetailView — responsive header panel */
+.system-btn-row {
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .system-header-panel {
+    width: 100%;
+  }
+  .system-btn-row {
+    justify-content: flex-start;
+  }
+}

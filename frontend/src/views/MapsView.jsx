@@ -4,6 +4,7 @@ import { LuMap, LuX, LuTag, LuSearch } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import MapFolderGroup from '../components/maps/MapCreatorGroup'
+import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { useAuth } from '../context/AuthContext'
 
@@ -34,6 +35,7 @@ export default function MapsView() {
   const [collapsed, setCollapsed] = useState(new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [showAllTags, setShowAllTags] = useState(false)
+  const [downloadModal, setDownloadModal] = useState(null)
 
   // Bulk tagging
   const [bulkMode, setBulkMode] = useState(false)
@@ -330,6 +332,7 @@ export default function MapsView() {
           selectedFolderPaths={selectedFolderPaths}
           onToggleMap={toggleMapSelect}
           onToggleFolder={toggleFolderSelect}
+          onDownload={setDownloadModal}
         />
       ))}
 
@@ -341,6 +344,14 @@ export default function MapsView() {
       )}
 
     </div>
+
+      {downloadModal && (
+        <DownloadArchiveModal
+          title={downloadModal.title}
+          params={downloadModal.params}
+          onClose={() => setDownloadModal(null)}
+        />
+      )}
 
       {/* Bulk action bar */}
       {bulkMode && (

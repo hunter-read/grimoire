@@ -25,6 +25,7 @@ from .routers import maintenance as maintenance_router
 from .routers import settings as settings_router
 from .routers import campaigns as campaigns_router
 from .routers import logs as logs_router
+from .routers import downloads as downloads_router
 from .routers.library import run_rescan_sync
 from . import scheduler
 from . import session_creator
@@ -146,6 +147,7 @@ api.include_router(maintenance_router.router)
 api.include_router(settings_router.router)
 api.include_router(campaigns_router.router)
 api.include_router(logs_router.router)
+api.include_router(downloads_router.router)
 app.include_router(api)
 
 

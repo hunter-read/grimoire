@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   LuArrowLeft, LuPencil, LuClipboard,
   LuFileText, LuFolderOpen, LuSearch, LuX,
-  LuChevronDown, LuChevronRight,
+  LuChevronDown, LuChevronRight, LuDownload,
 } from 'react-icons/lu'
 import api from '../api'
+import DownloadArchiveModal from '../components/DownloadArchiveModal'
+
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
@@ -30,6 +32,7 @@ export default function SystemDetailView() {
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef(null)
+  const [downloadModal, setDownloadModal] = useState(null) // { title, params }
 
   useEffect(() => { api.get(`/systems/${systemId}`).then(setSystem) }, [systemId])
 
@@ -87,7 +90,7 @@ export default function SystemDetailView() {
         </button>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ flex: 1, minWidth: 300 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontSize: 32, marginBottom: 8 }}>{system.name}</h2>
             {system.publishers?.length > 0 && (
               <div style={{ fontSize: 16, color: 'var(--text-dim)', marginBottom: 8 }}>
@@ -110,7 +113,7 @@ export default function SystemDetailView() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
+          <div className="system-header-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
             {system.character_builder_url && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
                 <a href={system.character_builder_url} target="_blank" rel="noopener" style={{
@@ -122,6 +125,7 @@ export default function SystemDetailView() {
                 </a>
               </div>
             )}
+            {/* Search bar */}
             <div style={{ position: 'relative' }}>
               <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
               <input
@@ -138,9 +142,9 @@ export default function SystemDetailView() {
                 </button>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={collapseAll} disabled={!!searchResults || collapsedCats.size === allCatKeys.length} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === allCatKeys.length) ? 0.4 : 1 }}>Collapse All</button>
-              <button onClick={expandAll} disabled={!!searchResults || collapsedCats.size === 0} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === 0) ? 0.4 : 1 }}>Expand All</button>
+            {/* Row 1: Favorite, Edit, Download All */}
+            <div className="system-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FavoriteButton type="system" id={system.id} style={{ position: 'static', background: 'var(--bg-card)', border: '1px solid var(--border)', width: 32, height: 32, borderRadius: 6 }} />
               {isEditor && (
                 <button
                   onClick={() => setEditing(!editing)}
@@ -155,7 +159,18 @@ export default function SystemDetailView() {
                   {editing ? 'Done' : 'Edit'}
                 </button>
               )}
-              <FavoriteButton type="system" id={system.id} style={{ position: 'static', background: 'var(--bg-card)', border: '1px solid var(--border)', width: 32, height: 32, borderRadius: 6 }} />
+              <button
+                onClick={() => setDownloadModal({ title: `All books in ${system.name}`, params: { type: 'system', id: system.id } })}
+                style={{ ...toolBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                title="Download all books in this system"
+              >
+                <LuDownload size={13} /> Download All
+              </button>
+            </div>
+            {/* Row 2: Collapse / Expand */}
+            <div className="system-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={collapseAll} disabled={!!searchResults || collapsedCats.size === allCatKeys.length} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === allCatKeys.length) ? 0.4 : 1 }}>Collapse All</button>
+              <button onClick={expandAll} disabled={!!searchResults || collapsedCats.size === 0} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === 0) ? 0.4 : 1 }}>Expand All</button>
             </div>
           </div>
         </div>
@@ -168,24 +183,6 @@ export default function SystemDetailView() {
           onSave={(updated) => { setSystem({ ...system, ...updated }); setEditing(false) }}
         />
       )}
-
-      {/* Search bar */}
-      <div style={{ position: 'relative', marginBottom: 28 }}>
-        <LuSearch size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={handleSearchInput}
-          placeholder={`Search within ${system.name}…`}
-          style={{ width: '100%', fontSize: 15, padding: '10px 40px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
-        />
-        {searching && <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}><Spinner size={16} /></div>}
-        {searchQuery && !searching && (
-          <button onClick={clearSearch} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-            <LuX size={15} />
-          </button>
-        )}
-      </div>
 
       {/* Tag filter row */}
       {!searchResults && allTags.length > 0 && (
@@ -265,13 +262,14 @@ export default function SystemDetailView() {
           })
           return (
             <div key={cat} style={{ marginBottom: 32 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isCollapsed ? 0 : 16 }}>
               <button
                 onClick={toggle}
                 aria-expanded={!isCollapsed}
                 style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                  flex: 1, display: 'flex', alignItems: 'center', gap: 8,
                   background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
-                  marginBottom: isCollapsed ? 0 : 16, textAlign: 'left',
+                  textAlign: 'left',
                 }}
               >
                 {isCollapsed
@@ -286,6 +284,14 @@ export default function SystemDetailView() {
                   ({books.length})
                 </span>
               </button>
+              <button
+                onClick={() => setDownloadModal({ title: `${CATEGORY_LABELS[cat] || cat} — ${system.name}`, params: { type: 'system_category', id: system.id, category: cat } })}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, fontSize: 12, color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', flexShrink: 0 }}
+                title={`Download ${CATEGORY_LABELS[cat] || cat}`}
+              >
+                <LuDownload size={11} /> Download
+              </button>
+            </div>
               {!isCollapsed && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {books.map(book => (
@@ -319,6 +325,14 @@ export default function SystemDetailView() {
           <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
           <p>No books found. Add PDFs to this system's directory and rescan.</p>
         </div>
+      )}
+
+      {downloadModal && (
+        <DownloadArchiveModal
+          title={downloadModal.title}
+          params={downloadModal.params}
+          onClose={() => setDownloadModal(null)}
+        />
       )}
     </div>
   )

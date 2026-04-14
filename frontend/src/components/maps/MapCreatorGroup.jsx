@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus } from 'react-icons/lu'
+import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus, LuDownload } from 'react-icons/lu'
 import MapCard from './MapCard'
 import InlineTagEditor from './InlineTagEditor'
 import LazyGrid from '../LazyGrid'
@@ -24,7 +24,7 @@ function FolderCheckbox({ checked, indeterminate, onChange }) {
 
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
-export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectMap, bulkMode, selectedMapIds, selectedFolderPaths, onToggleMap, onToggleFolder, cardSize = 'comfortable', canTag = true }) {
+export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectMap, bulkMode, selectedMapIds, selectedFolderPaths, onToggleMap, onToggleFolder, cardSize = 'comfortable', canTag = true, onDownload }) {
   const [editingRoot, setEditingRoot] = useState(false)
   const isCollapsed = collapsed.has(folder)
   const allMapsInGroup = Object.values(subfolders).flat()
@@ -79,6 +79,15 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
           <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
             {totalMaps} map{totalMaps !== 1 ? 's' : ''}
           </span>
+          {!bulkMode && (
+            <button
+              onClick={e => { e.stopPropagation(); onDownload?.({ title: `Maps — ${toTitleCase(folder)}`, params: { type: 'map_folder', folder } }) }}
+              style={zipBtnStyle}
+              title={`Download all maps in ${folder}`}
+            >
+              <LuDownload size={11} /> Download
+            </button>
+          )}
         </div>
 
         {/* Tags row (desktop only — mobile shows tags below when expanded) */}
@@ -184,6 +193,13 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                               <LuTag size={11} /> {tags.length > 0 ? 'Edit' : 'Add tags'}
                             </button>
                           )}
+                          <button
+                            onClick={e => { e.stopPropagation(); onDownload?.({ title: `Maps — ${toTitleCase(folder)} / ${subPath.split('/').map(toTitleCase).join(' / ')}`, params: { type: 'map_folder', folder: `${folder}/${subPath}` } }) }}
+                            style={zipBtnStyle}
+                            title={`Download maps in ${subPath}`}
+                          >
+                            <LuDownload size={11} /> Download
+                          </button>
                         </>
                       )}
                       {editingFolder === editKey && !isMobilePhone && (
@@ -251,4 +267,11 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
 const tagPillStyle = {
   fontSize: 12, padding: '2px 8px', borderRadius: 10,
   background: 'var(--tag-bg)', border: '1px solid var(--tag-border)', color: 'var(--text-dim)',
+}
+
+const zipBtnStyle = {
+  display: 'inline-flex', alignItems: 'center', gap: 3,
+  padding: '2px 7px', borderRadius: 5, fontSize: 12, flexShrink: 0,
+  color: 'var(--text-muted)', border: '1px solid var(--border)',
+  background: 'var(--bg-card)', cursor: 'pointer',
 }
