@@ -43,6 +43,7 @@ def list_tokens(
                     "file_size": t.file_size,
                     "has_thumbnail": t.has_thumbnail,
                     "is_explicit": bool(t.is_explicit),
+                    "is_missing": bool(t.is_missing),
                 }
                 for t in tokens
             ],
@@ -103,6 +104,7 @@ def get_token(token_id: str, current_user: CurrentUser = Depends(get_current_use
             "file_size": t.file_size,
             "has_thumbnail": t.has_thumbnail,
             "is_explicit": bool(t.is_explicit),
+            "is_missing": bool(t.is_missing),
             "pixel_width": pixel_width,
             "pixel_height": pixel_height,
         }
@@ -116,6 +118,11 @@ def serve_token_file(token_id: str):
         t = db.query(Token).filter_by(id=token_id).first()
         if not t:
             raise HTTPException(404)
+        if not os.path.exists(t.filepath):
+            if not t.is_missing:
+                t.is_missing = True
+                db.commit()
+            raise HTTPException(404, "File not found on disk")
         ext = Path(t.filepath).suffix.lower()
         media = f"image/{ext[1:]}"
         return FileResponse(t.filepath, media_type=media, filename=t.filename)

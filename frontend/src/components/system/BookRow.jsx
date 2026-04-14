@@ -66,15 +66,23 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
               18+
             </span>
           )}
-          {book.indexed && (
-            <span title="Full-text indexed" style={{ fontSize: 11, color: 'var(--green)', background: 'rgba(90,154,90,0.1)', padding: '1px 6px', borderRadius: 8 }}>
-              indexed
+          {book.is_missing ? (
+            <span title="File not found on disk" style={{ fontSize: 11, color: '#c8860a', background: 'rgba(200,134,10,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(200,134,10,0.4)' }}>
+              Missing
             </span>
-          )}
-          {book.index_failed && (
-            <span title={`Index failed${book.index_error ? `: ${book.index_error}` : ''}`} style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
-              index failed
-            </span>
+          ) : (
+            <>
+              {book.indexed && (
+                <span title="Full-text indexed" style={{ fontSize: 11, color: 'var(--green)', background: 'rgba(90,154,90,0.1)', padding: '1px 6px', borderRadius: 8 }}>
+                  Indexed
+                </span>
+              )}
+              {book.index_failed && (
+                <span title={`Index failed${book.index_error ? `: ${book.index_error}` : ''}`} style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
+                  Index Failed
+                </span>
+              )}
+            </>
           )}
           {(book.tags || []).map(tag => (
             <span key={tag} style={{ fontSize: 11, padding: '1px 7px', borderRadius: 8, background: 'rgba(201,168,76,0.12)', border: '1px solid var(--gold-dim)', color: 'var(--gold)' }}>

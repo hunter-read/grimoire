@@ -55,6 +55,7 @@ def list_books(
                     "indexed": b.indexed,
                     "index_failed": b.index_failed,
                     "is_explicit": bool(b.is_explicit),
+                    "is_missing": bool(b.is_missing),
                 }
                 for b in books
             ],
@@ -95,6 +96,7 @@ def get_book(book_id: str, current_user: CurrentUser = Depends(get_current_user)
             "year": book.year,
             "indexed": book.indexed,
             "index_failed": book.index_failed,
+            "is_missing": bool(book.is_missing),
             "mime_type": book.mime_type,
             "has_thumbnail": book.has_thumbnail,
             "is_explicit": bool(book.is_explicit),
@@ -137,6 +139,9 @@ def serve_book_file(book_id: str):
         if not book:
             raise HTTPException(404, "Book not found")
         if not os.path.exists(book.filepath):
+            if not book.is_missing:
+                book.is_missing = True
+                db.commit()
             raise HTTPException(404, "File not found on disk")
         return FileResponse(
             book.filepath,

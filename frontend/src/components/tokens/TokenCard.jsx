@@ -48,11 +48,16 @@ export default function TokenCard({ token, onClick, bulkMode, selected, onToggle
           background: 'rgba(180,60,60,0.85)', color: '#fff', fontWeight: 600,
         }}>18+</div>
       )}
-      <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         {token.has_thumbnail
           ? <img src={mediaUrl(`/tokens/${token.id}/thumbnail`)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <LuUser size={32} color="var(--text-muted)" aria-hidden="true" style={{ opacity: 0.4 }} />
         }
+        {token.is_missing && (
+          <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, padding: '1px 6px', borderRadius: 6, background: 'rgba(200,134,10,0.9)', color: '#fff', fontWeight: 600 }}>
+            Missing
+          </div>
+        )}
       </div>
       <div style={{ padding: '8px 10px' }}>
         <div style={{ fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

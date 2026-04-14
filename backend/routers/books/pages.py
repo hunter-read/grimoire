@@ -95,6 +95,15 @@ def serve_book_page(book_id: str, page_num: int, width: int = Query(1200, le=300
         return FileResponse(cache_path, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
 
     if not os.path.exists(filepath):
+        db = SessionLocal()
+        try:
+            from ...models import Book
+            book = db.query(Book).filter_by(id=book_id).first()
+            if book and not book.is_missing:
+                book.is_missing = True
+                db.commit()
+        finally:
+            db.close()
         raise HTTPException(404, "File not found on disk")
     doc = _get_pdf_doc(filepath)
     if page_num < 1 or page_num > len(doc):

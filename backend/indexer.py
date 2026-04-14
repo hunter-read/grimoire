@@ -598,6 +598,46 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
     _apply_tags_from_library(library_path, session)
 
+    # --- Mark / unmark missing files ---
+    # After walking the filesystem, any DB record whose file is gone gets
+    # is_missing=True; records that exist on disk have is_missing cleared.
+    if should_stop and should_stop():
+        return stats
+
+    missing_books = missing_maps = missing_tokens = 0
+    for book in session.query(Book).all():
+        gone = not os.path.exists(book.filepath)
+        if gone != bool(book.is_missing):
+            book.is_missing = gone
+            if gone:
+                missing_books += 1
+                logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
+    for m in session.query(GenericMap).all():
+        gone = not os.path.exists(m.filepath)
+        if gone != bool(m.is_missing):
+            m.is_missing = gone
+            if gone:
+                missing_maps += 1
+                logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
+    for t in session.query(Token).all():
+        gone = not os.path.exists(t.filepath)
+        if gone != bool(t.is_missing):
+            t.is_missing = gone
+            if gone:
+                missing_tokens += 1
+                logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
+    if missing_books or missing_maps or missing_tokens:
+        logger.info(f"Missing files: {missing_books} book(s), {missing_maps} map(s), {missing_tokens} token(s)")
+    try:
+        _run_with_timeout(session.commit, _DB_TIMEOUT, "commit missing flags")
+    except (TimeoutError, Exception) as e:
+        logger.error(f"DB hang saving missing flags: {e}")
+        session.rollback()
+
+    stats["missing_books"] = missing_books
+    stats["missing_maps"] = missing_maps
+    stats["missing_tokens"] = missing_tokens
+
     return stats
 
 

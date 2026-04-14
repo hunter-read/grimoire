@@ -23,6 +23,14 @@ class TestListMaps:
         ids = [m["id"] for m in resp.json()["maps"]]
         assert map_entry.id in ids
 
+    def test_list_includes_is_missing_field(self, client, admin_headers, map_entry):
+        resp = client.get("/api/maps", headers=admin_headers)
+        assert resp.status_code == 200
+        maps = resp.json()["maps"]
+        assert len(maps) > 0
+        assert all("is_missing" in m for m in maps)
+        assert all(isinstance(m["is_missing"], bool) for m in maps)
+
     def test_player_can_list_maps(self, client, player_headers, map_entry):
         resp = client.get("/api/maps", headers=player_headers)
         assert resp.status_code == 200
@@ -43,6 +51,14 @@ class TestGetMap:
         assert resp.status_code == 200
         body = resp.json()
         assert body["id"] == map_entry.id
+
+    def test_get_map_includes_is_missing(self, client, admin_headers, map_entry):
+        resp = client.get(f"/api/maps/{map_entry.id}", headers=admin_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "is_missing" in body
+        assert isinstance(body["is_missing"], bool)
+        assert body["is_missing"] is False
 
     def test_get_nonexistent_map(self, client, admin_headers):
         resp = client.get("/api/maps/does-not-exist", headers=admin_headers)

@@ -1,4 +1,4 @@
-"""Tests for indexer resilience: fitz timeout, getsize guard, index_failed, and scan_failed logic."""
+"""Tests for indexer resilience: fitz timeout, getsize guard, index_failed, scan_failed, and is_missing logic."""
 from __future__ import annotations
 
 import os
@@ -16,7 +16,7 @@ from backend.indexer import (
     index_book_text,
     scan_library,
 )
-from backend.models import Book
+from backend.models import Book, GenericMap, Token
 
 
 # ---------------------------------------------------------------------------
@@ -645,5 +645,169 @@ class TestScanFailed:
                     scan_library(str(lib), tmp, db)
 
             assert len(fitz_calls) == 0, "page count should not be retried when index_error is already set"
+        finally:
+            db.close()
+
+
+# ---------------------------------------------------------------------------
+# scan_library — is_missing detection
+# ---------------------------------------------------------------------------
+
+
+class TestMissingFiles:
+    """Tests for the is_missing flag set/cleared during rescan."""
+
+    def _mk_lib(self) -> tuple[str, Path]:
+        tmp = tempfile.mkdtemp()
+        lib = Path(tmp) / "library"
+        lib.mkdir()
+        return tmp, lib
+
+    def test_missing_book_flagged_after_file_deleted(self):
+        """A book whose file is removed between scans gets is_missing=True on rescan."""
+        tmp, lib = self._mk_lib()
+        books_dir = lib / "books" / "LostSystem"
+        books_dir.mkdir(parents=True)
+        pdf = books_dir / "vanished.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_doc = MagicMock()
+                    mock_doc.__len__ = lambda _: 1
+                    mock_fitz.return_value = mock_doc
+                    scan_library(str(lib), tmp, db)
+
+            book = db.query(Book).filter_by(filename="vanished.pdf").first()
+            assert book is not None
+            assert book.is_missing is False
+
+            # Delete the file and rescan
+            pdf.unlink()
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_fitz.return_value = MagicMock(__len__=lambda _: 1)
+                    scan_library(str(lib), tmp, db)
+
+            db.refresh(book)
+            assert book.is_missing is True
+        finally:
+            db.close()
+
+    def test_missing_flag_cleared_when_file_returns(self):
+        """A book pre-seeded with is_missing=True has the flag cleared when its file exists."""
+        tmp, lib = self._mk_lib()
+        books_dir = lib / "books" / "ReturnSystem"
+        books_dir.mkdir(parents=True)
+        pdf = books_dir / "returning.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            # Pre-seed with is_missing=True
+            book = Book(
+                title="Returning",
+                filename="returning.pdf",
+                filepath=str(pdf),
+                relative_path=os.path.relpath(str(pdf), str(lib)),
+                mime_type="application/pdf",
+                has_thumbnail=True,
+                page_count=5,
+                scan_failed=False,
+                is_missing=True,
+            )
+            db.add(book)
+            db.commit()
+
+            # File exists on disk — rescan should clear is_missing
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_fitz.return_value = MagicMock(__len__=lambda _: 5)
+                    scan_library(str(lib), tmp, db)
+
+            db.refresh(book)
+            assert book.is_missing is False
+        finally:
+            db.close()
+
+    def test_missing_map_flagged_after_file_deleted(self):
+        """A map whose file is removed between scans gets is_missing=True on rescan."""
+        tmp, lib = self._mk_lib()
+        maps_dir = lib / "maps" / "LostMaps"
+        maps_dir.mkdir(parents=True)
+        img = maps_dir / "gone.png"
+        img.write_bytes(b"\x89PNG")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                scan_library(str(lib), tmp, db)
+
+            m = db.query(GenericMap).filter_by(filename="gone.png").first()
+            assert m is not None
+            assert m.is_missing is False
+
+            img.unlink()
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                scan_library(str(lib), tmp, db)
+
+            db.refresh(m)
+            assert m.is_missing is True
+        finally:
+            db.close()
+
+    def test_missing_token_flagged_after_file_deleted(self):
+        """A token whose file is removed between scans gets is_missing=True on rescan."""
+        tmp, lib = self._mk_lib()
+        tokens_dir = lib / "tokens" / "LostTokens"
+        tokens_dir.mkdir(parents=True)
+        img = tokens_dir / "ghost.png"
+        img.write_bytes(b"\x89PNG")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                scan_library(str(lib), tmp, db)
+
+            t = db.query(Token).filter_by(filename="ghost.png").first()
+            assert t is not None
+            assert t.is_missing is False
+
+            img.unlink()
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                scan_library(str(lib), tmp, db)
+
+            db.refresh(t)
+            assert t.is_missing is True
+        finally:
+            db.close()
+
+    def test_scan_stats_include_missing_counts(self):
+        """scan_library returns missing_books/maps/tokens counts in its stats dict."""
+        tmp, lib = self._mk_lib()
+        books_dir = lib / "books" / "StatSystem"
+        books_dir.mkdir(parents=True)
+        pdf = books_dir / "counted.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        db = SessionLocal()
+        try:
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_fitz.return_value = MagicMock(__len__=lambda _: 1)
+                    scan_library(str(lib), tmp, db)
+
+            pdf.unlink()
+            with patch("backend.indexer.generate_thumbnail", return_value=False):
+                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
+                    mock_fitz.return_value = MagicMock(__len__=lambda _: 1)
+                    stats = scan_library(str(lib), tmp, db)
+
+            assert "missing_books" in stats
+            assert "missing_maps" in stats
+            assert "missing_tokens" in stats
+            assert stats["missing_books"] >= 1
         finally:
             db.close()

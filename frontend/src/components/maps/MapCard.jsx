@@ -41,11 +41,16 @@ export default function MapCard({ map, onClick, bulkMode, selected, onToggle }) 
           {selected && <LuCheck size={12} color="var(--bg-deep)" strokeWidth={3} />}
         </div>
       )}
-      <div style={{ width: '100%', height: 140, background: 'var(--bg-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '100%', height: 140, background: 'var(--bg-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         {map.has_thumbnail
           ? <img src={mediaUrl(`/maps/${map.id}/thumbnail`)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <LuMap size={32} color="var(--text-muted)" aria-hidden="true" style={{ opacity: 0.4 }} />
         }
+        {map.is_missing && (
+          <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, padding: '1px 6px', borderRadius: 6, background: 'rgba(200,134,10,0.9)', color: '#fff', fontWeight: 600 }}>
+            Missing
+          </div>
+        )}
       </div>
       <div style={{ padding: '10px 12px' }}>
         <div style={{ fontSize: 15, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

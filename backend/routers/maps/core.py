@@ -41,6 +41,7 @@ def list_maps(
                     "map_type": m.map_type,
                     "file_size": m.file_size,
                     "has_thumbnail": m.has_thumbnail,
+                    "is_missing": bool(m.is_missing),
                 }
                 for m in maps
             ],
@@ -93,6 +94,7 @@ def get_map(map_id: str):
             "grid_size": m.grid_size,
             "file_size": m.file_size,
             "has_thumbnail": m.has_thumbnail,
+            "is_missing": bool(m.is_missing),
             **img_info,
         }
     finally:
@@ -105,6 +107,11 @@ def serve_map_file(map_id: str):
         m = db.query(GenericMap).filter_by(id=map_id).first()
         if not m:
             raise HTTPException(404)
+        if not os.path.exists(m.filepath):
+            if not m.is_missing:
+                m.is_missing = True
+                db.commit()
+            raise HTTPException(404, "File not found on disk")
         ext = Path(m.filepath).suffix.lower()
         media = "application/pdf" if ext == ".pdf" else f"image/{ext[1:]}"
         return FileResponse(m.filepath, media_type=media, filename=m.filename)

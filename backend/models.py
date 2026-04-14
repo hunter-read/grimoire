@@ -79,6 +79,7 @@ class Book(Base):
     index_failed = Column(Boolean, default=False)
     index_error = Column(String(500), default="")
     scan_failed = Column(Boolean, default=False)
+    is_missing = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
@@ -103,6 +104,7 @@ class GenericMap(Base):
     grid_size = Column(String(50), default="")
     file_size = Column(Integer, default=0)
     has_thumbnail = Column(Boolean, default=False)
+    is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
 
 
@@ -130,6 +132,7 @@ class Token(Base):
     is_explicit = Column(Boolean, default=False)
     file_size = Column(Integer, default=0)
     has_thumbnail = Column(Boolean, default=False)
+    is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
 
 
@@ -377,6 +380,9 @@ def init_db(db_path: str):
         for migration in [
             "ALTER TABLE books ADD COLUMN index_failed BOOLEAN DEFAULT 0",
             "ALTER TABLE books ADD COLUMN scan_failed BOOLEAN DEFAULT 0",
+            "ALTER TABLE books ADD COLUMN is_missing BOOLEAN DEFAULT 0",
+            "ALTER TABLE generic_maps ADD COLUMN is_missing BOOLEAN DEFAULT 0",
+            "ALTER TABLE tokens ADD COLUMN is_missing BOOLEAN DEFAULT 0",
         ]:
             try:
                 conn.execute(text(migration))

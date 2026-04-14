@@ -151,6 +151,7 @@ def get_system(system_id: str, current_user: CurrentUser = Depends(get_current_u
                     "has_thumbnail": b.has_thumbnail,
                     "tags": b.tags or [],
                     "is_explicit": bool(b.is_explicit),
+                    "is_missing": bool(b.is_missing),
                 }
                 for b in books
             ],
