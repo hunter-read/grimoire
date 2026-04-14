@@ -55,45 +55,69 @@ describe('BookRow', () => {
 
   // --- indexed badge ---
 
-  it('shows "indexed" badge when indexed is true', () => {
+  it('shows "Indexed" badge when indexed is true', () => {
     render(<BookRow book={makeBook({ indexed: true })} onOpen={() => {}} />)
-    expect(screen.getByText('indexed')).toBeInTheDocument()
+    expect(screen.getByText('Indexed')).toBeInTheDocument()
   })
 
-  it('does not show "indexed" badge when indexed is false', () => {
+  it('does not show "Indexed" badge when indexed is false', () => {
     render(<BookRow book={makeBook({ indexed: false })} onOpen={() => {}} />)
-    expect(screen.queryByText('indexed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Indexed')).not.toBeInTheDocument()
   })
 
   // --- index_failed badge ---
 
-  it('shows "index failed" badge when index_failed is true', () => {
+  it('shows "Index Failed" badge when index_failed is true', () => {
     render(<BookRow book={makeBook({ index_failed: true })} onOpen={() => {}} />)
-    expect(screen.getByText('index failed')).toBeInTheDocument()
+    expect(screen.getByText('Index Failed')).toBeInTheDocument()
   })
 
-  it('does not show "index failed" badge when index_failed is false', () => {
+  it('does not show "Index Failed" badge when index_failed is false', () => {
     render(<BookRow book={makeBook({ index_failed: false })} onOpen={() => {}} />)
-    expect(screen.queryByText('index failed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Index Failed')).not.toBeInTheDocument()
   })
 
-  it('"index failed" badge has a tooltip with the error message', () => {
+  it('"Index Failed" badge has a tooltip with the error message', () => {
     render(<BookRow book={makeBook({ index_failed: true, index_error: 'fitz timed out' })} onOpen={() => {}} />)
-    const badge = screen.getByText('index failed')
+    const badge = screen.getByText('Index Failed')
     expect(badge.title).toBe('Index failed: fitz timed out')
   })
 
-  it('"index failed" badge tooltip falls back gracefully when index_error is empty', () => {
+  it('"Index Failed" badge tooltip falls back gracefully when index_error is empty', () => {
     render(<BookRow book={makeBook({ index_failed: true, index_error: '' })} onOpen={() => {}} />)
-    const badge = screen.getByText('index failed')
+    const badge = screen.getByText('Index Failed')
     expect(badge.title).toBe('Index failed')
   })
 
-  it('does not show "indexed" badge when index_failed is true', () => {
+  it('does not show "Indexed" badge when index_failed is true', () => {
     // A failed book should not be marked indexed
     render(<BookRow book={makeBook({ indexed: false, index_failed: true })} onOpen={() => {}} />)
-    expect(screen.queryByText('indexed')).not.toBeInTheDocument()
-    expect(screen.getByText('index failed')).toBeInTheDocument()
+    expect(screen.queryByText('Indexed')).not.toBeInTheDocument()
+    expect(screen.getByText('Index Failed')).toBeInTheDocument()
+  })
+
+  // --- is_missing badge ---
+
+  it('shows "Missing" badge when is_missing is true', () => {
+    render(<BookRow book={makeBook({ is_missing: true })} onOpen={() => {}} />)
+    expect(screen.getByText('Missing')).toBeInTheDocument()
+  })
+
+  it('does not show "Missing" badge when is_missing is false', () => {
+    render(<BookRow book={makeBook({ is_missing: false })} onOpen={() => {}} />)
+    expect(screen.queryByText('Missing')).not.toBeInTheDocument()
+  })
+
+  it('"Missing" badge replaces "Indexed" badge', () => {
+    render(<BookRow book={makeBook({ is_missing: true, indexed: true })} onOpen={() => {}} />)
+    expect(screen.getByText('Missing')).toBeInTheDocument()
+    expect(screen.queryByText('Indexed')).not.toBeInTheDocument()
+  })
+
+  it('"Missing" badge replaces "Index Failed" badge', () => {
+    render(<BookRow book={makeBook({ is_missing: true, index_failed: true })} onOpen={() => {}} />)
+    expect(screen.getByText('Missing')).toBeInTheDocument()
+    expect(screen.queryByText('Index Failed')).not.toBeInTheDocument()
   })
 
   // --- explicit badge ---
