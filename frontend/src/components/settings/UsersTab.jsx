@@ -32,6 +32,15 @@ export default function UsersTab() {
     }
   }
 
+  const handlePasswordReset = async (userId, newPassword) => {
+    try {
+      await api.patch(`/users/${userId}`, { password: newPassword })
+    } catch (err) {
+      setError(err.message || 'Failed to set password.')
+      throw err
+    }
+  }
+
   const handleDelete = async (userId) => {
     try {
       await api.delete(`/users/${userId}`)
@@ -83,6 +92,7 @@ export default function UsersTab() {
             currentUserId={currentUser.id}
             onRoleChange={handleRoleChange}
             onExplicitChange={handleExplicitChange}
+            onPasswordReset={handlePasswordReset}
             onDelete={handleDelete}
           />
         ))}

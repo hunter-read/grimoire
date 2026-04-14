@@ -37,6 +37,13 @@ class UserUpdate(BaseModel):
             raise ValueError(f"Role must be one of: {', '.join(ROLES)}")
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_valid(cls, v):
+        if v is not None and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
 
 class PasswordChange(BaseModel):
     current_password: str
