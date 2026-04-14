@@ -6,7 +6,7 @@ pymupdf==1.25.1
 python-multipart==0.0.22
 watchdog==6.0.0
 httpx==0.28.1
-pillow==12.1.1
+pillow==12.2.0
 pydantic==2.10.3
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
