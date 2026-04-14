@@ -1,6 +1,5 @@
 """Archive download endpoint — stream a collection of files as zip, tar, tar.gz, or tar.bz2."""
 import io
-import os
 import tarfile
 import zipfile
 from pathlib import Path
@@ -9,11 +8,30 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from ..config import SessionLocal
+from ..config import SessionLocal, LIBRARY_PATH
 from ..models import Book, GameSystem, GenericMap, Token, User
 from ..auth import get_current_user, CurrentUser
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
+
+_LIBRARY_ROOT = Path(LIBRARY_PATH).resolve()
+
+
+def _safe_filepath(raw: str) -> Optional[str]:
+    """
+    Resolve *raw* to an absolute path and verify it is inside _LIBRARY_ROOT.
+    Returns the resolved path string on success, None if the path escapes the
+    library root (path-traversal guard) or does not point to a regular file.
+    """
+    try:
+        resolved = Path(raw).resolve()
+    except (TypeError, ValueError):
+        return None
+    if _LIBRARY_ROOT not in resolved.parents and resolved != _LIBRARY_ROOT:
+        return None
+    if not resolved.is_file():
+        return None
+    return str(resolved)
 
 _FORMATS = {
     "zip":     {"ext": ".zip",     "mime": "application/zip"},
@@ -35,8 +53,6 @@ def _stream_zip(files: list[tuple[str, str]]):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", allowZip64=True) as zf:
         for filepath, arcname in files:
-            if not os.path.isfile(filepath):
-                continue
             ext = Path(filepath).suffix.lower()
             compress = zipfile.ZIP_STORED if ext in _ZIP_STORED_EXTS else zipfile.ZIP_DEFLATED
             zf.write(filepath, arcname=arcname, compress_type=compress)
@@ -49,8 +65,6 @@ def _stream_tar(files: list[tuple[str, str]], mode: str):
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode=mode) as tf:
         for filepath, arcname in files:
-            if not os.path.isfile(filepath):
-                continue
             tf.add(filepath, arcname=arcname)
     buf.seek(0)
     yield from iter(lambda: buf.read(65536), b"")
@@ -135,9 +149,9 @@ def _files_for_system(db, system_id: str, see_explicit: bool) -> tuple[list, str
         q = q.filter(Book.is_explicit != True)
 
     files = [
-        (b.filepath, _safe_arcname(f"{b.category or 'misc'}/{b.filename}"))
+        (safe, _safe_arcname(f"{b.category or 'misc'}/{b.filename}"))
         for b in q.all()
-        if os.path.isfile(b.filepath)
+        if (safe := _safe_filepath(b.filepath))
     ]
     return files, _safe_name(system.name)
 
@@ -154,9 +168,9 @@ def _files_for_system_category(db, system_id: str, category: str, see_explicit: 
         q = q.filter(Book.is_explicit != True)
 
     files = [
-        (b.filepath, _safe_arcname(b.filename))
+        (safe, _safe_arcname(b.filename))
         for b in q.all()
-        if os.path.isfile(b.filepath)
+        if (safe := _safe_filepath(b.filepath))
     ]
     return files, f"{_safe_name(system.name)}_{_safe_name(category)}"
 
@@ -172,10 +186,10 @@ def _files_for_map_folder(db, folder: str) -> tuple[list, str]:
         return _safe_arcname(raw)
 
     files = [
-        (m.filepath, _arcname(m))
+        (safe, _arcname(m))
         for m in maps
         if m.relative_path.replace("\\", "/").lstrip("/").startswith("maps/" + prefix)
-        and os.path.isfile(m.filepath)
+        and (safe := _safe_filepath(m.filepath))
     ]
     return files, f"maps_{_safe_name(folder)}"
 
@@ -193,10 +207,10 @@ def _files_for_token_folder(db, folder: str, see_explicit: bool) -> tuple[list, 
         return _safe_arcname(raw)
 
     files = [
-        (t.filepath, _arcname(t))
+        (safe, _arcname(t))
         for t in q.all()
         if t.relative_path.replace("\\", "/").lstrip("/").startswith("tokens/" + prefix)
-        and os.path.isfile(t.filepath)
+        and (safe := _safe_filepath(t.filepath))
     ]
     return files, f"tokens_{_safe_name(folder)}"
 

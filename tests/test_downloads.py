@@ -20,6 +20,8 @@ import tarfile
 import tempfile
 import uuid
 import zipfile
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -39,6 +41,17 @@ def _real_file(name: str, content: bytes = b"dummy") -> str:
     with open(path, "wb") as f:
         f.write(content)
     return path
+
+
+# ---------------------------------------------------------------------------
+# Patch _LIBRARY_ROOT so _safe_filepath accepts files under _TMP
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module", autouse=True)
+def _patch_library_root():
+    import backend.routers.downloads as dl_mod
+    with patch.object(dl_mod, "_LIBRARY_ROOT", Path(_TMP).resolve()):
+        yield
 
 
 # ---------------------------------------------------------------------------
