@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n, { AVAILABLE_LANGUAGES } from '../../i18n'
 import { LuCircleCheck } from 'react-icons/lu'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
 
@@ -90,6 +91,33 @@ export function ReaderSection() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+export function LanguageSection() {
+  const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en')
+  const [saved, setSaved] = useState(false)
+
+
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  const handleLang = (v) => {
+    setLang(v)
+    localStorage.setItem('grimoire:language', v)
+    i18n.changeLanguage(v)
+    flash()
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+        Language / Sprache
+        {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
+      </h3>
+      <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
+        Choose the display language for the interface.
+      </p>
+      <SegmentedControl options={AVAILABLE_LANGUAGES} value={lang} onChange={handleLang} />
     </div>
   )
 }
