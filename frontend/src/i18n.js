@@ -7,7 +7,7 @@ const resources = {}
 export const AVAILABLE_LANGUAGES = []
 
 for (const path in modules) {
-  const code = path.match(/\/([a-z-]+)\.json$/)[1]
+  const code = path.match(/\/([a-zA-Z-]+)\.json$/)[1]
   const data = modules[path].default ?? modules[path]
   resources[code] = { translation: data }
   AVAILABLE_LANGUAGES.push({ value: code, label: data._meta?.nativeName ?? code })
@@ -19,7 +19,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: localStorage.getItem('grimoire:language') || 'en-US',
+    lng: (typeof localStorage !== 'undefined' && localStorage.getItem?.('grimoire:language')) || 'en-US',
     fallbackLng: 'en-US',
     interpolation: {
       escapeValue: false,
