@@ -82,6 +82,10 @@ export default function ReaderView() {
   const currentPageRef     = useRef(1)
   const contentRef         = useRef(null)
   const isMountedSyncRef   = useRef(false)
+  // When true, the next setSearchParams call will push a new history entry
+  // rather than replacing the current one. Set before any jump navigation
+  // (ToC, bookmarks) so the back button returns to the page before the jump.
+  const pushNextRef        = useRef(false)
   const preloadCacheRef    = useRef({})
   const pageTextCacheRef   = useRef({})
   const wordsCacheRef      = useRef({})
@@ -212,7 +216,9 @@ export default function ReaderView() {
     const params = {}
     if (currentPage > 1) params.page = String(currentPage)
     if (mode !== 'page') params.view = mode
-    setSearchParams(params, { replace: true })
+    const push = pushNextRef.current
+    pushNextRef.current = false
+    setSearchParams(params, { replace: !push })
   }, [currentPage, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -415,19 +421,19 @@ export default function ReaderView() {
         </div>
 
         {panel === 'toc' && (
-          <TocSidebar bookId={bookId} currentPage={currentPage} onGoToPage={goToPage} onClose={() => setPanel(null)} />
+          <TocSidebar bookId={bookId} currentPage={currentPage} onGoToPage={(page) => { pushNextRef.current = true; goToPage(page) }} onClose={() => setPanel(null)} />
         )}
         {panel === 'search' && (
           <SearchSidebar
             bookId={bookId}
-            onGoToPage={(page, q) => { setActiveSearchQuery(q || null); goToPage(page) }}
+            onGoToPage={(page, q) => { setActiveSearchQuery(q || null); pushNextRef.current = true; goToPage(page) }}
             onClose={() => { setActiveSearchQuery(null); setPanel(null) }}
           />
         )}
         {panel === 'bookmarks' && (
           <BookmarkSidebar
             bookId={bookId} currentPage={currentPage} refreshKey={bookmarkRefreshKey}
-            onGoToPage={(page, text) => { setActiveHighlight(text || null); goToPage(page) }}
+            onGoToPage={(page, text) => { setActiveHighlight(text || null); pushNextRef.current = true; goToPage(page) }}
             onClose={() => setPanel(null)}
           />
         )}
