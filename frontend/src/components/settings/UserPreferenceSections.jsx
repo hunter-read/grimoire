@@ -96,7 +96,7 @@ export function ReaderSection() {
 }
 
 export function LanguageSection() {
-  const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en')
+  const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en-US')
   const [saved, setSaved] = useState(false)
 
 
