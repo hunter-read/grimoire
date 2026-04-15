@@ -298,6 +298,56 @@ class TestDownloadAuth:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(scope="module")
+def adventure_system():
+    return make_game_system(name=f"AdventureSystem-{uuid.uuid4().hex[:6]}")
+
+
+@pytest.fixture(scope="module")
+def subfolder_book_in_folder(adventure_system):
+    """A book at books/{System}/adventures/Curse of Strahd/cos.pdf."""
+    uid = uuid.uuid4().hex[:6]
+    path = _real_file(f"cos_{uid}.pdf", b"%PDF-1.4 strahd")
+    return make_book(
+        system_id=adventure_system.id,
+        title=f"Curse of Strahd {uid}",
+        filename=os.path.basename(path),
+        filepath=path,
+        relative_path=f"books/AdventureSystem/adventures/Curse of Strahd/{os.path.basename(path)}",
+        category="adventure",
+    )
+
+
+@pytest.fixture(scope="module")
+def subfolder_book_other_folder(adventure_system):
+    """A book in a different subfolder of the same system — should not appear in Strahd download."""
+    uid = uuid.uuid4().hex[:6]
+    path = _real_file(f"lmop_{uid}.pdf", b"%PDF-1.4 lmop")
+    return make_book(
+        system_id=adventure_system.id,
+        title=f"Lost Mine {uid}",
+        filename=os.path.basename(path),
+        filepath=path,
+        relative_path=f"books/AdventureSystem/adventures/Lost Mine/{os.path.basename(path)}",
+        category="adventure",
+    )
+
+
+@pytest.fixture(scope="module")
+def core_subfolder_book(adventure_system):
+    """A book in core/monsters subfolder — tests that book_folder works across categories."""
+    uid = uuid.uuid4().hex[:6]
+    path = _real_file(f"bestiary_{uid}.pdf", b"%PDF-1.4 bestiary")
+    return make_book(
+        system_id=adventure_system.id,
+        title=f"Bestiary {uid}",
+        filename=os.path.basename(path),
+        filepath=path,
+        relative_path=f"books/AdventureSystem/core/monsters/{os.path.basename(path)}",
+        category="core",
+    )
+
+
 class TestDownloadValidation:
     def test_unknown_type_returns_400(self, client, admin_headers):
         resp = client.get(
@@ -336,6 +386,22 @@ class TestDownloadValidation:
             "/api/downloads/archive",
             headers=admin_headers,
             params={"type": "token_folder"},
+        )
+        assert resp.status_code == 400
+
+    def test_book_folder_missing_id_returns_400(self, client, admin_headers):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "book_folder", "folder": "Curse of Strahd"},
+        )
+        assert resp.status_code == 400
+
+    def test_book_folder_missing_folder_returns_400(self, client, admin_headers, system):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "book_folder", "id": system.id},
         )
         assert resp.status_code == 400
 
@@ -532,6 +598,88 @@ class TestDownloadTokenFolderZip:
             "/api/downloads/archive",
             headers=admin_headers,
             params={"type": "token_folder", "folder": "no_such_folder"},
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# ZIP — book_folder scope
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadBookFolderZip:
+    def test_contains_book_in_subfolder(
+        self, client, admin_headers, adventure_system, subfolder_book_in_folder
+    ):
+        content = _get_archive(
+            client,
+            admin_headers,
+            {"type": "book_folder", "id": adventure_system.id, "folder": "Curse of Strahd"},
+        )
+        names = _zip_names(content)
+        assert any(subfolder_book_in_folder.filename in n for n in names)
+
+    def test_excludes_book_from_different_subfolder(
+        self, client, admin_headers, adventure_system,
+        subfolder_book_in_folder, subfolder_book_other_folder
+    ):
+        content = _get_archive(
+            client,
+            admin_headers,
+            {"type": "book_folder", "id": adventure_system.id, "folder": "Curse of Strahd"},
+        )
+        names = _zip_names(content)
+        assert subfolder_book_other_folder.filename not in names
+
+    def test_works_for_non_adventure_category(
+        self, client, admin_headers, adventure_system, core_subfolder_book
+    ):
+        """book_folder works for any category, not just adventures."""
+        content = _get_archive(
+            client,
+            admin_headers,
+            {"type": "book_folder", "id": adventure_system.id, "folder": "monsters"},
+        )
+        names = _zip_names(content)
+        assert any(core_subfolder_book.filename in n for n in names)
+
+    def test_content_type_is_zip(
+        self, client, admin_headers, adventure_system, subfolder_book_in_folder
+    ):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "book_folder", "id": adventure_system.id, "folder": "Curse of Strahd"},
+        )
+        assert resp.status_code == 200
+        assert "zip" in resp.headers["content-type"]
+
+    def test_content_disposition_includes_folder_name(
+        self, client, admin_headers, adventure_system, subfolder_book_in_folder
+    ):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "book_folder", "id": adventure_system.id, "folder": "Curse of Strahd"},
+        )
+        cd = resp.headers["content-disposition"]
+        assert "Curse_of_Strahd" in cd
+
+    def test_nonexistent_folder_returns_404(
+        self, client, admin_headers, adventure_system
+    ):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "book_folder", "id": adventure_system.id, "folder": "no-such-folder"},
+        )
+        assert resp.status_code == 404
+
+    def test_nonexistent_system_returns_404(self, client, admin_headers):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "book_folder", "id": "no-such-system", "folder": "anything"},
         )
         assert resp.status_code == 404
 

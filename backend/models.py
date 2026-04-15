@@ -89,6 +89,16 @@ class Book(Base):
     game_system = relationship("GameSystem", back_populates="books")
 
 
+class BookFolder(Base):
+    """Tags applied to a book subcategory folder path (e.g. adventure path groupings)."""
+
+    __tablename__ = "book_folders"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    path = Column(String(1000), nullable=False, unique=True)
+    tags = Column(JSON, default=list)
+
+
 class GenericMap(Base):
     """A generic map (not tied to a specific game system)."""
 

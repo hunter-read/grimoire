@@ -16,8 +16,18 @@ import Tag from '../components/Tag'
 import BookRow from '../components/system/BookRow'
 import BookEditor from '../components/system/BookEditor'
 import SystemEditor from '../components/system/SystemEditor'
+import BookFolderGroup from '../components/system/BookFolderGroup'
 import FavoriteButton from '../components/FavoriteButton'
 import { CATEGORY_ICONS, CATEGORY_ORDER } from '../constants'
+
+/** Extract the subfolder name from a book's relative_path.
+ *  Path structure: books/{SystemName}/{categoryDir}/{SubFolder}/book.pdf
+ *  Returns the subfolder name, or null if the book sits directly in the category dir. */
+function getBookSubfolder(book) {
+  const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
+  // parts[0]=books, parts[1]=SystemName, parts[2]=category dir, parts[3]=subfolder or filename
+  return parts.length > 4 ? parts[3] : null
+}
 
 export default function SystemDetailView() {
   const { t } = useTranslation()
@@ -29,6 +39,7 @@ export default function SystemDetailView() {
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
   const [collapsedCats, setCollapsedCats] = useSessionState(`grimoire:system:${systemId}:collapsed`, new Set())
+  const [collapsedSubfolders, setCollapsedSubfolders] = useSessionState(`grimoire:system:${systemId}:subfolders`, new Set())
   const [selectedTags, setSelectedTags] = useState(new Set())
   const [showAllTags, setShowAllTags] = useState(false)
   const [bookSort, setBookSort] = useState('title')
@@ -335,30 +346,97 @@ export default function SystemDetailView() {
                 <LuDownload size={11} /> {t('systemDetail.download')}
               </button>
             </div>
-              {!isCollapsed && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {books.map(book => (
-                    <div key={book.id}>
-                      <BookRow
-                        book={book}
-                        onOpen={() => navigate(`/library/book/${book.id}`)}
-                        onEdit={isEditor ? () => setEditingBookId(id => id === book.id ? null : book.id) : null}
-                        editing={editingBookId === book.id}
-                      />
-                      {editingBookId === book.id && (
-                        <BookEditor
-                          book={book}
-                          onSave={(updated) => {
-                            setSystem(s => ({ ...s, books: s.books.map(b => b.id === book.id ? { ...b, ...updated } : b) }))
-                            setEditingBookId(null)
-                          }}
-                          onClose={() => setEditingBookId(null)}
-                        />
-                      )}
+              {!isCollapsed && (() => {
+                // Group books by subfolder (derived from relative_path).
+                // Books sitting directly in the category dir have no subfolder (key='').
+                const folderMap = {}
+                for (const book of books) {
+                  const sub = getBookSubfolder(book)
+                  const key = sub || ''
+                  if (!folderMap[key]) folderMap[key] = []
+                  folderMap[key].push(book)
+                }
+                const hasFolders = Object.keys(folderMap).some(k => k !== '')
+                const toggleSubfolder = (key) => setCollapsedSubfolders(prev => {
+                  const next = new Set(prev)
+                  next.has(key) ? next.delete(key) : next.add(key)
+                  return next
+                })
+                const saveBook = (bookId, updated) => setSystem(s => ({ ...s, books: s.books.map(b => b.id === bookId ? { ...b, ...updated } : b) }))
+
+                if (!hasFolders) {
+                  // No subfolders — render flat list
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {books.map(book => (
+                        <div key={book.id}>
+                          <BookRow
+                            book={book}
+                            onOpen={() => navigate(`/library/book/${book.id}`)}
+                            onEdit={isEditor ? () => setEditingBookId(id => id === book.id ? null : book.id) : null}
+                            editing={editingBookId === book.id}
+                          />
+                          {editingBookId === book.id && (
+                            <BookEditor
+                              book={book}
+                              onSave={(updated) => { saveBook(book.id, updated); setEditingBookId(null) }}
+                              onClose={() => setEditingBookId(null)}
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                }
+
+                const sortedFolderKeys = Object.keys(folderMap).sort((a, b) => {
+                  if (a === '') return 1
+                  if (b === '') return -1
+                  return a.localeCompare(b)
+                })
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {sortedFolderKeys.map(key => key === '' ? (
+                      // Ungrouped books (no subfolder) — render flat above the folder widgets
+                      <div key="__ungrouped__" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+                        {folderMap[''].map(book => (
+                          <div key={book.id}>
+                            <BookRow
+                              book={book}
+                              onOpen={() => navigate(`/library/book/${book.id}`)}
+                              onEdit={isEditor ? () => setEditingBookId(id => id === book.id ? null : book.id) : null}
+                              editing={editingBookId === book.id}
+                            />
+                            {editingBookId === book.id && (
+                              <BookEditor
+                                book={book}
+                                onSave={(updated) => { saveBook(book.id, updated); setEditingBookId(null) }}
+                                onClose={() => setEditingBookId(null)}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <BookFolderGroup
+                        key={key}
+                        folder={key}
+                        books={folderMap[key]}
+                        systemId={system.id}
+                        category={cat}
+                        collapsed={collapsedSubfolders}
+                        onToggle={toggleSubfolder}
+                        editingBookId={editingBookId}
+                        setEditingBookId={setEditingBookId}
+                        onOpenBook={(book) => navigate(`/library/book/${book.id}`)}
+                        isEditor={isEditor}
+                        onSaveBook={saveBook}
+                        onDownload={setDownloadModal}
+                      />
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           )
         })}

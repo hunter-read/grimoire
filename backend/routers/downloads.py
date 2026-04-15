@@ -175,6 +175,31 @@ def _files_for_system_category(db, system_id: str, category: str, see_explicit: 
     return files, f"{_safe_name(system.name)}_{_safe_name(category)}"
 
 
+def _files_for_book_folder(db, system_id: str, folder: str, see_explicit: bool) -> tuple[list, str]:
+    """Books in a named subfolder within any category.
+    Path structure: books/{SystemName}/{categoryDir}/{folder}/...
+    The folder name is matched against path segment index 3 (0-based).
+    """
+    system = db.query(GameSystem).filter_by(id=system_id).first()
+    if not system:
+        raise HTTPException(404, "System not found")
+
+    q = db.query(Book).filter_by(game_system_id=system_id)
+    if not see_explicit:
+        q = q.filter(Book.is_explicit != True)
+
+    def _in_folder(b: Book) -> bool:
+        parts = b.relative_path.replace("\\", "/").split("/")
+        return len(parts) > 4 and parts[3] == folder
+
+    files = [
+        (safe, _safe_arcname(b.filename))
+        for b in q.all()
+        if _in_folder(b) and (safe := _safe_filepath(b.filepath))
+    ]
+    return files, f"{_safe_name(system.name)}_{_safe_name(folder)}"
+
+
 def _files_for_map_folder(db, folder: str) -> tuple[list, str]:
     prefix = folder.strip("/") + "/"
     maps = db.query(GenericMap).all()
@@ -225,11 +250,11 @@ def _files_for_token_folder(db, folder: str, see_explicit: bool) -> tuple[list, 
     ),
 )
 def download_archive(
-    type: str = Query(..., description="Scope: system | system_category | map_folder | token_folder"),
+    type: str = Query(..., description="Scope: system | system_category | book_folder | map_folder | token_folder"),
     fmt: str = Query("zip", description="Archive format: zip | tar | tar.gz | tar.bz2"),
-    id: Optional[str] = Query(None, description="System ID (system / system_category)"),
+    id: Optional[str] = Query(None, description="System ID (system / system_category / book_folder)"),
     category: Optional[str] = Query(None, description="Book category slug (system_category)"),
-    folder: Optional[str] = Query(None, description="Folder path (map_folder / token_folder)"),
+    folder: Optional[str] = Query(None, description="Folder path (book_folder / map_folder / token_folder)"),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     db = SessionLocal()
@@ -247,6 +272,13 @@ def download_archive(
             if not category:
                 raise HTTPException(400, "category is required for type=system_category")
             files, base = _files_for_system_category(db, id, category, see_explicit)
+
+        elif type == "book_folder":
+            if not id:
+                raise HTTPException(400, "id is required for type=book_folder")
+            if not folder:
+                raise HTTPException(400, "folder is required for type=book_folder")
+            files, base = _files_for_book_folder(db, id, folder, see_explicit)
 
         elif type == "map_folder":
             if not folder:

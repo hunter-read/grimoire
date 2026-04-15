@@ -6,13 +6,18 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from ..config import SessionLocal
-from ..models import GameSystem, Book, User
+from ..models import GameSystem, Book, BookFolder, User
 from ..auth import require_gm_or_admin, get_current_user, CurrentUser
 
 
 class PublisherEntry(BaseModel):
     name: str
     url: str = ""
+
+
+class BookFolderUpdate(BaseModel):
+    path: str
+    tags: list[str]
 
 
 class GameSystemUpdate(BaseModel):
@@ -152,10 +157,49 @@ def get_system(system_id: str, current_user: CurrentUser = Depends(get_current_u
                     "tags": b.tags or [],
                     "is_explicit": bool(b.is_explicit),
                     "is_missing": bool(b.is_missing),
+                    "relative_path": b.relative_path,
                 }
                 for b in books
             ],
         }
+    finally:
+        db.close()
+
+
+@router.get(
+    "/{system_id}/book-folders",
+    summary="List book folders",
+    description="Returns all known book subcategory folder paths for a system and their associated tags.",
+)
+def list_book_folders(system_id: str, _: CurrentUser = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        system = db.query(GameSystem).filter_by(id=system_id).first()
+        if not system:
+            raise HTTPException(404, "System not found")
+        folders = db.query(BookFolder).filter(BookFolder.path.like(f"{system_id}/%")).all()
+        return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    finally:
+        db.close()
+
+
+@router.patch(
+    "/{system_id}/book-folders",
+    summary="Set tags on a book folder",
+    description="Creates or replaces the tag list for a book subcategory folder. GM or admin role required.",
+)
+def update_book_folder(
+    system_id: str, data: BookFolderUpdate, _: CurrentUser = Depends(require_gm_or_admin)  # noqa: ARG001
+):
+    db = SessionLocal()
+    try:
+        folder = db.query(BookFolder).filter_by(path=data.path).first()
+        if folder:
+            folder.tags = data.tags
+        else:
+            db.add(BookFolder(path=data.path, tags=data.tags))
+        db.commit()
+        return {"path": data.path, "tags": data.tags}
     finally:
         db.close()
 

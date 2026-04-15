@@ -66,9 +66,17 @@ library/
 │   └── Dungeons and Dragons 5e/
 │       ├── core/
 │       │   ├── Players Handbook.pdf
-│       │   └── Dungeon Masters Guide.pdf
+│       │   ├── Dungeon Masters Guide.pdf
+│       │   └── monsters/              ← subfolder within a category
+│       │       ├── Monster Manual.pdf
+│       │       └── Mordenkainen's Monsters.pdf
 │       ├── supplements/
 │       ├── adventures/
+│       │   ├── Curse of Strahd/       ← adventure path subfolder
+│       │   │   ├── Curse of Strahd.pdf
+│       │   │   └── Strahd DM Screen.pdf
+│       │   └── Lost Mine of Phandelver/
+│       │       └── Lost Mine of Phandelver.pdf
 │       ├── character-sheets/
 │       ├── handouts/
 │       └── homebrew/
@@ -235,6 +243,31 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 > Any subfolder name that doesn't match the recognized keywords becomes its own category, slugified from the folder name. For example, a folder named `Bestiary` becomes the `bestiary` category.
 >
 > After adding new files, use **Rescan** in the sidebar (or Settings → Maintenance) to pick up the changes.
+
+#### Subfolders within a category
+
+Any category folder can contain named subfolders to group related books together. Grimoire detects these automatically and displays them as collapsible folder groups within the category section — no configuration needed.
+
+```
+books/
+└── Pathfinder 2e/
+    ├── core/
+    │   ├── Core Rulebook.pdf          ← ungrouped, shown at top of Core Rulebooks
+    │   └── monsters/                  ← subfolder group "Monsters"
+    │       ├── Bestiary.pdf
+    │       ├── Bestiary 2.pdf
+    │       └── Bestiary 3.pdf
+    └── adventures/
+        ├── Standalone Adventure.pdf   ← ungrouped
+        ├── Abomination Vaults/        ← subfolder group "Abomination Vaults"
+        │   ├── Ruins of Gauntlight.pdf
+        │   ├── Hands of the Devil.pdf
+        │   └── Eyes of Empty Death.pdf
+        └── Outlaws of Alkenstar/
+            └── ...
+```
+
+Books without a subfolder are shown ungrouped at the top of their category section, above any subfolder groups. Subfolder groups are collapsible and include a download button for the whole group.
 
 #### Marking a system as explicit
 

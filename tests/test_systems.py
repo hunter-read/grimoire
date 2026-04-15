@@ -77,8 +77,102 @@ class TestGetSystem:
             assert all("is_missing" in b for b in books)
             assert all(isinstance(b["is_missing"], bool) for b in books)
 
+    def test_system_books_include_relative_path(self, client, admin_headers, system):
+        from tests.conftest import make_book
+        make_book(
+            system_id=system.id,
+            relative_path="books/Dungeons and Dragons 5e/adventures/Curse of Strahd/cos.pdf",
+        )
+        resp = client.get(f"/api/systems/{system.id}", headers=admin_headers)
+        books = resp.json()["books"]
+        assert all("relative_path" in b for b in books)
+
+    def test_system_books_relative_path_value(self, client, admin_headers, system):
+        from tests.conftest import make_book
+        rp = "books/Dungeons and Dragons 5e/adventures/Lost Mine/lmop.pdf"
+        book = make_book(system_id=system.id, relative_path=rp)
+        resp = client.get(f"/api/systems/{system.id}", headers=admin_headers)
+        books = {b["id"]: b for b in resp.json()["books"]}
+        assert books[book.id]["relative_path"] == rp
+
     def test_get_nonexistent_system(self, client, admin_headers):
         resp = client.get("/api/systems/does-not-exist", headers=admin_headers)
+        assert resp.status_code == 404
+
+
+class TestBookFolders:
+    """Tests for GET/PATCH /api/systems/{id}/book-folders."""
+
+    @pytest.fixture(scope="class")
+    def folder_system(self):
+        return make_game_system(name=f"FolderSys-{uuid.uuid4().hex[:6]}")
+
+    def test_list_book_folders_empty(self, client, admin_headers, folder_system):
+        resp = client.get(f"/api/systems/{folder_system.id}/book-folders", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json()["folders"] == []
+
+    def test_create_book_folder(self, client, admin_headers, folder_system):
+        path = f"{folder_system.id}/Abomination Vaults"
+        resp = client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": path, "tags": ["pathfinder", "horror"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["path"] == path
+        assert body["tags"] == ["pathfinder", "horror"]
+
+    def test_list_book_folders_returns_created(self, client, admin_headers, folder_system):
+        path = f"{folder_system.id}/Some AP"
+        client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": path, "tags": ["adventure"]},
+            headers=admin_headers,
+        )
+        resp = client.get(f"/api/systems/{folder_system.id}/book-folders", headers=admin_headers)
+        paths = [f["path"] for f in resp.json()["folders"]]
+        assert path in paths
+
+    def test_update_existing_book_folder_tags(self, client, admin_headers, folder_system):
+        path = f"{folder_system.id}/Editable AP"
+        client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": path, "tags": ["old-tag"]},
+            headers=admin_headers,
+        )
+        client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": path, "tags": ["new-tag"]},
+            headers=admin_headers,
+        )
+        resp = client.get(f"/api/systems/{folder_system.id}/book-folders", headers=admin_headers)
+        entry = next(f for f in resp.json()["folders"] if f["path"] == path)
+        assert entry["tags"] == ["new-tag"]
+
+    def test_player_can_list_book_folders(self, client, player_headers, folder_system):
+        resp = client.get(f"/api/systems/{folder_system.id}/book-folders", headers=player_headers)
+        assert resp.status_code == 200
+
+    def test_player_cannot_patch_book_folders(self, client, player_headers, folder_system):
+        resp = client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": f"{folder_system.id}/blocked", "tags": []},
+            headers=player_headers,
+        )
+        assert resp.status_code == 403
+
+    def test_gm_can_patch_book_folders(self, client, gm_headers, folder_system):
+        resp = client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": f"{folder_system.id}/gm-folder", "tags": ["gm"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+
+    def test_book_folders_nonexistent_system_returns_404(self, client, admin_headers):
+        resp = client.get("/api/systems/no-such-id/book-folders", headers=admin_headers)
         assert resp.status_code == 404
 
 

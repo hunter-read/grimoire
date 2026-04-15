@@ -77,3 +77,50 @@ class TestNoSubfolder:
     def test_single_segment_path(self):
         # Degenerate case — still returns 'core'
         assert guess_category("phb.pdf") == "core"
+
+
+class TestSubfoldersWithinCategory:
+    """Files nested one level deeper than the category folder.
+
+    The category is determined by the *category* folder name (segment 2),
+    not by the subfolder name (segment 3).  The subfolder is preserved in
+    relative_path and used for display grouping only.
+    """
+
+    def test_adventure_subfolder_still_adventure(self):
+        # books/PF2e/adventures/Abomination Vaults/ruins.pdf → adventure
+        result = guess_category("books/PF2e/adventures/Abomination Vaults/ruins.pdf")
+        assert result == "adventure"
+
+    def test_core_subfolder_still_core(self):
+        # books/PF2e/core/monsters/Bestiary.pdf → core
+        result = guess_category("books/PF2e/core/monsters/Bestiary.pdf")
+        assert result == "core"
+
+    def test_supplement_subfolder_still_supplement(self):
+        result = guess_category("books/D&D 5e/supplements/Settings/sword-coast.pdf")
+        assert result == "supplement"
+
+    def test_homebrew_subfolder_still_homebrew(self):
+        # Use a subfolder name that doesn't accidentally contain a category keyword
+        # as a substring (e.g. "Community" contains "mm" which matches "core").
+        result = guess_category("books/D&D 5e/homebrew/Personal/custom.pdf")
+        assert result == "homebrew"
+
+    def test_subfolder_keyword_takes_priority_over_outer_folder(self):
+        # guess_category scans innermost-first, so a subfolder whose name matches
+        # a category keyword takes priority over its parent category folder.
+        # A subfolder named "core" inside "adventures" → returns "core".
+        result = guess_category("books/PF2e/adventures/core/book.pdf")
+        assert result == "core"
+
+    def test_non_keyword_subfolder_does_not_override_category_folder(self):
+        # A subfolder with a non-keyword name: category folder wins.
+        result = guess_category("books/PF2e/adventures/Abomination Vaults/ruins.pdf")
+        assert result == "adventure"
+
+    def test_deeply_nested_non_keyword_leaf(self):
+        # Three levels deep with non-keyword names throughout inner segments:
+        # books/System/adventures/AP Name/Part 1/chapter.pdf → adventure
+        result = guess_category("books/PF2e/adventures/Abomination Vaults/Part 1/ruins.pdf")
+        assert result == "adventure"
