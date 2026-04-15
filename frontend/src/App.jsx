@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
+import useScrollRestoration from './hooks/useScrollRestoration'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
@@ -50,6 +51,7 @@ function AppShell() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const location = useLocation()
   const isReader = location.pathname.startsWith('/library/book/') || location.pathname.startsWith('/maps/') || location.pathname.startsWith('/tokens/')
+  const mainRef = useScrollRestoration()
 
   const refreshUiSettings = () => settingsApi.getUi().then(setUiSettings).catch(() => {})
 
@@ -74,7 +76,7 @@ function AppShell() {
         <Sidebar stats={stats} user={user} onLogout={logout} uiSettings={uiSettings} />
       )}
 
-      <main style={{
+      <main ref={mainRef} style={{
         flex: 1, minWidth: 0, height: '100%',
         overflow: isReader ? 'hidden' : 'auto',
         paddingBottom: isMobile ? 64 : 0,

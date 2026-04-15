@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import useSessionState from '../hooks/useSessionState'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft, LuPencil, LuClipboard,
@@ -27,7 +28,7 @@ export default function SystemDetailView() {
   const [system, setSystem] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
-  const [collapsedCats, setCollapsedCats] = useState(new Set())
+  const [collapsedCats, setCollapsedCats] = useSessionState(`grimoire:system:${systemId}:collapsed`, new Set())
   const [selectedTags, setSelectedTags] = useState(new Set())
   const [showAllTags, setShowAllTags] = useState(false)
   const [bookSort, setBookSort] = useState('title')

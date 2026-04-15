@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import useSessionState from '../hooks/useSessionState'
 import { useTranslation } from 'react-i18next'
 import { LuMap, LuX, LuTag, LuSearch } from 'react-icons/lu'
 import api from '../api'
@@ -34,7 +35,7 @@ export default function MapsView() {
   const [folderTags, setFolderTags] = useState({})
   const [filter, setFilter] = useState('')
   const [selectedTags, setSelectedTags] = useState(new Set())
-  const [collapsed, setCollapsed] = useState(new Set())
+  const [collapsed, setCollapsed] = useSessionState('grimoire:maps:collapsed', new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [showAllTags, setShowAllTags] = useState(false)
   const [downloadModal, setDownloadModal] = useState(null)
@@ -53,14 +54,18 @@ export default function MapsView() {
       const ft = {}
       for (const f of foldersData.folders) ft[f.path] = f.tags
       setFolderTags(ft)
-      const keys = new Set()
-      mapsData.maps.forEach(m => {
-        const folder = getTopFolder(m)
-        const subPath = getSubPath(m)
-        keys.add(folder)
-        if (subPath) keys.add(`${folder}::${subPath}`)
-      })
-      setCollapsed(keys)
+      // Only set default collapsed state (all collapsed) when no saved state exists.
+      const hasSaved = sessionStorage.getItem('grimoire:maps:collapsed') !== null
+      if (!hasSaved) {
+        const keys = new Set()
+        mapsData.maps.forEach(m => {
+          const folder = getTopFolder(m)
+          const subPath = getSubPath(m)
+          keys.add(folder)
+          if (subPath) keys.add(`${folder}::${subPath}`)
+        })
+        setCollapsed(keys)
+      }
     })
   }, [])
 
