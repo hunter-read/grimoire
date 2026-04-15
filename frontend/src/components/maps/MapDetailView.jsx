@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuTag, LuInfo, LuChevronDown } from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
 
@@ -24,22 +25,22 @@ function MetaRow({ label, value }) {
   )
 }
 
-function TagSection({ label, tags, onEdit, canEdit }) {
+function TagSection({ label, tags, onEdit, canEdit, editLabel, noTagsLabel }) {
   return (
     <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
         {canEdit && (
           <button onClick={onEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            <LuTag size={11} /> Edit
+            <LuTag size={11} /> {editLabel}
           </button>
         )}
       </div>
       {tags.length > 0
         ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {tags.map(t => <span key={t} style={tagPillStyle}>{t}</span>)}
+            {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag}</span>)}
           </div>
-        : <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>None</div>
+        : <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{noTagsLabel}</div>
       }
     </div>
   )
@@ -48,6 +49,7 @@ function TagSection({ label, tags, onEdit, canEdit }) {
 export default function MapDetailView() {
   const { mapId } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [map, setMap] = useState(null)
   const [siblings, setSiblings] = useState([])
   const [editingMapTags, setEditingMapTags] = useState(false)
@@ -102,9 +104,9 @@ export default function MapDetailView() {
   }
 
   const gridSourceLabel = {
-    filename: 'Parsed from filename',
-    dpi:      'Derived from DPI',
-    computed: 'Estimated from resolution',
+    filename: t('maps.detail.gridSourceFilename'),
+    dpi:      t('maps.detail.gridSourceDpi'),
+    computed: t('maps.detail.gridSourceComputed'),
   }
 
   return (
@@ -114,11 +116,11 @@ export default function MapDetailView() {
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px',
         background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', flexShrink: 0,
       }}>
-        <button onClick={() => navigate('/maps')} aria-label="Back to maps" style={{
+        <button onClick={() => navigate('/maps')} aria-label={t('maps.detail.back')} style={{
           background: 'none', color: 'var(--text-dim)', fontSize: 15, border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 5,
         }}>
-          <LuArrowLeft size={15} /> Back
+          <LuArrowLeft size={15} /> {t('common.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <span style={{ fontSize: 16, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -127,7 +129,7 @@ export default function MapDetailView() {
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails(v => !v)}
-            title="Details"
+            title={t('maps.detail.details')}
             style={{
               background: showDetails ? 'var(--bg-card-hover)' : 'var(--bg-card)',
               border: '1px solid var(--border)', color: showDetails ? 'var(--gold)' : 'var(--text-dim)',
@@ -145,7 +147,7 @@ export default function MapDetailView() {
           borderRadius: 4, padding: '4px 12px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 5,
           textDecoration: 'none',
         }}>
-          <LuDownload size={13} /> Download
+          <LuDownload size={13} /> {t('common.download')}
         </a>
       </div>
 
@@ -175,21 +177,21 @@ export default function MapDetailView() {
           ),
           background: 'var(--bg-panel)', padding: '24px 20px', overflowY: 'auto',
         }}>
-          <h3 style={{ fontSize: 15, marginBottom: 20 }}>Map Details</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('maps.detail.title')}</h3>
 
-          {folder && <MetaRow label="Location" value={folder} />}
-<MetaRow label="File Size" value={formatSize(map.file_size)} />
+          {folder && <MetaRow label={t('maps.detail.location')} value={folder} />}
+          <MetaRow label={t('maps.detail.fileSize')} value={formatSize(map.file_size)} />
           {map.pixel_width != null && (
-            <MetaRow label="Resolution" value={`${map.pixel_width} × ${map.pixel_height} px`} />
+            <MetaRow label={t('maps.detail.resolution')} value={t('maps.detail.resolutionValue', { width: map.pixel_width, height: map.pixel_height })} />
           )}
-          {map.dpi != null && <MetaRow label="DPI" value={String(map.dpi)} />}
-          {map.map_type && <MetaRow label="Type" value={map.map_type} />}
+          {map.dpi != null && <MetaRow label={t('maps.detail.dpi')} value={String(map.dpi)} />}
+          {map.map_type && <MetaRow label={t('maps.detail.type')} value={map.map_type} />}
 
           {map.grid && (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grid</div>
-              <MetaRow label="Dimensions" value={`${map.grid.width} × ${map.grid.height} cells`} />
-              {map.grid.cell_px != null && <MetaRow label="Cell Size" value={`${map.grid.cell_px} px`} />}
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('maps.detail.grid')}</div>
+              <MetaRow label={t('maps.detail.gridDimensions')} value={t('maps.detail.gridDimensionsValue', { width: map.grid.width, height: map.grid.height })} />
+              {map.grid.cell_px != null && <MetaRow label={t('maps.detail.gridCellSize')} value={t('maps.detail.gridCellSizeValue', { px: map.grid.cell_px })} />}
               <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                 {gridSourceLabel[map.grid.source] ?? map.grid.source}
               </div>
@@ -200,27 +202,41 @@ export default function MapDetailView() {
           {folder && (
             editingFolderTags
               ? <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Folder Tags</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('maps.detail.folderTags')}</div>
                   <InlineTagEditor
                     tags={currentFolderTags}
                     onSave={saveFolderTags}
                     onCancel={() => setEditingFolderTags(false)}
                   />
                 </div>
-              : <TagSection label="Folder Tags" tags={currentFolderTags} canEdit={true} onEdit={() => setEditingFolderTags(true)} />
+              : <TagSection
+                  label={t('maps.detail.folderTags')}
+                  tags={currentFolderTags}
+                  canEdit={true}
+                  onEdit={() => setEditingFolderTags(true)}
+                  editLabel={t('maps.detail.editTags')}
+                  noTagsLabel={t('maps.detail.noTags')}
+                />
           )}
 
           {/* Map tags */}
           {editingMapTags
             ? <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Map Tags</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('maps.detail.mapTags')}</div>
                 <InlineTagEditor
                   tags={map.tags}
                   onSave={saveMapTags}
                   onCancel={() => setEditingMapTags(false)}
                 />
               </div>
-            : <TagSection label="Map Tags" tags={map.tags} canEdit onEdit={() => setEditingMapTags(true)} />
+            : <TagSection
+                label={t('maps.detail.mapTags')}
+                tags={map.tags}
+                canEdit
+                onEdit={() => setEditingMapTags(true)}
+                editLabel={t('maps.detail.editTags')}
+                noTagsLabel={t('maps.detail.noTags')}
+              />
           }
         </div>
       </div>

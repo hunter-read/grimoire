@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuKey, LuCopy, LuTrash } from 'react-icons/lu'
 import { settings as settingsApi } from '../../api'
 import Spinner from '../Spinner'
@@ -7,16 +8,17 @@ import Spinner from '../Spinner'
 // Sidebar Visibility section
 // ---------------------------------------------------------------------------
 
-const VISIBILITY_ITEMS = [
-  { key: 'hide_maps',      label: 'Maps' },
-  { key: 'hide_tokens',    label: 'Tokens' },
-  { key: 'hide_campaigns', label: 'Campaigns' },
-]
-
 function SidebarVisibilitySection() {
-  const [values,  setValues]  = useState(null) // null = loading
-  const [saving,  setSaving]  = useState(null) // key currently being saved
+  const { t } = useTranslation()
+  const [values,  setValues]  = useState(null)
+  const [saving,  setSaving]  = useState(null)
   const [saved,   setSaved]   = useState(null)
+
+  const VISIBILITY_ITEMS = [
+    { key: 'hide_maps',      label: t('appSettings.sidebarVisibility.hideMaps')      },
+    { key: 'hide_tokens',    label: t('appSettings.sidebarVisibility.hideTokens')    },
+    { key: 'hide_campaigns', label: t('appSettings.sidebarVisibility.hideCampaigns') },
+  ]
 
   useEffect(() => {
     settingsApi.get()
@@ -40,9 +42,9 @@ function SidebarVisibilitySection() {
 
   return (
     <div style={{ marginBottom: 40 }}>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Sidebar Visibility</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('appSettings.sidebarVisibility.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Hide sections from the sidebar and mobile navigation for all users.
+        {t('appSettings.sidebarVisibility.description')}
       </p>
 
       {values === null ? <Spinner size={20} /> : (
@@ -56,7 +58,7 @@ function SidebarVisibilitySection() {
                 disabled={saving === key}
                 style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--gold)' }}
               />
-              <span style={{ fontSize: 14, color: 'var(--text)' }}>Hide {label}</span>
+              <span style={{ fontSize: 14, color: 'var(--text)' }}>{label}</span>
               {saving === key && <Spinner size={13} />}
               {saved === key && <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />}
             </label>
@@ -71,24 +73,25 @@ function SidebarVisibilitySection() {
 // Stats Display section
 // ---------------------------------------------------------------------------
 
-const STAT_ITEMS = [
-  { key: 'show_stat_systems', label: 'Systems' },
-  { key: 'show_stat_books',   label: 'Books'   },
-  { key: 'show_stat_pages',   label: 'Pages'   },
-  { key: 'show_stat_maps',    label: 'Maps'    },
-  { key: 'show_stat_tokens',  label: 'Tokens'  },
-  { key: 'show_stat_size',    label: 'Size'    },
-  { key: 'show_stat_version', label: 'Version' },
-]
-
 function StatsDisplaySection() {
+  const { t } = useTranslation()
   const [values, setValues] = useState(null)
   const [saving, setSaving] = useState(null)
   const [saved,  setSaved]  = useState(null)
 
+  const STAT_ITEMS = [
+    { key: 'show_stat_systems', label: t('stats.systems') },
+    { key: 'show_stat_books',   label: t('stats.books')   },
+    { key: 'show_stat_pages',   label: t('stats.pages')   },
+    { key: 'show_stat_maps',    label: t('stats.maps')    },
+    { key: 'show_stat_tokens',  label: t('stats.tokens')  },
+    { key: 'show_stat_size',    label: t('stats.size')    },
+    { key: 'show_stat_version', label: t('stats.version') },
+  ]
+
   useEffect(() => {
     settingsApi.get()
-      .then(d => setValues(Object.fromEntries(STAT_ITEMS.map(({ key }) => [key, d[key] ?? false])))  )
+      .then(d => setValues(Object.fromEntries(STAT_ITEMS.map(({ key }) => [key, d[key] ?? false]))))
       .catch(() => setValues(Object.fromEntries(STAT_ITEMS.map(({ key }) => [key, false]))))
   }, [])
 
@@ -108,9 +111,9 @@ function StatsDisplaySection() {
 
   return (
     <div style={{ marginBottom: 40 }}>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Sidebar Stats</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('appSettings.sidebarStats.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Choose which stats appear in the sidebar footer.
+        {t('appSettings.sidebarStats.description')}
       </p>
       {values === null ? <Spinner size={20} /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -139,6 +142,7 @@ function StatsDisplaySection() {
 // ---------------------------------------------------------------------------
 
 function ApiKeySection() {
+  const { t } = useTranslation()
   const [apiKey,   setApiKey]   = useState(null)
   const [copying,  setCopying]  = useState(false)
   const [working,  setWorking]  = useState(false)
@@ -177,12 +181,11 @@ function ApiKeySection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Stats API Key</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('appSettings.apiKey.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Generate an API key to allow external applications (e.g. Homepage) to query library stats
-        without logging in. Pass the key in the{' '}
+        {t('appSettings.apiKey.description')}{' '}
         <code style={{ fontSize: 12, background: 'var(--bg-card)', padding: '1px 5px', borderRadius: 4 }}>X-API-Key</code>
-        {' '}request header.
+        {' '}{t('appSettings.apiKey.descriptionSuffix')}
       </p>
 
       {apiKey === null ? <Spinner size={20} /> : apiKey ? (
@@ -195,15 +198,15 @@ function ApiKeySection() {
             <code style={{ flex: 1, fontSize: 13, wordBreak: 'break-all', color: 'var(--gold)' }}>{apiKey}</code>
             <button
               onClick={handleCopy}
-              title="Copy key"
+              title={t('appSettings.apiKey.copyKey')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 4, flexShrink: 0 }}
             >
               {copying ? <LuCircleCheck size={15} style={{ color: 'var(--green)' }} /> : <LuCopy size={15} />}
             </button>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', wordBreak: 'break-all' }}>
-            Endpoint: <span style={{ color: 'var(--text-dim)' }}>{statsUrl}</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>— set <code style={{ fontSize: 11, background: 'var(--bg-card)', padding: '1px 4px', borderRadius: 3 }}>X-API-Key: {apiKey}</code></span>
+            {t('appSettings.apiKey.endpoint')} <span style={{ color: 'var(--text-dim)' }}>{statsUrl}</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{t('appSettings.apiKey.set')} <code style={{ fontSize: 11, background: 'var(--bg-card)', padding: '1px 4px', borderRadius: 3 }}>X-API-Key: {apiKey}</code></span>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             <button
@@ -216,7 +219,7 @@ function ApiKeySection() {
                 color: 'var(--text-dim)', cursor: working ? 'default' : 'pointer',
               }}
             >
-              <LuKey size={13} /> Regenerate
+              <LuKey size={13} /> {t('appSettings.apiKey.regenerate')}
             </button>
             <button
               onClick={handleRevoke}
@@ -228,7 +231,7 @@ function ApiKeySection() {
                 color: '#e07070', cursor: working ? 'default' : 'pointer',
               }}
             >
-              <LuTrash size={13} /> Revoke
+              <LuTrash size={13} /> {t('appSettings.apiKey.revoke')}
             </button>
           </div>
         </div>
@@ -244,7 +247,7 @@ function ApiKeySection() {
           }}
         >
           {working ? <Spinner size={13} /> : <LuKey size={13} />}
-          {working ? 'Generating…' : 'Generate API Key'}
+          {working ? t('appSettings.apiKey.generating') : t('appSettings.apiKey.generate')}
         </button>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuUser, LuX, LuTag, LuSearch } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
@@ -8,23 +9,24 @@ import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { useAuth } from '../context/AuthContext'
 
-const getFolderPath = (t) => {
-  const parts = (t.relative_path || '').replace(/\\/g, '/').split('/')
+const getFolderPath = (item) => {
+  const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.slice(1, -1).join('/')
 }
 
-const getTopFolder = (t) => {
-  const parts = (t.relative_path || '').replace(/\\/g, '/').split('/')
+const getTopFolder = (item) => {
+  const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.length > 2 ? parts[1] : '(Root)'
 }
 
-const getSubPath = (t) => {
-  const parts = (t.relative_path || '').replace(/\\/g, '/').split('/')
+const getSubPath = (item) => {
+  const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.slice(2, -1).join('/')
 }
 
 
 export default function TokensView() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const isPlayer = user?.role === 'player'
@@ -52,9 +54,9 @@ export default function TokensView() {
       for (const f of foldersData.folders) ft[f.path] = f.tags
       setFolderTags(ft)
       const keys = new Set()
-      tokensData.tokens.forEach(t => {
-        const folder = getTopFolder(t)
-        const subPath = getSubPath(t)
+      tokensData.tokens.forEach(tok => {
+        const folder = getTopFolder(tok)
+        const subPath = getSubPath(tok)
         keys.add(folder)
         if (subPath) keys.add(`${folder}::${subPath}`)
       })
@@ -94,7 +96,7 @@ export default function TokensView() {
     })
 
   const toggleFolderSelect = (folderPath, tokensInFolder) => {
-    const tokenIds = tokensInFolder.map(t => t.id)
+    const tokenIds = tokensInFolder.map(tok => tok.id)
     const allSel = selectedFolderPaths.has(folderPath) && tokenIds.every(id => selectedTokenIds.has(id))
     setSelectedFolderPaths(prev => {
       const next = new Set(prev)
@@ -110,7 +112,7 @@ export default function TokensView() {
   }
 
   const applyBulkTags = async () => {
-    const newTags = bulkInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    const newTags = bulkInput.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean)
     const totalSel = selectedTokenIds.size + selectedFolderPaths.size
     if (!newTags.length || totalSel === 0 || bulkApplying) return
 
@@ -118,7 +120,7 @@ export default function TokensView() {
     const promises = []
 
     for (const id of selectedTokenIds) {
-      const token = tokens.tokens.find(t => t.id === id)
+      const token = tokens.tokens.find(tok => tok.id === id)
       if (!token) continue
       const merged = [...new Set([...(token.tags || []), ...newTags])]
       promises.push(api.patch(`/tokens/${id}`, { tags: merged }))
@@ -137,9 +139,9 @@ export default function TokensView() {
 
     setTokens(prev => ({
       ...prev,
-      tokens: prev.tokens.map(t => {
-        if (!selectedTokenIds.has(t.id)) return t
-        return { ...t, tags: [...new Set([...(t.tags || []), ...newTags])] }
+      tokens: prev.tokens.map(tok => {
+        if (!selectedTokenIds.has(tok.id)) return tok
+        return { ...tok, tags: [...new Set([...(tok.tags || []), ...newTags])] }
       }),
     }))
 
@@ -152,42 +154,42 @@ export default function TokensView() {
 
   if (!tokens) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={32} /></div>
 
-  const allTags = [...new Set(tokens.tokens.flatMap(t => [
-    ...(t.tags || []),
-    ...(folderTags[getFolderPath(t)] || []),
+  const allTags = [...new Set(tokens.tokens.flatMap(tok => [
+    ...(tok.tags || []),
+    ...(folderTags[getFolderPath(tok)] || []),
   ]))].sort()
 
-  const toggleTag = (t) =>
+  const toggleTag = (tag) =>
     setSelectedTags(prev => {
       const next = new Set(prev)
-      next.has(t) ? next.delete(t) : next.add(t)
+      next.has(tag) ? next.delete(tag) : next.add(tag)
       return next
     })
 
-  const filtered = tokens.tokens.filter(t => {
+  const filtered = tokens.tokens.filter(tok => {
     const q = filter.toLowerCase()
     const textMatch = !filter || (
-      t.filename.toLowerCase().includes(q) ||
-      getTopFolder(t).toLowerCase().includes(q) ||
-      getSubPath(t).toLowerCase().includes(q) ||
-      (t.tags || []).some(tag => tag.toLowerCase().includes(q)) ||
-      (folderTags[getFolderPath(t)] || []).some(tag => tag.toLowerCase().includes(q))
+      tok.filename.toLowerCase().includes(q) ||
+      getTopFolder(tok).toLowerCase().includes(q) ||
+      getSubPath(tok).toLowerCase().includes(q) ||
+      (tok.tags || []).some(tag => tag.toLowerCase().includes(q)) ||
+      (folderTags[getFolderPath(tok)] || []).some(tag => tag.toLowerCase().includes(q))
     )
     const tagMatch = selectedTags.size === 0 || (() => {
-      const tokenTagSet = new Set(t.tags || [])
-      const folderTagSet = new Set(folderTags[getFolderPath(t)] || [])
+      const tokenTagSet = new Set(tok.tags || [])
+      const folderTagSet = new Set(folderTags[getFolderPath(tok)] || [])
       return [...selectedTags].some(tag => tokenTagSet.has(tag) || folderTagSet.has(tag))
     })()
     return textMatch && tagMatch
   })
 
   const byFolder = {}
-  filtered.forEach(t => {
-    const folder = getTopFolder(t)
-    const subPath = getSubPath(t)
+  filtered.forEach(tok => {
+    const folder = getTopFolder(tok)
+    const subPath = getSubPath(tok)
     if (!byFolder[folder]) byFolder[folder] = {}
     if (!byFolder[folder][subPath]) byFolder[folder][subPath] = []
-    byFolder[folder][subPath].push(t)
+    byFolder[folder][subPath].push(tok)
   })
 
   const prefs    = getUserPrefs()
@@ -203,9 +205,9 @@ export default function TokensView() {
     <div style={{ padding: '32px 40px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box', flex: 1 }}>
       <div style={{ marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h2 style={{ fontSize: 28, marginBottom: 8 }}>Tokens</h2>
+          <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('tokens.title')}</h2>
           <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
-            {tokens.total} token{tokens.total !== 1 ? 's' : ''} in your collection
+            {t('tokens.subtitle', { count: tokens.total })}
           </p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
@@ -214,10 +216,10 @@ export default function TokensView() {
               <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
               <input
                 type="text"
-                placeholder="Filter tokens…"
+                placeholder={t('tokens.filterPlaceholder')}
                 value={filter}
                 onChange={e => setFilter(e.target.value)}
-                aria-label="Filter tokens"
+                aria-label={t('tokens.filterAriaLabel')}
                 style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
               />
               {filter && (
@@ -243,12 +245,12 @@ export default function TokensView() {
                     onClick={() => setCollapsed(allKeys)}
                     disabled={noFolders || bulkMode || allCollapsed}
                     style={{ ...toolBtnStyle, opacity: (noFolders || bulkMode || allCollapsed) ? 0.4 : 1 }}
-                  >Collapse All</button>
+                  >{t('common.collapseAll')}</button>
                   <button
                     onClick={() => setCollapsed(new Set())}
                     disabled={noFolders || bulkMode || allExpanded}
                     style={{ ...toolBtnStyle, opacity: (noFolders || bulkMode || allExpanded) ? 0.4 : 1 }}
-                  >Expand All</button>
+                  >{t('common.expandAll')}</button>
                 </>
               )
             })()}
@@ -263,7 +265,7 @@ export default function TokensView() {
                 }}
               >
                 <LuTag size={13} />
-                {bulkMode ? 'Cancel' : 'Bulk Tag'}
+                {bulkMode ? t('tokens.cancelBulk') : t('tokens.bulkTag')}
               </button>
             )}
           </div>
@@ -272,19 +274,19 @@ export default function TokensView() {
 
       {!bulkMode && allTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>Tags:</span>
-          {(showAllTags ? allTags : allTags.slice(0, 15)).map(t => (
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>{t('common.tags')}</span>
+          {(showAllTags ? allTags : allTags.slice(0, 15)).map(tag => (
             <button
-              key={t}
-              onClick={() => toggleTag(t)}
+              key={tag}
+              onClick={() => toggleTag(tag)}
               style={{
                 fontSize: 13, padding: '3px 10px', borderRadius: 10, cursor: 'pointer', border: 'none',
-                background: selectedTags.has(t) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
-                color: selectedTags.has(t) ? 'var(--gold)' : 'var(--text-dim)',
-                outline: selectedTags.has(t) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
+                background: selectedTags.has(tag) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
+                color: selectedTags.has(tag) ? 'var(--gold)' : 'var(--text-dim)',
+                outline: selectedTags.has(tag) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
               }}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {tag.charAt(0).toUpperCase() + tag.slice(1)}
             </button>
           ))}
           {allTags.length > 15 && (
@@ -292,7 +294,7 @@ export default function TokensView() {
               onClick={() => setShowAllTags(v => !v)}
               style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
             >
-              {showAllTags ? 'Show less' : `+${allTags.length - 15} more`}
+              {showAllTags ? t('common.showLess') : t('common.showMore', { count: allTags.length - 15 })}
             </button>
           )}
           {selectedTags.size > 0 && (
@@ -300,7 +302,7 @@ export default function TokensView() {
               onClick={() => setSelectedTags(new Set())}
               style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}
             >
-              <LuX size={11} /> Clear
+              <LuX size={11} /> {t('common.clear')}
             </button>
           )}
         </div>
@@ -308,7 +310,7 @@ export default function TokensView() {
 
       {bulkMode && (
         <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
-          Click folder headers or token cards to select them, then add tags below.
+          {t('tokens.bulkHint')}
         </p>
       )}
 
@@ -338,7 +340,7 @@ export default function TokensView() {
       {folderEntries.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
           <LuUser size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
-          <p>{filter ? 'No tokens match your filter.' : 'No tokens found. Add token images to /library/tokens/ and rescan.'}</p>
+          <p>{filter ? t('tokens.noTokensFilter') : t('tokens.noTokens')}</p>
         </div>
       )}
 
@@ -369,7 +371,7 @@ export default function TokensView() {
             padding: '12px 16px', boxSizing: 'border-box',
           }}>
             <span style={{ gridArea: 'count', fontSize: 14, color: totalSelected > 0 ? 'var(--text)' : 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
-              {totalSelected > 0 ? `${totalSelected} selected` : 'Nothing selected'}
+              {totalSelected > 0 ? t('common.selected', { count: totalSelected }) : t('common.nothingSelected')}
             </span>
             <input
               ref={bulkInputRef}
@@ -377,7 +379,7 @@ export default function TokensView() {
               value={bulkInput}
               onChange={e => setBulkInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && applyBulkTags()}
-              placeholder="Tags to add, comma-separated…"
+              placeholder={t('tokens.tagsPlaceholder')}
               style={{ gridArea: 'input', fontSize: 14, width: '100%', boxSizing: 'border-box' }}
             />
             <button
@@ -390,10 +392,10 @@ export default function TokensView() {
                 opacity: (!bulkInput.trim() || totalSelected === 0 || bulkApplying) ? 0.5 : 1,
               }}
             >
-              {bulkApplying ? 'Applying…' : 'Add Tags'}
+              {bulkApplying ? t('tokens.applying') : t('tokens.addTags')}
             </button>
             <button onClick={exitBulkMode} className="bulk-bar-done" style={{ gridArea: 'done', ...toolBtnStyle }}>
-              Done
+              {t('common.done')}
             </button>
           </div>
         </>

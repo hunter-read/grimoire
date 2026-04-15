@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuPause, LuPlay, LuSearch, LuArrowDown } from 'react-icons/lu'
 import api from '../../api'
 
@@ -72,6 +73,7 @@ function isAtBottom(el, threshold = 40) {
 }
 
 export default function LogsTab() {
+  const { t } = useTranslation()
   const [level,       setLevel]       = useState('info')
   const [search,      setSearch]      = useState('')
   const [entries,     setEntries]     = useState([])
@@ -147,7 +149,7 @@ export default function LogsTab() {
     }, 1000)
 
     return () => clearInterval(id)
-  }, []) 
+  }, [])
 
   const totalRef        = useRef(0)
   const entriesLenRef   = useRef(0)
@@ -202,15 +204,15 @@ export default function LogsTab() {
 
   return (
     <div>
-      <div role="toolbar" aria-label="Log viewer controls" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div role="toolbar" aria-label={t('logs.toolbarAriaLabel')} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
 
-        <div role="group" aria-label="Minimum log level" style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+        <div role="group" aria-label={t('logs.levelGroupAriaLabel')} style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
           {LEVELS.map((l, idx) => (
             <button
               key={l}
               onClick={() => setLevel(l)}
               aria-pressed={level === l}
-              aria-label={`Show ${l} and above`}
+              aria-label={t('logs.showLevelAbove', { level: l })}
               style={{
                 padding: '6px 14px', fontSize: 12, cursor: 'pointer', border: 'none',
                 borderRight: idx < LEVELS.length - 1 ? '1px solid var(--border)' : 'none',
@@ -228,7 +230,7 @@ export default function LogsTab() {
         <button
           onClick={() => setLive(v => !v)}
           aria-pressed={live}
-          aria-label={live ? 'Pause live log updates' : 'Resume live log updates'}
+          aria-label={live ? t('logs.pauseAriaLabel') : t('logs.resumeAriaLabel')}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '6px 14px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
@@ -238,7 +240,7 @@ export default function LogsTab() {
           }}
         >
           {live ? <LuPause size={13} aria-hidden="true" /> : <LuPlay size={13} aria-hidden="true" />}
-          <span>{live ? 'Live' : 'Paused'}</span>
+          <span>{live ? t('logs.liveButton') : t('logs.pausedButton')}</span>
         </button>
 
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
@@ -247,8 +249,8 @@ export default function LogsTab() {
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search log messages…"
-            aria-label="Search log messages"
+            placeholder={t('logs.searchPlaceholder')}
+            aria-label={t('logs.searchAriaLabel')}
             style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 30, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none' }}
           />
         </div>
@@ -260,7 +262,7 @@ export default function LogsTab() {
         <div
           ref={containerRef}
           role="log"
-          aria-label="Application log output"
+          aria-label={t('logs.logOutputAriaLabel')}
           aria-live="polite"
           aria-atomic="false"
           aria-relevant="additions"
@@ -273,22 +275,22 @@ export default function LogsTab() {
           <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />
 
           {loadingMore && (
-            <div role="status" aria-label="Loading older log entries" style={{ padding: '6px 12px', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-              Loading older entries…
+            <div role="status" aria-label={t('logs.loadingOlderAriaLabel')} style={{ padding: '6px 12px', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+              {t('logs.loadingOlder')}
             </div>
           )}
 
           {hasOlder && !loadingMore && (
-            <div aria-label={`${total - entries.length} older entries not yet loaded`} style={{ padding: '4px 12px', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              ↑ {total - entries.length} older entries — scroll up to load more
+            <div aria-label={t('logs.olderCountAriaLabel', { count: total - entries.length })} style={{ padding: '4px 12px', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              {t('logs.olderEntries', { count: total - entries.length })}
             </div>
           )}
 
           {filtered.length === 0 ? (
             <div role="status" style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
               {search
-                ? `No entries matching "${search}"`
-                : <span>No log entries at <span style={{ fontFamily: 'monospace', textTransform: 'uppercase' }}>{level}</span> level or above.</span>
+                ? t('logs.noEntriesMatch', { query: search })
+                : <span>{t('logs.noEntriesLevel', { level })}</span>
               }
             </div>
           ) : (
@@ -301,13 +303,13 @@ export default function LogsTab() {
         {!pinned && (
           <button
             onClick={() => { setPinned(true); scrollToBottom() }}
-            aria-label="Scroll to bottom and resume auto-scroll"
+            aria-label={t('logs.jumpToLatest')}
             style={{ position: 'absolute', bottom: 12, right: 12, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, fontSize: 12, cursor: 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)' }}
           >
             <LuArrowDown size={12} aria-hidden="true" />
-            Jump to latest
+            {t('logs.jumpToLatest')}
           </button>
         )}
       </div>

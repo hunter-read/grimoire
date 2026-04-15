@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuMap, LuX, LuTag, LuSearch } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
@@ -25,6 +26,7 @@ const getSubPath = (m) => {
 
 
 export default function MapsView() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const isPlayer = user?.role === 'player'
@@ -74,7 +76,6 @@ export default function MapsView() {
     setFolderTags(prev => ({ ...prev, [path]: tags }))
   }
 
-  // Bulk mode handlers
   const enterBulkMode = () => {
     setBulkMode(true)
     setTimeout(() => bulkInputRef.current?.focus(), 50)
@@ -111,7 +112,7 @@ export default function MapsView() {
   }
 
   const applyBulkTags = async () => {
-    const newTags = bulkInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    const newTags = bulkInput.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean)
     const totalSel = selectedMapIds.size + selectedFolderPaths.size
     if (!newTags.length || totalSel === 0 || bulkApplying) return
 
@@ -158,10 +159,10 @@ export default function MapsView() {
     ...(folderTags[getFolderPath(m)] || []),
   ]))].sort()
 
-  const toggleTag = (t) =>
+  const toggleTag = (tag) =>
     setSelectedTags(prev => {
       const next = new Set(prev)
-      next.has(t) ? next.delete(t) : next.add(t)
+      next.has(tag) ? next.delete(tag) : next.add(tag)
       return next
     })
 
@@ -171,13 +172,13 @@ export default function MapsView() {
       m.filename.toLowerCase().includes(q) ||
       getTopFolder(m).toLowerCase().includes(q) ||
       getSubPath(m).toLowerCase().includes(q) ||
-      (m.tags || []).some(t => t.toLowerCase().includes(q)) ||
-      (folderTags[getFolderPath(m)] || []).some(t => t.toLowerCase().includes(q))
+      (m.tags || []).some(tag => tag.toLowerCase().includes(q)) ||
+      (folderTags[getFolderPath(m)] || []).some(tag => tag.toLowerCase().includes(q))
     )
     const tagMatch = selectedTags.size === 0 || (() => {
       const mapTagSet = new Set(m.tags || [])
       const folderTagSet = new Set(folderTags[getFolderPath(m)] || [])
-      return [...selectedTags].some(t => mapTagSet.has(t) || folderTagSet.has(t))
+      return [...selectedTags].some(tag => mapTagSet.has(tag) || folderTagSet.has(tag))
     })()
     return textMatch && tagMatch
   })
@@ -204,9 +205,9 @@ export default function MapsView() {
     <div style={{ padding: '32px 40px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box', flex: 1 }}>
       <div style={{ marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h2 style={{ fontSize: 28, marginBottom: 8 }}>Maps</h2>
+          <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('maps.title')}</h2>
           <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
-            {maps.total} map{maps.total !== 1 ? 's' : ''} in your collection
+            {t('maps.subtitle', { count: maps.total })}
           </p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
@@ -215,10 +216,10 @@ export default function MapsView() {
               <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
               <input
                 type="text"
-                placeholder="Filter maps…"
+                placeholder={t('maps.filterPlaceholder')}
                 value={filter}
                 onChange={e => setFilter(e.target.value)}
-                aria-label="Filter maps"
+                aria-label={t('maps.filterAriaLabel')}
                 style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
               />
               {filter && (
@@ -244,12 +245,12 @@ export default function MapsView() {
                     onClick={() => setCollapsed(allKeys)}
                     disabled={noFolders || bulkMode || allCollapsed}
                     style={{ ...toolBtnStyle, opacity: (noFolders || bulkMode || allCollapsed) ? 0.4 : 1 }}
-                  >Collapse All</button>
+                  >{t('common.collapseAll')}</button>
                   <button
                     onClick={() => setCollapsed(new Set())}
                     disabled={noFolders || bulkMode || allExpanded}
                     style={{ ...toolBtnStyle, opacity: (noFolders || bulkMode || allExpanded) ? 0.4 : 1 }}
-                  >Expand All</button>
+                  >{t('common.expandAll')}</button>
                 </>
               )
             })()}
@@ -264,7 +265,7 @@ export default function MapsView() {
                 }}
               >
                 <LuTag size={13} />
-                {bulkMode ? 'Cancel' : 'Bulk Tag'}
+                {bulkMode ? t('maps.cancelBulk') : t('maps.bulkTag')}
               </button>
             )}
           </div>
@@ -273,19 +274,19 @@ export default function MapsView() {
 
       {!bulkMode && allTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>Tags:</span>
-          {(showAllTags ? allTags : allTags.slice(0, 15)).map(t => (
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>{t('common.tags')}</span>
+          {(showAllTags ? allTags : allTags.slice(0, 15)).map(tag => (
             <button
-              key={t}
-              onClick={() => toggleTag(t)}
+              key={tag}
+              onClick={() => toggleTag(tag)}
               style={{
                 fontSize: 13, padding: '3px 10px', borderRadius: 10, cursor: 'pointer', border: 'none',
-                background: selectedTags.has(t) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
-                color: selectedTags.has(t) ? 'var(--gold)' : 'var(--text-dim)',
-                outline: selectedTags.has(t) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
+                background: selectedTags.has(tag) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
+                color: selectedTags.has(tag) ? 'var(--gold)' : 'var(--text-dim)',
+                outline: selectedTags.has(tag) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
               }}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {tag.charAt(0).toUpperCase() + tag.slice(1)}
             </button>
           ))}
           {allTags.length > 15 && (
@@ -293,7 +294,7 @@ export default function MapsView() {
               onClick={() => setShowAllTags(v => !v)}
               style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
             >
-              {showAllTags ? 'Show less' : `+${allTags.length - 15} more`}
+              {showAllTags ? t('common.showLess') : t('common.showMore', { count: allTags.length - 15 })}
             </button>
           )}
           {selectedTags.size > 0 && (
@@ -301,7 +302,7 @@ export default function MapsView() {
               onClick={() => setSelectedTags(new Set())}
               style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}
             >
-              <LuX size={11} /> Clear
+              <LuX size={11} /> {t('common.clear')}
             </button>
           )}
         </div>
@@ -309,7 +310,7 @@ export default function MapsView() {
 
       {bulkMode && (
         <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
-          Click folder headers or map cards to select them, then add tags below.
+          {t('maps.bulkHint')}
         </p>
       )}
 
@@ -339,7 +340,7 @@ export default function MapsView() {
       {folderEntries.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
           <LuMap size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
-          <p>{filter ? 'No maps match your filter.' : 'No maps found. Add maps to /library/maps/ and rescan.'}</p>
+          <p>{filter ? t('maps.noMapsFilter') : t('maps.noMaps')}</p>
         </div>
       )}
 
@@ -370,7 +371,7 @@ export default function MapsView() {
             padding: '12px 16px', boxSizing: 'border-box',
           }}>
             <span style={{ gridArea: 'count', fontSize: 14, color: totalSelected > 0 ? 'var(--text)' : 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
-              {totalSelected > 0 ? `${totalSelected} selected` : 'Nothing selected'}
+              {totalSelected > 0 ? t('common.selected', { count: totalSelected }) : t('common.nothingSelected')}
             </span>
             <input
               ref={bulkInputRef}
@@ -378,7 +379,7 @@ export default function MapsView() {
               value={bulkInput}
               onChange={e => setBulkInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && applyBulkTags()}
-              placeholder="Tags to add, comma-separated…"
+              placeholder={t('maps.tagsPlaceholder')}
               style={{ gridArea: 'input', fontSize: 14, width: '100%', boxSizing: 'border-box' }}
             />
             <button
@@ -391,10 +392,10 @@ export default function MapsView() {
                 opacity: (!bulkInput.trim() || totalSelected === 0 || bulkApplying) ? 0.5 : 1,
               }}
             >
-              {bulkApplying ? 'Applying…' : 'Add Tags'}
+              {bulkApplying ? t('maps.applying') : t('maps.addTags')}
             </button>
             <button onClick={exitBulkMode} className="bulk-bar-done" style={{ gridArea: 'done', ...toolBtnStyle }}>
-              Done
+              {t('common.done')}
             </button>
           </div>
         </>

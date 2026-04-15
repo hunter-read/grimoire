@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api, { campaigns } from '../../api'
 
 export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved }) {
+  const { t } = useTranslation()
   const isEdit = !!campaign
 
   const [form, setForm] = useState({
@@ -25,7 +27,7 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!form.name.trim()) { setError('Campaign name is required'); return }
+    if (!form.name.trim()) { setError(t('campaignEditor.nameRequired')); return }
     setSaving(true)
     setError(null)
     try {
@@ -67,40 +69,40 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
         </button>
 
         <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20 }}>
-          {isEdit ? 'Edit Campaign' : 'New Campaign'}
+          {isEdit ? t('campaignEditor.titleEdit') : t('campaignEditor.titleNew')}
         </h3>
 
         <form onSubmit={submit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Campaign Name *</label>
+            <label style={labelStyle}>{t('campaignEditor.nameLabel')}</label>
             <input
               value={form.name}
               onChange={e => set('name', e.target.value)}
-              placeholder="The Shattered Crown"
+              placeholder={t('campaignEditor.namePlaceholder')}
               style={inputStyle}
               autoFocus
             />
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Description</label>
+            <label style={labelStyle}>{t('campaignEditor.descriptionLabel')}</label>
             <textarea
               value={form.description}
               onChange={e => set('description', e.target.value)}
-              placeholder="A brief description of this campaign..."
+              placeholder={t('campaignEditor.descriptionPlaceholder')}
               rows={3}
               style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
             />
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Game System</label>
+            <label style={labelStyle}>{t('campaignEditor.systemLabel')}</label>
             <select
               value={form.system_id}
               onChange={e => set('system_id', e.target.value)}
               style={{ ...inputStyle, appearance: 'auto' }}
             >
-              <option value="">— None —</option>
+              <option value="">{t('campaignEditor.systemNone')}</option>
               {systems.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
@@ -109,15 +111,15 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
 
           {(form.is_gm_campaign || (isEdit && campaign?.is_gm_campaign)) && (
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Your Title</label>
+              <label style={labelStyle}>{t('campaignEditor.gmTitleLabel')}</label>
               <input
                 value={form.gm_title}
                 onChange={e => set('gm_title', e.target.value)}
-                placeholder="Dungeon Master, Game Master, Navigator..."
+                placeholder={t('campaignEditor.gmTitlePlaceholder')}
                 style={inputStyle}
               />
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                How players see your role (e.g. Dungeon Master, Keeper, Warden)
+                {t('campaignEditor.gmTitleHint')}
               </div>
             </div>
           )}
@@ -131,7 +133,7 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
                   onChange={e => set('is_gm_campaign', e.target.checked)}
                   style={{ width: 16, height: 16, cursor: 'pointer' }}
                 />
-                GM-run Campaign (can invite players, manage schedule)
+                {t('campaignEditor.gmCampaignCheckbox')}
               </label>
             </div>
           )}
@@ -141,9 +143,9 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} style={cancelBtn}>Cancel</button>
+            <button type="button" onClick={onClose} style={cancelBtn}>{t('campaignEditor.cancel')}</button>
             <button type="submit" disabled={saving} style={submitBtn}>
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Campaign'}
+              {saving ? t('campaignEditor.saving') : isEdit ? t('campaignEditor.saveChanges') : t('campaignEditor.createCampaign')}
             </button>
           </div>
         </form>

@@ -1,10 +1,12 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LuLibrary, LuMap, LuSearch, LuSettings,
   LuLogOut, LuUser, LuHeart, LuScroll,
 } from 'react-icons/lu'
 
 export default function Sidebar({ stats, user, onLogout, uiSettings = {} }) {
+  const { t } = useTranslation()
   const hide_maps      = uiSettings.hide_maps
   const hide_tokens    = uiSettings.hide_tokens
   const hide_campaigns = uiSettings.hide_campaigns
@@ -27,9 +29,9 @@ export default function Sidebar({ stats, user, onLogout, uiSettings = {} }) {
       <div style={{ padding: '12px 4px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <img src="/android-chrome-192x192.png" alt="" aria-hidden="true" width={72} height={72} style={{ borderRadius: 12, flexShrink: 0 }} />
         <div>
-          <h1 style={{ fontSize: 20, letterSpacing: '0.08em', margin: 0, lineHeight: 1.1 }}>GRIMOIRE</h1>
+          <h1 style={{ fontSize: 20, letterSpacing: '0.08em', margin: 0, lineHeight: 1.1 }}>{t('app.name')}</h1>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, fontWeight: 300, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-            TTRPG Library
+            {t('app.subtitle')}
           </div>
         </div>
       </div>
@@ -37,30 +39,30 @@ export default function Sidebar({ stats, user, onLogout, uiSettings = {} }) {
       {/* Navigation */}
       <nav aria-label="Main navigation" style={{ padding: '12px 8px', flex: 1 }}>
         <NavLink to="/library" end={false} style={({ isActive }) => navLinkStyle(isActive)}>
-          <LuLibrary size={16} /> Library
+          <LuLibrary size={16} /> {t('nav.library')}
         </NavLink>
         {!hide_maps && (
           <NavLink to="/maps" end style={({ isActive }) => navLinkStyle(isActive)}>
-            <LuMap size={16} /> Maps
+            <LuMap size={16} /> {t('nav.maps')}
           </NavLink>
         )}
         {!hide_tokens && (
           <NavLink to="/tokens" end style={({ isActive }) => navLinkStyle(isActive)}>
-            <LuUser size={16} /> Tokens
+            <LuUser size={16} /> {t('nav.tokens')}
           </NavLink>
         )}
         <NavLink to="/search" end style={({ isActive }) => navLinkStyle(isActive)}>
-          <LuSearch size={16} /> Search
+          <LuSearch size={16} /> {t('nav.search')}
         </NavLink>
 
         <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
 
         <NavLink to="/favorites" end style={({ isActive }) => navLinkStyle(isActive)}>
-          <LuHeart size={16} /> Favorites
+          <LuHeart size={16} /> {t('nav.favorites')}
         </NavLink>
         {!hide_campaigns && (
           <NavLink to="/campaigns" end style={({ isActive }) => navLinkStyle(isActive)}>
-            <LuScroll size={16} /> Campaigns
+            <LuScroll size={16} /> {t('nav.campaigns')}
           </NavLink>
         )}
       </nav>
@@ -69,25 +71,25 @@ export default function Sidebar({ stats, user, onLogout, uiSettings = {} }) {
       {stats && (show_stat_systems || show_stat_books || show_stat_pages || show_stat_maps || show_stat_tokens || show_stat_size || show_stat_version) && (
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', fontSize: 14, color: 'var(--text-muted)' }}>
           {show_stat_systems && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Systems</span><span style={{ color: 'var(--text-dim)' }}>{stats.game_systems}</span>
+            <span>{t('stats.systems')}</span><span style={{ color: 'var(--text-dim)' }}>{stats.game_systems}</span>
           </div>}
           {show_stat_books && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Books</span><span style={{ color: 'var(--text-dim)' }}>{stats.books}</span>
+            <span>{t('stats.books')}</span><span style={{ color: 'var(--text-dim)' }}>{stats.books}</span>
           </div>}
           {show_stat_pages && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Pages</span><span style={{ color: 'var(--text-dim)' }}>{stats.total_pages?.toLocaleString()}</span>
+            <span>{t('stats.pages')}</span><span style={{ color: 'var(--text-dim)' }}>{stats.total_pages?.toLocaleString()}</span>
           </div>}
           {show_stat_maps && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Maps</span><span style={{ color: 'var(--text-dim)' }}>{stats.maps}</span>
+            <span>{t('stats.maps')}</span><span style={{ color: 'var(--text-dim)' }}>{stats.maps}</span>
           </div>}
           {show_stat_tokens && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Tokens</span><span style={{ color: 'var(--text-dim)' }}>{stats.tokens}</span>
+            <span>{t('stats.tokens')}</span><span style={{ color: 'var(--text-dim)' }}>{stats.tokens}</span>
           </div>}
           {show_stat_size && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Size</span><span style={{ color: 'var(--text-dim)' }}>{stats.total_size_mb >= 1024 ? `${(stats.total_size_mb / 1024).toFixed(2)} GB` : `${stats.total_size_mb} MB`}</span>
+            <span>{t('stats.size')}</span><span style={{ color: 'var(--text-dim)' }}>{stats.total_size_mb >= 1024 ? t('common.sizeGB', { size: (stats.total_size_mb / 1024).toFixed(2) }) : t('common.sizeMB', { size: stats.total_size_mb })}</span>
           </div>}
           {show_stat_version && <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Version</span><span style={{ color: 'var(--text-dim)' }}>v{stats.version}</span>
+            <span>{t('stats.version')}</span><span style={{ color: 'var(--text-dim)' }}>v{stats.version}</span>
           </div>}
         </div>
       )}
@@ -108,8 +110,8 @@ export default function Sidebar({ stats, user, onLogout, uiSettings = {} }) {
           </div>
           <NavLink
             to="/settings"
-            title="Settings"
-            aria-label="Settings"
+            title={t('nav.settings')}
+            aria-label={t('nav.settings')}
             style={({ isActive }) => ({
               background: 'none', border: '1px solid var(--border)', borderRadius: 6,
               color: isActive ? 'var(--gold)' : 'var(--text-muted)', padding: '6px', cursor: 'pointer',
@@ -120,8 +122,8 @@ export default function Sidebar({ stats, user, onLogout, uiSettings = {} }) {
           </NavLink>
           <button
             onClick={onLogout}
-            title="Log out"
-            aria-label="Log out"
+            title={t('nav.logOut')}
+            aria-label={t('nav.logOut')}
             style={{
               background: 'none', border: '1px solid var(--border)', borderRadius: 6,
               color: 'var(--text-muted)', padding: '6px', cursor: 'pointer',

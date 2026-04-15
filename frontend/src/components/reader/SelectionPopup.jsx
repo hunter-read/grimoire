@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { LuBookmarkPlus } from 'react-icons/lu'
 
 /**
@@ -7,6 +8,7 @@ import { LuBookmarkPlus } from 'react-icons/lu'
  * @param {Function} props.onBookmark     - called with (page, text) when the button is pressed
  */
 export default function SelectionPopup({ selectionPopup, onBookmark }) {
+  const { t } = useTranslation()
   return (
     <div
       data-bookmark-ui="true"
@@ -31,7 +33,7 @@ export default function SelectionPopup({ selectionPopup, onBookmark }) {
           whiteSpace: 'nowrap',
         }}
       >
-        <LuBookmarkPlus size={13} /> Bookmark selection
+        <LuBookmarkPlus size={13} /> {t('selectionPopup.bookmarkSelection')}
       </button>
     </div>
   )

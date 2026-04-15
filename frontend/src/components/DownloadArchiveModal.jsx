@@ -1,37 +1,39 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuX, LuDownload } from 'react-icons/lu'
 import { mediaUrl } from '../api'
 
-const FORMATS = [
-  {
-    id: 'zip',
-    label: 'ZIP',
-    ext: '.zip',
-    description: 'Compatible with all platforms. Best for sharing.',
-  },
-  {
-    id: 'tar',
-    label: 'TAR',
-    ext: '.tar',
-    description: 'Uncompressed archive. Preserves Unix permissions.',
-  },
-  {
-    id: 'tar.gz',
-    label: 'TAR.GZ',
-    ext: '.tar.gz',
-    description: 'Gzip-compressed tar. Standard on Linux / macOS.',
-  },
-  {
-    id: 'tar.bz2',
-    label: 'TAR.BZ2',
-    ext: '.tar.bz2',
-    description: 'Bzip2-compressed tar. Slightly better compression than gzip.',
-  },
-]
-
 export default function DownloadArchiveModal({ title, params, onClose }) {
+  const { t } = useTranslation()
   const [fmt, setFmt] = useState('zip')
   const firstRef = useRef(null)
+
+  const FORMATS = [
+    {
+      id: 'zip',
+      label: t('download.zip.label'),
+      ext: t('download.zip.ext'),
+      description: t('download.zip.description'),
+    },
+    {
+      id: 'tar',
+      label: t('download.tar.label'),
+      ext: t('download.tar.ext'),
+      description: t('download.tar.description'),
+    },
+    {
+      id: 'tar.gz',
+      label: t('download.tarGz.label'),
+      ext: t('download.tarGz.ext'),
+      description: t('download.tarGz.description'),
+    },
+    {
+      id: 'tar.bz2',
+      label: t('download.tarBz2.label'),
+      ext: t('download.tarBz2.ext'),
+      description: t('download.tarBz2.description'),
+    },
+  ]
 
   useEffect(() => {
     firstRef.current?.focus()
@@ -71,12 +73,12 @@ export default function DownloadArchiveModal({ title, params, onClose }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <span id="dl-modal-title" style={{ fontSize: 15, fontWeight: 600 }}>
-            Download Archive
+            {t('download.title')}
           </span>
           <button
             onClick={onClose}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 2 }}
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             <LuX size={16} />
           </button>
@@ -131,13 +133,13 @@ export default function DownloadArchiveModal({ title, params, onClose }) {
             onClick={onClose}
             style={{ padding: '7px 16px', borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: 14, cursor: 'pointer' }}
           >
-            Cancel
+            {t('download.cancel')}
           </button>
           <button
             onClick={handleDownload}
             style={{ padding: '7px 18px', borderRadius: 6, background: 'var(--gold-dim)', border: 'none', color: 'var(--bg-deep)', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            <LuDownload size={14} /> Download
+            <LuDownload size={14} /> {t('download.download')}
           </button>
         </div>
       </div>

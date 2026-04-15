@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuMap, LuSearch, LuSettings, LuLogOut, LuUser, LuHeart, LuEllipsis, LuX, LuScroll } from 'react-icons/lu'
 
 export default function MobileSidebar({ onLogout, uiSettings = {} }) {
+  const { t } = useTranslation()
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
   const { hide_maps, hide_tokens, hide_campaigns } = uiSettings
@@ -24,15 +26,15 @@ export default function MobileSidebar({ onLogout, uiSettings = {} }) {
             background: 'var(--bg-panel)', borderTop: '1px solid var(--border)',
             padding: '8px 0',
           }}>
-            {!hide_maps    && <MoreItem to="/maps"   Icon={LuMap}  label="Maps"   onClick={() => setMoreOpen(false)} />}
-            {!hide_tokens  && <MoreItem to="/tokens" Icon={LuUser} label="Tokens" onClick={() => setMoreOpen(false)} />}
-            <MoreItem to="/settings" Icon={LuSettings} label="Settings" onClick={() => setMoreOpen(false)} />
+            {!hide_maps    && <MoreItem to="/maps"   Icon={LuMap}  label={t('nav.maps')}   onClick={() => setMoreOpen(false)} />}
+            {!hide_tokens  && <MoreItem to="/tokens" Icon={LuUser} label={t('nav.tokens')} onClick={() => setMoreOpen(false)} />}
+            <MoreItem to="/settings" Icon={LuSettings} label={t('nav.settings')} onClick={() => setMoreOpen(false)} />
             <button
               onClick={() => { setMoreOpen(false); onLogout() }}
               style={{ ...moreItemStyle, width: '100%', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}
             >
               <LuLogOut size={18} />
-              <span>Log out</span>
+              <span>{t('nav.logOut')}</span>
             </button>
           </div>
         </>
@@ -44,16 +46,16 @@ export default function MobileSidebar({ onLogout, uiSettings = {} }) {
         background: 'var(--bg-panel)', borderTop: '1px solid var(--border)',
         display: 'flex', justifyContent: 'space-around', padding: '8px 0',
       }}>
-        <NavLink to="/library"   end={false} style={({ isActive }) => mobileNavStyle(isActive)}><LuLibrary size={20} />Library</NavLink>
-        <NavLink to="/search"    end style={({ isActive }) => mobileNavStyle(isActive)}><LuSearch size={20} />Search</NavLink>
-        <NavLink to="/favorites" end style={({ isActive }) => mobileNavStyle(isActive)}><LuHeart size={20} />Favorites</NavLink>
-        {!hide_campaigns && <NavLink to="/campaigns" end style={({ isActive }) => mobileNavStyle(isActive)}><LuScroll size={20} />Campaigns</NavLink>}
+        <NavLink to="/library"   end={false} style={({ isActive }) => mobileNavStyle(isActive)}><LuLibrary size={20} />{t('nav.library')}</NavLink>
+        <NavLink to="/search"    end style={({ isActive }) => mobileNavStyle(isActive)}><LuSearch size={20} />{t('nav.search')}</NavLink>
+        <NavLink to="/favorites" end style={({ isActive }) => mobileNavStyle(isActive)}><LuHeart size={20} />{t('nav.favorites')}</NavLink>
+        {!hide_campaigns && <NavLink to="/campaigns" end style={({ isActive }) => mobileNavStyle(isActive)}><LuScroll size={20} />{t('nav.campaigns')}</NavLink>}
         <button
           onClick={() => setMoreOpen(o => !o)}
           style={mobileNavStyle(moreActive || moreOpen)}
         >
           {moreOpen ? <LuX size={20} /> : <LuEllipsis size={20} />}
-          More
+          {t('nav.more')}
         </button>
       </div>
     </>

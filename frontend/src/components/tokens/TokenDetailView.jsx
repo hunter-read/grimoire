@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuTag, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
 
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
-const getFolderPath = t =>
-  (t.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
+const getFolderPath = tok =>
+  (tok.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
 import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
@@ -25,22 +26,22 @@ function MetaRow({ label, value }) {
   )
 }
 
-function TagSection({ label, tags, onEdit, canEdit }) {
+function TagSection({ label, tags, onEdit, canEdit, editLabel, noTagsLabel }) {
   return (
     <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
         {canEdit && (
           <button onClick={onEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            <LuTag size={11} /> Edit
+            <LuTag size={11} /> {editLabel}
           </button>
         )}
       </div>
       {tags.length > 0
         ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {tags.map(t => <span key={t} style={tagPillStyle}>{t}</span>)}
+            {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag}</span>)}
           </div>
-        : <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>None</div>
+        : <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{noTagsLabel}</div>
       }
     </div>
   )
@@ -49,6 +50,7 @@ function TagSection({ label, tags, onEdit, canEdit }) {
 export default function TokenDetailView() {
   const { tokenId } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user } = useAuth()
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
   const [token, setToken] = useState(null)
@@ -64,13 +66,13 @@ export default function TokenDetailView() {
       if (!token) return
       const folder = getFolderPath(token)
       const sorted = all
-        .filter(t => getFolderPath(t) === folder)
+        .filter(tok => getFolderPath(tok) === folder)
         .sort((a, b) => a.filename.localeCompare(b.filename))
       setSiblings(sorted)
     }).catch(() => {})
   }, [token])
 
-  const siblingIdx = siblings.findIndex(t => t.id === tokenId)
+  const siblingIdx = siblings.findIndex(tok => tok.id === tokenId)
   const onNext = useCallback(() => {
     if (siblingIdx < siblings.length - 1) navigate(`/tokens/${siblings[siblingIdx + 1].id}`)
   }, [siblingIdx, siblings, navigate])
@@ -117,11 +119,11 @@ export default function TokenDetailView() {
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px',
         background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', flexShrink: 0,
       }}>
-        <button onClick={() => navigate('/tokens')} aria-label="Back to tokens" style={{
+        <button onClick={() => navigate('/tokens')} aria-label={t('tokens.detail.back')} style={{
           background: 'none', color: 'var(--text-dim)', fontSize: 15, border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 5,
         }}>
-          <LuArrowLeft size={15} /> Back
+          <LuArrowLeft size={15} /> {t('common.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <span style={{ fontSize: 16, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -130,7 +132,7 @@ export default function TokenDetailView() {
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails(v => !v)}
-            title="Details"
+            title={t('tokens.detail.details')}
             style={{
               background: showDetails ? 'var(--bg-card-hover)' : 'var(--bg-card)',
               border: '1px solid var(--border)', color: showDetails ? 'var(--gold)' : 'var(--text-dim)',
@@ -148,7 +150,7 @@ export default function TokenDetailView() {
           borderRadius: 4, padding: '4px 12px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 5,
           textDecoration: 'none',
         }}>
-          <LuDownload size={13} /> Download
+          <LuDownload size={13} /> {t('common.download')}
         </a>
       </div>
 
@@ -172,7 +174,7 @@ export default function TokenDetailView() {
           ),
           background: 'var(--bg-panel)', padding: '24px 20px', overflowY: 'auto',
         }}>
-          <h3 style={{ fontSize: 15, marginBottom: 20 }}>Token Details</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('tokens.detail.title')}</h3>
 
           {canEdit && (
             <div style={{ marginBottom: 20 }}>
@@ -183,41 +185,55 @@ export default function TokenDetailView() {
                   onChange={toggleExplicit}
                   style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#e07070' }}
                 />
-                <span style={{ fontSize: 13, color: '#e07070' }}>Explicit content</span>
+                <span style={{ fontSize: 13, color: '#e07070' }}>{t('tokens.detail.explicitContent')}</span>
               </label>
             </div>
           )}
-          {folder && <MetaRow label="Location" value={folder} />}
-          <MetaRow label="File Size" value={formatSize(token.file_size)} />
+          {folder && <MetaRow label={t('tokens.detail.location')} value={folder} />}
+          <MetaRow label={t('tokens.detail.fileSize')} value={formatSize(token.file_size)} />
           {token.pixel_width != null && (
-            <MetaRow label="Resolution" value={`${token.pixel_width} × ${token.pixel_height} px`} />
+            <MetaRow label={t('tokens.detail.resolution')} value={t('tokens.detail.resolutionValue', { width: token.pixel_width, height: token.pixel_height })} />
           )}
 
           {/* Folder tags */}
           {folder && (
             editingFolderTags
               ? <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Folder Tags</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('tokens.detail.folderTags')}</div>
                   <InlineTagEditor
                     tags={currentFolderTags}
                     onSave={saveFolderTags}
                     onCancel={() => setEditingFolderTags(false)}
                   />
                 </div>
-              : <TagSection label="Folder Tags" tags={currentFolderTags} canEdit={true} onEdit={() => setEditingFolderTags(true)} />
+              : <TagSection
+                  label={t('tokens.detail.folderTags')}
+                  tags={currentFolderTags}
+                  canEdit={true}
+                  onEdit={() => setEditingFolderTags(true)}
+                  editLabel={t('tokens.detail.editTags')}
+                  noTagsLabel={t('tokens.detail.noTags')}
+                />
           )}
 
           {/* Token tags */}
           {editingTokenTags
             ? <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Token Tags</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('tokens.detail.tokenTags')}</div>
                 <InlineTagEditor
                   tags={token.tags}
                   onSave={saveTokenTags}
                   onCancel={() => setEditingTokenTags(false)}
                 />
               </div>
-            : <TagSection label="Token Tags" tags={token.tags} canEdit onEdit={() => setEditingTokenTags(true)} />
+            : <TagSection
+                label={t('tokens.detail.tokenTags')}
+                tags={token.tags}
+                canEdit
+                onEdit={() => setEditingTokenTags(true)}
+                editLabel={t('tokens.detail.editTags')}
+                noTagsLabel={t('tokens.detail.noTags')}
+              />
           }
         </div>
       </div>

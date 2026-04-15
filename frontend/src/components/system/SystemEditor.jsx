@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuImage, LuX, LuPlus } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 
 export default function SystemEditor({ system, onSave }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     description: system.description || '',
     publishers: system.publishers?.length ? system.publishers : [{ name: '', url: '' }],
@@ -16,8 +18,8 @@ export default function SystemEditor({ system, onSave }) {
   const tagInputRef = useRef(null)
 
   const commitTag = () => {
-    const t = tagInput.trim().toLowerCase().replace(/,+$/, '')
-    if (t && !form.tags.includes(t)) setForm(f => ({ ...f, tags: [...f.tags, t] }))
+    const tag = tagInput.trim().toLowerCase().replace(/,+$/, '')
+    if (tag && !form.tags.includes(tag)) setForm(f => ({ ...f, tags: [...f.tags, tag] }))
     setTagInput('')
   }
 
@@ -63,12 +65,12 @@ export default function SystemEditor({ system, onSave }) {
       background: 'var(--bg-card)', border: '1px solid var(--border)',
       borderRadius: 10, padding: 24, marginBottom: 32,
     }}>
-      <h4 style={{ fontSize: 16, marginBottom: 16 }}>Edit System Metadata</h4>
+      <h4 style={{ fontSize: 16, marginBottom: 16 }}>{t('systemEditor.title')}</h4>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0 20px' }}>
         <div>
-          {field('Description', 'description', 'textarea')}
+          {field(t('systemEditor.description'), 'description', 'textarea')}
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Tags</label>
+            <label style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>{t('systemEditor.tags')}</label>
             <div
               onClick={() => tagInputRef.current?.focus()}
               style={{
@@ -77,10 +79,10 @@ export default function SystemEditor({ system, onSave }) {
                 background: 'var(--bg-input)', border: '1px solid var(--border)', minHeight: 36,
               }}
             >
-              {form.tags.map(t => (
-                <span key={t} style={{ fontSize: 12, padding: '2px 6px 2px 8px', borderRadius: 10, background: 'rgba(201,168,76,0.15)', border: '1px solid var(--gold-dim)', color: 'var(--gold)', display: 'inline-flex', alignItems: 'center' }}>
-                  {t}
-                  <button onClick={() => setForm(f => ({ ...f, tags: f.tags.filter(x => x !== t) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 0 0 4px', lineHeight: 1 }}>
+              {form.tags.map(tag => (
+                <span key={tag} style={{ fontSize: 12, padding: '2px 6px 2px 8px', borderRadius: 10, background: 'rgba(201,168,76,0.15)', border: '1px solid var(--gold-dim)', color: 'var(--gold)', display: 'inline-flex', alignItems: 'center' }}>
+                  {tag}
+                  <button onClick={() => setForm(f => ({ ...f, tags: f.tags.filter(x => x !== tag) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 0 0 4px', lineHeight: 1 }}>
                     <LuX size={10} />
                   </button>
                 </span>
@@ -91,16 +93,16 @@ export default function SystemEditor({ system, onSave }) {
                 onChange={e => setTagInput(e.target.value)}
                 onKeyDown={handleTagKey}
                 onBlur={commitTag}
-                placeholder={form.tags.length === 0 ? 'Add tag…' : ''}
+                placeholder={form.tags.length === 0 ? t('systemEditor.tagPlaceholder') : ''}
                 style={{ fontSize: 13, border: 'none', outline: 'none', background: 'transparent', color: 'var(--text)', minWidth: 80, flex: 1 }}
               />
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Enter or comma to add · Backspace to remove</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{t('systemEditor.tagHint')}</div>
           </div>
         </div>
         <div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Publishers</label>
+            <label style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>{t('systemEditor.publishers')}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {form.publishers.map((p, idx) => (
                 <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -108,14 +110,14 @@ export default function SystemEditor({ system, onSave }) {
                     type="text"
                     value={p.name}
                     onChange={e => setPublisher(idx, 'name', e.target.value)}
-                    placeholder="Publisher name"
+                    placeholder={t('systemEditor.publisherNamePlaceholder')}
                     style={{ flex: '1 1 140px', minWidth: 0 }}
                   />
                   <input
                     type="text"
                     value={p.url}
                     onChange={e => setPublisher(idx, 'url', e.target.value)}
-                    placeholder="URL (optional)"
+                    placeholder={t('systemEditor.publisherUrlPlaceholder')}
                     style={{ flex: '1 1 180px', minWidth: 0 }}
                   />
                   <button
@@ -130,12 +132,12 @@ export default function SystemEditor({ system, onSave }) {
                 onClick={addPublisher}
                 style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: '2px 0' }}
               >
-                <LuPlus size={13} /> Add Publisher
+                <LuPlus size={13} /> {t('systemEditor.addPublisher')}
               </button>
             </div>
           </div>
-          {field('Character Builder URL', 'character_builder_url')}
-          {field('Genre', 'genre')}
+          {field(t('systemEditor.characterBuilderUrl'), 'character_builder_url')}
+          {field(t('systemEditor.genre'), 'genre')}
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', width: 'fit-content' }}>
               <input
@@ -144,7 +146,7 @@ export default function SystemEditor({ system, onSave }) {
                 onChange={e => setForm(f => ({ ...f, is_explicit: e.target.checked }))}
                 style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--gold)' }}
               />
-              <span style={{ fontSize: 14, color: 'var(--text-dim)' }}>Mark system as explicit (18+)</span>
+              <span style={{ fontSize: 14, color: 'var(--text-dim)' }}>{t('systemEditor.markExplicit')}</span>
             </label>
           </div>
         </div>
@@ -152,7 +154,7 @@ export default function SystemEditor({ system, onSave }) {
       {booksWithThumbnails.length > 0 && (
         <div style={{ marginTop: 8, marginBottom: 8 }}>
           <label style={{ fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <LuImage size={14} /> Cover Image
+            <LuImage size={14} /> {t('systemEditor.coverImage')}
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {booksWithThumbnails.map(b => (
@@ -177,10 +179,10 @@ export default function SystemEditor({ system, onSave }) {
           </div>
           {form.cover_book_id && (
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
-              Selected: {booksWithThumbnails.find(b => b.id === form.cover_book_id)?.title}
+              {t('systemEditor.selected', { title: booksWithThumbnails.find(b => b.id === form.cover_book_id)?.title })}
               <button onClick={() => setForm(f => ({ ...f, cover_book_id: null }))}
                 style={{ background: 'none', color: 'var(--text-muted)', fontSize: 13, marginLeft: 8, textDecoration: 'underline' }}>
-                clear
+                {t('systemEditor.clearCover')}
               </button>
             </div>
           )}
@@ -192,7 +194,7 @@ export default function SystemEditor({ system, onSave }) {
         padding: '10px 24px', borderRadius: 6, background: 'var(--gold-dim)',
         color: 'var(--bg-deep)', fontSize: 16, fontWeight: 600, marginTop: 8,
       }}>
-        Save Changes
+        {t('systemEditor.saveChanges')}
       </button>
     </div>
   )

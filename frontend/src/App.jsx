@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
 import { UISettingsProvider } from './context/UISettingsContext'
@@ -23,10 +24,11 @@ import CampaignsView from './views/CampaignsView'
 import CampaignDetailView from './views/CampaignDetailView'
 
 function LoadingScreen() {
+  const { t } = useTranslation()
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-deep)' }}>
       <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: 28, letterSpacing: '0.1em', marginBottom: 24 }}>GRIMOIRE</h1>
+        <h1 style={{ fontSize: 28, letterSpacing: '0.1em', marginBottom: 24 }}>{t('app.name')}</h1>
         <Spinner size={28} />
       </div>
     </div>

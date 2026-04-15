@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft, LuPencil, LuClipboard,
   LuFileText, LuFolderOpen, LuSearch, LuX,
@@ -15,9 +16,10 @@ import BookRow from '../components/system/BookRow'
 import BookEditor from '../components/system/BookEditor'
 import SystemEditor from '../components/system/SystemEditor'
 import FavoriteButton from '../components/FavoriteButton'
-import { CATEGORY_LABELS, CATEGORY_ICONS, CATEGORY_ORDER } from '../constants'
+import { CATEGORY_ICONS, CATEGORY_ORDER } from '../constants'
 
 export default function SystemDetailView() {
+  const { t } = useTranslation()
   const { systemId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -33,7 +35,7 @@ export default function SystemDetailView() {
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef(null)
-  const [downloadModal, setDownloadModal] = useState(null) // { title, params }
+  const [downloadModal, setDownloadModal] = useState(null)
 
   useEffect(() => { api.get(`/systems/${systemId}`).then(setSystem) }, [systemId])
 
@@ -61,24 +63,24 @@ export default function SystemDetailView() {
 
   const allTags = [...new Set((system.books || []).flatMap(b => b.tags || []))].sort()
 
-  const toggleTag = (t) => setSelectedTags(prev => {
+  const toggleTag = (tag) => setSelectedTags(prev => {
     const next = new Set(prev)
-    next.has(t) ? next.delete(t) : next.add(t)
+    next.has(tag) ? next.delete(tag) : next.add(tag)
     return next
   })
 
   const sortBooks = (books) => {
     const sorted = [...books]
-    if (bookSort === 'title')     sorted.sort((a, b) => a.title.localeCompare(b.title))
-    if (bookSort === 'year')      sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
-    if (bookSort === 'size')      sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
-    if (bookSort === 'pages')     sorted.sort((a, b) => (b.page_count || 0) - (a.page_count || 0))
+    if (bookSort === 'title') sorted.sort((a, b) => a.title.localeCompare(b.title))
+    if (bookSort === 'year')  sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
+    if (bookSort === 'size')  sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
+    if (bookSort === 'pages') sorted.sort((a, b) => (b.page_count || 0) - (a.page_count || 0))
     return sorted
   }
 
   const categories = {}
   ;(system.books || [])
-    .filter(book => selectedTags.size === 0 || [...selectedTags].every(t => (book.tags || []).includes(t)))
+    .filter(book => selectedTags.size === 0 || [...selectedTags].every(tag => (book.tags || []).includes(tag)))
     .forEach(book => {
       const cat = book.category || 'core'
       if (!categories[cat]) categories[cat] = []
@@ -88,6 +90,14 @@ export default function SystemDetailView() {
   const allCatKeys = Object.keys(categories)
   const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
   const expandAll   = () => setCollapsedCats(new Set())
+
+  const SORT_OPTIONS = [
+    ['title', t('common.sortAZ')],
+    ['year',  t('common.sortYear')],
+    ['pages', t('common.sortPages')],
+    ['size',  t('common.sortSize')],
+  ]
+
   return (
     <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1200, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
       {/* Header */}
@@ -96,7 +106,7 @@ export default function SystemDetailView() {
           background: 'none', color: 'var(--text-dim)', fontSize: 15,
           display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
         }}>
-          <LuArrowLeft size={15} /> Back to Library
+          <LuArrowLeft size={15} /> {t('systemDetail.backToLibrary')}
         </button>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
@@ -104,7 +114,7 @@ export default function SystemDetailView() {
             <h2 style={{ fontSize: 32, marginBottom: 8 }}>{system.name}</h2>
             {system.publishers?.length > 0 && (
               <div style={{ fontSize: 16, color: 'var(--text-dim)', marginBottom: 8 }}>
-                Published by {system.publishers.map((p, i) => (
+                {t('systemDetail.publishedBy')} {system.publishers.map((p, i) => (
                   <span key={i}>
                     {i > 0 && ', '}
                     {p.url ? <a href={p.url} target="_blank" rel="noopener">{p.name}</a> : p.name}
@@ -131,7 +141,7 @@ export default function SystemDetailView() {
                   background: 'var(--bg-card)', border: '1px solid var(--border)',
                   color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}>
-                  <LuClipboard size={14} /> Character Builder
+                  <LuClipboard size={14} /> {t('systemDetail.characterBuilder')}
                 </a>
               </div>
             )}
@@ -142,7 +152,7 @@ export default function SystemDetailView() {
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchInput}
-                placeholder={`Search within ${system.name}…`}
+                placeholder={t('systemDetail.searchWithin', { name: system.name })}
                 style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
               />
               {searching && <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}><Spinner size={14} /></div>}
@@ -166,21 +176,21 @@ export default function SystemDetailView() {
                   }}
                 >
                   <LuPencil size={13} />
-                  {editing ? 'Done' : 'Edit'}
+                  {editing ? t('systemDetail.done') : t('common.edit')}
                 </button>
               )}
               <button
-                onClick={() => setDownloadModal({ title: `All books in ${system.name}`, params: { type: 'system', id: system.id } })}
+                onClick={() => setDownloadModal({ title: t('systemDetail.downloadAllTitle'), params: { type: 'system', id: system.id } })}
                 style={{ ...toolBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                title="Download all books in this system"
+                title={t('systemDetail.downloadAllTitle')}
               >
-                <LuDownload size={13} /> Download All
+                <LuDownload size={13} /> {t('systemDetail.downloadAll')}
               </button>
             </div>
             {/* Row 2: Collapse / Expand */}
             <div className="system-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={collapseAll} disabled={!!searchResults || collapsedCats.size === allCatKeys.length} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === allCatKeys.length) ? 0.4 : 1 }}>Collapse All</button>
-              <button onClick={expandAll} disabled={!!searchResults || collapsedCats.size === 0} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === 0) ? 0.4 : 1 }}>Expand All</button>
+              <button onClick={collapseAll} disabled={!!searchResults || collapsedCats.size === allCatKeys.length} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === allCatKeys.length) ? 0.4 : 1 }}>{t('systemDetail.collapseAll')}</button>
+              <button onClick={expandAll} disabled={!!searchResults || collapsedCats.size === 0} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === 0) ? 0.4 : 1 }}>{t('systemDetail.expandAll')}</button>
             </div>
           </div>
         </div>
@@ -197,19 +207,19 @@ export default function SystemDetailView() {
       {/* Tag filter row */}
       {!searchResults && allTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>Tags:</span>
-          {(showAllTags ? allTags : allTags.slice(0, 15)).map(t => (
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>{t('systemDetail.tagsLabel')}</span>
+          {(showAllTags ? allTags : allTags.slice(0, 15)).map(tag => (
             <button
-              key={t}
-              onClick={() => toggleTag(t)}
+              key={tag}
+              onClick={() => toggleTag(tag)}
               style={{
                 fontSize: 13, padding: '3px 10px', borderRadius: 10, cursor: 'pointer', border: 'none',
-                background: selectedTags.has(t) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
-                color: selectedTags.has(t) ? 'var(--gold)' : 'var(--text-dim)',
-                outline: selectedTags.has(t) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
+                background: selectedTags.has(tag) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
+                color: selectedTags.has(tag) ? 'var(--gold)' : 'var(--text-dim)',
+                outline: selectedTags.has(tag) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
               }}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {tag.charAt(0).toUpperCase() + tag.slice(1)}
             </button>
           ))}
           {allTags.length > 15 && (
@@ -217,7 +227,7 @@ export default function SystemDetailView() {
               onClick={() => setShowAllTags(v => !v)}
               style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
             >
-              {showAllTags ? 'Show less' : `+${allTags.length - 15} more`}
+              {showAllTags ? t('systemDetail.showLess') : t('common.showMore', { count: allTags.length - 15 })}
             </button>
           )}
           {selectedTags.size > 0 && (
@@ -225,7 +235,7 @@ export default function SystemDetailView() {
               onClick={() => setSelectedTags(new Set())}
               style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}
             >
-              <LuX size={11} /> Clear
+              <LuX size={11} /> {t('systemDetail.clearTags')}
             </button>
           )}
         </div>
@@ -234,8 +244,8 @@ export default function SystemDetailView() {
       {/* Sort bar */}
       {!searchResults && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>Sort:</span>
-          {[['title', 'A–Z'], ['year', 'Year'], ['pages', 'Pages'], ['size', 'Size']].map(([val, label]) => (
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>{t('common.sort')}</span>
+          {SORT_OPTIONS.map(([val, label]) => (
             <button
               key={val}
               onClick={() => setBookSort(val)}
@@ -256,10 +266,10 @@ export default function SystemDetailView() {
       {searchResults && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-            {searchResults.total} result{searchResults.total !== 1 ? 's' : ''} for "{searchResults.query}"
+            {t('systemDetail.results', { count: searchResults.total, query: searchResults.query })}
           </div>
           {searchResults.total === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>No results found.</div>
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>{t('systemDetail.noResultsFound')}</div>
           )}
           {searchResults.results.map((r, i) => (
             <div
@@ -271,7 +281,7 @@ export default function SystemDetailView() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                 <span style={{ fontWeight: 600, fontSize: 15 }}>{r.title}</span>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 12 }}>p. {r.page_number}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 12 }}>{t('common.pagePrefixed', { page: r.page_number })}</span>
               </div>
               <div style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: r.snippet }} />
             </div>
@@ -286,7 +296,8 @@ export default function SystemDetailView() {
           const books = sortBooks(categories[cat])
           const CatIcon = CATEGORY_ICONS[cat] || LuFileText
           const isCollapsed = collapsedCats.has(cat)
-          const toggle = () => setCollapsedCats(prev => {
+          const catLabel = t(`categories.${cat}`, { defaultValue: cat.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })
+          const toggleCat = () => setCollapsedCats(prev => {
             const next = new Set(prev)
             next.has(cat) ? next.delete(cat) : next.add(cat)
             return next
@@ -295,7 +306,7 @@ export default function SystemDetailView() {
             <div key={cat} style={{ marginBottom: 32 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isCollapsed ? 0 : 16 }}>
               <button
-                onClick={toggle}
+                onClick={toggleCat}
                 aria-expanded={!isCollapsed}
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', gap: 8,
@@ -309,18 +320,18 @@ export default function SystemDetailView() {
                 }
                 <CatIcon size={15} color="var(--gold-dim)" />
                 <span style={{ fontSize: 17, color: 'var(--gold-dim)', fontWeight: 600 }}>
-                  {CATEGORY_LABELS[cat] || cat.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  {catLabel}
                 </span>
                 <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'Alegreya Sans, sans-serif', fontWeight: 400 }}>
                   ({books.length})
                 </span>
               </button>
               <button
-                onClick={() => setDownloadModal({ title: `${CATEGORY_LABELS[cat] || cat} — ${system.name}`, params: { type: 'system_category', id: system.id, category: cat } })}
+                onClick={() => setDownloadModal({ title: `${catLabel} — ${system.name}`, params: { type: 'system_category', id: system.id, category: cat } })}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, fontSize: 12, color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', flexShrink: 0 }}
-                title={`Download ${CATEGORY_LABELS[cat] || cat}`}
+                title={t('systemDetail.download')}
               >
-                <LuDownload size={11} /> Download
+                <LuDownload size={11} /> {t('systemDetail.download')}
               </button>
             </div>
               {!isCollapsed && (
@@ -354,7 +365,7 @@ export default function SystemDetailView() {
       {!searchResults && allCatKeys.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
           <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
-          <p>No books found. Add PDFs to this system's directory and rescan.</p>
+          <p>{t('systemDetail.noBooks')}</p>
         </div>
       )}
 

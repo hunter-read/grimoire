@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
@@ -8,6 +9,7 @@ import { getUserPrefs } from '../hooks/useUserPrefs'
 import { getRecentBooks, getBookPrefs } from '../hooks/useBookPrefs'
 
 function SystemCard({ system, onClick, compact }) {
+  const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
 
   if (compact) {
@@ -99,7 +101,7 @@ function SystemCard({ system, onClick, compact }) {
               background: 'var(--bg-deep)', borderRadius: 20, padding: '2px 10px',
               fontSize: 13, color: 'var(--text-dim)', whiteSpace: 'nowrap',
             }}>
-              {system.book_count} book{system.book_count !== 1 ? 's' : ''}
+              {t('library.bookCount', { count: system.book_count })}
             </span>
           </div>
         </div>
@@ -129,6 +131,7 @@ function SystemCard({ system, onClick, compact }) {
 }
 
 export default function LibraryView() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [systems, setSystems] = useState(null)
 
@@ -155,7 +158,7 @@ export default function LibraryView() {
       {recentBooks.length > 0 && (
         <div style={{ marginBottom: 40 }}>
           <h3 style={{ fontSize: 16, color: 'var(--text-dim)', fontWeight: 500, marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            Recently Opened
+            {t('library.recentlyOpened')}
           </h3>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {recentBooks.map(book => {
@@ -191,7 +194,7 @@ export default function LibraryView() {
                     </div>
                     {progress > 0 && (
                       <div style={{ fontSize: 11, color: 'var(--gold-dim)', marginTop: 2 }}>
-                        p. {lastPage}{book.page_count > 0 ? ` / ${book.page_count}` : ''}
+                        {t('common.pageRange', { page: lastPage, total: book.page_count > 0 ? book.page_count : '?' })}
                       </div>
                     )}
                   </div>
@@ -203,9 +206,9 @@ export default function LibraryView() {
       )}
 
       <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 28, marginBottom: 8 }}>Your Collection</h2>
+        <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
         <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
-          {visible.length} game system{visible.length !== 1 ? 's' : ''} in your library
+          {t('library.subtitle', { count: visible.length })}
         </p>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import api, { settings as settingsApi } from '../../api'
 import Spinner from '../Spinner'
@@ -8,6 +9,7 @@ import Spinner from '../Spinner'
 // ---------------------------------------------------------------------------
 
 function RescanSection() {
+  const { t } = useTranslation()
   const [status, setStatus] = useState({
     running: false, phase: null,
     total_books: 0, scanned_books: 0,
@@ -57,16 +59,16 @@ function RescanSection() {
   const indexPct    = to_index > 0 ? Math.round((indexed / to_index) * 100) : 0
 
   const phaseLabel = phase === 'scanning'
-    ? (scanPct !== null ? `Scanning… ${scanPct}%` : 'Scanning files…')
+    ? (scanPct !== null ? t('maintenance.rescan.scanningPercent', { pct: scanPct }) : t('maintenance.rescan.scanning'))
     : phase === 'indexing'
-      ? `Indexing PDFs… ${indexed} / ${to_index}`
-      : 'Scanning…'
+      ? t('maintenance.rescan.indexing', { indexed, total: to_index })
+      : t('maintenance.rescan.scanning')
 
   return (
     <div style={{ marginBottom: 40 }}>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Rescan Library</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('maintenance.rescan.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Scan the library directory for new or changed files and update the search index.
+        {t('maintenance.rescan.description')}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
@@ -81,13 +83,13 @@ function RescanSection() {
           }}
         >
           {running ? <Spinner size={13} /> : <LuRefreshCw size={13} />}
-          {running ? phaseLabel : 'Rescan Library'}
+          {running ? phaseLabel : t('maintenance.rescan.button')}
         </button>
         {running && (
           <button
             onClick={handleStop}
             disabled={stopping}
-            title="Stop scan"
+            title={t('maintenance.rescan.stop')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '8px 14px', borderRadius: 6, fontSize: 14, fontWeight: 500,
@@ -97,7 +99,7 @@ function RescanSection() {
             }}
           >
             <LuSquare size={13} />
-            {stopping ? 'Stopping…' : 'Stop'}
+            {stopping ? t('maintenance.rescan.stopping') : t('maintenance.rescan.stop')}
           </button>
         )}
       </div>
@@ -120,10 +122,10 @@ function RescanSection() {
           </div>
           {scanPct !== null && (
             <div style={{ marginTop: 5, fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <span>{scanPct}% ({scannedScan}/{totalScan})</span>
-              <span>{scanned_books}/{total_books} books</span>
-              <span>{scanned_maps}/{total_maps} maps</span>
-              <span>{scanned_tokens}/{total_tokens} tokens</span>
+              <span>{t('maintenance.rescan.scanProgress', { pct: scanPct, scanned: scannedScan, total: totalScan })}</span>
+              <span>{t('maintenance.rescan.booksProgress', { scanned: scanned_books, total: total_books })}</span>
+              <span>{t('maintenance.rescan.mapsProgress', { scanned: scanned_maps, total: total_maps })}</span>
+              <span>{t('maintenance.rescan.tokensProgress', { scanned: scanned_tokens, total: total_tokens })}</span>
             </div>
           )}
           <style>{`
@@ -145,7 +147,7 @@ function RescanSection() {
             }} />
           </div>
           <div style={{ marginTop: 5, fontSize: 12, color: 'var(--text-muted)' }}>
-            {indexPct}% — {indexed} of {to_index} PDFs indexed
+            {t('maintenance.rescan.indexProgress', { pct: indexPct, indexed, total: to_index })}
           </div>
         </div>
       )}
@@ -159,14 +161,14 @@ function RescanSection() {
         }}>
           <LuCircleCheck size={16} color="var(--green)" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>Scan complete</div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>{t('maintenance.rescan.complete')}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {lastResult.new_books  > 0 && <span>+{lastResult.new_books}  book{lastResult.new_books  !== 1 ? 's' : ''}</span>}
-              {lastResult.new_maps   > 0 && <span>+{lastResult.new_maps}   map{lastResult.new_maps    !== 1 ? 's' : ''}</span>}
-              {lastResult.new_tokens > 0 && <span>+{lastResult.new_tokens} token{lastResult.new_tokens !== 1 ? 's' : ''}</span>}
-              {lastResult.indexed    > 0 && <span>{lastResult.indexed} PDF{lastResult.indexed !== 1 ? 's' : ''} indexed</span>}
+              {lastResult.new_books  > 0 && <span>{t('maintenance.rescan.books', { count: lastResult.new_books })}</span>}
+              {lastResult.new_maps   > 0 && <span>{t('maintenance.rescan.maps', { count: lastResult.new_maps })}</span>}
+              {lastResult.new_tokens > 0 && <span>{t('maintenance.rescan.tokens', { count: lastResult.new_tokens })}</span>}
+              {lastResult.indexed    > 0 && <span>{t('maintenance.rescan.indexed', { count: lastResult.indexed })}</span>}
               {lastResult.new_books + lastResult.new_maps + lastResult.new_tokens + lastResult.indexed === 0 && (
-                <span>No new files found</span>
+                <span>{t('maintenance.rescan.noNewFiles')}</span>
               )}
             </div>
           </div>
@@ -175,23 +177,6 @@ function RescanSection() {
     </div>
   )
 }
-
-const SCHEDULE_OPTIONS = [
-  { value: 'off',    label: 'Off'        },
-  { value: 'hourly', label: 'Every hour' },
-  { value: 'daily',  label: 'Every day'  },
-  { value: 'weekly', label: 'Every week' },
-]
-
-const WEEKDAY_OPTIONS = [
-  { value: 0, label: 'Mon' },
-  { value: 1, label: 'Tue' },
-  { value: 2, label: 'Wed' },
-  { value: 3, label: 'Thu' },
-  { value: 4, label: 'Fri' },
-  { value: 5, label: 'Sat' },
-  { value: 6, label: 'Sun' },
-]
 
 // Convert UTC hour+minute to a local "HH:MM" string for display
 function utcToLocalTime(utcHour, utcMinute) {
@@ -213,12 +198,30 @@ function localTimeToUtc(timeStr) {
 // ---------------------------------------------------------------------------
 
 function ScheduledRescanSection() {
+  const { t } = useTranslation()
   const [schedule,  setSchedule]  = useState('off')
   const [localTime, setLocalTime] = useState('02:00')
   const [weekday,   setWeekday]   = useState(0)
   const [loading,   setLoading]   = useState(true)
   const [saving,    setSaving]    = useState(false)
   const [saved,     setSaved]     = useState(false)
+
+  const SCHEDULE_OPTIONS = [
+    { value: 'off',    label: t('maintenance.scheduledRescan.off')    },
+    { value: 'hourly', label: t('maintenance.scheduledRescan.hourly') },
+    { value: 'daily',  label: t('maintenance.scheduledRescan.daily')  },
+    { value: 'weekly', label: t('maintenance.scheduledRescan.weekly') },
+  ]
+
+  const WEEKDAY_OPTIONS = [
+    { value: 0, label: t('maintenance.scheduledRescan.weekdays.mon') },
+    { value: 1, label: t('maintenance.scheduledRescan.weekdays.tue') },
+    { value: 2, label: t('maintenance.scheduledRescan.weekdays.wed') },
+    { value: 3, label: t('maintenance.scheduledRescan.weekdays.thu') },
+    { value: 4, label: t('maintenance.scheduledRescan.weekdays.fri') },
+    { value: 5, label: t('maintenance.scheduledRescan.weekdays.sat') },
+    { value: 6, label: t('maintenance.scheduledRescan.weekdays.sun') },
+  ]
 
   useEffect(() => {
     settingsApi.get().then(data => {
@@ -254,9 +257,9 @@ function ScheduledRescanSection() {
 
   return (
     <div style={{ marginBottom: 40 }}>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Scheduled Rescan</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('maintenance.scheduledRescan.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Automatically rescan the library on a schedule to pick up new files without manual intervention.
+        {t('maintenance.scheduledRescan.description')}
       </p>
 
       {loading ? (
@@ -286,7 +289,7 @@ function ScheduledRescanSection() {
           {/* Day picker (weekly only) */}
           {schedule === 'weekly' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 28 }}>On</span>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 28 }}>{t('maintenance.scheduledRescan.on')}</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {WEEKDAY_OPTIONS.map(({ value, label }) => (
                   <button
@@ -310,7 +313,7 @@ function ScheduledRescanSection() {
           {/* Time picker (daily + weekly) */}
           {showTimePicker && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 28 }}>At</span>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)', minWidth: 28 }}>{t('maintenance.scheduledRescan.at')}</span>
               <input
                 type="time"
                 value={localTime}
@@ -321,7 +324,7 @@ function ScheduledRescanSection() {
                   color: 'var(--text)', colorScheme: 'dark',
                 }}
               />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>your local time</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('maintenance.scheduledRescan.localTime')}</span>
             </div>
           )}
 
@@ -338,11 +341,11 @@ function ScheduledRescanSection() {
               }}
             >
               {saving ? <Spinner size={13} /> : <LuRefreshCw size={13} />}
-              {saving ? 'Saving…' : 'Save Schedule'}
+              {saving ? t('maintenance.scheduledRescan.saving') : t('maintenance.scheduledRescan.saveSchedule')}
             </button>
             {saved && (
               <span style={{ fontSize: 13, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <LuCircleCheck size={14} /> Saved
+                <LuCircleCheck size={14} /> {t('maintenance.scheduledRescan.saved')}
               </span>
             )}
           </div>
@@ -357,6 +360,7 @@ function ScheduledRescanSection() {
 // ---------------------------------------------------------------------------
 
 function DatabaseCleanupSection() {
+  const { t } = useTranslation()
   const [cleaning, setCleaning] = useState(false)
   const [result,   setResult]   = useState(null)
   const [error,    setError]    = useState(null)
@@ -369,7 +373,7 @@ function DatabaseCleanupSection() {
       const data = await api.post('/maintenance/cleanup-missing')
       setResult(data.removed)
     } catch {
-      setError('Cleanup failed. Check server logs.')
+      setError(t('maintenance.cleanup.failed'))
     } finally {
       setCleaning(false)
     }
@@ -379,10 +383,9 @@ function DatabaseCleanupSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Database Cleanup</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('maintenance.cleanup.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Scans the database for books, maps, and tokens whose files no longer exist on disk and removes their records.
-        This cannot be undone — re-scanning the library will only re-add files that are present on disk.
+        {t('maintenance.cleanup.description')}
       </p>
 
       <button
@@ -401,7 +404,7 @@ function DatabaseCleanupSection() {
         onMouseLeave={e => { if (!cleaning) e.currentTarget.style.background = 'rgba(180,60,60,0.15)' }}
       >
         {cleaning ? <Spinner size={14} /> : <LuTrash2 size={14} />}
-        {cleaning ? 'Cleaning…' : 'Remove Missing Files'}
+        {cleaning ? t('maintenance.cleanup.cleaning') : t('maintenance.cleanup.button')}
       </button>
 
       {result !== null && (
@@ -413,13 +416,13 @@ function DatabaseCleanupSection() {
           <LuCircleCheck size={18} color="var(--green)" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-              {total === 0 ? 'Nothing to remove — database is clean.' : `Removed ${total} record${total !== 1 ? 's' : ''}.`}
+              {total === 0 ? t('maintenance.cleanup.nothingToRemove') : t('maintenance.cleanup.removed', { count: total })}
             </div>
             {total > 0 && (
               <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 16 }}>
-                {result.books  > 0 && <span>{result.books}  book{result.books  !== 1 ? 's' : ''}</span>}
-                {result.maps   > 0 && <span>{result.maps}   map{result.maps    !== 1 ? 's' : ''}</span>}
-                {result.tokens > 0 && <span>{result.tokens} token{result.tokens !== 1 ? 's' : ''}</span>}
+                {result.books  > 0 && <span>{t('maintenance.cleanup.books', { count: result.books })}</span>}
+                {result.maps   > 0 && <span>{t('maintenance.cleanup.maps', { count: result.maps })}</span>}
+                {result.tokens > 0 && <span>{t('maintenance.cleanup.tokens', { count: result.tokens })}</span>}
               </div>
             )}
           </div>

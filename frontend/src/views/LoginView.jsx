@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function LoginView({ onLogin }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,12 +20,12 @@ export default function LoginView({ onLogin }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.detail || 'Login failed.')
+        setError(data.detail || t('login.loginFailed'))
         return
       }
       onLogin(data.token, data.user)
     } catch {
-      setError('Could not reach the server.')
+      setError(t('login.serverUnreachable'))
     } finally {
       setLoading(false)
     }
@@ -38,9 +40,9 @@ export default function LoginView({ onLogin }) {
         {/* Branding */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <img src="/android-chrome-192x192.png" alt="Grimoire" style={{ width: 148, height: 148 }} />
-          <h1 style={{ fontSize: 32, letterSpacing: '0.1em', marginBottom: 8 }}>GRIMOIRE</h1>
+          <h1 style={{ fontSize: 32, letterSpacing: '0.1em', marginBottom: 8 }}>{t('app.name')}</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 300 }}>
-            TTRPG Library
+            {t('app.subtitle')}
           </p>
         </div>
 
@@ -51,7 +53,7 @@ export default function LoginView({ onLogin }) {
         }}>
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 16 }}>
-              <label htmlFor="login-username" style={labelStyle}>Username</label>
+              <label htmlFor="login-username" style={labelStyle}>{t('login.username')}</label>
               <input
                 id="login-username"
                 type="text"
@@ -63,7 +65,7 @@ export default function LoginView({ onLogin }) {
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label htmlFor="login-password" style={labelStyle}>Password</label>
+              <label htmlFor="login-password" style={labelStyle}>{t('login.password')}</label>
               <input
                 id="login-password"
                 type="password"
@@ -81,7 +83,7 @@ export default function LoginView({ onLogin }) {
             )}
 
             <button type="submit" disabled={loading} style={submitBtnStyle(loading)}>
-              {loading ? 'Entering…' : 'Enter'}
+              {loading ? t('login.entering') : t('login.enter')}
             </button>
           </form>
         </div>

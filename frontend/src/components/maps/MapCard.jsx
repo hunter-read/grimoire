@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next'
 import { LuMap, LuCheck } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
 
 export default function MapCard({ map, onClick, bulkMode, selected, onToggle }) {
+  const { t } = useTranslation()
+
   const handleClick = (e) => {
     if (bulkMode) { e.stopPropagation(); onToggle(); return }
     onClick()
@@ -48,7 +51,7 @@ export default function MapCard({ map, onClick, bulkMode, selected, onToggle }) 
         }
         {map.is_missing && (
           <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, padding: '1px 6px', borderRadius: 6, background: 'rgba(200,134,10,0.9)', color: '#fff', fontWeight: 600 }}>
-            Missing
+            {t('maps.missing')}
           </div>
         )}
       </div>

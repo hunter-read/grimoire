@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuScroll, LuCheck, LuChevronDown, LuPlus } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { useUISettings } from '../../context/UISettingsContext'
 
 export default function AddToCampaignButton({ resourceType, resourceId, style }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { hide_campaigns } = useUISettings()
   if (hide_campaigns) return null
@@ -76,7 +78,7 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
       <button
         ref={btnRef}
         onClick={openMenu}
-        title="Add to Campaign"
+        title={t('resources.addToCampaign')}
         style={{
           background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)',
           borderRadius: 4, padding: '4px 10px', fontSize: 14, display: 'inline-flex',
@@ -84,7 +86,7 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
         }}
       >
         <LuScroll size={13} />
-        Campaign
+        {t('resources.addToCampaign')}
         <LuChevronDown size={11} style={{ opacity: 0.6 }} />
       </button>
 
@@ -107,16 +109,16 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
             overflowY: 'auto',
           }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 8px 8px' }}>
-              Add to Campaign
+              {t('resources.addToCampaign')}
             </div>
 
             {loading && (
-              <div style={{ padding: '10px 8px', fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
+              <div style={{ padding: '10px 8px', fontSize: 13, color: 'var(--text-muted)' }}>{t('common.loading')}</div>
             )}
 
             {!loading && list?.length === 0 && (
               <div style={{ padding: '10px 8px', fontSize: 13, color: 'var(--text-muted)' }}>
-                No campaigns found. Create one first.
+                {t('resources.noCampaigns')}
               </div>
             )}
 
@@ -152,7 +154,7 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
                     )}
                   </div>
                   {isAdded && (
-                    <span style={{ fontSize: 11, color: 'var(--gold)', flexShrink: 0 }}>Added</span>
+                    <span style={{ fontSize: 11, color: 'var(--gold)', flexShrink: 0 }}>{t('resources.added')}</span>
                   )}
                 </button>
               )

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuPlus, LuX } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
@@ -7,6 +8,7 @@ import UserRow from './UserRow'
 import AddUserForm from './AddUserForm'
 
 export default function UsersTab() {
+  const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -19,7 +21,7 @@ export default function UsersTab() {
       const updated = await api.patch(`/users/${userId}`, { role: newRole })
       setUsers(users.map(u => u.id === updated.id ? { ...u, role: updated.role } : u))
     } catch (err) {
-      setError(err.message || 'Failed to update role.')
+      setError(err.message || t('users.failedUpdateRole'))
     }
   }
 
@@ -28,7 +30,7 @@ export default function UsersTab() {
       const updated = await api.patch(`/users/${userId}`, { allow_explicit: allowed })
       setUsers(users.map(u => u.id === updated.id ? { ...u, allow_explicit: updated.allow_explicit } : u))
     } catch (err) {
-      setError(err.message || 'Failed to update explicit setting.')
+      setError(err.message || t('users.failedUpdateExplicit'))
     }
   }
 
@@ -36,7 +38,7 @@ export default function UsersTab() {
     try {
       await api.patch(`/users/${userId}`, { password: newPassword })
     } catch (err) {
-      setError(err.message || 'Failed to set password.')
+      setError(err.message || t('users.failedSetPassword'))
       throw err
     }
   }
@@ -46,7 +48,7 @@ export default function UsersTab() {
       await api.delete(`/users/${userId}`)
       setUsers(users.filter(u => u.id !== userId))
     } catch (err) {
-      setError(err.message || 'Failed to delete user.')
+      setError(err.message || t('users.failedDeleteUser'))
     }
   }
 
@@ -61,13 +63,13 @@ export default function UsersTab() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>
-          {users.length} user{users.length !== 1 ? 's' : ''}
+          {t('users.userCount', { count: users.length })}
         </p>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
           style={{ ...primaryBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          {showAddForm ? <><LuX size={13} /> Cancel</> : <><LuPlus size={13} /> Add User</>}
+          {showAddForm ? <><LuX size={13} /> {t('users.cancelAdd')}</> : <><LuPlus size={13} /> {t('users.addUser')}</>}
         </button>
       </div>
 

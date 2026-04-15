@@ -1,22 +1,24 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuX, LuKeyRound } from 'react-icons/lu'
 import RoleBadge from './RoleBadge'
 
 const isMobile = window.matchMedia('(max-width: 640px)').matches
 
 function SetPasswordInline({ onSave, onCancel }) {
+  const { t } = useTranslation()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   const handleSave = async () => {
-    if (value.length < 8) { setErr('Min 8 characters'); return }
+    if (value.length < 8) { setErr(t('users.minChars')); return }
     setSaving(true)
     try {
       await onSave(value)
       onCancel()
     } catch {
-      setErr('Failed to set password')
+      setErr(t('users.failedSetPassword'))
     } finally {
       setSaving(false)
     }
@@ -29,7 +31,7 @@ function SetPasswordInline({ onSave, onCancel }) {
         value={value}
         onChange={e => { setValue(e.target.value); setErr('') }}
         onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onCancel() }}
-        placeholder="New password (min 8)"
+        placeholder={t('users.newPasswordPlaceholder')}
         autoFocus
         style={{
           background: 'var(--bg-input)', border: '1px solid var(--border)',
@@ -39,14 +41,15 @@ function SetPasswordInline({ onSave, onCancel }) {
       />
       {err && <span style={{ fontSize: 12, color: 'var(--red)' }}>{err}</span>}
       <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
-        {saving ? '…' : 'Save'}
+        {saving ? '…' : t('users.setPassword')}
       </button>
-      <button onClick={onCancel} style={ghostBtnStyle}>Cancel</button>
+      <button onClick={onCancel} style={ghostBtnStyle}>{t('common.cancel')}</button>
     </div>
   )
 }
 
 export default function UserRow({ user, currentUserId, onRoleChange, onExplicitChange, onPasswordReset, onDelete }) {
+  const { t } = useTranslation()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [settingPassword, setSettingPassword] = useState(false)
   const isSelf = user.id === currentUserId
@@ -64,23 +67,23 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
             <span style={{ fontSize: 15, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user.username}
             </span>
-            {isSelf && <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>(you)</span>}
+            {isSelf && <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{t('users.you')}</span>}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <RoleBadge role={user.role} />
             {confirmDelete ? (
               <>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Delete?</span>
-                <button onClick={() => onDelete(user.id)} style={dangerBtnStyle}>Yes</button>
-                <button onClick={() => setConfirmDelete(false)} style={ghostBtnStyle}>No</button>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('users.deleteConfirm')}</span>
+                <button onClick={() => onDelete(user.id)} style={dangerBtnStyle}>{t('common.yes')}</button>
+                <button onClick={() => setConfirmDelete(false)} style={ghostBtnStyle}>{t('common.no')}</button>
               </>
             ) : (
               <button
                 onClick={() => setConfirmDelete(true)}
                 disabled={isSelf}
-                title={isSelf ? 'Cannot delete your own account' : 'Delete user'}
-                aria-label={`Delete user ${user.username}`}
+                title={isSelf ? t('users.cannotDeleteSelf') : t('users.deleteUser', { username: user.username })}
+                aria-label={t('users.deleteUser', { username: user.username })}
                 style={{
                   ...ghostBtnStyle, padding: '5px 8px',
                   opacity: isSelf ? 0.3 : 1, cursor: isSelf ? 'not-allowed' : 'pointer',
@@ -99,7 +102,7 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
             value={user.role}
             onChange={e => onRoleChange(user.id, e.target.value)}
             disabled={isSelf}
-            title={isSelf ? 'Cannot change your own role' : 'Change role'}
+            title={isSelf ? t('users.cannotChangeSelfRole') : t('users.role')}
             style={{
               background: 'var(--bg-input)', border: '1px solid var(--border)',
               color: 'var(--text)', borderRadius: 6, padding: '4px 8px',
@@ -107,13 +110,13 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
               opacity: isSelf ? 0.4 : 1,
             }}
           >
-            <option value="player">Player</option>
-            <option value="gm">GM</option>
-            <option value="admin">Admin</option>
+            <option value="player">{t('users.roles.player')}</option>
+            <option value="gm">{t('users.roles.gm')}</option>
+            <option value="admin">{t('users.roles.admin')}</option>
           </select>
 
           <label
-            title="Allow explicit content"
+            title={t('users.allowExplicitTitle')}
             style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: isSelf ? 'default' : 'pointer', opacity: isSelf ? 0.4 : 1 }}
           >
             <input
@@ -123,16 +126,16 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
               disabled={isSelf}
               style={{ width: 14, height: 14, cursor: isSelf ? 'not-allowed' : 'pointer', accentColor: '#e07070' }}
             />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Explicit</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('users.explicit')}</span>
           </label>
 
           {canSetPassword && !settingPassword && (
             <button
               onClick={() => setSettingPassword(true)}
-              title="Set password for this user"
+              title={t('users.setPasswordTitle')}
               style={{ ...ghostBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
             >
-              <LuKeyRound size={12} /> Set Password
+              <LuKeyRound size={12} /> {t('users.setPassword')}
             </button>
           )}
         </div>
@@ -157,13 +160,13 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 16px' }}>
         <div style={{ flex: 1 }}>
           <span style={{ fontSize: 15, fontWeight: 500 }}>{user.username}</span>
-          {isSelf && <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>(you)</span>}
+          {isSelf && <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>{t('users.you')}</span>}
         </div>
 
         <RoleBadge role={user.role} />
 
         <label
-          title="Allow explicit content"
+          title={t('users.allowExplicitTitle')}
           style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: isSelf ? 'default' : 'pointer', opacity: isSelf ? 0.4 : 1 }}
         >
           <input
@@ -173,14 +176,14 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
             disabled={isSelf}
             style={{ width: 14, height: 14, cursor: isSelf ? 'not-allowed' : 'pointer', accentColor: '#e07070' }}
           />
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Explicit</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('users.explicit')}</span>
         </label>
 
         <select
           value={user.role}
           onChange={e => onRoleChange(user.id, e.target.value)}
           disabled={isSelf}
-          title={isSelf ? 'Cannot change your own role' : 'Change role'}
+          title={isSelf ? t('users.cannotChangeSelfRole') : t('users.role')}
           style={{
             background: 'var(--bg-input)', border: '1px solid var(--border)',
             color: 'var(--text)', borderRadius: 6, padding: '4px 8px',
@@ -188,16 +191,16 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
             opacity: isSelf ? 0.4 : 1,
           }}
         >
-          <option value="player">Player</option>
-          <option value="gm">GM</option>
-          <option value="admin">Admin</option>
+          <option value="player">{t('users.roles.player')}</option>
+          <option value="gm">{t('users.roles.gm')}</option>
+          <option value="admin">{t('users.roles.admin')}</option>
         </select>
 
         {canSetPassword && (
           <button
             onClick={() => setSettingPassword(v => !v)}
-            title="Set password for this user"
-            aria-label={`Set password for ${user.username}`}
+            title={t('users.setPasswordTitle')}
+            aria-label={t('users.setPasswordTitle')}
             style={{
               ...ghostBtnStyle, padding: '5px 8px', display: 'flex', alignItems: 'center',
               color: settingPassword ? 'var(--gold)' : 'var(--text-dim)',
@@ -210,16 +213,16 @@ export default function UserRow({ user, currentUserId, onRoleChange, onExplicitC
 
         {confirmDelete ? (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Delete?</span>
-            <button onClick={() => onDelete(user.id)} style={dangerBtnStyle}>Yes</button>
-            <button onClick={() => setConfirmDelete(false)} style={ghostBtnStyle}>No</button>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('users.deleteConfirm')}</span>
+            <button onClick={() => onDelete(user.id)} style={dangerBtnStyle}>{t('common.yes')}</button>
+            <button onClick={() => setConfirmDelete(false)} style={ghostBtnStyle}>{t('common.no')}</button>
           </div>
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
             disabled={isSelf}
-            title={isSelf ? 'Cannot delete your own account' : 'Delete user'}
-            aria-label={`Delete user ${user.username}`}
+            title={isSelf ? t('users.cannotDeleteSelf') : t('users.deleteUser', { username: user.username })}
+            aria-label={t('users.deleteUser', { username: user.username })}
             style={{
               ...ghostBtnStyle, padding: '5px 8px',
               opacity: isSelf ? 0.3 : 1, cursor: isSelf ? 'not-allowed' : 'pointer',

@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
 
 export function DisplayNameSection() {
+  const { t } = useTranslation()
   const { user, refreshUser } = useAuth()
   const [value, setValue] = useState(user?.display_name ?? '')
   const [saving, setSaving] = useState(false)
@@ -21,7 +23,7 @@ export function DisplayNameSection() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setError(err?.message || 'Failed to save.')
+      setError(err?.message || t('common.save'))
     } finally {
       setSaving(false)
     }
@@ -30,15 +32,15 @@ export function DisplayNameSection() {
   return (
     <div>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
-        Display Name
+        {t('userSettings.displayName.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Shown to other users in place of your username. Leave blank to use your username.
+        {t('userSettings.displayName.description')}
       </p>
       <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', maxWidth: 400 }}>
         <div style={{ flex: 1, minWidth: 180 }}>
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}>Display name</label>
+          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}>{t('userSettings.displayName.label')}</label>
           <input
             value={value}
             onChange={e => setValue(e.target.value)}
@@ -58,7 +60,7 @@ export function DisplayNameSection() {
           }}
         >
           {saving && <Spinner size={13} />}
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('userSettings.displayName.saving') : t('userSettings.displayName.save')}
         </button>
       </form>
       {error && <div style={{ fontSize: 13, color: '#e07070', marginTop: 8 }}>{error}</div>}
@@ -67,6 +69,7 @@ export function DisplayNameSection() {
 }
 
 export function ExplicitContentSection() {
+  const { t } = useTranslation()
   const { user, refreshUser } = useAuth()
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
@@ -87,11 +90,11 @@ export function ExplicitContentSection() {
   return (
     <div>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
-        Content Preferences
+        {t('userSettings.contentPreferences.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Control whether explicit content is shown to you.
+        {t('userSettings.contentPreferences.description')}
       </p>
       <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', width: 'fit-content' }}>
         <input
@@ -101,7 +104,7 @@ export function ExplicitContentSection() {
           disabled={saving}
           style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--gold)' }}
         />
-        <span style={{ fontSize: 14, color: 'var(--text)' }}>Show explicit content</span>
+        <span style={{ fontSize: 14, color: 'var(--text)' }}>{t('userSettings.contentPreferences.showExplicit')}</span>
         {saving && <Spinner size={13} />}
       </label>
     </div>
@@ -109,6 +112,7 @@ export function ExplicitContentSection() {
 }
 
 export function ChangePasswordSection() {
+  const { t } = useTranslation()
   const [current, setCurrent] = useState('')
   const [next,    setNext]    = useState('')
   const [confirm, setConfirm] = useState('')
@@ -119,8 +123,8 @@ export function ChangePasswordSection() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-    if (next !== confirm) { setError('New passwords do not match.'); return }
-    if (next.length < 8)  { setError('New password must be at least 8 characters.'); return }
+    if (next !== confirm) { setError(t('userSettings.changePassword.mismatch')); return }
+    if (next.length < 8)  { setError(t('userSettings.changePassword.tooShort')); return }
     setSaving(true)
     try {
       await api.patch('/users/me/password', { current_password: current, new_password: next })
@@ -128,25 +132,27 @@ export function ChangePasswordSection() {
       setCurrent(''); setNext(''); setConfirm('')
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setError(err?.message || 'Failed to change password.')
+      setError(err?.message || t('userSettings.changePassword.failed'))
     } finally {
       setSaving(false)
     }
   }
 
+  const fields = [
+    { label: t('userSettings.changePassword.currentPassword'), value: current, onChange: setCurrent, complete: 'current-password' },
+    { label: t('userSettings.changePassword.newPassword'),     value: next,    onChange: setNext,    complete: 'new-password' },
+    { label: t('userSettings.changePassword.confirmNewPassword'), value: confirm, onChange: setConfirm, complete: 'new-password' },
+  ]
+
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Change Password</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('userSettings.changePassword.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Update your account password. You will stay logged in after changing it.
+        {t('userSettings.changePassword.description')}
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360 }}>
-        {[
-          { label: 'Current password', value: current, onChange: setCurrent, complete: 'current-password' },
-          { label: 'New password',     value: next,    onChange: setNext,    complete: 'new-password' },
-          { label: 'Confirm new password', value: confirm, onChange: setConfirm, complete: 'new-password' },
-        ].map(({ label, value, onChange, complete }) => (
+        {fields.map(({ label, value, onChange, complete }) => (
           <div key={label}>
             <label style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}>{label}</label>
             <input
@@ -175,11 +181,11 @@ export function ChangePasswordSection() {
             }}
           >
             {saving && <Spinner size={13} />}
-            {saving ? 'Saving…' : 'Update Password'}
+            {saving ? t('userSettings.changePassword.saving') : t('userSettings.changePassword.updatePassword')}
           </button>
           {saved && (
             <span style={{ fontSize: 13, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <LuCircleCheck size={14} /> Password updated
+              <LuCircleCheck size={14} /> {t('userSettings.changePassword.passwordUpdated')}
             </span>
           )}
         </div>
@@ -189,6 +195,7 @@ export function ChangePasswordSection() {
 }
 
 export function DeleteAccountSection({ user, onLogout }) {
+  const { t } = useTranslation()
   const [confirming, setConfirming] = useState(false)
   const [deleting,   setDeleting]   = useState(false)
   const [error,      setError]      = useState(null)
@@ -201,7 +208,7 @@ export function DeleteAccountSection({ user, onLogout }) {
       await api.delete('/users/me')
       onLogout()
     } catch (err) {
-      setError(err?.message || 'Failed to delete account.')
+      setError(err?.message || t('userSettings.deleteAccount.failed'))
       setDeleting(false)
       setConfirming(false)
     }
@@ -209,10 +216,10 @@ export function DeleteAccountSection({ user, onLogout }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: '#e07070' }}>Delete Account</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: '#e07070' }}>{t('userSettings.deleteAccount.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        Permanently deletes your account and all associated bookmarks and favorites. This cannot be undone.
-        {isAdmin && <><br /><span style={{ color: '#e07070' }}>Admin accounts cannot be self-deleted.</span></>}
+        {t('userSettings.deleteAccount.description')}
+        {isAdmin && <><br /><span style={{ color: '#e07070' }}>{t('userSettings.deleteAccount.adminWarning')}</span></>}
       </p>
 
       {!confirming ? (
@@ -229,7 +236,7 @@ export function DeleteAccountSection({ user, onLogout }) {
             opacity: isAdmin ? 0.5 : 1,
           }}
         >
-          Delete My Account
+          {t('userSettings.deleteAccount.deleteButton')}
         </button>
       ) : (
         <div style={{
@@ -238,7 +245,7 @@ export function DeleteAccountSection({ user, onLogout }) {
           maxWidth: 420,
         }}>
           <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
-            Are you sure? This cannot be undone.
+            {t('userSettings.deleteAccount.confirmMessage')}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -252,7 +259,7 @@ export function DeleteAccountSection({ user, onLogout }) {
               }}
             >
               {deleting && <Spinner size={13} />}
-              {deleting ? 'Deleting…' : 'Yes, delete my account'}
+              {deleting ? t('userSettings.deleteAccount.deleting') : t('userSettings.deleteAccount.confirmDelete')}
             </button>
             <button
               onClick={() => setConfirming(false)}
@@ -263,7 +270,7 @@ export function DeleteAccountSection({ user, onLogout }) {
                 color: 'var(--text-dim)', cursor: 'pointer',
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
           {error && <div style={{ fontSize: 13, color: '#e07070', marginTop: 10 }}>{error}</div>}

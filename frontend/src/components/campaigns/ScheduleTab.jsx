@@ -1,12 +1,32 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuClock } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
-import { FREQ_OPTIONS, MONTH_WEEKS, DAYS, utcTimeToLocal, USER_TZ } from './_scheduleShared'
+import { utcTimeToLocal, USER_TZ } from './_scheduleShared'
 import ScheduleEditor from './ScheduleEditor'
 import AvailabilityChart from './AvailabilityChart'
 
 function ScheduleSummary({ def, onEdit, isOwner }) {
+  const { t } = useTranslation()
+  const FREQ_OPTIONS = [
+    { key: 'weekly',   label: t('schedule.frequency.weekly')   },
+    { key: 'biweekly', label: t('schedule.frequency.biweekly') },
+    { key: 'monthly',  label: t('schedule.frequency.monthly')  },
+    { key: 'custom',   label: t('schedule.frequency.custom')   },
+  ]
+  const MONTH_WEEKS = [
+    { value: 1,  label: t('schedule.weeks.1st')  },
+    { value: 2,  label: t('schedule.weeks.2nd')  },
+    { value: 3,  label: t('schedule.weeks.3rd')  },
+    { value: 4,  label: t('schedule.weeks.4th')  },
+    { value: -1, label: t('schedule.weeks.last') },
+  ]
+  const DAYS = [
+    t('schedule.days.monday'), t('schedule.days.tuesday'), t('schedule.days.wednesday'),
+    t('schedule.days.thursday'), t('schedule.days.friday'), t('schedule.days.saturday'), t('schedule.days.sunday'),
+  ]
+
   const freqLabel = FREQ_OPTIONS.find(f => f.key === def.frequency)?.label ?? def.frequency
 
   let pattern = ''
@@ -15,7 +35,7 @@ function ScheduleSummary({ def, onEdit, isOwner }) {
   } else if (def.frequency === 'monthly') {
     const week = MONTH_WEEKS.find(w => w.value === def.monthly_week)?.label ?? ''
     const day = DAYS[def.days?.[0]] ?? ''
-    pattern = `${week} ${day} of each month`
+    pattern = t('schedule.monthlyPattern', { week, day })
   } else {
     pattern = def.days?.map(d => DAYS[d]).join(' & ') ?? ''
   }
@@ -40,7 +60,7 @@ function ScheduleSummary({ def, onEdit, isOwner }) {
             onClick={onEdit}
             style={{ padding: '6px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}
           >
-            Edit
+            {t('schedule.edit')}
           </button>
         )}
       </div>
@@ -49,6 +69,7 @@ function ScheduleSummary({ def, onEdit, isOwner }) {
 }
 
 export default function ScheduleTab({ campaign, isOwner, userId }) {
+  const { t } = useTranslation()
   const [data, setData] = useState(null)
   const [availability, setAvailability] = useState(null)
   const [editingSchedule, setEditingSchedule] = useState(false)
@@ -96,7 +117,7 @@ export default function ScheduleTab({ campaign, isOwner, userId }) {
       {!def && !editingSchedule && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
           <LuCalendar size={32} style={{ marginBottom: 10, opacity: 0.3 }} />
-          <div style={{ fontSize: 14 }}>No schedule defined yet. Set one above.</div>
+          <div style={{ fontSize: 14 }}>{t('schedule.noSchedule')}</div>
         </div>
       )}
     </div>

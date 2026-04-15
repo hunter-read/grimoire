@@ -5,17 +5,17 @@ import RoleBadge, { ROLE_COLORS } from './RoleBadge'
 describe('RoleBadge', () => {
   it('renders the role text for admin', () => {
     render(<RoleBadge role="admin" />)
-    expect(screen.getByText('admin')).toBeInTheDocument()
+    expect(screen.getByText('Admin')).toBeInTheDocument()
   })
 
   it('renders the role text for gm', () => {
     render(<RoleBadge role="gm" />)
-    expect(screen.getByText('gm')).toBeInTheDocument()
+    expect(screen.getByText('GM')).toBeInTheDocument()
   })
 
   it('renders the role text for player', () => {
     render(<RoleBadge role="player" />)
-    expect(screen.getByText('player')).toBeInTheDocument()
+    expect(screen.getByText('Player')).toBeInTheDocument()
   })
 
   it('renders without throwing for an unknown role', () => {

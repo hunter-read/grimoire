@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuBookmark, LuX, LuTrash2, LuPencil, LuCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 
 export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClose, refreshKey }) {
+  const { t } = useTranslation()
   const [bookmarks, setBookmarks] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
@@ -46,8 +48,8 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
         <LuBookmark size={14} color="var(--text-muted)" aria-hidden="true" />
-        <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--text-dim)' }}>Bookmarks</span>
-        <button onClick={onClose} aria-label="Close bookmarks" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--text-dim)' }}>{t('bookmark.sidebarTitle')}</span>
+        <button onClick={onClose} aria-label={t('bookmark.closeBookmarks')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
           <LuX size={15} aria-hidden="true" />
         </button>
       </div>
@@ -57,9 +59,9 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
 
         {!loading && bookmarks?.length === 0 && (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            No bookmarks yet.
+            {t('bookmark.noBookmarks')}
             <br />
-            <span style={{ opacity: 0.7 }}>Use the bookmark button in the toolbar or select text to bookmark a passage.</span>
+            <span style={{ opacity: 0.7 }}>{t('bookmark.noBookmarksHint')}</span>
           </div>
         )}
 
@@ -78,7 +80,7 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
             >
               <button
                 onClick={() => !isEditing && onGoToPage(bm.page_number, bm.selected_text || null)}
-                aria-label={`Go to bookmark: ${displayLabel}`}
+                aria-label={t('bookmark.goToBookmark', { label: displayLabel })}
                 style={{
                   flex: 1, background: 'none', border: 'none', cursor: isEditing ? 'default' : 'pointer',
                   textAlign: 'left', padding: 0,
@@ -98,7 +100,7 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
                       value={editNotes}
                       onChange={e => setEditNotes(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
-                      placeholder="Notes (optional)"
+                      placeholder={t('bookmark.notesPlaceholder')}
                       rows={3}
                       style={{ fontSize: 12, width: '100%', padding: '2px 4px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
                     />
@@ -127,7 +129,7 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
                 {isEditing ? (
                   <button
                     onClick={() => saveEdit(bm)}
-                    aria-label="Save bookmark"
+                    aria-label={t('bookmark.saveBookmark')}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', padding: '2px', display: 'flex' }}
                   >
                     <LuCheck size={12} aria-hidden="true" />
@@ -135,7 +137,7 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
                 ) : (
                   <button
                     onClick={() => startEdit(bm)}
-                    aria-label="Edit bookmark"
+                    aria-label={t('bookmark.editBookmark')}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', opacity: 0.6, display: 'flex' }}
                   >
                     <LuPencil size={12} aria-hidden="true" />
@@ -143,7 +145,7 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
                 )}
                 <button
                   onClick={() => handleDelete(bm.id)}
-                  aria-label="Delete bookmark"
+                  aria-label={t('bookmark.deleteBookmark')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', flexShrink: 0, opacity: 0.6, display: 'flex' }}
                 >
                   <LuTrash2 size={12} aria-hidden="true" />

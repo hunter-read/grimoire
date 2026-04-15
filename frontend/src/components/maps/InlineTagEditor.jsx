@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 
 export default function InlineTagEditor({ tags, onSave, onCancel }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState([...tags])
   const [input, setInput] = useState('')
   const inputRef = useRef(null)
@@ -9,10 +11,10 @@ export default function InlineTagEditor({ tags, onSave, onCancel }) {
   useEffect(() => { inputRef.current?.focus() }, [])
 
   const commit = () => {
-    const t = input.trim().toLowerCase().replace(/,+$/, '')
+    const tag = input.trim().toLowerCase().replace(/,+$/, '')
     setInput('')
-    if (t && !draft.includes(t)) {
-      const next = [...draft, t]
+    if (tag && !draft.includes(tag)) {
+      const next = [...draft, tag]
       setDraft(next)
       onSave(next)
     }
@@ -36,12 +38,12 @@ export default function InlineTagEditor({ tags, onSave, onCancel }) {
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-      {draft.map(t => (
-        <span key={t} style={editTagStyle}>
-          {t}
+      {draft.map(tag => (
+        <span key={tag} style={editTagStyle}>
+          {tag}
           <button
-            onClick={() => remove(t)}
-            aria-label={`Remove tag ${t}`}
+            onClick={() => remove(tag)}
+            aria-label={t('inlineTagEditor.removeTag', { tag })}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 0 0 4px', lineHeight: 1 }}
           >
             <LuX size={10} />
@@ -53,10 +55,10 @@ export default function InlineTagEditor({ tags, onSave, onCancel }) {
         value={input}
         onChange={e => setInput(e.target.value)}
         onKeyDown={handleKey}
-        placeholder="Add tag…"
+        placeholder={t('inlineTagEditor.placeholder')}
         style={{ fontSize: 13, padding: '2px 8px', borderRadius: 10, width: 100, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text)' }}
       />
-      <button onClick={() => { commit(); onCancel() }} style={cancelBtnStyle}>Done</button>
+      <button onClick={() => { commit(); onCancel() }} style={cancelBtnStyle}>{t('common.done')}</button>
     </div>
   )
 }

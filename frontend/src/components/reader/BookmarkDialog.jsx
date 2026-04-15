@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 /**
  * Modal dialog for naming and saving a new bookmark (page or text selection).
  *
@@ -10,6 +12,7 @@
  * @param {Function} props.onClose
  */
 export default function BookmarkDialog({ pendingBookmark, pendingLabel, pendingNotes, onLabelChange, onNotesChange, onSave, onClose }) {
+  const { t } = useTranslation()
   return (
     <div
       data-bookmark-ui="true"
@@ -28,7 +31,7 @@ export default function BookmarkDialog({ pendingBookmark, pendingLabel, pendingN
         borderRadius: 10, padding: 24, width: 360, maxWidth: '90vw',
       }}>
         <div id="bookmark-dialog-title" style={{ fontSize: 15, fontWeight: 500, marginBottom: 16 }}>
-          {pendingBookmark.selectedText ? 'Bookmark Selection' : `Bookmark Page ${pendingBookmark.page}`}
+          {pendingBookmark.selectedText ? t('bookmark.bookmarkSelection') : t('bookmark.bookmarkPage', { page: pendingBookmark.page })}
         </div>
 
         {pendingBookmark.selectedText && (
@@ -43,7 +46,7 @@ export default function BookmarkDialog({ pendingBookmark, pendingLabel, pendingN
         )}
 
         <label htmlFor="bookmark-label" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-          Label
+          {t('bookmark.label')}
         </label>
         <input
           id="bookmark-label"
@@ -63,7 +66,7 @@ export default function BookmarkDialog({ pendingBookmark, pendingLabel, pendingN
         />
 
         <label htmlFor="bookmark-notes" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-          Notes (optional)
+          {t('bookmark.notes')}
         </label>
         <textarea
           id="bookmark-notes"
@@ -72,7 +75,7 @@ export default function BookmarkDialog({ pendingBookmark, pendingLabel, pendingN
           onKeyDown={e => {
             if (e.key === 'Escape') onClose()
           }}
-          placeholder="Notes (optional)"
+          placeholder={t('bookmark.notesPlaceholder')}
           rows={3}
           style={{ width: '100%', fontSize: 13, padding: '8px 12px', marginBottom: 16, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
         />
@@ -82,13 +85,13 @@ export default function BookmarkDialog({ pendingBookmark, pendingLabel, pendingN
             onClick={onClose}
             style={{ padding: '7px 16px', borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: 14, cursor: 'pointer' }}
           >
-            Cancel
+            {t('bookmark.cancel')}
           </button>
           <button
             onClick={onSave}
             style={{ padding: '7px 16px', borderRadius: 6, background: 'var(--gold-dim)', border: 'none', color: 'var(--bg-deep)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
-            Save
+            {t('bookmark.save')}
           </button>
         </div>
       </div>

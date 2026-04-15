@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next'
 import { LuUser } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
 
 export default function TokenCard({ token, onClick, bulkMode, selected, onToggle }) {
+  const { t } = useTranslation()
+
   const handleClick = (e) => {
     if (bulkMode) { e.stopPropagation(); onToggle(); return }
     onClick()
@@ -46,7 +49,7 @@ export default function TokenCard({ token, onClick, bulkMode, selected, onToggle
           position: 'absolute', bottom: 6, right: 6, zIndex: 2,
           fontSize: 11, padding: '1px 5px', borderRadius: 6,
           background: 'rgba(180,60,60,0.85)', color: '#fff', fontWeight: 600,
-        }}>18+</div>
+        }}>{t('tokens.explicit')}</div>
       )}
       <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         {token.has_thumbnail
@@ -55,7 +58,7 @@ export default function TokenCard({ token, onClick, bulkMode, selected, onToggle
         }
         {token.is_missing && (
           <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, padding: '1px 6px', borderRadius: 6, background: 'rgba(200,134,10,0.9)', color: '#fff', fontWeight: 600 }}>
-            Missing
+            {t('tokens.missing')}
           </div>
         )}
       </div>

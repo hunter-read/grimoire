@@ -68,9 +68,9 @@ describe('UserRow', () => {
 
   it('renders a RoleBadge for the user role', () => {
     render(<UserRow user={admin} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
-    // Username "admin" also appears as plain text; use getAllByText and confirm
-    // at least one of the matches has the badge styling (uppercase, small font).
-    const matches = screen.getAllByText('admin')
-    expect(matches.length).toBeGreaterThanOrEqual(2) // username + badge
+    // Username "admin" appears as plain text; the badge shows the translated "Admin"
+    // (also appears in the role <select> option, so use getAllByText)
+    expect(screen.getByText('admin')).toBeInTheDocument()
+    expect(screen.getAllByText('Admin').length).toBeGreaterThanOrEqual(1)
   })
 })

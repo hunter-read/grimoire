@@ -64,26 +64,26 @@ describe('MemberRow', () => {
 
   it('shows accept/decline buttons for current user with invited status', () => {
     renderRow({ status: 'invited' }, { currentUserId: 'u1' })
-    expect(screen.getByRole('button', { name: 'Accept invitation' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Decline invitation' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeTruthy()
   })
 
   it('does not show accept/decline for another user with invited status', () => {
     renderRow({ status: 'invited' }, { currentUserId: 'u2' })
-    expect(screen.queryByRole('button', { name: 'Accept invitation' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull()
   })
 
   it('calls onUpdateStatus with accepted when Accept is clicked', () => {
     const onUpdateStatus = vi.fn()
     renderRow({ status: 'invited' }, { currentUserId: 'u1', onUpdateStatus })
-    fireEvent.click(screen.getByRole('button', { name: 'Accept invitation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(onUpdateStatus).toHaveBeenCalledWith('u1', 'accepted')
   })
 
   it('calls onUpdateStatus with declined when Decline is clicked', () => {
     const onUpdateStatus = vi.fn()
     renderRow({ status: 'invited' }, { currentUserId: 'u1', onUpdateStatus })
-    fireEvent.click(screen.getByRole('button', { name: 'Decline invitation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }))
     expect(onUpdateStatus).toHaveBeenCalledWith('u1', 'declined')
   })
 

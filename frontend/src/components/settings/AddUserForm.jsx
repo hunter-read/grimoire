@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuCheck, LuX } from 'react-icons/lu'
 import api from '../../api'
 
 export default function AddUserForm({ onAdd, onCancel }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', password: '', role: 'player' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -10,13 +12,13 @@ export default function AddUserForm({ onAdd, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return }
+    if (form.password.length < 8) { setError(t('users.passwordTooShort')); return }
     setLoading(true)
     try {
       const user = await api.post('/users', form)
       onAdd(user)
     } catch (err) {
-      setError(err.message || 'Failed to create user.')
+      setError(err.message || t('users.failedCreateUser'))
     } finally {
       setLoading(false)
     }
@@ -29,7 +31,7 @@ export default function AddUserForm({ onAdd, onCancel }) {
     }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}>
         <div>
-          <label htmlFor="add-user-username" style={labelStyle}>Username</label>
+          <label htmlFor="add-user-username" style={labelStyle}>{t('users.username')}</label>
           <input
             id="add-user-username"
             type="text" required autoFocus autoComplete="off"
@@ -38,7 +40,7 @@ export default function AddUserForm({ onAdd, onCancel }) {
           />
         </div>
         <div>
-          <label htmlFor="add-user-password" style={labelStyle}>Password</label>
+          <label htmlFor="add-user-password" style={labelStyle}>{t('users.password')}</label>
           <input
             id="add-user-password"
             type="password" required autoComplete="new-password"
@@ -47,15 +49,15 @@ export default function AddUserForm({ onAdd, onCancel }) {
           />
         </div>
         <div>
-          <label htmlFor="add-user-role" style={labelStyle}>Role</label>
+          <label htmlFor="add-user-role" style={labelStyle}>{t('users.role')}</label>
           <select
             id="add-user-role"
             value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
             style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, padding: '8px 10px', fontSize: 15 }}
           >
-            <option value="player">Player</option>
-            <option value="gm">GM</option>
-            <option value="admin">Admin</option>
+            <option value="player">{t('users.roles.player')}</option>
+            <option value="gm">{t('users.roles.gm')}</option>
+            <option value="admin">{t('users.roles.admin')}</option>
           </select>
         </div>
       </div>
@@ -65,10 +67,10 @@ export default function AddUserForm({ onAdd, onCancel }) {
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <button type="submit" disabled={loading} style={{ ...primaryBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
           <LuCheck size={13} />
-          {loading ? 'Creating…' : 'Create User'}
+          {loading ? t('users.creating') : t('users.createUser')}
         </button>
         <button type="button" onClick={onCancel} style={{ ...ghostBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <LuX size={13} /> Cancel
+          <LuX size={13} /> {t('common.cancel')}
         </button>
       </div>
     </form>

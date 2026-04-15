@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function SetupView({ onSetup }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -10,11 +12,11 @@ export default function SetupView({ onSetup }) {
     setError('')
 
     if (form.password !== form.confirm) {
-      setError('Passwords do not match.')
+      setError(t('setup.passwordMismatch'))
       return
     }
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError(t('setup.passwordTooShort'))
       return
     }
 
@@ -27,12 +29,12 @@ export default function SetupView({ onSetup }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.detail || 'Setup failed.')
+        setError(data.detail || t('setup.setupFailed'))
         return
       }
       onSetup(data.token, data.user)
     } catch {
-      setError('Could not reach the server.')
+      setError(t('setup.serverUnreachable'))
     } finally {
       setLoading(false)
     }
@@ -46,9 +48,9 @@ export default function SetupView({ onSetup }) {
       <div style={{ width: '100%', maxWidth: 400 }}>
         {/* Branding */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <h1 style={{ fontSize: 32, letterSpacing: '0.1em', marginBottom: 8 }}>GRIMOIRE</h1>
+          <h1 style={{ fontSize: 32, letterSpacing: '0.1em', marginBottom: 8 }}>{t('app.name')}</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 300 }}>
-            TTRPG Library
+            {t('app.subtitle')}
           </p>
         </div>
 
@@ -57,14 +59,14 @@ export default function SetupView({ onSetup }) {
           background: 'var(--bg-panel)', border: '1px solid var(--border)',
           borderRadius: 12, padding: 32,
         }}>
-          <h2 style={{ fontSize: 18, marginBottom: 8, textAlign: 'center' }}>First-Time Setup</h2>
+          <h2 style={{ fontSize: 18, marginBottom: 8, textAlign: 'center' }}>{t('setup.title')}</h2>
           <p style={{ color: 'var(--text-dim)', fontSize: 14, textAlign: 'center', marginBottom: 28, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
-            Create your administrator account to begin.
+            {t('setup.subtitle')}
           </p>
 
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 16 }}>
-              <label htmlFor="setup-username" style={labelStyle}>Username</label>
+              <label htmlFor="setup-username" style={labelStyle}>{t('setup.username')}</label>
               <input
                 id="setup-username"
                 type="text"
@@ -76,7 +78,7 @@ export default function SetupView({ onSetup }) {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label htmlFor="setup-password" style={labelStyle}>Password</label>
+              <label htmlFor="setup-password" style={labelStyle}>{t('setup.password')}</label>
               <input
                 id="setup-password"
                 type="password"
@@ -88,7 +90,7 @@ export default function SetupView({ onSetup }) {
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label htmlFor="setup-confirm" style={labelStyle}>Confirm Password</label>
+              <label htmlFor="setup-confirm" style={labelStyle}>{t('setup.confirmPassword')}</label>
               <input
                 id="setup-confirm"
                 type="password"
@@ -106,7 +108,7 @@ export default function SetupView({ onSetup }) {
             )}
 
             <button type="submit" disabled={loading} style={submitBtnStyle(loading)}>
-              {loading ? 'Creating account…' : 'Create Admin Account'}
+              {loading ? t('setup.creatingAccount') : t('setup.createAccount')}
             </button>
           </form>
         </div>

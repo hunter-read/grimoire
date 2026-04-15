@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 export const ROLE_COLORS = {
   admin:  { bg: 'rgba(201, 168, 76, 0.15)',  border: 'var(--gold-dim)',  text: 'var(--gold)' },
   gm:     { bg: 'rgba(212, 145, 58, 0.15)',  border: 'var(--amber)',     text: 'var(--amber)' },
@@ -5,6 +7,7 @@ export const ROLE_COLORS = {
 }
 
 export default function RoleBadge({ role }) {
+  const { t } = useTranslation()
   const c = ROLE_COLORS[role] || ROLE_COLORS.player
   return (
     <span style={{
@@ -12,7 +15,7 @@ export default function RoleBadge({ role }) {
       background: c.bg, border: `1px solid ${c.border}`, color: c.text,
       textTransform: 'uppercase', letterSpacing: '0.04em',
     }}>
-      {role}
+      {t(`users.roles.${role}`, { defaultValue: role })}
     </span>
   )
 }

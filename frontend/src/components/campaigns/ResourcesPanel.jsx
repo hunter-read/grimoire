@@ -1,21 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { LuBookOpen, LuMap, LuUser, LuPlus, LuTrash2, LuEye, LuEyeOff, LuSearch, LuX, LuChevronRight } from 'react-icons/lu'
 import { campaigns, mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 
 const TYPE_ICONS = {
-  book:  { Icon: LuBookOpen, label: 'Books',  color: '#a78bfa' },
-  map:   { Icon: LuMap,      label: 'Maps',   color: '#60a5fa' },
-  token: { Icon: LuUser,     label: 'Tokens', color: '#34d399' },
+  book:  { Icon: LuBookOpen, color: '#a78bfa' },
+  map:   { Icon: LuMap,      color: '#60a5fa' },
+  token: { Icon: LuUser,     color: '#34d399' },
 }
-
-const TYPE_TABS = [
-  { key: '',      label: 'All' },
-  { key: 'book',  label: 'Books' },
-  { key: 'map',   label: 'Maps' },
-  { key: 'token', label: 'Tokens' },
-]
 
 const RESOURCE_NAV = {
   book:  id => `/library/book/${id}`,
@@ -24,6 +18,7 @@ const RESOURCE_NAV = {
 }
 
 function ResourceRow({ resource, isOwner, isGmCampaign, onRemove, onToggleShare }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
   const { Icon } = TYPE_ICONS[resource.resource_type] || { Icon: LuBookOpen }
@@ -51,7 +46,6 @@ function ResourceRow({ resource, isOwner, isGmCampaign, onRemove, onToggleShare 
         transition: 'background 0.15s', marginBottom: 6,
       }}
     >
-      {/* Thumbnail — portrait for books, square for maps/tokens */}
       <div style={{
         width: isBook ? 36 : 44, height: isBook ? 48 : 44,
         borderRadius: 4, overflow: 'hidden', flexShrink: 0,
@@ -80,7 +74,7 @@ function ResourceRow({ resource, isOwner, isGmCampaign, onRemove, onToggleShare 
             {isGmCampaign && (
               <button
                 onClick={e => { e.stopPropagation(); onToggleShare(resource.id, !resource.shared) }}
-                aria-label={resource.shared ? 'Shared — click to make private' : 'Private — click to share with players'}
+                aria-label={resource.shared ? t('resources.sharedAriaLabel') : t('resources.privateAriaLabel')}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: resource.shared ? 'var(--gold)' : 'var(--text-muted)', padding: '6px 4px', margin: '-6px 0', display: 'flex' }}
               >
                 {resource.shared ? <LuEye size={14} aria-hidden="true" /> : <LuEyeOff size={14} aria-hidden="true" />}
@@ -97,7 +91,7 @@ function ResourceRow({ resource, isOwner, isGmCampaign, onRemove, onToggleShare 
         )}
         {!isOwner && isGmCampaign && (
           <span style={{ fontSize: 11, color: resource.shared ? 'var(--gold)' : 'var(--text-muted)' }}>
-            {resource.shared ? 'Shared' : 'Private'}
+            {resource.shared ? t('resources.shared') : t('resources.private')}
           </span>
         )}
         <LuChevronRight size={15} color="var(--text-muted)" />
@@ -107,6 +101,15 @@ function ResourceRow({ resource, isOwner, isGmCampaign, onRemove, onToggleShare 
 }
 
 function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose }) {
+  const { t } = useTranslation()
+
+  const TYPE_TABS = [
+    { key: '',      label: t('resources.all')    },
+    { key: 'book',  label: t('resources.books')  },
+    { key: 'map',   label: t('resources.maps')   },
+    { key: 'token', label: t('resources.tokens') },
+  ]
+
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [results, setResults] = useState([])
@@ -134,9 +137,9 @@ function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose })
     debounce.current = setTimeout(() => doSearch(v, typeFilter), 250)
   }
 
-  const handleType = (t) => {
-    setTypeFilter(t)
-    doSearch(query, t)
+  const handleType = (tp) => {
+    setTypeFilter(tp)
+    doSearch(query, tp)
   }
 
   const handleAdd = async (item) => {
@@ -148,7 +151,7 @@ function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose })
       })
       onAdd()
     } catch (err) {
-      if (err.status === 409) return // already linked, silently skip
+      if (err.status === 409) return
       alert(err.message)
     }
   }
@@ -159,39 +162,37 @@ function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose })
       padding: '16px 18px', marginBottom: 16,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>Link a Resource</div>
-        <button onClick={onClose} aria-label="Close resource picker" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t('resources.linkTitle')}</div>
+        <button onClick={onClose} aria-label={t('common.close')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}>
           <LuX size={16} aria-hidden="true" />
         </button>
       </div>
 
-      {/* Type tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 10, background: 'var(--bg-deep)', borderRadius: 8, padding: 4 }}>
-        {TYPE_TABS.map(t => (
+        {TYPE_TABS.map(tp => (
           <button
-            key={t.key}
-            onClick={() => handleType(t.key)}
+            key={tp.key}
+            onClick={() => handleType(tp.key)}
             style={{
               flex: 1, padding: '5px 0', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 500,
               border: 'none',
-              background: typeFilter === t.key ? 'var(--bg-card)' : 'transparent',
-              color: typeFilter === t.key ? 'var(--text)' : 'var(--text-muted)',
+              background: typeFilter === tp.key ? 'var(--bg-card)' : 'transparent',
+              color: typeFilter === tp.key ? 'var(--text)' : 'var(--text-muted)',
             }}
           >
-            {t.label}
+            {tp.label}
           </button>
         ))}
       </div>
 
-      {/* Search input */}
       <div style={{ position: 'relative', marginBottom: 10 }}>
         <LuSearch size={14} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
         <input
           ref={searchRef}
           value={query}
           onChange={e => handleQuery(e.target.value)}
-          aria-label="Search resources by name"
-          placeholder="Search by name…"
+          aria-label={t('resources.searchAriaLabel')}
+          placeholder={t('resources.searchPlaceholder')}
           style={{
             width: '100%', padding: '8px 10px 8px 32px', background: 'var(--bg-deep)',
             border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
@@ -200,19 +201,17 @@ function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose })
         />
       </div>
 
-      {/* Share toggle */}
       {isGmCampaign && (
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', marginBottom: 10 }}>
           <input type="checkbox" checked={shared} onChange={e => setShared(e.target.checked)} />
-          Share with players by default
+          {t('resources.shareByDefault')}
         </label>
       )}
 
-      {/* Results */}
       <div style={{ maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spinner size={18} /></div>}
         {!loading && results.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-muted)', fontSize: 13 }}>No results</div>
+          <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-muted)', fontSize: 13 }}>{t('resources.noResults')}</div>
         )}
         {!loading && results.map(item => {
           const key = `${item.resource_type}:${item.resource_id}`
@@ -257,7 +256,7 @@ function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose })
                   fontSize: 12, fontWeight: 600, flexShrink: 0,
                 }}
               >
-                {alreadyLinked ? 'Linked' : '+ Add'}
+                {alreadyLinked ? t('resources.linked') : t('resources.addResource')}
               </button>
             </div>
           )
@@ -267,8 +266,16 @@ function ResourcePicker({ campaignId, isGmCampaign, linkedIds, onAdd, onClose })
   )
 }
 
-export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
+export default function ResourcesPanel({ campaign, isOwner }) {
+  const { t } = useTranslation()
   const isGmCampaign = campaign.is_gm_campaign
+
+  const TYPE_LABELS = {
+    book:  t('resources.books'),
+    map:   t('resources.maps'),
+    token: t('resources.tokens'),
+  }
+
   const [resources, setResources] = useState(null)
   const [adding, setAdding] = useState(false)
 
@@ -296,13 +303,13 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600 }}>Linked Resources</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 600 }}>{t('resources.title')}</h3>
         {isOwner && (
           <button
             onClick={() => setAdding(!adding)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-dim)', cursor: 'pointer', fontSize: 13 }}
           >
-            <LuPlus size={14} /> Link Resource
+            <LuPlus size={14} /> {t('resources.linkResource')}
           </button>
         )}
       </div>
@@ -320,19 +327,20 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
       {isOwner && !adding && isGmCampaign && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, padding: '8px 12px', background: 'var(--bg-deep)', borderRadius: 8, border: '1px solid var(--border)' }}>
           <LuEye size={12} style={{ verticalAlign: 'middle', marginRight: 5 }} />
-          Shared resources are visible to all campaign members. Private resources are GM-only.
+          {t('resources.sharedNote')}
         </div>
       )}
 
       {resources.length === 0 && !adding ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
           <LuBookOpen size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
-          <div style={{ fontSize: 14 }}>No resources linked yet.</div>
+          <div style={{ fontSize: 14 }}>{t('resources.noResources')}</div>
         </div>
       ) : (
         Object.entries(grouped).map(([type, items]) => {
           if (items.length === 0) return null
-          const { Icon, label } = TYPE_ICONS[type]
+          const { Icon } = TYPE_ICONS[type]
+          const label = TYPE_LABELS[type]
           return (
             <section key={type} style={{ marginBottom: 20 }}>
               <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>

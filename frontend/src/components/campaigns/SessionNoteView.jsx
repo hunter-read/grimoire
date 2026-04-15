@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuChevronLeft, LuUser, LuShield, LuEye, LuEyeOff, LuPencil, LuCheck, LuX } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
@@ -16,11 +17,12 @@ const iconBtn = {
 }
 
 function NoteEditor({ label, value, onChange, placeholder, readOnly, lastSaved }) {
+  const { t } = useTranslation()
   return (
     <div style={{ marginBottom: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
-        {lastSaved && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saved</span>}
+        {lastSaved && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('sessionNote.saved')}</span>}
       </div>
       <textarea
         value={value}
@@ -40,6 +42,7 @@ function NoteEditor({ label, value, onChange, placeholder, readOnly, lastSaved }
 }
 
 export default function SessionNoteView({ campaign, sessionId, isOwner, userId, onBack }) {
+  const { t } = useTranslation()
   const [session, setSession] = useState(null)
   const [myNote, setMyNote] = useState('')
   const [gmInternal, setGmInternal] = useState('')
@@ -129,7 +132,7 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
         onClick={onBack}
         style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, padding: 0, marginBottom: 16 }}
       >
-        <LuChevronLeft size={14} /> Session Notes
+        <LuChevronLeft size={14} /> {t('sessionNote.backToSessionNotes')}
       </button>
 
       <div style={{ marginBottom: 24 }}>
@@ -147,21 +150,21 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
                 color: 'var(--text)', padding: '4px 10px', flex: 1,
               }}
             />
-            <button onClick={saveTitle} aria-label="Save title" style={iconBtn}>
+            <button onClick={saveTitle} aria-label={t('sessionNote.saveTitle')} style={iconBtn}>
               <LuCheck size={16} color="var(--gold)" />
             </button>
-            <button onClick={cancelTitleEdit} aria-label="Cancel" style={iconBtn}>
+            <button onClick={cancelTitleEdit} aria-label={t('sessionNote.cancelTitle')} style={iconBtn}>
               <LuX size={16} color="var(--text-muted)" />
             </button>
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-              {session.title || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Untitled Session</span>}
+              {session.title || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>{t('sessionNote.untitledSession')}</span>}
             </h2>
             <button
               onClick={() => { setTitleValue(session.title ?? ''); setEditingTitle(true) }}
-              aria-label="Edit session title"
+              aria-label={t('sessionNote.editSessionTitle')}
               style={{ ...iconBtn, opacity: 0.5 }}
             >
               <LuPencil size={14} />
@@ -176,18 +179,18 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <LuUser size={14} /> My Notes
+              <LuUser size={14} /> {t('sessionNote.myNotes')}
             </div>
             <span aria-live="polite" aria-atomic="true">
-              {savingPlayer && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving...</span>}
-              {savedPlayer && <span style={{ fontSize: 11, color: 'var(--gold)' }}>Saved</span>}
+              {savingPlayer && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('sessionNote.saving')}</span>}
+              {savedPlayer && <span style={{ fontSize: 11, color: 'var(--gold)' }}>{t('sessionNote.saved')}</span>}
             </span>
           </div>
           <NoteEditor
             label=""
             value={myNote}
             onChange={handleMyNoteChange}
-            placeholder="Write your session notes here. Other players can read these, but only you can edit them."
+            placeholder={t('sessionNote.myNotesPlaceholder')}
           />
         </div>
 
@@ -196,12 +199,12 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <LuShield size={14} style={{ color: 'var(--gold)' }} /> GM Notes
+                <LuShield size={14} style={{ color: 'var(--gold)' }} /> {t('sessionNote.gmNotes')}
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span aria-live="polite" aria-atomic="true">
-                  {savingGm && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving...</span>}
-                  {savedGm && <span style={{ fontSize: 11, color: 'var(--gold)' }}>Saved</span>}
+                  {savingGm && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('sessionNote.saving')}</span>}
+                  {savedGm && <span style={{ fontSize: 11, color: 'var(--gold)' }}>{t('sessionNote.saved')}</span>}
                 </span>
               </div>
             </div>
@@ -218,7 +221,7 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}
               >
-                <LuEyeOff size={12} aria-hidden="true" /> Internal
+                <LuEyeOff size={12} aria-hidden="true" /> {t('sessionNote.internal')}
               </button>
               <button
                 onClick={() => setShowInternal(false)}
@@ -231,7 +234,7 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}
               >
-                <LuEye size={12} aria-hidden="true" /> Shared with Players
+                <LuEye size={12} aria-hidden="true" /> {t('sessionNote.sharedWithPlayers')}
               </button>
             </div>
 
@@ -240,7 +243,7 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
                 label=""
                 value={gmInternal}
                 onChange={val => handleGmChange('internal', val)}
-                placeholder="Internal notes — only you can see these. Plans, secrets, villain motivations..."
+                placeholder={t('sessionNote.internalPlaceholder')}
                 lastSaved={savedGm}
               />
             ) : (
@@ -248,7 +251,7 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
                 label=""
                 value={gmExternal}
                 onChange={val => handleGmChange('external', val)}
-                placeholder="Shared notes — visible to all players. Session recap, world lore, handout text..."
+                placeholder={t('sessionNote.sharedPlaceholder')}
                 lastSaved={savedGm}
               />
             )}
@@ -270,13 +273,13 @@ export default function SessionNoteView({ campaign, sessionId, isOwner, userId, 
         {otherPlayerNotes.map(n => (
           <div key={n.user_id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px' }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <LuUser size={14} /> {n.display_name || n.username}'s Notes
+              <LuUser size={14} /> {t('sessionNote.playersNotes', { name: n.display_name || n.username })}
             </div>
             <NoteEditor
               label=""
               value={n.content || ''}
               readOnly
-              placeholder="No notes written yet."
+              placeholder={t('sessionNote.noNotesYet')}
             />
           </div>
         ))}

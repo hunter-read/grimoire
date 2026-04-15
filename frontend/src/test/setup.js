@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import '../i18n'
 
 // Node.js 22+ has a native localStorage that lacks clear() and doesn't reset
 // between tests. Replace it with a proper in-memory implementation for all tests.

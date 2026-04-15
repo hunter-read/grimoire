@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LuScroll, LuUsers, LuCalendar, LuNotebook, LuChevronLeft,
   LuSettings, LuTrash2, LuUserPlus, LuBookOpen, LuLink,
@@ -23,6 +24,7 @@ const TAB_STYLE = (active) => ({
 })
 
 export default function CampaignDetailView() {
+  const { t } = useTranslation()
   const { campaignId, tab = 'overview', sessionId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -49,7 +51,7 @@ export default function CampaignDetailView() {
         {error}
         <div style={{ marginTop: 12 }}>
           <button onClick={() => navigate('/campaigns')} style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 14 }}>
-            ← Back to Campaigns
+            ← {t('campaignDetail.backToCampaigns')}
           </button>
         </div>
       </div>
@@ -64,7 +66,7 @@ export default function CampaignDetailView() {
   const isGmCampaign = campaign.is_gm_campaign
 
   const deleteCampaign = async () => {
-    if (!confirm(`Delete campaign "${campaign.name}"? This cannot be undone.`)) return
+    if (!confirm(t('campaignDetail.deleteConfirm', { name: campaign.name }))) return
     await campaigns.delete(campaign.id)
     navigate('/campaigns')
   }
@@ -75,7 +77,7 @@ export default function CampaignDetailView() {
   }
 
   const handleRemoveMember = async (userId) => {
-    if (!confirm('Remove this member?')) return
+    if (!confirm(t('common.delete') + '?')) return
     await campaigns.removeMember(campaignId, userId)
     load()
   }
@@ -85,7 +87,6 @@ export default function CampaignDetailView() {
     load()
   }
 
-  // If viewing a session note
   if (sessionId) {
     return (
       <SessionNoteView
@@ -106,7 +107,7 @@ export default function CampaignDetailView() {
           onClick={() => navigate('/campaigns')}
           style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, padding: 0, marginBottom: 12 }}
         >
-          <LuChevronLeft size={14} /> Campaigns
+          <LuChevronLeft size={14} /> {t('campaignDetail.backToCampaigns')}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
@@ -115,12 +116,12 @@ export default function CampaignDetailView() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {!isGmCampaign && (
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-deep)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)' }}>
-                  Personal Campaign
+                  {t('campaignDetail.personalCampaign')}
                 </span>
               )}
               {campaign.parent_campaign_id && (
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <LuLink size={12} aria-hidden="true" /> Linked to GM campaign
+                  <LuLink size={12} aria-hidden="true" /> {t('campaignDetail.linkedToGmCampaign')}
                 </span>
               )}
             </div>
@@ -137,11 +138,11 @@ export default function CampaignDetailView() {
                 onClick={() => setShowEditor(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-dim)', cursor: 'pointer', fontSize: 13 }}
               >
-                <LuSettings size={14} /> Edit
+                <LuSettings size={14} /> {t('campaignDetail.edit')}
               </button>
               <button
                 onClick={deleteCampaign}
-                aria-label="Delete campaign"
+                aria-label={t('campaignDetail.deleteAriaLabel')}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--danger)', cursor: 'pointer', fontSize: 13 }}
               >
                 <LuTrash2 size={14} aria-hidden="true" />
@@ -154,41 +155,40 @@ export default function CampaignDetailView() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <button style={TAB_STYLE(tab === 'overview')} onClick={() => navigate(`/campaigns/${campaignId}/overview`)}>
-          <LuUsers size={14} /> Overview
+          <LuUsers size={14} /> {t('campaignDetail.tabs.overview')}
         </button>
         <button style={TAB_STYLE(tab === 'sessions')} onClick={() => navigate(`/campaigns/${campaignId}/sessions`)}>
-          <LuNotebook size={14} /> Session Notes
+          <LuNotebook size={14} /> {t('campaignDetail.tabs.sessionNotes')}
         </button>
         {isGmCampaign && (isOwner || campaign.has_schedule) && (
           <button style={TAB_STYLE(tab === 'schedule')} onClick={() => navigate(`/campaigns/${campaignId}/schedule`)}>
-            <LuCalendar size={14} /> Schedule
+            <LuCalendar size={14} /> {t('campaignDetail.tabs.schedule')}
           </button>
         )}
         <button style={TAB_STYLE(tab === 'resources')} onClick={() => navigate(`/campaigns/${campaignId}/resources`)}>
-          <LuBookOpen size={14} /> Resources
+          <LuBookOpen size={14} /> {t('campaignDetail.tabs.resources')}
         </button>
       </div>
 
       {/* Overview tab */}
       {tab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Campaign info — always first */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <LuScroll size={15} /> Details
+              <LuScroll size={15} /> {t('campaignDetail.overview.details')}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Type</span>
-                <span>{campaign.is_gm_campaign ? 'GM Campaign' : 'Personal Campaign'}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{t('campaignDetail.overview.type')}</span>
+                <span>{campaign.is_gm_campaign ? t('campaignDetail.overview.gmCampaignType') : t('campaignDetail.overview.personalCampaignType')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Created</span>
+                <span style={{ color: 'var(--text-muted)' }}>{t('campaignDetail.overview.created')}</span>
                 <span>{new Date(campaign.created_at).toLocaleDateString()}</span>
               </div>
               {campaign.system_id && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>System</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('campaignDetail.overview.system')}</span>
                   <Link
                     to={`/library/system/${campaign.system_id}`}
                     style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: 14 }}
@@ -202,19 +202,18 @@ export default function CampaignDetailView() {
             </div>
           </div>
 
-          {/* Members — always second */}
           {isGmCampaign && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <LuUsers size={15} /> Members
+                  <LuUsers size={15} /> {t('campaignDetail.overview.members')}
                 </h3>
                 {isOwner && (
                   <button
                     onClick={() => setShowInvite(!showInvite)}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', cursor: 'pointer', fontSize: 12 }}
                   >
-                    <LuUserPlus size={12} /> Invite
+                    <LuUserPlus size={12} /> {t('campaignDetail.overview.invite')}
                   </button>
                 )}
               </div>
@@ -228,7 +227,7 @@ export default function CampaignDetailView() {
 
               <div>
                 {campaign.members?.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', paddingTop: 8 }}>No members yet. Invite players above.</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', paddingTop: 8 }}>{t('campaignDetail.overview.noMembers')}</div>
                 ) : (
                   campaign.members.map(m => (
                     <MemberRow
@@ -249,7 +248,6 @@ export default function CampaignDetailView() {
         </div>
       )}
 
-      {/* Session Notes tab */}
       {tab === 'sessions' && (
         <SessionList
           campaign={campaign}
@@ -259,17 +257,14 @@ export default function CampaignDetailView() {
         />
       )}
 
-      {/* Schedule tab */}
       {tab === 'schedule' && isGmCampaign && (
         <ScheduleTab campaign={campaign} isOwner={isOwner} userId={user?.id} />
       )}
 
-      {/* Resources tab */}
       {tab === 'resources' && (
         <ResourcesPanel campaign={campaign} isOwner={isOwner} onRefresh={load} />
       )}
 
-      {/* Edit modal */}
       {showEditor && (
         <CampaignEditor
           campaign={campaign}

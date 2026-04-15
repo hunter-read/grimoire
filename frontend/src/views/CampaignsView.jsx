@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuScroll, LuPlus, LuUsers, LuUser, LuLink, LuChevronRight, LuMailOpen } from 'react-icons/lu'
 import { campaigns } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -21,6 +22,7 @@ function RoleBadge({ label }) {
 }
 
 function CampaignCard({ campaign, onClick, userId, badgeLabel, subtitle }) {
+  const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const acceptedCount = campaign.members?.filter(m => m.status === 'accepted' && !m.is_owner).length ?? 0
   const isOwner = campaign.owner_id === userId
@@ -61,7 +63,7 @@ function CampaignCard({ campaign, onClick, userId, badgeLabel, subtitle }) {
           {badgeLabel && <RoleBadge label={badgeLabel} />}
           {campaign.parent_campaign_id && (
             <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <LuLink size={11} aria-hidden="true" /> Linked to GM campaign
+              <LuLink size={11} aria-hidden="true" /> {t('campaigns.linkedToGmCampaign')}
             </span>
           )}
         </div>
@@ -87,7 +89,7 @@ function CampaignCard({ campaign, onClick, userId, badgeLabel, subtitle }) {
           {isOwner && campaign.is_gm_campaign && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <LuUsers size={12} aria-hidden="true" />
-              {acceptedCount} player{acceptedCount !== 1 ? 's' : ''}
+              {t('campaigns.players', { count: acceptedCount })}
             </span>
           )}
         </div>
@@ -99,6 +101,7 @@ function CampaignCard({ campaign, onClick, userId, badgeLabel, subtitle }) {
 }
 
 export default function CampaignsView() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [list, setList] = useState(null)
@@ -117,11 +120,8 @@ export default function CampaignsView() {
 
   const invitations      = list?.filter(c => c.invitation_status === 'invited') ?? []
   const accepted         = list?.filter(c => c.invitation_status !== 'invited') ?? []
-  // Campaigns the current user owns
   const gmCampaigns      = accepted.filter(c => c.owner_id === user?.id && c.is_gm_campaign)
-  // Personal (non-GM) campaigns owned by the user
   const personalCampaigns = accepted.filter(c => c.owner_id === user?.id && !c.is_gm_campaign)
-  // GM campaigns the user was invited to (not owner)
   const joinedCampaigns  = accepted.filter(c => c.owner_id !== user?.id)
 
   const respondToInvite = async (campaign, status) => {
@@ -133,7 +133,7 @@ export default function CampaignsView() {
     <div className="fade-in" style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
         <h2 style={{ fontSize: 22, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <LuScroll size={20} color="var(--gold)" /> Campaigns
+          <LuScroll size={20} color="var(--gold)" /> {t('campaigns.title')}
         </h2>
         <button
           onClick={() => setShowEditor(true)}
@@ -143,7 +143,7 @@ export default function CampaignsView() {
             color: 'var(--text-dim)', cursor: 'pointer', fontSize: 14, fontWeight: 500,
           }}
         >
-          <LuPlus size={16} /> New Campaign
+          <LuPlus size={16} /> {t('campaigns.newCampaign')}
         </button>
       </div>
 
@@ -160,14 +160,14 @@ export default function CampaignsView() {
       ) : list.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
           <LuScroll size={40} style={{ marginBottom: 16, opacity: 0.3 }} />
-          <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>No campaigns yet</div>
-          <div style={{ fontSize: 14 }}>Create a campaign to start tracking your sessions.</div>
+          <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{t('campaigns.noCampaigns')}</div>
+          <div style={{ fontSize: 14 }}>{t('campaigns.noCampaignsHint')}</div>
         </div>
       ) : (
         <>{invitations.length > 0 && (
             <section style={{ marginBottom: 32 }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <LuMailOpen size={13} /> Invitations
+                <LuMailOpen size={13} /> {t('campaigns.invitations')}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {invitations.map(c => (
@@ -186,13 +186,13 @@ export default function CampaignsView() {
                         onClick={() => respondToInvite(c, 'accepted')}
                         style={{ padding: '7px 16px', borderRadius: 7, background: 'var(--gold-dim)', border: 'none', color: 'var(--bg-deep)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                       >
-                        Accept
+                        {t('campaigns.accept')}
                       </button>
                       <button
                         onClick={() => respondToInvite(c, 'declined')}
                         style={{ padding: '7px 16px', borderRadius: 7, background: 'var(--bg-deep)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}
                       >
-                        Decline
+                        {t('campaigns.decline')}
                       </button>
                     </div>
                   </div>
@@ -203,7 +203,7 @@ export default function CampaignsView() {
           {gmCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-                GM Campaigns
+                {t('campaigns.gmCampaigns')}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {gmCampaigns.map(c => (
@@ -216,7 +216,7 @@ export default function CampaignsView() {
           {joinedCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-                Joined Campaigns
+                {t('campaigns.joinedCampaigns')}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {joinedCampaigns.map(c => (
@@ -225,7 +225,7 @@ export default function CampaignsView() {
                     campaign={c}
                     userId={user?.id}
                     onClick={() => navigate(`/campaigns/${c.id}`)}
-                    subtitle={`GM: ${c.owner_display_name || 'Unknown'}`}
+                    subtitle={t('campaigns.gm', { name: c.owner_display_name || t('campaigns.unknownGm') })}
                   />
                 ))}
               </div>
@@ -235,7 +235,7 @@ export default function CampaignsView() {
           {personalCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-                Personal Campaigns
+                {t('campaigns.personalCampaigns')}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {personalCampaigns.map(c => (

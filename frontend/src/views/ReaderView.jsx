@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft, LuChevronLeft, LuChevronRight, LuDownload,
   LuFileText, LuColumns2, LuFile, LuSearch, LuList, LuBookmark, LuBookmarkPlus, LuHeart,
@@ -31,20 +32,21 @@ if (typeof document !== 'undefined' && !document.getElementById('reader-anim')) 
   document.head.appendChild(s)
 }
 
-const MODES = [
-  { key: 'page',   Icon: LuFileText, label: 'Page' },
-  { key: 'spread', Icon: LuColumns2, label: 'Spread' },
-  { key: 'pdf',    Icon: LuFile,     label: 'PDF' },
-]
-
 // Must match across visible images and preloader so browser cache hits
 const PAGE_WIDTH   = 1600
 const SPREAD_WIDTH = 1000
 
 export default function ReaderView() {
+  const { t } = useTranslation()
   const { bookId } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  const MODES = [
+    { key: 'page',   Icon: LuFileText, label: t('reader.page')   },
+    { key: 'spread', Icon: LuColumns2, label: t('reader.spread') },
+    { key: 'pdf',    Icon: LuFile,     label: t('reader.pdf')    },
+  ]
 
   const _prefs = getBookPrefs(bookId)
   const _userPrefs = getUserPrefs()
@@ -62,12 +64,12 @@ export default function ReaderView() {
   const [totalPages, setTotalPages]   = useState(0)
   const [mode, setMode]               = useState(initialMode)
   const [pageInput, setPageInput]     = useState(String(initialPage))
-  const [panel, setPanel]             = useState(null) // null | 'toc' | 'search' | 'bookmarks'
+  const [panel, setPanel]             = useState(null)
   const [activeSearchQuery, setActiveSearchQuery] = useState(null)
-  const [activeHighlight, setActiveHighlight]     = useState(null) // bookmark text highlight
+  const [activeHighlight, setActiveHighlight]     = useState(null)
   const [bookmarkRefreshKey, setBookmarkRefreshKey] = useState(0)
-  const [selectionPopup, setSelectionPopup]       = useState(null) // { x, y, text, page } | null
-  const [pendingBookmark, setPendingBookmark]     = useState(null) // { page, selectedText? } | null
+  const [selectionPopup, setSelectionPopup]       = useState(null)
+  const [pendingBookmark, setPendingBookmark]     = useState(null)
   const [pendingLabel, setPendingLabel]           = useState('')
   const [pendingNotes, setPendingNotes]           = useState('')
   const [zoom, setZoom] = useState(1)
@@ -75,14 +77,14 @@ export default function ReaderView() {
 
   const { isFavorite, toggleFavorite } = useFavorites()
 
-  const directionRef       = useRef(1)   // 1 = forward, -1 = backward
-  const axisRef            = useRef('x') // 'x' | 'y'
-  const currentPageRef     = useRef(1)   // always tracks latest page without being a dep
+  const directionRef       = useRef(1)
+  const axisRef            = useRef('x')
+  const currentPageRef     = useRef(1)
   const contentRef         = useRef(null)
-  const isMountedSyncRef   = useRef(false) // skip URL sync on first render
+  const isMountedSyncRef   = useRef(false)
   const preloadCacheRef    = useRef({})
   const pageTextCacheRef   = useRef({})
-  const wordsCacheRef      = useRef({})    // page → { width, height, words } | null
+  const wordsCacheRef      = useRef({})
   const [, setPageTextVersion] = useState(0)
   const [, setWordsVersion]    = useState(0)
 
@@ -97,7 +99,6 @@ export default function ReaderView() {
   const goToPage = useCallback((p, currentMode, axis = 'x') => {
     if (totalPages === 0) return
     let page = Math.max(1, Math.min(p, totalPages))
-    // In spread mode, left page must always be even (except page 1 which is the cover)
     if ((currentMode ?? mode) === 'spread' && page > 1 && page % 2 !== 0) {
       page = page - 1
     }
@@ -108,7 +109,6 @@ export default function ReaderView() {
     setPageInput(String(page))
   }, [totalPages, mode])
 
-  // Reset zoom/pan when navigating to a new page; persist last-read page
   useEffect(() => {
     setZoom(1)
     setPan({ x: 0, y: 0 })
@@ -118,7 +118,6 @@ export default function ReaderView() {
 
   const togglePanel = (name) => setPanel(p => p === name ? null : name)
 
-  // Fetch page text for accessibility alt attributes
   useEffect(() => {
     if (!book || mode === 'pdf') return
     const pages = [currentPage]
@@ -131,21 +130,19 @@ export default function ReaderView() {
     })
   }, [currentPage, mode, book, bookId, totalPages])
 
-  // Fetch word bounding boxes for text overlay
   useEffect(() => {
     if (!book || book.mime_type !== 'application/pdf' || mode === 'pdf') return
     const pages = [currentPage]
     if (mode === 'spread' && currentPage !== 1 && currentPage + 1 <= totalPages) pages.push(currentPage + 1)
     pages.forEach(p => {
       if (wordsCacheRef.current[p] !== undefined) return
-      wordsCacheRef.current[p] = null // mark as in-flight
+      wordsCacheRef.current[p] = null
       api.get(`/books/${bookId}/page/${p}/words`)
         .then(data => { wordsCacheRef.current[p] = data; setWordsVersion(v => v + 1) })
         .catch(() => { wordsCacheRef.current[p] = null })
     })
   }, [currentPage, mode, book, bookId, totalPages])
 
-  // Detect text selection within the text overlay → show "bookmark selection" popup
   useEffect(() => {
     const onMouseUp = (e) => {
       if (e.target.closest('[data-bookmark-ui]')) return
@@ -190,9 +187,6 @@ export default function ReaderView() {
     })
   }
 
-  // Preload adjacent pages with JS Image objects to keep browser cache warm.
-  // JS Image objects live outside React's render tree so their fetches are never
-  // aborted when the component re-renders.
   useEffect(() => {
     if (!book || mode === 'pdf') return
     const w = mode === 'spread' ? SPREAD_WIDTH : PAGE_WIDTH
@@ -213,8 +207,6 @@ export default function ReaderView() {
     }
   }, [currentPage, mode, book, bookId, totalPages])
 
-  // Sync page + mode to URL, but skip the first render (initial state is already
-  // read from the URL, so writing it back would cause a spurious navigation).
   useEffect(() => {
     if (!isMountedSyncRef.current) { isMountedSyncRef.current = true; return }
     const params = {}
@@ -223,12 +215,10 @@ export default function ReaderView() {
     setSearchParams(params, { replace: true })
   }, [currentPage, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Snap to correct even page when switching into spread mode
   useEffect(() => {
     if (mode === 'spread') goToPage(currentPage, 'spread')
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard navigation + shortcuts
   const step = mode === 'spread' ? (currentPage === 1 ? 1 : 2) : 1
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -257,12 +247,11 @@ export default function ReaderView() {
   if (!book) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={32} /></div>
 
   const rightPage = currentPage + 1
-  // Page 1 is the cover and always shown alone; last odd page also shown alone
   const hasRight = currentPage !== 1 && rightPage <= totalPages
 
   const getAlt = (p) => {
     const text = pageTextCacheRef.current[p]
-    return text || `Page ${p} of ${book.title}`
+    return text || `${t('reader.page')} ${p} — ${book.title}`
   }
 
   return (
@@ -273,11 +262,11 @@ export default function ReaderView() {
         background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)',
         flexWrap: 'wrap',
       }}>
-        <button onClick={() => navigate(-1)} aria-label="Back to library" style={{
+        <button onClick={() => navigate(-1)} aria-label={t('reader.back')} style={{
           background: 'none', color: 'var(--text-dim)', fontSize: 15,
           display: 'flex', alignItems: 'center', gap: 5, border: 'none', cursor: 'pointer',
         }}>
-          <LuArrowLeft size={15} /> Back
+          <LuArrowLeft size={15} /> {t('reader.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -287,7 +276,7 @@ export default function ReaderView() {
         {mode !== 'pdf' && totalPages > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button onClick={() => goToPage(currentPage - step)} disabled={currentPage <= 1}
-              aria-label="Previous page"
+              aria-label={t('reader.previousPage')}
               style={{ ...btnStyle, opacity: currentPage <= 1 ? 0.4 : 1 }}>
               <LuChevronLeft size={14} />
             </button>
@@ -297,15 +286,15 @@ export default function ReaderView() {
               onChange={e => setPageInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && goToPage(parseInt(pageInput) || 1)}
               onBlur={() => goToPage(parseInt(pageInput) || 1)}
-              aria-label="Current page number"
+              aria-label={t('reader.currentPageNumber')}
               style={{ width: 50, textAlign: 'center', padding: '4px 6px', fontSize: 15 }}
             />
             {mode === 'spread' && hasRight && (
               <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>– {rightPage}</span>
             )}
-            <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>/ {totalPages}</span>
+            <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>{t('common.pageOf', { total: totalPages })}</span>
             <button onClick={() => goToPage(currentPage + step)} disabled={currentPage >= totalPages}
-              aria-label="Next page"
+              aria-label={t('reader.nextPage')}
               style={{ ...btnStyle, opacity: currentPage >= totalPages ? 0.4 : 1 }}>
               <LuChevronRight size={14} />
             </button>
@@ -334,12 +323,12 @@ export default function ReaderView() {
           ))}
         </div>
 
-        {/* Panel selector — TOC / Search / Bookmarks as a grouped toggle */}
+        {/* Panel selector */}
         {(() => {
           const panels = [
-            book.mime_type === 'application/pdf' && mode !== 'pdf' ? { key: 'toc',       Icon: LuList,     label: 'Contents'  } : null,
-            mode !== 'pdf'                                          ? { key: 'bookmarks', Icon: LuBookmark, label: 'Bookmarks' } : null,
-            book.indexed                                            ? { key: 'search',    Icon: LuSearch,   label: 'Search'    } : null,
+            book.mime_type === 'application/pdf' && mode !== 'pdf' ? { key: 'toc',       Icon: LuList,     label: t('reader.contents')  } : null,
+            mode !== 'pdf'                                          ? { key: 'bookmarks', Icon: LuBookmark, label: t('reader.bookmarks') } : null,
+            book.indexed                                            ? { key: 'search',    Icon: LuSearch,   label: t('common.search')    } : null,
           ].filter(Boolean)
           if (panels.length === 0) return null
           return (
@@ -369,24 +358,23 @@ export default function ReaderView() {
 
         <button
           onClick={() => toggleFavorite('book', bookId)}
-          title={isFavorite('book', bookId) ? 'Remove from favorites' : 'Add to favorites'}
+          title={isFavorite('book', bookId) ? t('reader.removeFromFavorites') : t('reader.addToFavorites')}
           style={{ ...btnStyle, color: isFavorite('book', bookId) ? 'var(--gold)' : 'var(--text-muted)' }}
         >
           <LuHeart size={14} fill={isFavorite('book', bookId) ? 'var(--gold)' : 'none'} />
         </button>
 
-        {/* Add bookmark action — separate from the panel toggle */}
         {mode !== 'pdf' && (
           <button
             onClick={() => { setPendingBookmark({ page: currentPage }); setPendingLabel('') }}
-            title="Bookmark this page"
+            title={t('reader.bookmarkPage')}
             style={btnStyle}
           >
             <LuBookmarkPlus size={14} />
           </button>
         )}
 
-        <a href={mediaUrl(`/books/${bookId}/file`)} download title="Download" style={{
+        <a href={mediaUrl(`/books/${bookId}/file`)} download title={t('reader.downloadFile')} style={{
           background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)',
           borderRadius: 4, padding: '4px 12px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 5,
         }}>
@@ -445,7 +433,6 @@ export default function ReaderView() {
         )}
       </div>
 
-      {/* Selection popup — appears above highlighted text */}
       {selectionPopup && !pendingBookmark && (
         <SelectionPopup
           selectionPopup={selectionPopup}
@@ -456,7 +443,6 @@ export default function ReaderView() {
         />
       )}
 
-      {/* Bookmark save dialog */}
       {pendingBookmark && (
         <BookmarkDialog
           pendingBookmark={pendingBookmark}

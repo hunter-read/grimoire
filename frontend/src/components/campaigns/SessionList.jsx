@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuNotebook, LuPlus, LuTrash2, LuCalendar, LuChevronDown, LuChevronRight, LuSearch, LuX } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
@@ -10,6 +11,7 @@ function formatDate(dateStr) {
 }
 
 function InlineNoteEditor({ campaign, sessionId, userId }) {
+  const { t } = useTranslation()
   const [note, setNote] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -45,16 +47,16 @@ function InlineNoteEditor({ campaign, sessionId, userId }) {
   return (
     <div style={{ padding: '14px 18px 18px', borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>My Notes</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('sessions.myNotes')}</span>
         <span aria-live="polite" aria-atomic="true">
-          {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving...</span>}
-          {!saving && saved && <span style={{ fontSize: 11, color: 'var(--gold)' }}>Saved</span>}
+          {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('sessions.saving')}</span>}
+          {!saving && saved && <span style={{ fontSize: 11, color: 'var(--gold)' }}>{t('sessions.saved')}</span>}
         </span>
       </div>
       <textarea
         value={note}
         onChange={e => handleChange(e.target.value)}
-        placeholder="Write your session notes here…"
+        placeholder={t('sessions.notePlaceholder')}
         rows={6}
         style={{
           width: '100%', padding: '10px 12px', background: 'var(--bg-deep)',
@@ -82,13 +84,8 @@ function highlightMatch(text, query) {
   )
 }
 
-const NOTE_TYPE_LABEL = {
-  player:      { label: 'Player Note',      color: 'var(--text-muted)' },
-  gm_external: { label: 'GM Note (Shared)', color: 'var(--gold)'       },
-  gm_internal: { label: 'GM Note (Internal)', color: '#b87333'         },
-}
-
 export default function SessionList({ campaign, isOwner, onSelectSession, userId }) {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState(null)
   const [creating, setCreating] = useState(false)
   const [newDate, setNewDate] = useState('')
@@ -99,6 +96,12 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
   const searchDebounce = useRef(null)
+
+  const NOTE_TYPE_LABEL = {
+    player:      { label: t('sessions.noteTypePLayerNote'),  color: 'var(--text-muted)' },
+    gm_external: { label: t('sessions.noteTypeGmShared'),    color: 'var(--gold)'       },
+    gm_internal: { label: t('sessions.noteTypeGmInternal'),  color: '#b87333'           },
+  }
 
   const isPersonal = !campaign.is_gm_campaign
 
@@ -140,7 +143,7 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
 
   const deleteSession = async (sessionId, e) => {
     e.stopPropagation()
-    if (!confirm('Delete this session note?')) return
+    if (!confirm(t('sessions.deleteConfirm'))) return
     await campaigns.deleteSession(campaign.id, sessionId)
     if (expandedId === sessionId) setExpandedId(null)
     load()
@@ -160,7 +163,7 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <LuNotebook size={15} /> Session Notes
+          <LuNotebook size={15} /> {t('sessions.title')}
         </h3>
         <button
           onClick={() => setCreating(!creating)}
@@ -170,7 +173,7 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
             color: 'var(--text-dim)', cursor: 'pointer', fontSize: 13,
           }}
         >
-          <LuPlus size={14} /> New Session
+          <LuPlus size={14} /> {t('sessions.newSession')}
         </button>
       </div>
 
@@ -180,7 +183,7 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
         <input
           value={query}
           onChange={e => handleQueryChange(e.target.value)}
-          placeholder="Search session notes…"
+          placeholder={t('sessions.searchPlaceholder')}
           style={{
             width: '100%', padding: '8px 32px 8px 32px', boxSizing: 'border-box',
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8,
@@ -205,10 +208,10 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
             padding: '16px 18px', marginBottom: 16,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 12 }}>New Session</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 12 }}>{t('sessions.createSession')}</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div>
-              <label style={labelStyle}>Date *</label>
+              <label style={labelStyle}>{t('sessions.dateLabel')}</label>
               <input
                 type="date"
                 value={newDate}
@@ -218,17 +221,17 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
               />
             </div>
             <div style={{ flex: 1, minWidth: 160 }}>
-              <label style={labelStyle}>Title (optional)</label>
+              <label style={labelStyle}>{t('sessions.titleLabel')}</label>
               <input
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
-                placeholder="Session 1 — The Beginning"
+                placeholder={t('sessions.titlePlaceholder')}
                 style={{ ...inputStyle, width: '100%' }}
               />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={() => setCreating(false)} style={cancelBtn}>Cancel</button>
-              <button type="submit" disabled={saving} style={submitBtn}>{saving ? '...' : 'Create'}</button>
+              <button type="button" onClick={() => setCreating(false)} style={cancelBtn}>{t('sessions.cancel')}</button>
+              <button type="submit" disabled={saving} style={submitBtn}>{saving ? '...' : t('sessions.create')}</button>
             </div>
           </div>
         </form>
@@ -241,7 +244,7 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
             <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spinner size={20} /></div>
           ) : searchResults && searchResults.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 14, color: 'var(--text-muted)' }}>
-              No notes found for "{query}"
+              {t('sessions.noNotesFound', { query })}
             </div>
           ) : searchResults && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -286,7 +289,7 @@ export default function SessionList({ campaign, isOwner, onSelectSession, userId
       {!query.trim() && sessions.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
           <LuNotebook size={32} style={{ marginBottom: 10, opacity: 0.3 }} />
-          <div style={{ fontSize: 14 }}>No sessions yet. Create the first one above.</div>
+          <div style={{ fontSize: 14 }}>{t('sessions.noSessions')}</div>
         </div>
       )}
       {!query.trim() && sessions.length > 0 && (

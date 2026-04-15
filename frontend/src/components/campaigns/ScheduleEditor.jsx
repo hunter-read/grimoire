@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuSave, LuTrash2, LuPlus, LuX } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import {
-  DAYS, MONTH_WEEKS, FREQ_OPTIONS,
   utcToLocalInputTime, localInputTimeToUtc,
   inputStyle, submitBtn, dangerBtn, addBtn,
   USER_TZ,
@@ -15,6 +15,7 @@ const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
 })
 
 function TimePicker({ value, onChange }) {
+  const { t } = useTranslation()
   const [enabled, setEnabled] = useState(!!value)
 
   return (
@@ -25,7 +26,7 @@ function TimePicker({ value, onChange }) {
           checked={enabled}
           onChange={e => { setEnabled(e.target.checked); if (!e.target.checked) onChange(null) }}
         />
-        Set session time ({USER_TZ})
+        {t('schedule.setSessionTime', { tz: USER_TZ })}
       </label>
       {enabled && (
         <>
@@ -69,6 +70,28 @@ export function SegmentControl({ value, options, onChange }) {
 }
 
 export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted }) {
+  const { t } = useTranslation()
+
+  const FREQ_OPTIONS = [
+    { key: 'weekly',   label: t('schedule.frequency.weekly')   },
+    { key: 'biweekly', label: t('schedule.frequency.biweekly') },
+    { key: 'monthly',  label: t('schedule.frequency.monthly')  },
+    { key: 'custom',   label: t('schedule.frequency.custom')   },
+  ]
+
+  const MONTH_WEEKS = [
+    { value: 1,  label: t('schedule.weeks.1st')  },
+    { value: 2,  label: t('schedule.weeks.2nd')  },
+    { value: 3,  label: t('schedule.weeks.3rd')  },
+    { value: 4,  label: t('schedule.weeks.4th')  },
+    { value: -1, label: t('schedule.weeks.last') },
+  ]
+
+  const DAYS = [
+    t('schedule.days.monday'), t('schedule.days.tuesday'), t('schedule.days.wednesday'),
+    t('schedule.days.thursday'), t('schedule.days.friday'), t('schedule.days.saturday'), t('schedule.days.sunday'),
+  ]
+
   const [frequency, setFrequency] = useState(existing?.frequency ?? 'weekly')
   const [days, setDays] = useState(existing?.days ?? [])
   const [timeUtc, setTimeUtc] = useState(existing?.time_utc ?? null)
@@ -89,8 +112,8 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
   const removeCustomDate = (d) => setCustomDates(prev => prev.filter(x => x !== d))
 
   const save = async () => {
-    if (frequency !== 'custom' && days.length === 0) { alert('Select at least one day.'); return }
-    if (frequency === 'custom' && customDates.length === 0) { alert('Add at least one date.'); return }
+    if (frequency !== 'custom' && days.length === 0) { alert(t('schedule.selectDay')); return }
+    if (frequency === 'custom' && customDates.length === 0) { alert(t('schedule.addDate')); return }
     setSaving(true)
     try {
       const payload = {
@@ -111,7 +134,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
   }
 
   const remove = async () => {
-    if (!confirm('Remove the campaign schedule?')) return
+    if (!confirm(t('schedule.removeConfirm'))) return
     await campaigns.deleteSchedule(campaign.id)
     onDeleted()
   }
@@ -125,7 +148,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
       {frequency !== 'custom' && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-            {frequency === 'monthly' ? 'Day of week' : 'Session Day(s)'}
+            {frequency === 'monthly' ? t('schedule.dayOfWeek') : t('schedule.sessionDays')}
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {DAYS.map((d, i) => {
@@ -152,7 +175,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
 
       {frequency === 'monthly' && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Which occurrence</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{t('schedule.whichOccurrence')}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {MONTH_WEEKS.map(w => (
               <button
@@ -172,7 +195,10 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
           </div>
           {days.length > 0 && (
             <div style={{ fontSize: 12, color: 'var(--gold)', marginTop: 8 }}>
-              {MONTH_WEEKS.find(w => w.value === monthlyWeek)?.label} {DAYS[days[0]]} of each month
+              {t('schedule.monthlyPattern', {
+                week: MONTH_WEEKS.find(w => w.value === monthlyWeek)?.label,
+                day: DAYS[days[0]],
+              })}
             </div>
           )}
         </div>
@@ -181,7 +207,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
       {frequency === 'biweekly' && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
-            Reference date — anchor for which weeks are "on"
+            {t('schedule.referenceDate')}
           </div>
           <input
             type="date"
@@ -194,7 +220,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
 
       {frequency === 'custom' && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Session Dates</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{t('schedule.customDates')}</div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="date"
@@ -202,17 +228,17 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
               onChange={e => setNewCustomDate(e.target.value)}
               style={inputStyle}
             />
-            <button onClick={addCustomDate} aria-label="Add date" style={addBtn}><LuPlus size={14} aria-hidden="true" /></button>
+            <button onClick={addCustomDate} aria-label={t('schedule.addDateAriaLabel')} style={addBtn}><LuPlus size={14} aria-hidden="true" /></button>
           </div>
           {customDates.length === 0 && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No dates added yet.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('schedule.noDatesYet')}</div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {customDates.map(d => (
               <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: 'var(--bg-deep)', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13 }}>
                 <LuCalendar size={12} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ flex: 1 }}>{new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                <button onClick={() => removeCustomDate(d)} aria-label={`Remove date ${new Date(d + 'T00:00:00').toLocaleDateString()}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}>
+                <button onClick={() => removeCustomDate(d)} aria-label={`${t('schedule.remove')} ${new Date(d + 'T00:00:00').toLocaleDateString()}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}>
                   <LuX size={12} aria-hidden="true" />
                 </button>
               </div>
@@ -227,10 +253,10 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={save} disabled={saving} style={submitBtn}>
-          <LuSave size={13} /> {saving ? 'Saving...' : 'Save Schedule'}
+          <LuSave size={13} /> {saving ? t('schedule.saving') : t('schedule.saveSchedule')}
         </button>
         {existing && (
-          <button onClick={remove} style={dangerBtn}><LuTrash2 size={13} /> Remove</button>
+          <button onClick={remove} style={dangerBtn}><LuTrash2 size={13} /> {t('schedule.remove')}</button>
         )}
       </div>
     </div>

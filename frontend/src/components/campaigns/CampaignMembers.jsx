@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuUserPlus, LuUserMinus, LuCheck, LuX, LuUser, LuPencil } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
@@ -11,6 +12,7 @@ const smallBtn = (color) => ({
 })
 
 export function MemberRow({ member, isOwner, canManage, onRemove, onUpdateStatus, onSetCharacterName, currentUserId }) {
+  const { t } = useTranslation()
   const isCurrentUser = member.user_id === currentUserId
   const isMemberOwner = member.is_owner === true
   const [editingChar, setEditingChar] = useState(false)
@@ -48,22 +50,22 @@ export function MemberRow({ member, isOwner, canManage, onRemove, onUpdateStatus
             <input
               value={charValue}
               onChange={e => setCharValue(e.target.value)}
-              placeholder="Character name"
+              placeholder={t('members.characterNamePlaceholder')}
               autoFocus
               onKeyDown={e => { if (e.key === 'Enter') saveCharName(); if (e.key === 'Escape') setEditingChar(false) }}
               style={{ fontSize: 14, padding: '3px 8px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: 'var(--text)', width: 180 }}
             />
-            <button onClick={saveCharName} style={{ ...smallBtn('var(--gold)'), padding: '3px 8px', fontSize: 12 }}>Save</button>
-            <button onClick={() => setEditingChar(false)} style={{ ...smallBtn('var(--text-muted)'), padding: '3px 8px', fontSize: 12 }}>Cancel</button>
+            <button onClick={saveCharName} style={{ ...smallBtn('var(--gold)'), padding: '3px 8px', fontSize: 12 }}>{t('members.save')}</button>
+            <button onClick={() => setEditingChar(false)} style={{ ...smallBtn('var(--text-muted)'), padding: '3px 8px', fontSize: 12 }}>{t('members.cancel')}</button>
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             {member.character_name
               ? <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', fontFamily: 'Cinzel, serif' }}>{member.character_name}</span>
-              : <span style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>No character name</span>
+              : <span style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('members.noCharacterName')}</span>
             }
             {(canManage || isCurrentUser) && (
-              <button onClick={() => { setCharValue(member.character_name ?? ''); setEditingChar(true) }} aria-label="Edit character name" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 3px', display: 'flex' }}>
+              <button onClick={() => { setCharValue(member.character_name ?? ''); setEditingChar(true) }} aria-label={t('members.editCharacterName')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 3px', display: 'flex' }}>
                 <LuPencil size={10} aria-hidden="true" />
               </button>
             )}
@@ -75,10 +77,10 @@ export function MemberRow({ member, isOwner, canManage, onRemove, onUpdateStatus
           {displayLabel}
           {isMemberOwner && (
             <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600, background: 'var(--bg-deep)', border: '1px solid var(--gold-dim)', borderRadius: 10, padding: '1px 6px', letterSpacing: '0.04em' }}>
-              GM
+              {t('members.gm')}
             </span>
           )}
-          {isCurrentUser && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(you)</span>}
+          {isCurrentUser && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{t('members.you')}</span>}
         </div>
       </div>
       {!isMemberOwner && (
@@ -93,8 +95,8 @@ export function MemberRow({ member, isOwner, canManage, onRemove, onUpdateStatus
       )}
       {isCurrentUser && member.status === 'invited' && (
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => onUpdateStatus(member.user_id, 'accepted')} aria-label="Accept invitation" style={smallBtn('#4caf50')}><LuCheck size={13} aria-hidden="true" /></button>
-          <button onClick={() => onUpdateStatus(member.user_id, 'declined')} aria-label="Decline invitation" style={smallBtn('var(--danger)')}><LuX size={13} aria-hidden="true" /></button>
+          <button onClick={() => onUpdateStatus(member.user_id, 'accepted')} aria-label={t('campaigns.accept')} style={smallBtn('#4caf50')}><LuCheck size={13} aria-hidden="true" /></button>
+          <button onClick={() => onUpdateStatus(member.user_id, 'declined')} aria-label={t('campaigns.decline')} style={smallBtn('var(--danger)')}><LuX size={13} aria-hidden="true" /></button>
         </div>
       )}
       {canManage && !isCurrentUser && !isMemberOwner && (
@@ -107,6 +109,7 @@ export function MemberRow({ member, isOwner, canManage, onRemove, onUpdateStatus
 }
 
 export function InvitePanel({ campaignId, onInvited }) {
+  const { t } = useTranslation()
   const [users, setUsers] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -131,12 +134,12 @@ export function InvitePanel({ campaignId, onInvited }) {
   const uninvited = users.filter(u => !u.already_invited)
 
   if (uninvited.length === 0) {
-    return <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>All users have already been invited.</div>
+    return <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>{t('members.allInvited')}</div>
   }
 
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Invite a player:</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>{t('members.invitePlayer')}</div>
       {uninvited.map(u => (
         <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
           <span style={{ flex: 1, fontSize: 14 }}>{u.display_name || u.username}
@@ -151,7 +154,7 @@ export function InvitePanel({ campaignId, onInvited }) {
               color: 'var(--text-dim)', cursor: 'pointer', fontSize: 12,
             }}
           >
-            <LuUserPlus size={12} /> Invite
+            <LuUserPlus size={12} /> {t('members.invite')}
           </button>
         </div>
       ))}

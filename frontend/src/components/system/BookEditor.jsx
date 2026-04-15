@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
 import InlineTagEditor from '../maps/InlineTagEditor'
 
 export default function BookEditor({ book, onSave, onClose }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     title:       book.title       || '',
     description: book.description || '',
@@ -44,7 +46,7 @@ export default function BookEditor({ book, onSave, onClose }) {
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginTop: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-dim)' }}>Edit Metadata</span>
+        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-dim)' }}>{t('bookEditor.editMetadata')}</span>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><LuX size={14} /></button>
       </div>
 
@@ -56,26 +58,26 @@ export default function BookEditor({ book, onSave, onClose }) {
             onChange={e => setForm(f => ({ ...f, is_explicit: e.target.checked }))}
             style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#e07070' }}
           />
-          <span style={{ fontSize: 13, color: '#e07070' }}>Mark as explicit content</span>
+          <span style={{ fontSize: 13, color: '#e07070' }}>{t('bookEditor.markExplicit')}</span>
         </label>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0 16px' }}>
         <div>
-          {field('Title', 'title')}
-          {field('Description', 'description', { textarea: true })}
+          {field(t('bookEditor.titleLabel'), 'title')}
+          {field(t('bookEditor.descriptionLabel'), 'description', { textarea: true })}
         </div>
         <div>
-          {field('Category', 'category')}
-          {field('Authors (comma-separated)', 'authors')}
-          {field('Publisher', 'publisher')}
-          {field('Year', 'year')}
+          {field(t('bookEditor.categoryLabel'), 'category')}
+          {field(t('bookEditor.authorsLabel'), 'authors')}
+          {field(t('bookEditor.publisherLabel'), 'publisher')}
+          {field(t('bookEditor.yearLabel'), 'year')}
         </div>
       </div>
 
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Tags</label>
+        <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>{t('bookEditor.tagsLabel')}</label>
         {editingTags ? (
           <InlineTagEditor
             tags={tags}
@@ -84,13 +86,13 @@ export default function BookEditor({ book, onSave, onClose }) {
           />
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-            {tags.map(t => (
-              <span key={t} style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'rgba(201,168,76,0.15)', border: '1px solid var(--gold-dim)', color: 'var(--gold)' }}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+            {tags.map(tag => (
+              <span key={tag} style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'rgba(201,168,76,0.15)', border: '1px solid var(--gold-dim)', color: 'var(--gold)' }}>
+                {tag.charAt(0).toUpperCase() + tag.slice(1)}
               </span>
             ))}
             <button onClick={() => setEditingTags(true)} style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-              {tags.length > 0 ? 'Edit tags' : '+ Add tags'}
+              {tags.length > 0 ? t('bookEditor.editTags') : t('bookEditor.addTags')}
             </button>
           </div>
         )}
@@ -98,10 +100,10 @@ export default function BookEditor({ book, onSave, onClose }) {
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onClose} style={{ padding: '6px 14px', borderRadius: 5, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: 13, cursor: 'pointer' }}>
-          Cancel
+          {t('bookEditor.cancel')}
         </button>
         <button onClick={handleSave} disabled={saving} style={{ padding: '6px 14px', borderRadius: 5, background: 'var(--gold-dim)', border: 'none', color: 'var(--bg-deep)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('bookEditor.saving') : t('bookEditor.save')}
         </button>
       </div>
     </div>

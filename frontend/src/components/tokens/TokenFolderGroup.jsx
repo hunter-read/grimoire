@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus, LuDownload } from 'react-icons/lu'
 import TokenCard from './TokenCard'
 import InlineTagEditor from '../maps/InlineTagEditor'
@@ -25,13 +26,14 @@ function FolderCheckbox({ checked, indeterminate, onChange }) {
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
 export default function TokenFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectToken, bulkMode, selectedTokenIds, selectedFolderPaths, onToggleToken, onToggleFolder, cardSize = 'comfortable', canTag = true, onDownload }) {
+  const { t } = useTranslation()
   const isCollapsed = collapsed.has(folder)
   const allTokensInGroup = Object.values(subfolders).flat()
   const totalTokens = allTokensInGroup.length
 
-  const groupFolderChecked = selectedFolderPaths.has(folder) && allTokensInGroup.every(t => selectedTokenIds.has(t.id))
+  const groupFolderChecked = selectedFolderPaths.has(folder) && allTokensInGroup.every(tok => selectedTokenIds.has(tok.id))
   const groupFolderIndeterminate = !groupFolderChecked && (
-    selectedFolderPaths.has(folder) || allTokensInGroup.some(t => selectedTokenIds.has(t.id))
+    selectedFolderPaths.has(folder) || allTokensInGroup.some(tok => selectedTokenIds.has(tok.id))
   )
 
   const [editingRoot, setEditingRoot] = useState(false)
@@ -62,7 +64,7 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
           <button
             onClick={() => onToggle(folder)}
             aria-expanded={!isCollapsed}
-            aria-label={isCollapsed ? `Expand ${folder}` : `Collapse ${folder}`}
+            aria-label={isCollapsed ? t('tokens.expandFolder', { folder }) : t('tokens.collapseFolder', { folder })}
             style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0, overflow: 'hidden' }}
           >
             {isCollapsed
@@ -76,15 +78,15 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
             {!isMobilePhone && <span style={{ flex: 1, borderBottom: '1px dotted var(--border)', margin: '0 8px', minWidth: 16 }} />}
           </button>
           <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
-            {totalTokens} token{totalTokens !== 1 ? 's' : ''}
+            {t('tokens.tokenCount', { count: totalTokens })}
           </span>
           {!bulkMode && (
             <button
               onClick={e => { e.stopPropagation(); onDownload?.({ title: `Tokens — ${toTitleCase(folder)}`, params: { type: 'token_folder', folder } }) }}
               style={zipBtnStyle}
-              title={`Download all tokens in ${folder}`}
+              title={t('tokens.downloadAllInFolder', { folder })}
             >
-              <LuDownload size={11} /> Download
+              <LuDownload size={11} /> {t('tokens.download')}
             </button>
           )}
         </div>
@@ -100,13 +102,13 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
               />
             ) : (
               <>
-                {topLevelTags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                {topLevelTags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                 {canTag && (
                   <button
                     onClick={() => setEditingRoot(true)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                   >
-                    <LuTag size={11} /> {topLevelTags.length > 0 ? 'Edit' : 'Add tags'}
+                    <LuTag size={11} /> {topLevelTags.length > 0 ? t('tokens.editTags') : t('tokens.addTags')}
                   </button>
                 )}
               </>
@@ -127,13 +129,13 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
                 />
               ) : (
                 <>
-                  {topLevelTags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                  {topLevelTags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                   {canTag && (
                     <button
                       onClick={() => setEditingRoot(true)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                     >
-                      <LuTag size={11} /> {topLevelTags.length > 0 ? 'Edit tags' : 'Add tags'}
+                      <LuTag size={11} /> {topLevelTags.length > 0 ? t('tokens.editTagsFull') : t('tokens.addTags')}
                     </button>
                   )}
                 </>
@@ -146,9 +148,9 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
             const editKey = `${folder}::${subPath}`
             const isSubCollapsed = subPath ? collapsed.has(editKey) : false
 
-            const subChecked = subPath && selectedFolderPaths.has(folderPath) && subTokens.every(t => selectedTokenIds.has(t.id))
+            const subChecked = subPath && selectedFolderPaths.has(folderPath) && subTokens.every(tok => selectedTokenIds.has(tok.id))
             const subIndeterminate = subPath && !subChecked && (
-              selectedFolderPaths.has(folderPath) || subTokens.some(t => selectedTokenIds.has(t.id))
+              selectedFolderPaths.has(folderPath) || subTokens.some(tok => selectedTokenIds.has(tok.id))
             )
 
             return (
@@ -167,7 +169,7 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
                       <button
                         onClick={() => onToggle(editKey)}
                         aria-expanded={!isSubCollapsed}
-                        aria-label={isSubCollapsed ? `Expand ${subPath}` : `Collapse ${subPath}`}
+                        aria-label={isSubCollapsed ? t('tokens.expandFolder', { folder: subPath }) : t('tokens.collapseFolder', { folder: subPath })}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}
                       >
                         {isSubCollapsed
@@ -182,21 +184,21 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
                       </button>
                       {editingFolder !== editKey && !bulkMode && !isMobilePhone && (
                         <>
-                          {tags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                          {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                           {canTag && (
                             <button
                               onClick={() => onSetEditingFolder(editKey)}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                             >
-                              <LuTag size={11} /> {tags.length > 0 ? 'Edit' : 'Add tags'}
+                              <LuTag size={11} /> {tags.length > 0 ? t('tokens.editTags') : t('tokens.addTags')}
                             </button>
                           )}
                           <button
                             onClick={e => { e.stopPropagation(); onDownload?.({ title: `Tokens — ${toTitleCase(folder)} / ${subPath.split('/').map(toTitleCase).join(' / ')}`, params: { type: 'token_folder', folder: `${folder}/${subPath}` } }) }}
                             style={zipBtnStyle}
-                            title={`Download tokens in ${subPath}`}
+                            title={t('tokens.downloadInSubfolder', { folder: subPath })}
                           >
-                            <LuDownload size={11} /> Download
+                            <LuDownload size={11} /> {t('tokens.download')}
                           </button>
                         </>
                       )}
@@ -219,13 +221,13 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
                           />
                         ) : (
                           <>
-                            {tags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                            {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                             {canTag && (
                               <button
                                 onClick={() => onSetEditingFolder(editKey)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                               >
-                                <LuTag size={11} /> {tags.length > 0 ? 'Edit tags' : 'Add tags'}
+                                <LuTag size={11} /> {tags.length > 0 ? t('tokens.editTagsFull') : t('tokens.addTags')}
                               </button>
                             )}
                           </>
@@ -240,14 +242,14 @@ export default function TokenFolderGroup({ folder, subfolders, collapsed, onTogg
                 {!isSubCollapsed && (
                   <LazyGrid count={subTokens.length} cardSize={cardSize}>
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize === 'compact' ? '90px' : '130px'}, 1fr))`, gap: 12 }}>
-                      {subTokens.map(t => (
+                      {subTokens.map(tok => (
                         <TokenCard
-                          key={t.id}
-                          token={t}
-                          onClick={() => onSelectToken(t.id)}
+                          key={tok.id}
+                          token={tok}
+                          onClick={() => onSelectToken(tok.id)}
                           bulkMode={bulkMode}
-                          selected={selectedTokenIds?.has(t.id)}
-                          onToggle={() => onToggleToken(t.id)}
+                          selected={selectedTokenIds?.has(tok.id)}
+                          onToggle={() => onToggleToken(tok.id)}
                         />
                       ))}
                     </div>

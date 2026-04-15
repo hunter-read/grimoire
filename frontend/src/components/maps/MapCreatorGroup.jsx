@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus, LuDownload } from 'react-icons/lu'
 import MapCard from './MapCard'
 import InlineTagEditor from './InlineTagEditor'
@@ -25,6 +26,7 @@ function FolderCheckbox({ checked, indeterminate, onChange }) {
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
 export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectMap, bulkMode, selectedMapIds, selectedFolderPaths, onToggleMap, onToggleFolder, cardSize = 'comfortable', canTag = true, onDownload }) {
+  const { t } = useTranslation()
   const [editingRoot, setEditingRoot] = useState(false)
   const isCollapsed = collapsed.has(folder)
   const allMapsInGroup = Object.values(subfolders).flat()
@@ -63,7 +65,7 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
           <button
             onClick={() => onToggle(folder)}
             aria-expanded={!isCollapsed}
-            aria-label={isCollapsed ? `Expand ${folder}` : `Collapse ${folder}`}
+            aria-label={isCollapsed ? t('maps.expandFolder', { folder }) : t('maps.collapseFolder', { folder })}
             style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0, overflow: 'hidden' }}
           >
             {isCollapsed
@@ -77,15 +79,15 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
             {!isMobilePhone && <span style={{ flex: 1, borderBottom: '1px dotted var(--border)', margin: '0 8px', minWidth: 16 }} />}
           </button>
           <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
-            {totalMaps} map{totalMaps !== 1 ? 's' : ''}
+            {t('maps.mapCount', { count: totalMaps })}
           </span>
           {!bulkMode && (
             <button
               onClick={e => { e.stopPropagation(); onDownload?.({ title: `Maps — ${toTitleCase(folder)}`, params: { type: 'map_folder', folder } }) }}
               style={zipBtnStyle}
-              title={`Download all maps in ${folder}`}
+              title={t('maps.downloadAllInFolder', { folder })}
             >
-              <LuDownload size={11} /> Download
+              <LuDownload size={11} /> {t('maps.download')}
             </button>
           )}
         </div>
@@ -101,13 +103,13 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
               />
             ) : (
               <>
-                {topLevelTags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                {topLevelTags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                 {canTag && (
                   <button
                     onClick={() => setEditingRoot(true)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                   >
-                    <LuTag size={11} /> {topLevelTags.length > 0 ? 'Edit' : 'Add tags'}
+                    <LuTag size={11} /> {topLevelTags.length > 0 ? t('maps.editTags') : t('maps.addTags')}
                   </button>
                 )}
               </>
@@ -129,13 +131,13 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                 />
               ) : (
                 <>
-                  {topLevelTags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                  {topLevelTags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                   {canTag && (
                     <button
                       onClick={() => setEditingRoot(true)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                     >
-                      <LuTag size={11} /> {topLevelTags.length > 0 ? 'Edit tags' : 'Add tags'}
+                      <LuTag size={11} /> {topLevelTags.length > 0 ? t('maps.editTagsFull') : t('maps.addTags')}
                     </button>
                   )}
                 </>
@@ -169,7 +171,7 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                       <button
                         onClick={() => onToggle(editKey)}
                         aria-expanded={!isSubCollapsed}
-                        aria-label={isSubCollapsed ? `Expand ${subPath}` : `Collapse ${subPath}`}
+                        aria-label={isSubCollapsed ? t('maps.expandFolder', { folder: subPath }) : t('maps.collapseFolder', { folder: subPath })}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}
                       >
                         {isSubCollapsed
@@ -184,21 +186,21 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                       </button>
                       {editingFolder !== editKey && !bulkMode && !isMobilePhone && (
                         <>
-                          {tags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                          {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                           {canTag && (
                             <button
                               onClick={() => onSetEditingFolder(editKey)}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                             >
-                              <LuTag size={11} /> {tags.length > 0 ? 'Edit' : 'Add tags'}
+                              <LuTag size={11} /> {tags.length > 0 ? t('maps.editTags') : t('maps.addTags')}
                             </button>
                           )}
                           <button
                             onClick={e => { e.stopPropagation(); onDownload?.({ title: `Maps — ${toTitleCase(folder)} / ${subPath.split('/').map(toTitleCase).join(' / ')}`, params: { type: 'map_folder', folder: `${folder}/${subPath}` } }) }}
                             style={zipBtnStyle}
-                            title={`Download maps in ${subPath}`}
+                            title={t('maps.downloadInSubfolder', { folder: subPath })}
                           >
-                            <LuDownload size={11} /> Download
+                            <LuDownload size={11} /> {t('maps.download')}
                           </button>
                         </>
                       )}
@@ -221,13 +223,13 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                           />
                         ) : (
                           <>
-                            {tags.map(t => <span key={t} style={tagPillStyle}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>)}
+                            {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
                             {canTag && (
                               <button
                                 onClick={() => onSetEditingFolder(editKey)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
                               >
-                                <LuTag size={11} /> {tags.length > 0 ? 'Edit tags' : 'Add tags'}
+                                <LuTag size={11} /> {tags.length > 0 ? t('maps.editTagsFull') : t('maps.addTags')}
                               </button>
                             )}
                           </>

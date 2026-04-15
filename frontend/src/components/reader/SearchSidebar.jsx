@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
@@ -16,6 +17,7 @@ function SnippetText({ snippet }) {
 }
 
 export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState(null)
   const [searching, setSearching] = useState(false)
@@ -52,18 +54,18 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
           type="text"
           value={query}
           onChange={handleInput}
-          aria-label="Search this book"
-          placeholder="Search this book…"
+          aria-label={t('searchSidebar.ariaLabel')}
+          placeholder={t('searchSidebar.placeholder')}
           style={{ flex: 1, fontSize: 14, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)' }}
         />
         {searching && <Spinner size={14} />}
-        <button onClick={onClose} aria-label="Close search" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+        <button onClick={onClose} aria-label={t('searchSidebar.closeSearch')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
           <LuX size={15} aria-hidden="true" />
         </button>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
         {results && results.total === 0 && (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>No results found.</div>
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>{t('searchSidebar.noResults')}</div>
         )}
         {results && results.results.map((r, i) => (
           <button
@@ -85,7 +87,7 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
         ))}
         {!results && query.length < 2 && (
           <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            Type to search within this book.
+            {t('searchSidebar.typeToSearch')}
           </div>
         )}
       </div>

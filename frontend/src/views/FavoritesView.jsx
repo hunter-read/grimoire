@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LuHeart, LuMap, LuUser, LuFileText, LuLibrary } from 'react-icons/lu'
 import { mediaUrl } from '../api'
 import { useFavorites } from '../context/FavoritesContext'
@@ -6,6 +7,7 @@ import FavoriteButton from '../components/FavoriteButton'
 import { CATEGORY_ICONS } from '../constants'
 
 function BookFavorite({ item }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const CatIcon = CATEGORY_ICONS[item.category] || LuFileText
   return (
@@ -26,7 +28,7 @@ function BookFavorite({ item }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{item.category}{item.page_count > 0 ? ` · ${item.page_count} pages` : ''}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{item.category}{item.page_count > 0 ? ` · ${t('bookRow.pages', { count: item.page_count })}` : ''}</div>
       </div>
       <FavoriteButton type="book" id={item.item_id} style={{ position: 'static', background: 'none', width: 'auto', height: 'auto', borderRadius: 0 }} />
     </div>
@@ -113,6 +115,7 @@ function SystemFavorite({ item }) {
 const CARD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }
 
 export default function FavoritesView() {
+  const { t } = useTranslation()
   const { items } = useFavorites()
 
   const systems = items.filter(i => i.item_type === 'system')
@@ -124,8 +127,8 @@ export default function FavoritesView() {
     return (
       <div className="fade-in" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
         <LuHeart size={40} style={{ marginBottom: 16, opacity: 0.3 }} />
-        <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>No favorites yet</div>
-        <div style={{ fontSize: 14 }}>Click the heart icon on any system, book, map, or token to save it here.</div>
+        <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{t('favorites.empty')}</div>
+        <div style={{ fontSize: 14 }}>{t('favorites.emptyHint')}</div>
       </div>
     )
   }
@@ -133,13 +136,13 @@ export default function FavoritesView() {
   return (
     <div className="fade-in" style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
       <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <LuHeart size={20} fill="var(--gold)" color="var(--gold)" /> Favorites
+        <LuHeart size={20} fill="var(--gold)" color="var(--gold)" /> {t('favorites.title')}
       </h2>
 
       {systems.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-            Systems ({systems.length})
+            {t('favorites.systems', { count: systems.length })}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {systems.map(item => <SystemFavorite key={item.item_id} item={item} />)}
@@ -150,7 +153,7 @@ export default function FavoritesView() {
       {books.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-            Books ({books.length})
+            {t('favorites.books', { count: books.length })}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {books.map(item => <BookFavorite key={item.item_id} item={item} />)}
@@ -161,7 +164,7 @@ export default function FavoritesView() {
       {maps.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-            Maps ({maps.length})
+            {t('favorites.maps', { count: maps.length })}
           </h3>
           <div style={CARD_GRID}>
             {maps.map(item => <MapFavorite key={item.item_id} item={item} />)}
@@ -172,7 +175,7 @@ export default function FavoritesView() {
       {tokens.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-            Tokens ({tokens.length})
+            {t('favorites.tokens', { count: tokens.length })}
           </h3>
           <div style={CARD_GRID}>
             {tokens.map(item => <TokenFavorite key={item.item_id} item={item} />)}

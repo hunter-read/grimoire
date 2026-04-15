@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuFileText, LuHeart, LuPencil } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { CATEGORY_ICONS } from '../../constants'
@@ -6,6 +7,7 @@ import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 
 export default function BookRow({ book, onOpen, onEdit, editing }) {
+  const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const { isFavorite, toggleFavorite } = useFavorites()
   const CatIcon = CATEGORY_ICONS[book.category] || LuFileText
@@ -21,7 +23,7 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
       role="button"
       tabIndex={0}
-      aria-label={`Open ${book.title}`}
+      aria-label={t('bookRow.openBook', { title: book.title })}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -53,7 +55,7 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
           {book.title}
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, alignItems: 'center' }}>
-          {book.page_count > 0 && <span>{book.page_count} pages</span>}
+          {book.page_count > 0 && <span>{t('bookRow.pages', { count: book.page_count })}</span>}
           {progress > 0 && (
             <span style={{ color: 'var(--gold-dim)' }}>
               p. {lastPage}
@@ -62,24 +64,24 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
           {book.year && <span>{book.year}</span>}
           {book.publisher && <span>{book.publisher}</span>}
           {book.is_explicit && (
-            <span title="Explicit content" style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
-              18+
+            <span title={t('bookRow.explicitTitle')} style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
+              {t('bookRow.explicit')}
             </span>
           )}
           {book.is_missing ? (
-            <span title="File not found on disk" style={{ fontSize: 11, color: '#c8860a', background: 'rgba(200,134,10,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(200,134,10,0.4)' }}>
-              Missing
+            <span title={t('bookRow.missingTitle')} style={{ fontSize: 11, color: '#c8860a', background: 'rgba(200,134,10,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(200,134,10,0.4)' }}>
+              {t('bookRow.missingFile')}
             </span>
           ) : (
             <>
               {book.indexed && (
-                <span title="Full-text indexed" style={{ fontSize: 11, color: 'var(--green)', background: 'rgba(90,154,90,0.1)', padding: '1px 6px', borderRadius: 8 }}>
-                  Indexed
+                <span title={t('bookRow.indexedTitle')} style={{ fontSize: 11, color: 'var(--green)', background: 'rgba(90,154,90,0.1)', padding: '1px 6px', borderRadius: 8 }}>
+                  {t('bookRow.indexed')}
                 </span>
               )}
               {book.index_failed && (
-                <span title={`Index failed${book.index_error ? `: ${book.index_error}` : ''}`} style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
-                  Index Failed
+                <span title={book.index_error ? t('bookRow.indexFailedWithError', { error: book.index_error }) : t('bookRow.indexFailedTitle')} style={{ fontSize: 11, color: '#e07070', background: 'rgba(180,60,60,0.12)', padding: '1px 6px', borderRadius: 8, border: '1px solid rgba(180,60,60,0.35)' }}>
+                  {t('bookRow.indexFailed')}
                 </span>
               )}
             </>
@@ -96,7 +98,7 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
         {onEdit && (
           <button
             onClick={e => { e.stopPropagation(); onEdit() }}
-            aria-label="Edit metadata"
+            aria-label={t('bookRow.editBook')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '8px 4px', margin: '-8px 0', color: editing ? 'var(--gold)' : 'var(--text-muted)' }}
           >
             <LuPencil size={14} aria-hidden="true" />
@@ -104,7 +106,7 @@ export default function BookRow({ book, onOpen, onEdit, editing }) {
         )}
         <button
           onClick={e => { e.stopPropagation(); toggleFavorite('book', book.id) }}
-          aria-label={isFavorite('book', book.id) ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite('book', book.id) ? t('common.removeFromFavorites') : t('common.addToFavorites')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '8px 10px', margin: '-8px -4px' }}
         >
           <LuHeart
