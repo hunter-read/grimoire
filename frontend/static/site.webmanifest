@@ -1,11 +1,30 @@
 {
   "name": "Grimoire",
   "short_name": "Grimoire",
+  "description": "Self-hosted TTRPG library manager for books, maps, and campaigns.",
+  "start_url": "/",
   "icons": [
     { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/android-chrome-512x512.png",  "sizes": "512x512",  "type": "image/png" }
   ],
   "theme_color": "#1a1612",
   "background_color": "#1a1612",
-  "display": "standalone"
+  "display": "standalone",
+  "shortcuts": [
+    {
+      "name": "Library",
+      "url": "/library",
+      "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Search",
+      "url": "/search",
+      "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Campaigns",
+      "url": "/campaigns",
+      "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
+    }
+  ]
 }

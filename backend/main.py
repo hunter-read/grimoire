@@ -162,5 +162,8 @@ def serve_frontend(full_path: str, _: Request):
         return FileResponse(candidate)
     index_path = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path)
+        return FileResponse(
+            index_path,
+            headers={"Cache-Control": "no-store"},
+        )
     return JSONResponse({"error": "Frontend not found"}, status_code=500)
