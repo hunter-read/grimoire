@@ -86,7 +86,6 @@ function StatsDisplaySection() {
     { key: 'show_stat_maps',    label: t('stats.maps')    },
     { key: 'show_stat_tokens',  label: t('stats.tokens')  },
     { key: 'show_stat_size',    label: t('stats.size')    },
-    { key: 'show_stat_version', label: t('stats.version') },
   ]
 
   useEffect(() => {

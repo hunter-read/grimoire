@@ -19,4 +19,3 @@ class SettingsPatch(BaseModel):
     show_stat_maps: Optional[bool] = None
     show_stat_tokens: Optional[bool] = None
     show_stat_size: Optional[bool] = None
-    show_stat_version: Optional[bool] = None

@@ -27,7 +27,9 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 RUN mkdir -p /data /library
 
 ARG APP_VERSION=dev
+ARG COMMIT_HASH="dev"
 ENV APP_VERSION=${APP_VERSION}
+ENV COMMIT_HASH=${COMMIT_HASH}
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 9481

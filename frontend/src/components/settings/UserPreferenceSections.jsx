@@ -96,9 +96,9 @@ export function ReaderSection() {
 }
 
 export function LanguageSection() {
+  const { t } = useTranslation()
   const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en-US')
   const [saved, setSaved] = useState(false)
-
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
   const handleLang = (v) => {
@@ -111,11 +111,11 @@ export function LanguageSection() {
   return (
     <div>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
-        Language / Sprache
+        {t('userSettings.language.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
-        Choose the display language for the interface.
+        {t('userSettings.language.description')}
       </p>
       <SegmentedControl options={AVAILABLE_LANGUAGES} value={lang} onChange={handleLang} />
     </div>

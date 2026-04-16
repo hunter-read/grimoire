@@ -24,6 +24,18 @@
     "size": "Taille",
     "version": "Version"
   },
+  "about": {
+    "title": "À propos de Grimoire",
+    "subtitle": "Gestionnaire de bibliothèque TTRPG auto-hébergé",
+    "version": "Version",
+    "commitHash": "Hash de commit",
+    "pythonVersion": "Version Python",
+    "reactVersion": "Version React",
+    "updateAvailable": "Mise à jour disponible",
+    "viewRelease": "Voir la version",
+    "github": "Dépôt GitHub",
+    "openAbout": "À propos de Grimoire"
+  },
   "common": {
     "save": "Enregistrer",
     "saving": "Enregistrement…",
@@ -306,6 +318,10 @@
       "cardSize": "Taille des vignettes",
       "comfortable": "Confortable",
       "compact": "Compact"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez la langue d'affichage de l'interface."
     },
     "opds": {
       "title": "Flux OPDS",

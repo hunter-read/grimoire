@@ -1,10 +1,11 @@
 """Library scan-status, rescan, and stats endpoints."""
+import sys
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header
 from sqlalchemy import func
 
-from ...config import SessionLocal, VERSION
+from ...config import SessionLocal, VERSION, COMMIT_HASH
 from ...models import GameSystem, Book, GenericMap, Token
 from ...auth import require_admin, optional_get_current_user, CurrentUser
 from ..settings import get_stats_api_key
@@ -73,6 +74,8 @@ def get_stats(
             "total_pages": db.query(func.sum(Book.page_count)).scalar() or 0,
             "total_size_mb": round((db.query(func.sum(Book.file_size)).scalar() or 0) / 1048576, 1),
             "version": VERSION,
+            "commit_hash": COMMIT_HASH,
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         }
     finally:
         db.close()

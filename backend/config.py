@@ -8,6 +8,7 @@ from typing import Optional
 from .models import init_db
 
 VERSION = os.environ.get("APP_VERSION", "1.0.0")
+COMMIT_HASH = os.environ.get("COMMIT_HASH", "")
 OPDS_ENABLED = os.environ.get("OPDS_ENABLED", "false").lower() == "true"
 # Public base URL of this instance (e.g. "https://grimoire.example.com").
 # Used to build absolute links in OPDS feeds and anywhere a fully-qualified URL is needed.

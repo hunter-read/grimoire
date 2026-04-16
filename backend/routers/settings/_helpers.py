@@ -22,7 +22,6 @@ _DEFAULTS = {
     "show_stat_maps": "false",
     "show_stat_tokens": "false",
     "show_stat_size": "true",
-    "show_stat_version": "true",
 }
 
 
@@ -57,7 +56,6 @@ def _to_typed(raw: dict) -> dict:
         "show_stat_maps": raw["show_stat_maps"] == "true",
         "show_stat_tokens": raw["show_stat_tokens"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
-        "show_stat_version": raw["show_stat_version"] == "true",
     }
 
 

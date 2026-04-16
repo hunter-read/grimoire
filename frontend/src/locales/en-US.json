@@ -24,6 +24,18 @@
     "size": "Size",
     "version": "Version"
   },
+  "about": {
+    "title": "About Grimoire",
+    "subtitle": "Self-hosted TTRPG library manager",
+    "version": "Version",
+    "commitHash": "Commit Hash",
+    "pythonVersion": "Python Version",
+    "reactVersion": "React Version",
+    "updateAvailable": "Update Available",
+    "viewRelease": "View Release",
+    "github": "GitHub repository",
+    "openAbout": "About Grimoire"
+  },
   "common": {
     "save": "Save",
     "saving": "Saving…",
@@ -306,6 +318,10 @@
       "cardSize": "Card size",
       "comfortable": "Comfortable",
       "compact": "Compact"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Choose the display language for the interface."
     },
     "opds": {
       "title": "OPDS Feed",

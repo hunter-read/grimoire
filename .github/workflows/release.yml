@@ -53,6 +53,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
           build-args: |
             APP_VERSION=${{ steps.ver.outputs.version }}
+            COMMIT_HASH=${{ github.sha }}
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ steps.ver.outputs.major }}

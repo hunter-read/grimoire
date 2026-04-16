@@ -56,7 +56,6 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
             "show_stat_maps",
             "show_stat_tokens",
             "show_stat_size",
-            "show_stat_version",
         ):
             val = getattr(data, key)
             if val is not None:
@@ -107,7 +106,6 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user)):
             "show_stat_maps": raw["show_stat_maps"] == "true",
             "show_stat_tokens": raw["show_stat_tokens"] == "true",
             "show_stat_size": raw["show_stat_size"] == "true",
-            "show_stat_version": raw["show_stat_version"] == "true",
         }
     finally:
         db.close()
