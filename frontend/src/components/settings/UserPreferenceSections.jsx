@@ -101,7 +101,8 @@ export function LanguageSection() {
   const [saved, setSaved] = useState(false)
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
-  const handleLang = (v) => {
+  const handleLang = (e) => {
+    const v = e.target.value
     setLang(v)
     localStorage.setItem('grimoire:language', v)
     i18n.changeLanguage(v)
@@ -117,7 +118,19 @@ export function LanguageSection() {
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
         {t('userSettings.language.description')}
       </p>
-      <SegmentedControl options={AVAILABLE_LANGUAGES} value={lang} onChange={handleLang} />
+      <select
+        value={lang}
+        onChange={handleLang}
+        style={{
+          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6,
+          color: 'var(--text)', fontSize: 14, padding: '7px 12px', cursor: 'pointer',
+          minWidth: 180,
+        }}
+      >
+        {AVAILABLE_LANGUAGES.map(({ value, label }) => (
+          <option key={value} value={value}>{label}</option>
+        ))}
+      </select>
     </div>
   )
 }

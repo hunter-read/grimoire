@@ -15,11 +15,25 @@ for (const path in modules) {
 
 AVAILABLE_LANGUAGES.sort((a, b) => a.label.localeCompare(b.label))
 
+function detectLanguage() {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem?.('grimoire:language')
+    if (saved) return saved
+  }
+  const available = Object.keys(resources)
+  for (const lang of (typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [])) {
+    const exact  = available.find(a => a === lang)
+    const prefix = available.find(a => a.startsWith(lang.split('-')[0]))
+    if (exact || prefix) return exact ?? prefix
+  }
+  return 'en-US'
+}
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: (typeof localStorage !== 'undefined' && localStorage.getItem?.('grimoire:language')) || 'en-US',
+    lng: detectLanguage(),
     fallbackLng: 'en-US',
     interpolation: {
       escapeValue: false,
