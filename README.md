@@ -91,10 +91,9 @@ See [Library Structure](#library-structure) for the full layout and category rul
 
 ### 2. Run with Docker Compose
 
-Copy the example compose file, set your `SECRET_KEY`, then start:
+Edit `docker-compose.yml` and set your `SECRET_KEY`, then start:
 
 ```bash
-cp docker-compose.yml.example docker-compose.yml
 # Edit docker-compose.yml and set SECRET_KEY
 docker compose up -d
 open http://localhost:9481
@@ -125,8 +124,8 @@ services:
     environment:
       SECRET_KEY: "generate-with-openssl-rand-hex-32"
     volumes:
-      - /path/to/your/library:/library:ro
-      - /path/to/grimoire/data:/data
+      - /path/to/your/library:/app/library:ro
+      - /path/to/grimoire/data:/app/data
 ```
 
 ### 5. With Valkey page cache (recommended for large libraries)
@@ -141,8 +140,8 @@ services:
       SECRET_KEY: "generate-with-openssl-rand-hex-32"
       VALKEY_URL: "redis://valkey:6379/0"
     volumes:
-      - /path/to/your/library:/library:ro
-      - /path/to/grimoire/data:/data
+      - /path/to/your/library:/app/library:ro
+      - /path/to/grimoire/data:/app/data
     depends_on:
       - valkey
 
@@ -335,12 +334,13 @@ Tags are applied (or updated) every time the library is rescanned. Tags set via 
 | Variable | Default | Description |
 |---|---|---|
 | `SECRET_KEY` | — | **Required.** JWT signing secret. Generate: `openssl rand -hex 32` |
-| `LIBRARY_PATH` | `/library` | Path to your mounted library directory |
-| `DATA_PATH` | `/data` | Path for the database, thumbnails, and search cache |
 | `WORKERS` | `2` | Number of uvicorn worker processes |
+
+| `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
+| `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
 | `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy — used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
 | `VALKEY_URL` | — | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
-| `OPDS_ENABLED` | `false` | Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
+| `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
 
 ### Volumes
@@ -348,10 +348,10 @@ Tags are applied (or updated) every time the library is rescanned. Tags set via 
 ```yaml
 volumes:
   # Your library — read-only is fine, Grimoire never modifies your files
-  - /path/to/your/library:/library:ro
+  - /path/to/your/library:/app/library:ro
 
   # Persistent data (database, thumbnails, page cache)
-  - grimoire_data:/data
+  - grimoire_data:/app/data
 ```
 
 ---
