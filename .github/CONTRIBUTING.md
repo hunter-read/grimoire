@@ -1,6 +1,6 @@
 # Contributing to Grimoire
 
-Thanks for your interest in contributing! Contributions of all kinds are welcome — bug reports, feature ideas, documentation improvements, and code.
+Thanks for your interest in contributing! Contributions of all kinds are welcome — bug reports, feature ideas, documentation improvements, code, and translations.
 
 ## Reporting a bug or requesting a feature
 
@@ -22,6 +22,16 @@ docker compose logs grimoire
 Admins also have access to the logs on the settings page under the logs tab.
 
 Browser console errors (F12 → Console tab) are also useful for UI problems.
+
+## Translations
+
+Grimoire supports multiple languages and new translations are always welcome! If you'd like to add or improve a translation, take a look at the existing locale files in the frontend for reference on the format and structure.
+
+Open a pull request with your changes — no issue required for translation-only PRs.
+
+## Community
+
+Interested in helping build a community around Grimoire? I'm looking for someone to run a **Discord server** and/or a **subreddit**. If that sounds like you, open an issue or reach out directly.
 
 ## Contributing code
 
@@ -56,6 +66,12 @@ grimoire/
 ```
 
 ## Development setup
+
+The easiest way to get a local dev environment running is with the included Docker Compose dev file:
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
 
 See the [README](../README.md#running-without-docker) for instructions on running Grimoire locally without Docker.
 

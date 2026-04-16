@@ -23,9 +23,7 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **Bookmarks** — Per-user page and text-selection bookmarks with inline highlights
 - **Favorites** — Save systems, books, maps, and tokens for quick access
 - **Metadata Editor** — Add descriptions, tags, genre, publisher links, and character builder URLs
-- **Multiple Publishers** — Game systems support multiple publishers, each with an optional URL
 - **Campaigns** — Track GM-run and personal campaigns; session notes, player notes, linked resources, and scheduling
-- **Display Names & Character Names** — Users can set a display name; campaign members can set a character name per campaign
 - **OPDS Catalog** — Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
 - **Docker Ready** — One command to run, mount your library directory, done
 - **Responsive** — Works on desktop, tablet, and phone with mobile navigation
