@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
 import InlineTagEditor from '../maps/InlineTagEditor'
+import { saveBookPrefs, getBookPrefs } from '../../hooks/useBookPrefs'
 
-export default function BookEditor({ book, onSave, onClose }) {
+export default function BookEditor({ book, onSave, onClose, allTags = [] }) {
   const { t } = useTranslation()
   const [form, setForm] = useState({
     title:       book.title       || '',
@@ -18,6 +19,8 @@ export default function BookEditor({ book, onSave, onClose }) {
   const [tags, setTags] = useState(book.tags || [])
   const [editingTags, setEditingTags] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [progressReset, setProgressReset] = useState(false)
+  const hasProgress = !!getBookPrefs(book.id).page
 
   const field = (label, key, opts = {}) => (
     <div style={{ marginBottom: 10 }}>
@@ -83,6 +86,7 @@ export default function BookEditor({ book, onSave, onClose }) {
             tags={tags}
             onSave={setTags}
             onCancel={() => setEditingTags(false)}
+            suggestions={allTags.filter(t => !tags.includes(t))}
           />
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
@@ -98,13 +102,22 @@ export default function BookEditor({ book, onSave, onClose }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={onClose} style={{ padding: '6px 14px', borderRadius: 5, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: 13, cursor: 'pointer' }}>
           {t('bookEditor.cancel')}
         </button>
         <button onClick={handleSave} disabled={saving} style={{ padding: '6px 14px', borderRadius: 5, background: 'var(--gold-dim)', border: 'none', color: 'var(--bg-deep)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           {saving ? t('bookEditor.saving') : t('bookEditor.save')}
         </button>
+        {(hasProgress || progressReset) && (
+          <button
+            onClick={() => { saveBookPrefs(book.id, { page: null }); setProgressReset(true) }}
+            disabled={progressReset}
+            style={{ marginLeft: 'auto', padding: '6px 14px', borderRadius: 5, background: 'none', border: '1px solid var(--border)', color: progressReset ? 'var(--green)' : 'var(--text-muted)', fontSize: 12, cursor: progressReset ? 'default' : 'pointer' }}
+          >
+            {progressReset ? `✓ ${t('bookEditor.progressReset')}` : t('bookEditor.resetProgress')}
+          </button>
+        )}
       </div>
     </div>
   )

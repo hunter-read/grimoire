@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft, LuChevronLeft, LuChevronRight, LuDownload,
-  LuFileText, LuColumns2, LuFile, LuSearch, LuList, LuBookmark, LuBookmarkPlus, LuHeart,
+  LuFileText, LuColumns2, LuFile, LuSearch, LuList, LuBookmark, LuBookmarkPlus, LuHeart, LuKeyboard,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
@@ -72,6 +72,7 @@ export default function ReaderView() {
   const [pendingBookmark, setPendingBookmark]     = useState(null)
   const [pendingLabel, setPendingLabel]           = useState('')
   const [pendingNotes, setPendingNotes]           = useState('')
+  const [showShortcuts, setShowShortcuts]         = useState(false)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan]   = useState({ x: 0, y: 0 })
 
@@ -239,6 +240,8 @@ export default function ReaderView() {
       if (e.key === 't') togglePanel('toc')
       if (e.key === 'b') togglePanel('bookmarks')
       if (e.key === 's') togglePanel('search')
+      if (e.key === '?') setShowShortcuts(v => !v)
+      if (e.key === 'Escape') setShowShortcuts(false)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -386,7 +389,41 @@ export default function ReaderView() {
         }}>
           <LuDownload size={13} />
         </a>
+
+        <button
+          onClick={() => setShowShortcuts(v => !v)}
+          title="Keyboard shortcuts (?)"
+          style={{ ...btnStyle, color: showShortcuts ? 'var(--gold)' : 'var(--text-muted)' }}
+        >
+          <LuKeyboard size={14} />
+        </button>
       </div>
+
+      {showShortcuts && (
+        <div
+          onClick={() => setShowShortcuts(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, minWidth: 280, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: 'var(--text)' }}>{t('reader.keyboardShortcuts')}</div>
+            {[
+              ['←  /  →', t('reader.shortcutPrevNext')],
+              ['↑  /  ↓', t('reader.shortcutPrevNextVertical')],
+              ['f', t('reader.shortcutFavorite')],
+              ['t', t('reader.shortcutToc')],
+              ['b', t('reader.shortcutBookmarks')],
+              ['s', t('reader.shortcutSearch')],
+              ['?', t('reader.shortcutHelp')],
+              ['Esc', t('reader.shortcutClose')],
+            ].map(([key, desc]) => (
+              <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 24, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                <kbd style={{ fontFamily: 'monospace', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 7px', color: 'var(--gold)', whiteSpace: 'nowrap' }}>{key}</kbd>
+                <span style={{ color: 'var(--text-dim)' }}>{desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Content + optional sidebar */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>

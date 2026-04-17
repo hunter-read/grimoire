@@ -379,6 +379,7 @@ export default function SystemDetailView() {
                           {editingBookId === book.id && (
                             <BookEditor
                               book={book}
+                              allTags={allTags}
                               onSave={(updated) => { saveBook(book.id, updated); setEditingBookId(null) }}
                               onClose={() => setEditingBookId(null)}
                             />
@@ -410,6 +411,7 @@ export default function SystemDetailView() {
                             {editingBookId === book.id && (
                               <BookEditor
                                 book={book}
+                                allTags={allTags}
                                 onSave={(updated) => { saveBook(book.id, updated); setEditingBookId(null) }}
                                 onClose={() => setEditingBookId(null)}
                               />

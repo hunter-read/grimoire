@@ -139,7 +139,16 @@
     "addToFavorites": "Zu Favoriten hinzufügen",
     "removeFromFavorites": "Aus Favoriten entfernen",
     "bookmarkPage": "Seite als Lesezeichen speichern",
-    "downloadFile": "Herunterladen"
+    "downloadFile": "Herunterladen",
+    "keyboardShortcuts": "Tastaturkürzel",
+    "shortcutPrevNext": "Vorherige / nächste Seite",
+    "shortcutPrevNextVertical": "Vorherige / nächste Seite (vertikal)",
+    "shortcutFavorite": "Favorit umschalten",
+    "shortcutToc": "Inhaltsverzeichnis",
+    "shortcutBookmarks": "Lesezeichen",
+    "shortcutSearch": "Suche",
+    "shortcutHelp": "Diese Hilfe",
+    "shortcutClose": "Panels schließen"
   },
   "search": {
     "title": "Bibliothek durchsuchen",
@@ -771,7 +780,9 @@
     "save": "Speichern",
     "saving": "Speichern…",
     "cancel": "Abbrechen",
-    "failed": "Speichern fehlgeschlagen."
+    "failed": "Speichern fehlgeschlagen.",
+    "resetProgress": "Lesefortschritt zurücksetzen",
+    "progressReset": "Fortschritt zurückgesetzt"
   },
   "bookRow": {
     "missingFile": "Fehlend",

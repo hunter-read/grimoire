@@ -139,7 +139,16 @@
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
     "bookmarkPage": "Bookmark this page",
-    "downloadFile": "Download"
+    "downloadFile": "Download",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "shortcutPrevNext": "Previous / next page",
+    "shortcutPrevNextVertical": "Previous / next page (vertical)",
+    "shortcutFavorite": "Toggle favorite",
+    "shortcutToc": "Table of contents",
+    "shortcutBookmarks": "Bookmarks",
+    "shortcutSearch": "Search",
+    "shortcutHelp": "This help",
+    "shortcutClose": "Close panels"
   },
   "search": {
     "title": "Search Your Library",
@@ -771,7 +780,9 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "failed": "Failed to save."
+    "failed": "Failed to save.",
+    "resetProgress": "Reset reading progress",
+    "progressReset": "Progress reset"
   },
   "bookRow": {
     "missingFile": "Missing",
