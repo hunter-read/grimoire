@@ -113,11 +113,19 @@ describe('BookFolderGroup', () => {
 
   it('uses category::folder as the collapse key, so same name in different categories collapses independently', () => {
     // A "monsters" folder under core should collapse independently from one under supplement
-    const coreProps = makeProps({ folder: 'monsters', category: 'core', collapsed: new Set(['core::monsters']) })
+    const coreProps = makeProps({
+      folder: 'monsters',
+      category: 'core',
+      collapsed: new Set(['core::monsters']),
+    })
     const { rerender } = render(<BookFolderGroup {...coreProps} />)
     expect(screen.queryByText(coreProps.books[0].title)).not.toBeInTheDocument()
 
-    const suppProps = makeProps({ folder: 'monsters', category: 'supplement', collapsed: new Set() })
+    const suppProps = makeProps({
+      folder: 'monsters',
+      category: 'supplement',
+      collapsed: new Set(),
+    })
     rerender(<BookFolderGroup {...suppProps} />)
     expect(screen.getByText(suppProps.books[0].title)).toBeInTheDocument()
   })
@@ -167,7 +175,9 @@ describe('BookFolderGroup', () => {
 
   it('renders BookEditor when editingBookId matches a book', () => {
     const book = makeBook()
-    render(<BookFolderGroup {...makeProps({ books: [book], editingBookId: book.id, isEditor: true })} />)
+    render(
+      <BookFolderGroup {...makeProps({ books: [book], editingBookId: book.id, isEditor: true })} />
+    )
     expect(screen.getByTestId('book-editor')).toBeInTheDocument()
   })
 
@@ -180,7 +190,16 @@ describe('BookFolderGroup', () => {
 
   it('calls onDownload with correct params when download button is clicked', async () => {
     const onDownload = vi.fn()
-    render(<BookFolderGroup {...makeProps({ onDownload, systemId: 'sys-42', category: 'adventure', folder: 'Abomination Vaults' })} />)
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          onDownload,
+          systemId: 'sys-42',
+          category: 'adventure',
+          folder: 'Abomination Vaults',
+        })}
+      />
+    )
     await userEvent.click(screen.getByText('Download'))
     expect(onDownload).toHaveBeenCalledWith(
       expect.objectContaining({

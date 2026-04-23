@@ -2,8 +2,16 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  LuScroll, LuUsers, LuCalendar, LuNotebook, LuChevronLeft,
-  LuSettings, LuTrash2, LuUserPlus, LuBookOpen, LuLink,
+  LuScroll,
+  LuUsers,
+  LuCalendar,
+  LuNotebook,
+  LuChevronLeft,
+  LuSettings,
+  LuTrash2,
+  LuUserPlus,
+  LuBookOpen,
+  LuLink,
 } from 'react-icons/lu'
 import api, { campaigns } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -16,11 +24,19 @@ import ResourcesPanel from '../components/campaigns/ResourcesPanel'
 import { MemberRow, InvitePanel } from '../components/campaigns/CampaignMembers'
 
 const TAB_STYLE = (active) => ({
-  padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: active ? 600 : 400,
+  padding: '8px 16px',
+  borderRadius: 8,
+  cursor: 'pointer',
+  fontSize: 14,
+  fontWeight: active ? 600 : 400,
   background: active ? 'var(--bg-card)' : 'transparent',
   border: active ? '1px solid var(--border)' : '1px solid transparent',
   color: active ? 'var(--gold)' : 'var(--text-dim)',
-  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 })
 
 export default function CampaignDetailView() {
@@ -35,14 +51,18 @@ export default function CampaignDetailView() {
   const [error, setError] = useState(null)
 
   const load = () => {
-    campaigns.get(campaignId)
+    campaigns
+      .get(campaignId)
       .then(setCampaign)
-      .catch(e => setError(e.message))
+      .catch((e) => setError(e.message))
   }
 
   useEffect(() => {
     load()
-    api.get('/systems').then(setSystems).catch(() => {})
+    api
+      .get('/systems')
+      .then(setSystems)
+      .catch(() => {})
   }, [campaignId])
 
   if (error) {
@@ -50,7 +70,16 @@ export default function CampaignDetailView() {
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--danger)' }}>
         {error}
         <div style={{ marginTop: 12 }}>
-          <button onClick={() => navigate('/campaigns')} style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 14 }}>
+          <button
+            onClick={() => navigate('/campaigns')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--gold)',
+              cursor: 'pointer',
+              fontSize: 14,
+            }}
+          >
             ← {t('campaignDetail.backToCampaigns')}
           </button>
         </div>
@@ -59,7 +88,11 @@ export default function CampaignDetailView() {
   }
 
   if (!campaign) {
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner size={28} /></div>
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+        <Spinner size={28} />
+      </div>
+    )
   }
 
   const isOwner = campaign.owner_id === user?.id || user?.role === 'admin'
@@ -105,28 +138,71 @@ export default function CampaignDetailView() {
       <div style={{ marginBottom: 24 }}>
         <button
           onClick={() => navigate('/campaigns')}
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, padding: 0, marginBottom: 12 }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: 0,
+            marginBottom: 12,
+          }}
         >
           <LuChevronLeft size={14} /> {t('campaignDetail.backToCampaigns')}
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
           <div>
             <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{campaign.name}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {!isGmCampaign && (
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-deep)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)' }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    background: 'var(--bg-deep)',
+                    padding: '2px 8px',
+                    borderRadius: 20,
+                    border: '1px solid var(--border)',
+                  }}
+                >
                   {t('campaignDetail.personalCampaign')}
                 </span>
               )}
               {campaign.parent_campaign_id && (
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
                   <LuLink size={12} aria-hidden="true" /> {t('campaignDetail.linkedToGmCampaign')}
                 </span>
               )}
             </div>
             {campaign.description && (
-              <p style={{ fontSize: 14, color: 'var(--text-dim)', marginTop: 8, lineHeight: 1.6, maxWidth: 600 }}>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: 'var(--text-dim)',
+                  marginTop: 8,
+                  lineHeight: 1.6,
+                  maxWidth: 600,
+                }}
+              >
                 {campaign.description}
               </p>
             )}
@@ -136,14 +212,36 @@ export default function CampaignDetailView() {
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
                 onClick={() => setShowEditor(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-dim)', cursor: 'pointer', fontSize: 13 }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '7px 12px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
               >
                 <LuSettings size={14} /> {t('campaignDetail.edit')}
               </button>
               <button
                 onClick={deleteCampaign}
                 aria-label={t('campaignDetail.deleteAriaLabel')}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--danger)', cursor: 'pointer', fontSize: 13 }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '7px 12px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--danger)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
               >
                 <LuTrash2 size={14} aria-hidden="true" />
               </button>
@@ -153,19 +251,39 @@ export default function CampaignDetailView() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <button style={TAB_STYLE(tab === 'overview')} onClick={() => navigate(`/campaigns/${campaignId}/overview`)}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          marginBottom: 24,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        <button
+          style={TAB_STYLE(tab === 'overview')}
+          onClick={() => navigate(`/campaigns/${campaignId}/overview`)}
+        >
           <LuUsers size={14} /> {t('campaignDetail.tabs.overview')}
         </button>
-        <button style={TAB_STYLE(tab === 'sessions')} onClick={() => navigate(`/campaigns/${campaignId}/sessions`)}>
+        <button
+          style={TAB_STYLE(tab === 'sessions')}
+          onClick={() => navigate(`/campaigns/${campaignId}/sessions`)}
+        >
           <LuNotebook size={14} /> {t('campaignDetail.tabs.sessionNotes')}
         </button>
         {isGmCampaign && (isOwner || campaign.has_schedule) && (
-          <button style={TAB_STYLE(tab === 'schedule')} onClick={() => navigate(`/campaigns/${campaignId}/schedule`)}>
+          <button
+            style={TAB_STYLE(tab === 'schedule')}
+            onClick={() => navigate(`/campaigns/${campaignId}/schedule`)}
+          >
             <LuCalendar size={14} /> {t('campaignDetail.tabs.schedule')}
           </button>
         )}
-        <button style={TAB_STYLE(tab === 'resources')} onClick={() => navigate(`/campaigns/${campaignId}/resources`)}>
+        <button
+          style={TAB_STYLE(tab === 'resources')}
+          onClick={() => navigate(`/campaigns/${campaignId}/resources`)}
+        >
           <LuBookOpen size={14} /> {t('campaignDetail.tabs.resources')}
         </button>
       </div>
@@ -173,29 +291,55 @@ export default function CampaignDetailView() {
       {/* Overview tab */}
       {tab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' }}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '20px 22px',
+            }}
+          >
+            <h3
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
               <LuScroll size={15} /> {t('campaignDetail.overview.details')}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>{t('campaignDetail.overview.type')}</span>
-                <span>{campaign.is_gm_campaign ? t('campaignDetail.overview.gmCampaignType') : t('campaignDetail.overview.personalCampaignType')}</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {t('campaignDetail.overview.type')}
+                </span>
+                <span>
+                  {campaign.is_gm_campaign
+                    ? t('campaignDetail.overview.gmCampaignType')
+                    : t('campaignDetail.overview.personalCampaignType')}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>{t('campaignDetail.overview.created')}</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {t('campaignDetail.overview.created')}
+                </span>
                 <span>{new Date(campaign.created_at).toLocaleDateString()}</span>
               </div>
               {campaign.system_id && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{t('campaignDetail.overview.system')}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {t('campaignDetail.overview.system')}
+                  </span>
                   <Link
                     to={`/library/system/${campaign.system_id}`}
                     style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: 14 }}
-                    onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-                    onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                   >
-                    {systems.find(s => s.id === campaign.system_id)?.name ?? '—'}
+                    {systems.find((s) => s.id === campaign.system_id)?.name ?? '—'}
                   </Link>
                 </div>
               )}
@@ -203,15 +347,48 @@ export default function CampaignDetailView() {
           </div>
 
           {isGmCampaign && (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '20px 22px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 16,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
                   <LuUsers size={15} /> {t('campaignDetail.overview.members')}
                 </h3>
                 {isOwner && (
                   <button
                     onClick={() => setShowInvite(!showInvite)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', cursor: 'pointer', fontSize: 12 }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '5px 10px',
+                      background: 'var(--bg-deep)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      color: 'var(--text-dim)',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                    }}
                   >
                     <LuUserPlus size={12} /> {t('campaignDetail.overview.invite')}
                   </button>
@@ -221,15 +398,20 @@ export default function CampaignDetailView() {
               {showInvite && (
                 <InvitePanel
                   campaignId={campaign.id}
-                  onInvited={() => { setShowInvite(false); load() }}
+                  onInvited={() => {
+                    setShowInvite(false)
+                    load()
+                  }}
                 />
               )}
 
               <div>
                 {campaign.members?.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', paddingTop: 8 }}>{t('campaignDetail.overview.noMembers')}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', paddingTop: 8 }}>
+                    {t('campaignDetail.overview.noMembers')}
+                  </div>
                 ) : (
-                  campaign.members.map(m => (
+                  campaign.members.map((m) => (
                     <MemberRow
                       key={m.user_id}
                       member={m}
@@ -271,7 +453,7 @@ export default function CampaignDetailView() {
           isGmOrAdmin={user?.role === 'admin' || user?.role === 'gm'}
           onClose={() => setShowEditor(false)}
           onSaved={(updated) => {
-            setCampaign(prev => ({ ...prev, ...updated }))
+            setCampaign((prev) => ({ ...prev, ...updated }))
             setShowEditor(false)
           }}
         />

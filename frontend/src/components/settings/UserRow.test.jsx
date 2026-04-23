@@ -12,7 +12,9 @@ describe('UserRow', () => {
   })
 
   it('shows (you) label when the row is the current user', () => {
-    render(<UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
+    render(
+      <UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />
+    )
     expect(screen.getByText('(you)')).toBeInTheDocument()
   })
 
@@ -22,7 +24,9 @@ describe('UserRow', () => {
   })
 
   it('disables the role select for the current user', () => {
-    render(<UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
+    render(
+      <UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />
+    )
     expect(screen.getByRole('combobox')).toBeDisabled()
   })
 
@@ -33,7 +37,9 @@ describe('UserRow', () => {
 
   it('calls onRoleChange with user id and new role when changed', () => {
     const onRoleChange = vi.fn()
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={onRoleChange} onDelete={vi.fn()} />)
+    render(
+      <UserRow user={alice} currentUserId="other" onRoleChange={onRoleChange} onDelete={vi.fn()} />
+    )
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gm' } })
     expect(onRoleChange).toHaveBeenCalledWith('user-1', 'gm')
   })
@@ -48,7 +54,9 @@ describe('UserRow', () => {
 
   it('calls onDelete when Yes is confirmed', () => {
     const onDelete = vi.fn()
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={onDelete} />)
+    render(
+      <UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={onDelete} />
+    )
     fireEvent.click(screen.getByLabelText('Delete user alice'))
     fireEvent.click(screen.getByText('Yes'))
     expect(onDelete).toHaveBeenCalledWith('user-1')
@@ -62,7 +70,9 @@ describe('UserRow', () => {
   })
 
   it('disables the delete button for the current user', () => {
-    render(<UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
+    render(
+      <UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />
+    )
     expect(screen.getByLabelText('Delete user alice')).toBeDisabled()
   })
 

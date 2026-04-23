@@ -81,7 +81,7 @@ describe('DownloadArchiveModal — default format', () => {
   it('selects ZIP by default', () => {
     renderModal()
     const radios = screen.getAllByRole('radio')
-    const zipRadio = radios.find(r => r.value === 'zip')
+    const zipRadio = radios.find((r) => r.value === 'zip')
     expect(zipRadio).toBeChecked()
   })
 
@@ -104,7 +104,7 @@ describe('DownloadArchiveModal — format selection', () => {
   it('selecting tar.gz checks that radio', () => {
     renderModal()
     const radios = screen.getAllByRole('radio')
-    const tarGzRadio = radios.find(r => r.value === 'tar.gz')
+    const tarGzRadio = radios.find((r) => r.value === 'tar.gz')
     fireEvent.click(tarGzRadio)
     expect(tarGzRadio).toBeChecked()
   })
@@ -112,8 +112,8 @@ describe('DownloadArchiveModal — format selection', () => {
   it('selecting a format unchecks zip', () => {
     renderModal()
     const radios = screen.getAllByRole('radio')
-    const tarBz2Radio = radios.find(r => r.value === 'tar.bz2')
-    const zipRadio    = radios.find(r => r.value === 'zip')
+    const tarBz2Radio = radios.find((r) => r.value === 'tar.bz2')
+    const zipRadio = radios.find((r) => r.value === 'zip')
     fireEvent.click(tarBz2Radio)
     expect(zipRadio).not.toBeChecked()
     expect(tarBz2Radio).toBeChecked()
@@ -122,7 +122,7 @@ describe('DownloadArchiveModal — format selection', () => {
   it('selecting tar checks tar radio', () => {
     renderModal()
     const radios = screen.getAllByRole('radio')
-    const tarRadio = radios.find(r => r.value === 'tar')
+    const tarRadio = radios.find((r) => r.value === 'tar')
     fireEvent.click(tarRadio)
     expect(tarRadio).toBeChecked()
   })
@@ -225,7 +225,7 @@ describe('DownloadArchiveModal — download behaviour', () => {
     const onClose = vi.fn()
     renderModal({ onClose })
     const radios = screen.getAllByRole('radio')
-    fireEvent.click(radios.find(r => r.value === 'tar.gz'))
+    fireEvent.click(radios.find((r) => r.value === 'tar.gz'))
     fireEvent.click(screen.getByRole('button', { name: /^download$/i }))
     expect(appendedAnchors).toHaveLength(1)
     expect(appendedAnchors[0].href).toContain('fmt=tar.gz')

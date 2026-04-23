@@ -5,7 +5,5 @@ export function formatSize(bytes) {
 }
 
 export function toTitleCase(str) {
-  return str
-    .replace(/[-_]+/g, ' ')
-    .replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1))
+  return str.replace(/[-_]+/g, ' ').replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))
 }

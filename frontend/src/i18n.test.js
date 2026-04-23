@@ -28,12 +28,12 @@ describe('i18n — AVAILABLE_LANGUAGES', () => {
 
   it('includes en-US', async () => {
     const { AVAILABLE_LANGUAGES } = await import('./i18n')
-    expect(AVAILABLE_LANGUAGES.some(l => l.value === 'en-US')).toBe(true)
+    expect(AVAILABLE_LANGUAGES.some((l) => l.value === 'en-US')).toBe(true)
   })
 
   it('is sorted by label', async () => {
     const { AVAILABLE_LANGUAGES } = await import('./i18n')
-    const labels = AVAILABLE_LANGUAGES.map(l => l.label)
+    const labels = AVAILABLE_LANGUAGES.map((l) => l.label)
     const sorted = [...labels].sort((a, b) => a.localeCompare(b))
     expect(labels).toEqual(sorted)
   })
@@ -50,9 +50,9 @@ function makeDetect(availableLocales) {
   return function detectLanguage(localStorageValue, navigatorLanguages) {
     if (localStorageValue) return localStorageValue
 
-    for (const lang of (navigatorLanguages ?? [])) {
-      const exact  = availableLocales.find(a => a === lang)
-      const prefix = availableLocales.find(a => a.startsWith(lang.split('-')[0]))
+    for (const lang of navigatorLanguages ?? []) {
+      const exact = availableLocales.find((a) => a === lang)
+      const prefix = availableLocales.find((a) => a.startsWith(lang.split('-')[0]))
       if (exact || prefix) return exact ?? prefix
     }
     return 'en-US'
@@ -60,7 +60,7 @@ function makeDetect(availableLocales) {
 }
 
 const LOCALES = ['en-US', 'fr-CA', 'fr-FR', 'de-DE']
-const detect  = makeDetect(LOCALES)
+const detect = makeDetect(LOCALES)
 
 describe('detectLanguage — priority', () => {
   it('returns localStorage value when present, regardless of navigator', () => {

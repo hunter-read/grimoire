@@ -54,7 +54,8 @@ describe('AuthContext', () => {
 
   it('transitions to authenticated when stored token validates successfully', async () => {
     localStorage.setItem('grimoire_token', 'valid-token')
-    global.fetch = vi.fn()
+    global.fetch = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ initialized: true }),
@@ -72,7 +73,8 @@ describe('AuthContext', () => {
 
   it('removes invalid token and goes to unauthenticated', async () => {
     localStorage.setItem('grimoire_token', 'bad-token')
-    global.fetch = vi.fn()
+    global.fetch = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
       .mockResolvedValueOnce({ ok: false, json: () => Promise.resolve(null) })
 
@@ -84,9 +86,13 @@ describe('AuthContext', () => {
 
   it('transitions to unauthenticated on grimoire:unauthorized event', async () => {
     localStorage.setItem('grimoire_token', 'tok')
-    global.fetch = vi.fn()
+    global.fetch = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
-      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: '1', username: 'alice', role: 'admin' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: '1', username: 'alice', role: 'admin' }),
+      })
 
     renderAuth()
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
@@ -115,9 +121,13 @@ describe('AuthContext', () => {
 
   it('logout() clears token and sets unauthenticated state', async () => {
     localStorage.setItem('grimoire_token', 'tok')
-    global.fetch = vi.fn()
+    global.fetch = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
-      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: '1', username: 'alice', role: 'admin' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: '1', username: 'alice', role: 'admin' }),
+      })
 
     renderAuth()
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))

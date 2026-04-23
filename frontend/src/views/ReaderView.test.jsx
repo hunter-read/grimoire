@@ -47,22 +47,20 @@ const BOOK = {
 
 const TOC = {
   toc: [
-    { title: 'Chapter 1', page: 1,  children: [] },
+    { title: 'Chapter 1', page: 1, children: [] },
     { title: 'Chapter 5', page: 81, children: [] },
   ],
 }
 
-const BOOKMARKS = [
-  { id: 1, page_number: 55, label: 'My mark', notes: '', selected_text: null },
-]
+const BOOKMARKS = [{ id: 1, page_number: 55, label: 'My mark', notes: '', selected_text: null }]
 
 function setupApiMocks() {
   api.get.mockImplementation((url) => {
-    if (url.includes('/toc'))       return Promise.resolve(TOC)
+    if (url.includes('/toc')) return Promise.resolve(TOC)
     if (url.includes('/bookmarks')) return Promise.resolve(BOOKMARKS)
-    if (url.includes('/search'))    return Promise.resolve({ total: 0, results: [] })
-    if (url.includes('/text'))      return Promise.resolve({ text: '' })
-    if (url.includes('/words'))     return Promise.resolve(null)
+    if (url.includes('/search')) return Promise.resolve({ total: 0, results: [] })
+    if (url.includes('/text')) return Promise.resolve({ text: '' })
+    if (url.includes('/words')) return Promise.resolve(null)
     // Default: book detail
     return Promise.resolve(BOOK)
   })
@@ -95,7 +93,10 @@ describe('ReaderView — jump navigation history behaviour', () => {
     vi.clearAllMocks()
     setupApiMocks()
     // Stub rAF so effects that schedule frames run synchronously in jsdom.
-    vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 0 })
+    vi.stubGlobal('requestAnimationFrame', (cb) => {
+      cb()
+      return 0
+    })
     vi.stubGlobal('cancelAnimationFrame', () => {})
   })
 

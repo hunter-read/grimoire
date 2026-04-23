@@ -141,7 +141,16 @@
     "addToFavorites": "Ajouter aux favoris",
     "removeFromFavorites": "Retirer des favoris",
     "bookmarkPage": "Mettre cette page en signet",
-    "downloadFile": "Télécharger"
+    "downloadFile": "Télécharger",
+    "keyboardShortcuts": "Raccourcis clavier",
+    "shortcutPrevNext": "Page précédente / suivante",
+    "shortcutPrevNextVertical": "Page précédente / suivante (vertical)",
+    "shortcutFavorite": "Basculer le favori",
+    "shortcutToc": "Table des matières",
+    "shortcutBookmarks": "Signets",
+    "shortcutSearch": "Rechercher",
+    "shortcutHelp": "Cette aide",
+    "shortcutClose": "Fermer les panneaux"
   },
   "search": {
     "title": "Rechercher dans votre bibliothèque",
@@ -773,7 +782,9 @@
     "save": "Enregistrer",
     "saving": "Enregistrement…",
     "cancel": "Annuler",
-    "failed": "Échec de l'enregistrement."
+    "failed": "Échec de l'enregistrement.",
+    "resetProgress": "Réinitialiser la progression de lecture",
+    "progressReset": "Progression réinitialisée"
   },
   "bookRow": {
     "missingFile": "Manquant",

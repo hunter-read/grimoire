@@ -12,26 +12,45 @@
 
 function parseTerms(str) {
   if (!str) return []
-  return str.replace(/["*]/g, '').split(/\s+/).filter(t => t.length >= 2 && !['and', 'or', 'not'].includes(t.toLowerCase()))
+  return str
+    .replace(/["*]/g, '')
+    .split(/\s+/)
+    .filter((t) => t.length >= 2 && !['and', 'or', 'not'].includes(t.toLowerCase()))
 }
 
-export default function TextOverlay({ words, naturalWidth, naturalHeight, highlightQuery, highlightText }) {
+export default function TextOverlay({
+  words,
+  naturalWidth,
+  naturalHeight,
+  highlightQuery,
+  highlightText,
+}) {
   if (!words.length || !naturalWidth) return null
 
   const searchTerms = parseTerms(highlightQuery)
   const bookmarkTerms = parseTerms(highlightText)
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      overflow: 'hidden', pointerEvents: 'none',
-      containerType: 'size',
-    }}>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+        containerType: 'size',
+      }}
+    >
       {words.map((w, i) => {
         const wl = w.text.toLowerCase()
-        const isSearch   = searchTerms.length > 0   && searchTerms.some(t => wl.includes(t.toLowerCase()))
-        const isBookmark = bookmarkTerms.length > 0 && bookmarkTerms.some(t => wl.includes(t.toLowerCase()))
-        const bg = isSearch ? 'rgba(201,168,76,0.4)' : isBookmark ? 'rgba(76,168,154,0.4)' : undefined
+        const isSearch =
+          searchTerms.length > 0 && searchTerms.some((t) => wl.includes(t.toLowerCase()))
+        const isBookmark =
+          bookmarkTerms.length > 0 && bookmarkTerms.some((t) => wl.includes(t.toLowerCase()))
+        const bg = isSearch
+          ? 'rgba(201,168,76,0.4)'
+          : isBookmark
+            ? 'rgba(76,168,154,0.4)'
+            : undefined
         return (
           <span
             key={i}

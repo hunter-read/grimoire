@@ -7,11 +7,7 @@ import useScrollRestoration from './useScrollRestoration'
 // Wrap the hook in a MemoryRouter so useLocation works.
 function makeWrapper(initialPath = '/') {
   return function Wrapper({ children }) {
-    return (
-      <MemoryRouter initialEntries={[initialPath]}>
-        {children}
-      </MemoryRouter>
-    )
+    return <MemoryRouter initialEntries={[initialPath]}>{children}</MemoryRouter>
   }
 }
 
@@ -19,7 +15,15 @@ function makeWrapper(initialPath = '/') {
 // DOM-dependent behaviour (save on unmount, restore on mount).
 function ScrollComponent({ onRef } = {}) {
   const ref = useScrollRestoration()
-  return <div ref={(el) => { ref.current = el; onRef?.(el) }} style={{ height: '200px', overflow: 'auto' }} />
+  return (
+    <div
+      ref={(el) => {
+        ref.current = el
+        onRef?.(el)
+      }}
+      style={{ height: '200px', overflow: 'auto' }}
+    />
+  )
 }
 
 describe('useScrollRestoration', () => {
@@ -27,7 +31,10 @@ describe('useScrollRestoration', () => {
     sessionStorage.clear()
     vi.clearAllMocks()
     // requestAnimationFrame is not available in jsdom — stub it to run synchronously.
-    vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 0 })
+    vi.stubGlobal('requestAnimationFrame', (cb) => {
+      cb()
+      return 0
+    })
     vi.stubGlobal('cancelAnimationFrame', () => {})
   })
 
@@ -57,12 +64,17 @@ describe('useScrollRestoration', () => {
     let divEl = null
     const { unmount } = render(
       <MemoryRouter initialEntries={['/library']}>
-        <ScrollComponent onRef={(el) => { divEl = el }} />
+        <ScrollComponent
+          onRef={(el) => {
+            divEl = el
+          }}
+        />
       </MemoryRouter>
     )
 
     // jsdom div doesn't have real scrollTop, so set it manually.
-    if (divEl) Object.defineProperty(divEl, 'scrollTop', { value: 250, writable: true, configurable: true })
+    if (divEl)
+      Object.defineProperty(divEl, 'scrollTop', { value: 250, writable: true, configurable: true })
 
     unmount()
 
@@ -75,7 +87,11 @@ describe('useScrollRestoration', () => {
     let divEl = null
     render(
       <MemoryRouter initialEntries={['/library']}>
-        <ScrollComponent onRef={(el) => { divEl = el }} />
+        <ScrollComponent
+          onRef={(el) => {
+            divEl = el
+          }}
+        />
       </MemoryRouter>
     )
 
@@ -87,7 +103,11 @@ describe('useScrollRestoration', () => {
     let divEl = null
     render(
       <MemoryRouter initialEntries={['/library']}>
-        <ScrollComponent onRef={(el) => { divEl = el }} />
+        <ScrollComponent
+          onRef={(el) => {
+            divEl = el
+          }}
+        />
       </MemoryRouter>
     )
 

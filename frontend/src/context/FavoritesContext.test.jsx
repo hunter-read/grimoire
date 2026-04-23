@@ -54,12 +54,10 @@ describe('FavoritesContext', () => {
 
   it('toggleFavorite calls POST and adds to local state when not yet favorited', async () => {
     // First call: initial load. Second call: reload after add.
-    api.get
-      .mockResolvedValueOnce({ favorites: [], items: [] })
-      .mockResolvedValueOnce({
-        favorites: [{ item_type: 'book', item_id: 'b2' }],
-        items: [],
-      })
+    api.get.mockResolvedValueOnce({ favorites: [], items: [] }).mockResolvedValueOnce({
+      favorites: [{ item_type: 'book', item_id: 'b2' }],
+      items: [],
+    })
     api.post.mockResolvedValue({ item_type: 'book', item_id: 'b2' })
 
     renderFavorites('book', 'b2')

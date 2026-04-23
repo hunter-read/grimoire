@@ -21,15 +21,22 @@ export default function SelectionPopup({ selectionPopup, onBookmark }) {
       }}
     >
       <button
-        onMouseDown={e => {
+        onMouseDown={(e) => {
           e.preventDefault()
           onBookmark(selectionPopup.page, selectionPopup.text)
         }}
         style={{
-          background: 'var(--bg-panel)', border: '1px solid var(--border)',
-          borderRadius: 6, padding: '6px 12px', fontSize: 13,
-          color: 'var(--gold)', cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          padding: '6px 12px',
+          fontSize: 13,
+          color: 'var(--gold)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
           whiteSpace: 'nowrap',
         }}
       >

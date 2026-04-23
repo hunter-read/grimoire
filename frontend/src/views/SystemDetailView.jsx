@@ -3,9 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import { useTranslation } from 'react-i18next'
 import {
-  LuArrowLeft, LuPencil, LuClipboard,
-  LuFileText, LuFolderOpen, LuSearch, LuX,
-  LuChevronDown, LuChevronRight, LuDownload,
+  LuArrowLeft,
+  LuPencil,
+  LuClipboard,
+  LuFileText,
+  LuFolderOpen,
+  LuSearch,
+  LuX,
+  LuChevronDown,
+  LuChevronRight,
+  LuDownload,
 } from 'react-icons/lu'
 import api from '../api'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
@@ -38,8 +45,14 @@ export default function SystemDetailView() {
   const [system, setSystem] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
-  const [collapsedCats, setCollapsedCats] = useSessionState(`grimoire:system:${systemId}:collapsed`, new Set())
-  const [collapsedSubfolders, setCollapsedSubfolders] = useSessionState(`grimoire:system:${systemId}:subfolders`, new Set())
+  const [collapsedCats, setCollapsedCats] = useSessionState(
+    `grimoire:system:${systemId}:collapsed`,
+    new Set()
+  )
+  const [collapsedSubfolders, setCollapsedSubfolders] = useSessionState(
+    `grimoire:system:${systemId}:subfolders`,
+    new Set()
+  )
   const [selectedTags, setSelectedTags] = useState(new Set())
   const [showAllTags, setShowAllTags] = useState(false)
   const [bookSort, setBookSort] = useState('title')
@@ -49,15 +62,27 @@ export default function SystemDetailView() {
   const searchTimer = useRef(null)
   const [downloadModal, setDownloadModal] = useState(null)
 
-  useEffect(() => { api.get(`/systems/${systemId}`).then(setSystem) }, [systemId])
-
-  const doSearch = useCallback((q) => {
-    if (q.length < 2) { setSearchResults(null); return }
-    setSearching(true)
-    api.get(`/search?q=${encodeURIComponent(q)}&system_id=${systemId}`)
-      .then(r => { setSearchResults(r); setSearching(false) })
-      .catch(() => setSearching(false))
+  useEffect(() => {
+    api.get(`/systems/${systemId}`).then(setSystem)
   }, [systemId])
+
+  const doSearch = useCallback(
+    (q) => {
+      if (q.length < 2) {
+        setSearchResults(null)
+        return
+      }
+      setSearching(true)
+      api
+        .get(`/search?q=${encodeURIComponent(q)}&system_id=${systemId}`)
+        .then((r) => {
+          setSearchResults(r)
+          setSearching(false)
+        })
+        .catch(() => setSearching(false))
+    },
+    [systemId]
+  )
 
   const handleSearchInput = (e) => {
     const v = e.target.value
@@ -71,29 +96,38 @@ export default function SystemDetailView() {
     setSearchResults(null)
   }
 
-  if (!system) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={32} /></div>
+  if (!system)
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <Spinner size={32} />
+      </div>
+    )
 
-  const allTags = [...new Set((system.books || []).flatMap(b => b.tags || []))].sort()
+  const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
 
-  const toggleTag = (tag) => setSelectedTags(prev => {
-    const next = new Set(prev)
-    next.has(tag) ? next.delete(tag) : next.add(tag)
-    return next
-  })
+  const toggleTag = (tag) =>
+    setSelectedTags((prev) => {
+      const next = new Set(prev)
+      next.has(tag) ? next.delete(tag) : next.add(tag)
+      return next
+    })
 
   const sortBooks = (books) => {
     const sorted = [...books]
     if (bookSort === 'title') sorted.sort((a, b) => a.title.localeCompare(b.title))
-    if (bookSort === 'year')  sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
-    if (bookSort === 'size')  sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
+    if (bookSort === 'year') sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
+    if (bookSort === 'size') sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
     if (bookSort === 'pages') sorted.sort((a, b) => (b.page_count || 0) - (a.page_count || 0))
     return sorted
   }
 
   const categories = {}
   ;(system.books || [])
-    .filter(book => selectedTags.size === 0 || [...selectedTags].every(tag => (book.tags || []).includes(tag)))
-    .forEach(book => {
+    .filter(
+      (book) =>
+        selectedTags.size === 0 || [...selectedTags].every((tag) => (book.tags || []).includes(tag))
+    )
+    .forEach((book) => {
       const cat = book.category || 'core'
       if (!categories[cat]) categories[cat] = []
       categories[cat].push(book)
@@ -101,82 +135,208 @@ export default function SystemDetailView() {
 
   const allCatKeys = Object.keys(categories)
   const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
-  const expandAll   = () => setCollapsedCats(new Set())
+  const expandAll = () => setCollapsedCats(new Set())
 
   const SORT_OPTIONS = [
     ['title', t('common.sortAZ')],
-    ['year',  t('common.sortYear')],
+    ['year', t('common.sortYear')],
     ['pages', t('common.sortPages')],
-    ['size',  t('common.sortSize')],
+    ['size', t('common.sortSize')],
   ]
 
   return (
-    <div className="fade-in" style={{ padding: '32px 40px', maxWidth: 1200, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+    <div
+      className="fade-in"
+      style={{
+        padding: '32px 40px',
+        maxWidth: 1200,
+        width: '100%',
+        margin: '0 auto',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <button onClick={() => navigate('/library')} style={{
-          background: 'none', color: 'var(--text-dim)', fontSize: 15,
-          display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
-        }}>
+        <button
+          onClick={() => navigate('/library')}
+          style={{
+            background: 'none',
+            color: 'var(--text-dim)',
+            fontSize: 15,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 16,
+          }}
+        >
           <LuArrowLeft size={15} /> {t('systemDetail.backToLibrary')}
         </button>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            gap: 16,
+          }}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontSize: 32, marginBottom: 8 }}>{system.name}</h2>
             {system.publishers?.length > 0 && (
               <div style={{ fontSize: 16, color: 'var(--text-dim)', marginBottom: 8 }}>
-                {t('systemDetail.publishedBy')} {system.publishers.map((p, i) => (
+                {t('systemDetail.publishedBy')}{' '}
+                {system.publishers.map((p, i) => (
                   <span key={i}>
                     {i > 0 && ', '}
-                    {p.url ? <a href={p.url} target="_blank" rel="noopener">{p.name}</a> : p.name}
+                    {p.url ? (
+                      <a href={p.url} target="_blank" rel="noopener">
+                        {p.name}
+                      </a>
+                    ) : (
+                      p.name
+                    )}
                   </span>
                 ))}
               </div>
             )}
             {system.description && (
-              <p style={{ fontSize: 16, color: 'var(--text-dim)', lineHeight: 1.6, fontFamily: 'Alegreya, serif', marginBottom: 12 }}>
+              <p
+                style={{
+                  fontSize: 16,
+                  color: 'var(--text-dim)',
+                  lineHeight: 1.6,
+                  fontFamily: 'Alegreya, serif',
+                  marginBottom: 12,
+                }}
+              >
                 {system.description}
               </p>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginBottom: 8 }}>
-              {(system.tags || []).map(tag => <Tag key={tag} label={tag} />)}
+              {(system.tags || []).map((tag) => (
+                <Tag key={tag} label={tag} />
+              ))}
               {system.genre && <Tag label={system.genre} color="rgba(90, 154, 90, 0.2)" />}
             </div>
           </div>
 
-          <div className="system-header-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, minWidth: 0 }}>
+          <div
+            className="system-header-panel"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
             {system.character_builder_url && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-                <a href={system.character_builder_url} target="_blank" rel="noopener" style={{
-                  padding: '8px 16px', borderRadius: 6, fontSize: 15,
-                  background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', gap: 6,
-                }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <a
+                  href={system.character_builder_url}
+                  target="_blank"
+                  rel="noopener"
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    fontSize: 15,
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--gold)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
                   <LuClipboard size={14} /> {t('systemDetail.characterBuilder')}
                 </a>
               </div>
             )}
             {/* Search bar */}
             <div style={{ position: 'relative' }}>
-              <LuSearch size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <LuSearch
+                size={13}
+                style={{
+                  position: 'absolute',
+                  left: 10,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
+                }}
+              />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchInput}
                 placeholder={t('systemDetail.searchWithin', { name: system.name })}
-                style={{ width: '100%', fontSize: 13, padding: '6px 28px 6px 30px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', boxSizing: 'border-box' }}
+                style={{
+                  width: '100%',
+                  fontSize: 13,
+                  padding: '6px 28px 6px 30px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-card)',
+                  boxSizing: 'border-box',
+                }}
               />
-              {searching && <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}><Spinner size={14} /></div>}
+              {searching && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                  }}
+                >
+                  <Spinner size={14} />
+                </div>
+              )}
               {searchQuery && !searching && (
-                <button onClick={clearSearch} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                <button
+                  onClick={clearSearch}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    padding: 0,
+                  }}
+                >
                   <LuX size={12} />
                 </button>
               )}
             </div>
             {/* Row 1: Favorite, Edit, Download All */}
-            <div className="system-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <FavoriteButton type="system" id={system.id} style={{ position: 'static', background: 'var(--bg-card)', border: '1px solid var(--border)', width: 32, height: 32, borderRadius: 6 }} />
+            <div
+              className="system-btn-row"
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <FavoriteButton
+                type="system"
+                id={system.id}
+                style={{
+                  position: 'static',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 6,
+                }}
+              />
               {isEditor && (
                 <button
                   onClick={() => setEditing(!editing)}
@@ -184,7 +344,9 @@ export default function SystemDetailView() {
                     ...toolBtnStyle,
                     color: editing ? 'var(--gold)' : 'var(--text-dim)',
                     outline: editing ? '1px solid var(--gold-dim)' : 'none',
-                    display: 'flex', alignItems: 'center', gap: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
                   }}
                 >
                   <LuPencil size={13} />
@@ -192,7 +354,12 @@ export default function SystemDetailView() {
                 </button>
               )}
               <button
-                onClick={() => setDownloadModal({ title: t('systemDetail.downloadAllTitle'), params: { type: 'system', id: system.id } })}
+                onClick={() =>
+                  setDownloadModal({
+                    title: t('systemDetail.downloadAllTitle'),
+                    params: { type: 'system', id: system.id },
+                  })
+                }
                 style={{ ...toolBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 title={t('systemDetail.downloadAllTitle')}
               >
@@ -200,9 +367,30 @@ export default function SystemDetailView() {
               </button>
             </div>
             {/* Row 2: Collapse / Expand */}
-            <div className="system-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={collapseAll} disabled={!!searchResults || collapsedCats.size === allCatKeys.length} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === allCatKeys.length) ? 0.4 : 1 }}>{t('systemDetail.collapseAll')}</button>
-              <button onClick={expandAll} disabled={!!searchResults || collapsedCats.size === 0} style={{ ...toolBtnStyle, opacity: (!!searchResults || collapsedCats.size === 0) ? 0.4 : 1 }}>{t('systemDetail.expandAll')}</button>
+            <div
+              className="system-btn-row"
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <button
+                onClick={collapseAll}
+                disabled={!!searchResults || collapsedCats.size === allCatKeys.length}
+                style={{
+                  ...toolBtnStyle,
+                  opacity: !!searchResults || collapsedCats.size === allCatKeys.length ? 0.4 : 1,
+                }}
+              >
+                {t('systemDetail.collapseAll')}
+              </button>
+              <button
+                onClick={expandAll}
+                disabled={!!searchResults || collapsedCats.size === 0}
+                style={{
+                  ...toolBtnStyle,
+                  opacity: !!searchResults || collapsedCats.size === 0 ? 0.4 : 1,
+                }}
+              >
+                {t('systemDetail.expandAll')}
+              </button>
             </div>
           </div>
         </div>
@@ -212,23 +400,42 @@ export default function SystemDetailView() {
       {editing && (
         <SystemEditor
           system={system}
-          onSave={(updated) => { setSystem({ ...system, ...updated }); setEditing(false) }}
+          onSave={(updated) => {
+            setSystem({ ...system, ...updated })
+            setEditing(false)
+          }}
         />
       )}
 
       {/* Tag filter row */}
       {!searchResults && allTags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>{t('systemDetail.tagsLabel')}</span>
-          {(showAllTags ? allTags : allTags.slice(0, 15)).map(tag => (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            marginBottom: 24,
+            alignItems: 'center',
+          }}
+        >
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>
+            {t('systemDetail.tagsLabel')}
+          </span>
+          {(showAllTags ? allTags : allTags.slice(0, 15)).map((tag) => (
             <button
               key={tag}
               onClick={() => toggleTag(tag)}
               style={{
-                fontSize: 13, padding: '3px 10px', borderRadius: 10, cursor: 'pointer', border: 'none',
+                fontSize: 13,
+                padding: '3px 10px',
+                borderRadius: 10,
+                cursor: 'pointer',
+                border: 'none',
                 background: selectedTags.has(tag) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
                 color: selectedTags.has(tag) ? 'var(--gold)' : 'var(--text-dim)',
-                outline: selectedTags.has(tag) ? '1px solid var(--gold-dim)' : '1px solid var(--tag-border)',
+                outline: selectedTags.has(tag)
+                  ? '1px solid var(--gold-dim)'
+                  : '1px solid var(--tag-border)',
               }}
             >
               {tag.charAt(0).toUpperCase() + tag.slice(1)}
@@ -236,16 +443,37 @@ export default function SystemDetailView() {
           ))}
           {allTags.length > 15 && (
             <button
-              onClick={() => setShowAllTags(v => !v)}
-              style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+              onClick={() => setShowAllTags((v) => !v)}
+              style={{
+                fontSize: 12,
+                padding: '3px 8px',
+                borderRadius: 10,
+                cursor: 'pointer',
+                background: 'none',
+                border: '1px solid var(--border)',
+                color: 'var(--text-muted)',
+              }}
             >
-              {showAllTags ? t('systemDetail.showLess') : t('common.showMore', { count: allTags.length - 15 })}
+              {showAllTags
+                ? t('systemDetail.showLess')
+                : t('common.showMore', { count: allTags.length - 15 })}
             </button>
           )}
           {selectedTags.size > 0 && (
             <button
               onClick={() => setSelectedTags(new Set())}
-              style={{ fontSize: 12, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}
+              style={{
+                fontSize: 12,
+                padding: '3px 8px',
+                borderRadius: 10,
+                cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+              }}
             >
               <LuX size={11} /> {t('systemDetail.clearTags')}
             </button>
@@ -256,13 +484,18 @@ export default function SystemDetailView() {
       {/* Sort bar */}
       {!searchResults && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>{t('common.sort')}</span>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
+            {t('common.sort')}
+          </span>
           {SORT_OPTIONS.map(([val, label]) => (
             <button
               key={val}
               onClick={() => setBookSort(val)}
               style={{
-                fontSize: 12, padding: '3px 10px', borderRadius: 6, cursor: 'pointer',
+                fontSize: 12,
+                padding: '3px 10px',
+                borderRadius: 6,
+                cursor: 'pointer',
                 background: bookSort === val ? 'var(--bg-card-hover)' : 'var(--bg-card)',
                 border: '1px solid var(--border)',
                 color: bookSort === val ? 'var(--gold)' : 'var(--text-dim)',
@@ -281,167 +514,271 @@ export default function SystemDetailView() {
             {t('systemDetail.results', { count: searchResults.total, query: searchResults.query })}
           </div>
           {searchResults.total === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>{t('systemDetail.noResultsFound')}</div>
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+              {t('systemDetail.noResultsFound')}
+            </div>
           )}
           {searchResults.results.map((r, i) => (
             <div
               key={i}
               onClick={() => navigate(`/library/book/${r.id}?page=${r.page_number}`)}
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 8, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: 14,
+                marginBottom: 8,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 4,
+                }}
+              >
                 <span style={{ fontWeight: 600, fontSize: 15 }}>{r.title}</span>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 12 }}>{t('common.pagePrefixed', { page: r.page_number })}</span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: 'var(--text-muted)',
+                    flexShrink: 0,
+                    marginLeft: 12,
+                  }}
+                >
+                  {t('common.pagePrefixed', { page: r.page_number })}
+                </span>
               </div>
-              <div style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: r.snippet }} />
+              <div
+                style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }}
+                dangerouslySetInnerHTML={{ __html: r.snippet }}
+              />
             </div>
           ))}
         </div>
       )}
 
       {/* Books by category */}
-      {!searchResults && [...CATEGORY_ORDER, ...Object.keys(categories).filter(c => !CATEGORY_ORDER.includes(c))]
-        .filter(cat => categories[cat])
-        .map(cat => {
-          const books = sortBooks(categories[cat])
-          const CatIcon = CATEGORY_ICONS[cat] || LuFileText
-          const isCollapsed = collapsedCats.has(cat)
-          const catLabel = t(`categories.${cat}`, { defaultValue: cat.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })
-          const toggleCat = () => setCollapsedCats(prev => {
-            const next = new Set(prev)
-            next.has(cat) ? next.delete(cat) : next.add(cat)
-            return next
-          })
-          return (
-            <div key={cat} style={{ marginBottom: 32 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isCollapsed ? 0 : 16 }}>
-              <button
-                onClick={toggleCat}
-                aria-expanded={!isCollapsed}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                  background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
-                  textAlign: 'left',
-                }}
-              >
-                {isCollapsed
-                  ? <LuChevronRight size={15} color="var(--gold-dim)" />
-                  : <LuChevronDown size={15} color="var(--gold-dim)" />
-                }
-                <CatIcon size={15} color="var(--gold-dim)" />
-                <span style={{ fontSize: 17, color: 'var(--gold-dim)', fontWeight: 600 }}>
-                  {catLabel}
-                </span>
-                <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'Alegreya Sans, sans-serif', fontWeight: 400 }}>
-                  ({books.length})
-                </span>
-              </button>
-              <button
-                onClick={() => setDownloadModal({ title: `${catLabel} — ${system.name}`, params: { type: 'system_category', id: system.id, category: cat } })}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 5, fontSize: 12, color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', flexShrink: 0 }}
-                title={t('systemDetail.download')}
-              >
-                <LuDownload size={11} /> {t('systemDetail.download')}
-              </button>
-            </div>
-              {!isCollapsed && (() => {
-                // Group books by subfolder (derived from relative_path).
-                // Books sitting directly in the category dir have no subfolder (key='').
-                const folderMap = {}
-                for (const book of books) {
-                  const sub = getBookSubfolder(book)
-                  const key = sub || ''
-                  if (!folderMap[key]) folderMap[key] = []
-                  folderMap[key].push(book)
-                }
-                const hasFolders = Object.keys(folderMap).some(k => k !== '')
-                const toggleSubfolder = (key) => setCollapsedSubfolders(prev => {
-                  const next = new Set(prev)
-                  next.has(key) ? next.delete(key) : next.add(key)
-                  return next
-                })
-                const saveBook = (bookId, updated) => setSystem(s => ({ ...s, books: s.books.map(b => b.id === bookId ? { ...b, ...updated } : b) }))
-
-                if (!hasFolders) {
-                  // No subfolders — render flat list
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {books.map(book => (
-                        <div key={book.id}>
-                          <BookRow
-                            book={book}
-                            onOpen={() => navigate(`/library/book/${book.id}`)}
-                            onEdit={isEditor ? () => setEditingBookId(id => id === book.id ? null : book.id) : null}
-                            editing={editingBookId === book.id}
-                          />
-                          {editingBookId === book.id && (
-                            <BookEditor
-                              book={book}
-                              allTags={allTags}
-                              onSave={(updated) => { saveBook(book.id, updated); setEditingBookId(null) }}
-                              onClose={() => setEditingBookId(null)}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )
-                }
-
-                const sortedFolderKeys = Object.keys(folderMap).sort((a, b) => {
-                  if (a === '') return 1
-                  if (b === '') return -1
-                  return a.localeCompare(b)
-                })
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {sortedFolderKeys.map(key => key === '' ? (
-                      // Ungrouped books (no subfolder) — render flat above the folder widgets
-                      <div key="__ungrouped__" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
-                        {folderMap[''].map(book => (
-                          <div key={book.id}>
-                            <BookRow
-                              book={book}
-                              onOpen={() => navigate(`/library/book/${book.id}`)}
-                              onEdit={isEditor ? () => setEditingBookId(id => id === book.id ? null : book.id) : null}
-                              editing={editingBookId === book.id}
-                            />
-                            {editingBookId === book.id && (
-                              <BookEditor
-                                book={book}
-                                allTags={allTags}
-                                onSave={(updated) => { saveBook(book.id, updated); setEditingBookId(null) }}
-                                onClose={() => setEditingBookId(null)}
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
+      {!searchResults &&
+        [...CATEGORY_ORDER, ...Object.keys(categories).filter((c) => !CATEGORY_ORDER.includes(c))]
+          .filter((cat) => categories[cat])
+          .map((cat) => {
+            const books = sortBooks(categories[cat])
+            const CatIcon = CATEGORY_ICONS[cat] || LuFileText
+            const isCollapsed = collapsedCats.has(cat)
+            const catLabel = t(`categories.${cat}`, {
+              defaultValue: cat.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            })
+            const toggleCat = () =>
+              setCollapsedCats((prev) => {
+                const next = new Set(prev)
+                next.has(cat) ? next.delete(cat) : next.add(cat)
+                return next
+              })
+            return (
+              <div key={cat} style={{ marginBottom: 32 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: isCollapsed ? 0 : 16,
+                  }}
+                >
+                  <button
+                    onClick={toggleCat}
+                    aria-expanded={!isCollapsed}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px 0',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {isCollapsed ? (
+                      <LuChevronRight size={15} color="var(--gold-dim)" />
                     ) : (
-                      <BookFolderGroup
-                        key={key}
-                        folder={key}
-                        books={folderMap[key]}
-                        systemId={system.id}
-                        category={cat}
-                        collapsed={collapsedSubfolders}
-                        onToggle={toggleSubfolder}
-                        editingBookId={editingBookId}
-                        setEditingBookId={setEditingBookId}
-                        onOpenBook={(book) => navigate(`/library/book/${book.id}`)}
-                        isEditor={isEditor}
-                        onSaveBook={saveBook}
-                        onDownload={setDownloadModal}
-                      />
-                    ))}
-                  </div>
-                )
-              })()}
-            </div>
-          )
-        })}
+                      <LuChevronDown size={15} color="var(--gold-dim)" />
+                    )}
+                    <CatIcon size={15} color="var(--gold-dim)" />
+                    <span style={{ fontSize: 17, color: 'var(--gold-dim)', fontWeight: 600 }}>
+                      {catLabel}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 14,
+                        color: 'var(--text-muted)',
+                        fontFamily: 'Alegreya Sans, sans-serif',
+                        fontWeight: 400,
+                      }}
+                    >
+                      ({books.length})
+                    </span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setDownloadModal({
+                        title: `${catLabel} — ${system.name}`,
+                        params: { type: 'system_category', id: system.id, category: cat },
+                      })
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '3px 8px',
+                      borderRadius: 5,
+                      fontSize: 12,
+                      color: 'var(--text-muted)',
+                      border: '1px solid var(--border)',
+                      background: 'var(--bg-card)',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                    title={t('systemDetail.download')}
+                  >
+                    <LuDownload size={11} /> {t('systemDetail.download')}
+                  </button>
+                </div>
+                {!isCollapsed &&
+                  (() => {
+                    // Group books by subfolder (derived from relative_path).
+                    // Books sitting directly in the category dir have no subfolder (key='').
+                    const folderMap = {}
+                    for (const book of books) {
+                      const sub = getBookSubfolder(book)
+                      const key = sub || ''
+                      if (!folderMap[key]) folderMap[key] = []
+                      folderMap[key].push(book)
+                    }
+                    const hasFolders = Object.keys(folderMap).some((k) => k !== '')
+                    const toggleSubfolder = (key) =>
+                      setCollapsedSubfolders((prev) => {
+                        const next = new Set(prev)
+                        next.has(key) ? next.delete(key) : next.add(key)
+                        return next
+                      })
+                    const saveBook = (bookId, updated) =>
+                      setSystem((s) => ({
+                        ...s,
+                        books: s.books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)),
+                      }))
+
+                    if (!hasFolders) {
+                      // No subfolders — render flat list
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {books.map((book) => (
+                            <div key={book.id}>
+                              <BookRow
+                                book={book}
+                                onOpen={() => navigate(`/library/book/${book.id}`)}
+                                onEdit={
+                                  isEditor
+                                    ? () =>
+                                        setEditingBookId((id) => (id === book.id ? null : book.id))
+                                    : null
+                                }
+                                editing={editingBookId === book.id}
+                              />
+                              {editingBookId === book.id && (
+                                <BookEditor
+                                  book={book}
+                                  allTags={allTags}
+                                  onSave={(updated) => {
+                                    saveBook(book.id, updated)
+                                    setEditingBookId(null)
+                                  }}
+                                  onClose={() => setEditingBookId(null)}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }
+
+                    const sortedFolderKeys = Object.keys(folderMap).sort((a, b) => {
+                      if (a === '') return 1
+                      if (b === '') return -1
+                      return a.localeCompare(b)
+                    })
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {sortedFolderKeys.map((key) =>
+                          key === '' ? (
+                            // Ungrouped books (no subfolder) — render flat above the folder widgets
+                            <div
+                              key="__ungrouped__"
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 8,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {folderMap[''].map((book) => (
+                                <div key={book.id}>
+                                  <BookRow
+                                    book={book}
+                                    onOpen={() => navigate(`/library/book/${book.id}`)}
+                                    onEdit={
+                                      isEditor
+                                        ? () =>
+                                            setEditingBookId((id) =>
+                                              id === book.id ? null : book.id
+                                            )
+                                        : null
+                                    }
+                                    editing={editingBookId === book.id}
+                                  />
+                                  {editingBookId === book.id && (
+                                    <BookEditor
+                                      book={book}
+                                      allTags={allTags}
+                                      onSave={(updated) => {
+                                        saveBook(book.id, updated)
+                                        setEditingBookId(null)
+                                      }}
+                                      onClose={() => setEditingBookId(null)}
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <BookFolderGroup
+                              key={key}
+                              folder={key}
+                              books={folderMap[key]}
+                              systemId={system.id}
+                              category={cat}
+                              collapsed={collapsedSubfolders}
+                              onToggle={toggleSubfolder}
+                              editingBookId={editingBookId}
+                              setEditingBookId={setEditingBookId}
+                              onOpenBook={(book) => navigate(`/library/book/${book.id}`)}
+                              isEditor={isEditor}
+                              onSaveBook={saveBook}
+                              onDownload={setDownloadModal}
+                            />
+                          )
+                        )}
+                      </div>
+                    )
+                  })()}
+              </div>
+            )
+          })}
 
       {!searchResults && allCatKeys.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
@@ -462,8 +799,12 @@ export default function SystemDetailView() {
 }
 
 const toolBtnStyle = {
-  padding: '6px 12px', borderRadius: 6, fontSize: 13,
-  background: 'var(--bg-card)', color: 'var(--text-dim)',
-  border: '1px solid var(--border)', cursor: 'pointer',
+  padding: '6px 12px',
+  borderRadius: 6,
+  fontSize: 13,
+  background: 'var(--bg-card)',
+  color: 'var(--text-dim)',
+  border: '1px solid var(--border)',
+  cursor: 'pointer',
   flexShrink: 0,
 }

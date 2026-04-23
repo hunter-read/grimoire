@@ -134,7 +134,9 @@ describe('InvitePanel', () => {
       { id: 'u2', username: 'bob', display_name: null, role: 'player', already_invited: true },
     ])
     render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText('All users have already been invited.')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('All users have already been invited.')).toBeTruthy()
+    )
   })
 
   it('calls invite and onInvited when Invite button is clicked', async () => {

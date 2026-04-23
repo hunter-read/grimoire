@@ -10,8 +10,8 @@ export function DisplayNameSection() {
   const { user, refreshUser } = useAuth()
   const [value, setValue] = useState(user?.display_name ?? '')
   const [saving, setSaving] = useState(false)
-  const [saved,  setSaved]  = useState(false)
-  const [error,  setError]  = useState(null)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -31,19 +31,41 @@ export function DisplayNameSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <h3
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
         {t('userSettings.displayName.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('userSettings.displayName.description')}
       </p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', maxWidth: 400 }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: 'flex',
+          gap: 10,
+          alignItems: 'flex-end',
+          flexWrap: 'wrap',
+          maxWidth: 400,
+        }}
+      >
         <div style={{ flex: 1, minWidth: 180 }}>
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}>{t('userSettings.displayName.label')}</label>
+          <label
+            style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}
+          >
+            {t('userSettings.displayName.label')}
+          </label>
           <input
             value={value}
-            onChange={e => setValue(e.target.value)}
+            onChange={(e) => setValue(e.target.value)}
             placeholder={user?.username}
             maxLength={100}
             style={{ width: '100%', fontSize: 14, padding: '8px 12px', boxSizing: 'border-box' }}
@@ -53,10 +75,18 @@ export function DisplayNameSection() {
           type="submit"
           disabled={saving}
           style={{
-            padding: '8px 18px', borderRadius: 6, fontSize: 14, fontWeight: 500,
-            background: 'var(--gold-dim)', border: 'none',
-            color: 'var(--bg-deep)', cursor: saving ? 'default' : 'pointer',
-            opacity: saving ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 18px',
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 500,
+            background: 'var(--gold-dim)',
+            border: 'none',
+            color: 'var(--bg-deep)',
+            cursor: saving ? 'default' : 'pointer',
+            opacity: saving ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
           }}
         >
           {saving && <Spinner size={13} />}
@@ -72,7 +102,7 @@ export function ExplicitContentSection() {
   const { t } = useTranslation()
   const { user, refreshUser } = useAuth()
   const [saving, setSaving] = useState(false)
-  const [saved,  setSaved]  = useState(false)
+  const [saved, setSaved] = useState(false)
   const allowed = user?.allow_explicit ?? true
 
   const toggle = async () => {
@@ -89,14 +119,31 @@ export function ExplicitContentSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <h3
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
         {t('userSettings.contentPreferences.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('userSettings.contentPreferences.description')}
       </p>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', width: 'fit-content' }}>
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          width: 'fit-content',
+        }}
+      >
         <input
           type="checkbox"
           checked={allowed}
@@ -104,7 +151,9 @@ export function ExplicitContentSection() {
           disabled={saving}
           style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--gold)' }}
         />
-        <span style={{ fontSize: 14, color: 'var(--text)' }}>{t('userSettings.contentPreferences.showExplicit')}</span>
+        <span style={{ fontSize: 14, color: 'var(--text)' }}>
+          {t('userSettings.contentPreferences.showExplicit')}
+        </span>
         {saving && <Spinner size={13} />}
       </label>
     </div>
@@ -114,22 +163,30 @@ export function ExplicitContentSection() {
 export function ChangePasswordSection() {
   const { t } = useTranslation()
   const [current, setCurrent] = useState('')
-  const [next,    setNext]    = useState('')
+  const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [saving,  setSaving]  = useState(false)
-  const [saved,   setSaved]   = useState(false)
-  const [error,   setError]   = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-    if (next !== confirm) { setError(t('userSettings.changePassword.mismatch')); return }
-    if (next.length < 8)  { setError(t('userSettings.changePassword.tooShort')); return }
+    if (next !== confirm) {
+      setError(t('userSettings.changePassword.mismatch'))
+      return
+    }
+    if (next.length < 8) {
+      setError(t('userSettings.changePassword.tooShort'))
+      return
+    }
     setSaving(true)
     try {
       await api.patch('/users/me/password', { current_password: current, new_password: next })
       setSaved(true)
-      setCurrent(''); setNext(''); setConfirm('')
+      setCurrent('')
+      setNext('')
+      setConfirm('')
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       setError(err?.message || t('userSettings.changePassword.failed'))
@@ -139,26 +196,50 @@ export function ChangePasswordSection() {
   }
 
   const fields = [
-    { label: t('userSettings.changePassword.currentPassword'), value: current, onChange: setCurrent, complete: 'current-password' },
-    { label: t('userSettings.changePassword.newPassword'),     value: next,    onChange: setNext,    complete: 'new-password' },
-    { label: t('userSettings.changePassword.confirmNewPassword'), value: confirm, onChange: setConfirm, complete: 'new-password' },
+    {
+      label: t('userSettings.changePassword.currentPassword'),
+      value: current,
+      onChange: setCurrent,
+      complete: 'current-password',
+    },
+    {
+      label: t('userSettings.changePassword.newPassword'),
+      value: next,
+      onChange: setNext,
+      complete: 'new-password',
+    },
+    {
+      label: t('userSettings.changePassword.confirmNewPassword'),
+      value: confirm,
+      onChange: setConfirm,
+      complete: 'new-password',
+    },
   ]
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('userSettings.changePassword.title')}</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
+        {t('userSettings.changePassword.title')}
+      </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('userSettings.changePassword.description')}
       </p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360 }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360 }}
+      >
         {fields.map(({ label, value, onChange, complete }) => (
           <div key={label}>
-            <label style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}>{label}</label>
+            <label
+              style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}
+            >
+              {label}
+            </label>
             <input
               type="password"
               value={value}
-              onChange={e => onChange(e.target.value)}
+              onChange={(e) => onChange(e.target.value)}
               required
               autoComplete={complete}
               style={{ width: '100%', fontSize: 14, padding: '8px 12px', boxSizing: 'border-box' }}
@@ -173,18 +254,35 @@ export function ChangePasswordSection() {
             type="submit"
             disabled={saving}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '8px 18px', borderRadius: 6, fontSize: 14, fontWeight: 500,
-              background: 'var(--gold-dim)', border: 'none',
-              color: 'var(--bg-deep)', cursor: saving ? 'default' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 18px',
+              borderRadius: 6,
+              fontSize: 14,
+              fontWeight: 500,
+              background: 'var(--gold-dim)',
+              border: 'none',
+              color: 'var(--bg-deep)',
+              cursor: saving ? 'default' : 'pointer',
               opacity: saving ? 0.6 : 1,
             }}
           >
             {saving && <Spinner size={13} />}
-            {saving ? t('userSettings.changePassword.saving') : t('userSettings.changePassword.updatePassword')}
+            {saving
+              ? t('userSettings.changePassword.saving')
+              : t('userSettings.changePassword.updatePassword')}
           </button>
           {saved && (
-            <span style={{ fontSize: 13, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span
+              style={{
+                fontSize: 13,
+                color: 'var(--green)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
               <LuCircleCheck size={14} /> {t('userSettings.changePassword.passwordUpdated')}
             </span>
           )}
@@ -196,13 +294,16 @@ export function ChangePasswordSection() {
 
 export function OPDSSection() {
   const { t } = useTranslation()
-  const [status,      setStatus]      = useState(null)   // null = loading
-  const [working,     setWorking]     = useState(false)
-  const [copied,      setCopied]      = useState(false)
-  const [confirming,  setConfirming]  = useState(false)
+  const [status, setStatus] = useState(null) // null = loading
+  const [working, setWorking] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
-    opds.getStatus().then(setStatus).catch(() => setStatus({ opds_enabled: false }))
+    opds
+      .getStatus()
+      .then(setStatus)
+      .catch(() => setStatus({ opds_enabled: false }))
   }, [])
 
   const handleGenerate = async () => {
@@ -256,10 +357,17 @@ export function OPDSSection() {
             onClick={handleGenerate}
             disabled={working}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '8px 18px', borderRadius: 6, fontSize: 14, fontWeight: 500,
-              background: 'var(--gold-dim)', border: 'none',
-              color: 'var(--bg-deep)', cursor: working ? 'default' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 18px',
+              borderRadius: 6,
+              fontSize: 14,
+              fontWeight: 500,
+              background: 'var(--gold-dim)',
+              border: 'none',
+              color: 'var(--bg-deep)',
+              cursor: working ? 'default' : 'pointer',
               opacity: working ? 0.6 : 1,
             }}
           >
@@ -270,7 +378,14 @@ export function OPDSSection() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Feed URL display */}
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 13,
+                  color: 'var(--text-dim)',
+                  marginBottom: 5,
+                }}
+              >
                 {t('userSettings.opds.feedUrl')}
               </label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -278,26 +393,41 @@ export function OPDSSection() {
                   readOnly
                   value={status.feed_url || ''}
                   style={{
-                    flex: 1, minWidth: 200, fontSize: 13, padding: '7px 10px',
-                    boxSizing: 'border-box', color: 'var(--text-dim)',
+                    flex: 1,
+                    minWidth: 200,
+                    fontSize: 13,
+                    padding: '7px 10px',
+                    boxSizing: 'border-box',
+                    color: 'var(--text-dim)',
                   }}
-                  onFocus={e => e.target.select()}
+                  onFocus={(e) => e.target.select()}
                 />
                 <button
                   onClick={handleCopy}
                   title={t('userSettings.opds.copy')}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '7px 12px', borderRadius: 6, fontSize: 13,
-                    background: 'var(--bg-card)', border: '1px solid var(--border)',
-                    color: copied ? 'var(--green)' : 'var(--text-dim)', cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    color: copied ? 'var(--green)' : 'var(--text-dim)',
+                    cursor: 'pointer',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {copied
-                    ? <><LuCircleCheck size={14} /> {t('userSettings.opds.copied')}</>
-                    : <><LuCopy size={14} /> {t('userSettings.opds.copy')}</>
-                  }
+                  {copied ? (
+                    <>
+                      <LuCircleCheck size={14} /> {t('userSettings.opds.copied')}
+                    </>
+                  ) : (
+                    <>
+                      <LuCopy size={14} /> {t('userSettings.opds.copy')}
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -309,10 +439,17 @@ export function OPDSSection() {
                   onClick={handleGenerate}
                   disabled={working}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500,
-                    background: 'var(--gold-dim)', border: 'none',
-                    color: 'var(--bg-deep)', cursor: working ? 'default' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 14px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    background: 'var(--gold-dim)',
+                    border: 'none',
+                    color: 'var(--bg-deep)',
+                    cursor: working ? 'default' : 'pointer',
                     opacity: working ? 0.6 : 1,
                   }}
                 >
@@ -323,20 +460,28 @@ export function OPDSSection() {
                   onClick={() => setConfirming(true)}
                   disabled={working}
                   style={{
-                    padding: '7px 14px', borderRadius: 6, fontSize: 13,
-                    background: 'rgba(180,60,60,0.12)', border: '1px solid rgba(180,60,60,0.4)',
-                    color: '#e07070', cursor: 'pointer',
+                    padding: '7px 14px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: 'rgba(180,60,60,0.12)',
+                    border: '1px solid rgba(180,60,60,0.4)',
+                    color: '#e07070',
+                    cursor: 'pointer',
                   }}
                 >
                   {t('userSettings.opds.disable')}
                 </button>
               </div>
             ) : (
-              <div style={{
-                padding: '14px 16px', borderRadius: 8,
-                background: 'rgba(180,60,60,0.08)', border: '1px solid rgba(180,60,60,0.4)',
-                maxWidth: 420,
-              }}>
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: 8,
+                  background: 'rgba(180,60,60,0.08)',
+                  border: '1px solid rgba(180,60,60,0.4)',
+                  maxWidth: 420,
+                }}
+              >
                 <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 10 }}>
                   {t('userSettings.opds.confirmRevoke')}
                 </div>
@@ -345,10 +490,18 @@ export function OPDSSection() {
                     onClick={handleRevoke}
                     disabled={working}
                     style={{
-                      padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500,
-                      background: 'rgba(180,60,60,0.8)', border: 'none',
-                      color: '#fff', cursor: working ? 'default' : 'pointer',
-                      opacity: working ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '7px 14px',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      background: 'rgba(180,60,60,0.8)',
+                      border: 'none',
+                      color: '#fff',
+                      cursor: working ? 'default' : 'pointer',
+                      opacity: working ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
                     {working && <Spinner size={12} />}
@@ -358,9 +511,13 @@ export function OPDSSection() {
                     onClick={() => setConfirming(false)}
                     disabled={working}
                     style={{
-                      padding: '7px 14px', borderRadius: 6, fontSize: 13,
-                      background: 'var(--bg-card)', border: '1px solid var(--border)',
-                      color: 'var(--text-dim)', cursor: 'pointer',
+                      padding: '7px 14px',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-dim)',
+                      cursor: 'pointer',
                     }}
                   >
                     {t('common.cancel')}
@@ -378,8 +535,8 @@ export function OPDSSection() {
 export function DeleteAccountSection({ user, onLogout }) {
   const { t } = useTranslation()
   const [confirming, setConfirming] = useState(false)
-  const [deleting,   setDeleting]   = useState(false)
-  const [error,      setError]      = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState(null)
   const isAdmin = user?.role === 'admin'
 
   const handleDelete = async () => {
@@ -397,10 +554,17 @@ export function DeleteAccountSection({ user, onLogout }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: '#e07070' }}>{t('userSettings.deleteAccount.title')}</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: '#e07070' }}>
+        {t('userSettings.deleteAccount.title')}
+      </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('userSettings.deleteAccount.description')}
-        {isAdmin && <><br /><span style={{ color: '#e07070' }}>{t('userSettings.deleteAccount.adminWarning')}</span></>}
+        {isAdmin && (
+          <>
+            <br />
+            <span style={{ color: '#e07070' }}>{t('userSettings.deleteAccount.adminWarning')}</span>
+          </>
+        )}
       </p>
 
       {!confirming ? (
@@ -408,8 +572,13 @@ export function DeleteAccountSection({ user, onLogout }) {
           onClick={() => setConfirming(true)}
           disabled={isAdmin}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '8px 18px', borderRadius: 6, fontSize: 14, fontWeight: 500,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 18px',
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 500,
             background: isAdmin ? 'var(--bg-card)' : 'rgba(180,60,60,0.15)',
             border: `1px solid ${isAdmin ? 'var(--border)' : 'rgba(180,60,60,0.5)'}`,
             color: isAdmin ? 'var(--text-muted)' : '#e07070',
@@ -420,11 +589,15 @@ export function DeleteAccountSection({ user, onLogout }) {
           {t('userSettings.deleteAccount.deleteButton')}
         </button>
       ) : (
-        <div style={{
-          padding: '16px 20px', borderRadius: 8,
-          background: 'rgba(180,60,60,0.08)', border: '1px solid rgba(180,60,60,0.4)',
-          maxWidth: 420,
-        }}>
+        <div
+          style={{
+            padding: '16px 20px',
+            borderRadius: 8,
+            background: 'rgba(180,60,60,0.08)',
+            border: '1px solid rgba(180,60,60,0.4)',
+            maxWidth: 420,
+          }}
+        >
           <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
             {t('userSettings.deleteAccount.confirmMessage')}
           </div>
@@ -433,22 +606,36 @@ export function DeleteAccountSection({ user, onLogout }) {
               onClick={handleDelete}
               disabled={deleting}
               style={{
-                padding: '7px 16px', borderRadius: 6, fontSize: 14, fontWeight: 500,
-                background: 'rgba(180,60,60,0.8)', border: 'none',
-                color: '#fff', cursor: deleting ? 'default' : 'pointer',
-                opacity: deleting ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 16px',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 500,
+                background: 'rgba(180,60,60,0.8)',
+                border: 'none',
+                color: '#fff',
+                cursor: deleting ? 'default' : 'pointer',
+                opacity: deleting ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
               {deleting && <Spinner size={13} />}
-              {deleting ? t('userSettings.deleteAccount.deleting') : t('userSettings.deleteAccount.confirmDelete')}
+              {deleting
+                ? t('userSettings.deleteAccount.deleting')
+                : t('userSettings.deleteAccount.confirmDelete')}
             </button>
             <button
               onClick={() => setConfirming(false)}
               disabled={deleting}
               style={{
-                padding: '7px 16px', borderRadius: 6, fontSize: 14,
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                color: 'var(--text-dim)', cursor: 'pointer',
+                padding: '7px 16px',
+                borderRadius: 6,
+                fontSize: 14,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
               }}
             >
               {t('common.cancel')}

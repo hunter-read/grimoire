@@ -22,7 +22,9 @@ export default function LazyGrid({ count, cardSize, children }) {
     const el = placeholderRef.current
     if (!el) return
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setRendered(true) },
+      ([entry]) => {
+        if (entry.isIntersecting) setRendered(true)
+      },
       { rootMargin: '600px' }
     )
     obs.observe(el)

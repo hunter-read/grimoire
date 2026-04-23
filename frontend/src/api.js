@@ -15,7 +15,8 @@ async function handleResponse(res) {
   }
   if (res.status === 204) return null
   const body = await res.json()
-  if (!res.ok) throw Object.assign(new Error(body.detail || 'Request failed'), { status: res.status, body })
+  if (!res.ok)
+    throw Object.assign(new Error(body.detail || 'Request failed'), { status: res.status, body })
   return body
 }
 
@@ -36,14 +37,16 @@ export const campaigns = {
   // Members
   invite: (id, userId) => api.post(`/campaigns/${id}/invite`, { user_id: userId }),
   updateMember: (id, userId, status) => api.patch(`/campaigns/${id}/members/${userId}`, { status }),
-  setCharacterName: (id, userId, character_name) => api.patch(`/campaigns/${id}/members/${userId}`, { character_name }),
+  setCharacterName: (id, userId, character_name) =>
+    api.patch(`/campaigns/${id}/members/${userId}`, { character_name }),
   removeMember: (id, userId) => api.delete(`/campaigns/${id}/members/${userId}`),
   eligibleMembers: (id) => api.get(`/campaigns/${id}/eligible-members`),
 
   // Resources
   listResources: (id) => api.get(`/campaigns/${id}/resources`),
   addResource: (id, data) => api.post(`/campaigns/${id}/resources`, data),
-  updateResource: (id, resourceId, shared) => api.patch(`/campaigns/${id}/resources/${resourceId}`, { shared }),
+  updateResource: (id, resourceId, shared) =>
+    api.patch(`/campaigns/${id}/resources/${resourceId}`, { shared }),
   removeResource: (id, resourceId) => api.delete(`/campaigns/${id}/resources/${resourceId}`),
   searchResources: (q = '', resourceType = '') => {
     const params = new URLSearchParams()
@@ -63,8 +66,7 @@ export const campaigns = {
     api.put(`/campaigns/${id}/sessions/${sessionId}/notes/player`, { content }),
   saveGMNote: (id, sessionId, data) =>
     api.put(`/campaigns/${id}/sessions/${sessionId}/notes/gm`, data),
-  searchSessions: (id, q) =>
-    api.get(`/campaigns/${id}/sessions/search?q=${encodeURIComponent(q)}`),
+  searchSessions: (id, q) => api.get(`/campaigns/${id}/sessions/search?q=${encodeURIComponent(q)}`),
 
   // Schedule
   getSchedule: (id) => api.get(`/campaigns/${id}/schedule`),
@@ -78,22 +80,21 @@ export const campaigns = {
 }
 
 export const opds = {
-  getStatus:     () => api.get('/users/me/opds'),
+  getStatus: () => api.get('/users/me/opds'),
   generateToken: () => api.post('/users/me/opds/generate'),
-  revokeToken:   () => api.delete('/users/me/opds'),
+  revokeToken: () => api.delete('/users/me/opds'),
 }
 
 export const settings = {
-  get:       ()     => api.get('/settings'),
-  getUi:     ()     => api.get('/settings/ui'),
-  patch:     (data) => api.patch('/settings', data),
+  get: () => api.get('/settings'),
+  getUi: () => api.get('/settings/ui'),
+  patch: (data) => api.patch('/settings', data),
   generateApiKey: () => api.post('/settings/api-key/generate'),
-  revokeApiKey:   () => api.delete('/settings/api-key'),
+  revokeApiKey: () => api.delete('/settings/api-key'),
 }
 
 const api = {
-  get: (url) =>
-    fetch(`/api${url}`, { headers: authHeaders() }).then(handleResponse),
+  get: (url) => fetch(`/api${url}`, { headers: authHeaders() }).then(handleResponse),
 
   post: (url, data) =>
     fetch(`/api${url}`, {

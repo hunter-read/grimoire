@@ -125,8 +125,14 @@ describe('SystemDetailView — subfolder grouping', () => {
 
     it('renders BookFolderGroup headers when books have subfolders', async () => {
       const books = [
-        makeBook({ title: 'Bestiary 1', relative_path: 'books/TestSystem/core/monsters/Bestiary 1.pdf' }),
-        makeBook({ title: 'Bestiary 2', relative_path: 'books/TestSystem/core/monsters/Bestiary 2.pdf' }),
+        makeBook({
+          title: 'Bestiary 1',
+          relative_path: 'books/TestSystem/core/monsters/Bestiary 1.pdf',
+        }),
+        makeBook({
+          title: 'Bestiary 2',
+          relative_path: 'books/TestSystem/core/monsters/Bestiary 2.pdf',
+        }),
       ]
       api.get.mockResolvedValue(makeSystem(books))
       renderView()
@@ -155,7 +161,10 @@ describe('SystemDetailView — subfolder grouping', () => {
     it('ungrouped books (no subfolder) render flat above folder groups', async () => {
       const books = [
         makeBook({ title: 'Core Rulebook', relative_path: 'books/TestSystem/core/crb.pdf' }),
-        makeBook({ title: 'Bestiary',      relative_path: 'books/TestSystem/core/monsters/Bestiary.pdf' }),
+        makeBook({
+          title: 'Bestiary',
+          relative_path: 'books/TestSystem/core/monsters/Bestiary.pdf',
+        }),
       ]
       api.get.mockResolvedValue(makeSystem(books))
       renderView()
@@ -212,7 +221,10 @@ describe('SystemDetailView — subfolder grouping', () => {
 
     it('subfolder collapse toggles visibility', async () => {
       const books = [
-        makeBook({ title: 'Bestiary', relative_path: 'books/TestSystem/core/monsters/bestiary.pdf' }),
+        makeBook({
+          title: 'Bestiary',
+          relative_path: 'books/TestSystem/core/monsters/bestiary.pdf',
+        }),
       ]
       api.get.mockResolvedValue(makeSystem(books))
       renderView()
@@ -245,9 +257,7 @@ describe('SystemDetailView — subfolder grouping', () => {
 
   describe('category section collapse', () => {
     it('collapses a category section when its header is clicked', async () => {
-      const books = [
-        makeBook({ title: 'PHB', relative_path: 'books/TestSystem/core/phb.pdf' }),
-      ]
+      const books = [makeBook({ title: 'PHB', relative_path: 'books/TestSystem/core/phb.pdf' })]
       api.get.mockResolvedValue(makeSystem(books))
       renderView()
 

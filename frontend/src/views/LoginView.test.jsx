@@ -79,7 +79,11 @@ describe('LoginView', () => {
 
   it('disables the button and shows loading text while submitting', async () => {
     let resolve
-    global.fetch = vi.fn().mockReturnValue(new Promise(r => { resolve = r }))
+    global.fetch = vi.fn().mockReturnValue(
+      new Promise((r) => {
+        resolve = r
+      })
+    )
 
     render(<LoginView onLogin={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'admin')

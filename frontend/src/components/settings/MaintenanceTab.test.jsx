@@ -16,24 +16,35 @@ vi.mock('../../api', () => ({
 import api, { settings as settingsApi } from '../../api'
 
 const idleStatus = {
-  running: false, phase: null,
-  total_books: 0, scanned_books: 0,
-  total_maps: 0, scanned_maps: 0,
-  total_tokens: 0, scanned_tokens: 0,
-  indexed: 0, to_index: 0,
-  new_books: 0, new_maps: 0, new_tokens: 0,
+  running: false,
+  phase: null,
+  total_books: 0,
+  scanned_books: 0,
+  total_maps: 0,
+  scanned_maps: 0,
+  total_tokens: 0,
+  scanned_tokens: 0,
+  indexed: 0,
+  to_index: 0,
+  new_books: 0,
+  new_maps: 0,
+  new_tokens: 0,
 }
 
 const scanningStatus = {
   ...idleStatus,
-  running: true, phase: 'scanning',
-  total_books: 10, scanned_books: 3,
+  running: true,
+  phase: 'scanning',
+  total_books: 10,
+  scanned_books: 3,
 }
 
 const indexingStatus = {
   ...idleStatus,
-  running: true, phase: 'indexing',
-  to_index: 20, indexed: 5,
+  running: true,
+  phase: 'indexing',
+  to_index: 20,
+  indexed: 5,
 }
 
 beforeEach(() => {

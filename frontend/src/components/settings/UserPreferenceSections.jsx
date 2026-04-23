@@ -6,13 +6,23 @@ import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
 
 function SegmentedControl({ options, value, onChange }) {
   return (
-    <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', width: 'fit-content' }}>
+    <div
+      style={{
+        display: 'flex',
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        overflow: 'hidden',
+        width: 'fit-content',
+      }}
+    >
       {options.map(({ value: v, label }, idx) => (
         <button
           key={v}
           onClick={() => onChange(v)}
           style={{
-            padding: '7px 18px', fontSize: 14, cursor: 'pointer',
+            padding: '7px 18px',
+            fontSize: 14,
+            cursor: 'pointer',
             border: 'none',
             borderRight: idx < options.length - 1 ? '1px solid var(--border)' : 'none',
             background: value === v ? 'var(--bg-card-hover)' : 'var(--bg-card)',
@@ -31,23 +41,44 @@ export function ReaderSection() {
   const { t } = useTranslation()
   const prefs = getUserPrefs()
   const [readerMode, setReaderMode] = useState(prefs.readerMode || 'default')
-  const [wheelNav,   setWheelNav]   = useState(prefs.wheelNav !== false)
-  const [saved,      setSaved]      = useState(false)
+  const [wheelNav, setWheelNav] = useState(prefs.wheelNav !== false)
+  const [saved, setSaved] = useState(false)
 
   const READER_MODE_OPTIONS = [
     { value: 'default', label: t('userSettings.reader.perBook') },
-    { value: 'page',    label: t('userSettings.reader.page')    },
-    { value: 'spread',  label: t('userSettings.reader.spread')  },
-    { value: 'pdf',     label: t('userSettings.reader.pdf')     },
+    { value: 'page', label: t('userSettings.reader.page') },
+    { value: 'spread', label: t('userSettings.reader.spread') },
+    { value: 'pdf', label: t('userSettings.reader.pdf') },
   ]
 
-  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
-  const handleMode  = (v) => { setReaderMode(v); saveUserPref('readerMode', v); flash() }
-  const handleWheel = () => { const next = !wheelNav; setWheelNav(next); saveUserPref('wheelNav', next); flash() }
+  const flash = () => {
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+  const handleMode = (v) => {
+    setReaderMode(v)
+    saveUserPref('readerMode', v)
+    flash()
+  }
+  const handleWheel = () => {
+    const next = !wheelNav
+    setWheelNav(next)
+    saveUserPref('wheelNav', next)
+    flash()
+  }
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <h3
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
         {t('userSettings.reader.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
@@ -57,8 +88,14 @@ export function ReaderSection() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>{t('userSettings.reader.defaultViewMode')}</div>
-          <SegmentedControl options={READER_MODE_OPTIONS} value={readerMode} onChange={handleMode} />
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+            {t('userSettings.reader.defaultViewMode')}
+          </div>
+          <SegmentedControl
+            options={READER_MODE_OPTIONS}
+            value={readerMode}
+            onChange={handleMode}
+          />
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
             {t('userSettings.reader.viewModeHint')}
           </div>
@@ -70,21 +107,35 @@ export function ReaderSection() {
             aria-checked={wheelNav}
             onClick={handleWheel}
             style={{
-              position: 'relative', width: 44, height: 24, borderRadius: 12,
-              border: 'none', cursor: 'pointer', flexShrink: 0,
+              position: 'relative',
+              width: 44,
+              height: 24,
+              borderRadius: 12,
+              border: 'none',
+              cursor: 'pointer',
+              flexShrink: 0,
               background: wheelNav ? 'var(--gold-dim)' : 'var(--bg-card)',
-              outline: '1px solid var(--border)', transition: 'background 0.2s',
+              outline: '1px solid var(--border)',
+              transition: 'background 0.2s',
             }}
           >
-            <span style={{
-              position: 'absolute', top: 3, borderRadius: '50%',
-              width: 18, height: 18,
-              background: wheelNav ? 'var(--bg-deep)' : 'var(--text-muted)',
-              left: wheelNav ? 23 : 3, transition: 'left 0.2s',
-            }} />
+            <span
+              style={{
+                position: 'absolute',
+                top: 3,
+                borderRadius: '50%',
+                width: 18,
+                height: 18,
+                background: wheelNav ? 'var(--bg-deep)' : 'var(--text-muted)',
+                left: wheelNav ? 23 : 3,
+                transition: 'left 0.2s',
+              }}
+            />
           </button>
           <div>
-            <div style={{ fontSize: 14, color: 'var(--text)' }}>{t('userSettings.reader.scrollWheelNav')}</div>
+            <div style={{ fontSize: 14, color: 'var(--text)' }}>
+              {t('userSettings.reader.scrollWheelNav')}
+            </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
               {t('userSettings.reader.scrollWheelNavHint')}
             </div>
@@ -100,7 +151,10 @@ export function LanguageSection() {
   const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en-US')
   const [saved, setSaved] = useState(false)
 
-  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  const flash = () => {
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
   const handleLang = (e) => {
     const v = e.target.value
     setLang(v)
@@ -111,7 +165,16 @@ export function LanguageSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <h3
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
         {t('userSettings.language.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
@@ -122,13 +185,20 @@ export function LanguageSection() {
         value={lang}
         onChange={handleLang}
         style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6,
-          color: 'var(--text)', fontSize: 14, padding: '7px 12px', cursor: 'pointer',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          color: 'var(--text)',
+          fontSize: 14,
+          padding: '7px 12px',
+          cursor: 'pointer',
           minWidth: 180,
         }}
       >
         {AVAILABLE_LANGUAGES.map(({ value, label }) => (
-          <option key={value} value={value}>{label}</option>
+          <option key={value} value={value}>
+            {label}
+          </option>
         ))}
       </select>
     </div>
@@ -138,9 +208,9 @@ export function LanguageSection() {
 export function LibrarySection() {
   const { t } = useTranslation()
   const prefs = getUserPrefs()
-  const [sort,     setSort]     = useState(prefs.librarySort || 'az')
-  const [cardSize, setCardSize] = useState(prefs.cardSize    || 'comfortable')
-  const [saved,    setSaved]    = useState(false)
+  const [sort, setSort] = useState(prefs.librarySort || 'az')
+  const [cardSize, setCardSize] = useState(prefs.cardSize || 'comfortable')
+  const [saved, setSaved] = useState(false)
 
   const SORT_OPTIONS = [
     { value: 'az', label: 'A → Z' },
@@ -149,16 +219,36 @@ export function LibrarySection() {
 
   const CARD_SIZE_OPTIONS = [
     { value: 'comfortable', label: t('userSettings.library.comfortable') },
-    { value: 'compact',     label: t('userSettings.library.compact')     },
+    { value: 'compact', label: t('userSettings.library.compact') },
   ]
 
-  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
-  const handleSort     = (v) => { setSort(v);     saveUserPref('librarySort', v);  flash() }
-  const handleCardSize = (v) => { setCardSize(v); saveUserPref('cardSize', v);     flash() }
+  const flash = () => {
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+  const handleSort = (v) => {
+    setSort(v)
+    saveUserPref('librarySort', v)
+    flash()
+  }
+  const handleCardSize = (v) => {
+    setCardSize(v)
+    saveUserPref('cardSize', v)
+    flash()
+  }
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <h3
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
         {t('userSettings.library.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
@@ -168,12 +258,20 @@ export function LibrarySection() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>{t('userSettings.library.sortOrder')}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+            {t('userSettings.library.sortOrder')}
+          </div>
           <SegmentedControl options={SORT_OPTIONS} value={sort} onChange={handleSort} />
         </div>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>{t('userSettings.library.cardSize')}</div>
-          <SegmentedControl options={CARD_SIZE_OPTIONS} value={cardSize} onChange={handleCardSize} />
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+            {t('userSettings.library.cardSize')}
+          </div>
+          <SegmentedControl
+            options={CARD_SIZE_OPTIONS}
+            value={cardSize}
+            onChange={handleCardSize}
+          />
         </div>
       </div>
     </div>

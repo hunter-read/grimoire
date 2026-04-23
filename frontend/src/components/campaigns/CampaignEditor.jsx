@@ -20,14 +20,20 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    api.get('/systems').then(data => setSystems(data || [])).catch(() => {})
+    api
+      .get('/systems')
+      .then((data) => setSystems(data || []))
+      .catch(() => {})
   }, [])
 
-  const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!form.name.trim()) { setError(t('campaignEditor.nameRequired')); return }
+    if (!form.name.trim()) {
+      setError(t('campaignEditor.nameRequired'))
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -52,18 +58,42 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{
-        background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 16,
-        padding: 28, width: '100%', maxWidth: 480, position: 'relative',
-        maxHeight: '90vh', overflowY: 'auto',
-      }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.7)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border)',
+          borderRadius: 16,
+          padding: 28,
+          width: '100%',
+          maxWidth: 480,
+          position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
         <button
           onClick={onClose}
-          style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+          }}
         >
           <LuX size={18} />
         </button>
@@ -77,7 +107,7 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
             <label style={labelStyle}>{t('campaignEditor.nameLabel')}</label>
             <input
               value={form.name}
-              onChange={e => set('name', e.target.value)}
+              onChange={(e) => set('name', e.target.value)}
               placeholder={t('campaignEditor.namePlaceholder')}
               style={inputStyle}
               autoFocus
@@ -88,7 +118,7 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
             <label style={labelStyle}>{t('campaignEditor.descriptionLabel')}</label>
             <textarea
               value={form.description}
-              onChange={e => set('description', e.target.value)}
+              onChange={(e) => set('description', e.target.value)}
               placeholder={t('campaignEditor.descriptionPlaceholder')}
               rows={3}
               style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
@@ -99,12 +129,14 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
             <label style={labelStyle}>{t('campaignEditor.systemLabel')}</label>
             <select
               value={form.system_id}
-              onChange={e => set('system_id', e.target.value)}
+              onChange={(e) => set('system_id', e.target.value)}
               style={{ ...inputStyle, appearance: 'auto' }}
             >
               <option value="">{t('campaignEditor.systemNone')}</option>
-              {systems.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              {systems.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </div>
@@ -114,7 +146,7 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
               <label style={labelStyle}>{t('campaignEditor.gmTitleLabel')}</label>
               <input
                 value={form.gm_title}
-                onChange={e => set('gm_title', e.target.value)}
+                onChange={(e) => set('gm_title', e.target.value)}
                 placeholder={t('campaignEditor.gmTitlePlaceholder')}
                 style={inputStyle}
               />
@@ -126,11 +158,20 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
 
           {!isEdit && isGmOrAdmin && (
             <div style={{ marginBottom: 16, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-              <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 12 }}>
+              <label
+                style={{
+                  ...labelStyle,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  marginTop: 12,
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={form.is_gm_campaign}
-                  onChange={e => set('is_gm_campaign', e.target.checked)}
+                  onChange={(e) => set('is_gm_campaign', e.target.checked)}
                   style={{ width: 16, height: 16, cursor: 'pointer' }}
                 />
                 {t('campaignEditor.gmCampaignCheckbox')}
@@ -143,9 +184,15 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} style={cancelBtn}>{t('campaignEditor.cancel')}</button>
+            <button type="button" onClick={onClose} style={cancelBtn}>
+              {t('campaignEditor.cancel')}
+            </button>
             <button type="submit" disabled={saving} style={submitBtn}>
-              {saving ? t('campaignEditor.saving') : isEdit ? t('campaignEditor.saveChanges') : t('campaignEditor.createCampaign')}
+              {saving
+                ? t('campaignEditor.saving')
+                : isEdit
+                  ? t('campaignEditor.saveChanges')
+                  : t('campaignEditor.createCampaign')}
             </button>
           </div>
         </form>
@@ -154,17 +201,39 @@ export default function CampaignEditor({ campaign, isGmOrAdmin, onClose, onSaved
   )
 }
 
-const labelStyle = { fontSize: 13, color: 'var(--text-muted)', fontWeight: 500, display: 'block', marginBottom: 6 }
+const labelStyle = {
+  fontSize: 13,
+  color: 'var(--text-muted)',
+  fontWeight: 500,
+  display: 'block',
+  marginBottom: 6,
+}
 const inputStyle = {
-  width: '100%', padding: '9px 12px', background: 'var(--bg-deep)',
-  border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
-  fontSize: 14, boxSizing: 'border-box',
+  width: '100%',
+  padding: '9px 12px',
+  background: 'var(--bg-deep)',
+  border: '1px solid var(--border)',
+  borderRadius: 8,
+  color: 'var(--text)',
+  fontSize: 14,
+  boxSizing: 'border-box',
 }
 const cancelBtn = {
-  padding: '9px 18px', background: 'var(--bg-deep)', border: '1px solid var(--border)',
-  borderRadius: 8, color: 'var(--text-dim)', cursor: 'pointer', fontSize: 14,
+  padding: '9px 18px',
+  background: 'var(--bg-deep)',
+  border: '1px solid var(--border)',
+  borderRadius: 8,
+  color: 'var(--text-dim)',
+  cursor: 'pointer',
+  fontSize: 14,
 }
 const submitBtn = {
-  padding: '9px 18px', background: 'var(--gold)', border: 'none',
-  borderRadius: 8, color: '#1a1209', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+  padding: '9px 18px',
+  background: 'var(--gold)',
+  border: 'none',
+  borderRadius: 8,
+  color: '#1a1209',
+  cursor: 'pointer',
+  fontSize: 14,
+  fontWeight: 600,
 }

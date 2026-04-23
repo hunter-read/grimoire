@@ -63,7 +63,7 @@ describe('api', () => {
     it('dispatches grimoire:unauthorized event on 401', async () => {
       global.fetch = mockFetch(401, {})
       const dispatched = []
-      window.addEventListener('grimoire:unauthorized', e => dispatched.push(e))
+      window.addEventListener('grimoire:unauthorized', (e) => dispatched.push(e))
 
       await expect(api.get('/protected')).rejects.toMatchObject({ status: 401 })
 

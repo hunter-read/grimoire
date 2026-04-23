@@ -21,23 +21,23 @@ function detectLanguage() {
     if (saved) return saved
   }
   const available = Object.keys(resources)
-  for (const lang of (typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [])) {
-    const exact  = available.find(a => a === lang)
-    const prefix = available.find(a => a.startsWith(lang.split('-')[0]))
+  for (const lang of typeof navigator !== 'undefined'
+    ? (navigator.languages ?? [navigator.language])
+    : []) {
+    const exact = available.find((a) => a === lang)
+    const prefix = available.find((a) => a.startsWith(lang.split('-')[0]))
     if (exact || prefix) return exact ?? prefix
   }
   return 'en-US'
 }
 
-i18n
-  .use(initReactI18next)
-  .init({
-    resources,
-    lng: detectLanguage(),
-    fallbackLng: 'en-US',
-    interpolation: {
-      escapeValue: false,
-    },
-  })
+i18n.use(initReactI18next).init({
+  resources,
+  lng: detectLanguage(),
+  fallbackLng: 'en-US',
+  interpolation: {
+    escapeValue: false,
+  },
+})
 
 export default i18n

@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('grimoire_token')
 
     fetch('/api/auth/status')
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(({ initialized }) => {
         if (!initialized) {
           setStatus('uninitialized')
@@ -23,8 +23,8 @@ export function AuthProvider({ children }) {
         }
         // Validate existing token
         fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.ok ? r.json() : null)
-          .then(userData => {
+          .then((r) => (r.ok ? r.json() : null))
+          .then((userData) => {
             if (userData) {
               setUser(userData)
               setStatus('authenticated')
@@ -60,8 +60,9 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(async () => {
     const token = localStorage.getItem('grimoire_token')
     if (!token) return
-    const userData = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
+    const userData = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => (r.ok ? r.json() : null))
     if (userData) setUser(userData)
   }, [])
 

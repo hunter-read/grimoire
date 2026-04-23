@@ -6,12 +6,20 @@ import '../i18n'
 function makeStorageMock() {
   let _store = {}
   return {
-    getItem:    (key)       => Object.prototype.hasOwnProperty.call(_store, key) ? _store[key] : null,
-    setItem:    (key, val)  => { _store[key] = String(val) },
-    removeItem: (key)       => { delete _store[key] },
-    clear:      ()          => { _store = {} },
-    get length()            { return Object.keys(_store).length },
-    key:        (i)         => Object.keys(_store)[i] ?? null,
+    getItem: (key) => (Object.prototype.hasOwnProperty.call(_store, key) ? _store[key] : null),
+    setItem: (key, val) => {
+      _store[key] = String(val)
+    },
+    removeItem: (key) => {
+      delete _store[key]
+    },
+    clear: () => {
+      _store = {}
+    },
+    get length() {
+      return Object.keys(_store).length
+    },
+    key: (i) => Object.keys(_store)[i] ?? null,
   }
 }
 const localStorageMock = makeStorageMock()

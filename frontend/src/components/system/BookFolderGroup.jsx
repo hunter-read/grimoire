@@ -39,31 +39,58 @@ export default function BookFolderGroup({
   const toggleKey = `${category}::${folder}`
 
   return (
-    <div style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+    <div
+      style={{
+        marginBottom: 8,
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        overflow: 'hidden',
+      }}
+    >
       {/* Folder header */}
-      <div style={{
-        padding: '10px 16px',
-        background: 'var(--bg-panel)',
-        borderBottom: isCollapsed ? 'none' : '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-      }}>
+      <div
+        style={{
+          padding: '10px 16px',
+          background: 'var(--bg-panel)',
+          borderBottom: isCollapsed ? 'none' : '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
         <button
           onClick={() => onToggle(toggleKey)}
           aria-expanded={!isCollapsed}
           style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: 0, flex: 1, minWidth: 0, overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
           }}
         >
-          {isCollapsed
-            ? <LuChevronRight size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-            : <LuChevronDown size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-          }
+          {isCollapsed ? (
+            <LuChevronRight size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+          ) : (
+            <LuChevronDown size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+          )}
           <LuFolder size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 16, color: 'var(--gold-dim)', fontFamily: 'Cinzel, serif', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span
+            style={{
+              fontSize: 16,
+              color: 'var(--gold-dim)',
+              fontFamily: 'Cinzel, serif',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {toTitleCase(folder)}
           </span>
           <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 4 }}>
@@ -71,7 +98,13 @@ export default function BookFolderGroup({
           </span>
         </button>
         <button
-          onClick={e => { e.stopPropagation(); onDownload?.({ title: toTitleCase(folder), params: { type: 'book_folder', id: systemId, category, folder } }) }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDownload?.({
+              title: toTitleCase(folder),
+              params: { type: 'book_folder', id: systemId, category, folder },
+            })
+          }}
           style={zipBtnStyle}
           title={`Download all books in ${folder}`}
         >
@@ -82,18 +115,25 @@ export default function BookFolderGroup({
       {/* Book list */}
       {!isCollapsed && (
         <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {books.map(book => (
+          {books.map((book) => (
             <div key={book.id}>
               <BookRow
                 book={book}
                 onOpen={() => onOpenBook(book)}
-                onEdit={isEditor ? () => setEditingBookId(id => id === book.id ? null : book.id) : null}
+                onEdit={
+                  isEditor
+                    ? () => setEditingBookId((id) => (id === book.id ? null : book.id))
+                    : null
+                }
                 editing={editingBookId === book.id}
               />
               {editingBookId === book.id && (
                 <BookEditor
                   book={book}
-                  onSave={(updated) => { onSaveBook(book.id, updated); setEditingBookId(null) }}
+                  onSave={(updated) => {
+                    onSaveBook(book.id, updated)
+                    setEditingBookId(null)
+                  }}
                   onClose={() => setEditingBookId(null)}
                 />
               )}
@@ -106,8 +146,15 @@ export default function BookFolderGroup({
 }
 
 const zipBtnStyle = {
-  display: 'inline-flex', alignItems: 'center', gap: 3,
-  padding: '2px 7px', borderRadius: 5, fontSize: 12, flexShrink: 0,
-  color: 'var(--text-muted)', border: '1px solid var(--border)',
-  background: 'var(--bg-card)', cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 3,
+  padding: '2px 7px',
+  borderRadius: 5,
+  fontSize: 12,
+  flexShrink: 0,
+  color: 'var(--text-muted)',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-card)',
+  cursor: 'pointer',
 }

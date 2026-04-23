@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuFolder, LuChevronDown, LuChevronRight, LuTag, LuCheck, LuMinus, LuDownload } from 'react-icons/lu'
+import {
+  LuFolder,
+  LuChevronDown,
+  LuChevronRight,
+  LuTag,
+  LuCheck,
+  LuMinus,
+  LuDownload,
+} from 'react-icons/lu'
 import MapCard from './MapCard'
 import InlineTagEditor from './InlineTagEditor'
 import LazyGrid from '../LazyGrid'
@@ -9,12 +17,21 @@ import { toTitleCase } from '../../utils'
 function FolderCheckbox({ checked, indeterminate, onChange }) {
   return (
     <div
-      onClick={e => { e.stopPropagation(); onChange() }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onChange()
+      }}
       style={{
-        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        flexShrink: 0,
         background: checked || indeterminate ? 'var(--gold)' : 'rgba(0,0,0,0.4)',
         border: checked || indeterminate ? 'none' : '2px solid rgba(255,255,255,0.3)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
       }}
     >
       {checked && <LuCheck size={11} color="var(--bg-deep)" strokeWidth={3} />}
@@ -25,7 +42,25 @@ function FolderCheckbox({ checked, indeterminate, onChange }) {
 
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
-export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle, folderTags, editingFolder, onSetEditingFolder, onSaveFolderTags, onSelectMap, bulkMode, selectedMapIds, selectedFolderPaths, onToggleMap, onToggleFolder, cardSize = 'comfortable', canTag = true, onDownload }) {
+export default function MapFolderGroup({
+  folder,
+  subfolders,
+  collapsed,
+  onToggle,
+  folderTags,
+  editingFolder,
+  onSetEditingFolder,
+  onSaveFolderTags,
+  onSelectMap,
+  bulkMode,
+  selectedMapIds,
+  selectedFolderPaths,
+  onToggleMap,
+  onToggleFolder,
+  cardSize = 'comfortable',
+  canTag = true,
+  onDownload,
+}) {
   const { t } = useTranslation()
   const [editingRoot, setEditingRoot] = useState(false)
   const isCollapsed = collapsed.has(folder)
@@ -34,10 +69,11 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
   const topLevelTags = folderTags[folder] ?? []
 
   // Checked state for top-level folder header
-  const groupFolderChecked = selectedFolderPaths.has(folder) && allMapsInGroup.every(m => selectedMapIds.has(m.id))
-  const groupFolderIndeterminate = !groupFolderChecked && (
-    selectedFolderPaths.has(folder) || allMapsInGroup.some(m => selectedMapIds.has(m.id))
-  )
+  const groupFolderChecked =
+    selectedFolderPaths.has(folder) && allMapsInGroup.every((m) => selectedMapIds.has(m.id))
+  const groupFolderIndeterminate =
+    !groupFolderChecked &&
+    (selectedFolderPaths.has(folder) || allMapsInGroup.some((m) => selectedMapIds.has(m.id)))
 
   const subfolderEntries = Object.entries(subfolders).sort(([a], [b]) => {
     if (a === '') return 1
@@ -46,13 +82,22 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
   })
 
   return (
-    <div style={{ marginBottom: 16, border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+    <div
+      style={{
+        marginBottom: 16,
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        overflow: 'hidden',
+      }}
+    >
       {/* Folder header */}
-      <div style={{
-        padding: '12px 20px',
-        background: 'var(--bg-panel)',
-        borderBottom: isCollapsed ? 'none' : '1px solid var(--border)',
-      }}>
+      <div
+        style={{
+          padding: '12px 20px',
+          background: 'var(--bg-panel)',
+          borderBottom: isCollapsed ? 'none' : '1px solid var(--border)',
+        }}
+      >
         {/* Top row: chevron + icon + name + dot leader + count */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {bulkMode && (
@@ -65,25 +110,64 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
           <button
             onClick={() => onToggle(folder)}
             aria-expanded={!isCollapsed}
-            aria-label={isCollapsed ? t('maps.expandFolder', { folder }) : t('maps.collapseFolder', { folder })}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0, overflow: 'hidden' }}
-          >
-            {isCollapsed
-              ? <LuChevronRight size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-              : <LuChevronDown size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+            aria-label={
+              isCollapsed
+                ? t('maps.expandFolder', { folder })
+                : t('maps.collapseFolder', { folder })
             }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+            }}
+          >
+            {isCollapsed ? (
+              <LuChevronRight size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+            ) : (
+              <LuChevronDown size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+            )}
             <LuFolder size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 18, color: 'var(--gold-dim)', fontFamily: 'Cinzel, serif', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            <span
+              style={{
+                fontSize: 18,
+                color: 'var(--gold-dim)',
+                fontFamily: 'Cinzel, serif',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+              }}
+            >
               {toTitleCase(folder)}
             </span>
-            {!isMobilePhone && <span style={{ flex: 1, borderBottom: '1px dotted var(--border)', margin: '0 8px', minWidth: 16 }} />}
+            {!isMobilePhone && (
+              <span
+                style={{
+                  flex: 1,
+                  borderBottom: '1px dotted var(--border)',
+                  margin: '0 8px',
+                  minWidth: 16,
+                }}
+              />
+            )}
           </button>
           <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
             {t('maps.mapCount', { count: totalMaps })}
           </span>
           {!bulkMode && (
             <button
-              onClick={e => { e.stopPropagation(); onDownload?.({ title: `Maps — ${toTitleCase(folder)}`, params: { type: 'map_folder', folder } }) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDownload?.({
+                  title: `Maps — ${toTitleCase(folder)}`,
+                  params: { type: 'map_folder', folder },
+                })
+              }}
               style={zipBtnStyle}
               title={t('maps.downloadAllInFolder', { folder })}
             >
@@ -94,7 +178,16 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
 
         {/* Tags row (desktop only — mobile shows tags below when expanded) */}
         {!bulkMode && !isMobilePhone && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 8, paddingLeft: 52 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              flexWrap: 'wrap',
+              marginTop: 8,
+              paddingLeft: 52,
+            }}
+          >
             {editingRoot ? (
               <InlineTagEditor
                 tags={topLevelTags}
@@ -103,13 +196,28 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
               />
             ) : (
               <>
-                {topLevelTags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
+                {topLevelTags.map((tag) => (
+                  <span key={tag} style={tagPillStyle}>
+                    {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                  </span>
+                ))}
                 {canTag && (
                   <button
                     onClick={() => setEditingRoot(true)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                      fontSize: 12,
+                      padding: '2px 6px',
+                    }}
                   >
-                    <LuTag size={11} /> {topLevelTags.length > 0 ? t('maps.editTags') : t('maps.addTags')}
+                    <LuTag size={11} />{' '}
+                    {topLevelTags.length > 0 ? t('maps.editTags') : t('maps.addTags')}
                   </button>
                 )}
               </>
@@ -131,13 +239,28 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                 />
               ) : (
                 <>
-                  {topLevelTags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
+                  {topLevelTags.map((tag) => (
+                    <span key={tag} style={tagPillStyle}>
+                      {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                    </span>
+                  ))}
                   {canTag && (
                     <button
                       onClick={() => setEditingRoot(true)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        fontSize: 12,
+                        padding: '2px 6px',
+                      }}
                     >
-                      <LuTag size={11} /> {topLevelTags.length > 0 ? t('maps.editTagsFull') : t('maps.addTags')}
+                      <LuTag size={11} />{' '}
+                      {topLevelTags.length > 0 ? t('maps.editTagsFull') : t('maps.addTags')}
                     </button>
                   )}
                 </>
@@ -150,10 +273,14 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
             const editKey = `${folder}::${subPath}`
             const isSubCollapsed = subPath ? collapsed.has(editKey) : false
 
-            const subChecked = subPath && selectedFolderPaths.has(folderPath) && subMaps.every(m => selectedMapIds.has(m.id))
-            const subIndeterminate = subPath && !subChecked && (
-              selectedFolderPaths.has(folderPath) || subMaps.some(m => selectedMapIds.has(m.id))
-            )
+            const subChecked =
+              subPath &&
+              selectedFolderPaths.has(folderPath) &&
+              subMaps.every((m) => selectedMapIds.has(m.id))
+            const subIndeterminate =
+              subPath &&
+              !subChecked &&
+              (selectedFolderPaths.has(folderPath) || subMaps.some((m) => selectedMapIds.has(m.id)))
 
             return (
               <div key={editKey}>
@@ -171,32 +298,87 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                       <button
                         onClick={() => onToggle(editKey)}
                         aria-expanded={!isSubCollapsed}
-                        aria-label={isSubCollapsed ? t('maps.expandFolder', { folder: subPath }) : t('maps.collapseFolder', { folder: subPath })}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}
-                      >
-                        {isSubCollapsed
-                          ? <LuChevronRight size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                          : <LuChevronDown size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        aria-label={
+                          isSubCollapsed
+                            ? t('maps.expandFolder', { folder: subPath })
+                            : t('maps.collapseFolder', { folder: subPath })
                         }
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px 2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {isSubCollapsed ? (
+                          <LuChevronRight
+                            size={13}
+                            color="var(--text-muted)"
+                            style={{ flexShrink: 0 }}
+                          />
+                        ) : (
+                          <LuChevronDown
+                            size={13}
+                            color="var(--text-muted)"
+                            style={{ flexShrink: 0 }}
+                          />
+                        )}
                         <LuFolder size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                        <span style={{ fontSize: 15, color: 'var(--text-dim)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span
+                          style={{
+                            fontSize: 15,
+                            color: 'var(--text-dim)',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {subPath.split('/').map(toTitleCase).join(' / ')}
                         </span>
-                        <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>({subMaps.length})</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
+                          ({subMaps.length})
+                        </span>
                       </button>
                       {editingFolder !== editKey && !bulkMode && !isMobilePhone && (
                         <>
-                          {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
+                          {tags.map((tag) => (
+                            <span key={tag} style={tagPillStyle}>
+                              {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                            </span>
+                          ))}
                           {canTag && (
                             <button
                               onClick={() => onSetEditingFolder(editKey)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                fontSize: 12,
+                                padding: '2px 6px',
+                              }}
                             >
-                              <LuTag size={11} /> {tags.length > 0 ? t('maps.editTags') : t('maps.addTags')}
+                              <LuTag size={11} />{' '}
+                              {tags.length > 0 ? t('maps.editTags') : t('maps.addTags')}
                             </button>
                           )}
                           <button
-                            onClick={e => { e.stopPropagation(); onDownload?.({ title: `Maps — ${toTitleCase(folder)} / ${subPath.split('/').map(toTitleCase).join(' / ')}`, params: { type: 'map_folder', folder: `${folder}/${subPath}` } }) }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDownload?.({
+                                title: `Maps — ${toTitleCase(folder)} / ${subPath.split('/').map(toTitleCase).join(' / ')}`,
+                                params: { type: 'map_folder', folder: `${folder}/${subPath}` },
+                              })
+                            }}
                             style={zipBtnStyle}
                             title={t('maps.downloadInSubfolder', { folder: subPath })}
                           >
@@ -214,7 +396,15 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                     </div>
                     {/* Tags row (mobile only) */}
                     {isMobilePhone && !bulkMode && (
-                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          flexWrap: 'wrap',
+                        }}
+                      >
                         {editingFolder === editKey ? (
                           <InlineTagEditor
                             tags={tags}
@@ -223,13 +413,28 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
                           />
                         ) : (
                           <>
-                            {tags.map(tag => <span key={tag} style={tagPillStyle}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</span>)}
+                            {tags.map((tag) => (
+                              <span key={tag} style={tagPillStyle}>
+                                {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                              </span>
+                            ))}
                             {canTag && (
                               <button
                                 onClick={() => onSetEditingFolder(editKey)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, padding: '2px 6px' }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: 'var(--text-muted)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  fontSize: 12,
+                                  padding: '2px 6px',
+                                }}
                               >
-                                <LuTag size={11} /> {tags.length > 0 ? t('maps.editTagsFull') : t('maps.addTags')}
+                                <LuTag size={11} />{' '}
+                                {tags.length > 0 ? t('maps.editTagsFull') : t('maps.addTags')}
                               </button>
                             )}
                           </>
@@ -243,8 +448,14 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
 
                 {!isSubCollapsed && (
                   <LazyGrid count={subMaps.length} cardSize={cardSize}>
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize === 'compact' ? '140px' : '200px'}, 1fr))`, gap: 16 }}>
-                      {subMaps.map(m => (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize === 'compact' ? '140px' : '200px'}, 1fr))`,
+                        gap: 16,
+                      }}
+                    >
+                      {subMaps.map((m) => (
                         <MapCard
                           key={m.id}
                           map={m}
@@ -267,13 +478,24 @@ export default function MapFolderGroup({ folder, subfolders, collapsed, onToggle
 }
 
 const tagPillStyle = {
-  fontSize: 12, padding: '2px 8px', borderRadius: 10,
-  background: 'var(--tag-bg)', border: '1px solid var(--tag-border)', color: 'var(--text-dim)',
+  fontSize: 12,
+  padding: '2px 8px',
+  borderRadius: 10,
+  background: 'var(--tag-bg)',
+  border: '1px solid var(--tag-border)',
+  color: 'var(--text-dim)',
 }
 
 const zipBtnStyle = {
-  display: 'inline-flex', alignItems: 'center', gap: 3,
-  padding: '2px 7px', borderRadius: 5, fontSize: 12, flexShrink: 0,
-  color: 'var(--text-muted)', border: '1px solid var(--border)',
-  background: 'var(--bg-card)', cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 3,
+  padding: '2px 7px',
+  borderRadius: 5,
+  fontSize: 12,
+  flexShrink: 0,
+  color: 'var(--text-muted)',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-card)',
+  cursor: 'pointer',
 }

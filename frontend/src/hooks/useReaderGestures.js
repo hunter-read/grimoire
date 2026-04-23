@@ -15,12 +15,22 @@ import { useRef, useEffect } from 'react'
  *
  * @returns {{ handleTouchStart, handleTouchMove, handleTouchEnd }}
  */
-export default function useReaderGestures({ mode, currentPage, zoom, pan, setZoom, setPan, goToPage, contentRef, wheelNav = true }) {
-  const gestureRef        = useRef(null)
-  const touchStartRef     = useRef(null)
+export default function useReaderGestures({
+  mode,
+  currentPage,
+  zoom,
+  pan,
+  setZoom,
+  setPan,
+  goToPage,
+  contentRef,
+  wheelNav = true,
+}) {
+  const gestureRef = useRef(null)
+  const touchStartRef = useRef(null)
   const longPressTimerRef = useRef(null)
   const longPressFiredRef = useRef(false)
-  const lastWheelRef      = useRef(0)
+  const lastWheelRef = useRef(0)
 
   // Wheel navigation — throttled to 500 ms to avoid rapid page-skipping
   useEffect(() => {
@@ -28,7 +38,10 @@ export default function useReaderGestures({ mode, currentPage, zoom, pan, setZoo
     if (!el) return
     const handleWheel = (e) => {
       if (mode === 'pdf') return
-      if (zoom > 1) { e.preventDefault(); return }
+      if (zoom > 1) {
+        e.preventDefault()
+        return
+      }
       if (!wheelNav) return
       e.preventDefault()
       const now = Date.now()
@@ -84,7 +97,12 @@ export default function useReaderGestures({ mode, currentPage, zoom, pan, setZoo
       }, 500)
 
       if (zoom > 1) {
-        gestureRef.current = { type: 'pan', startX: t.clientX, startY: t.clientY, startPan: { ...pan } }
+        gestureRef.current = {
+          type: 'pan',
+          startX: t.clientX,
+          startY: t.clientY,
+          startPan: { ...pan },
+        }
       } else {
         gestureRef.current = { type: 'swipe' }
         touchStartRef.current = { x: t.clientX, y: t.clientY }
@@ -98,14 +116,20 @@ export default function useReaderGestures({ mode, currentPage, zoom, pan, setZoo
     if (longPressTimerRef.current && e.touches.length === 1) {
       const t = e.touches[0]
       const g = gestureRef.current
-      if (g.startX !== undefined && (Math.abs(t.clientX - g.startX) > 10 || Math.abs(t.clientY - g.startY) > 10)) {
+      if (
+        g.startX !== undefined &&
+        (Math.abs(t.clientX - g.startX) > 10 || Math.abs(t.clientY - g.startY) > 10)
+      ) {
         clearTimeout(longPressTimerRef.current)
         longPressTimerRef.current = null
       }
     }
     if (gestureRef.current.type === 'pinch' && e.touches.length === 2) {
       const dist = getPinchDist(e.touches[0], e.touches[1])
-      const newZoom = Math.max(1, Math.min(4, gestureRef.current.initialZoom * (dist / gestureRef.current.initialDist)))
+      const newZoom = Math.max(
+        1,
+        Math.min(4, gestureRef.current.initialZoom * (dist / gestureRef.current.initialDist))
+      )
       setZoom(newZoom)
       if (newZoom <= 1) setPan({ x: 0, y: 0 })
     } else if (gestureRef.current.type === 'pan' && e.touches.length === 1) {
@@ -130,7 +154,10 @@ export default function useReaderGestures({ mode, currentPage, zoom, pan, setZoo
     gestureRef.current = null
     if (type === 'pinch') {
       // Snap back to 1× if barely zoomed
-      if (zoom < 1.15) { setZoom(1); setPan({ x: 0, y: 0 }) }
+      if (zoom < 1.15) {
+        setZoom(1)
+        setPan({ x: 0, y: 0 })
+      }
       return
     }
     if (type === 'pan') return
@@ -143,9 +170,13 @@ export default function useReaderGestures({ mode, currentPage, zoom, pan, setZoo
     const absDx = Math.abs(dx)
     const absDy = Math.abs(dy)
     if (absDx > 50 && absDx > absDy) {
-      dx < 0 ? goToPage(currentPage + step, undefined, 'x') : goToPage(currentPage - step, undefined, 'x')
+      dx < 0
+        ? goToPage(currentPage + step, undefined, 'x')
+        : goToPage(currentPage - step, undefined, 'x')
     } else if (absDy > 50 && absDy > absDx) {
-      dy < 0 ? goToPage(currentPage + step, undefined, 'y') : goToPage(currentPage - step, undefined, 'y')
+      dy < 0
+        ? goToPage(currentPage + step, undefined, 'y')
+        : goToPage(currentPage - step, undefined, 'y')
     }
   }
 

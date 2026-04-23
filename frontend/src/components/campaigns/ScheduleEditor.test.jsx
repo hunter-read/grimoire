@@ -26,7 +26,10 @@ function renderEditor(existing = null) {
 
 describe('SegmentControl', () => {
   it('renders all options', () => {
-    const options = [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }]
+    const options = [
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+    ]
     render(<SegmentControl value="a" options={options} onChange={vi.fn()} />)
     expect(screen.getByText('A')).toBeTruthy()
     expect(screen.getByText('B')).toBeTruthy()
@@ -34,7 +37,10 @@ describe('SegmentControl', () => {
 
   it('calls onChange with the clicked option key', () => {
     const onChange = vi.fn()
-    const options = [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }]
+    const options = [
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+    ]
     render(<SegmentControl value="a" options={options} onChange={onChange} />)
     fireEvent.click(screen.getByText('B'))
     expect(onChange).toHaveBeenCalledWith('b')
@@ -91,7 +97,14 @@ describe('ScheduleEditor', () => {
   })
 
   it('populates from existing schedule', () => {
-    renderEditor({ frequency: 'weekly', days: [1, 3], time_utc: null, biweekly_reference: '', monthly_week: 1, custom_dates: [] })
+    renderEditor({
+      frequency: 'weekly',
+      days: [1, 3],
+      time_utc: null,
+      biweekly_reference: '',
+      monthly_week: 1,
+      custom_dates: [],
+    })
     // Tuesday (index 1) and Thursday (index 3) should be shown as selected
     // Just verify the editor renders without error — day selection is visual state
     expect(screen.getByText('Tue')).toBeTruthy()
@@ -99,7 +112,14 @@ describe('ScheduleEditor', () => {
   })
 
   it('shows Remove button when existing schedule is present', () => {
-    renderEditor({ frequency: 'weekly', days: [0], time_utc: null, biweekly_reference: '', monthly_week: 1, custom_dates: [] })
+    renderEditor({
+      frequency: 'weekly',
+      days: [0],
+      time_utc: null,
+      biweekly_reference: '',
+      monthly_week: 1,
+      custom_dates: [],
+    })
     expect(screen.getByText('Remove')).toBeTruthy()
   })
 
@@ -119,15 +139,25 @@ describe('ScheduleEditor', () => {
     campaigns.setSchedule.mockResolvedValue({ frequency: 'weekly', days: [0] })
     const onSaved = vi.fn()
     render(
-      <ScheduleEditor campaign={mockCampaign} existing={null} onSaved={onSaved} onDeleted={vi.fn()} />
+      <ScheduleEditor
+        campaign={mockCampaign}
+        existing={null}
+        onSaved={onSaved}
+        onDeleted={vi.fn()}
+      />
     )
     // Select Monday (index 0)
     fireEvent.click(screen.getByText('Mon'))
     fireEvent.click(screen.getByText('Save Schedule'))
-    await waitFor(() => expect(campaigns.setSchedule).toHaveBeenCalledWith('c1', expect.objectContaining({
-      frequency: 'weekly',
-      days: [0],
-    })))
+    await waitFor(() =>
+      expect(campaigns.setSchedule).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({
+          frequency: 'weekly',
+          days: [0],
+        })
+      )
+    )
     expect(onSaved).toHaveBeenCalled()
   })
 

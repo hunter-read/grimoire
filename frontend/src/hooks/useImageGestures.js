@@ -12,23 +12,30 @@ import { useState, useRef, useEffect } from 'react'
  */
 export default function useImageGestures({ onNext, onPrev, containerRef, resetKey }) {
   const [zoom, setZoom] = useState(1)
-  const [pan,  setPan]  = useState({ x: 0, y: 0 })
+  const [pan, setPan] = useState({ x: 0, y: 0 })
 
   // Mutable refs so event-handler closures always see the latest values
-  const zoomRef    = useRef(1)
-  const panRef     = useRef({ x: 0, y: 0 })
+  const zoomRef = useRef(1)
+  const panRef = useRef({ x: 0, y: 0 })
   const gestureRef = useRef(null)
   const swipeStart = useRef(null)
-  const onNextRef  = useRef(onNext)
-  const onPrevRef  = useRef(onPrev)
-  useEffect(() => { onNextRef.current = onNext }, [onNext])
-  useEffect(() => { onPrevRef.current = onPrev }, [onPrev])
+  const onNextRef = useRef(onNext)
+  const onPrevRef = useRef(onPrev)
+  useEffect(() => {
+    onNextRef.current = onNext
+  }, [onNext])
+  useEffect(() => {
+    onPrevRef.current = onPrev
+  }, [onPrev])
 
   // Reset zoom & pan when navigating to a new item
   useEffect(() => {
-    setZoom(1); zoomRef.current = 1
-    setPan({ x: 0, y: 0 }); panRef.current = { x: 0, y: 0 }
-    gestureRef.current = null; swipeStart.current = null
+    setZoom(1)
+    zoomRef.current = 1
+    setPan({ x: 0, y: 0 })
+    panRef.current = { x: 0, y: 0 }
+    gestureRef.current = null
+    swipeStart.current = null
   }, [resetKey])
 
   // Arrow-key navigation (skip when focus is in an input)
@@ -68,7 +75,8 @@ export default function useImageGestures({ onNext, onPrev, containerRef, resetKe
         if (zoomRef.current > 1) {
           gestureRef.current = {
             type: 'pan',
-            startX: t.clientX, startY: t.clientY,
+            startX: t.clientX,
+            startY: t.clientY,
             startPan: { ...panRef.current },
           }
         } else {
@@ -83,9 +91,16 @@ export default function useImageGestures({ onNext, onPrev, containerRef, resetKe
       if (!g) return
       if (g.type === 'pinch' && e.touches.length === 2) {
         e.preventDefault()
-        const newZoom = Math.max(1, Math.min(5, g.initZoom * (dist(e.touches[0], e.touches[1]) / g.initDist)))
-        setZoom(newZoom); zoomRef.current = newZoom
-        if (newZoom <= 1) { setPan({ x: 0, y: 0 }); panRef.current = { x: 0, y: 0 } }
+        const newZoom = Math.max(
+          1,
+          Math.min(5, g.initZoom * (dist(e.touches[0], e.touches[1]) / g.initDist))
+        )
+        setZoom(newZoom)
+        zoomRef.current = newZoom
+        if (newZoom <= 1) {
+          setPan({ x: 0, y: 0 })
+          panRef.current = { x: 0, y: 0 }
+        }
       } else if (g.type === 'pan' && e.touches.length === 1) {
         e.preventDefault()
         const z = zoomRef.current
@@ -93,7 +108,8 @@ export default function useImageGestures({ onNext, onPrev, containerRef, resetKe
           x: g.startPan.x + (e.touches[0].clientX - g.startX) / z,
           y: g.startPan.y + (e.touches[0].clientY - g.startY) / z,
         }
-        setPan(newPan); panRef.current = newPan
+        setPan(newPan)
+        panRef.current = newPan
       }
     }
 
@@ -102,16 +118,18 @@ export default function useImageGestures({ onNext, onPrev, containerRef, resetKe
       gestureRef.current = null
       if (g?.type === 'pinch') {
         if (zoomRef.current < 1.15) {
-          setZoom(1); zoomRef.current = 1
-          setPan({ x: 0, y: 0 }); panRef.current = { x: 0, y: 0 }
+          setZoom(1)
+          zoomRef.current = 1
+          setPan({ x: 0, y: 0 })
+          panRef.current = { x: 0, y: 0 }
         }
         return
       }
       if (g?.type === 'pan') return
       if (!swipeStart.current) return
-      const t   = e.changedTouches[0]
-      const dx  = t.clientX - swipeStart.current.x
-      const dy  = t.clientY - swipeStart.current.y
+      const t = e.changedTouches[0]
+      const dx = t.clientX - swipeStart.current.x
+      const dy = t.clientY - swipeStart.current.y
       swipeStart.current = null
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
         dx < 0 ? onNextRef.current?.() : onPrevRef.current?.()
@@ -119,12 +137,12 @@ export default function useImageGestures({ onNext, onPrev, containerRef, resetKe
     }
 
     el.addEventListener('touchstart', onStart, { passive: false })
-    el.addEventListener('touchmove',  onMove,  { passive: false })
-    el.addEventListener('touchend',   onEnd)
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
     return () => {
       el.removeEventListener('touchstart', onStart)
-      el.removeEventListener('touchmove',  onMove)
-      el.removeEventListener('touchend',   onEnd)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
     }
   }, [containerRef]) // containerRef is stable; onNext/onPrev accessed via refs
 

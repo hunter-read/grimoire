@@ -27,7 +27,15 @@ import CampaignDetailView from './views/CampaignDetailView'
 function LoadingScreen() {
   const { t } = useTranslation()
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-deep)' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-deep)',
+      }}
+    >
       <div style={{ textAlign: 'center' }}>
         <h1 style={{ fontSize: 28, letterSpacing: '0.1em', marginBottom: 24 }}>{t('app.name')}</h1>
         <Spinner size={28} />
@@ -47,16 +55,30 @@ function BookReader() {
 function AppShell() {
   const { user, logout } = useAuth()
   const [stats, setStats] = useState(null)
-  const [uiSettings, setUiSettings] = useState({ hide_maps: false, hide_tokens: false, hide_campaigns: false })
+  const [uiSettings, setUiSettings] = useState({
+    hide_maps: false,
+    hide_tokens: false,
+    hide_campaigns: false,
+  })
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const location = useLocation()
-  const isReader = location.pathname.startsWith('/library/book/') || location.pathname.startsWith('/maps/') || location.pathname.startsWith('/tokens/')
+  const isReader =
+    location.pathname.startsWith('/library/book/') ||
+    location.pathname.startsWith('/maps/') ||
+    location.pathname.startsWith('/tokens/')
   const mainRef = useScrollRestoration()
 
-  const refreshUiSettings = () => settingsApi.getUi().then(setUiSettings).catch(() => {})
+  const refreshUiSettings = () =>
+    settingsApi
+      .getUi()
+      .then(setUiSettings)
+      .catch(() => {})
 
   useEffect(() => {
-    api.get('/stats').then(setStats).catch(() => {})
+    api
+      .get('/stats')
+      .then(setStats)
+      .catch(() => {})
     refreshUiSettings()
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
@@ -67,44 +89,48 @@ function AppShell() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-
-
   return (
     <UISettingsProvider value={uiSettings}>
-    <div style={{ display: 'flex', height: '100vh' }}>
-      {!isMobile && (
-        <Sidebar stats={stats} user={user} onLogout={logout} uiSettings={uiSettings} />
-      )}
+      <div style={{ display: 'flex', height: '100vh' }}>
+        {!isMobile && (
+          <Sidebar stats={stats} user={user} onLogout={logout} uiSettings={uiSettings} />
+        )}
 
-      <main ref={mainRef} style={{
-        flex: 1, minWidth: 0, height: '100%',
-        overflow: isReader ? 'hidden' : 'auto',
-        paddingBottom: isMobile ? 64 : 0,
-      }}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/library" replace />} />
-          <Route path="/library" element={<LibraryView />} />
-          <Route path="/library/system/:systemId" element={<SystemDetailView />} />
-          <Route path="/library/book/:bookId" element={<BookReader />} />
-          <Route path="/maps" element={<MapsView />} />
-          <Route path="/maps/:mapId" element={<MapDetailView />} />
-          <Route path="/tokens" element={<TokensView />} />
-          <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
-          <Route path="/search" element={<SearchView />} />
-          <Route path="/favorites" element={<FavoritesView />} />
-          <Route path="/campaigns" element={<CampaignsView />} />
-          <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
-          <Route path="/campaigns/:campaignId/sessions/:sessionId" element={<CampaignDetailView />} />
-          <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
-          <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
-          <Route path="/settings/:tab" element={<SettingsView user={user} onLogout={logout} />} />
-        </Routes>
-      </main>
+        <main
+          ref={mainRef}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            overflow: isReader ? 'hidden' : 'auto',
+            paddingBottom: isMobile ? 64 : 0,
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<Navigate to="/library" replace />} />
+            <Route path="/library" element={<LibraryView />} />
+            <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+            <Route path="/library/book/:bookId" element={<BookReader />} />
+            <Route path="/maps" element={<MapsView />} />
+            <Route path="/maps/:mapId" element={<MapDetailView />} />
+            <Route path="/tokens" element={<TokensView />} />
+            <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+            <Route path="/search" element={<SearchView />} />
+            <Route path="/favorites" element={<FavoritesView />} />
+            <Route path="/campaigns" element={<CampaignsView />} />
+            <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
+            <Route
+              path="/campaigns/:campaignId/sessions/:sessionId"
+              element={<CampaignDetailView />}
+            />
+            <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+            <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+            <Route path="/settings/:tab" element={<SettingsView user={user} onLogout={logout} />} />
+          </Routes>
+        </main>
 
-      {isMobile && (
-        <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />
-      )}
-    </div>
+        {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
+      </div>
     </UISettingsProvider>
   )
 }
@@ -112,8 +138,12 @@ function AppShell() {
 export default function App() {
   const { status, login } = useAuth()
 
-  if (status === 'loading')         return <LoadingScreen />
-  if (status === 'uninitialized')   return <SetupView onSetup={login} />
+  if (status === 'loading') return <LoadingScreen />
+  if (status === 'uninitialized') return <SetupView onSetup={login} />
   if (status === 'unauthenticated') return <LoginView onLogin={login} />
-  return <FavoritesProvider><AppShell /></FavoritesProvider>
+  return (
+    <FavoritesProvider>
+      <AppShell />
+    </FavoritesProvider>
+  )
 }

@@ -16,7 +16,7 @@ vi.mock('../../api', () => ({
 function makeBook(overrides = {}) {
   return {
     id: 'book-1',
-    title: 'Player\'s Handbook',
+    title: "Player's Handbook",
     category: 'core',
     page_count: 320,
     year: 2014,
@@ -78,7 +78,12 @@ describe('BookRow', () => {
   })
 
   it('"Index Failed" badge has a tooltip with the error message', () => {
-    render(<BookRow book={makeBook({ index_failed: true, index_error: 'fitz timed out' })} onOpen={() => {}} />)
+    render(
+      <BookRow
+        book={makeBook({ index_failed: true, index_error: 'fitz timed out' })}
+        onOpen={() => {}}
+      />
+    )
     const badge = screen.getByText('Index Failed')
     expect(badge.title).toBe('Index failed: fitz timed out')
   })

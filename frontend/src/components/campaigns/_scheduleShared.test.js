@@ -65,7 +65,7 @@ describe('localInputTimeToUtc', () => {
 
   it('round-trips with utcToLocalInputTime', () => {
     const samples = ['00:00', '06:30', '12:00', '18:45', '23:59']
-    samples.forEach(utc => {
+    samples.forEach((utc) => {
       expect(localInputTimeToUtc(utcToLocalInputTime(utc))).toBe(utc)
     })
   })

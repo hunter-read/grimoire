@@ -72,7 +72,11 @@ describe('AddUserForm', () => {
 
   it('shows loading state while submitting', async () => {
     let resolve
-    api.post.mockReturnValueOnce(new Promise(r => { resolve = r }))
+    api.post.mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r
+      })
+    )
 
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'alice')

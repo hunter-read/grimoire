@@ -106,9 +106,7 @@ describe('CampaignsView', () => {
       name: 'Curse of Strahd',
       invitation_status: 'invited',
     }
-    campaigns.list
-      .mockResolvedValueOnce([invite])
-      .mockResolvedValueOnce([])
+    campaigns.list.mockResolvedValueOnce([invite]).mockResolvedValueOnce([])
     campaigns.updateMember.mockResolvedValue({})
     renderView()
     await waitFor(() => screen.getByText('Accept'))

@@ -24,15 +24,27 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
   const timerRef = useRef(null)
   const inputRef = useRef(null)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
 
-  const doSearch = useCallback((q) => {
-    if (q.length < 2) { setResults(null); return }
-    setSearching(true)
-    api.get(`/search?q=${encodeURIComponent(q)}&book_id=${bookId}`)
-      .then(r => { setResults(r); setSearching(false) })
-      .catch(() => setSearching(false))
-  }, [bookId])
+  const doSearch = useCallback(
+    (q) => {
+      if (q.length < 2) {
+        setResults(null)
+        return
+      }
+      setSearching(true)
+      api
+        .get(`/search?q=${encodeURIComponent(q)}&book_id=${bookId}`)
+        .then((r) => {
+          setResults(r)
+          setSearching(false)
+        })
+        .catch(() => setSearching(false))
+    },
+    [bookId]
+  )
 
   const handleInput = (e) => {
     const v = e.target.value
@@ -42,12 +54,27 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
   }
 
   return (
-    <div style={{
-      width: 280, flexShrink: 0, borderLeft: '1px solid var(--border)',
-      background: 'var(--bg-panel)', display: 'flex', flexDirection: 'column',
-      height: '100%', overflow: 'hidden',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+    <div
+      style={{
+        width: 280,
+        flexShrink: 0,
+        borderLeft: '1px solid var(--border)',
+        background: 'var(--bg-panel)',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '10px 14px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
         <LuSearch size={15} color="var(--text-muted)" aria-hidden="true" />
         <input
           ref={inputRef}
@@ -56,37 +83,70 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
           onChange={handleInput}
           aria-label={t('searchSidebar.ariaLabel')}
           placeholder={t('searchSidebar.placeholder')}
-          style={{ flex: 1, fontSize: 14, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)' }}
+          style={{
+            flex: 1,
+            fontSize: 14,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: 'var(--text)',
+          }}
         />
         {searching && <Spinner size={14} />}
-        <button onClick={onClose} aria-label={t('searchSidebar.closeSearch')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+        <button
+          onClick={onClose}
+          aria-label={t('searchSidebar.closeSearch')}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            display: 'flex',
+          }}
+        >
           <LuX size={15} aria-hidden="true" />
         </button>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
         {results && results.total === 0 && (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>{t('searchSidebar.noResults')}</div>
-        )}
-        {results && results.results.map((r, i) => (
-          <button
-            key={i}
-            onClick={() => onGoToPage(r.page_number, query)}
-            style={{
-              display: 'block', width: '100%', textAlign: 'left', background: 'none',
-              border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px',
-              marginBottom: 6, cursor: 'pointer', color: 'var(--text)',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          <div
+            style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}
           >
-            <div style={{ fontSize: 13, color: 'var(--gold-dim)', marginBottom: 4 }}>p. {r.page_number}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-              <SnippetText snippet={r.snippet} />
-            </div>
-          </button>
-        ))}
+            {t('searchSidebar.noResults')}
+          </div>
+        )}
+        {results &&
+          results.results.map((r, i) => (
+            <button
+              key={i}
+              onClick={() => onGoToPage(r.page_number, query)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                background: 'none',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '8px 10px',
+                marginBottom: 6,
+                cursor: 'pointer',
+                color: 'var(--text)',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            >
+              <div style={{ fontSize: 13, color: 'var(--gold-dim)', marginBottom: 4 }}>
+                p. {r.page_number}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                <SnippetText snippet={r.snippet} />
+              </div>
+            </button>
+          ))}
         {!results && query.length < 2 && (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+          <div
+            style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}
+          >
             {t('searchSidebar.typeToSearch')}
           </div>
         )}

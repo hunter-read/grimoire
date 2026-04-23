@@ -12,7 +12,9 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
 
   useEffect(() => {
     closeRef.current?.focus()
-    const onKey = e => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -23,11 +25,19 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
   const releaseUrl = `${GITHUB_REPO_URL}/releases/tag/v${currentVersion}`
 
   const rowStyle = {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-    gap: 12, marginBottom: 10,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 12,
+    marginBottom: 10,
   }
   const labelStyle = { fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }
-  const valueStyle = { fontSize: 13, color: 'var(--text)', fontFamily: 'monospace', textAlign: 'right' }
+  const valueStyle = {
+    fontSize: 13,
+    color: 'var(--text)',
+    fontFamily: 'monospace',
+    textAlign: 'right',
+  }
   const dotStyle = { flex: 1, borderBottom: '1px dotted var(--border)', minWidth: 16 }
 
   return createPortal(
@@ -36,26 +46,52 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
       aria-modal="true"
       aria-labelledby="about-modal-title"
       style={{
-        position: 'fixed', inset: 0, zIndex: 1200,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1200,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background: 'rgba(0,0,0,0.55)',
       }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
-      <div style={{
-        background: 'var(--bg-panel)', border: '1px solid var(--border)',
-        borderRadius: 10, padding: 24, width: 380, maxWidth: '92vw',
-        boxSizing: 'border-box',
-      }}>
+      <div
+        style={{
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: 24,
+          width: 380,
+          maxWidth: '92vw',
+          boxSizing: 'border-box',
+        }}
+      >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 4,
+          }}
+        >
           <span id="about-modal-title" style={{ fontSize: 15, fontWeight: 600 }}>
             {t('about.title')}
           </span>
           <button
             ref={closeRef}
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 2 }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              padding: 2,
+            }}
             aria-label={t('common.close')}
           >
             <LuX size={16} />
@@ -67,10 +103,15 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
         </p>
 
         {/* Info table */}
-        <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 8, padding: '14px 16px', marginBottom: 16,
-        }}>
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '14px 16px',
+            marginBottom: 16,
+          }}
+        >
           <div style={rowStyle}>
             <span style={labelStyle}>{t('about.version')}</span>
             <span style={dotStyle} />
@@ -95,11 +136,17 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
           </div>
 
           {hasUpdate && (
-            <div style={{
-              ...rowStyle, marginBottom: 0,
-              paddingTop: 10, borderTop: '1px solid var(--border)',
-            }}>
-              <span style={{ ...labelStyle, color: 'var(--gold)' }}>{t('about.updateAvailable')}</span>
+            <div
+              style={{
+                ...rowStyle,
+                marginBottom: 0,
+                paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ ...labelStyle, color: 'var(--gold)' }}>
+                {t('about.updateAvailable')}
+              </span>
               <span style={dotStyle} />
               <a
                 href={`${GITHUB_REPO_URL}/releases/tag/v${latestVersion}`}
@@ -120,10 +167,20 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
             target="_blank"
             rel="noreferrer"
             style={{
-              flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500,
-              background: 'var(--gold-dim)', border: 'none', color: 'var(--bg-deep)',
-              textDecoration: 'none', cursor: 'pointer',
+              flex: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '7px 14px',
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              background: 'var(--gold-dim)',
+              border: 'none',
+              color: 'var(--bg-deep)',
+              textDecoration: 'none',
+              cursor: 'pointer',
             }}
           >
             <LuExternalLink size={13} /> {t('about.viewRelease')}
@@ -135,10 +192,17 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
             title={t('about.github')}
             aria-label={t('about.github')}
             style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              padding: '7px 10px', borderRadius: 6, fontSize: 13,
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              color: 'var(--text-dim)', textDecoration: 'none', cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '7px 10px',
+              borderRadius: 6,
+              fontSize: 13,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+              textDecoration: 'none',
+              cursor: 'pointer',
             }}
           >
             <SiGithub size={16} />

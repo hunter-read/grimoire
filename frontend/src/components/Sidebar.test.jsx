@@ -42,13 +42,7 @@ function mockFetch(tagName = null, ok = true) {
 function renderSidebar(props = {}) {
   return render(
     <MemoryRouter>
-      <Sidebar
-        user={baseUser}
-        onLogout={vi.fn()}
-        stats={baseStats}
-        uiSettings={{}}
-        {...props}
-      />
+      <Sidebar user={baseUser} onLogout={vi.fn()} stats={baseStats} uiSettings={{}} {...props} />
     </MemoryRouter>
   )
 }
@@ -161,7 +155,9 @@ describe('Sidebar stats footer', () => {
   })
 
   it('hides systems stat when show_stat_systems is false', () => {
-    renderSidebar({ uiSettings: { show_stat_systems: false, show_stat_pages: false, show_stat_size: false } })
+    renderSidebar({
+      uiSettings: { show_stat_systems: false, show_stat_pages: false, show_stat_size: false },
+    })
     expect(screen.queryByText('Systems')).toBeNull()
   })
 
@@ -172,7 +168,9 @@ describe('Sidebar stats footer', () => {
 
   it('version does not appear in the stats footer section', () => {
     // Version is now always in its own row below, not a toggled stat
-    renderSidebar({ uiSettings: { show_stat_systems: false, show_stat_pages: false, show_stat_size: false } })
+    renderSidebar({
+      uiSettings: { show_stat_systems: false, show_stat_pages: false, show_stat_size: false },
+    })
     // Version button should still exist (it's always rendered when stats is set)
     expect(screen.getByRole('button', { name: /about grimoire/i })).toBeInTheDocument()
   })
@@ -214,7 +212,9 @@ describe('Sidebar update banner', () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('network error'))
     renderSidebar()
     // Give time for fetch to settle
-    await act(async () => { await new Promise(r => setTimeout(r, 50)) })
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50))
+    })
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 

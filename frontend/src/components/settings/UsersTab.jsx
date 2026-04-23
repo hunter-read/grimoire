@@ -14,12 +14,14 @@ export default function UsersTab() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => { api.get('/users').then(setUsers) }, [])
+  useEffect(() => {
+    api.get('/users').then(setUsers)
+  }, [])
 
   const handleRoleChange = async (userId, newRole) => {
     try {
       const updated = await api.patch(`/users/${userId}`, { role: newRole })
-      setUsers(users.map(u => u.id === updated.id ? { ...u, role: updated.role } : u))
+      setUsers(users.map((u) => (u.id === updated.id ? { ...u, role: updated.role } : u)))
     } catch (err) {
       setError(err.message || t('users.failedUpdateRole'))
     }
@@ -28,7 +30,11 @@ export default function UsersTab() {
   const handleExplicitChange = async (userId, allowed) => {
     try {
       const updated = await api.patch(`/users/${userId}`, { allow_explicit: allowed })
-      setUsers(users.map(u => u.id === updated.id ? { ...u, allow_explicit: updated.allow_explicit } : u))
+      setUsers(
+        users.map((u) =>
+          u.id === updated.id ? { ...u, allow_explicit: updated.allow_explicit } : u
+        )
+      )
     } catch (err) {
       setError(err.message || t('users.failedUpdateExplicit'))
     }
@@ -46,7 +52,7 @@ export default function UsersTab() {
   const handleDelete = async (userId) => {
     try {
       await api.delete(`/users/${userId}`)
-      setUsers(users.filter(u => u.id !== userId))
+      setUsers(users.filter((u) => u.id !== userId))
     } catch (err) {
       setError(err.message || t('users.failedDeleteUser'))
     }
@@ -57,11 +63,23 @@ export default function UsersTab() {
     setShowAddForm(false)
   }
 
-  if (!users) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={24} /></div>
+  if (!users)
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <Spinner size={24} />
+      </div>
+    )
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+        }}
+      >
         <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>
           {t('users.userCount', { count: users.length })}
         </p>
@@ -69,25 +87,60 @@ export default function UsersTab() {
           onClick={() => setShowAddForm(!showAddForm)}
           style={{ ...primaryBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          {showAddForm ? <><LuX size={13} /> {t('users.cancelAdd')}</> : <><LuPlus size={13} /> {t('users.addUser')}</>}
+          {showAddForm ? (
+            <>
+              <LuX size={13} /> {t('users.cancelAdd')}
+            </>
+          ) : (
+            <>
+              <LuPlus size={13} /> {t('users.addUser')}
+            </>
+          )}
         </button>
       </div>
 
-      {showAddForm && (
-        <AddUserForm onAdd={handleAdd} onCancel={() => setShowAddForm(false)} />
-      )}
+      {showAddForm && <AddUserForm onAdd={handleAdd} onCancel={() => setShowAddForm(false)} />}
 
       {error && (
-        <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(196, 80, 64, 0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div
+          style={{
+            color: 'var(--red)',
+            fontSize: 13,
+            marginBottom: 12,
+            padding: '8px 12px',
+            background: 'rgba(196, 80, 64, 0.1)',
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           {error}
-          <button onClick={() => setError('')} aria-label="Dismiss error" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', display: 'flex' }}>
+          <button
+            onClick={() => setError('')}
+            aria-label="Dismiss error"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--red)',
+              display: 'flex',
+            }}
+          >
             <LuX size={13} />
           </button>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: showAddForm ? 16 : 0 }}>
-        {users.map(u => (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          marginTop: showAddForm ? 16 : 0,
+        }}
+      >
+        {users.map((u) => (
           <UserRow
             key={u.id}
             user={u}
@@ -104,7 +157,12 @@ export default function UsersTab() {
 }
 
 const primaryBtnStyle = {
-  padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 500,
-  background: 'var(--gold-dim)', color: 'var(--bg-deep)',
-  border: '1px solid var(--gold-dim)', cursor: 'pointer',
+  padding: '8px 16px',
+  borderRadius: 6,
+  fontSize: 13,
+  fontWeight: 500,
+  background: 'var(--gold-dim)',
+  color: 'var(--bg-deep)',
+  border: '1px solid var(--gold-dim)',
+  cursor: 'pointer',
 }

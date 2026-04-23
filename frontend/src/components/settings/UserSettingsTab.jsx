@@ -1,4 +1,10 @@
-import { DisplayNameSection, ExplicitContentSection, ChangePasswordSection, DeleteAccountSection, OPDSSection } from './UserAccountSections'
+import {
+  DisplayNameSection,
+  ExplicitContentSection,
+  ChangePasswordSection,
+  DeleteAccountSection,
+  OPDSSection,
+} from './UserAccountSections'
 import { ReaderSection, LibrarySection, LanguageSection } from './UserPreferenceSections'
 
 function SectionDivider() {

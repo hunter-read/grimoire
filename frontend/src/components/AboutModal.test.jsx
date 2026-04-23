@@ -71,7 +71,10 @@ describe('AboutModal — rendering', () => {
   it('View Release link points to the correct release URL', () => {
     renderModal()
     const link = screen.getByRole('link', { name: /view release/i })
-    expect(link).toHaveAttribute('href', 'https://github.com/hunter-read/grimoire/releases/tag/v1.2.0')
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/hunter-read/grimoire/releases/tag/v1.2.0'
+    )
   })
 
   it('renders a GitHub repository link', () => {
@@ -120,7 +123,10 @@ describe('AboutModal — update available', () => {
   it('update row links to the latest release', () => {
     renderModal({ hasUpdate: true, latestVersion: '2.0.0' })
     const link = screen.getByRole('link', { name: 'v2.0.0' })
-    expect(link).toHaveAttribute('href', 'https://github.com/hunter-read/grimoire/releases/tag/v2.0.0')
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/hunter-read/grimoire/releases/tag/v2.0.0'
+    )
   })
 })
 
