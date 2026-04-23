@@ -181,6 +181,20 @@ def test_load_tags_json_strips_empty_strings_from_tags():
     assert result["."] == ["dungeon"]
 
 
+def test_load_tags_json_lowercases_tags():
+    tmp = tempfile.mkdtemp()
+    _write_json(Path(tmp) / "tags.json", {".": ["Draw Steel", "FANTASY", "dungeon"]})
+    result = _load_tags_json(tmp)
+    assert result["."] == ["draw steel", "fantasy", "dungeon"]
+
+
+def test_load_tags_json_deduplicates_after_lowercasing():
+    tmp = tempfile.mkdtemp()
+    _write_json(Path(tmp) / "tags.json", {".": ["Draw Steel", "draw steel", "DRAW STEEL"]})
+    result = _load_tags_json(tmp)
+    assert result["."] == ["draw steel"]
+
+
 # ---------------------------------------------------------------------------
 # _apply_tags_from_library — maps
 # ---------------------------------------------------------------------------

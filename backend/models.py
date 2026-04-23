@@ -1,5 +1,6 @@
 """Database models for Grimoire."""
 
+import json
 import uuid
 import datetime
 from sqlalchemy import (
@@ -369,6 +370,41 @@ class Favorite(Base):
     __table_args__ = (UniqueConstraint("user_id", "item_type", "item_id"),)
 
 
+def _normalize_tags_in_db(conn) -> None:
+    """Lower-case and deduplicate tags in all tag-bearing tables."""
+    tables = [
+        "game_systems",
+        "books",
+        "book_folders",
+        "generic_maps",
+        "map_folders",
+        "tokens",
+        "token_folders",
+    ]
+    for table in tables:
+        rows = conn.execute(text(f"SELECT rowid, tags FROM {table} WHERE tags IS NOT NULL")).fetchall()
+        for rowid, raw in rows:
+            try:
+                tags = json.loads(raw) if isinstance(raw, str) else raw
+                if not isinstance(tags, list):
+                    continue
+                seen: set[str] = set()
+                normalized = []
+                for t in tags:
+                    lowered = str(t).strip().lower()
+                    if lowered and lowered not in seen:
+                        seen.add(lowered)
+                        normalized.append(lowered)
+                if normalized != tags:
+                    conn.execute(
+                        text(f"UPDATE {table} SET tags = :tags WHERE rowid = :rowid"),
+                        {"tags": json.dumps(normalized), "rowid": rowid},
+                    )
+            except Exception:
+                pass
+    conn.commit()
+
+
 def init_db(db_path: str):
     """Initialize database and return engine + session factory."""
     engine = create_engine(
@@ -414,6 +450,9 @@ def init_db(db_path: str):
             conn.commit()
         except Exception:
             pass  # Column already exists
+
+        # Normalize all stored tags to lowercase, deduplicating within each row.
+        _normalize_tags_in_db(conn)
 
         conn.execute(
             text(

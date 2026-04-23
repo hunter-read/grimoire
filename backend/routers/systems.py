@@ -3,11 +3,22 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from ..config import SessionLocal
 from ..models import GameSystem, Book, BookFolder, User
 from ..auth import require_gm_or_admin, get_current_user, CurrentUser
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for t in tags:
+        lowered = t.strip().lower()
+        if lowered and lowered not in seen:
+            seen.add(lowered)
+            result.append(lowered)
+    return result
 
 
 class PublisherEntry(BaseModel):
@@ -19,6 +30,11 @@ class BookFolderUpdate(BaseModel):
     path: str
     tags: list[str]
 
+    @field_validator("tags", mode="before")
+    @classmethod
+    def lowercase_tags(cls, v):
+        return _normalize_tags(v)
+
 
 class GameSystemUpdate(BaseModel):
     name: Optional[str] = None
@@ -29,6 +45,11 @@ class GameSystemUpdate(BaseModel):
     genre: Optional[str] = None
     cover_book_id: Optional[str] = None
     is_explicit: Optional[bool] = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def lowercase_tags(cls, v):
+        return _normalize_tags(v) if v is not None else v
 
 
 router = APIRouter(prefix="/systems", tags=["systems"])

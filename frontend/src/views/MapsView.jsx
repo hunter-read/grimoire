@@ -170,7 +170,9 @@ export default function MapsView() {
 
   const allTags = [
     ...new Set(
-      maps.maps.flatMap((m) => [...(m.tags || []), ...(folderTags[getFolderPath(m)] || [])])
+      maps.maps.flatMap((m) =>
+        [...(m.tags || []), ...(folderTags[getFolderPath(m)] || [])].map((t) => t.toLowerCase())
+      )
     ),
   ].sort()
 
@@ -193,8 +195,10 @@ export default function MapsView() {
     const tagMatch =
       selectedTags.size === 0 ||
       (() => {
-        const mapTagSet = new Set(m.tags || [])
-        const folderTagSet = new Set(folderTags[getFolderPath(m)] || [])
+        const mapTagSet = new Set((m.tags || []).map((t) => t.toLowerCase()))
+        const folderTagSet = new Set(
+          (folderTags[getFolderPath(m)] || []).map((t) => t.toLowerCase())
+        )
         return [...selectedTags].some((tag) => mapTagSet.has(tag) || folderTagSet.has(tag))
       })()
     return textMatch && tagMatch

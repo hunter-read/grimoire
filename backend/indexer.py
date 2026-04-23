@@ -695,7 +695,14 @@ def _load_tags_json(folder_path: str) -> dict:
         result = {}
         for key, val in raw.items():
             if isinstance(val, list):
-                result[key] = [str(t).strip() for t in val if str(t).strip()]
+                seen: set[str] = set()
+                normalized = []
+                for t in val:
+                    lowered = str(t).strip().lower()
+                    if lowered and lowered not in seen:
+                        seen.add(lowered)
+                        normalized.append(lowered)
+                result[key] = normalized
         return result
     except Exception as exc:
         logger.warning(f"tags.json at {folder_path} could not be parsed: {exc}")

@@ -79,6 +79,28 @@ class TestUpdateMap:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
+    def test_tags_are_lowercased_on_map_update(self, client, gm_headers):
+        m = make_map()
+        resp = client.patch(
+            f"/api/maps/{m.id}",
+            json={"tags": ["Draw Steel", "DUNGEON", "city"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        detail = client.get(f"/api/maps/{m.id}", headers=gm_headers).json()
+        assert detail["tags"] == ["draw steel", "dungeon", "city"]
+
+    def test_duplicate_tags_deduplicated_on_map_update(self, client, gm_headers):
+        m = make_map()
+        resp = client.patch(
+            f"/api/maps/{m.id}",
+            json={"tags": ["draw steel", "Draw Steel", "DRAW STEEL"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        detail = client.get(f"/api/maps/{m.id}", headers=gm_headers).json()
+        assert detail["tags"] == ["draw steel"]
+
     def test_player_cannot_update_map(self, client, player_headers, map_entry):
         resp = client.patch(
             f"/api/maps/{map_entry.id}",
@@ -125,6 +147,25 @@ class TestMapFolders:
             headers=gm_headers,
         )
         assert resp.status_code == 200
+
+    def test_folder_tags_are_lowercased(self, client, gm_headers):
+        resp = client.patch(
+            "/api/map-folders",
+            json={"path": "maps/case-test", "tags": ["Draw Steel", "DUNGEON"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["tags"] == ["draw steel", "dungeon"]
+
+    def test_folder_tags_deduplicated_after_lowercase(self, client, gm_headers):
+        resp = client.patch(
+            "/api/map-folders",
+            json={"path": "maps/dedup-test", "tags": ["draw steel", "Draw Steel"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["tags"] == ["draw steel"]
 
     def test_player_cannot_update_folder_tags(self, client, player_headers):
         resp = client.patch(

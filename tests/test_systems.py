@@ -171,6 +171,26 @@ class TestBookFolders:
         )
         assert resp.status_code == 200
 
+    def test_book_folder_tags_lowercased(self, client, admin_headers, folder_system):
+        path = f"{folder_system.id}/case-folder"
+        resp = client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": path, "tags": ["Draw Steel", "PATHFINDER"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["tags"] == ["draw steel", "pathfinder"]
+
+    def test_book_folder_tags_deduplicated(self, client, admin_headers, folder_system):
+        path = f"{folder_system.id}/dedup-folder"
+        resp = client.patch(
+            f"/api/systems/{folder_system.id}/book-folders",
+            json={"path": path, "tags": ["draw steel", "Draw Steel"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["tags"] == ["draw steel"]
+
     def test_book_folders_nonexistent_system_returns_404(self, client, admin_headers):
         resp = client.get("/api/systems/no-such-id/book-folders", headers=admin_headers)
         assert resp.status_code == 404
@@ -200,6 +220,26 @@ class TestUpdateSystem:
         )
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
+
+    def test_system_tags_lowercased_on_update(self, client, admin_headers, system):
+        resp = client.patch(
+            f"/api/systems/{system.id}",
+            json={"tags": ["Draw Steel", "FANTASY"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        detail = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
+        assert detail["tags"] == ["draw steel", "fantasy"]
+
+    def test_system_tags_deduplicated_after_lowercase(self, client, admin_headers, system):
+        resp = client.patch(
+            f"/api/systems/{system.id}",
+            json={"tags": ["draw steel", "Draw Steel"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        detail = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
+        assert detail["tags"] == ["draw steel"]
 
     def test_player_cannot_update(self, client, player_headers, system):
         resp = client.patch(
