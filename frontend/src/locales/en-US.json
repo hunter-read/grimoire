@@ -104,7 +104,9 @@
     "subtitle_other": "{{count}} game systems in your library",
     "recentlyOpened": "Recently Opened",
     "bookCount_one": "{{count}} book",
-    "bookCount_other": "{{count}} books"
+    "bookCount_other": "{{count}} books",
+    "agnosticTitle": "System-Agnostic",
+    "agnosticSubtitle": "Reference material, zines, and books not tied to a single game system."
   },
   "systemDetail": {
     "backToLibrary": "Back to Library",

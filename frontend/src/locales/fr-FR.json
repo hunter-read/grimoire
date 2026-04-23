@@ -104,7 +104,9 @@
     "subtitle_other": "{{count}} systèmes de jeu dans votre bibliothèque",
     "recentlyOpened": "Ouverts récemment",
     "bookCount_one": "{{count}} livre",
-    "bookCount_other": "{{count}} livres"
+    "bookCount_other": "{{count}} livres",
+    "agnosticTitle": "Indépendant du système",
+    "agnosticSubtitle": "Références, zines et livres non liés à un système de jeu particulier."
   },
   "systemDetail": {
     "backToLibrary": "Retour à la bibliothèque",

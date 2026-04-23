@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { LuLibrary } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
@@ -143,9 +144,15 @@ export default function LibraryView() {
   const cardSize = prefs.cardSize    || 'comfortable'
   const sort     = prefs.librarySort || 'az'
 
-  const visible = systems
-    .filter(s => s.book_count > 0)
-    .sort((a, b) => sort === 'za' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name))
+  const sortFn = (a, b) => sort === 'za' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
+
+  const normalSystems = systems
+    .filter(s => s.book_count > 0 && !s.is_system_agnostic)
+    .sort(sortFn)
+
+  const agnosticSystems = systems
+    .filter(s => s.book_count > 0 && s.is_system_agnostic)
+    .sort(sortFn)
 
   const compact = cardSize === 'compact'
   const minCard = compact ? '130px' : '220px'
@@ -205,18 +212,50 @@ export default function LibraryView() {
         </div>
       )}
 
-      <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
-        <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
-          {t('library.subtitle', { count: visible.length })}
-        </p>
-      </div>
+      {/* Game Systems */}
+      {normalSystems.length > 0 && (
+        <>
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
+              {t('library.subtitle', { count: normalSystems.length })}
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`, gap: compact ? 12 : 20, marginBottom: agnosticSystems.length > 0 ? 56 : 0 }}>
+            {normalSystems.map(system => (
+              <SystemCard key={system.id} system={system} onClick={() => navigate(`/library/system/${system.id}`)} compact={compact} />
+            ))}
+          </div>
+        </>
+      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`, gap: compact ? 12 : 20 }}>
-        {visible.map(system => (
-          <SystemCard key={system.id} system={system} onClick={() => navigate(`/library/system/${system.id}`)} compact={compact} />
-        ))}
-      </div>
+      {/* System-Agnostic Collections */}
+      {agnosticSystems.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <LuLibrary size={18} color="var(--gold-dim)" />
+            <h2 style={{ fontSize: 22, margin: 0 }}>{t('library.agnosticTitle')}</h2>
+          </div>
+          <p style={{ color: 'var(--text-dim)', fontSize: 15, fontFamily: 'Alegreya, serif', fontStyle: 'italic', marginBottom: 24 }}>
+            {t('library.agnosticSubtitle')}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`, gap: compact ? 12 : 20 }}>
+            {agnosticSystems.map(system => (
+              <SystemCard key={system.id} system={system} onClick={() => navigate(`/library/system/${system.id}`)} compact={compact} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Empty state when library has no systems at all */}
+      {normalSystems.length === 0 && agnosticSystems.length === 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
+          <p style={{ color: 'var(--text-dim)', fontSize: 17, fontFamily: 'Alegreya, serif', fontStyle: 'italic' }}>
+            {t('library.subtitle', { count: 0 })}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
-"""Tests for guess_category() in the library indexer."""
+"""Tests for guess_category(), agnostic_category(), and is_system_agnostic_folder() in the library indexer."""
 import pytest
-from backend.indexer import guess_category
+from backend.indexer import guess_category, agnostic_category, is_system_agnostic_folder
 
 
 class TestKnownCategories:
@@ -124,3 +124,67 @@ class TestSubfoldersWithinCategory:
         # books/System/adventures/AP Name/Part 1/chapter.pdf → adventure
         result = guess_category("books/PF2e/adventures/Abomination Vaults/Part 1/ruins.pdf")
         assert result == "adventure"
+
+
+class TestIsSystemAgnosticFolder:
+    """Tests for is_system_agnostic_folder()."""
+
+    def test_system_agnostic_exact(self):
+        assert is_system_agnostic_folder("System Agnostic") is True
+
+    def test_system_agnostic_lowercase(self):
+        assert is_system_agnostic_folder("system agnostic") is True
+
+    def test_system_agnostic_uppercase(self):
+        assert is_system_agnostic_folder("SYSTEM AGNOSTIC") is True
+
+    def test_generic_exact(self):
+        assert is_system_agnostic_folder("Generic") is True
+
+    def test_generic_lowercase(self):
+        assert is_system_agnostic_folder("generic") is True
+
+    def test_any_exact(self):
+        assert is_system_agnostic_folder("Any") is True
+
+    def test_any_lowercase(self):
+        assert is_system_agnostic_folder("any") is True
+
+    def test_normal_system_not_agnostic(self):
+        assert is_system_agnostic_folder("Dungeons and Dragons 5e") is False
+
+    def test_pathfinder_not_agnostic(self):
+        assert is_system_agnostic_folder("Pathfinder 2e") is False
+
+    def test_empty_string_not_agnostic(self):
+        assert is_system_agnostic_folder("") is False
+
+
+class TestAgnosticCategory:
+    """Tests for agnostic_category() — the category resolver for system-agnostic books."""
+
+    def test_subfolder_becomes_category(self):
+        result = agnostic_category("books/System Agnostic/Ironsworn/ironsworn.pdf")
+        assert result == "ironsworn"
+
+    def test_subfolder_is_slugified(self):
+        result = agnostic_category("books/Generic/OSR Zines/knock-1.pdf")
+        assert result == "osr-zines"
+
+    def test_subfolder_uppercase_slugified(self):
+        result = agnostic_category("books/Any/Art Books/mcdm.pdf")
+        assert result == "art-books"
+
+    def test_deep_nesting_uses_first_subfolder(self):
+        # Only the immediate subfolder under the agnostic root matters
+        result = agnostic_category("books/System Agnostic/Ironsworn/Expansion/delve.pdf")
+        assert result == "ironsworn"
+
+    def test_no_subfolder_returns_uncategorized(self):
+        # File sits directly in the agnostic root — no category folder
+        result = agnostic_category("books/System Agnostic/standalone.pdf")
+        assert result == "uncategorized"
+
+    def test_subfolder_with_special_chars_slugified(self):
+        result = agnostic_category("books/Generic/Sci-Fi & Horror/mothership.pdf")
+        assert result == "sci-fi-horror"

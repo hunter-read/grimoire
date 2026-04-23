@@ -85,6 +85,20 @@ CATEGORY_MAP = {
     "starter-set": ["starter set", "starter kit", "beginner box", "boxed set", "essentials"],
 }
 
+# Normalized folder names (after slugify) that are treated as the system-agnostic
+# collection. Books placed in any of these folders use their immediate subfolder
+# name as the category label instead of going through the normal CATEGORY_MAP.
+_SYSTEM_AGNOSTIC_SLUGS = frozenset({
+    "system-agnostic",
+    "generic",
+    "any",
+})
+
+
+def is_system_agnostic_folder(folder_name: str) -> bool:
+    """Return True if this top-level books folder should be treated as system-agnostic."""
+    return slugify(folder_name) in _SYSTEM_AGNOSTIC_SLUGS
+
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"}
 PDF_EXTS = {".pdf"}
 DOC_EXTS = {".pdf", ".epub", ".djvu"}
@@ -117,6 +131,21 @@ def guess_category(filepath: str) -> str:
     if len(segments) > 3:
         return slugify(segments[2])
     return "core"
+
+
+def agnostic_category(relative_path: str) -> str:
+    """Return the category for a book inside the system-agnostic folder.
+
+    Path structure: books/{SystemName}/{CategoryFolder}/.../{file}
+    The immediate subfolder under the system dir becomes the category slug.
+    Books sitting directly in the system dir fall back to 'uncategorized'.
+    """
+    # relative_path is relative to library root: books/<agnostic folder>/<cat>/.../<file>
+    parts = relative_path.replace("\\", "/").split("/")
+    # parts[0]=books, parts[1]=system dir, parts[2]=category dir or filename
+    if len(parts) > 3:
+        return slugify(parts[2])
+    return "uncategorized"
 
 
 _THUMBNAIL_TIMEOUT = 30  # seconds
@@ -263,8 +292,14 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 logger.error(f"DB hang: {e} — skipping system '{system_name}'")
                 stats["errors"] += 1
                 continue
+            is_agnostic = is_system_agnostic_folder(system_name)
             if not system:
-                system = GameSystem(name=system_name, slug=system_slug, is_explicit=is_nsfw)
+                system = GameSystem(
+                    name=system_name,
+                    slug=system_slug,
+                    is_explicit=is_nsfw,
+                    is_system_agnostic=is_agnostic,
+                )
                 session.add(system)
                 logger.debug(f"DB: flushing new system '{system_name}'")
                 try:
@@ -278,6 +313,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 logger.info(f"New game system: {system_name}" + (" [explicit]" if is_nsfw else ""))
             elif is_nsfw and not system.is_explicit:
                 system.is_explicit = True
+            if is_agnostic and not system.is_system_agnostic:
+                system.is_system_agnostic = True
 
             for root, dirs, files in os.walk(system_dir):
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
@@ -331,7 +368,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         logger.debug(f"Resuming incomplete scan for: {filename}")
                         book = existing
                     else:
-                        category = guess_category(relative_path)
+                        category = agnostic_category(relative_path) if is_agnostic else guess_category(relative_path)
                         title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
                         try:

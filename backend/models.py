@@ -44,6 +44,7 @@ class GameSystem(Base):
     tags = Column(JSON, default=list)
     genre = Column(String(100), default="")
     is_explicit = Column(Boolean, default=False)
+    is_system_agnostic = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
@@ -404,6 +405,12 @@ def init_db(db_path: str):
 
         try:
             conn.execute(text("ALTER TABLE books ADD COLUMN tags JSON DEFAULT '[]'"))
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            conn.execute(text("ALTER TABLE game_systems ADD COLUMN is_system_agnostic BOOLEAN DEFAULT 0"))
             conn.commit()
         except Exception:
             pass  # Column already exists

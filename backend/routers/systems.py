@@ -87,6 +87,7 @@ def list_systems(current_user: CurrentUser = Depends(get_current_user)):
                     "cover_image": s.cover_image,
                     "cover_book_id": cover_book_id,
                     "is_explicit": bool(s.is_explicit),
+                    "is_system_agnostic": bool(s.is_system_agnostic),
                 }
             )
         return result
@@ -138,6 +139,7 @@ def get_system(system_id: str, current_user: CurrentUser = Depends(get_current_u
             "cover_image": system.cover_image,
             "cover_book_id": cover_book_id,
             "is_explicit": bool(system.is_explicit),
+            "is_system_agnostic": bool(system.is_system_agnostic),
             "books": [
                 {
                     "id": b.id,

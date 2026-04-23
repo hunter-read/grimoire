@@ -266,6 +266,34 @@ books/
 
 Books without a subfolder are shown ungrouped at the top of their category section, above any subfolder groups. Subfolder groups are collapsible and include a download button for the whole group.
 
+#### System-agnostic collections
+
+Some books don't belong to a single game system — reference material, zines, art books, or rulesets like Ironsworn or Mothership that span multiple systems. Create a folder whose name is one of the recognized system-agnostic names and Grimoire will display its contents in a separate **System-Agnostic** section on the library page, outside the normal game-system grid.
+
+**Recognized folder names** (case-insensitive):
+
+| Folder name | Example |
+|---|---|
+| `System Agnostic` | `books/System Agnostic/` |
+| `Generic` | `books/Generic/` |
+| `Any` | `books/Any/` |
+
+Subfolders directly under the agnostic root become **custom category headings** — whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
+
+```
+books/
+└── System Agnostic/
+    ├── Ironsworn/
+    │   ├── Ironsworn.pdf
+    │   └── Ironsworn Delve.pdf
+    ├── OSR Zines/
+    │   └── Knock Issue 1.pdf
+    └── Art Books/
+        └── MCDM Strongholds and Followers.pdf
+```
+
+Books placed directly in the root (without a subfolder) appear under an **Uncategorized** heading.
+
 #### Marking a system as explicit
 
 Append `(nsfw)` to the folder name to mark all content in that system as explicit:
