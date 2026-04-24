@@ -285,3 +285,35 @@ class TestDeleteUser:
         user_id = deletable_user["id"]
         resp = client.delete(f"/api/users/{user_id}", headers=gm_headers)
         assert resp.status_code == 403
+
+    def test_delete_user_with_data(self, client, admin_headers):
+        """Deleting a user with bookmarks and favorites must not raise FK errors."""
+        from tests.conftest import make_game_system, make_book
+        from backend.config import SessionLocal
+        from backend.models import Bookmark, Favorite
+
+        username = unique_user()
+        create = client.post(
+            "/api/users",
+            json={"username": username, "password": "testpass123", "role": "player"},
+            headers=admin_headers,
+        )
+        assert create.status_code == 201
+        user_id = create.json()["id"]
+
+        db = SessionLocal()
+        try:
+            system = make_game_system()
+            db.add(system)
+            db.flush()
+            book = make_book(system.id)
+            db.add(book)
+            db.flush()
+            db.add(Bookmark(user_id=user_id, book_id=book.id, page_number=1))
+            db.add(Favorite(user_id=user_id, item_type="book", item_id=book.id))
+            db.commit()
+        finally:
+            db.close()
+
+        resp = client.delete(f"/api/users/{user_id}", headers=admin_headers)
+        assert resp.status_code == 204

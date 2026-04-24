@@ -1,9 +1,10 @@
 """Admin user management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 
 from ...config import SessionLocal
-from ...models import User
-from ...auth import require_admin, get_current_user, CurrentUser, hash_password
+from ...models import User, Campaign
+from ...auth import require_admin, CurrentUser, hash_password
 from ._schemas import UserCreate, UserUpdate
 
 router = APIRouter()
@@ -92,6 +93,14 @@ def delete_user(user_id: str, current_user: CurrentUser = Depends(require_admin)
             if admin_count <= 1:
                 raise HTTPException(400, "Cannot delete the last admin")
 
+        uid = user.id
+        for campaign in db.query(Campaign).filter_by(owner_id=uid).all():
+            db.delete(campaign)
+        db.execute(text("DELETE FROM campaign_members WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM player_session_notes WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM session_availability WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM bookmarks WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM favorites WHERE user_id = :uid"), {"uid": uid})
         db.delete(user)
         db.commit()
     finally:

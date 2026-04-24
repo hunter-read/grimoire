@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 
 from ...config import SessionLocal, OPDS_ENABLED, BASE_URL
-from ...models import User
+from ...models import User, Campaign
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
 from ._schemas import PasswordChange, PreferencesUpdate
 
@@ -57,8 +57,14 @@ def delete_own_account(current_user: CurrentUser = Depends(get_current_user)):
             raise HTTPException(404, "User not found")
         if user.role == "admin":
             raise HTTPException(400, "Admin accounts cannot be self-deleted")
-        db.execute(text("DELETE FROM bookmarks WHERE user_id = :uid"), {"uid": user.id})
-        db.execute(text("DELETE FROM favorites WHERE user_id = :uid"), {"uid": user.id})
+        uid = user.id
+        for campaign in db.query(Campaign).filter_by(owner_id=uid).all():
+            db.delete(campaign)
+        db.execute(text("DELETE FROM campaign_members WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM player_session_notes WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM session_availability WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM bookmarks WHERE user_id = :uid"), {"uid": uid})
+        db.execute(text("DELETE FROM favorites WHERE user_id = :uid"), {"uid": uid})
         db.delete(user)
         db.commit()
     finally:
