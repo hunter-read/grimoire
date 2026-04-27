@@ -456,6 +456,15 @@
         "sun": "Sun"
       }
     },
+    "tagExport": {
+      "title": "Export Tags",
+      "description": "Download all tags assigned to books, maps, tokens, systems, and folders as a JSON file.",
+      "button": "Export Tags",
+      "exporting": "Exporting…",
+      "library": "Library",
+      "maps": "Maps",
+      "tokens": "Tokens"
+    },
     "cleanup": {
       "title": "Database Cleanup",
       "description": "Scans the database for books, maps, and tokens whose files no longer exist on disk and removes their records. This cannot be undone — re-scanning the library will only re-add files that are present on disk.",

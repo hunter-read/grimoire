@@ -456,6 +456,15 @@
         "sun": "Dim"
       }
     },
+    "tagExport": {
+      "title": "Exporter les étiquettes",
+      "description": "Télécharger toutes les étiquettes attribuées aux livres, cartes, pions, systèmes et dossiers dans un fichier JSON.",
+      "button": "Exporter les étiquettes",
+      "exporting": "Exportation…",
+      "library": "Bibliothèque",
+      "maps": "Cartes",
+      "tokens": "Pions"
+    },
     "cleanup": {
       "title": "Nettoyage de la base de données",
       "description": "Analyse la base de données à la recherche de livres, cartes et pions dont les fichiers n'existent plus sur le disque et supprime leurs enregistrements. Cette action est irréversible — réanalyser la bibliothèque ne rajoutera que les fichiers présents sur le disque.",

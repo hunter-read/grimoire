@@ -26,6 +26,7 @@ from .routers import settings as settings_router
 from .routers import campaigns as campaigns_router
 from .routers import logs as logs_router
 from .routers import downloads as downloads_router
+from .routers import export as export_router
 from .routers.library import run_rescan_sync
 from .routers import opds as opds_router
 from . import scheduler
@@ -151,6 +152,7 @@ api.include_router(settings_router.router)
 api.include_router(campaigns_router.router)
 api.include_router(logs_router.router)
 api.include_router(downloads_router.router)
+api.include_router(export_router.router)
 app.include_router(api)
 
 
