@@ -708,8 +708,8 @@ export default function SystemDetailView() {
                     }
 
                     const sortedFolderKeys = Object.keys(folderMap).sort((a, b) => {
-                      if (a === '') return 1
-                      if (b === '') return -1
+                      if (a === '') return -1
+                      if (b === '') return 1
                       return a.localeCompare(b)
                     })
                     return (
