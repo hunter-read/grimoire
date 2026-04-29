@@ -318,6 +318,7 @@ function ScheduledRescanSection() {
   const [schedule, setSchedule] = useState('off')
   const [localTime, setLocalTime] = useState('02:00')
   const [weekday, setWeekday] = useState(0)
+  const [cleanupOnRescan, setCleanupOnRescan] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -348,6 +349,7 @@ function ScheduledRescanSection() {
           utcToLocalTime(data.rescan_schedule_hour ?? 2, data.rescan_schedule_minute ?? 0)
         )
         setWeekday(data.rescan_schedule_weekday ?? 0)
+        setCleanupOnRescan(data.cleanup_on_rescan ?? false)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -363,10 +365,12 @@ function ScheduledRescanSection() {
         rescan_schedule_hour: hour,
         rescan_schedule_minute: minute,
         rescan_schedule_weekday: weekday,
+        cleanup_on_rescan: cleanupOnRescan,
       })
       setSchedule(data.rescan_schedule_enabled ? data.rescan_schedule_interval : 'off')
       setLocalTime(utcToLocalTime(data.rescan_schedule_hour, data.rescan_schedule_minute))
       setWeekday(data.rescan_schedule_weekday)
+      setCleanupOnRescan(data.cleanup_on_rescan ?? false)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } finally {
@@ -473,6 +477,29 @@ function ScheduledRescanSection() {
                 {t('maintenance.scheduledRescan.localTime')}
               </span>
             </div>
+          )}
+
+          {/* Also run database cleanup toggle */}
+          {schedule !== 'off' && (
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                cursor: 'pointer',
+                fontSize: 14,
+                color: 'var(--text)',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={cleanupOnRescan}
+                onChange={(e) => setCleanupOnRescan(e.target.checked)}
+                style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--gold)' }}
+              />
+              {t('maintenance.scheduledRescan.alsoRunCleanup')}
+            </label>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

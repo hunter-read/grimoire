@@ -195,7 +195,6 @@
     "downloadAllInFolder": "Alle Karten in {{folder}} herunterladen",
     "downloadInSubfolder": "Karten in {{folder}} herunterladen",
     "editTags": "Bearbeiten",
-    "addTags": "Tags hinzufügen",
     "editTagsFull": "Tags bearbeiten",
     "download": "Herunterladen",
     "missing": "Fehlend",
@@ -244,7 +243,6 @@
     "downloadAllInFolder": "Alle Tokens in {{folder}} herunterladen",
     "downloadInSubfolder": "Tokens in {{folder}} herunterladen",
     "editTags": "Bearbeiten",
-    "addTags": "Tags hinzufügen",
     "editTagsFull": "Tags bearbeiten",
     "download": "Herunterladen",
     "missing": "Fehlend",
@@ -446,6 +444,7 @@
       "saveSchedule": "Zeitplan speichern",
       "saving": "Speichern…",
       "saved": "Gespeichert",
+      "alsoRunCleanup": null,
       "weekdays": {
         "mon": "Mo",
         "tue": "Di",
@@ -455,6 +454,15 @@
         "sat": "Sa",
         "sun": "So"
       }
+    },
+    "tagExport": {
+      "title": null,
+      "description": null,
+      "button": null,
+      "exporting": null,
+      "library": null,
+      "maps": null,
+      "tokens": null
     },
     "cleanup": {
       "title": "Datenbankbereinigung",

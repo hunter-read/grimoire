@@ -1,17 +1,17 @@
-name: Canary
+name: Beta
 
 on:
   workflow_run:
     workflows: ["CI"]
-    branches: [main]
+    branches: ["release/v*"]
     types: [completed]
 
 env:
   IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/grimoire
 
 jobs:
-  canary:
-    name: Build and push canary
+  beta:
+    name: Build and push beta
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
@@ -19,6 +19,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+
+      # Extract version from branch name: release/v1.9.2 → 1.9.2
+      - name: Parse version from branch
+        id: ver
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          VERSION="${BRANCH#release/v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
@@ -29,11 +37,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push canary
+      - name: Build and push beta
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE }}:canary
+          build-args: |
+            APP_VERSION=${{ steps.ver.outputs.version }}-beta
+            COMMIT_HASH=${{ github.event.workflow_run.head_sha }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.ver.outputs.version }}-beta
+            ${{ env.IMAGE }}:edge
           cache-from: type=gha
           cache-to: type=gha,mode=max

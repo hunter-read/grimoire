@@ -61,6 +61,15 @@ beforeEach(() => {
     rescan_schedule_hour: 2,
     rescan_schedule_minute: 0,
     rescan_schedule_weekday: 0,
+    cleanup_on_rescan: false,
+  })
+  settingsApi.patch.mockResolvedValue({
+    rescan_schedule_enabled: false,
+    rescan_schedule_interval: 'daily',
+    rescan_schedule_hour: 2,
+    rescan_schedule_minute: 0,
+    rescan_schedule_weekday: 0,
+    cleanup_on_rescan: false,
   })
 })
 
@@ -125,6 +134,109 @@ describe('MaintenanceTab — RescanSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /rescan library/i }))
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith('/rescan')
+    })
+  })
+})
+
+describe('MaintenanceTab — ScheduledRescanSection', () => {
+  it('does not show the cleanup checkbox when schedule is Off', async () => {
+    settingsApi.get.mockResolvedValue({
+      rescan_schedule_enabled: false,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: false,
+    })
+    render(<MaintenanceTab />)
+    await waitFor(() => expect(settingsApi.get).toHaveBeenCalled())
+    expect(screen.queryByLabelText(/also run database cleanup/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the cleanup checkbox when a schedule is active', async () => {
+    settingsApi.get.mockResolvedValue({
+      rescan_schedule_enabled: true,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: false,
+    })
+    render(<MaintenanceTab />)
+    await waitFor(() =>
+      expect(screen.getByText(/also run database cleanup/i)).toBeInTheDocument()
+    )
+  })
+
+  it('loads cleanup_on_rescan=true from settings as checked', async () => {
+    settingsApi.get.mockResolvedValue({
+      rescan_schedule_enabled: true,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: true,
+    })
+    render(<MaintenanceTab />)
+    await waitFor(() => {
+      const cb = screen.getByRole('checkbox', { name: /also run database cleanup/i })
+      expect(cb).toBeChecked()
+    })
+  })
+
+  it('includes cleanup_on_rescan=true in patch when checkbox is checked and saved', async () => {
+    settingsApi.get.mockResolvedValue({
+      rescan_schedule_enabled: true,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: false,
+    })
+    settingsApi.patch.mockResolvedValue({
+      rescan_schedule_enabled: true,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: true,
+    })
+    render(<MaintenanceTab />)
+    const cb = await screen.findByRole('checkbox', { name: /also run database cleanup/i })
+    fireEvent.click(cb)
+    fireEvent.click(screen.getByRole('button', { name: /save schedule/i }))
+    await waitFor(() => {
+      expect(settingsApi.patch).toHaveBeenCalledWith(
+        expect.objectContaining({ cleanup_on_rescan: true }),
+      )
+    })
+  })
+
+  it('includes cleanup_on_rescan=false in patch when checkbox is unchecked and saved', async () => {
+    settingsApi.get.mockResolvedValue({
+      rescan_schedule_enabled: true,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: true,
+    })
+    settingsApi.patch.mockResolvedValue({
+      rescan_schedule_enabled: true,
+      rescan_schedule_interval: 'daily',
+      rescan_schedule_hour: 2,
+      rescan_schedule_minute: 0,
+      rescan_schedule_weekday: 0,
+      cleanup_on_rescan: false,
+    })
+    render(<MaintenanceTab />)
+    const cb = await screen.findByRole('checkbox', { name: /also run database cleanup/i })
+    fireEvent.click(cb) // uncheck
+    fireEvent.click(screen.getByRole('button', { name: /save schedule/i }))
+    await waitFor(() => {
+      expect(settingsApi.patch).toHaveBeenCalledWith(
+        expect.objectContaining({ cleanup_on_rescan: false }),
+      )
     })
   })
 })

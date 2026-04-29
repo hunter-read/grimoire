@@ -11,6 +11,7 @@ _DEFAULTS = {
     "rescan_schedule_hour": "2",
     "rescan_schedule_minute": "0",
     "rescan_schedule_weekday": "0",  # 0=Mon … 6=Sun
+    "cleanup_on_rescan": "false",
     "stats_api_key": "",
     "hide_maps": "false",
     "hide_tokens": "false",
@@ -46,6 +47,7 @@ def _to_typed(raw: dict) -> dict:
         "rescan_schedule_hour": int(raw.get("rescan_schedule_hour", "2")),
         "rescan_schedule_minute": int(raw.get("rescan_schedule_minute", "0")),
         "rescan_schedule_weekday": int(raw.get("rescan_schedule_weekday", "0")),
+        "cleanup_on_rescan": raw.get("cleanup_on_rescan", "false") == "true",
         "stats_api_key": raw["stats_api_key"],
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",

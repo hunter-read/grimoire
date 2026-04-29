@@ -41,6 +41,8 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
             _set(db, "rescan_schedule_minute", str(max(0, min(59, data.rescan_schedule_minute))))
         if data.rescan_schedule_weekday is not None:
             _set(db, "rescan_schedule_weekday", str(max(0, min(6, data.rescan_schedule_weekday))))
+        if data.cleanup_on_rescan is not None:
+            _set(db, "cleanup_on_rescan", "true" if data.cleanup_on_rescan else "false")
         if data.stats_api_key is not None:
             _set(db, "stats_api_key", data.stats_api_key)
         if data.hide_maps is not None:

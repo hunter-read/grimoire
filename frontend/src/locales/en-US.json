@@ -195,7 +195,6 @@
     "downloadAllInFolder": "Download all maps in {{folder}}",
     "downloadInSubfolder": "Download maps in {{folder}}",
     "editTags": "Edit",
-    "addTags": "Add tags",
     "editTagsFull": "Edit tags",
     "download": "Download",
     "missing": "Missing",
@@ -244,7 +243,6 @@
     "downloadAllInFolder": "Download all tokens in {{folder}}",
     "downloadInSubfolder": "Download tokens in {{folder}}",
     "editTags": "Edit",
-    "addTags": "Add tags",
     "editTagsFull": "Edit tags",
     "download": "Download",
     "missing": "Missing",
@@ -446,6 +444,7 @@
       "saveSchedule": "Save Schedule",
       "saving": "Saving…",
       "saved": "Saved",
+      "alsoRunCleanup": "Also run Database Cleanup after each rescan",
       "weekdays": {
         "mon": "Mon",
         "tue": "Tue",

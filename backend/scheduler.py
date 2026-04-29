@@ -35,7 +35,14 @@ def _seconds_until_next(hour: int, minute: int, weekday: Optional[int]) -> float
     return max(1.0, (target - now).total_seconds())
 
 
-def _run(interval: str, hour: int, minute: int, weekday: Optional[int], rescan_fn) -> None:
+def _run(
+    interval: str,
+    hour: int,
+    minute: int,
+    weekday: Optional[int],
+    rescan_fn,
+    cleanup_fn=None,
+) -> None:
     while True:
         if interval == "hourly":
             secs = 3600.0
@@ -51,8 +58,15 @@ def _run(interval: str, hour: int, minute: int, weekday: Optional[int], rescan_f
         except Exception as e:
             logger.error(f"Scheduled rescan error: {e}")
 
+        if cleanup_fn is not None:
+            logger.info("Scheduled database cleanup starting…")
+            try:
+                cleanup_fn()
+            except Exception as e:
+                logger.error(f"Scheduled database cleanup error: {e}")
 
-def start(interval: str, hour: int, minute: int, weekday: int, rescan_fn) -> None:
+
+def start(interval: str, hour: int, minute: int, weekday: int, rescan_fn, cleanup_fn=None) -> None:
     """Start (or restart) the background rescan thread."""
     global _thread
     stop()
@@ -60,7 +74,7 @@ def start(interval: str, hour: int, minute: int, weekday: int, rescan_fn) -> Non
     _wd = weekday if interval == "weekly" else None
     _thread = threading.Thread(
         target=_run,
-        args=(interval, hour, minute, _wd, rescan_fn),
+        args=(interval, hour, minute, _wd, rescan_fn, cleanup_fn),
         daemon=True,
         name="grimoire-scheduler",
     )
@@ -93,6 +107,7 @@ def apply(db) -> None:
     """
     from .models import AppSetting
     from .routers.library import run_rescan_sync
+    from .routers.maintenance import run_cleanup_sync
 
     rows = {r.key: r.value for r in db.query(AppSetting).all()}
     enabled = rows.get("rescan_schedule_enabled", "false") == "true"
@@ -100,8 +115,10 @@ def apply(db) -> None:
     hour = int(rows.get("rescan_schedule_hour", "2"))
     minute = int(rows.get("rescan_schedule_minute", "0"))
     weekday = int(rows.get("rescan_schedule_weekday", "0"))
+    cleanup_on_rescan = rows.get("cleanup_on_rescan", "false") == "true"
 
     if enabled:
-        start(interval, hour, minute, weekday, run_rescan_sync)
+        cleanup_fn = run_cleanup_sync if cleanup_on_rescan else None
+        start(interval, hour, minute, weekday, run_rescan_sync, cleanup_fn)
     else:
         stop()

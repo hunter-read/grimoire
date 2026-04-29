@@ -195,7 +195,6 @@
     "downloadAllInFolder": "Télécharger toutes les cartes de {{folder}}",
     "downloadInSubfolder": "Télécharger les cartes de {{folder}}",
     "editTags": "Modifier",
-    "addTags": "Ajouter des étiquettes",
     "editTagsFull": "Modifier les étiquettes",
     "download": "Télécharger",
     "missing": "Manquant",
@@ -244,7 +243,6 @@
     "downloadAllInFolder": "Télécharger tous les pions de {{folder}}",
     "downloadInSubfolder": "Télécharger les pions de {{folder}}",
     "editTags": "Modifier",
-    "addTags": "Ajouter des étiquettes",
     "editTagsFull": "Modifier les étiquettes",
     "download": "Télécharger",
     "missing": "Manquant",
@@ -446,6 +444,7 @@
       "saveSchedule": "Enregistrer le planning",
       "saving": "Enregistrement…",
       "saved": "Enregistré",
+      "alsoRunCleanup": "Effectuer aussi un nettoyage de la base de données après chaque réanalyse",
       "weekdays": {
         "mon": "Lun",
         "tue": "Mar",

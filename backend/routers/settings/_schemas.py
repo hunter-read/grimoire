@@ -9,6 +9,7 @@ class SettingsPatch(BaseModel):
     rescan_schedule_hour: Optional[int] = None
     rescan_schedule_minute: Optional[int] = None
     rescan_schedule_weekday: Optional[int] = None
+    cleanup_on_rescan: Optional[bool] = None
     stats_api_key: Optional[str] = None  # set to "" to clear
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
