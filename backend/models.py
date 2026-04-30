@@ -166,10 +166,12 @@ class User(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     username = Column(String(100), unique=True, nullable=False)
     display_name = Column(String(100), nullable=True)
-    hashed_password = Column(String(255), nullable=False)
+    email = Column(String(254), nullable=True, unique=True, index=True)
+    hashed_password = Column(String(255), nullable=True)
     role = Column(String(20), default="player")
     allow_explicit = Column(Boolean, default=True)
     opds_token = Column(String(64), nullable=True, unique=True, index=True)
+    oidc_subject = Column(String(255), nullable=True, unique=True, index=True)
     created_at = Column(DateTime, default=_utcnow)
 
 
@@ -432,6 +434,10 @@ def init_db(db_path: str):
             "ALTER TABLE generic_maps ADD COLUMN is_missing BOOLEAN DEFAULT 0",
             "ALTER TABLE tokens ADD COLUMN is_missing BOOLEAN DEFAULT 0",
             "ALTER TABLE users ADD COLUMN opds_token VARCHAR(64)",
+            "ALTER TABLE users ADD COLUMN email VARCHAR(254)",
+            "ALTER TABLE users ADD COLUMN oidc_subject VARCHAR(255)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email) WHERE email IS NOT NULL",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_oidc_subject ON users(oidc_subject) WHERE oidc_subject IS NOT NULL",
         ]:
             try:
                 conn.execute(text(migration))

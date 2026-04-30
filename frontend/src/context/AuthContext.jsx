@@ -47,12 +47,16 @@ export function AuthProvider({ children }) {
 
   const login = useCallback((token, userData) => {
     localStorage.setItem('grimoire_token', token)
+    sessionStorage.removeItem('grimoire:suppress_oidc_autolaunch')
     setUser(userData)
     setStatus('authenticated')
   }, [])
 
   const logout = useCallback(() => {
     localStorage.removeItem('grimoire_token')
+    // One-shot: prevents the OIDC auto-launch from immediately redirecting
+    // the user back to the IdP after they explicitly logged out.
+    sessionStorage.setItem('grimoire:suppress_oidc_autolaunch', '1')
     setUser(null)
     setStatus('unauthenticated')
   }, [])

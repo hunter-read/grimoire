@@ -14,6 +14,7 @@ from .routers import maps as maps_router
 from .routers import tokens as tokens_router
 from .auth import get_current_user
 from .routers import auth as auth_router
+from .routers import oidc as oidc_router
 from .routers import users as users_router
 from .routers import systems as systems_router
 from .routers import books as books_router
@@ -132,12 +133,14 @@ if os.path.isdir(_assets_dir):
     app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
 app.include_router(auth_router.public_router)
+app.include_router(oidc_router.public_router)
 app.include_router(library_router.public_router)
 if OPDS_ENABLED:
     app.include_router(opds_router.router)
 
 api = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
 api.include_router(auth_router.router)
+api.include_router(oidc_router.router)
 api.include_router(users_router.router)
 api.include_router(systems_router.router)
 api.include_router(books_router.router)

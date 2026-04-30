@@ -5,7 +5,7 @@ import api from '../../api'
 
 export default function AddUserForm({ onAdd, onCancel }) {
   const { t } = useTranslation()
-  const [form, setForm] = useState({ username: '', password: '', role: 'player' })
+  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'player' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -18,7 +18,13 @@ export default function AddUserForm({ onAdd, onCancel }) {
     }
     setLoading(true)
     try {
-      const user = await api.post('/users', form)
+      const payload = {
+        username: form.username,
+        password: form.password,
+        role: form.role,
+        ...(form.email.trim() ? { email: form.email.trim() } : {}),
+      }
+      const user = await api.post('/users', payload)
       onAdd(user)
     } catch (err) {
       setError(err.message || t('users.failedCreateUser'))
@@ -39,59 +45,79 @@ export default function AddUserForm({ onAdd, onCancel }) {
         marginTop: 12,
       }}
     >
-      <div
-        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr auto',
+            gap: 12,
+            alignItems: 'end',
+          }}
+        >
+          <div>
+            <label htmlFor="add-user-username" style={labelStyle}>
+              {t('users.username')}
+            </label>
+            <input
+              id="add-user-username"
+              type="text"
+              required
+              autoFocus
+              autoComplete="off"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <label htmlFor="add-user-password" style={labelStyle}>
+              {t('users.password')}
+            </label>
+            <input
+              id="add-user-password"
+              type="password"
+              required
+              autoComplete="new-password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <label htmlFor="add-user-role" style={labelStyle}>
+              {t('users.role')}
+            </label>
+            <select
+              id="add-user-role"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                borderRadius: 6,
+                padding: '8px 10px',
+                fontSize: 15,
+              }}
+            >
+              <option value="player">{t('users.roles.player')}</option>
+              <option value="gm">{t('users.roles.gm')}</option>
+              <option value="admin">{t('users.roles.admin')}</option>
+            </select>
+          </div>
+        </div>
         <div>
-          <label htmlFor="add-user-username" style={labelStyle}>
-            {t('users.username')}
+          <label htmlFor="add-user-email" style={labelStyle}>
+            {t('users.emailOptional')}
           </label>
           <input
-            id="add-user-username"
-            type="text"
-            required
-            autoFocus
+            id="add-user-email"
+            type="email"
             autoComplete="off"
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
             style={{ width: '100%' }}
           />
-        </div>
-        <div>
-          <label htmlFor="add-user-password" style={labelStyle}>
-            {t('users.password')}
-          </label>
-          <input
-            id="add-user-password"
-            type="password"
-            required
-            autoComplete="new-password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            style={{ width: '100%' }}
-          />
-        </div>
-        <div>
-          <label htmlFor="add-user-role" style={labelStyle}>
-            {t('users.role')}
-          </label>
-          <select
-            id="add-user-role"
-            value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value })}
-            style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              borderRadius: 6,
-              padding: '8px 10px',
-              fontSize: 15,
-            }}
-          >
-            <option value="player">{t('users.roles.player')}</option>
-            <option value="gm">{t('users.roles.gm')}</option>
-            <option value="admin">{t('users.roles.admin')}</option>
-          </select>
         </div>
       </div>
 

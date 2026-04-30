@@ -49,6 +49,16 @@ export default function UsersTab() {
     }
   }
 
+  const handleEmailChange = async (userId, newEmail) => {
+    try {
+      const updated = await api.patch(`/users/${userId}`, { email: newEmail })
+      setUsers(users.map((u) => (u.id === updated.id ? { ...u, email: updated.email } : u)))
+    } catch (err) {
+      setError(err.message || t('users.failedSetEmail'))
+      throw err
+    }
+  }
+
   const handleDelete = async (userId) => {
     try {
       await api.delete(`/users/${userId}`)
@@ -148,6 +158,7 @@ export default function UsersTab() {
             onRoleChange={handleRoleChange}
             onExplicitChange={handleExplicitChange}
             onPasswordReset={handlePasswordReset}
+            onEmailChange={handleEmailChange}
             onDelete={handleDelete}
           />
         ))}

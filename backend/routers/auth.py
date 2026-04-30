@@ -12,6 +12,12 @@ from ..auth import (
     verify_password,
     create_token,
 )
+from .settings._helpers import (
+    _get_raw,
+    password_auth_effective,
+    oidc_effective,
+    oidc_is_configured,
+)
 
 
 class LoginRequest(BaseModel):
@@ -93,6 +99,8 @@ def auth_setup(data: SetupRequest):
 def auth_login(data: LoginRequest):
     db = SessionLocal()
     try:
+        if not password_auth_effective(_get_raw(db)):
+            raise HTTPException(403, "Password authentication is disabled")
         user = db.query(User).filter_by(username=data.username).first()
         if not user or not verify_password(data.password, user.hashed_password):
             raise HTTPException(401, "Invalid username or password")
@@ -100,6 +108,33 @@ def auth_login(data: LoginRequest):
         return {
             "token": token,
             "user": {"id": user.id, "username": user.username, "role": user.role},
+        }
+    finally:
+        db.close()
+
+
+@public_router.get(
+    "/config",
+    tags=["auth"],
+    summary="Public auth configuration",
+    description="Returns auth-related settings needed by the unauthenticated login screen: which auth methods are enabled and the optional custom login message.",
+)
+def auth_config():
+    db = SessionLocal()
+    try:
+        raw = _get_raw(db)
+        msg_enabled = raw.get("custom_login_message_enabled", "false") == "true"
+        eff = oidc_effective(raw)
+        oidc_ready = oidc_is_configured(raw)
+        return {
+            "password_auth_enabled": password_auth_effective(raw),
+            "custom_login_message_enabled": msg_enabled,
+            "custom_login_message": raw.get("custom_login_message", "") if msg_enabled else "",
+            # OIDC — only expose enough for the login screen to render the button.
+            # The button is shown only when the IdP is fully configured.
+            "oidc_enabled": eff["oidc_enabled"] and oidc_ready,
+            "oidc_button_text": eff["oidc_button_text"] if oidc_ready else "",
+            "oidc_auto_launch": eff["oidc_auto_launch"] and oidc_ready,
         }
     finally:
         db.close()
@@ -127,6 +162,8 @@ def auth_me(user: CurrentUser = Depends(get_current_user)):
         "id": u.id,
         "username": u.username,
         "display_name": u.display_name,
+        "email": u.email,
         "role": u.role,
         "allow_explicit": allow_explicit,
+        "oidc_linked": bool(u.oidc_subject),
     }

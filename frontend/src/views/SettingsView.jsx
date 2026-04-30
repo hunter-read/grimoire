@@ -5,6 +5,7 @@ import UsersTab from '../components/settings/UsersTab'
 import MaintenanceTab from '../components/settings/MaintenanceTab'
 import UserSettingsTab from '../components/settings/UserSettingsTab'
 import AppSettingsTab from '../components/settings/AppSettingsTab'
+import AuthenticationTab from '../components/settings/AuthenticationTab'
 import LogsTab from '../components/settings/LogsTab'
 
 export default function SettingsView({ user, onLogout }) {
@@ -15,6 +16,7 @@ export default function SettingsView({ user, onLogout }) {
   const ADMIN_TABS = [
     { key: 'account', label: t('settings.tabs.account') },
     { key: 'users', label: t('settings.tabs.users') },
+    { key: 'authentication', label: t('settings.tabs.authentication') },
     { key: 'application', label: t('settings.tabs.application') },
     { key: 'maintenance', label: t('settings.tabs.maintenance') },
     { key: 'logs', label: t('settings.tabs.logs') },
@@ -75,6 +77,7 @@ export default function SettingsView({ user, onLogout }) {
 
       {tab === 'account' && <UserSettingsTab user={user} onLogout={onLogout} />}
       {tab === 'users' && isAdmin && <UsersTab />}
+      {tab === 'authentication' && isAdmin && <AuthenticationTab />}
       {tab === 'application' && isAdmin && <AppSettingsTab />}
       {tab === 'maintenance' && isAdmin && <MaintenanceTab />}
       {tab === 'logs' && isAdmin && <LogsTab />}

@@ -20,3 +20,27 @@ class SettingsPatch(BaseModel):
     show_stat_maps: Optional[bool] = None
     show_stat_tokens: Optional[bool] = None
     show_stat_size: Optional[bool] = None
+    password_auth_enabled: Optional[bool] = None
+    custom_login_message_enabled: Optional[bool] = None
+    custom_login_message: Optional[str] = None  # HTML (sanitized on save)
+    # OIDC config
+    oidc_enabled: Optional[bool] = None
+    oidc_issuer_url: Optional[str] = None
+    oidc_authorization_endpoint: Optional[str] = None
+    oidc_token_endpoint: Optional[str] = None
+    oidc_userinfo_endpoint: Optional[str] = None
+    oidc_jwks_uri: Optional[str] = None
+    oidc_end_session_endpoint: Optional[str] = None
+    oidc_client_id: Optional[str] = None
+    # Empty string is a no-op (form re-submits don't clobber); None is a no-op too.
+    # Use a sentinel object {"clear": true} or send the literal string "__CLEAR__"
+    # to wipe the secret. We accept "__CLEAR__" since it round-trips through JSON
+    # without needing a separate field.
+    oidc_client_secret: Optional[str] = None
+    oidc_signing_alg: Optional[str] = None
+    oidc_button_text: Optional[str] = None
+    oidc_groups_claim: Optional[str] = None
+    oidc_permissions_claim: Optional[str] = None
+    oidc_match_by: Optional[str] = None
+    oidc_auto_launch: Optional[bool] = None
+    oidc_auto_register: Optional[bool] = None

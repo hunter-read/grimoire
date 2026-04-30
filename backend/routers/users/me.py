@@ -25,8 +25,19 @@ def update_own_preferences(
             user.allow_explicit = data.allow_explicit
         if data.display_name is not None:
             user.display_name = data.display_name.strip() or None
+        if data.email is not None:
+            new_email = data.email or None  # "" → clear
+            if new_email and new_email != user.email:
+                conflict = db.query(User).filter_by(email=new_email).first()
+                if conflict and conflict.id != user.id:
+                    raise HTTPException(400, "Email already in use")
+            user.email = new_email
         db.commit()
-        return {"allow_explicit": user.allow_explicit, "display_name": user.display_name}
+        return {
+            "allow_explicit": user.allow_explicit,
+            "display_name": user.display_name,
+            "email": user.email,
+        }
     finally:
         db.close()
 

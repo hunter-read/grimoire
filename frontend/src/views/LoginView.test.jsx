@@ -48,7 +48,8 @@ describe('LoginView', () => {
     fireEvent.click(screen.getByRole('button', { name: /enter/i }))
 
     await waitFor(() => expect(fetch).toHaveBeenCalled())
-    const body = JSON.parse(fetch.mock.calls[0][1].body)
+    const loginCall = fetch.mock.calls.find(([url]) => url === '/api/auth/login')
+    const body = JSON.parse(loginCall[1].body)
     expect(body.username).toBe('admin')
   })
 

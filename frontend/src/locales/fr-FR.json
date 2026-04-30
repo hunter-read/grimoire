@@ -39,6 +39,7 @@
   "common": {
     "save": "Enregistrer",
     "saving": "Enregistrement…",
+    "saved": "Enregistré",
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
@@ -83,7 +84,12 @@
     "enter": "Entrer",
     "entering": "Connexion…",
     "loginFailed": "Échec de la connexion.",
-    "serverUnreachable": "Impossible de joindre le serveur."
+    "serverUnreachable": "Impossible de joindre le serveur.",
+    "passwordAuthDisabled": "L'authentification par mot de passe est actuellement désactivée. Veuillez contacter votre administrateur.",
+    "or": "ou",
+    "oidcDefault": "Se connecter via SSO",
+    "oidcError": "Échec de la connexion unique : {{error}}",
+    "oidcLoginFailed": "La connexion unique a réussi, mais la session n'a pas pu être établie."
   },
   "setup": {
     "title": "Configuration initiale",
@@ -267,9 +273,73 @@
     "tabs": {
       "account": "Compte",
       "users": "Utilisateurs",
+      "authentication": "Authentification",
       "application": "Application",
       "maintenance": "Maintenance",
       "logs": "Journaux"
+    }
+  },
+  "authSettings": {
+    "customMessage": {
+      "title": "Message de connexion personnalisé",
+      "description": "Affiche un message personnalisé au-dessus du formulaire de connexion. Utile pour les mentions légales, les coordonnées du support ou un message de bienvenue.",
+      "enable": "Afficher un message personnalisé à la connexion",
+      "editorLabel": "Message de connexion personnalisé"
+    },
+    "passwordAuth": {
+      "title": "Authentification par mot de passe",
+      "description": "Permet aux utilisateurs de se connecter avec un nom d'utilisateur et un mot de passe. Sa désactivation empêche toute connexion par mot de passe.",
+      "enable": "Activer l'authentification par mot de passe",
+      "envLocked": "Verrouillé par la variable d'environnement ALLOW_PASSWORD_AUTHENTICATION (valeur actuelle : {{value}})."
+    },
+    "oidc": {
+      "title": "Authentification OpenID Connect",
+      "description": "Permet aux utilisateurs de se connecter via un fournisseur d'identité compatible OIDC (Keycloak, Authentik, Authelia, Auth0, Okta, etc.).",
+      "enable": "Activer OpenID Connect",
+      "enableHint": "Lorsque activé et entièrement configuré, la page de connexion affichera un bouton pour s'authentifier via votre fournisseur.",
+      "envLocked": "Défini par variable d'env",
+      "envLockedTitle": "Cette valeur est fixée par une variable d'environnement et ne peut pas être modifiée dans l'interface.",
+      "redirectUriLabel": "URL de redirection (à enregistrer chez votre fournisseur d'identité)",
+      "redirectUriHint": "Définissez BASE_URL sur votre URL publique pour que cette valeur reflète votre hôte réel. Le chemin est fixe.",
+      "copy": "Copier",
+      "issuerUrl": "URL de l'émetteur",
+      "issuerUrlHint": "L'URL de base de votre fournisseur d'identité. Utilisée pour la découverte (.well-known/openid-configuration).",
+      "autopopulate": "Auto-remplir",
+      "autopopulating": "Récupération…",
+      "autopopulateTitle": "Récupérer les URLs depuis le document de découverte de l'émetteur",
+      "discoverNeedsIssuer": "Saisissez d'abord l'URL de l'émetteur.",
+      "discoverFailed": "Impossible de récupérer le document de découverte.",
+      "authorizationEndpoint": "URL d'autorisation",
+      "tokenEndpoint": "URL de jeton",
+      "userinfoEndpoint": "URL Userinfo",
+      "jwksUri": "URL JWKS",
+      "endSessionEndpoint": "URL de déconnexion",
+      "endSessionHint": "Optionnel. Redirige les utilisateurs ici lors de la déconnexion, si votre fournisseur prend en charge la déconnexion initiée par le client.",
+      "clientId": "ID Client",
+      "clientSecret": "Secret Client",
+      "clientSecretPlaceholder": "Coller un nouveau secret pour le définir",
+      "clientSecretReplace": "Coller un nouveau secret pour le remplacer",
+      "showSecret": "Afficher",
+      "hideSecret": "Masquer",
+      "signingAlg": "Algorithme de signature",
+      "buttonText": "Texte du bouton",
+      "buttonTextHint": "Ce que le bouton SSO sur l'écran de connexion affichera.",
+      "groupsClaim": "Claim des groupes",
+      "groupsClaimHint": "Nom du claim OIDC qui contient la liste des groupes de l'utilisateur (généralement 'groups'). Lorsque défini, l'application attribue les rôles selon l'appartenance à des groupes nommés (insensible à la casse) 'admin', 'gm' ou 'player' — le niveau le plus élevé l'emporte. Si aucun groupe ne correspond, l'accès est refusé.",
+      "permissionsClaim": "Claim des permissions avancées",
+      "permissionsClaimHint": "Nom du claim OIDC contenant un objet de permissions pour les utilisateurs non-admin. Prend actuellement en charge {viewNSFW: bool}. Si le claim est entièrement absent, l'accès est refusé ; les clés manquantes sont traitées comme false.",
+      "matchBy": "Associer les utilisateurs existants par",
+      "matchByOptions": {
+        "none": "Ne pas associer",
+        "email": "Email",
+        "username": "Nom d'utilisateur"
+      },
+      "matchByHint": "Lors de la première connexion, lie un compte local existant au sujet OIDC via ce champ. Les connexions suivantes utilisent le sujet stable.",
+      "autoLaunch": "Lancement automatique",
+      "autoLaunchHint": "Redirige automatiquement vers le fournisseur d'identité lors de la visite de la page de connexion. Ajoutez ?autoLaunch=0 pour contourner.",
+      "autoRegister": "Inscription automatique",
+      "autoRegisterHint": "Crée automatiquement les comptes locaux lors de la première connexion OIDC. Sans cela, les utilisateurs doivent déjà exister localement.",
+      "saveFailed": "Impossible d'enregistrer."
     }
   },
   "userSettings": {
@@ -279,6 +349,13 @@
       "label": "Nom d'affichage",
       "save": "Enregistrer",
       "saving": "Enregistrement…"
+    },
+    "email": {
+      "title": "Email",
+      "description": "Optionnel. Utilisé par la connexion unique pour l'association de comptes. N'est pas affiché aux autres utilisateurs.",
+      "label": "Adresse email",
+      "placeholder": "vous@exemple.com",
+      "failed": "Échec de la mise à jour de l'email."
     },
     "contentPreferences": {
       "title": "Préférences de contenu",
@@ -403,7 +480,13 @@
     "failedUpdateRole": "Échec de la mise à jour du rôle.",
     "failedUpdateExplicit": "Échec de la mise à jour du paramètre explicite.",
     "failedSetPasswordErr": "Échec de la définition du mot de passe.",
-    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères."
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+    "emailOptional": "Email (optionnel)",
+    "emailPlaceholder": "utilisateur@exemple.com",
+    "noEmail": "aucun email",
+    "editEmail": "Modifier l'email",
+    "failedSetEmail": "Échec de la mise à jour de l'email.",
+    "oidcLinkedTitle": "Ce compte est lié à un fournisseur d'identité OpenID Connect."
   },
   "maintenance": {
     "rescan": {

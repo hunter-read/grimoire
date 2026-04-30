@@ -15,7 +15,7 @@ The live API is self-documented via OpenAPI. With the server running:
 
 ## Authentication
 
-All endpoints except `/api/auth/status`, `/api/auth/setup`, and `/api/auth/login` require a JWT.
+All endpoints except `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, and `/api/auth/config` require a JWT.
 
 **Header** (preferred for API clients):
 ```
@@ -46,19 +46,23 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/auth/status` | GET | — | Returns `{"initialized": bool}` — used by the frontend to decide whether to show first-run setup |
+| `/api/auth/config` | GET | — | Public auth configuration for the login screen: `{password_auth_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
 | `/api/auth/setup` | POST | — | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}`. Fails with 400 if any users exist. |
-| `/api/auth/login` | POST | — | Authenticate. Body: `{username, password}`. Returns `{token, user}`. |
-| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, role, allow_explicit}` |
+| `/api/auth/login` | POST | — | Authenticate. Body: `{username, password}`. Returns `{token, user}`. Returns 403 if password authentication is disabled. |
+| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, oidc_linked}` |
+| `/api/auth/openid/login` | GET | — | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
+| `/api/auth/openid/callback` | GET | — | OIDC callback. Validates the code, finds/creates the local user, and redirects to the frontend with `#oidc_token=<jwt>`. |
+| `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
 ### Users
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/users` | GET | admin | List all users |
-| `/api/users` | POST | admin | Create a user. Body: `{username, password, role?}` (role defaults to `player`) |
-| `/api/users/:id` | PATCH | admin | Update `role`, `password`, or `allow_explicit` |
+| `/api/users` | GET | admin | List all users (each entry includes `email` and `oidc_linked`) |
+| `/api/users` | POST | admin | Create a user. Body: `{username, password, role?, email?}` (role defaults to `player`; email is optional and unique case-insensitively) |
+| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, or `email` (use `""` to clear the email) |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin) |
-| `/api/users/me/preferences` | PATCH | any | Update own `display_name` or `allow_explicit` |
+| `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear) |
 | `/api/users/me/password` | PATCH | any | Change own password. Body: `{current_password, new_password}` |
 | `/api/users/me` | DELETE | any | Delete own account (admin accounts cannot self-delete) |
 
@@ -323,6 +327,27 @@ Availability statuses: `available`, `tentative`, `unavailable`
 | `show_stat_tokens` | bool | Show/hide token count in sidebar |
 | `show_stat_size` | bool | Show/hide library size in sidebar |
 | `show_stat_version` | bool | Show/hide version in sidebar |
+| `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. |
+| `custom_login_message_enabled` | bool | Show a custom message above the sign-in form |
+| `custom_login_message` | string | HTML for the login message. Sanitized server-side: only `<b>`, `<strong>`, `<i>`, `<em>`, `<s>`, `<strike>`, `<del>`, `<u>`, `<p>`, `<br>`, `<ul>`, `<ol>`, `<li>`, and `<a href>` (http/https/mailto/relative) are allowed; everything else is dropped. |
+| `oidc_enabled` | bool | Master toggle for OIDC sign-in. Has no effect until issuer / client id / client secret are also set. |
+| `oidc_issuer_url` | string | Base URL of the IdP (e.g. `https://idp.example.com/realms/main`). |
+| `oidc_authorization_endpoint` | string | Discovered or manual authorization endpoint URL. |
+| `oidc_token_endpoint` | string | Discovered or manual token endpoint URL. |
+| `oidc_userinfo_endpoint` | string | Discovered or manual userinfo endpoint URL. |
+| `oidc_jwks_uri` | string | Discovered or manual JWKS URL — required to validate the ID token signature. |
+| `oidc_end_session_endpoint` | string | Optional RP-initiated logout endpoint. |
+| `oidc_client_id` | string | Client ID issued by the IdP. |
+| `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value — instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
+| `oidc_signing_alg` | string | One of `RS256`/`RS384`/`RS512`/`ES256`/`ES384`/`ES512`/`PS256`/`PS384`/`PS512`/`HS256`. Default `RS256`. |
+| `oidc_button_text` | string | Label for the SSO button on the login page. |
+| `oidc_groups_claim` | string | Optional. Name of the claim containing group memberships. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`; users without a matching group are denied. |
+| `oidc_permissions_claim` | string | Optional. Name of the claim containing a permissions object (e.g. `{viewNSFW: bool}`). When set, the claim must be present in every login or access is denied. |
+| `oidc_match_by` | string | One of `none`, `email`, `username`. How to link an existing local account to an OIDC subject on first login. |
+| `oidc_auto_launch` | bool | When true, `/login` immediately redirects to the IdP. Suppress with `?autoLaunch=0`. |
+| `oidc_auto_register` | bool | Auto-create local accounts on first OIDC login. |
+
+GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`.
 
 ### Maintenance *(admin only)*
 

@@ -1,5 +1,6 @@
 import {
   DisplayNameSection,
+  EmailSection,
   ExplicitContentSection,
   ChangePasswordSection,
   DeleteAccountSection,
@@ -15,6 +16,8 @@ export default function UserSettingsTab({ user, onLogout }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
       <DisplayNameSection />
+      <SectionDivider />
+      <EmailSection />
       <SectionDivider />
       <LanguageSection />
       <SectionDivider />

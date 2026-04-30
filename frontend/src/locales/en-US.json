@@ -39,6 +39,7 @@
   "common": {
     "save": "Save",
     "saving": "Saving…",
+    "saved": "Saved",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -83,7 +84,12 @@
     "enter": "Enter",
     "entering": "Entering…",
     "loginFailed": "Login failed.",
-    "serverUnreachable": "Could not reach the server."
+    "serverUnreachable": "Could not reach the server.",
+    "passwordAuthDisabled": "Password authentication is currently disabled. Please contact your administrator.",
+    "or": "or",
+    "oidcDefault": "Sign in with SSO",
+    "oidcError": "Single sign-on failed: {{error}}",
+    "oidcLoginFailed": "Single sign-on succeeded but the session could not be established."
   },
   "setup": {
     "title": "First-Time Setup",
@@ -267,9 +273,73 @@
     "tabs": {
       "account": "Account",
       "users": "Users",
+      "authentication": "Authentication",
       "application": "Application",
       "maintenance": "Maintenance",
       "logs": "Logs"
+    }
+  },
+  "authSettings": {
+    "customMessage": {
+      "title": "Custom Login Message",
+      "description": "Show a custom message above the sign-in form. Useful for legal notices, support contact info, or welcome text.",
+      "enable": "Show custom message on login",
+      "editorLabel": "Custom login message"
+    },
+    "passwordAuth": {
+      "title": "Password Authentication",
+      "description": "Allow users to sign in with a username and password. Disabling this will prevent all password logins.",
+      "enable": "Enable password authentication",
+      "envLocked": "Locked by the ALLOW_PASSWORD_AUTHENTICATION environment variable (current value: {{value}})."
+    },
+    "oidc": {
+      "title": "OpenID Connect Authentication",
+      "description": "Allow users to sign in via an OIDC-compatible identity provider (Keycloak, Authentik, Authelia, Auth0, Okta, etc.).",
+      "enable": "Enable OpenID Connect",
+      "enableHint": "When enabled and fully configured, the login page will show a button to sign in via your IdP.",
+      "envLocked": "Set by env var",
+      "envLockedTitle": "This value is pinned by an environment variable and cannot be changed in the UI.",
+      "redirectUriLabel": "Redirect URI (register this with your identity provider)",
+      "redirectUriHint": "Set BASE_URL to your public URL so this value reflects your actual host. The path is fixed.",
+      "copy": "Copy",
+      "issuerUrl": "Issuer URL",
+      "issuerUrlHint": "The base URL of your IdP. Used for discovery (.well-known/openid-configuration).",
+      "autopopulate": "Autopopulate",
+      "autopopulating": "Fetching…",
+      "autopopulateTitle": "Fetch endpoint URLs from the issuer's discovery document",
+      "discoverNeedsIssuer": "Enter the issuer URL first.",
+      "discoverFailed": "Could not fetch the discovery document.",
+      "authorizationEndpoint": "Authorize URL",
+      "tokenEndpoint": "Token URL",
+      "userinfoEndpoint": "Userinfo URL",
+      "jwksUri": "JWKS URL",
+      "endSessionEndpoint": "Logout URL",
+      "endSessionHint": "Optional. Redirect users here when they log out, if your IdP supports RP-initiated logout.",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "clientSecretPlaceholder": "Paste a new secret to set",
+      "clientSecretReplace": "Paste a new secret to replace",
+      "showSecret": "Show",
+      "hideSecret": "Hide",
+      "signingAlg": "Signing Algorithm",
+      "buttonText": "Button Text",
+      "buttonTextHint": "What the SSO button on the login screen will say.",
+      "groupsClaim": "Groups Claim",
+      "groupsClaimHint": "Name of the OIDC claim that contains a list of the user's groups (commonly 'groups'). When set, the app assigns roles from membership in groups named (case-insensitively) 'admin', 'gm', or 'player' — highest level wins. If no group matches, access is denied.",
+      "permissionsClaim": "Advanced Permissions Claim",
+      "permissionsClaimHint": "Name of the OIDC claim containing a permissions object for non-admin users. Currently supports {viewNSFW: bool}. If the claim is missing entirely, access is denied; missing keys default to false.",
+      "matchBy": "Match Existing Users By",
+      "matchByOptions": {
+        "none": "Do not match",
+        "email": "Email",
+        "username": "Username"
+      },
+      "matchByHint": "On first login, link an existing local account to the OIDC subject by this field. Subsequent logins match by stable subject.",
+      "autoLaunch": "Auto-launch",
+      "autoLaunchHint": "Redirect to the IdP automatically when visiting the login page. Add ?autoLaunch=0 to bypass.",
+      "autoRegister": "Auto-register",
+      "autoRegisterHint": "Automatically create new local accounts on first OIDC login. Without this, users must already exist locally.",
+      "saveFailed": "Could not save."
     }
   },
   "userSettings": {
@@ -279,6 +349,13 @@
       "label": "Display name",
       "save": "Save",
       "saving": "Saving…"
+    },
+    "email": {
+      "title": "Email",
+      "description": "Optional. Used by single sign-on for account matching. Not shown to other users.",
+      "label": "Email address",
+      "placeholder": "you@example.com",
+      "failed": "Failed to update email."
     },
     "contentPreferences": {
       "title": "Content Preferences",
@@ -403,7 +480,13 @@
     "failedUpdateRole": "Failed to update role.",
     "failedUpdateExplicit": "Failed to update explicit setting.",
     "failedSetPasswordErr": "Failed to set password.",
-    "passwordTooShort": "Password must be at least 8 characters."
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "emailOptional": "Email (optional)",
+    "emailPlaceholder": "user@example.com",
+    "noEmail": "no email",
+    "editEmail": "Edit email",
+    "failedSetEmail": "Failed to update email.",
+    "oidcLinkedTitle": "This account is linked to an OpenID Connect identity provider."
   },
   "maintenance": {
     "rescan": {

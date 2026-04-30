@@ -370,6 +370,8 @@ Tags are applied (or updated) every time the library is rescanned. Tags set via 
 | `VALKEY_URL` | — | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
+| `ALLOW_PASSWORD_AUTHENTICATION` | — | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
+| `OIDC_*` env vars | — | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
 
 ### Volumes
 
@@ -493,6 +495,38 @@ GM campaigns support recurring session schedules:
 - **Custom** — explicit list of dates
 
 Session note stubs are auto-created the day before each scheduled session. Players can mark their availability for upcoming dates, and the GM can cancel individual dates.
+
+---
+
+## OpenID Connect
+
+Grimoire supports authentication via any OpenID Connect–compliant identity provider (Keycloak, Authentik, Authelia, Auth0, Okta, etc.). This lets you delegate sign-in to your existing IdP and optionally auto-create accounts for new users.
+
+### Configure
+
+Open **Settings → Authentication** as an admin:
+
+1. Set the **Issuer URL** (e.g. `https://idp.example.com/realms/main`) and click **Autopopulate** — the server fetches the IdP's `.well-known/openid-configuration` and fills in the endpoint URLs.
+2. Paste the **Client ID** and **Client Secret** issued by your IdP.
+3. Register the displayed **Redirect URI** with your IdP. The path is fixed — set `BASE_URL` so the host portion reflects your public origin:
+   ```
+   https://<your.server.com>/api/auth/openid/callback
+   ```
+4. Enable **OpenID Connect**.
+5. (Optional) Configure:
+   - **Groups Claim** — name of the OIDC claim that contains the user's groups. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`. Highest level wins; users without any matching group are denied access.
+   - **Advanced Permissions Claim** — name of the OIDC claim containing a permissions object for non-admin users. Currently supports `{viewNSFW: bool}`. Missing keys default to `false`. If the entire claim is missing, access is denied.
+   - **Match Existing Users By** — link an existing local account to the OIDC subject by email or username on first login. Subsequent logins always match by stable subject claim.
+   - **Auto-launch** — automatically redirect to the IdP when visiting `/login`. Append `?autoLaunch=0` to bypass.
+   - **Auto-register** — automatically create local accounts on first OIDC login.
+
+Any field can also be pinned via an environment variable (see the table above). Pinned fields are shown read-only in the admin UI.
+
+### Notes
+
+- First-run setup always uses username + password. The OIDC button only appears after the IdP is fully configured.
+- Logging out via the in-app menu suppresses the next auto-launch (so you don't bounce straight back to the IdP).
+- The login button text is configurable per deployment (e.g. "Sign in with Acme SSO").
 
 ---
 

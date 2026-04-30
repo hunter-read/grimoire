@@ -22,6 +22,46 @@ PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
+# Optional override for password authentication. When the env var is set,
+# it pins the value and the admin UI shows a read-only state. When unset,
+# the corresponding DB setting (password_auth_enabled) is used.
+_ALLOW_PASSWORD_AUTH_RAW = os.environ.get("ALLOW_PASSWORD_AUTHENTICATION")
+ALLOW_PASSWORD_AUTHENTICATION_ENV: Optional[bool] = (
+    _ALLOW_PASSWORD_AUTH_RAW.lower() == "true"
+    if _ALLOW_PASSWORD_AUTH_RAW is not None
+    else None
+)
+
+
+def _bool_env(name: str) -> Optional[bool]:
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    return raw.strip().lower() == "true"
+
+
+# OIDC env-var pins. When set, each individual field is locked and the UI
+# renders it read-only. Each env var is independent — pinning the issuer URL
+# does not require pinning the client secret, etc.
+OIDC_ENV: dict = {
+    "oidc_enabled": _bool_env("OIDC_ENABLED"),
+    "oidc_issuer_url": os.environ.get("OIDC_ISSUER_URL"),
+    "oidc_authorization_endpoint": os.environ.get("OIDC_AUTHORIZATION_ENDPOINT"),
+    "oidc_token_endpoint": os.environ.get("OIDC_TOKEN_ENDPOINT"),
+    "oidc_userinfo_endpoint": os.environ.get("OIDC_USERINFO_ENDPOINT"),
+    "oidc_jwks_uri": os.environ.get("OIDC_JWKS_URI"),
+    "oidc_end_session_endpoint": os.environ.get("OIDC_END_SESSION_ENDPOINT"),
+    "oidc_client_id": os.environ.get("OIDC_CLIENT_ID"),
+    "oidc_client_secret": os.environ.get("OIDC_CLIENT_SECRET"),
+    "oidc_signing_alg": os.environ.get("OIDC_SIGNING_ALG"),
+    "oidc_button_text": os.environ.get("OIDC_BUTTON_TEXT"),
+    "oidc_groups_claim": os.environ.get("OIDC_GROUPS_CLAIM"),
+    "oidc_permissions_claim": os.environ.get("OIDC_PERMISSIONS_CLAIM"),
+    "oidc_match_by": os.environ.get("OIDC_MATCH_BY"),
+    "oidc_auto_launch": _bool_env("OIDC_AUTO_LAUNCH"),
+    "oidc_auto_register": _bool_env("OIDC_AUTO_REGISTER"),
+}
+
 # Console log level is controlled by the LOG_LEVEL env var (default: info).
 # In-memory ring buffer always captures DEBUG+ so the /api/logs endpoint can
 # serve debug logs regardless of the console level.

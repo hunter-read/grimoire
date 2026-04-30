@@ -19,8 +19,10 @@ def list_users(_: CurrentUser = Depends(require_admin)):
                 "id": u.id,
                 "username": u.username,
                 "display_name": u.display_name,
+                "email": u.email,
                 "role": u.role,
                 "allow_explicit": bool(u.allow_explicit) if u.allow_explicit is not None else True,
+                "oidc_linked": bool(u.oidc_subject),
                 "created_at": u.created_at.isoformat(),
             }
             for u in users
@@ -34,15 +36,23 @@ def create_user(data: UserCreate, _: CurrentUser = Depends(require_admin)):
     try:
         if db.query(User).filter_by(username=data.username.strip()).first():
             raise HTTPException(400, "Username already exists")
+        if data.email and db.query(User).filter_by(email=data.email).first():
+            raise HTTPException(400, "Email already in use")
         user = User(
             username=data.username.strip(),
             hashed_password=hash_password(data.password),
             role=data.role,
+            email=data.email,
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        return {"id": user.id, "username": user.username, "role": user.role}
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+        }
     finally:
         db.close()
 
@@ -65,11 +75,19 @@ def update_user(user_id: str, data: UserUpdate, _: CurrentUser = Depends(require
             user.hashed_password = hash_password(data.password)
         if data.allow_explicit is not None:
             user.allow_explicit = data.allow_explicit
+        if data.email is not None:
+            new_email = data.email or None  # "" → clear
+            if new_email and new_email != user.email:
+                conflict = db.query(User).filter_by(email=new_email).first()
+                if conflict and conflict.id != user.id:
+                    raise HTTPException(400, "Email already in use")
+            user.email = new_email
 
         db.commit()
         return {
             "id": user.id,
             "username": user.username,
+            "email": user.email,
             "role": user.role,
             "allow_explicit": bool(user.allow_explicit)
             if user.allow_explicit is not None

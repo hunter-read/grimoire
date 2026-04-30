@@ -39,6 +39,7 @@
   "common": {
     "save": "Speichern",
     "saving": "Speichern…",
+    "saved": null,
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
@@ -83,7 +84,8 @@
     "enter": "Anmelden",
     "entering": "Anmelden…",
     "loginFailed": "Anmeldung fehlgeschlagen.",
-    "serverUnreachable": "Server nicht erreichbar."
+    "serverUnreachable": "Server nicht erreichbar.",
+    "passwordAuthDisabled": null
   },
   "setup": {
     "title": "Ersteinrichtung",
@@ -267,9 +269,24 @@
     "tabs": {
       "account": "Konto",
       "users": "Benutzer",
+      "authentication": null,
       "application": "Anwendung",
       "maintenance": "Wartung",
       "logs": "Protokoll"
+    }
+  },
+  "authSettings": {
+    "customMessage": {
+      "title": null,
+      "description": null,
+      "enable": null,
+      "editorLabel": null
+    },
+    "passwordAuth": {
+      "title": null,
+      "description": null,
+      "enable": null,
+      "envLocked": null
     }
   },
   "userSettings": {
