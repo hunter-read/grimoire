@@ -3,7 +3,6 @@ name: Beta
 on:
   workflow_run:
     workflows: ["CI"]
-    branches: ["release/v*"]
     types: [completed]
 
 env:
@@ -13,7 +12,9 @@ jobs:
   beta:
     name: Build and push beta
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'release/v')
 
     steps:
       - uses: actions/checkout@v4

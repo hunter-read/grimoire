@@ -8,7 +8,7 @@ import pytest
 
 from tests.conftest import make_book, make_game_system, make_map, make_token
 from backend.config import SessionLocal
-from backend.models import AppSetting
+from backend.models import AppSetting, Bookmark
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +291,41 @@ class TestCleanupMissingBehavior:
         assert data["removed"]["books"] == 0
         assert data["removed"]["maps"] == 0
         assert data["removed"]["tokens"] == 0
+
+    def test_removes_bookmarks_with_missing_book(self, client, admin_headers, admin_id):
+        sys = make_game_system()
+        book = make_book(
+            system_id=sys.id,
+            filepath="/tmp/nonexistent-bm-book-" + uuid.uuid4().hex + ".pdf",
+        )
+        db = SessionLocal()
+        bm = Bookmark(user_id=admin_id, book_id=book.id, page_number=1, label="test")
+        db.add(bm)
+        db.commit()
+        bm_id = bm.id
+        db.close()
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(Bookmark).filter_by(id=bm_id).first() is None
+        db.close()
+
+    def test_returns_409_when_scan_running(self, client, admin_headers):
+        with patch(
+            "backend.routers.library._helpers._get_status",
+            return_value={"running": True},
+        ):
+            resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+        assert resp.status_code == 409
+
+    def test_proceeds_when_scan_not_running(self, client, admin_headers):
+        with patch(
+            "backend.routers.library._helpers._get_status",
+            return_value={"running": False},
+        ):
+            resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
