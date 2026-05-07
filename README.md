@@ -363,7 +363,6 @@ Tags are applied (or updated) every time the library is rescanned. Tags set via 
 |---|---|---|
 | `SECRET_KEY` | — | **Required.** JWT signing secret. Generate: `openssl rand -hex 32` |
 | `WORKERS` | `2` | Number of uvicorn worker processes |
-
 | `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
 | `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy — used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
