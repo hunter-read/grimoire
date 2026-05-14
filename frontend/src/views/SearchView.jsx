@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuMap, LuUser, LuBookOpen, LuChevronDown, LuChevronRight } from 'react-icons/lu'
@@ -12,6 +12,8 @@ export default function SearchView() {
   const [results, setResults] = useState(null)
   const [searching, setSearching] = useState(false)
   const [collapsed, setCollapsed] = useState({})
+  const [systemFilter, setSystemFilter] = useState('')
+  const [sortBy, setSortBy] = useState('relevance')
   const timerRef = useRef(null)
 
   const toggleSection = (key) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -26,6 +28,7 @@ export default function SearchView() {
       .get(`/search?q=${encodeURIComponent(q)}`)
       .then((r) => {
         setResults(r)
+        setSystemFilter('')
         setSearching(false)
       })
       .catch(() => setSearching(false))
@@ -37,6 +40,49 @@ export default function SearchView() {
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => doSearch(v), 350)
   }
+
+  // Collect distinct game systems from book results for the filter dropdown
+  const availableSystems = useMemo(() => {
+    if (!results?.results?.length) return []
+    const seen = new Map()
+    for (const r of results.results) {
+      if (r.game_system_id && !seen.has(r.game_system_id)) {
+        seen.set(r.game_system_id, r.game_system)
+      }
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [results])
+
+  // Filter + sort + group book results client-side
+  const groupedBooks = useMemo(() => {
+    if (!results?.results) return []
+
+    let books = systemFilter
+      ? results.results.filter((r) => r.game_system_id === systemFilter)
+      : results.results
+
+    // Group pages by book
+    const byBook = new Map()
+    for (const r of books) {
+      const key = r.id
+      if (!byBook.has(key)) {
+        byBook.set(key, { id: r.id, title: r.title, game_system: r.game_system, pages: [] })
+      }
+      byBook.get(key).pages.push({ page_number: r.page_number, snippet: r.snippet })
+    }
+
+    let groups = [...byBook.values()]
+
+    if (sortBy === 'title') {
+      groups.sort((a, b) => a.title.localeCompare(b.title))
+    }
+    // sortBy === 'relevance' keeps insertion order, which reflects FTS rank from backend
+
+    return groups
+  }, [results, systemFilter, sortBy])
+
+  const totalFiltered = groupedBooks.reduce((s, g) => s + g.pages.length, 0) +
+    (results?.maps?.length ?? 0) + (results?.tokens?.length ?? 0)
 
   return (
     <div
@@ -85,134 +131,145 @@ export default function SearchView() {
         </div>
       </div>
 
-      {results &&
-        (() => {
-          const books = results.results ?? []
-          const maps = results.maps ?? []
-          const tokens = results.tokens ?? []
-          const total = books.length + maps.length + tokens.length
+      {results && (() => {
+        const maps = results.maps ?? []
+        const tokens = results.tokens ?? []
 
-          return (
-            <div>
-              <div style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 20 }}>
-                {t('search.results', { count: total, query: results.query })}
-              </div>
+        return (
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap',
+                marginBottom: 20,
+              }}
+            >
+              <span style={{ fontSize: 15, color: 'var(--text-muted)', marginRight: 'auto' }}>
+                {t('search.results', { count: totalFiltered, query: results.query })}
+              </span>
 
-              {books.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('books')} style={sectionHeadStyle}>
-                    {collapsed.books ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
-                    <LuBookOpen size={14} /> {t('search.books')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {books.length}
-                    </span>
-                  </button>
-                  {!collapsed.books &&
-                    books.map((r, i) => (
-                      <div
-                        key={i}
-                        onClick={() => navigate(`/library/book/${r.id}?page=${r.page_number}`)}
-                        style={cardStyle}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'baseline',
-                            marginBottom: 6,
-                          }}
-                        >
-                          <span style={{ fontWeight: 600, fontSize: 16 }}>{r.title}</span>
-                          <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
-                            {t('common.pagePrefixed', { page: r.page_number })}
-                          </span>
-                        </div>
-                        {r.game_system && (
-                          <div style={{ fontSize: 14, color: 'var(--gold-dim)', marginBottom: 6 }}>
-                            {r.game_system}
-                          </div>
-                        )}
-                        <div
-                          style={{ fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.5 }}
-                          dangerouslySetInnerHTML={{ __html: r.snippet }}
-                        />
-                      </div>
-                    ))}
-                </div>
+              {availableSystems.length > 1 && (
+                <select
+                  value={systemFilter}
+                  onChange={(e) => setSystemFilter(e.target.value)}
+                  aria-label={t('search.filterSystem')}
+                  style={controlStyle}
+                >
+                  <option value="">{t('search.allSystems')}</option>
+                  {availableSystems.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               )}
 
-              {maps.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('maps')} style={sectionHeadStyle}>
-                    {collapsed.maps ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
-                    <LuMap size={14} /> {t('search.maps')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {maps.length}
-                    </span>
-                  </button>
-                  {!collapsed.maps &&
-                    maps.map((m) => (
-                      <div
-                        key={m.id}
-                        onClick={() => navigate(`/maps/${m.id}`)}
-                        style={cardStyle}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                      >
-                        <div style={{ fontWeight: 500, fontSize: 15 }}>{m.filename}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-                          {m.relative_path}
-                        </div>
-                        {m.tags?.length > 0 && <TagList tags={m.tags} />}
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              {tokens.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('tokens')} style={sectionHeadStyle}>
-                    {collapsed.tokens ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
-                    <LuUser size={14} /> {t('search.tokens')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {tokens.length}
-                    </span>
-                  </button>
-                  {!collapsed.tokens &&
-                    tokens.map((tok) => (
-                      <div
-                        key={tok.id}
-                        onClick={() => navigate(`/tokens/${tok.id}`)}
-                        style={cardStyle}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                      >
-                        <div style={{ fontWeight: 500, fontSize: 15 }}>{tok.filename}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-                          {tok.relative_path}
-                        </div>
-                        {tok.tags?.length > 0 && <TagList tags={tok.tags} />}
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              {total === 0 && (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-                  {t('search.noResults')}
-                </div>
+              {results.results?.length > 0 && (
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  aria-label={t('common.sort')}
+                  style={controlStyle}
+                >
+                  <option value="relevance">{t('search.sortRelevance')}</option>
+                  <option value="title">{t('search.sortTitle')}</option>
+                </select>
               )}
             </div>
-          )
-        })()}
+
+            {groupedBooks.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <button onClick={() => toggleSection('books')} style={sectionHeadStyle}>
+                  {collapsed.books ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                  <LuBookOpen size={14} /> {t('search.books')}
+                  <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                    {groupedBooks.length}
+                  </span>
+                </button>
+                {!collapsed.books &&
+                  groupedBooks.map((group) => (
+                    <BookGroup
+                      key={group.id}
+                      group={group}
+                      collapsed={collapsed}
+                      onToggle={toggleSection}
+                      onNavigate={(page) => navigate(`/library/book/${group.id}?page=${page}`)}
+                      t={t}
+                    />
+                  ))}
+              </div>
+            )}
+
+            {maps.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <button onClick={() => toggleSection('maps')} style={sectionHeadStyle}>
+                  {collapsed.maps ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                  <LuMap size={14} /> {t('search.maps')}
+                  <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                    {maps.length}
+                  </span>
+                </button>
+                {!collapsed.maps &&
+                  maps.map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => navigate(`/maps/${m.id}`)}
+                      style={cardStyle}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--bg-card-hover)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
+                    >
+                      <div style={{ fontWeight: 500, fontSize: 15 }}>{m.filename}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
+                        {m.relative_path}
+                      </div>
+                      {m.tags?.length > 0 && <TagList tags={m.tags} />}
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {tokens.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <button onClick={() => toggleSection('tokens')} style={sectionHeadStyle}>
+                  {collapsed.tokens ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                  <LuUser size={14} /> {t('search.tokens')}
+                  <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                    {tokens.length}
+                  </span>
+                </button>
+                {!collapsed.tokens &&
+                  tokens.map((tok) => (
+                    <div
+                      key={tok.id}
+                      onClick={() => navigate(`/tokens/${tok.id}`)}
+                      style={cardStyle}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--bg-card-hover)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
+                    >
+                      <div style={{ fontWeight: 500, fontSize: 15 }}>{tok.filename}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
+                        {tok.relative_path}
+                      </div>
+                      {tok.tags?.length > 0 && <TagList tags={tok.tags} />}
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {totalFiltered === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                {t('search.noResults')}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {!results && !searching && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
@@ -221,6 +278,77 @@ export default function SearchView() {
             {t('search.emptyHint')}
           </p>
           <p style={{ fontSize: 15, marginTop: 8 }}>{t('search.emptyHint2')}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BookGroup({ group, collapsed, onToggle, onNavigate, t }) {
+  const key = `book-${group.id}`
+  const isCollapsed = collapsed[key]
+  const pageCount = group.pages.length
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <button
+        onClick={() => onToggle(key)}
+        aria-label={isCollapsed ? t('search.expandBook', { title: group.title }) : t('search.collapseBook', { title: group.title })}
+        style={{
+          ...cardStyle,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          width: '100%',
+          textAlign: 'left',
+          cursor: 'pointer',
+          marginBottom: 0,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
+      >
+        {isCollapsed ? <LuChevronRight size={14} style={{ flexShrink: 0 }} /> : <LuChevronDown size={14} style={{ flexShrink: 0 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>{group.title}</span>
+          {group.game_system && (
+            <span style={{ fontSize: 13, color: 'var(--gold-dim)', marginLeft: 10 }}>
+              {group.game_system}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
+          {t('search.groupedBy', { count: pageCount })}
+        </span>
+      </button>
+
+      {!isCollapsed && (
+        <div style={{ marginLeft: 16, marginTop: 4, marginBottom: 4 }}>
+          {group.pages.map((p, i) => (
+            <div
+              key={i}
+              onClick={() => onNavigate(p.page_number)}
+              style={{ ...cardStyle, borderLeft: '3px solid var(--border)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 4,
+                }}
+              >
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {t('common.pagePrefixed', { page: p.page_number })}
+                </span>
+              </div>
+              <div
+                style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }}
+                dangerouslySetInnerHTML={{ __html: p.snippet }}
+              />
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -273,4 +401,14 @@ const cardStyle = {
   marginBottom: 8,
   cursor: 'pointer',
   transition: 'background 0.15s',
+}
+
+const controlStyle = {
+  fontSize: 13,
+  padding: '6px 10px',
+  borderRadius: 6,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-card)',
+  color: 'var(--text)',
+  cursor: 'pointer',
 }

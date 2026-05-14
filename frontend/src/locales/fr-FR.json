@@ -169,7 +169,15 @@
     "tokens": "Pions",
     "noResults": "Aucun résultat trouvé. Essayez d'autres mots-clés, ou vérifiez que vos livres sont indexés.",
     "emptyHint": "Recherchez dans chaque page de votre collection indexée, ainsi que dans les cartes et pions par nom de fichier, étiquette ou dossier.",
-    "emptyHint2": "Les résultats renvoient directement à la page correspondante."
+    "emptyHint2": "Les résultats renvoient directement à la page correspondante.",
+    "filterSystem": "Système de jeu",
+    "allSystems": "Tous les systèmes",
+    "sortRelevance": "Pertinence",
+    "sortTitle": "Nom du livre",
+    "groupedBy": "{{count}} page",
+    "groupedBy_other": "{{count}} pages",
+    "expandBook": "Développer {{title}}",
+    "collapseBook": "Réduire {{title}}"
   },
   "favorites": {
     "title": "Favoris",
@@ -178,7 +186,9 @@
     "systems": "Systèmes ({{count}})",
     "books": "Livres ({{count}})",
     "maps": "Cartes ({{count}})",
-    "tokens": "Pions ({{count}})"
+    "tokens": "Pions ({{count}})",
+    "onlyFavorites": "Favoris uniquement",
+    "noFavoritesInView": "Pas encore de favoris ici. Cliquez sur l'icône cœur d'un élément pour l'enregistrer."
   },
   "maps": {
     "title": "Cartes",

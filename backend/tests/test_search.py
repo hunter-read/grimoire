@@ -57,6 +57,7 @@ class TestSearch:
         assert "page_number" in result
         assert "snippet" in result
         assert "category" in result
+        assert "game_system_id" in result
 
     def test_search_scoped_to_book(self, client, admin_headers, indexed_book):
         resp = client.get(
@@ -118,3 +119,36 @@ class TestSearch:
         body = resp.json()
         assert body.get("maps", []) == []
         assert body.get("tokens", []) == []
+
+    def test_game_system_id_value_matches_book(self, client, admin_headers, indexed_book):
+        """game_system_id in results must equal the book's actual game_system_id."""
+        resp = client.get("/api/search?q=fireball", headers=admin_headers)
+        result = next(r for r in resp.json()["results"] if r["id"] == indexed_book.id)
+        assert result["game_system_id"] == indexed_book.game_system_id
+
+    def test_game_system_name_present(self, client, admin_headers, indexed_book):
+        """game_system field should be non-empty when the book belongs to a system."""
+        resp = client.get("/api/search?q=fireball", headers=admin_headers)
+        result = next(r for r in resp.json()["results"] if r["id"] == indexed_book.id)
+        assert result["game_system"] != ""
+
+    def test_multiple_pages_from_same_book_all_returned(self, client, admin_headers, indexed_book):
+        """Both indexed pages from the same book should appear as separate result rows."""
+        resp = client.get("/api/search?q=fireball OR lightning", headers=admin_headers)
+        results = resp.json()["results"]
+        book_results = [r for r in results if r["id"] == indexed_book.id]
+        page_numbers = {r["page_number"] for r in book_results}
+        assert 1 in page_numbers, "page 1 (fireball) should be in results"
+        assert 2 in page_numbers, "page 2 (lightning bolt) should be in results"
+
+    def test_search_limit_param_respected(self, client, admin_headers, indexed_book):
+        """Passing limit=1 should return at most 1 result."""
+        resp = client.get("/api/search?q=fireball&limit=1", headers=admin_headers)
+        assert resp.status_code == 200
+        assert len(resp.json()["results"]) <= 1
+
+    def test_scoped_to_nonexistent_system_returns_empty(self, client, admin_headers):
+        """Searching within a system_id that has no books should return empty results."""
+        resp = client.get("/api/search?q=fireball&system_id=nonexistent-system-id", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json()["results"] == []

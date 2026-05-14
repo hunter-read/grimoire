@@ -165,7 +165,15 @@
     "tokens": "Tokens",
     "noResults": "Keine Ergebnisse gefunden. Andere Suchbegriffe versuchen oder sicherstellen, dass die Bücher indiziert sind.",
     "emptyHint": "Durchsuche jede Seite deiner indizierten Sammlung sowie Karten und Tokens nach Dateiname, Tag oder Ordner.",
-    "emptyHint2": "Ergebnisse verlinken direkt zur passenden Seite."
+    "emptyHint2": "Ergebnisse verlinken direkt zur passenden Seite.",
+    "filterSystem": null,
+    "allSystems": null,
+    "sortRelevance": null,
+    "sortTitle": null,
+    "groupedBy": null,
+    "groupedBy_other": null,
+    "expandBook": null,
+    "collapseBook": null
   },
   "favorites": {
     "title": "Favoriten",
@@ -174,7 +182,9 @@
     "systems": "Systeme ({{count}})",
     "books": "Bücher ({{count}})",
     "maps": "Karten ({{count}})",
-    "tokens": "Tokens ({{count}})"
+    "tokens": "Tokens ({{count}})",
+    "onlyFavorites": null,
+    "noFavoritesInView": null
   },
   "maps": {
     "title": "Karten",

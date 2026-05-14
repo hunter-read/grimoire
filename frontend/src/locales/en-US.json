@@ -169,7 +169,15 @@
     "tokens": "Tokens",
     "noResults": "No results found. Try different keywords, or make sure your books are indexed.",
     "emptyHint": "Search through every page of your indexed collection, plus maps and tokens by filename, tag, or folder.",
-    "emptyHint2": "Results link directly to the matching page."
+    "emptyHint2": "Results link directly to the matching page.",
+    "filterSystem": "Game System",
+    "allSystems": "All Systems",
+    "sortRelevance": "Relevance",
+    "sortTitle": "Book Name",
+    "groupedBy": "{{count}} page",
+    "groupedBy_other": "{{count}} pages",
+    "expandBook": "Expand {{title}}",
+    "collapseBook": "Collapse {{title}}"
   },
   "favorites": {
     "title": "Favorites",
@@ -178,7 +186,9 @@
     "systems": "Systems ({{count}})",
     "books": "Books ({{count}})",
     "maps": "Maps ({{count}})",
-    "tokens": "Tokens ({{count}})"
+    "tokens": "Tokens ({{count}})",
+    "onlyFavorites": "Favorites only",
+    "noFavoritesInView": "No favorites here yet. Click the heart icon on any item to save it."
   },
   "maps": {
     "title": "Maps",

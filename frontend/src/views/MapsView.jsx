@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import { useTranslation } from 'react-i18next'
-import { LuMap, LuX, LuTag, LuSearch } from 'react-icons/lu'
+import { LuMap, LuX, LuTag, LuSearch, LuHeart } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import MapFolderGroup from '../components/maps/MapCreatorGroup'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { useAuth } from '../context/AuthContext'
+import { useFavorites } from '../context/FavoritesContext'
 
 const getFolderPath = (m) => {
   const parts = (m.relative_path || '').replace(/\\/g, '/').split('/')
@@ -29,11 +30,13 @@ export default function MapsView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { isFavorite } = useFavorites()
   const isPlayer = user?.role === 'player'
   const [maps, setMaps] = useState(null)
   const [folderTags, setFolderTags] = useState({})
   const [filter, setFilter] = useState('')
   const [selectedTags, setSelectedTags] = useState(new Set())
+  const [favOnly, setFavOnly] = useState(false)
   const [collapsed, setCollapsed] = useSessionState('grimoire:maps:collapsed', new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [showAllTags, setShowAllTags] = useState(false)
@@ -201,7 +204,8 @@ export default function MapsView() {
         )
         return [...selectedTags].some((tag) => mapTagSet.has(tag) || folderTagSet.has(tag))
       })()
-    return textMatch && tagMatch
+    const favMatch = !favOnly || isFavorite('map', m.id)
+    return textMatch && tagMatch && favMatch
   })
 
   const byFolder = {}
@@ -372,6 +376,23 @@ export default function MapsView() {
                   {bulkMode ? t('maps.cancelBulk') : t('maps.bulkTag')}
                 </button>
               )}
+              <button
+                onClick={() => setFavOnly((v) => !v)}
+                aria-pressed={favOnly}
+                title={t('favorites.onlyFavorites')}
+                style={{
+                  ...toolBtnStyle,
+                  color: favOnly ? 'var(--gold)' : 'var(--text-muted)',
+                  background: favOnly ? 'rgba(180,120,60,0.15)' : 'var(--bg-card)',
+                  outline: favOnly ? '1px solid var(--gold-dim)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <LuHeart size={13} fill={favOnly ? 'var(--gold)' : 'none'} />
+                {t('favorites.onlyFavorites')}
+              </button>
             </div>
           </div>
         </div>
@@ -481,7 +502,7 @@ export default function MapsView() {
         {folderEntries.length === 0 && (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
             <LuMap size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
-            <p>{filter ? t('maps.noMapsFilter') : t('maps.noMaps')}</p>
+            <p>{favOnly ? t('favorites.noFavoritesInView') : filter ? t('maps.noMapsFilter') : t('maps.noMaps')}</p>
           </div>
         )}
       </div>

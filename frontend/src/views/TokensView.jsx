@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import { useTranslation } from 'react-i18next'
-import { LuUser, LuX, LuTag, LuSearch } from 'react-icons/lu'
+import { LuUser, LuX, LuTag, LuSearch, LuHeart } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import TokenFolderGroup from '../components/tokens/TokenFolderGroup'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { useAuth } from '../context/AuthContext'
+import { useFavorites } from '../context/FavoritesContext'
 
 const getFolderPath = (item) => {
   const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
@@ -29,11 +30,13 @@ export default function TokensView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { isFavorite } = useFavorites()
   const isPlayer = user?.role === 'player'
   const [tokens, setTokens] = useState(null)
   const [folderTags, setFolderTags] = useState({})
   const [filter, setFilter] = useState('')
   const [selectedTags, setSelectedTags] = useState(new Set())
+  const [favOnly, setFavOnly] = useState(false)
   const [collapsed, setCollapsed] = useSessionState('grimoire:tokens:collapsed', new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [showAllTags, setShowAllTags] = useState(false)
@@ -202,7 +205,8 @@ export default function TokensView() {
         const folderTagSet = new Set(folderTags[getFolderPath(tok)] || [])
         return [...selectedTags].some((tag) => tokenTagSet.has(tag) || folderTagSet.has(tag))
       })()
-    return textMatch && tagMatch
+    const favMatch = !favOnly || isFavorite('token', tok.id)
+    return textMatch && tagMatch && favMatch
   })
 
   const byFolder = {}
@@ -373,6 +377,23 @@ export default function TokensView() {
                   {bulkMode ? t('tokens.cancelBulk') : t('tokens.bulkTag')}
                 </button>
               )}
+              <button
+                onClick={() => setFavOnly((v) => !v)}
+                aria-pressed={favOnly}
+                title={t('favorites.onlyFavorites')}
+                style={{
+                  ...toolBtnStyle,
+                  color: favOnly ? 'var(--gold)' : 'var(--text-muted)',
+                  background: favOnly ? 'rgba(180,120,60,0.15)' : 'var(--bg-card)',
+                  outline: favOnly ? '1px solid var(--gold-dim)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <LuHeart size={13} fill={favOnly ? 'var(--gold)' : 'none'} />
+                {t('favorites.onlyFavorites')}
+              </button>
             </div>
           </div>
         </div>
@@ -482,7 +503,7 @@ export default function TokensView() {
         {folderEntries.length === 0 && (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
             <LuUser size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
-            <p>{filter ? t('tokens.noTokensFilter') : t('tokens.noTokens')}</p>
+            <p>{favOnly ? t('favorites.noFavoritesInView') : filter ? t('tokens.noTokensFilter') : t('tokens.noTokens')}</p>
           </div>
         )}
       </div>

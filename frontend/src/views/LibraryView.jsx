@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuLibrary } from 'react-icons/lu'
+import { LuLibrary, LuHeart } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
 import FavoriteButton from '../components/FavoriteButton'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { getRecentBooks, getBookPrefs } from '../hooks/useBookPrefs'
+import { useFavorites } from '../context/FavoritesContext'
 
 function SystemCard({ system, onClick, compact }) {
   const { t } = useTranslation()
@@ -194,7 +195,9 @@ function SystemCard({ system, onClick, compact }) {
 export default function LibraryView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { isFavorite } = useFavorites()
   const [systems, setSystems] = useState(null)
+  const [favOnly, setFavOnly] = useState(false)
 
   useEffect(() => {
     api.get('/systems').then(setSystems)
@@ -215,11 +218,11 @@ export default function LibraryView() {
     sort === 'za' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
 
   const normalSystems = systems
-    .filter((s) => s.book_count > 0 && !s.is_system_agnostic)
+    .filter((s) => s.book_count > 0 && !s.is_system_agnostic && (!favOnly || isFavorite('system', s.id)))
     .sort(sortFn)
 
   const agnosticSystems = systems
-    .filter((s) => s.book_count > 0 && s.is_system_agnostic)
+    .filter((s) => s.book_count > 0 && s.is_system_agnostic && (!favOnly || isFavorite('system', s.id)))
     .sort(sortFn)
 
   const compact = cardSize === 'compact'
@@ -349,38 +352,47 @@ export default function LibraryView() {
       )}
 
       {/* Game Systems */}
-      {normalSystems.length > 0 && (
+      {(normalSystems.length > 0 || favOnly) && (
         <>
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
-            <p
+          <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
+              <p
+                style={{
+                  color: 'var(--text-dim)',
+                  fontSize: 17,
+                  fontFamily: 'Alegreya, serif',
+                  fontStyle: 'italic',
+                }}
+              >
+                {t('library.subtitle', { count: normalSystems.length })}
+              </p>
+            </div>
+            <FavToggle active={favOnly} onClick={() => setFavOnly((v) => !v)} t={t} />
+          </div>
+          {normalSystems.length > 0 ? (
+            <div
               style={{
-                color: 'var(--text-dim)',
-                fontSize: 17,
-                fontFamily: 'Alegreya, serif',
-                fontStyle: 'italic',
+                display: 'grid',
+                gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
+                gap: compact ? 12 : 20,
+                marginBottom: agnosticSystems.length > 0 ? 56 : 0,
               }}
             >
-              {t('library.subtitle', { count: normalSystems.length })}
+              {normalSystems.map((system) => (
+                <SystemCard
+                  key={system.id}
+                  system={system}
+                  onClick={() => navigate(`/library/system/${system.id}`)}
+                  compact={compact}
+                />
+              ))}
+            </div>
+          ) : favOnly ? (
+            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 32 }}>
+              {t('favorites.noFavoritesInView')}
             </p>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
-              gap: compact ? 12 : 20,
-              marginBottom: agnosticSystems.length > 0 ? 56 : 0,
-            }}
-          >
-            {normalSystems.map((system) => (
-              <SystemCard
-                key={system.id}
-                system={system}
-                onClick={() => navigate(`/library/system/${system.id}`)}
-                compact={compact}
-              />
-            ))}
-          </div>
+          ) : null}
         </>
       )}
 
@@ -421,8 +433,8 @@ export default function LibraryView() {
         </>
       )}
 
-      {/* Empty state when library has no systems at all */}
-      {normalSystems.length === 0 && agnosticSystems.length === 0 && (
+      {/* Empty state when library has no systems at all (not filtered) */}
+      {!favOnly && normalSystems.length === 0 && agnosticSystems.length === 0 && (
         <div style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
           <p
@@ -438,5 +450,32 @@ export default function LibraryView() {
         </div>
       )}
     </div>
+  )
+}
+
+function FavToggle({ active, onClick, t }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      title={t('favorites.onlyFavorites')}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        borderRadius: 6,
+        border: '1px solid var(--border)',
+        background: active ? 'rgba(180,120,60,0.15)' : 'var(--bg-card)',
+        color: active ? 'var(--gold)' : 'var(--text-muted)',
+        fontSize: 13,
+        cursor: 'pointer',
+        transition: 'all 0.15s',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <LuHeart size={14} fill={active ? 'var(--gold)' : 'none'} />
+      {t('favorites.onlyFavorites')}
+    </button>
   )
 }

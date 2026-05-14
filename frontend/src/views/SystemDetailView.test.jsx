@@ -25,8 +25,9 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: 'admin' } }),
 }))
 
+const mockIsFavorite = vi.fn(() => false)
 vi.mock('../context/FavoritesContext', () => ({
-  useFavorites: () => ({ isFavorite: () => false, toggleFavorite: vi.fn() }),
+  useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: vi.fn() }),
 }))
 
 vi.mock('../components/FavoriteButton', () => ({
@@ -106,6 +107,7 @@ function renderView() {
 describe('SystemDetailView — subfolder grouping', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsFavorite.mockReturnValue(false)
   })
 
   describe('getBookSubfolder logic (via render)', () => {
@@ -265,6 +267,40 @@ describe('SystemDetailView — subfolder grouping', () => {
 
       await userEvent.click(screen.getByRole('button', { name: /core rulebooks/i }))
       expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('favorites filter', () => {
+    it('shows the Favorites only toggle button', async () => {
+      api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+      renderView()
+      await waitFor(() => expect(screen.getByText(/favorites only/i)).toBeInTheDocument())
+    })
+
+    it('favorites filter hides non-favorite books', async () => {
+      const favBook = makeBook({ id: 'fav-book', title: 'Favorite Book' })
+      const otherBook = makeBook({ id: 'other-book', title: 'Other Book' })
+      api.get.mockResolvedValue(makeSystem([favBook, otherBook]))
+      mockIsFavorite.mockImplementation((type, id) => type === 'book' && id === 'fav-book')
+
+      renderView()
+      await waitFor(() => expect(screen.getByText('Favorite Book')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByText(/favorites only/i))
+
+      expect(screen.getByText('Favorite Book')).toBeInTheDocument()
+      expect(screen.queryByText('Other Book')).not.toBeInTheDocument()
+    })
+
+    it('shows no-favorites hint when filter active and nothing matches', async () => {
+      api.get.mockResolvedValue(makeSystem([makeBook({ title: 'Unfavorited' })]))
+      renderView()
+      await waitFor(() => expect(screen.getByText('Unfavorited')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByText(/favorites only/i))
+
+      expect(screen.queryByText('Unfavorited')).not.toBeInTheDocument()
+      expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
     })
   })
 })

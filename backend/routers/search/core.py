@@ -74,6 +74,7 @@ def search_library(
                         "id": book.id,
                         "title": book.title,
                         "game_system": system.name if system else "",
+                        "game_system_id": book.game_system_id or "",
                         "category": book.category,
                     }
             if bid in book_cache:
