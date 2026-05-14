@@ -1,4 +1,5 @@
 """Core book CRUD and file-serving endpoint handlers."""
+import glob
 import hashlib
 import os
 from typing import Optional
@@ -8,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, SessionLocal, THUMB_DIR
-from ...indexer import slugify
+
 from ...models import Book, GameSystem
 from ._helpers import _allow_explicit
 from ._schemas import BookUpdate
@@ -139,11 +140,10 @@ def serve_book_thumbnail(book_id: str):
         book = db.query(Book).filter_by(id=book_id).first()
         if not book:
             raise HTTPException(404)
-        slug = slugify(book.title)
         fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
-        thumb_path = os.path.join(THUMB_DIR, "books", f"{slug}_{fhash}.webp")
-        if os.path.exists(thumb_path):
-            return FileResponse(thumb_path, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
+        matches = glob.glob(os.path.join(THUMB_DIR, "books", f"*_{fhash}.webp"))
+        if matches:
+            return FileResponse(matches[0], media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
         raise HTTPException(404, "No thumbnail available")
     finally:
         db.close()
