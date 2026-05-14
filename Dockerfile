@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Python app
-FROM python:3.12-slim AS backend-builder
+FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmupdf-dev \
@@ -17,24 +17,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install into a relocatable prefix so we can copy it into the final image
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# Stage 3: Runtime (hardened)
-FROM dhi.io/python:3.12
-
-WORKDIR /app
-
-# Python deps
-COPY --from=backend-builder /install /usr/local
-
-# MuPDF runtime bits
-COPY --from=backend-builder /usr/bin/mutool /usr/bin/mutool
-COPY --from=backend-builder /usr/bin/mupdf* /usr/bin/
-
-# App code + built frontend
 COPY backend/ ./backend/
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
