@@ -362,6 +362,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             continue
                         needs_thumbnail = not existing.has_thumbnail
                         needs_page_count = ext == ".pdf" and existing.page_count == 0 and not existing.index_error
+                        if ext in IMAGE_EXTS and existing.page_count == 0:
+                            existing.page_count = 1
                         if not needs_thumbnail and not needs_page_count:
                             logger.debug(f"Already registered, skipping: {filename}")
                             continue
@@ -408,6 +410,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             continue
                         needs_thumbnail = True
                         needs_page_count = ext == ".pdf"
+                        if ext in IMAGE_EXTS:
+                            book.page_count = 1
 
                     thumb_path = os.path.join(
                         thumb_dir,

@@ -3,6 +3,8 @@
 PDF rendering and page endpoints are not tested here since they require
 actual PDF files on disk. Those are better suited for integration tests.
 """
+import os
+import tempfile
 import pytest
 from backend.tests.conftest import make_game_system, make_book
 
@@ -150,4 +152,86 @@ class TestUpdateBook:
             },
             headers=admin_headers,
         )
+        assert resp.status_code == 404
+
+
+class TestImageBookPage:
+    IMAGE_TYPES = [
+        ("png", "image/png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 8),
+        ("jpg", "image/jpeg", b"\xff\xd8\xff\xe0" + b"\x00" * 12),
+        ("jpeg", "image/jpeg", b"\xff\xd8\xff\xe0" + b"\x00" * 12),
+        ("webp", "image/webp", b"RIFF\x00\x00\x00\x00WEBP"),
+        ("gif", "image/gif", b"GIF89a" + b"\x00" * 10),
+        ("bmp", "image/bmp", b"BM" + b"\x00" * 10),
+    ]
+
+    def _make_image_book(self, system_id, ext, mime_type, content):
+        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as f:
+            f.write(content)
+            fpath = f.name
+        book = make_book(
+            system_id=system_id,
+            title=f"Image Book ({ext})",
+            filename=f"image.{ext}",
+            filepath=fpath,
+            mime_type=mime_type,
+            page_count=1,
+        )
+        return book, fpath
+
+    @pytest.fixture(scope="module")
+    def sys(self):
+        return make_game_system()
+
+    def test_image_book_page1_returns_file(self, client, admin_headers, sys):
+        ext, mime_type, content = self.IMAGE_TYPES[0]
+        book, fpath = self._make_image_book(sys.id, ext, mime_type, content)
+        try:
+            resp = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("image/")
+        finally:
+            os.unlink(fpath)
+
+    def test_image_book_page_beyond_1_is_400(self, client, admin_headers, sys):
+        ext, mime_type, content = self.IMAGE_TYPES[0]
+        book, fpath = self._make_image_book(sys.id, ext, mime_type, content)
+        try:
+            resp = client.get(f"/api/books/{book.id}/page/2", headers=admin_headers)
+            assert resp.status_code == 400
+        finally:
+            os.unlink(fpath)
+
+    def test_all_image_mime_types_served(self, client, admin_headers, sys):
+        for ext, mime_type, content in self.IMAGE_TYPES:
+            book, fpath = self._make_image_book(sys.id, ext, mime_type, content)
+            try:
+                resp = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
+                assert resp.status_code == 200, f"Failed for {ext}: {resp.status_code}"
+                assert resp.headers["content-type"].startswith("image/"), f"Wrong content-type for {ext}"
+            finally:
+                os.unlink(fpath)
+
+    def test_image_book_missing_file_returns_404(self, client, admin_headers, sys):
+        book = make_book(
+            system_id=sys.id,
+            title="Missing Image Book",
+            filename="missing.png",
+            filepath="/nonexistent/path/missing.png",
+            mime_type="image/png",
+            page_count=1,
+        )
+        resp = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_pdf_book_page_still_404_without_file(self, client, admin_headers, sys):
+        book = make_book(
+            system_id=sys.id,
+            title="Missing PDF",
+            filename="missing.pdf",
+            filepath="/nonexistent/path/missing.pdf",
+            mime_type="application/pdf",
+            page_count=10,
+        )
+        resp = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
         assert resp.status_code == 404

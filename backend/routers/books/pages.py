@@ -2,6 +2,7 @@
 import hashlib
 import io
 import os
+from pathlib import Path
 
 from fastapi import HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
@@ -52,9 +53,29 @@ def get_book_toc(book_id: str):
 
 def serve_book_page(book_id: str, page_num: int, width: int = Query(1200, le=3000)):
     book_info = _cached_book_info(book_id)
-    if not book_info or book_info[1] != "application/pdf":
+    if not book_info:
         raise HTTPException(404)
-    filepath = book_info[0]
+    filepath, mime_type = book_info[0], book_info[1]
+
+    if mime_type.startswith("image/"):
+        if page_num != 1:
+            raise HTTPException(400, "Image files have only one page")
+        if not os.path.exists(filepath):
+            db = SessionLocal()
+            try:
+                book = db.query(Book).filter_by(id=book_id).first()
+                if book and not book.is_missing:
+                    book.is_missing = True
+                    db.commit()
+            finally:
+                db.close()
+            raise HTTPException(404, "File not found on disk")
+        ext = Path(filepath).suffix.lower().lstrip(".")
+        media_type = f"image/{ext}" if ext not in ("jpg",) else "image/jpeg"
+        return FileResponse(filepath, media_type=media_type, headers=_PAGE_CACHE_HEADERS)
+
+    if mime_type != "application/pdf":
+        raise HTTPException(404)
 
     valkey_key = f"page:{book_id}:{page_num}:{width}"
 
@@ -121,7 +142,7 @@ def serve_book_page(book_id: str, page_num: int, width: int = Query(1200, le=300
 
 def get_page_text(book_id: str, page_num: int):
     book_info = _cached_book_info(book_id)
-    if not book_info or book_info[1] != "application/pdf":
+    if not book_info or not book_info[1].startswith("application/"):
         raise HTTPException(404)
 
     db = SessionLocal()
@@ -148,7 +169,7 @@ def get_page_text(book_id: str, page_num: int):
 
 def get_page_words(book_id: str, page_num: int):
     book_info = _cached_book_info(book_id)
-    if not book_info or book_info[1] != "application/pdf":
+    if not book_info or not book_info[1].startswith("application/"):
         return {"width": 0, "height": 0, "words": []}
 
     filepath = book_info[0]
