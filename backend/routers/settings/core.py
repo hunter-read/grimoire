@@ -3,7 +3,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ...config import SessionLocal, ALLOW_PASSWORD_AUTHENTICATION_ENV, OIDC_ENV
+from ...config import SessionLocal, ALLOW_PASSWORD_AUTHENTICATION_ENV, DISABLE_PASSWORD_CHANGE, OIDC_ENV
 from ...auth import require_admin, get_current_user, CurrentUser
 from ._helpers import (
     _get_raw,
@@ -182,6 +182,7 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user)):
             "show_stat_maps": raw["show_stat_maps"] == "true",
             "show_stat_tokens": raw["show_stat_tokens"] == "true",
             "show_stat_size": raw["show_stat_size"] == "true",
+            "disable_password_change": DISABLE_PASSWORD_CHANGE,
         }
     finally:
         db.close()

@@ -17,6 +17,11 @@ from .core import (
     update_resource,
     remove_resource,
     eligible_members,
+    admin_list_all_campaigns,
+    admin_list_deleted_campaigns,
+    admin_list_user_campaigns,
+    admin_soft_delete_campaign,
+    admin_restore_campaign,
 )
 from .sessions import (
     list_sessions,
@@ -38,6 +43,39 @@ from .schedule import (
 )
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
+
+# --- Admin-only campaign management ---
+router.add_api_route(
+    "/admin/all",
+    admin_list_all_campaigns,
+    methods=["GET"],
+    summary="Admin: list all campaigns",
+)
+router.add_api_route(
+    "/admin/deleted",
+    admin_list_deleted_campaigns,
+    methods=["GET"],
+    summary="Admin: list soft-deleted campaigns",
+)
+router.add_api_route(
+    "/admin/by-user/{user_id}",
+    admin_list_user_campaigns,
+    methods=["GET"],
+    summary="Admin: list campaigns owned by a user",
+)
+router.add_api_route(
+    "/admin/{campaign_id}/delete",
+    admin_soft_delete_campaign,
+    methods=["POST"],
+    summary="Admin: soft-delete a campaign",
+    status_code=204,
+)
+router.add_api_route(
+    "/admin/{campaign_id}/restore",
+    admin_restore_campaign,
+    methods=["POST"],
+    summary="Admin: restore a soft-deleted campaign",
+)
 
 # --- Campaign CRUD ---
 router.add_api_route(

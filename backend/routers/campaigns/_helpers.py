@@ -13,9 +13,11 @@ def is_gm_or_admin(user: CurrentUser) -> bool:
     return user.role in ("admin", "gm")
 
 
-def get_campaign_or_404(db, campaign_id: str) -> Campaign:
+def get_campaign_or_404(db, campaign_id: str, allow_deleted: bool = False) -> Campaign:
     c = db.query(Campaign).filter_by(id=campaign_id).first()
     if not c:
+        raise HTTPException(404, "Campaign not found")
+    if not allow_deleted and c.deleted_at is not None:
         raise HTTPException(404, "Campaign not found")
     return c
 

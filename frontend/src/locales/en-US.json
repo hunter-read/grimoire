@@ -501,7 +501,20 @@
     "noEmail": "no email",
     "editEmail": "Edit email",
     "failedSetEmail": "Failed to update email.",
-    "oidcLinkedTitle": "This account is linked to an OpenID Connect identity provider."
+    "oidcLinkedTitle": "This account is linked to an OpenID Connect identity provider.",
+    "campaigns": {
+      "toggleLabel": "Campaigns",
+      "none": "No campaigns.",
+      "loadFailed": "Failed to load campaigns.",
+      "deleteFailed": "Failed to delete campaign.",
+      "view": "View campaign",
+      "delete": "Delete campaign",
+      "deleteTitle": "Delete Campaign",
+      "deleteDescription": "Soft-delete \"{{name}}\"? The campaign will be hidden from users and permanently removed after 7 days.",
+      "reasonPlaceholder": "Reason for deletion (shown to the campaign owner)…",
+      "reasonRequired": "A reason is required.",
+      "confirmDelete": "Delete Campaign"
+    }
   },
   "maintenance": {
     "rescan": {
@@ -613,7 +626,8 @@
     "accept": "Accept",
     "decline": "Decline",
     "gm": "GM: {{name}}",
-    "unknownGm": "Unknown"
+    "unknownGm": "Unknown",
+    "allCampaigns": "All Campaigns"
   },
   "campaignDetail": {
     "backToCampaigns": "Campaigns",

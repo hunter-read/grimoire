@@ -155,6 +155,7 @@ export default function UsersTab() {
             key={u.id}
             user={u}
             currentUserId={currentUser.id}
+            currentUserRole={currentUser.role}
             onRoleChange={handleRoleChange}
             onExplicitChange={handleExplicitChange}
             onPasswordReset={handlePasswordReset}

@@ -501,7 +501,20 @@
     "noEmail": "aucun email",
     "editEmail": "Modifier l'email",
     "failedSetEmail": "Échec de la mise à jour de l'email.",
-    "oidcLinkedTitle": "Ce compte est lié à un fournisseur d'identité OpenID Connect."
+    "oidcLinkedTitle": "Ce compte est lié à un fournisseur d'identité OpenID Connect.",
+    "campaigns": {
+      "toggleLabel": "Campagnes",
+      "none": "Aucune campagne.",
+      "loadFailed": "Impossible de charger les campagnes.",
+      "deleteFailed": "Impossible de supprimer la campagne.",
+      "view": "Voir la campagne",
+      "delete": "Supprimer la campagne",
+      "deleteTitle": "Supprimer la campagne",
+      "deleteDescription": "Supprimer provisoirement « {{name}} » ? La campagne sera masquée et définitivement supprimée après 7 jours.",
+      "reasonPlaceholder": "Raison de la suppression (visible par le propriétaire de la campagne)…",
+      "reasonRequired": "Une raison est requise.",
+      "confirmDelete": "Supprimer la campagne"
+    }
   },
   "maintenance": {
     "rescan": {
@@ -613,7 +626,8 @@
     "accept": "Accepter",
     "decline": "Refuser",
     "gm": "MJ : {{name}}",
-    "unknownGm": "Inconnu"
+    "unknownGm": "Inconnu",
+    "allCampaigns": "Toutes les campagnes"
   },
   "campaignDetail": {
     "backToCampaigns": "Campagnes",

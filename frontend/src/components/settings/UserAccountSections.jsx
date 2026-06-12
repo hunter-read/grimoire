@@ -4,6 +4,7 @@ import { LuCircleCheck, LuCopy } from 'react-icons/lu'
 import api, { opds } from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
+import { useUISettings } from '../../context/UISettingsContext'
 
 export function DisplayNameSection() {
   const { t } = useTranslation()
@@ -262,12 +263,16 @@ export function ExplicitContentSection() {
 
 export function ChangePasswordSection() {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const { disable_password_change } = useUISettings()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
+
+  if (disable_password_change && user?.role !== 'admin') return null
 
   const handleSubmit = async (e) => {
     e.preventDefault()

@@ -2,7 +2,9 @@
 
 from fastapi import Depends, HTTPException
 
-from ...auth import CurrentUser, get_current_user
+import datetime
+
+from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import SessionLocal
 from ...models import (
     Book,
@@ -21,6 +23,7 @@ from ._helpers import (
     serialize_campaign,
 )
 from ._schemas import (
+    AdminDeletePayload,
     CampaignCreate,
     CampaignUpdate,
     InvitePayload,
@@ -33,7 +36,33 @@ from ._schemas import (
 def list_campaigns(current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        owned = db.query(Campaign).filter_by(owner_id=current_user.id).all()
+        is_admin = current_user.role == "admin"
+
+        if is_admin:
+            all_campaigns = db.query(Campaign).filter(Campaign.deleted_at.is_(None)).all()
+            all_users = {u.id: u for u in db.query(User).all()}
+
+            def _members_admin(c):
+                rows = db.query(CampaignMember).filter_by(campaign_id=c.id).all()
+                return [
+                    {
+                        "user_id": m.user_id,
+                        "username": all_users[m.user_id].username if m.user_id in all_users else "",
+                        "display_name": all_users[m.user_id].display_name if m.user_id in all_users else None,
+                        "status": m.status,
+                        "character_name": m.character_name,
+                    }
+                    for m in rows
+                ]
+
+            result = []
+            for c in all_campaigns:
+                d = serialize_campaign(c, _members_admin(c), db)
+                d["invitation_status"] = "owner" if c.owner_id == current_user.id else None
+                result.append(d)
+            return result
+
+        owned = db.query(Campaign).filter_by(owner_id=current_user.id).filter(Campaign.deleted_at.is_(None)).all()
 
         all_memberships = (
             db.query(CampaignMember)
@@ -50,6 +79,7 @@ def list_campaigns(current_user: CurrentUser = Depends(get_current_user)):
             .filter(
                 Campaign.id.in_(member_campaign_ids),
                 Campaign.owner_id != current_user.id,
+                Campaign.deleted_at.is_(None),
             )
             .all()
             if member_campaign_ids
@@ -490,6 +520,102 @@ def remove_resource(
         if res:
             db.delete(res)
             db.commit()
+    finally:
+        db.close()
+
+
+def admin_list_all_campaigns(current_user: CurrentUser = Depends(require_admin)):
+    """Return all non-deleted campaigns across all users."""
+    db = SessionLocal()
+    try:
+        all_campaigns = db.query(Campaign).filter(Campaign.deleted_at.is_(None)).all()
+        all_users = {u.id: u for u in db.query(User).all()}
+
+        def _members(c):
+            rows = db.query(CampaignMember).filter_by(campaign_id=c.id).all()
+            return [
+                {
+                    "user_id": m.user_id,
+                    "username": all_users[m.user_id].username if m.user_id in all_users else "",
+                    "display_name": all_users[m.user_id].display_name if m.user_id in all_users else None,
+                    "status": m.status,
+                    "character_name": m.character_name,
+                }
+                for m in rows
+            ]
+
+        return [serialize_campaign(c, _members(c), db) for c in all_campaigns]
+    finally:
+        db.close()
+
+
+def admin_list_deleted_campaigns(current_user: CurrentUser = Depends(require_admin)):
+    """Return all soft-deleted campaigns."""
+    db = SessionLocal()
+    try:
+        deleted = db.query(Campaign).filter(Campaign.deleted_at.isnot(None)).all()
+        all_users = {u.id: u for u in db.query(User).all()}
+
+        result = []
+        for c in deleted:
+            d = serialize_campaign(c, [], db)
+            deleter = all_users.get(c.deleted_by_id)
+            d["deleted_at"] = c.deleted_at.isoformat() if c.deleted_at else None
+            d["deleted_by_username"] = deleter.username if deleter else None
+            d["deletion_reason"] = c.deletion_reason
+            result.append(d)
+        return result
+    finally:
+        db.close()
+
+
+def admin_list_user_campaigns(user_id: str, current_user: CurrentUser = Depends(require_admin)):
+    """Return all non-deleted campaigns owned by a specific user."""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(id=user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        owned = db.query(Campaign).filter_by(owner_id=user_id).filter(Campaign.deleted_at.is_(None)).all()
+        return [serialize_campaign(c, [], db) for c in owned]
+    finally:
+        db.close()
+
+
+def admin_soft_delete_campaign(
+    campaign_id: str,
+    data: AdminDeletePayload,
+    current_user: CurrentUser = Depends(require_admin),
+):
+    """Admin soft-delete: marks deleted_at, records who deleted it and why."""
+    reason = data.reason.strip()
+    if not reason:
+        raise HTTPException(400, "Deletion reason is required")
+    db = SessionLocal()
+    try:
+        c = get_campaign_or_404(db, campaign_id, allow_deleted=False)
+        if c.deleted_at is not None:
+            raise HTTPException(409, "Campaign is already deleted")
+        c.deleted_at = datetime.datetime.utcnow()
+        c.deleted_by_id = current_user.id
+        c.deletion_reason = reason
+        db.commit()
+    finally:
+        db.close()
+
+
+def admin_restore_campaign(campaign_id: str, current_user: CurrentUser = Depends(require_admin)):
+    """Restore a soft-deleted campaign."""
+    db = SessionLocal()
+    try:
+        c = get_campaign_or_404(db, campaign_id, allow_deleted=True)
+        if c.deleted_at is None:
+            raise HTTPException(409, "Campaign is not deleted")
+        c.deleted_at = None
+        c.deleted_by_id = None
+        c.deletion_reason = None
+        db.commit()
+        return serialize_campaign(c, [], db)
     finally:
         db.close()
 

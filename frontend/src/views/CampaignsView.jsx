@@ -9,6 +9,7 @@ import {
   LuLink,
   LuChevronRight,
   LuMailOpen,
+  LuShield,
 } from 'react-icons/lu'
 import { campaigns } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -170,7 +171,6 @@ export default function CampaignsView() {
   const [error, setError] = useState(null)
 
   const isGmOrAdmin = user?.role === 'admin' || user?.role === 'gm'
-
   const load = () => {
     campaigns
       .list()
@@ -182,11 +182,15 @@ export default function CampaignsView() {
     load()
   }, [])
 
+  const isAdmin = user?.role === 'admin'
+
   const invitations = list?.filter((c) => c.invitation_status === 'invited') ?? []
   const accepted = list?.filter((c) => c.invitation_status !== 'invited') ?? []
   const gmCampaigns = accepted.filter((c) => c.owner_id === user?.id && c.is_gm_campaign)
   const personalCampaigns = accepted.filter((c) => c.owner_id === user?.id && !c.is_gm_campaign)
-  const joinedCampaigns = accepted.filter((c) => c.owner_id !== user?.id)
+  // For non-admins these are campaigns the user was invited to; for admins they are all
+  // campaigns owned by others (admin sees all via list endpoint).
+  const otherCampaigns = accepted.filter((c) => c.owner_id !== user?.id)
 
   const respondToInvite = async (campaign, status) => {
     await campaigns.updateMember(campaign.id, user.id, status)
@@ -394,7 +398,7 @@ export default function CampaignsView() {
             </section>
           )}
 
-          {joinedCampaigns.length > 0 && (
+          {otherCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
               <h3
                 style={{
@@ -404,12 +408,21 @@ export default function CampaignsView() {
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                   marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                {t('campaigns.joinedCampaigns')}
+                {isAdmin ? (
+                  <>
+                    <LuShield size={13} /> {t('campaigns.allCampaigns')}
+                  </>
+                ) : (
+                  t('campaigns.joinedCampaigns')
+                )}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {joinedCampaigns.map((c) => (
+                {otherCampaigns.map((c) => (
                   <CampaignCard
                     key={c.id}
                     campaign={c}

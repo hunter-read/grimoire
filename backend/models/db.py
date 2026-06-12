@@ -75,6 +75,9 @@ def init_db(db_path: str):
             "ALTER TABLE users ADD COLUMN oidc_subject VARCHAR(255)",
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email) WHERE email IS NOT NULL",
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_oidc_subject ON users(oidc_subject) WHERE oidc_subject IS NOT NULL",
+            "ALTER TABLE campaigns ADD COLUMN deleted_at DATETIME",
+            "ALTER TABLE campaigns ADD COLUMN deleted_by_id VARCHAR(36)",
+            "ALTER TABLE campaigns ADD COLUMN deletion_reason TEXT",
         ]:
             try:
                 conn.execute(text(migration))

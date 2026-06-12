@@ -77,6 +77,13 @@ export const campaigns = {
   getAvailability: (id) => api.get(`/campaigns/${id}/availability`),
   setAvailability: (id, date, data) => api.put(`/campaigns/${id}/availability/${date}`, data),
   cancelDate: (id, date) => api.put(`/campaigns/${id}/availability/${date}/cancel`),
+
+  // Admin
+  adminListAll: () => api.get('/campaigns/admin/all'),
+  adminListDeleted: () => api.get('/campaigns/admin/deleted'),
+  adminListByUser: (userId) => api.get(`/campaigns/admin/by-user/${userId}`),
+  adminSoftDelete: (id, reason) => api.post(`/campaigns/admin/${id}/delete`, { reason }),
+  adminRestore: (id) => api.post(`/campaigns/admin/${id}/restore`),
 }
 
 export const opds = {

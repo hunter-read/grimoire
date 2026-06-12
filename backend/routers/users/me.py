@@ -4,7 +4,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 
-from ...config import SessionLocal, OPDS_ENABLED, BASE_URL
+from ...config import SessionLocal, OPDS_ENABLED, BASE_URL, DISABLE_PASSWORD_CHANGE
 from ...models import User, Campaign
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
 from ._schemas import PasswordChange, PreferencesUpdate
@@ -46,6 +46,8 @@ def change_own_password(
     data: PasswordChange,
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    if DISABLE_PASSWORD_CHANGE and current_user.role != "admin":
+        raise HTTPException(403, "Password changes are disabled on this server")
     db = SessionLocal()
     try:
         user = db.query(User).filter_by(id=current_user.id).first()

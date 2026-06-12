@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuKeyRound, LuMail } from 'react-icons/lu'
 import RoleBadge from './RoleBadge'
+import UserCampaignsPanel from './UserCampaignsPanel'
 
 const isMobile = window.matchMedia('(max-width: 640px)').matches
 
@@ -125,6 +126,7 @@ function SetPasswordInline({ onSave, onCancel }) {
 export default function UserRow({
   user,
   currentUserId,
+  currentUserRole,
   onRoleChange,
   onExplicitChange,
   onPasswordReset,
@@ -137,6 +139,7 @@ export default function UserRow({
   const [settingEmail, setSettingEmail] = useState(false)
   const isSelf = user.id === currentUserId
   const canSetPassword = !isSelf
+  const isAdmin = currentUserRole === 'admin'
 
   const emailDisplay = user.email || (
     <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('users.noEmail')}</span>
@@ -345,6 +348,12 @@ export default function UserRow({
             />
           </div>
         )}
+
+        {isAdmin && !isSelf && (
+          <div style={{ marginTop: 10 }}>
+            <UserCampaignsPanel userId={user.id} />
+          </div>
+        )}
       </div>
     )
   }
@@ -546,6 +555,18 @@ export default function UserRow({
             onSave={(email) => onEmailChange(user.id, email)}
             onCancel={() => setSettingEmail(false)}
           />
+        </div>
+      )}
+
+      {isAdmin && !isSelf && (
+        <div
+          style={{
+            padding: '8px 16px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--bg-deep)',
+          }}
+        >
+          <UserCampaignsPanel userId={user.id} />
         </div>
       )}
     </div>

@@ -33,6 +33,10 @@ class Campaign(Base):
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    deletion_reason = Column(Text, nullable=True)
+
     members = relationship(
         "CampaignMember", back_populates="campaign", cascade="all, delete-orphan"
     )

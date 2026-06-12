@@ -22,6 +22,11 @@ PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
+# When true, non-admin users cannot change their own password via /users/me/password.
+# Admins can still reset any user's password via /users/{user_id}.
+# Intended for OIDC-only deployments where passwords are managed externally.
+DISABLE_PASSWORD_CHANGE = os.environ.get("DISABLE_PASSWORD_CHANGE", "false").lower() == "true"
+
 # Optional override for password authentication. When the env var is set,
 # it pins the value and the admin UI shows a read-only state. When unset,
 # the corresponding DB setting (password_auth_enabled) is used.

@@ -603,3 +603,166 @@ class TestEligibleMembers:
             f"/api/campaigns/{gm_campaign['id']}/eligible-members", headers=player_headers
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Admin soft-delete, restore, and listing endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestAdminCampaignVisibility:
+    def test_admin_list_all_includes_others_campaigns(
+        self, client, admin_headers, gm_campaign, player_campaign
+    ):
+        resp = client.get("/api/campaigns/admin/all", headers=admin_headers)
+        assert resp.status_code == 200
+        ids = [c["id"] for c in resp.json()]
+        assert gm_campaign["id"] in ids
+        assert player_campaign["id"] in ids
+
+    def test_non_admin_cannot_list_all(self, client, gm_headers):
+        resp = client.get("/api/campaigns/admin/all", headers=gm_headers)
+        assert resp.status_code == 403
+
+    def test_admin_list_by_user(self, client, admin_headers, gm_id, gm_campaign):
+        resp = client.get(f"/api/campaigns/admin/by-user/{gm_id}", headers=admin_headers)
+        assert resp.status_code == 200
+        ids = [c["id"] for c in resp.json()]
+        assert gm_campaign["id"] in ids
+
+    def test_admin_list_by_user_404_unknown(self, client, admin_headers):
+        resp = client.get("/api/campaigns/admin/by-user/doesnotexist", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_non_admin_cannot_list_by_user(self, client, gm_headers, gm_id):
+        resp = client.get(f"/api/campaigns/admin/by-user/{gm_id}", headers=gm_headers)
+        assert resp.status_code == 403
+
+    def test_admin_sees_all_in_own_campaign_list(
+        self, client, admin_headers, gm_campaign, player_campaign
+    ):
+        """The main /api/campaigns endpoint returns all campaigns to admins."""
+        resp = client.get("/api/campaigns", headers=admin_headers)
+        assert resp.status_code == 200
+        ids = [c["id"] for c in resp.json()]
+        assert gm_campaign["id"] in ids
+        assert player_campaign["id"] in ids
+
+
+class TestAdminSoftDelete:
+    @pytest.fixture()
+    def deletable_campaign(self, client, gm_headers):
+        resp = client.post(
+            "/api/campaigns",
+            json={"name": f"Deletable {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201
+        return resp.json()
+
+    def test_admin_soft_delete_requires_reason(self, client, admin_headers, deletable_campaign):
+        resp = client.post(
+            f"/api/campaigns/admin/{deletable_campaign['id']}/delete",
+            json={"reason": ""},
+            headers=admin_headers,
+        )
+        # empty reason stripped → fails validation in handler
+        assert resp.status_code in (400, 422)
+
+    def test_admin_soft_delete_hides_campaign(self, client, admin_headers, gm_headers, deletable_campaign):
+        reason = "Violated community guidelines"
+        resp = client.post(
+            f"/api/campaigns/admin/{deletable_campaign['id']}/delete",
+            json={"reason": reason},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 204
+
+        # GM can no longer see it
+        detail = client.get(f"/api/campaigns/{deletable_campaign['id']}", headers=gm_headers)
+        assert detail.status_code == 404
+
+        # Not in GM's list
+        ids = [c["id"] for c in client.get("/api/campaigns", headers=gm_headers).json()]
+        assert deletable_campaign["id"] not in ids
+
+    def test_deleted_campaign_appears_in_admin_deleted_list(
+        self, client, admin_headers, deletable_campaign
+    ):
+        # Soft-delete it (may already be deleted from prior test — that's fine)
+        client.post(
+            f"/api/campaigns/admin/{deletable_campaign['id']}/delete",
+            json={"reason": "test deletion"},
+            headers=admin_headers,
+        )
+        resp = client.get("/api/campaigns/admin/deleted", headers=admin_headers)
+        assert resp.status_code == 200
+        ids = [c["id"] for c in resp.json()]
+        assert deletable_campaign["id"] in ids
+
+    def test_non_admin_cannot_soft_delete(self, client, gm_headers, gm_campaign):
+        resp = client.post(
+            f"/api/campaigns/admin/{gm_campaign['id']}/delete",
+            json={"reason": "test"},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 403
+
+    def test_non_admin_cannot_list_deleted(self, client, gm_headers):
+        assert client.get("/api/campaigns/admin/deleted", headers=gm_headers).status_code == 403
+
+
+class TestAdminRestore:
+    @pytest.fixture()
+    def soft_deleted_campaign(self, client, admin_headers, gm_headers):
+        resp = client.post(
+            "/api/campaigns",
+            json={"name": f"Restorable {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201
+        campaign = resp.json()
+        del_resp = client.post(
+            f"/api/campaigns/admin/{campaign['id']}/delete",
+            json={"reason": "test soft delete for restore"},
+            headers=admin_headers,
+        )
+        assert del_resp.status_code == 204
+        return campaign
+
+    def test_restore_makes_campaign_visible_again(
+        self, client, admin_headers, gm_headers, soft_deleted_campaign
+    ):
+        resp = client.post(
+            f"/api/campaigns/admin/{soft_deleted_campaign['id']}/restore",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == soft_deleted_campaign["id"]
+
+        # GM sees it in their list again
+        ids = [c["id"] for c in client.get("/api/campaigns", headers=gm_headers).json()]
+        assert soft_deleted_campaign["id"] in ids
+
+    def test_restore_non_deleted_returns_409(
+        self, client, admin_headers, soft_deleted_campaign
+    ):
+        # Restore once
+        client.post(
+            f"/api/campaigns/admin/{soft_deleted_campaign['id']}/restore",
+            headers=admin_headers,
+        )
+        # Try again — should be 409
+        resp = client.post(
+            f"/api/campaigns/admin/{soft_deleted_campaign['id']}/restore",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 409
+
+    def test_non_admin_cannot_restore(self, client, gm_headers, soft_deleted_campaign):
+        resp = client.post(
+            f"/api/campaigns/admin/{soft_deleted_campaign['id']}/restore",
+            headers=gm_headers,
+        )
+        assert resp.status_code == 403

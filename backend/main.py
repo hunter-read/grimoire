@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import scheduler, session_creator
+from . import campaign_janitor, scheduler, session_creator
 from .auth import get_current_user
 from .config import DATA_PATH, LIBRARY_PATH, OPDS_ENABLED, SessionLocal, VERSION, logger
 from .routers import (
@@ -113,6 +113,7 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
         session_creator.start()
+        campaign_janitor.start()
 
     yield
 
