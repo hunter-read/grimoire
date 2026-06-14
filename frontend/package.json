@@ -24,10 +24,10 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.2",
     "jsdom": "^29.0.1",
     "prettier": "^3.8.3",
-    "vite": "^6.4.2",
+    "vite": "^8.0.16",
     "vitest": "^4.1.2"
   }
 }
