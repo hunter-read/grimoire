@@ -565,6 +565,9 @@
       "disable": "Desactivar",
       "confirmRevoke": "Desactivar OPDS revocará de inmediato la URL de tu feed. Las aplicaciones que la usen perderán el acceso. ¿Continuar?",
       "confirmDisable": "Sí, desactivar"
+    },
+    "demoMode": {
+      "notice": "Este es un servidor de demostración. La configuración de la cuenta es de solo lectura para las cuentas de demostración, y todas las campañas que crees se eliminan automáticamente cada hora."
     }
   },
   "appSettings": {

@@ -115,6 +115,14 @@ def _read_page_cache_ttl() -> int:
 PAGE_CACHE_TTL = _read_page_cache_ttl()
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
+# When true, the server runs in demo mode: non-admin users (player/gm) cannot
+# perform any action on their account settings page (changing display name,
+# email, preferences, password, OPDS tokens, or deleting their account), and
+# every hour all campaigns owned by non-admin accounts are deleted. Admin
+# accounts are unaffected and retain full access. Intended for public demo
+# deployments.
+ENABLE_DEMO_MODE = os.environ.get("ENABLE_DEMO_MODE", "false").lower() == "true"
+
 # Optional override for password authentication. When the env var is set,
 # it pins the value and the admin UI shows a read-only state. When unset,
 # the corresponding DB setting (password_auth_enabled) is used.

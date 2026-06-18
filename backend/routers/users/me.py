@@ -4,7 +4,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...config import OPDS_ENABLED, BASE_URL, get_db
+from ...config import OPDS_ENABLED, BASE_URL, ENABLE_DEMO_MODE, get_db
 from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
 from ..campaigns._helpers import purge_user_data
@@ -13,11 +13,18 @@ from ._schemas import PasswordChange, PreferencesUpdate
 router = APIRouter()
 
 
+def _assert_not_demo(current_user: CurrentUser) -> None:
+    """Block self-service account changes for non-admins when demo mode is on."""
+    if ENABLE_DEMO_MODE and current_user.role != "admin":
+        raise HTTPException(403, "Account actions are disabled in demo mode")
+
+
 def update_own_preferences(
     data: PreferencesUpdate,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_not_demo(current_user)
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -45,6 +52,7 @@ def change_own_password(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_not_demo(current_user)
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -59,6 +67,7 @@ def delete_own_account(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _assert_not_demo(current_user)
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -90,6 +99,7 @@ def generate_opds_token(
     db: Session = Depends(get_db),
 ):
     """Generate (or regenerate) the user's OPDS token. Old token is immediately revoked."""
+    _assert_not_demo(current_user)
     if not OPDS_ENABLED:
         raise HTTPException(403, "OPDS is not enabled on this server")
     # Guests are campaign-scoped and must not get a full-library OPDS feed.
@@ -110,6 +120,7 @@ def revoke_opds_token(
     db: Session = Depends(get_db),
 ):
     """Revoke the user's OPDS token. The feed URL immediately stops working."""
+    _assert_not_demo(current_user)
     if not OPDS_ENABLED:
         raise HTTPException(403, "OPDS is not enabled on this server")
     user = db.query(User).filter_by(id=current_user.id).first()

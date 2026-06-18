@@ -565,6 +565,9 @@
       "disable": "Disable",
       "confirmRevoke": "Disabling OPDS will immediately revoke your feed URL. Any apps using it will lose access. Continue?",
       "confirmDisable": "Yes, disable"
+    },
+    "demoMode": {
+      "notice": "This is a demo server. Account settings are read-only for demo accounts, and any campaigns you create are automatically removed every hour."
     }
   },
   "appSettings": {

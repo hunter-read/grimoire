@@ -565,6 +565,9 @@
       "disable": "Uitschakelen",
       "confirmRevoke": "Het uitschakelen van OPDS trekt je feed-URL onmiddellijk in. Apps die deze gebruiken, verliezen de toegang. Doorgaan?",
       "confirmDisable": "Ja, uitschakelen"
+    },
+    "demoMode": {
+      "notice": "Dit is een demoserver. Accountinstellingen zijn alleen-lezen voor demo-accounts en alle campagnes die je aanmaakt worden elk uur automatisch verwijderd."
     }
   },
   "appSettings": {

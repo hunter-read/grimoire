@@ -8,6 +8,7 @@ from ...config import (
     get_db,
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
     DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
+    ENABLE_DEMO_MODE,
     GUEST_ACCESS_ENABLED_ENV,
     OIDC_ENV,
 )
@@ -205,6 +206,7 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "show_stat_tokens": raw["show_stat_tokens"] == "true",
         "show_stat_audio": raw["show_stat_audio"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
+        "demo_mode": ENABLE_DEMO_MODE,
         "campaign_uploads_disabled": raw["campaign_uploads_disabled"] == "true",
         "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
         "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),

@@ -11,11 +11,12 @@ from sqlalchemy import text
 
 from slowapi import _rate_limit_exceeded_handler
 
-from . import scheduler, session_creator
+from . import demo, scheduler, session_creator
 from .auth import get_current_user
 from .security import RateLimitExceeded, SecurityHeadersMiddleware, limiter
 from .config import (
     DATA_PATH,
+    ENABLE_DEMO_MODE,
     LIBRARY_PATH,
     OPDS_ENABLED,
     SessionLocal,
@@ -165,6 +166,8 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
         session_creator.start()
+        if ENABLE_DEMO_MODE:
+            demo.start()
 
     yield
 

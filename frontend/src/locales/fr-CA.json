@@ -565,6 +565,9 @@
       "disable": "Désactiver",
       "confirmRevoke": "La désactivation du flux OPDS révoquera immédiatement votre URL. Toutes les applications qui l'utilisent perdront l'accès. Continuer ?",
       "confirmDisable": "Oui, désactiver"
+    },
+    "demoMode": {
+      "notice": "Ceci est un serveur de démonstration. Les paramètres du compte sont en lecture seule pour les comptes de démonstration, et toutes les campagnes que vous créez sont automatiquement supprimées chaque heure."
     }
   },
   "appSettings": {
