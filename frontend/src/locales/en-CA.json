@@ -1478,6 +1478,9 @@
       "description": "Every link you've made. Copy one again, or revoke it to stop it working.",
       "noPermission": "You can't create share links right now. Links you made before are paused, not deleted, and work again if an admin restores your permission.",
       "none": "You haven't made any share links."
+    },
+    "demoMode": {
+      "notice": "This is a demo server. Account settings are read-only for demo accounts, and any campaigns you create are automatically removed every hour."
     }
   },
   "appSettings": {

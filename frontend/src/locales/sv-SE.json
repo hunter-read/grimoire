@@ -1478,6 +1478,9 @@
       "description": "Alla länkar du har skapat. Kopiera en igen, eller återkalla den så slutar den fungera.",
       "noPermission": "Du kan inte skapa delningslänkar just nu. Länkar du skapat tidigare är pausade, inte borttagna, och fungerar igen om en administratör ger tillbaka behörigheten.",
       "none": "Du har inte skapat några delningslänkar."
+    },
+    "demoMode": {
+      "notice": "Det här är en demoserver. Kontoinställningarna är skrivskyddade för demokonton, och alla kampanjer du skapar tas bort automatiskt varje timme."
     }
   },
   "appSettings": {

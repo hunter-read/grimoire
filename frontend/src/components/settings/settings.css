@@ -222,6 +222,14 @@
   min-width: 0;
 }
 
+/* Demo mode: a disabled fieldset locks the area, without drawing a fieldset's box. */
+.settings-demo-lock {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .settings-header {
   display: flex;
   justify-content: space-between;

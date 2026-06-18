@@ -396,3 +396,33 @@ describe('SettingsView with Grimoire Codex DB', () => {
     expect(screen.getByRole('option', { name: /codex\.settings\.title/ })).toBeInTheDocument()
   })
 })
+
+// Demo mode: a public demo instance freezes non-admin settings behind a
+// disabled fieldset so visitors can look around without editing their account.
+describe('SettingsView demo mode lockdown', () => {
+  const GM = { id: 'g', username: 'gm', role: 'gm' }
+  const lock = (container: HTMLElement) => container.querySelector('fieldset.settings-demo-lock')
+
+  it('disables every setting for a non-admin when demo mode is on', () => {
+    const { container } = renderAt('/settings/account', PLAYER, { demo_mode: true })
+    expect(lock(container)).toBeDisabled()
+    expect(screen.getByText('userSettings.demoMode.notice')).toBeInTheDocument()
+  })
+
+  it('locks gm accounts too', () => {
+    const { container } = renderAt('/settings/connections', GM, { demo_mode: true })
+    expect(lock(container)).toBeDisabled()
+  })
+
+  it('does not lock admin accounts in demo mode', () => {
+    const { container } = renderAt('/settings/account', ADMIN, { demo_mode: true })
+    expect(lock(container)).not.toBeDisabled()
+    expect(screen.queryByText('userSettings.demoMode.notice')).not.toBeInTheDocument()
+  })
+
+  it('does not lock non-admins when demo mode is off', () => {
+    const { container } = renderAt('/settings/account', PLAYER, { demo_mode: false })
+    expect(lock(container)).not.toBeDisabled()
+    expect(screen.queryByText('userSettings.demoMode.notice')).not.toBeInTheDocument()
+  })
+})

@@ -105,6 +105,7 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "show_stat_models": raw["show_stat_models"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
         "show_stat_library_size": raw["show_stat_library_size"] == "true",
+        "demo_mode": config.ENABLE_DEMO_MODE,
         "campaign_uploads_disabled": raw["campaign_uploads_disabled"] == "true",
         "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
         "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),

@@ -28,6 +28,7 @@ import AddonsArea from '../components/settings/areas/AddonsArea'
 import SidebarArea from '../components/settings/areas/SidebarArea'
 import BackupsArea from '../components/settings/areas/BackupsArea'
 import LogsTab from '../components/settings/LogsTab'
+import DemoModeBanner from '../components/settings/DemoModeBanner'
 import '../components/settings/settings.css'
 
 interface SettingsViewProps {
@@ -86,6 +87,8 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
   const ui = useUISettings()
   const codex = useCodexStatus()
   const isAdmin = user?.role === 'admin'
+  // In demo mode, non-admin accounts can view their settings but not change them.
+  const locked = Boolean(ui.demo_mode) && !isAdmin
 
   const visibility = useMemo<SettingsVisibility>(
     () => ({
@@ -192,7 +195,11 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
 
         <SettingsDirtyContext.Provider value={dirtyRegistry}>
           <SettingsTargetContext.Provider value={target}>
-            <div key={area}>{pages[area]()}</div>
+            {locked && <DemoModeBanner />}
+            {/* A disabled fieldset natively disables every nested input and button. */}
+            <fieldset disabled={locked} className="settings-demo-lock">
+              <div key={area}>{pages[area]()}</div>
+            </fieldset>
           </SettingsTargetContext.Provider>
         </SettingsDirtyContext.Provider>
       </section>

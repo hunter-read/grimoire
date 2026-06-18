@@ -1478,6 +1478,9 @@
       "description": "Tous les liens que vous avez créés. Copiez-en un à nouveau, ou révoquez-le pour qu'il cesse de fonctionner.",
       "noPermission": "Vous ne pouvez pas créer de liens de partage pour le moment. Vos liens existants sont suspendus, pas supprimés, et refonctionneront si un admin vous rend l'autorisation.",
       "none": "Vous n'avez créé aucun lien de partage."
+    },
+    "demoMode": {
+      "notice": "Ceci est un serveur de démonstration. Les paramètres du compte sont en lecture seule pour les comptes de démonstration, et toutes les campagnes que vous créez sont automatiquement supprimées chaque heure."
     }
   },
   "appSettings": {

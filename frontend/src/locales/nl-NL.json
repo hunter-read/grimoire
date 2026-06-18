@@ -1478,6 +1478,9 @@
       "description": "Alle links die je hebt gemaakt. Kopieer er een opnieuw, of trek hem in zodat hij niet meer werkt.",
       "noPermission": "Je kunt nu geen deellinks maken. Links die je eerder maakte zijn gepauzeerd, niet verwijderd, en werken weer als een admin je toestemming herstelt.",
       "none": "Je hebt nog geen deellinks gemaakt."
+    },
+    "demoMode": {
+      "notice": "Dit is een demoserver. Accountinstellingen zijn alleen-lezen voor demo-accounts en alle campagnes die je aanmaakt worden elk uur automatisch verwijderd."
     }
   },
   "appSettings": {

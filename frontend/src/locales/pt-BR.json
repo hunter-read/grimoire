@@ -1478,6 +1478,9 @@
       "description": "Todos os links que você criou. Copie um de novo, ou revogue-o para que pare de funcionar.",
       "noPermission": "No momento você não pode criar links de compartilhamento. Os que você criou estão pausados, não excluídos, e voltam a funcionar se um admin devolver sua permissão.",
       "none": "Você ainda não criou nenhum link de compartilhamento."
+    },
+    "demoMode": {
+      "notice": "Este é um servidor de demonstração. As configurações da conta são somente leitura para contas de demonstração, e todas as campanhas que você criar são removidas automaticamente a cada hora."
     }
   },
   "appSettings": {

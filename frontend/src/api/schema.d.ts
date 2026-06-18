@@ -15848,6 +15848,8 @@ export interface components {
             campaign_upload_max_total_mb: number;
             /** Campaign Uploads Disabled */
             campaign_uploads_disabled: boolean;
+            /** Demo Mode */
+            demo_mode: boolean;
             /** Guest Access Enabled */
             guest_access_enabled: boolean;
             /** Hide Audio */

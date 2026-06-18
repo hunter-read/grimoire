@@ -1478,6 +1478,9 @@
       "description": "Todos los enlaces que has creado. Vuelve a copiar uno, o revócalo para que deje de funcionar.",
       "noPermission": "Ahora mismo no puedes crear enlaces para compartir. Los que creaste están en pausa, no eliminados, y volverán a funcionar si un admin te devuelve el permiso.",
       "none": "No has creado ningún enlace para compartir."
+    },
+    "demoMode": {
+      "notice": "Este es un servidor de demostración. La configuración de la cuenta es de solo lectura para las cuentas de demostración, y todas las campañas que crees se eliminan automáticamente cada hora."
     }
   },
   "appSettings": {

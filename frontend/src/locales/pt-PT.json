@@ -1478,6 +1478,9 @@
       "description": "Todas as ligações que criou. Copie uma de novo, ou revogue-a para deixar de funcionar.",
       "noPermission": "Neste momento não pode criar ligações de partilha. As que criou estão em pausa, não eliminadas, e voltam a funcionar se um admin lhe devolver a permissão.",
       "none": "Ainda não criou ligações de partilha."
+    },
+    "demoMode": {
+      "notice": "Este é um servidor de demonstração. As definições da conta são só de leitura para contas de demonstração, e todas as campanhas que criar são removidas automaticamente a cada hora."
     }
   },
   "appSettings": {

@@ -1478,6 +1478,9 @@
       "description": "Alle Links, die du erstellt hast. Kopiere einen erneut oder widerrufe ihn, damit er nicht mehr funktioniert.",
       "noPermission": "Du kannst gerade keine Freigabelinks erstellen. Bestehende Links sind pausiert, nicht gelöscht, und funktionieren wieder, wenn ein Admin dir die Berechtigung zurückgibt.",
       "none": "Du hast noch keine Freigabelinks erstellt."
+    },
+    "demoMode": {
+      "notice": "Dies ist ein Demoserver. Die Kontoeinstellungen sind für Demokonten schreibgeschützt, und alle von dir erstellten Kampagnen werden stündlich automatisch entfernt."
     }
   },
   "appSettings": {

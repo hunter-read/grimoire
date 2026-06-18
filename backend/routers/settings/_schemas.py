@@ -209,6 +209,7 @@ class UISettingsResponse(BaseModel):
     show_stat_models: bool
     show_stat_size: bool
     show_stat_library_size: bool
+    demo_mode: bool
     campaign_uploads_disabled: bool
     campaign_upload_max_file_mb: int
     campaign_upload_max_total_mb: int

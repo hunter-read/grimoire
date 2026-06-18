@@ -1478,6 +1478,9 @@
       "description": "Tutti i link che hai creato. Copiane uno di nuovo, o revocalo perché smetta di funzionare.",
       "noPermission": "Al momento non puoi creare link di condivisione. Quelli che hai creato sono in pausa, non eliminati, e torneranno a funzionare se un admin ti restituisce il permesso.",
       "none": "Non hai creato nessun link di condivisione."
+    },
+    "demoMode": {
+      "notice": "Questo è un server dimostrativo. Le impostazioni dell'account sono di sola lettura per gli account demo e tutte le campagne che crei vengono rimosse automaticamente ogni ora."
     }
   },
   "appSettings": {
