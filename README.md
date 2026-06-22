@@ -108,8 +108,8 @@ services:
     environment:
       SECRET_KEY: "generate-with-openssl-rand-hex-32"
     volumes:
-      - /path/to/your/library:/library:ro   # read-only — use Filebrowser or Calibre to manage files
-      - /path/to/grimoire/data:/data
+      - /path/to/your/library:/app/library:ro   # read-only — use Filebrowser or Calibre to manage files
+      - /path/to/grimoire/data:/app/data
 ```
 
 ### 5. Example compose files
