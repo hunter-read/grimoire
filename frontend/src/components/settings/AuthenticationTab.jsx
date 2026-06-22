@@ -10,6 +10,7 @@ export default function AuthenticationTab() {
   const { t } = useTranslation()
   const [values, setValues] = useState(null)
   const [envLocked, setEnvLocked] = useState(false)
+  const [guestEnvLocked, setGuestEnvLocked] = useState(false)
   const [saving, setSaving] = useState(null)
   const [saved, setSaved] = useState(null)
   const [messageDraft, setMessageDraft] = useState('')
@@ -23,14 +24,21 @@ export default function AuthenticationTab() {
       .then((d) => {
         setValues({
           password_auth_enabled: !!d.password_auth_enabled,
+          guest_access_enabled: !!d.guest_access_enabled,
           custom_login_message_enabled: !!d.custom_login_message_enabled,
         })
         setEnvLocked(!!d.password_auth_env_locked)
+        setGuestEnvLocked(!!d.guest_access_env_locked)
         setMessageDraft(d.custom_login_message || '')
       })
       .catch(() => {
-        setValues({ password_auth_enabled: true, custom_login_message_enabled: false })
+        setValues({
+          password_auth_enabled: true,
+          guest_access_enabled: false,
+          custom_login_message_enabled: false,
+        })
         setEnvLocked(false)
+        setGuestEnvLocked(false)
       })
   }, [])
 
@@ -213,6 +221,70 @@ export default function AuthenticationTab() {
           >
             {t('authSettings.passwordAuth.envLocked', {
               value: values.password_auth_enabled ? 'true' : 'false',
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border)', margin: '40px 0' }} />
+
+      {/* Guest access */}
+      <div>
+        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
+          {t('authSettings.guestAccess.title')}
+        </h3>
+        <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
+          {t('authSettings.guestAccess.description')}
+        </p>
+
+        <label
+          htmlFor="guest_access_enabled"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            cursor: guestEnvLocked ? 'not-allowed' : 'pointer',
+            width: 'fit-content',
+            opacity: guestEnvLocked ? 0.7 : 1,
+          }}
+        >
+          <input
+            id="guest_access_enabled"
+            type="checkbox"
+            checked={values.guest_access_enabled}
+            onChange={() => toggle('guest_access_enabled')}
+            disabled={guestEnvLocked || saving === 'guest_access_enabled'}
+            style={{
+              width: 16,
+              height: 16,
+              cursor: guestEnvLocked ? 'not-allowed' : 'pointer',
+              accentColor: 'var(--gold)',
+            }}
+          />
+          <span style={{ fontSize: 14, color: 'var(--text)' }}>
+            {t('authSettings.guestAccess.enable')}
+          </span>
+          {saving === 'guest_access_enabled' && <Spinner size={13} />}
+          {saved === 'guest_access_enabled' && (
+            <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />
+          )}
+        </label>
+
+        {guestEnvLocked && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              borderRadius: 6,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              fontSize: 13,
+              color: 'var(--text-dim)',
+              lineHeight: 1.5,
+            }}
+          >
+            {t('authSettings.guestAccess.envLocked', {
+              value: values.guest_access_enabled ? 'true' : 'false',
             })}
           </div>
         )}

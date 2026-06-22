@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import useScrollRestoration from '../hooks/useScrollRestoration'
 import { useAuth } from '../context/AuthContext'
 import { UISettingsProvider } from '../context/UISettingsContext'
@@ -42,6 +42,8 @@ export default function AppShell() {
       return next
     })
   const location = useLocation()
+  const navigate = useNavigate()
+  const isGuest = user?.role === 'guest'
   const isReader =
     location.pathname.startsWith('/library/book/') ||
     location.pathname.startsWith('/maps/') ||
@@ -69,6 +71,17 @@ export default function AppShell() {
     }
   }, [])
 
+  // After a guest logs in via an invite code, drop them straight into the
+  // campaign the code belongs to.
+  useEffect(() => {
+    const target = sessionStorage.getItem('grimoire:guest_campaign')
+    if (target) {
+      sessionStorage.removeItem('grimoire:guest_campaign')
+      navigate(`/campaigns/${target}/overview`, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <UISettingsProvider value={uiSettings}>
       <div style={{ display: 'flex', height: '100vh' }}>
@@ -93,24 +106,38 @@ export default function AppShell() {
             paddingBottom: isMobile ? 64 : 0,
           }}
         >
-          <Routes>
-            <Route path="/" element={<Navigate to="/library" replace />} />
-            <Route path="/library" element={<LibraryView />} />
-            <Route path="/library/system/:systemId" element={<SystemDetailView />} />
-            <Route path="/library/book/:bookId" element={<BookReader />} />
-            <Route path="/maps" element={<MapsView />} />
-            <Route path="/maps/:mapId" element={<MapDetailView />} />
-            <Route path="/tokens" element={<TokensView />} />
-            <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
-            <Route path="/search" element={<SearchView />} />
-            <Route path="/favorites" element={<FavoritesView />} />
-            <Route path="/campaigns" element={<CampaignsView />} />
-            <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
-            <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
-            <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
-            <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
-            <Route path="/settings/:tab" element={<SettingsView user={user} onLogout={logout} />} />
-          </Routes>
+          {isGuest ? (
+            // Guests are scoped to their campaign(s); everything else redirects.
+            <Routes>
+              <Route path="/campaigns" element={<CampaignsView />} />
+              <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
+              <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
+              <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+              <Route path="*" element={<Navigate to="/campaigns" replace />} />
+            </Routes>
+          ) : (
+            <Routes>
+              <Route path="/" element={<Navigate to="/library" replace />} />
+              <Route path="/library" element={<LibraryView />} />
+              <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+              <Route path="/library/book/:bookId" element={<BookReader />} />
+              <Route path="/maps" element={<MapsView />} />
+              <Route path="/maps/:mapId" element={<MapDetailView />} />
+              <Route path="/tokens" element={<TokensView />} />
+              <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+              <Route path="/search" element={<SearchView />} />
+              <Route path="/favorites" element={<FavoritesView />} />
+              <Route path="/campaigns" element={<CampaignsView />} />
+              <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
+              <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
+              <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+              <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+              <Route
+                path="/settings/:tab"
+                element={<SettingsView user={user} onLogout={logout} />}
+              />
+            </Routes>
+          )}
         </main>
 
         {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}

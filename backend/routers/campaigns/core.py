@@ -89,6 +89,8 @@ def list_campaigns(current_user: CurrentUser = Depends(get_current_user)):
 
 
 def create_campaign(data: CampaignCreate, current_user: CurrentUser = Depends(get_current_user)):
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot create campaigns")
     if data.is_gm_campaign and not is_gm_or_admin(current_user):
         raise HTTPException(403, "Only GMs and admins can create GM-run campaigns")
 
@@ -249,6 +251,8 @@ def search_resources_global(
     "Abyssal Fall (30x49)" surfaces every map inside it. Folder-path matches are
     ranked above filename-only matches.
     """
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot browse the library")
     db = SessionLocal()
     try:
         results = []
@@ -307,6 +311,8 @@ def suggested_resources(system_id: str, current_user: CurrentUser = Depends(get_
     Core-category books are flagged `suggested` so the wizard can pre-select them;
     nothing else is suggested. Ordered with suggested (core) books first.
     """
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot browse the library")
     db = SessionLocal()
     try:
         books = db.query(Book).filter_by(game_system_id=system_id).order_by(Book.title).all()
@@ -479,7 +485,15 @@ def eligible_members(campaign_id: str, current_user: CurrentUser = Depends(get_c
         existing = {
             m.user_id for m in db.query(CampaignMember).filter_by(campaign_id=campaign_id).all()
         }
-        users = db.query(User).filter(User.id != c.owner_id).all()
+        # Guests are not invitable here — they're created via the guest panel.
+        users = (
+            db.query(User)
+            .filter(
+                User.id != c.owner_id,
+                (User.is_guest == False) | (User.is_guest.is_(None)),  # noqa: E712
+            )
+            .all()
+        )
         return [
             {
                 "id": u.id,

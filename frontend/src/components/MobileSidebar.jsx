@@ -15,10 +15,11 @@ import {
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
 
-export default function MobileSidebar({ onLogout, uiSettings = {} }) {
+export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
   const { t } = useTranslation()
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
+  const isGuest = user?.role === 'guest'
   const { hide_maps, hide_tokens, hide_campaigns } = uiSettings
   const moreRoutes = [
     '/settings',
@@ -26,6 +27,35 @@ export default function MobileSidebar({ onLogout, uiSettings = {} }) {
     ...(!hide_tokens ? ['/tokens'] : []),
   ]
   const moreActive = moreRoutes.some((r) => location.pathname.startsWith(r))
+
+  if (isGuest) {
+    // Guests only have their campaign(s); show a minimal bar.
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'var(--bg-panel)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-around',
+          padding: '8px 0',
+        }}
+      >
+        <NavLink to="/campaigns" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
+          <LuScroll size={20} />
+          {t('nav.campaigns')}
+        </NavLink>
+        <button onClick={onLogout} style={mobileNavStyle(false)}>
+          <LuLogOut size={20} />
+          {t('nav.logOut')}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <>

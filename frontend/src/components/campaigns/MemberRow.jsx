@@ -299,6 +299,22 @@ export default function MemberRow({
               {t('members.gm')}
             </span>
           )}
+          {member.is_guest && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--text-dim)',
+                fontWeight: 600,
+                background: 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '1px 6px',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {t('guests.guest')}
+            </span>
+          )}
           {isCurrentUser && (
             <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{t('members.you')}</span>
           )}

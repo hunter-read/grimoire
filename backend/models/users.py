@@ -25,6 +25,10 @@ class User(Base):
     email = Column(String(254), nullable=True, unique=True, index=True)
     hashed_password = Column(String(255), nullable=True)
     role = Column(String(20), default="player")
+    # A guest is a lightweight, code-only account (no password/OIDC) scoped to a
+    # single campaign they were invited to. role is also "guest"; this flag keeps
+    # them out of the invitable-user pool and the user admin list.
+    is_guest = Column(Boolean, default=False)
     allow_explicit = Column(Boolean, default=True)
     # Whether the user may create campaigns, be added to new campaigns, and manage
     # campaign content. Disabling it preserves existing campaigns but locks the user

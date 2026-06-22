@@ -94,7 +94,11 @@
     "or": "ou",
     "oidcDefault": "Se connecter via SSO",
     "oidcError": "Échec de la connexion unique : {{error}}",
-    "oidcLoginFailed": "La connexion unique a réussi, mais la session n'a pas pu être établie."
+    "oidcLoginFailed": "La connexion unique a réussi, mais la session n'a pas pu être établie.",
+    "haveInviteCode": "Vous avez un code d'invitation ?",
+    "inviteCode": "Code d'invitation",
+    "enterAsGuest": "Entrer en tant qu'invité",
+    "guestInvalidCode": "Code d'invitation invalide ou expiré."
   },
   "setup": {
     "title": "Configuration initiale",
@@ -367,6 +371,12 @@
       "autoRegister": "Inscription automatique",
       "autoRegisterHint": "Crée automatiquement les comptes locaux lors de la première connexion OIDC. Sans cela, les utilisateurs doivent déjà exister localement.",
       "saveFailed": "Impossible d'enregistrer."
+    },
+    "guestAccess": {
+      "title": "Accès invité",
+      "description": "Permet aux MJ et administrateurs de créer des codes d'invitation pour leurs campagnes. Les invités obtiennent un compte restreint, basé sur un code et limité à une seule campagne.",
+      "enable": "Activer les codes d'invitation",
+      "envLocked": "Verrouillé par la variable d'environnement GUEST_ACCESS_ENABLED (valeur actuelle : {{value}})."
     }
   },
   "userSettings": {
@@ -1166,5 +1176,21 @@
     "field_explicit": "Contenu explicite",
     "previous": "Précédent",
     "next": "Suivant"
+  },
+  "guests": {
+    "guests": "Invités",
+    "guest": "Invité",
+    "add": "Ajouter",
+    "none": "Aucun invité pour le moment.",
+    "nicknamePlaceholder": "Surnom de l'invité",
+    "share": "Partager l'invitation",
+    "regenerate": "Régénérer le code",
+    "remove": "Supprimer l'invité",
+    "confirmRemove": "Supprimer cet invité ? Son compte et ses contributions seront supprimés.",
+    "shareTitle": "Partager l'invitation",
+    "copyMessage": "Copier le message",
+    "copyForDiscord": "Copier pour Discord",
+    "email": "Courriel",
+    "copied": "Copié !"
   }
 }

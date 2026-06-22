@@ -7,6 +7,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GuestLoginRequest(BaseModel):
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def code_clean(cls, v):
+        return (v or "").strip().upper()
+
+
 class SetupRequest(BaseModel):
     username: str
     password: str

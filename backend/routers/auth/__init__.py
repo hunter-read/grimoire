@@ -1,7 +1,7 @@
 """Auth package — registers public (unauthenticated) and authenticated routes."""
 from fastapi import APIRouter
 
-from .core import auth_config, auth_login, auth_me, auth_setup, auth_status
+from .core import auth_config, auth_login, auth_me, auth_setup, auth_status, guest_login
 
 public_router = APIRouter(prefix="/api/auth", tags=["auth"])
 public_router.add_api_route(
@@ -30,6 +30,16 @@ public_router.add_api_route(
     methods=["POST"],
     summary="Log in",
     description="Authenticates with username and password. Returns a JWT valid for 30 days.",
+)
+public_router.add_api_route(
+    "/guest-login",
+    guest_login,
+    methods=["POST"],
+    summary="Log in as a guest",
+    description=(
+        "Exchanges a campaign guest invite code for a JWT scoped to a guest "
+        "account. Available only when guest access is enabled."
+    ),
 )
 public_router.add_api_route(
     "/config",

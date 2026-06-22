@@ -13,7 +13,14 @@ router = APIRouter()
 def list_users(_: CurrentUser = Depends(require_admin)):
     db = SessionLocal()
     try:
-        users = db.query(User).order_by(User.username).all()
+        # Guests are code-only accounts managed per-campaign by their GM; they
+        # never appear in the global user admin list.
+        users = (
+            db.query(User)
+            .filter((User.is_guest == False) | (User.is_guest.is_(None)))  # noqa: E712
+            .order_by(User.username)
+            .all()
+        )
         return [
             {
                 "id": u.id,
