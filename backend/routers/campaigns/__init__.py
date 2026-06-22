@@ -72,6 +72,13 @@ from .wiki import (
     page_titles,
     reorder_pages,
 )
+from .guests import (
+    create_guest,
+    list_guests,
+    regenerate_guest_code,
+    remove_guest,
+    guest_share_template,
+)
 from .wiki_io import export_wiki, import_wiki
 from .categories import (
     list_categories,
@@ -144,6 +151,40 @@ router.add_api_route(
     remove_member,
     methods=["DELETE"],
     summary="Remove a member",
+    status_code=204,
+)
+
+# --- Guests (code-based, GM-managed) ---
+router.add_api_route(
+    "/{campaign_id}/guests",
+    create_guest,
+    methods=["POST"],
+    summary="Create a guest invite code for a GM campaign",
+    status_code=201,
+)
+router.add_api_route(
+    "/{campaign_id}/guests",
+    list_guests,
+    methods=["GET"],
+    summary="List a campaign's guests and their invite codes",
+)
+router.add_api_route(
+    "/{campaign_id}/guests/{member_id}/regenerate",
+    regenerate_guest_code,
+    methods=["POST"],
+    summary="Regenerate a guest's invite code",
+)
+router.add_api_route(
+    "/{campaign_id}/guests/{member_id}/share-template",
+    guest_share_template,
+    methods=["GET"],
+    summary="Get share text and links for a guest invite code",
+)
+router.add_api_route(
+    "/{campaign_id}/guests/{member_id}",
+    remove_guest,
+    methods=["DELETE"],
+    summary="Remove a guest (deletes the guest account)",
     status_code=204,
 )
 

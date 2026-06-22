@@ -95,6 +95,11 @@ def init_db(db_path: str):
             "ALTER TABLE users ADD COLUMN campaign_access BOOLEAN DEFAULT 1",
             "ALTER TABLE campaigns ADD COLUMN resource_group_order JSON DEFAULT '[]'",
             "ALTER TABLE campaign_files ADD COLUMN is_image BOOLEAN DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN is_guest BOOLEAN DEFAULT 0",
+            "ALTER TABLE campaigns ADD COLUMN guest_invites_enabled BOOLEAN DEFAULT 0",
+            "ALTER TABLE campaign_members ADD COLUMN is_guest BOOLEAN DEFAULT 0",
+            "ALTER TABLE campaign_members ADD COLUMN guest_code VARCHAR(10)",
+            "CREATE INDEX IF NOT EXISTS ix_campaign_members_guest_code ON campaign_members(guest_code)",
         ]:
             try:
                 conn.execute(text(migration))

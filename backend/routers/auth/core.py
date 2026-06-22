@@ -9,14 +9,15 @@ from ...auth import (
     verify_password,
 )
 from ...config import SessionLocal
-from ...models import User
+from ...models import Campaign, CampaignMember, User
 from ..settings._helpers import (
     _get_raw,
+    guest_access_effective,
     oidc_effective,
     oidc_is_configured,
     password_auth_effective,
 )
-from ._schemas import LoginRequest, SetupRequest
+from ._schemas import GuestLoginRequest, LoginRequest, SetupRequest
 
 
 def auth_status():
@@ -66,6 +67,36 @@ def auth_login(data: LoginRequest):
         db.close()
 
 
+def guest_login(data: GuestLoginRequest):
+    db = SessionLocal()
+    try:
+        if not guest_access_effective(_get_raw(db)):
+            raise HTTPException(403, "Guest access is disabled")
+        if not data.code:
+            raise HTTPException(401, "Invalid invite code")
+
+        member = (
+            db.query(CampaignMember)
+            .filter_by(guest_code=data.code, is_guest=True, status="accepted")
+            .first()
+        )
+        if not member:
+            raise HTTPException(401, "Invalid invite code")
+
+        user = db.query(User).filter_by(id=member.user_id).first()
+        if not user or user.role != "guest":
+            raise HTTPException(401, "Invalid invite code")
+
+        token = create_token(user.id, user.username, user.role)
+        return {
+            "token": token,
+            "user": {"id": user.id, "username": user.username, "role": user.role},
+            "campaign_id": member.campaign_id,
+        }
+    finally:
+        db.close()
+
+
 def auth_config():
     db = SessionLocal()
     try:
@@ -75,6 +106,7 @@ def auth_config():
         oidc_ready = oidc_is_configured(raw)
         return {
             "password_auth_enabled": password_auth_effective(raw),
+            "guest_access_enabled": guest_access_effective(raw),
             "custom_login_message_enabled": msg_enabled,
             "custom_login_message": raw.get("custom_login_message", "") if msg_enabled else "",
             # OIDC — only expose enough for the login screen to render the button.

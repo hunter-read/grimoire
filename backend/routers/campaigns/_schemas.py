@@ -37,6 +37,10 @@ class InvitePayload(BaseModel):
     user_id: str
 
 
+class GuestCreate(BaseModel):
+    nickname: str = ""
+
+
 class MemberStatusUpdate(BaseModel):
     status: Optional[str] = None  # accepted | declined
     character_name: Optional[str] = None

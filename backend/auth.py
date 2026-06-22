@@ -29,7 +29,7 @@ pwd_context = CryptContext(
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
-ROLES = ("admin", "gm", "player")
+ROLES = ("admin", "gm", "player", "guest")
 
 
 def hash_password(password: str) -> str:
@@ -120,4 +120,17 @@ def require_gm_or_admin(
 ) -> CurrentUser:
     if user.role not in ("admin", "gm"):
         raise HTTPException(403, "GM or admin access required")
+    return user
+
+
+def require_not_guest(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Block guest accounts from areas outside their invited campaign(s).
+
+    Guests have no access to the shared library, maps, tokens, search, or
+    settings — only the campaign they hold an invite code for.
+    """
+    if user.role == "guest":
+        raise HTTPException(403, "Guests cannot access this area")
     return user

@@ -90,7 +90,11 @@
     "entering": "Anmelden…",
     "loginFailed": "Anmeldung fehlgeschlagen.",
     "serverUnreachable": "Server nicht erreichbar.",
-    "passwordAuthDisabled": null
+    "passwordAuthDisabled": null,
+    "haveInviteCode": "Einladungscode vorhanden?",
+    "inviteCode": "Einladungscode",
+    "enterAsGuest": "Als Gast eintreten",
+    "guestInvalidCode": "Ungültiger oder abgelaufener Einladungscode."
   },
   "setup": {
     "title": "Ersteinrichtung",
@@ -312,6 +316,12 @@
       "description": null,
       "enable": null,
       "envLocked": null
+    },
+    "guestAccess": {
+      "title": "Gastzugang",
+      "description": "Erlaubt SLs und Administratoren, Einladungscodes für ihre Kampagnen zu erstellen. Gäste erhalten ein eingeschränktes, codebasiertes Konto für eine einzelne Kampagne.",
+      "enable": "Einladungscodes aktivieren",
+      "envLocked": "Gesperrt durch die Umgebungsvariable GUEST_ACCESS_ENABLED (aktueller Wert: {{value}})."
     }
   },
   "userSettings": {
@@ -1098,5 +1108,21 @@
     "field_explicit": "Explizite Inhalte",
     "previous": "Zurück",
     "next": "Weiter"
+  },
+  "guests": {
+    "guests": "Gäste",
+    "guest": "Gast",
+    "add": "Hinzufügen",
+    "none": "Noch keine Gäste.",
+    "nicknamePlaceholder": "Gast-Spitzname",
+    "share": "Einladung teilen",
+    "regenerate": "Code neu erzeugen",
+    "remove": "Gast entfernen",
+    "confirmRemove": "Diesen Gast entfernen? Sein Konto und seine Beiträge werden gelöscht.",
+    "shareTitle": "Gast-Einladung teilen",
+    "copyMessage": "Nachricht kopieren",
+    "copyForDiscord": "Für Discord kopieren",
+    "email": "E-Mail",
+    "copied": "Kopiert!"
   }
 }

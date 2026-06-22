@@ -68,6 +68,16 @@ describe('MemberRow', () => {
     expect(screen.getByText('invited')).toBeTruthy()
   })
 
+  it('shows a Guest badge for guest members', () => {
+    renderRow({ is_guest: true, display_name: 'Wanderer' })
+    expect(screen.getByText('Guest')).toBeTruthy()
+  })
+
+  it('does not show a Guest badge for normal members', () => {
+    renderRow({ is_guest: false })
+    expect(screen.queryByText('Guest')).toBeNull()
+  })
+
   it('shows accept/decline buttons for current user with invited status', () => {
     renderRow({ status: 'invited' }, { currentUserId: 'u1' })
     expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy()

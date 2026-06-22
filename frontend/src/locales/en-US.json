@@ -94,7 +94,11 @@
     "or": "or",
     "oidcDefault": "Sign in with SSO",
     "oidcError": "Single sign-on failed: {{error}}",
-    "oidcLoginFailed": "Single sign-on succeeded but the session could not be established."
+    "oidcLoginFailed": "Single sign-on succeeded but the session could not be established.",
+    "haveInviteCode": "Have an invite code?",
+    "inviteCode": "Invite Code",
+    "enterAsGuest": "Enter as Guest",
+    "guestInvalidCode": "Invalid or expired invite code."
   },
   "setup": {
     "title": "First-Time Setup",
@@ -367,6 +371,12 @@
       "autoRegister": "Auto-register",
       "autoRegisterHint": "Automatically create new local accounts on first OIDC login. Without this, users must already exist locally.",
       "saveFailed": "Could not save."
+    },
+    "guestAccess": {
+      "title": "Guest Access",
+      "description": "Allow GMs and admins to create guest invite codes for their campaigns. Guests get a code-based, locked-down account scoped to a single campaign.",
+      "enable": "Enable guest invite codes",
+      "envLocked": "Locked by the GUEST_ACCESS_ENABLED environment variable (current value: {{value}})."
     }
   },
   "userSettings": {
@@ -1167,5 +1177,21 @@
     "field_explicit": "Explicit content",
     "previous": "Previous",
     "next": "Next"
+  },
+  "guests": {
+    "guests": "Guests",
+    "guest": "Guest",
+    "add": "Add",
+    "none": "No guests yet.",
+    "nicknamePlaceholder": "Guest nickname",
+    "share": "Share invite",
+    "regenerate": "Regenerate code",
+    "remove": "Remove guest",
+    "confirmRemove": "Remove this guest? Their account and contributions will be deleted.",
+    "shareTitle": "Share guest invite",
+    "copyMessage": "Copy message",
+    "copyForDiscord": "Copy for Discord",
+    "email": "Email",
+    "copied": "Copied!"
   }
 }

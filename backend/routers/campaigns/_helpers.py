@@ -103,6 +103,8 @@ def build_members(c: Campaign, db) -> list:
             "status": m.status,
             "character_name": m.character_name,
             "is_owner": False,
+            "is_guest": bool(m.is_guest),
+            "guest_code": m.guest_code if m.is_guest else None,
             "campaign_access": _access(all_users.get(m.user_id)),
             "has_art": bool(m.character_art_path),
             "has_sheet": bool(m.character_sheet_path),

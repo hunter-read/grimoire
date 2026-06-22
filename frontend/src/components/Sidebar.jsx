@@ -64,6 +64,9 @@ export default function Sidebar({
   onToggleCollapse,
 }) {
   const { t } = useTranslation()
+  // Guests only see their campaign(s) — no library, maps, tokens, search,
+  // favorites, or settings.
+  const isGuest = user?.role === 'guest'
   const hide_maps = uiSettings.hide_maps
   const hide_tokens = uiSettings.hide_tokens
   const hide_campaigns = uiSettings.hide_campaigns
@@ -180,14 +183,16 @@ export default function Sidebar({
         aria-label="Main navigation"
         style={{ padding: collapsed ? '12px 8px' : '12px 8px', flex: 1 }}
       >
-        {navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
-        {!hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
-        {!hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
-        {navItem('/search', <LuSearch size={16} />, t('nav.search'))}
+        {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
+        {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
+        {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
+        {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
 
-        <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+        {!isGuest && (
+          <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+        )}
 
-        {navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
+        {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
       </nav>
 
@@ -382,24 +387,26 @@ export default function Sidebar({
               </div>
             </div>
           )}
-          <NavLink
-            to="/settings"
-            title={t('nav.settings')}
-            aria-label={t('nav.settings')}
-            style={({ isActive }) => ({
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: isActive ? 'var(--gold)' : 'var(--text-muted)',
-              padding: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-            })}
-          >
-            <LuSettings size={14} />
-          </NavLink>
+          {!isGuest && (
+            <NavLink
+              to="/settings"
+              title={t('nav.settings')}
+              aria-label={t('nav.settings')}
+              style={({ isActive }) => ({
+                background: 'none',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: isActive ? 'var(--gold)' : 'var(--text-muted)',
+                padding: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+              })}
+            >
+              <LuSettings size={14} />
+            </NavLink>
+          )}
           <button
             onClick={onLogout}
             title={t('nav.logOut')}

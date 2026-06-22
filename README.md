@@ -406,6 +406,7 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
 | `ALLOW_PASSWORD_AUTHENTICATION` | — | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
+| `GUEST_ACCESS_ENABLED` | — | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
 | `OIDC_*` env vars | — | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
 
 ### Volumes
@@ -506,6 +507,7 @@ docker compose up -d
 | `admin` | Everything — user management, app settings, metadata editing, rescan |
 | `gm` | Read everything, edit metadata, create GM campaigns |
 | `player` | Read-only access, personal campaigns, session notes |
+| `guest` | Code-only account scoped to a single campaign. No access to the library, maps, tokens, or search. See [Guest invites](#guest-invites). |
 
 Create additional accounts in **Settings → Users** after logging in as admin.
 
@@ -531,6 +533,16 @@ Each user has a **campaign access** toggle (admins manage it per user in **Setti
 - Locks any campaign they **own** to read-only for everyone (players keep view access, lose all edits) until the owner's access is restored.
 
 When OIDC is configured, this flag can be driven by the provider's [permissions claim](#openid-connect) (`campaignAccess`); a missing key leaves access enabled.
+
+### Guest invites
+
+Guests let you share a single campaign with people who don't have full accounts — for example a player who's only joining one game. A guest is a code-only account: no password, no OIDC, and no access to the library, maps, tokens, or search. They can only see the campaign they were invited to (and its shared resources, wiki, and schedule), and can edit only their **own** character name, character art, character sheet, session notes, and availability.
+
+- **Enable it server-wide** in **Settings → Authentication → Guest Access**, or pin it with the `GUEST_ACCESS_ENABLED` environment variable. It's off by default.
+- **Invite from a GM campaign** — open the members roster and use **Guests** (admins and GMs only). Add a guest with a nickname; each guest gets a unique 10-character invite code. A campaign can have multiple guests.
+- **Share the code** with the built-in **Share** button: copy a ready-made message, copy a version for a Discord DM, or open a pre-filled email. The message includes a deep link (`/guest?code=…`) and the code itself.
+- **Manage codes** — regenerate a guest's code (invalidating the old one) or remove the guest entirely (which deletes their guest account and contributions).
+- **Guests log in** from the login screen via **Have an invite code?**, which works even on OIDC-only servers where password login is disabled.
 
 ### Notes wiki
 

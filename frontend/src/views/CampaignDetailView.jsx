@@ -7,6 +7,7 @@ import {
   LuChevronLeft,
   LuSettings,
   LuUserPlus,
+  LuUserCheck,
   LuCalendar,
   LuLink,
   LuImagePlus,
@@ -14,6 +15,7 @@ import {
 } from 'react-icons/lu'
 import api, { campaigns } from '../api'
 import { useAuth } from '../context/AuthContext'
+import { useUISettings } from '../context/UISettingsContext'
 import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
 import WikiView from '../components/campaigns/WikiView'
@@ -23,6 +25,7 @@ import ResourcesPanel from '../components/campaigns/ResourcesPanel'
 import BannerHero from '../components/campaigns/BannerHero'
 import MemberRow from '../components/campaigns/MemberRow'
 import InvitePanel from '../components/campaigns/InvitePanel'
+import GuestPanel from '../components/campaigns/GuestPanel'
 import { utcTimeToLocal, USER_TZ } from '../components/campaigns/_scheduleShared'
 
 const CARD = {
@@ -57,6 +60,19 @@ const SECTION_HEADING = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
+}
+
+const ROSTER_BTN = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 5,
+  padding: '5px 10px',
+  background: 'var(--bg-deep)',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+  color: 'var(--text-dim)',
+  cursor: 'pointer',
+  fontSize: 12,
 }
 
 // Compact one-line schedule summary (e.g. "Weekly — Fri · 7:00 PM") for the meta row.
@@ -107,11 +123,13 @@ export default function CampaignDetailView() {
   const { campaignId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { guest_access_enabled } = useUISettings()
   const [campaign, setCampaign] = useState(null)
   const [systems, setSystems] = useState([])
   const [schedule, setSchedule] = useState(null)
   const [showEditor, setShowEditor] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
+  const [showGuests, setShowGuests] = useState(false)
   const [error, setError] = useState(null)
 
   const load = () => {
@@ -437,7 +455,8 @@ export default function CampaignDetailView() {
         {isGmCampaign &&
           (() => {
             const gmMember = campaign.members?.find((m) => m.is_owner)
-            const playerMembers = campaign.members?.filter((m) => !m.is_owner) ?? []
+            const playerMembers = campaign.members?.filter((m) => !m.is_owner && !m.is_guest) ?? []
+            const guestMembers = campaign.members?.filter((m) => m.is_guest) ?? []
             return (
               <div style={SCROLL_CARD}>
                 <div
@@ -452,23 +471,28 @@ export default function CampaignDetailView() {
                     <LuUsers size={15} /> {t('campaignDetail.overview.members')}
                   </h3>
                   {canManage && (
-                    <button
-                      onClick={() => setShowInvite(!showInvite)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 10px',
-                        background: 'var(--bg-deep)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 6,
-                        color: 'var(--text-dim)',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                      }}
-                    >
-                      <LuUserPlus size={12} /> {t('campaignDetail.overview.invite')}
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => {
+                          setShowInvite(!showInvite)
+                          setShowGuests(false)
+                        }}
+                        style={ROSTER_BTN}
+                      >
+                        <LuUserPlus size={12} /> {t('campaignDetail.overview.invite')}
+                      </button>
+                      {guest_access_enabled && (
+                        <button
+                          onClick={() => {
+                            setShowGuests(!showGuests)
+                            setShowInvite(false)
+                          }}
+                          style={ROSTER_BTN}
+                        >
+                          <LuUserCheck size={12} /> {t('guests.guests')}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -480,6 +504,10 @@ export default function CampaignDetailView() {
                       load()
                     }}
                   />
+                )}
+
+                {showGuests && canManage && guest_access_enabled && (
+                  <GuestPanel campaignId={campaign.id} onChanged={load} />
                 )}
 
                 <div style={{ overflowY: 'auto', flex: 1, marginRight: -8, paddingRight: 8 }}>
@@ -523,6 +551,28 @@ export default function CampaignDetailView() {
                         onMediaChanged={load}
                       />
                     ))
+                  )}
+
+                  {guestMembers.length > 0 && (
+                    <>
+                      <div style={{ ...GROUP_LABEL, marginTop: 12 }}>
+                        {t('guests.guests')} ({guestMembers.length})
+                      </div>
+                      {guestMembers.map((m) => (
+                        <MemberRow
+                          key={m.user_id}
+                          member={m}
+                          isOwner={isOwner}
+                          canManage={canManage}
+                          currentUserId={user?.id}
+                          campaignId={campaign.id}
+                          onRemove={handleRemoveMember}
+                          onUpdateStatus={handleUpdateMember}
+                          onSetCharacterName={handleSetCharacterName}
+                          onMediaChanged={load}
+                        />
+                      ))}
+                    </>
                   )}
                 </div>
               </div>
