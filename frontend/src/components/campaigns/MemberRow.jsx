@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  LuUserPlus,
   LuUserMinus,
   LuCheck,
   LuX,
@@ -17,110 +16,12 @@ import {
   LuPencilLine,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
-import Spinner from '../Spinner'
-import { CharacterSheetEditor, SheetTemplatePicker } from './CharacterSheetEditor'
+import CharacterSheetEditor from './CharacterSheetEditor'
+import SheetTemplatePicker from './SheetTemplatePicker'
+import ReplaceSheetDialog from './ReplaceSheetDialog'
+import { STATUS_COLORS, sheetActionBtn, smallBtn } from './memberStyles'
 
-const STATUS_COLORS = {
-  accepted: 'var(--success, #4caf50)',
-  invited: 'var(--gold)',
-  declined: 'var(--danger)',
-}
-
-const sheetActionBtn = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 4,
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  color: 'var(--text-muted)',
-  padding: 0,
-  fontSize: 12,
-}
-
-const smallBtn = (color) => ({
-  background: 'var(--bg-deep)',
-  border: `1px solid var(--border)`,
-  borderRadius: 6,
-  color,
-  padding: '5px',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-})
-
-// Warns that re-uploading replaces the current sheet, offering to download it first.
-function ReplaceSheetDialog({ downloadUrl, onCancel, onReplace }) {
-  const { t } = useTranslation()
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.7)',
-        zIndex: 1100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
-      onClick={(e) => e.target === e.currentTarget && onCancel()}
-    >
-      <div
-        style={{
-          background: 'var(--bg-panel)',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          padding: 24,
-          width: '100%',
-          maxWidth: 420,
-        }}
-      >
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
-          {t('members.replaceSheet')}
-        </h3>
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6, margin: '0 0 18px' }}>
-          {t('members.replaceSheetWarning')}
-        </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <button onClick={onCancel} style={{ ...smallBtn('var(--text)'), padding: '8px 14px' }}>
-            {t('members.cancel')}
-          </button>
-          <a
-            href={downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              ...smallBtn('var(--text)'),
-              padding: '8px 14px',
-              textDecoration: 'none',
-              gap: 6,
-            }}
-          >
-            <LuDownload size={13} aria-hidden="true" /> {t('members.downloadCurrent')}
-          </a>
-          <button
-            onClick={onReplace}
-            style={{
-              padding: '8px 14px',
-              background: 'var(--gold)',
-              border: 'none',
-              borderRadius: 6,
-              color: '#1a1209',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: 13,
-            }}
-          >
-            {t('members.replace')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function MemberRow({
+export default function MemberRow({
   member,
   isOwner,
   canManage,
@@ -648,89 +549,6 @@ export function MemberRow({
           <LuUserMinus size={13} aria-hidden="true" />
         </button>
       )}
-    </div>
-  )
-}
-
-export function InvitePanel({ campaignId, onInvited }) {
-  const { t } = useTranslation()
-  const [users, setUsers] = useState(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    campaigns
-      .eligibleMembers(campaignId)
-      .then(setUsers)
-      .catch(() => setUsers([]))
-  }, [campaignId])
-
-  const invite = async (userId) => {
-    setLoading(true)
-    try {
-      await campaigns.invite(campaignId, userId)
-      onInvited()
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!users) return <Spinner size={16} />
-
-  const uninvited = users.filter((u) => !u.already_invited)
-
-  if (uninvited.length === 0) {
-    return (
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>
-        {t('members.allInvited')}
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
-        {t('members.invitePlayer')}
-      </div>
-      {uninvited.map((u) => (
-        <div
-          key={u.id}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
-        >
-          <span style={{ flex: 1, fontSize: 14 }}>
-            {u.display_name || u.username}
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 6 }}>
-              {u.role}
-            </span>
-            {u.campaign_access === false && (
-              <span style={{ fontSize: 12, color: 'var(--danger)', marginLeft: 6 }}>
-                {t('campaigns.memberAccessDisabled')}
-              </span>
-            )}
-          </span>
-          <button
-            onClick={() => invite(u.id)}
-            disabled={loading || u.campaign_access === false}
-            title={u.campaign_access === false ? t('campaigns.accessDisabledHint') : undefined}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '4px 10px',
-              background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text-dim)',
-              cursor: u.campaign_access === false ? 'not-allowed' : 'pointer',
-              opacity: u.campaign_access === false ? 0.5 : 1,
-              fontSize: 12,
-            }}
-          >
-            <LuUserPlus size={12} /> {t('members.invite')}
-          </button>
-        </div>
-      ))}
     </div>
   )
 }

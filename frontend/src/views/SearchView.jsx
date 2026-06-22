@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { LuSearch, LuMap, LuUser, LuBookOpen, LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
+import BookGroup from '../components/search/BookGroup'
+import TagList from '../components/search/TagList'
+import { sectionHeadStyle, cardStyle, controlStyle } from '../components/search/searchStyles'
 
 export default function SearchView() {
   const { t } = useTranslation()
@@ -216,7 +219,6 @@ export default function SearchView() {
                             state: { from: window.location.pathname + window.location.search },
                           })
                         }
-                        t={t}
                       />
                     ))}
                 </div>
@@ -302,141 +304,4 @@ export default function SearchView() {
       )}
     </div>
   )
-}
-
-function BookGroup({ group, collapsed, onToggle, onNavigate, t }) {
-  const key = `book-${group.id}`
-  const isCollapsed = collapsed[key]
-  const pageCount = group.pages.length
-
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <button
-        onClick={() => onToggle(key)}
-        aria-label={
-          isCollapsed
-            ? t('search.expandBook', { title: group.title })
-            : t('search.collapseBook', { title: group.title })
-        }
-        style={{
-          ...cardStyle,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          width: '100%',
-          textAlign: 'left',
-          cursor: 'pointer',
-          marginBottom: 0,
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-      >
-        {isCollapsed ? (
-          <LuChevronRight size={14} style={{ flexShrink: 0 }} />
-        ) : (
-          <LuChevronDown size={14} style={{ flexShrink: 0 }} />
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontWeight: 600, fontSize: 15 }}>{group.title}</span>
-          {group.game_system && (
-            <span style={{ fontSize: 13, color: 'var(--gold-dim)', marginLeft: 10 }}>
-              {group.game_system}
-            </span>
-          )}
-        </div>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
-          {t('search.groupedBy', { count: pageCount })}
-        </span>
-      </button>
-
-      {!isCollapsed && (
-        <div style={{ marginLeft: 16, marginTop: 4, marginBottom: 4 }}>
-          {group.pages.map((p, i) => (
-            <div
-              key={i}
-              onClick={() => onNavigate(p.page_number)}
-              style={{ ...cardStyle, borderLeft: '3px solid var(--border)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  {t('common.pagePrefixed', { page: p.page_number })}
-                </span>
-              </div>
-              <div
-                style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }}
-                dangerouslySetInnerHTML={{ __html: p.snippet }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TagList({ tags }) {
-  return (
-    <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          style={{
-            fontSize: 12,
-            padding: '2px 8px',
-            borderRadius: 4,
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-muted)',
-          }}
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-const sectionHeadStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  width: '100%',
-  marginBottom: 10,
-  color: 'var(--text-muted)',
-  fontSize: 13,
-  textTransform: 'uppercase',
-  letterSpacing: '0.1em',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  padding: '4px 0',
-}
-
-const cardStyle = {
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '12px 16px',
-  marginBottom: 8,
-  cursor: 'pointer',
-  transition: 'background 0.15s',
-}
-
-const controlStyle = {
-  fontSize: 13,
-  padding: '6px 10px',
-  borderRadius: 6,
-  border: '1px solid var(--border)',
-  background: 'var(--bg-card)',
-  color: 'var(--text)',
-  cursor: 'pointer',
 }

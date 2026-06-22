@@ -3,18 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
-
-// SQLite FTS5 snippet() output contains only <mark>…</mark> tags around matched
-// terms. Render those tags as real <mark> elements without using innerHTML so that
-// any < > & characters in the PDF text cannot be interpreted as HTML.
-function SnippetText({ snippet }) {
-  if (!snippet) return null
-  const parts = snippet.split(/(<mark>.*?<\/mark>)/g)
-  return parts.map((part, i) => {
-    const m = part.match(/^<mark>(.*)<\/mark>$/)
-    return m ? <mark key={i}>{m[1]}</mark> : part
-  })
-}
+import SnippetText from './SnippetText'
 
 export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
   const { t } = useTranslation()

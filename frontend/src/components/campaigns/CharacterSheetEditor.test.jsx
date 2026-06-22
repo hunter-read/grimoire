@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CharacterSheetEditor, SheetTemplatePicker } from './CharacterSheetEditor'
+import CharacterSheetEditor from './CharacterSheetEditor'
+import SheetTemplatePicker from './SheetTemplatePicker'
 
 vi.mock('../../api', () => ({
   campaigns: {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemberRow, InvitePanel } from './CampaignMembers'
+import MemberRow from './MemberRow'
+import InvitePanel from './InvitePanel'
 
 vi.mock('../../api', () => ({
   campaigns: {

@@ -3,125 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { LuX, LuKeyRound, LuMail } from 'react-icons/lu'
 import RoleBadge from './RoleBadge'
 import UserCampaignsPanel from './UserCampaignsPanel'
+import SetEmailInline from './SetEmailInline'
+import SetPasswordInline from './SetPasswordInline'
+import { ghostBtnStyle, saveBtnStyle } from './settingsButtons'
 
 const isMobile = window.matchMedia('(max-width: 640px)').matches
-
-function SetEmailInline({ initial, onSave, onCancel }) {
-  const { t } = useTranslation()
-  const [value, setValue] = useState(initial || '')
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState('')
-
-  const handleSave = async () => {
-    setSaving(true)
-    setErr('')
-    try {
-      await onSave(value.trim())
-      onCancel()
-    } catch (e) {
-      setErr(e?.message || t('users.failedSetEmail'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      <input
-        type="email"
-        id="set-email-inline"
-        aria-label={t('users.emailPlaceholder')}
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value)
-          setErr('')
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave()
-          if (e.key === 'Escape') onCancel()
-        }}
-        placeholder={t('users.emailPlaceholder')}
-        autoFocus
-        style={{
-          background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
-          color: 'var(--text)',
-          borderRadius: 6,
-          padding: '4px 8px',
-          fontSize: 13,
-          width: 240,
-        }}
-      />
-      {err && <span style={{ fontSize: 12, color: 'var(--red)' }}>{err}</span>}
-      <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
-        {saving ? '…' : t('common.save')}
-      </button>
-      <button onClick={onCancel} style={ghostBtnStyle}>
-        {t('common.cancel')}
-      </button>
-    </div>
-  )
-}
-
-function SetPasswordInline({ onSave, onCancel }) {
-  const { t } = useTranslation()
-  const [value, setValue] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState('')
-
-  const handleSave = async () => {
-    if (value.length < 8) {
-      setErr(t('users.minChars'))
-      return
-    }
-    setSaving(true)
-    try {
-      await onSave(value)
-      onCancel()
-    } catch {
-      setErr(t('users.failedSetPassword'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      <input
-        type="password"
-        id="set-password-inline"
-        aria-label={t('users.newPasswordPlaceholder')}
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value)
-          setErr('')
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave()
-          if (e.key === 'Escape') onCancel()
-        }}
-        placeholder={t('users.newPasswordPlaceholder')}
-        autoFocus
-        style={{
-          background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
-          color: 'var(--text)',
-          borderRadius: 6,
-          padding: '4px 8px',
-          fontSize: 13,
-          width: 180,
-        }}
-      />
-      {err && <span style={{ fontSize: 12, color: 'var(--red)' }}>{err}</span>}
-      <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
-        {saving ? '…' : t('users.setPassword')}
-      </button>
-      <button onClick={onCancel} style={ghostBtnStyle}>
-        {t('common.cancel')}
-      </button>
-    </div>
-  )
-}
 
 export default function UserRow({
   user,
@@ -606,26 +492,6 @@ export default function UserRow({
       )}
     </div>
   )
-}
-
-const ghostBtnStyle = {
-  padding: '6px 12px',
-  borderRadius: 6,
-  fontSize: 13,
-  background: 'var(--bg-card)',
-  color: 'var(--text-dim)',
-  border: '1px solid var(--border)',
-  cursor: 'pointer',
-}
-
-const saveBtnStyle = {
-  padding: '4px 12px',
-  borderRadius: 6,
-  fontSize: 13,
-  background: 'var(--gold-dim)',
-  color: 'var(--bg-deep)',
-  border: '1px solid var(--gold-dim)',
-  cursor: 'pointer',
 }
 
 const dangerBtnStyle = {

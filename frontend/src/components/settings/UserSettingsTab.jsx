@@ -7,10 +7,7 @@ import {
   OPDSSection,
 } from './UserAccountSections'
 import { ReaderSection, LibrarySection, LanguageSection } from './UserPreferenceSections'
-
-function SectionDivider() {
-  return <div style={{ borderTop: '1px solid var(--border)' }} />
-}
+import SectionDivider from './SectionDivider'
 
 export default function UserSettingsTab({ user, onLogout }) {
   return (

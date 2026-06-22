@@ -13,6 +13,7 @@ import {
   LuX,
   LuScroll,
 } from 'react-icons/lu'
+import MoreItem, { moreItemStyle } from './MoreItem'
 
 export default function MobileSidebar({ onLogout, uiSettings = {} }) {
   const { t } = useTranslation()
@@ -135,23 +136,6 @@ export default function MobileSidebar({ onLogout, uiSettings = {} }) {
   )
 }
 
-function MoreItem({ to, Icon, label, onClick }) {
-  return (
-    <NavLink
-      to={to}
-      onClick={onClick}
-      style={({ isActive }) => ({
-        ...moreItemStyle,
-        color: isActive ? 'var(--gold)' : 'var(--text-dim)',
-        textDecoration: 'none',
-      })}
-    >
-      <Icon size={18} />
-      <span>{label}</span>
-    </NavLink>
-  )
-}
-
 const mobileNavStyle = (active) => ({
   display: 'flex',
   flexDirection: 'column',
@@ -165,12 +149,3 @@ const mobileNavStyle = (active) => ({
   padding: '4px 12px',
   cursor: 'pointer',
 })
-
-const moreItemStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 14,
-  padding: '12px 24px',
-  fontSize: 16,
-  background: 'none',
-}

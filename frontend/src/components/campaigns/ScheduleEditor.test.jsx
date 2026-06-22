@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import ScheduleEditor, { SegmentControl } from './ScheduleEditor'
+import ScheduleEditor from './ScheduleEditor'
+import SegmentControl from './SegmentControl'
 
 vi.mock('../../api', () => ({
   campaigns: {

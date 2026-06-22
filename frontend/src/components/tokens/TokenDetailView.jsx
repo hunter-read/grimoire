@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuDownload, LuTag, LuInfo, LuChevronDown } from 'react-icons/lu'
+import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
 
@@ -14,81 +14,8 @@ import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
-
-function MetaRow({ label, value }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <div
-        style={{
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          marginBottom: 3,
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 15, color: 'var(--text)' }}>{value}</div>
-    </div>
-  )
-}
-
-function TagSection({ label, tags, onEdit, canEdit, editLabel, noTagsLabel }) {
-  return (
-    <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 10,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-          }}
-        >
-          {label}
-        </div>
-        {canEdit && (
-          <button
-            onClick={onEdit}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              fontSize: 12,
-            }}
-          >
-            <LuTag size={11} /> {editLabel}
-          </button>
-        )}
-      </div>
-      {tags.length > 0 ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {tags.map((tag) => (
-            <span key={tag} style={tagPillStyle}>
-              {tag}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          {noTagsLabel}
-        </div>
-      )}
-    </div>
-  )
-}
+import MetaRow from '../MetaRow'
+import TagSection from '../TagSection'
 
 export default function TokenDetailView() {
   const { tokenId } = useParams()
@@ -418,13 +345,4 @@ export default function TokenDetailView() {
       </div>
     </div>
   )
-}
-
-const tagPillStyle = {
-  fontSize: 12,
-  padding: '2px 8px',
-  borderRadius: 10,
-  background: 'var(--tag-bg)',
-  border: '1px solid var(--tag-border)',
-  color: 'var(--text-dim)',
 }

@@ -2,109 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPause, LuPlay, LuSearch, LuArrowDown } from 'react-icons/lu'
 import api from '../../api'
+import LogRow from './LogRow'
 
 const LEVELS = ['debug', 'info', 'warning', 'error', 'critical']
 
-const LEVEL_COLORS = {
-  DEBUG: '#9ca3af',
-  INFO: '#e5e7eb',
-  WARNING: '#fbbf24',
-  ERROR: '#f87171',
-  CRITICAL: '#ff6b6b',
-}
-
-const LEVEL_BG = {
-  DEBUG: 'transparent',
-  INFO: 'transparent',
-  WARNING: 'rgba(251,191,36,0.07)',
-  ERROR: 'rgba(248,113,113,0.09)',
-  CRITICAL: 'rgba(255,107,107,0.14)',
-}
-
-const LEVEL_LABELS = {
-  DEBUG: 'DEBUG',
-  INFO: 'INFO',
-  WARNING: 'WARNING',
-  ERROR: 'ERROR',
-  CRITICAL: 'CRITICAL',
-}
-
 const INITIAL_LIMIT = 1000
-
-function LevelBadge({ level }) {
-  const color = LEVEL_COLORS[level] ?? LEVEL_COLORS.INFO
-  return (
-    <span
-      aria-label={`Log level: ${LEVEL_LABELS[level] ?? level}`}
-      style={{
-        color,
-        fontWeight: level === 'DEBUG' ? 400 : 600,
-        letterSpacing: '0.02em',
-        minWidth: 56,
-        display: 'inline-block',
-      }}
-    >
-      {LEVEL_LABELS[level] ?? level}
-    </span>
-  )
-}
-
-function LogRow({ entry, searchQuery }) {
-  const bg = LEVEL_BG[entry.level] ?? 'transparent'
-  const time = entry.timestamp.slice(11, 23)
-
-  let messageContent = entry.message
-  if (searchQuery) {
-    const idx = entry.message.toLowerCase().indexOf(searchQuery.toLowerCase())
-    if (idx !== -1) {
-      messageContent = (
-        <>
-          {entry.message.slice(0, idx)}
-          <mark style={{ background: 'rgba(251,191,36,0.35)', color: 'inherit', borderRadius: 2 }}>
-            {entry.message.slice(idx, idx + searchQuery.length)}
-          </mark>
-          {entry.message.slice(idx + searchQuery.length)}
-        </>
-      )
-    }
-  }
-
-  return (
-    <div
-      role="row"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '90px 72px 1fr',
-        gap: '0 10px',
-        padding: '3px 12px',
-        fontSize: 12,
-        fontFamily: 'monospace',
-        lineHeight: 1.55,
-        background: bg,
-        borderBottom: '1px solid rgba(255,255,255,0.03)',
-        wordBreak: 'break-word',
-      }}
-    >
-      <span
-        role="cell"
-        aria-label={`Time: ${time}`}
-        style={{ color: '#6b7280', flexShrink: 0, userSelect: 'none' }}
-      >
-        {time}
-      </span>
-      <span role="cell">
-        <LevelBadge level={entry.level} />
-      </span>
-      <span
-        role="cell"
-        aria-label={`Message: ${entry.message}`}
-        style={{ color: LEVEL_COLORS[entry.level] ?? LEVEL_COLORS.INFO }}
-      >
-        {messageContent}
-      </span>
-    </div>
-  )
-}
 
 function isAtBottom(el, threshold = 40) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold

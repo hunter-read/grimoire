@@ -9,7 +9,6 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
   const { t } = useTranslation()
   const { user } = useAuth()
   const { hide_campaigns } = useUISettings()
-  if (hide_campaigns) return null
   const [open, setOpen] = useState(false)
   const [list, setList] = useState(null)
   const [added, setAdded] = useState(new Set())
@@ -74,6 +73,10 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
       }
     }
   }
+
+  // Render nothing when campaigns are hidden. Placed after all hooks so they run
+  // unconditionally on every render (React rules of hooks).
+  if (hide_campaigns) return null
 
   return (
     <>

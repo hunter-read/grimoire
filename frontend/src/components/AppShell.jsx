@@ -1,0 +1,120 @@
+import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import useScrollRestoration from '../hooks/useScrollRestoration'
+import { useAuth } from '../context/AuthContext'
+import { UISettingsProvider } from '../context/UISettingsContext'
+import api, { settings as settingsApi } from '../api'
+import Sidebar from './Sidebar'
+import MobileSidebar from './MobileSidebar'
+import BookReader from './BookReader'
+import LibraryView from '../views/LibraryView'
+import SystemDetailView from '../views/SystemDetailView'
+import MapsView from '../views/MapsView'
+import MapDetailView from './maps/MapDetailView'
+import TokensView from '../views/TokensView'
+import TokenDetailView from './tokens/TokenDetailView'
+import SearchView from '../views/SearchView'
+import SettingsView from '../views/SettingsView'
+import FavoritesView from '../views/FavoritesView'
+import CampaignsView from '../views/CampaignsView'
+import CampaignDetailView from '../views/CampaignDetailView'
+import CampaignNotesView from '../views/CampaignNotesView'
+
+const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
+
+/** Authenticated app layout: sidebar(s) + routed main content. */
+export default function AppShell() {
+  const { user, logout } = useAuth()
+  const [stats, setStats] = useState(null)
+  const [uiSettings, setUiSettings] = useState({
+    hide_maps: false,
+    hide_tokens: false,
+    hide_campaigns: false,
+  })
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
+  )
+  const toggleSidebar = () =>
+    setSidebarCollapsed((c) => {
+      const next = !c
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next))
+      return next
+    })
+  const location = useLocation()
+  const isReader =
+    location.pathname.startsWith('/library/book/') ||
+    location.pathname.startsWith('/maps/') ||
+    location.pathname.startsWith('/tokens/')
+  const mainRef = useScrollRestoration()
+
+  const refreshUiSettings = () =>
+    settingsApi
+      .getUi()
+      .then(setUiSettings)
+      .catch(() => {})
+
+  useEffect(() => {
+    api
+      .get('/stats')
+      .then(setStats)
+      .catch(() => {})
+    refreshUiSettings()
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    window.addEventListener('grimoire:settings-changed', refreshUiSettings)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('grimoire:settings-changed', refreshUiSettings)
+    }
+  }, [])
+
+  return (
+    <UISettingsProvider value={uiSettings}>
+      <div style={{ display: 'flex', height: '100vh' }}>
+        {!isMobile && (
+          <Sidebar
+            stats={stats}
+            user={user}
+            onLogout={logout}
+            uiSettings={uiSettings}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
+          />
+        )}
+
+        <main
+          ref={mainRef}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            overflow: isReader ? 'hidden' : 'auto',
+            paddingBottom: isMobile ? 64 : 0,
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<Navigate to="/library" replace />} />
+            <Route path="/library" element={<LibraryView />} />
+            <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+            <Route path="/library/book/:bookId" element={<BookReader />} />
+            <Route path="/maps" element={<MapsView />} />
+            <Route path="/maps/:mapId" element={<MapDetailView />} />
+            <Route path="/tokens" element={<TokensView />} />
+            <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+            <Route path="/search" element={<SearchView />} />
+            <Route path="/favorites" element={<FavoritesView />} />
+            <Route path="/campaigns" element={<CampaignsView />} />
+            <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
+            <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
+            <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+            <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+            <Route path="/settings/:tab" element={<SettingsView user={user} onLogout={logout} />} />
+          </Routes>
+        </main>
+
+        {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
+      </div>
+    </UISettingsProvider>
+  )
+}
