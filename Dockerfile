@@ -34,4 +34,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 9481
 
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "9481", "--workers", "2"]
+ENV WORKERS=2
+CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
