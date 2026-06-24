@@ -22,6 +22,7 @@ _DEFAULT_STATUS: dict = {
     "new_books": 0,
     "new_maps": 0,
     "new_tokens": 0,
+    "updated_books": 0,
     "indexed": 0,
     "to_index": 0,
 }
@@ -128,13 +129,16 @@ def background_indexer():
             _set_status({"running": False, "phase": None})
 
 
-def run_rescan_sync() -> None:
-    """Full library rescan — scans disk and indexes PDFs.
+def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:
+    """Library rescan — scans disk and indexes PDFs.
 
     Guards against concurrent calls: if a rescan is already running this call
     returns immediately.  Updates scan status (via Valkey when available, or
     in-process dict) so GET /scan-status reflects progress in real time across
     all workers.
+
+    scope_path restricts the scan to a single subtree (e.g. "books/D&D 5e/adventure");
+    metadata_mode ("new"|"missing"|"replace") controls sidecar metadata re-application.
     """
     if _get_status()["running"]:
         logger.info("Rescan already running, skipping.")
@@ -164,10 +168,15 @@ def run_rescan_sync() -> None:
                     f"File scan progress: books={sb}/{tb}, maps={sm}/{tm}, tokens={st}/{tt}"
                 )
 
-            stats = scan_library(LIBRARY_PATH, DATA_PATH, db, on_progress=on_progress, should_stop=is_stop_requested)
+            stats = scan_library(
+                LIBRARY_PATH, DATA_PATH, db,
+                on_progress=on_progress, should_stop=is_stop_requested,
+                scope_path=scope_path, metadata_mode=metadata_mode,
+            )
             logger.info(
                 f"File scan end: new_books={stats.get('new_books', 0)}, "
                 f"new_maps={stats.get('new_maps', 0)}, new_tokens={stats.get('new_tokens', 0)}, "
+                f"updated_books={stats.get('updated_books', 0)}, "
                 f"errors={stats.get('errors', 0)}"
             )
             _set_status(
@@ -175,6 +184,7 @@ def run_rescan_sync() -> None:
                     "new_books": stats.get("new_books", 0),
                     "new_maps": stats.get("new_maps", 0),
                     "new_tokens": stats.get("new_tokens", 0),
+                    "updated_books": stats.get("updated_books", 0),
                 }
             )
 

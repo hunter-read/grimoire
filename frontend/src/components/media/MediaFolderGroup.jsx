@@ -5,6 +5,7 @@ import MediaCard from './MediaCard'
 import FolderTagRow from './FolderTagRow'
 import FolderCheckbox from '../FolderCheckbox'
 import LazyGrid from '../LazyGrid'
+import RescanButton from '../RescanButton'
 import { toTitleCase } from '../../utils'
 
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
@@ -164,6 +165,7 @@ export default function MediaFolderGroup({
               <LuDownload size={11} /> {t(`${i18n}.download`)}
             </button>
           )}
+          {!bulkMode && canTag && <RescanButton scope={`${i18n}/${folder}`} />}
         </div>
 
         {/* Tags row (desktop only — mobile shows tags below when expanded) */}
@@ -315,6 +317,7 @@ export default function MediaFolderGroup({
                           >
                             <LuDownload size={11} /> {t(`${i18n}.download`)}
                           </button>
+                          {canTag && <RescanButton scope={`${i18n}/${folder}/${subPath}`} />}
                         </>
                       )}
                       {editingFolder === editKey && !isMobilePhone && (

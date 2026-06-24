@@ -2,6 +2,14 @@ import { LuFolder, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons
 import { toTitleCase } from '../../utils'
 import BookRow from './BookRow'
 import BookEditor from './BookEditor'
+import RescanButton from '../RescanButton'
+
+/** The library-root-relative folder a group of books shares (relative_path minus filename). */
+function folderScope(books) {
+  const ref = (books || []).find((b) => b.relative_path)
+  if (!ref) return null
+  return ref.relative_path.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
+}
 
 /**
  * Renders a single subfolder group within a book category section.
@@ -122,6 +130,7 @@ export default function BookFolderGroup({
         >
           <LuDownload size={11} /> Download
         </button>
+        {isEditor && <RescanButton scope={folderScope(books)} />}
       </div>
 
       {/* Book list */}

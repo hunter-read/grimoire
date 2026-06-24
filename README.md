@@ -217,7 +217,7 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 >
 > Any subfolder name that doesn't match the recognized keywords becomes its own category, slugified from the folder name. For example, a folder named `Bestiary` becomes the `bestiary` category.
 >
-> After adding new files, use **Rescan** in the sidebar (or Settings → Maintenance) to pick up the changes.
+> After adding new files, use **Rescan** in the sidebar (or Settings → Maintenance) to pick up the changes. For large libraries you can also rescan a single corner: every system, category, subfolder, and map/token group has its own rescan button that re-scans just that folder.
 
 #### Subfolders within a category
 
@@ -326,7 +326,11 @@ books/
             └── cover.jpg
 ```
 
-OPF metadata is only applied when a book is **first indexed**. Edits made via the web UI are not overwritten on subsequent rescans.
+OPF metadata is only applied when a book is **first indexed**, and ordinary rescans leave existing books alone, so edits made via the web UI are not overwritten. To pick up an OPF or `tags.json` you added or corrected after the initial scan, choose a metadata-refresh mode in the rescan dialog (available on the global Rescan button and every per-folder rescan button):
+
+- **Find new files** — the default: add new files, flag missing ones, leave existing records untouched.
+- **Update missing metadata** — additionally fill **empty** book fields from sidecar files, without touching anything you've already set (non-destructive).
+- **Replace all metadata** — overwrite fields with whatever the sidecar files provide (this discards UI edits the sidecar covers).
 
 ### Maps — organize by creator or collection
 

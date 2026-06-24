@@ -31,6 +31,7 @@ import BookRow from '../components/system/BookRow'
 import BookEditor from '../components/system/BookEditor'
 import SystemEditor from '../components/system/SystemEditor'
 import BookFolderGroup from '../components/system/BookFolderGroup'
+import RescanButton from '../components/RescanButton'
 import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
@@ -43,6 +44,36 @@ function getBookSubfolder(book) {
   const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
   // parts[0]=books, parts[1]=SystemName, parts[2]=category dir, parts[3]=subfolder or filename
   return parts.length > 4 ? parts[3] : null
+}
+
+/** The library-root-relative folder a book lives in (its relative_path minus the
+ *  filename), e.g. "books/D&D 5e/adventure/Curse of Strahd". Used as the rescan scope. */
+function bookFolderScope(book) {
+  const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
+  return parts.slice(0, -1).join('/')
+}
+
+/** The "books/{SystemName}" scope for a whole system, derived from any of its books. */
+function systemScope(books) {
+  const ref = (books || []).find((b) => b.relative_path)
+  if (!ref) return null
+  const parts = ref.relative_path.replace(/\\/g, '/').split('/')
+  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null
+}
+
+/** The deepest common folder scope shared by a group of books (their category or
+ *  subfolder dir). Falls back to the system scope when paths diverge. */
+function groupScope(books) {
+  const dirs = (books || []).map(bookFolderScope).filter(Boolean)
+  if (dirs.length === 0) return null
+  const split = dirs.map((d) => d.split('/'))
+  const common = []
+  for (let i = 0; i < split[0].length; i++) {
+    const seg = split[0][i]
+    if (split.every((p) => p[i] === seg)) common.push(seg)
+    else break
+  }
+  return common.length >= 2 ? common.join('/') : systemScope(books)
 }
 
 export default function SystemDetailView() {
@@ -470,6 +501,13 @@ export default function SystemDetailView() {
                 >
                   <LuDownload size={13} /> {t('systemDetail.downloadAll')}
                 </button>
+                {isEditor && (
+                  <RescanButton
+                    scope={systemScope(system.books)}
+                    compact={false}
+                    label={t('rescan.button.label')}
+                  />
+                )}
               </div>
               {/* Row 2: Collapse / Expand */}
               <div
@@ -791,6 +829,7 @@ export default function SystemDetailView() {
                     >
                       <LuDownload size={11} /> {t('systemDetail.download')}
                     </button>
+                    {isEditor && <RescanButton scope={groupScope(books)} />}
                   </div>
                   {!isCollapsed &&
                     (() => {
