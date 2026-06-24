@@ -129,11 +129,22 @@ describe('MaintenanceTab — RescanSection', () => {
     })
   })
 
-  it('calls /rescan when Rescan Library is clicked', async () => {
+  it('opens the rescan modal and posts the selected mode/scope on confirm', async () => {
     render(<MaintenanceTab />)
     fireEvent.click(screen.getByRole('button', { name: /rescan library/i }))
+    // Modal opens; confirm with the default "Find new files" mode.
+    const confirm = await screen.findByText('Start rescan')
+    fireEvent.click(confirm)
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith('/rescan')
+      expect(api.post).toHaveBeenCalledWith('/rescan', { scope: null, metadata_mode: 'new' })
+    })
+  })
+
+  it('shows the updated-metadata count in the completion summary', async () => {
+    api.get.mockResolvedValue({ ...idleStatus, updated_books: 4 })
+    render(<MaintenanceTab />)
+    await waitFor(() => {
+      expect(screen.getByText('4 updated')).toBeInTheDocument()
     })
   })
 })

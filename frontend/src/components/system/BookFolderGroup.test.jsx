@@ -23,6 +23,11 @@ vi.mock('./BookEditor', () => ({
   ),
 }))
 
+// RescanButton polls /scan-status — stub it out so these tests stay focused.
+vi.mock('../RescanButton', () => ({
+  default: () => <div data-testid="rescan-button" />,
+}))
+
 function makeBook(overrides = {}) {
   return {
     id: `book-${Math.random().toString(36).slice(2)}`,

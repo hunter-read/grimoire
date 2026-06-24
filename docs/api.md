@@ -73,7 +73,7 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 |----------|--------|------|-------------|
 | `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size, version |
 | `/api/scan-status` | GET | admin | Current scan state |
-| `/api/rescan` | POST | admin | Trigger a background rescan and reindex |
+| `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode) |
 | `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job |
 
 **Stats response:**
@@ -104,12 +104,28 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
   "new_books": 5,
   "new_maps": 0,
   "new_tokens": 0,
+  "updated_books": 0,
   "indexed": 80,
   "to_index": 320
 }
 ```
 
-`phase` is `"scanning"`, `"indexing"`, or `null` when idle.
+`phase` is `"scanning"`, `"indexing"`, or `null` when idle. `updated_books` counts books whose metadata was re-applied from sidecar files during a metadata-refresh rescan.
+
+**Rescan request body** (all fields optional):
+```json
+{
+  "scope": "books/D&D 5e/adventure",
+  "metadata_mode": "missing"
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `scope` | `null` | Restrict the rescan to a subtree relative to the library root. Must begin with `books/`, `maps/`, or `tokens/`. Omit to rescan the whole library. Paths that escape the library root return `400`. |
+| `metadata_mode` | `"new"` | `"new"` adds new files and flags missing ones (existing records untouched). `"missing"` additionally fills **empty** book fields from sidecar metadata (`<stem>.opf` / `metadata.opf`), leaving fields you've already set in place. `"replace"` overwrites fields wherever the sidecar provides a value (destructive to UI-edited metadata). |
+
+Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a scan is already in progress (scoped and global rescans share the same single-worker lock).
 
 **Cancel-scan response:**
 ```json
@@ -544,4 +560,4 @@ When a book is first indexed, the scanner looks for an OPF metadata file alongsi
 
 Fields read: `dc:title`, `dc:creator` (role=aut → authors), `dc:publisher`, `dc:date` (year), `dc:description` (HTML stripped), `dc:subject` (→ tags). Cover images referenced in the OPF `<guide>` are excluded from the book list automatically.
 
-OPF metadata is applied only on first scan. Subsequent rescans do not overwrite values edited via the API.
+By default OPF metadata is applied only on a book's first scan, and ordinary rescans (`metadata_mode: "new"`) do not overwrite values edited via the API. To re-apply sidecar metadata to already-indexed books, rescan with `metadata_mode: "missing"` (fills empty fields only, non-destructive) or `metadata_mode: "replace"` (overwrites with the sidecar's values). Combine with `scope` to refresh just one folder.

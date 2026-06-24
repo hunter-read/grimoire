@@ -5,11 +5,13 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header
 from sqlalchemy import func
 
-from ...config import SessionLocal, VERSION, COMMIT_HASH
+from ...config import SessionLocal, LIBRARY_PATH, VERSION, COMMIT_HASH
 from ...models import GameSystem, Book, GenericMap, Token
 from ...auth import require_admin, optional_get_current_user, CurrentUser
+from ...indexer import resolve_scope
 from ..settings import get_stats_api_key
 from . import _helpers
+from ._schemas import RescanRequest
 
 router = APIRouter(tags=["library"])
 public_router = APIRouter(prefix="/api", tags=["library"])
@@ -27,14 +29,30 @@ def get_scan_status(_: CurrentUser = Depends(require_admin)):
 @router.post(
     "/rescan",
     summary="Rescan and reindex library",
-    description="Triggers a background rescan of the library directory, adding new files and indexing unindexed PDFs. Admin role required.",
+    description=(
+        "Triggers a background rescan, adding new files and indexing unindexed PDFs. "
+        "Optionally scope to a subtree (`scope`, e.g. \"books/D&D 5e/adventure\") and "
+        "re-apply sidecar metadata (`metadata_mode`: new|missing|replace). Admin role required."
+    ),
 )
 def rescan_library(
-    background_tasks: BackgroundTasks, _: CurrentUser = Depends(require_admin)
+    background_tasks: BackgroundTasks,
+    body: Optional[RescanRequest] = None,
+    _: CurrentUser = Depends(require_admin),
 ):
+    req = body or RescanRequest()
+    if req.scope:
+        try:
+            resolve_scope(LIBRARY_PATH, req.scope)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     if _helpers._get_status()["running"]:
         return {"status": "already_running"}
-    background_tasks.add_task(_helpers.run_rescan_sync)
+    background_tasks.add_task(
+        _helpers.run_rescan_sync,
+        scope_path=req.scope,
+        metadata_mode=req.metadata_mode,
+    )
     return {"status": "scan_started"}
 
 

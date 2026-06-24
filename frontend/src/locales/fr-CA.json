@@ -569,7 +569,9 @@
       "booksProgress": "{{scanned}}/{{total}} livres",
       "mapsProgress": "{{scanned}}/{{total}} cartes",
       "tokensProgress": "{{scanned}}/{{total}} pions",
-      "indexProgress": "{{pct}} % — {{indexed}} sur {{total}} PDF indexés"
+      "indexProgress": "{{pct}} % — {{indexed}} sur {{total}} PDF indexés",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated"
     },
     "scheduledRescan": {
       "title": "Réanalyse planifiée",
@@ -1192,5 +1194,33 @@
     "copyForDiscord": "Copier pour Discord",
     "email": "Courriel",
     "copied": "Copié !"
+  },
+  "rescan": {
+    "button": {
+      "label": "Rescan",
+      "title": "Rescan this folder"
+    },
+    "modal": {
+      "title": "Rescan",
+      "wholeLibrary": "This will rescan the entire library.",
+      "scopeLabel": "Scope: {{scope}}",
+      "confirm": "Start rescan",
+      "cancel": "Cancel"
+    },
+    "modes": {
+      "new": {
+        "label": "Find new files",
+        "description": "Add newly added files and flag any that have gone missing. Existing entries are left as-is."
+      },
+      "missing": {
+        "label": "Update missing metadata",
+        "description": "Also fill in empty fields from sidecar files (OPF, tags.json). Fields you've already set are kept."
+      },
+      "replace": {
+        "label": "Replace all metadata",
+        "description": "Overwrite metadata with whatever the sidecar files provide.",
+        "warning": "This overwrites fields you've edited in the UI."
+      }
+    }
   }
 }

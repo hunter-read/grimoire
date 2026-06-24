@@ -316,13 +316,91 @@ def parse_opf_metadata(opf_path: str) -> dict:
     return meta
 
 
-def scan_library(library_path: str, data_path: str, session: Session, on_progress=None, should_stop=None):
+# Metadata-refresh modes for scan_library / _apply_opf_to_book.
+METADATA_MODES = ("new", "missing", "replace")
+
+# Book fields that can be sourced from an OPF sidecar.
+_OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year", "tags")
+
+
+def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
+    """Resolve a user-supplied scope path against the library root.
+
+    `scope_path` is a path relative to the library root and must begin with one
+    of the known collection folders (``books``/``maps``/``tokens``).  Returns a
+    tuple of (section, absolute_dir).  Raises ValueError if the scope escapes the
+    library root or names an unknown collection.
+    """
+    library = Path(library_path)
+    cleaned = (scope_path or "").strip().replace("\\", "/").strip("/")
+    if not cleaned:
+        raise ValueError("scope path is empty")
+
+    section = cleaned.split("/", 1)[0]
+    if section not in ("books", "maps", "tokens"):
+        raise ValueError(f"scope must start with books/, maps/, or tokens/: {scope_path!r}")
+
+    # Build the target without resolving symlinks so the walked paths match the
+    # filepaths stored by an unscoped scan (which uses library_path verbatim).
+    target = library / cleaned
+    # Guard against path traversal using fully-resolved paths.
+    resolved_lib = str(library.resolve())
+    if os.path.commonpath([resolved_lib, str(target.resolve())]) != resolved_lib:
+        raise ValueError(f"scope path escapes the library root: {scope_path!r}")
+
+    return section, target
+
+
+def _find_opf_meta(root: str, filename: str) -> dict:
+    """Look up sidecar OPF metadata for a file: sibling <stem>.opf, then metadata.opf."""
+    opf_path = os.path.join(root, Path(filename).stem + ".opf")
+    if not os.path.isfile(opf_path):
+        opf_path = os.path.join(root, "metadata.opf")
+    return parse_opf_metadata(opf_path) if os.path.isfile(opf_path) else {}
+
+
+def _apply_opf_to_book(book: Book, opf_meta: dict, mode: str) -> bool:
+    """Re-apply OPF metadata to an already-indexed book.
+
+    mode="missing": only fill a field whose current DB value is falsy
+    (None/""/[]), treating any populated value as user-protected.
+    mode="replace": overwrite a field whenever the OPF provides it.
+    Fields absent from `opf_meta` are never touched.
+
+    Returns True if any field was changed.
+    """
+    if not opf_meta or mode not in ("missing", "replace"):
+        return False
+
+    changed = False
+    for field in _OPF_BOOK_FIELDS:
+        if field not in opf_meta:
+            continue
+        new_value = opf_meta[field]
+        if mode == "missing" and getattr(book, field, None):
+            continue
+        if getattr(book, field, None) != new_value:
+            setattr(book, field, new_value)
+            changed = True
+    return changed
+
+
+def scan_library(library_path: str, data_path: str, session: Session, on_progress=None,
+                 should_stop=None, scope_path: str | None = None, metadata_mode: str = "new"):
     """Scan the library directory and register all files in the database.
 
     on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens, total_tokens)
     is called after each file is processed if provided.
 
     should_stop() is an optional callable that returns True when the scan should abort early.
+
+    scope_path, when given, restricts the scan to a single subtree (relative to the
+    library root, e.g. "books/D&D 5e/adventure").  Only the matching collection is
+    walked and the missing-file sweep is limited to that subtree.
+
+    metadata_mode controls how sidecar metadata is applied to already-indexed books:
+    "new" (default) leaves existing records alone, "missing" fills empty fields from
+    OPF sidecars, "replace" overwrites fields wherever the sidecar provides a value.
     """
     library = Path(library_path)
     books_dir = library / "books"
@@ -334,23 +412,55 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
         "new_books": 0,
         "new_maps": 0,
         "new_tokens": 0,
+        "updated_books": 0,
         "indexed_pages": 0,
         "errors": 0,
     }
 
+    # --- Resolve scope (which collections to walk, and the subtree root) ---
+    scope_section: str | None = None
+    scope_dir: Path | None = None
+    if scope_path:
+        scope_section, scope_dir = resolve_scope(library_path, scope_path)
+        logger.info(f"Scoped scan: section={scope_section}, dir={scope_dir}, mode={metadata_mode}")
+
+    scan_books = scope_section in (None, "books")
+    scan_maps = scope_section in (None, "maps")
+    scan_tokens = scope_section in (None, "tokens")
+
+    # For a scoped books scan, walk only the scope dir; otherwise iterate every system.
+    books_walk_dir = scope_dir if scope_section == "books" else books_dir
+    maps_walk_dir = scope_dir if scope_section == "maps" else maps_dir
+    tokens_walk_dir = scope_dir if scope_section == "tokens" else tokens_dir
+
     total_books = (
-        _count_eligible_files(books_dir, DOC_EXTS | IMAGE_EXTS) if books_dir.exists() else 0
+        _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS)
+        if scan_books and books_walk_dir.exists() else 0
     )
-    total_maps = _count_eligible_files(maps_dir, MAP_IMAGE_EXTS) if maps_dir.exists() else 0
-    total_tokens = _count_eligible_files(tokens_dir, IMAGE_EXTS) if tokens_dir.exists() else 0
+    total_maps = (
+        _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS)
+        if scan_maps and maps_walk_dir.exists() else 0
+    )
+    total_tokens = (
+        _count_eligible_files(tokens_walk_dir, IMAGE_EXTS)
+        if scan_tokens and tokens_walk_dir.exists() else 0
+    )
     scanned_books = scanned_maps = scanned_tokens = 0
 
     if on_progress:
         on_progress(0, total_books, 0, total_maps, 0, total_tokens)
 
     # --- Scan /books ---
-    if books_dir.exists():
-        for system_dir in sorted(books_dir.iterdir()):
+    if scan_books and books_dir.exists():
+        # When scoped, the owning system is the first path segment under books/;
+        # otherwise iterate every top-level system folder.
+        scope_parts = Path(scope_path.replace("\\", "/").strip("/")).parts if scope_path else ()
+        if scope_section == "books" and len(scope_parts) > 1:
+            system_dirs = [books_dir / scope_parts[1]]
+        else:
+            # Whole library, or scope == "books" root: iterate every system.
+            system_dirs = sorted(books_dir.iterdir())
+        for system_dir in system_dirs:
             if not system_dir.is_dir() or system_dir.name.startswith("."):
                 continue
 
@@ -393,7 +503,10 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
             if is_agnostic and not system.is_system_agnostic:
                 system.is_system_agnostic = True
 
-            for root, dirs, files in os.walk(system_dir):
+            # When scoped to a path deeper than the system dir, walk only that
+            # subtree; otherwise walk the whole system.
+            walk_root = scope_dir if (scope_section == "books" and len(scope_parts) > 1) else system_dir
+            for root, dirs, files in os.walk(walk_root):
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
 
                 # Collect cover image filenames declared in any OPF files in this
@@ -449,6 +562,18 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         stats["errors"] += 1
                         continue
                     if existing:
+                        # Re-apply sidecar metadata to already-indexed books when
+                        # requested (modes "missing"/"replace") — see _apply_opf_to_book.
+                        if metadata_mode in ("missing", "replace"):
+                            opf_meta = _find_opf_meta(root, filename)
+                            if _apply_opf_to_book(existing, opf_meta, metadata_mode):
+                                logger.info(f"Refreshing metadata for '{filename}' (mode={metadata_mode})")
+                                try:
+                                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit metadata refresh '{filepath}'")
+                                    stats["updated_books"] += 1
+                                except (TimeoutError, IntegrityError) as e:
+                                    logger.error(f"DB hang refreshing metadata for '{filename}': {e}")
+                                    session.rollback()
                         if existing.scan_failed:
                             logger.debug(f"Already registered, skipping: {filename}")
                             continue
@@ -472,12 +597,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             continue
 
                         # Check sibling <stem>.opf first, then Calibre's metadata.opf in the same dir.
-                        opf_path = os.path.join(root, Path(filename).stem + ".opf")
-                        if not os.path.isfile(opf_path):
-                            opf_path = os.path.join(root, "metadata.opf")
-                        opf_meta = parse_opf_metadata(opf_path) if os.path.isfile(opf_path) else {}
+                        opf_meta = _find_opf_meta(root, filename)
                         if opf_meta:
-                            logger.info(f"Applying OPF metadata to '{filename}' from '{Path(opf_path).name}'")
+                            logger.info(f"Applying OPF metadata to '{filename}'")
 
                         book = Book(
                             game_system_id=system.id,
@@ -576,8 +698,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                                 logger.error(f"DB hang saving index_error for '{filename}': {e2}")
                                 session.rollback()
 
-    if maps_dir.exists():
-        for root, dirs, files in os.walk(maps_dir):
+    if scan_maps and maps_walk_dir.exists():
+        for root, dirs, files in os.walk(maps_walk_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
 
             for filename in sorted(files):
@@ -659,8 +781,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     session.rollback()
                     logger.debug(f"Map already exists, skipping: {filepath}")
 
-    if tokens_dir.exists():
-        for root, dirs, files in os.walk(tokens_dir):
+    if scan_tokens and tokens_walk_dir.exists():
+        for root, dirs, files in os.walk(tokens_walk_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
 
             for filename in sorted(files):
@@ -742,36 +864,46 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     session.rollback()
                     logger.debug(f"Token already exists, skipping: {filepath}")
 
-    _apply_tags_from_library(library_path, session)
+    _apply_tags_from_library(library_path, session, scope_dir=scope_dir)
 
     # --- Mark / unmark missing files ---
     # After walking the filesystem, any DB record whose file is gone gets
     # is_missing=True; records that exist on disk have is_missing cleared.
+    # When scoped, only reconcile records under the scope subtree so unrelated
+    # corners of the library are left untouched.
     if should_stop and should_stop():
         return stats
 
+    def _scoped(query, model):
+        if scope_dir is not None:
+            return query.filter(model.filepath.like(f"{scope_dir}{os.sep}%"))
+        return query
+
     missing_books = missing_maps = missing_tokens = 0
-    for book in session.query(Book).all():
-        gone = not os.path.exists(book.filepath)
-        if gone != bool(book.is_missing):
-            book.is_missing = gone
-            if gone:
-                missing_books += 1
-                logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
-    for m in session.query(GenericMap).all():
-        gone = not os.path.exists(m.filepath)
-        if gone != bool(m.is_missing):
-            m.is_missing = gone
-            if gone:
-                missing_maps += 1
-                logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
-    for t in session.query(Token).all():
-        gone = not os.path.exists(t.filepath)
-        if gone != bool(t.is_missing):
-            t.is_missing = gone
-            if gone:
-                missing_tokens += 1
-                logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
+    if scan_books:
+        for book in _scoped(session.query(Book), Book).all():
+            gone = not os.path.exists(book.filepath)
+            if gone != bool(book.is_missing):
+                book.is_missing = gone
+                if gone:
+                    missing_books += 1
+                    logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
+    if scan_maps:
+        for m in _scoped(session.query(GenericMap), GenericMap).all():
+            gone = not os.path.exists(m.filepath)
+            if gone != bool(m.is_missing):
+                m.is_missing = gone
+                if gone:
+                    missing_maps += 1
+                    logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
+    if scan_tokens:
+        for t in _scoped(session.query(Token), Token).all():
+            gone = not os.path.exists(t.filepath)
+            if gone != bool(t.is_missing):
+                t.is_missing = gone
+                if gone:
+                    missing_tokens += 1
+                    logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
     if missing_books or missing_maps or missing_tokens:
         logger.info(f"Missing files: {missing_books} book(s), {missing_maps} map(s), {missing_tokens} token(s)")
     try:
@@ -818,13 +950,29 @@ def _load_tags_json(folder_path: str) -> dict:
         return {}
 
 
-def _apply_tags_from_library(library_path: str, session: Session) -> None:
-    """Apply tags declared in tags.json files throughout the library tree."""
+def _within_scope(path: Path, scope_dir: Path | None) -> bool:
+    """Return True if `path` is the scope dir or lives under it (or scope is None)."""
+    if scope_dir is None:
+        return True
+    try:
+        return path == scope_dir or scope_dir in path.parents
+    except Exception:
+        return False
+
+
+def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Path | None = None) -> None:
+    """Apply tags declared in tags.json files throughout the library tree.
+
+    When `scope_dir` is given, only tags.json files within that subtree are applied.
+    """
     library = Path(library_path)
 
     for section in ("maps", "tokens"):
         section_dir = library / section
         if not section_dir.exists():
+            continue
+        # Skip sections the scope doesn't touch (scope under section, or == section).
+        if scope_dir is not None and not _within_scope(scope_dir, section_dir):
             continue
 
         folder_model = MapFolder if section == "maps" else TokenFolder
@@ -832,6 +980,9 @@ def _apply_tags_from_library(library_path: str, session: Session) -> None:
 
         for root, dirs, files in os.walk(section_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
+
+            if not _within_scope(Path(root), scope_dir):
+                continue
 
             if "tags.json" not in files:
                 continue
@@ -875,9 +1026,12 @@ def _apply_tags_from_library(library_path: str, session: Session) -> None:
 
     # --- books/ section (system-level tags only) ---
     books_dir = library / "books"
-    if books_dir.exists():
+    if books_dir.exists() and (scope_dir is None or _within_scope(scope_dir, books_dir)):
         for system_dir in sorted(books_dir.iterdir()):
             if not system_dir.is_dir() or system_dir.name.startswith("."):
+                continue
+            # System-level tags only matter when the scope includes this system dir.
+            if scope_dir is not None and not _within_scope(scope_dir, system_dir):
                 continue
 
             tag_map = _load_tags_json(str(system_dir))
