@@ -124,7 +124,10 @@
       "list": "Liste",
       "toggle": "Ansicht ändern",
       "toggleWithMode": "Ansicht ändern (aktuell {{mode}})"
-    }
+    },
+    "cancelBulk": "Abbrechen",
+    "noTagMatch": "Keine Systeme stimmen mit den ausgewählten Tags überein.",
+    "filterByTag": "Nach {{tag}} filtern"
   },
   "systemDetail": {
     "backToLibrary": "Zurück zur Bibliothek",
@@ -1109,7 +1112,9 @@
     "field_gridSize": "Rastergröße",
     "field_explicit": "Explizite Inhalte",
     "previous": "Zurück",
-    "next": "Weiter"
+    "next": "Weiter",
+    "field_genre": "Genre",
+    "field_characterBuilderUrl": "Charaktergenerator-URL"
   },
   "guests": {
     "guests": "Gäste",

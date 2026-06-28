@@ -50,4 +50,23 @@ describe('BulkEditModal', () => {
     expect(patch).toHaveBeenCalledWith('/maps/m1', { tags: ['old', 'new'] })
     expect(onSaved).toHaveBeenCalledWith({ m1: { tags: ['old', 'new'] } })
   })
+
+  it('edits game systems via the /systems endpoint', async () => {
+    const onSaved = vi.fn()
+    const systems = [{ id: 's1', name: 'Alpha', tags: ['osr'], genre: '', is_explicit: false }]
+    render(<BulkEditModal type="system" items={systems} onClose={vi.fn()} onSaved={onSaved} />)
+
+    // System name is shown in the carousel header.
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+
+    // Fields render in config order (genre, character builder url, tags); genre
+    // is the first text input. Labels aren't `for`-associated, so select by order.
+    const genreInput = screen.getAllByRole('textbox')[0]
+    fireEvent.change(genreInput, { target: { value: 'Fantasy' } })
+    fireEvent.click(screen.getByText('Save all'))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(patch).toHaveBeenCalledWith('/systems/s1', { genre: 'Fantasy' })
+    expect(onSaved).toHaveBeenCalledWith({ s1: { genre: 'Fantasy' } })
+  })
 })

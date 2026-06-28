@@ -18,6 +18,10 @@ const CONFIG = {
     endpoint: (id) => `/books/${id}`,
     fields: ['title', 'category', 'description', 'publisher', 'year', 'tags', 'is_explicit'],
   },
+  system: {
+    endpoint: (id) => `/systems/${id}`,
+    fields: ['genre', 'character_builder_url', 'tags', 'is_explicit'],
+  },
 }
 
 // Pull a grid size like "22x22" out of a map's filename or folder, e.g.
@@ -77,6 +81,8 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
       year: t('bulkEdit.field_year'),
       tags: t('bulkEdit.field_tags'),
       grid_size: t('bulkEdit.field_gridSize'),
+      genre: t('bulkEdit.field_genre'),
+      character_builder_url: t('bulkEdit.field_characterBuilderUrl'),
       is_explicit: t('bulkEdit.field_explicit'),
     }),
     [t]
@@ -152,7 +158,7 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
           </button>
           <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, ...ellipsis }}>
-              {current.filename || current.title}
+              {current.filename || current.title || current.name}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               {t('bulkEdit.position', { current: index + 1, total: items.length })}

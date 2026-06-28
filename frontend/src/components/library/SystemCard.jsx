@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuLibrary } from 'react-icons/lu'
+import { LuLibrary, LuCheck } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
@@ -8,15 +8,64 @@ import FavoriteButton from '../FavoriteButton'
 /**
  * Game-system card for the library grid. Renders one of three layouts —
  * list row, compact card, or full card — selected by the `list`/`compact` props.
+ *
+ * In bulk-select mode (`selectable`), clicking the card toggles its selection
+ * (with shift / cmd-click modifiers) instead of navigating, and a checkbox is
+ * shown. Tags on the full card are clickable to toggle a tag filter via
+ * `onTagClick`; `activeTags` highlights the ones currently filtering.
  */
-export default function SystemCard({ system, onClick, compact, list }) {
+export default function SystemCard({
+  system,
+  onClick,
+  compact,
+  list,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+  onTagClick,
+  activeTags,
+}) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
+
+  const handleClick = (e) => {
+    if (selectable) {
+      e.stopPropagation()
+      onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+      return
+    }
+    onClick()
+  }
+
+  const checkbox = (overlay) => (
+    <div
+      style={{
+        ...(overlay
+          ? { position: 'absolute', top: 8, left: 8, zIndex: 2 }
+          : { position: 'static', flexShrink: 0 }),
+        width: 20,
+        height: 20,
+        borderRadius: 4,
+        background: selected ? 'var(--gold)' : overlay ? 'rgba(0,0,0,0.55)' : 'transparent',
+        border: selected
+          ? 'none'
+          : overlay
+            ? '2px solid rgba(255,255,255,0.45)'
+            : '2px solid var(--border-light)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: overlay ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+      }}
+    >
+      {selected && <LuCheck size={12} color="var(--bg-deep)" strokeWidth={3} />}
+    </div>
+  )
 
   if (list) {
     return (
       <div
-        onClick={onClick}
+        onClick={handleClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -24,14 +73,15 @@ export default function SystemCard({ system, onClick, compact, list }) {
           alignItems: 'center',
           gap: 16,
           padding: '12px 16px',
-          background: hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-          border: '1px solid var(--border)',
+          background: selected || hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+          border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
           borderRadius: 8,
           cursor: 'pointer',
           transition: 'background 0.15s',
           position: 'relative',
         }}
       >
+        {selectable && checkbox(false)}
         <div
           style={{
             width: 36,
@@ -81,17 +131,19 @@ export default function SystemCard({ system, onClick, compact, list }) {
             {system.is_explicit && <span style={{ color: '#e07070' }}>18+</span>}
           </div>
         </div>
-        <FavoriteButton
-          type="system"
-          id={system.id}
-          style={{
-            position: 'static',
-            background: 'transparent',
-            width: 28,
-            height: 28,
-            flexShrink: 0,
-          }}
-        />
+        {!selectable && (
+          <FavoriteButton
+            type="system"
+            id={system.id}
+            style={{
+              position: 'static',
+              background: 'transparent',
+              width: 28,
+              height: 28,
+              flexShrink: 0,
+            }}
+          />
+        )}
       </div>
     )
   }
@@ -99,12 +151,12 @@ export default function SystemCard({ system, onClick, compact, list }) {
   if (compact) {
     return (
       <div
-        onClick={onClick}
+        onClick={handleClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          background: hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-          border: '1px solid var(--border)',
+          background: selected || hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+          border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
           borderRadius: 8,
           cursor: 'pointer',
           transition: 'background 0.15s',
@@ -114,7 +166,11 @@ export default function SystemCard({ system, onClick, compact, list }) {
           flexDirection: 'column',
         }}
       >
-        <FavoriteButton type="system" id={system.id} cardHovered={hovered} />
+        {selectable ? (
+          checkbox(true)
+        ) : (
+          <FavoriteButton type="system" id={system.id} cardHovered={hovered} />
+        )}
         <div
           style={{
             width: '100%',
@@ -157,23 +213,24 @@ export default function SystemCard({ system, onClick, compact, list }) {
 
   return (
     <div
-      onClick={onClick}
+      onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-        border: '1px solid var(--border)',
+        background: selected || hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+        border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
         borderRadius: 12,
         cursor: 'pointer',
         transition: 'all 0.2s',
-        transform: hovered ? 'translateY(-2px)' : 'none',
-        boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
+        transform: hovered && !selectable ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered && !selectable ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
         overflow: 'hidden',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      {selectable && checkbox(true)}
       {system.cover_book_id && (
         <div
           style={{
@@ -195,7 +252,7 @@ export default function SystemCard({ system, onClick, compact, list }) {
         </div>
       )}
 
-      <FavoriteButton type="system" id={system.id} cardHovered={hovered} />
+      {!selectable && <FavoriteButton type="system" id={system.id} cardHovered={hovered} />}
       <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div
           style={{
@@ -266,9 +323,27 @@ export default function SystemCard({ system, onClick, compact, list }) {
         <div
           style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginTop: 'auto', paddingTop: 8 }}
         >
-          {(system.tags || []).slice(0, 4).map((tag) => (
-            <Tag key={tag} label={tag} />
-          ))}
+          {(system.tags || []).slice(0, 4).map((tag) =>
+            onTagClick && !selectable ? (
+              <button
+                key={tag}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTagClick(tag.toLowerCase())
+                }}
+                aria-pressed={activeTags?.has(tag.toLowerCase())}
+                aria-label={t('library.filterByTag', { tag })}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                <Tag
+                  label={tag}
+                  color={activeTags?.has(tag.toLowerCase()) ? 'rgba(201,168,76,0.25)' : undefined}
+                />
+              </button>
+            ) : (
+              <Tag key={tag} label={tag} />
+            )
+          )}
         </div>
       </div>
     </div>

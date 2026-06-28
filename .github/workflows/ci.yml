@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the per-changed-file coverage gate can diff against
+          # the PR base branch.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -24,9 +28,18 @@ jobs:
         working-directory: frontend
         run: npm install
 
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: frontend
-        run: npm test
+        run: npm run test:coverage
+
+      - name: Check per-changed-file coverage
+        if: github.event_name == 'pull_request'
+        working-directory: frontend
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+          npm run coverage:check
 
       - name: Build
         working-directory: frontend

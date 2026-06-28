@@ -129,7 +129,10 @@
       "list": "List",
       "toggle": "Change view",
       "toggleWithMode": "Change view (currently {{mode}})"
-    }
+    },
+    "cancelBulk": "Cancel",
+    "noTagMatch": "No systems match the selected tags.",
+    "filterByTag": "Filter by {{tag}}"
   },
   "systemDetail": {
     "backToLibrary": "Back to Library",
@@ -1178,7 +1181,9 @@
     "field_gridSize": "Grid size",
     "field_explicit": "Explicit content",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "field_genre": "Genre",
+    "field_characterBuilderUrl": "Character Builder URL"
   },
   "guests": {
     "guests": "Guests",
