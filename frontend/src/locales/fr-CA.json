@@ -129,7 +129,10 @@
       "list": "Liste",
       "toggle": "Changer la vue",
       "toggleWithMode": "Changer la vue (actuellement {{mode}})"
-    }
+    },
+    "cancelBulk": "Annuler",
+    "noTagMatch": "Aucun système ne correspond aux étiquettes sélectionnées.",
+    "filterByTag": "Filtrer par {{tag}}"
   },
   "systemDetail": {
     "backToLibrary": "Retour à la bibliothèque",
@@ -1177,7 +1180,9 @@
     "field_gridSize": "Taille de grille",
     "field_explicit": "Contenu explicite",
     "previous": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "field_genre": "Genre",
+    "field_characterBuilderUrl": "URL du créateur de personnage"
   },
   "guests": {
     "guests": "Invités",

@@ -11,6 +11,7 @@ __pycache__/
 .DS_Store
 frontend/node_modules
 frontend/dist
+frontend/coverage
 node_modules
 .venv
 .pytest_cache

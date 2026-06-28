@@ -6,7 +6,7 @@ import LibraryView from './LibraryView'
 import api from '../api'
 
 vi.mock('../api', () => ({
-  default: { get: vi.fn() },
+  default: { get: vi.fn(), patch: vi.fn(() => Promise.resolve({})) },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
@@ -35,6 +35,12 @@ vi.mock('../hooks/useBookPrefs', () => ({
 const mockIsFavorite = vi.fn(() => false)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: vi.fn() }),
+}))
+
+// Auth context — default: an admin (so bulk-edit controls are available)
+let mockUser = { role: 'admin' }
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ user: mockUser }),
 }))
 
 vi.mock('../components/FavoriteButton', () => ({
@@ -73,6 +79,7 @@ describe('LibraryView', () => {
     sessionStorage.clear()
     mockUserPrefs = { cardSize: 'comfortable', librarySort: 'az' }
     mockRecentBooks = []
+    mockUser = { role: 'admin' }
   })
 
   it('renders system cards after loading', async () => {
@@ -186,6 +193,129 @@ describe('LibraryView', () => {
 
     expect(screen.queryByText('Unfavorited System')).not.toBeInTheDocument()
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
+  })
+
+  describe('tag filtering', () => {
+    it('renders a tag pill for each tag present across systems', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Alpha', tags: ['osr', 'fantasy'] }),
+        makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      expect(screen.getByRole('button', { name: 'Osr' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Fantasy' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Pbta' })).toBeInTheDocument()
+    })
+
+    it('filters systems to those carrying a selected tag', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'OSR System', tags: ['osr'] }),
+        makeSystem({ id: 's2', name: 'PbtA System', tags: ['pbta'] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+
+      expect(screen.getByText('OSR System')).toBeInTheDocument()
+      expect(screen.queryByText('PbtA System')).not.toBeInTheDocument()
+    })
+
+    it('ORs multiple selected tags', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'OSR System', tags: ['osr'] }),
+        makeSystem({ id: 's2', name: 'PbtA System', tags: ['pbta'] }),
+        makeSystem({ id: 's3', name: 'Horror System', tags: ['horror'] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Pbta' }))
+
+      expect(screen.getByText('OSR System')).toBeInTheDocument()
+      expect(screen.getByText('PbtA System')).toBeInTheDocument()
+      expect(screen.queryByText('Horror System')).not.toBeInTheDocument()
+    })
+
+    it('shows an empty-match message when the tag + favorites combo matches nothing', async () => {
+      // Only the non-favorite system carries "osr"; with favorites-only on and
+      // the osr tag selected, nothing matches.
+      api.get.mockResolvedValue([
+        makeSystem({ id: 'fav', name: 'Fav System', tags: ['pbta'] }),
+        makeSystem({ id: 'osr', name: 'OSR System', tags: ['osr'] }),
+      ])
+      mockIsFavorite.mockImplementation((type, id) => type === 'system' && id === 'fav')
+      renderView()
+      await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByText(/favorites only/i))
+      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+
+      expect(screen.queryByText('OSR System')).not.toBeInTheDocument()
+      expect(screen.getByText(/no systems match the selected tags/i)).toBeInTheDocument()
+    })
+
+    it('clicking a tag on a card activates that tag as a filter', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Alpha', tags: ['osr'] }),
+        makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      // The card tag is a button labelled "Filter by osr".
+      await userEvent.click(screen.getByRole('button', { name: /filter by osr/i }))
+
+      expect(screen.getByText('Alpha')).toBeInTheDocument()
+      expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('bulk actions', () => {
+    it('only shows the Select button to admins and GMs', async () => {
+      mockUser = { role: 'player' }
+      api.get.mockResolvedValue([makeSystem()])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
+      expect(screen.queryByRole('button', { name: /select multiple/i })).not.toBeInTheDocument()
+    })
+
+    it('enters bulk mode and applies tags to selected systems', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Alpha', tags: ['osr'] }),
+        makeSystem({ id: 's2', name: 'Beta', tags: [] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+      await userEvent.click(screen.getByText('Alpha'))
+
+      const input = screen.getByLabelText(/tags to add/i)
+      await userEvent.type(input, 'grim')
+      await userEvent.click(screen.getByRole('button', { name: /add tags/i }))
+
+      await waitFor(() =>
+        expect(api.patch).toHaveBeenCalledWith('/systems/s1', { tags: ['osr', 'grim'] })
+      )
+      expect(api.patch).not.toHaveBeenCalledWith('/systems/s2', expect.anything())
+    })
+
+    it('opens the bulk edit modal for the selected systems', async () => {
+      api.get.mockResolvedValue([makeSystem({ id: 's1', name: 'Alpha' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+      await userEvent.click(screen.getByText('Alpha'))
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByText(/edit 1 item/i)).toBeInTheDocument()
+    })
   })
 
   describe('recently opened', () => {

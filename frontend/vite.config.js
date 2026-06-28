@@ -20,5 +20,21 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.js'],
     globals: true,
+    coverage: {
+      provider: 'v8',
+      // Reporters: human-readable text in the terminal, an HTML report under
+      // coverage/, and a json-summary that scripts/check-coverage.mjs reads to
+      // gate per-file coverage on changed files. No global `thresholds` here by
+      // design — the per-changed-file gate lives in the CI script instead.
+      reporter: ['text', 'html', 'json-summary'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/**/*.test.{js,jsx}',
+        'src/test/**',
+        'src/main.jsx',
+        'src/**/*.config.{js,jsx}',
+      ],
+    },
   },
 })

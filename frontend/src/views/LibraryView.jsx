@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
+import { LuLibrary, LuChevronDown, LuChevronRight, LuListChecks } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
 import useViewMode from '../hooks/useViewMode'
@@ -9,14 +9,21 @@ import ViewModeToggle from '../components/ViewModeToggle'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import { getRecentBooks, getBookPrefs, removeRecentBook } from '../hooks/useBookPrefs'
 import { useFavorites } from '../context/FavoritesContext'
+import { useAuth } from '../context/AuthContext'
+import useSystemLibrary from '../hooks/useSystemLibrary'
 import SystemCard from '../components/library/SystemCard'
 import AgnosticChip from '../components/library/AgnosticChip'
 import FavToggle from '../components/library/FavToggle'
+import TagFilterBar from '../components/media/TagFilterBar'
+import BulkActionBar from '../components/BulkActionBar'
+import BulkEditModal from '../components/BulkEditModal'
 
 export default function LibraryView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { isFavorite } = useFavorites()
+  const { user } = useAuth()
+  const canEdit = user?.role === 'admin' || user?.role === 'gm'
   const [systems, setSystems] = useState(null)
   const [favOnly, setFavOnly] = useState(false)
   const [viewMode, cycleViewMode] = useViewMode('system')
@@ -24,6 +31,9 @@ export default function LibraryView() {
   const [recentCollapsed, setRecentCollapsed] = useState(
     () => getUserPrefs().recentCollapsed === true
   )
+  const [showBulkEdit, setShowBulkEdit] = useState(false)
+  const library = useSystemLibrary(systems, setSystems)
+  const { bulk, selectedTags, allTags, toggleTag, clearTags, matchesTags } = library
 
   useEffect(() => {
     api.get('/systems').then(setSystems)
@@ -42,17 +52,21 @@ export default function LibraryView() {
   const sortFn = (a, b) =>
     sort === 'za' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
 
-  const normalSystems = systems
-    .filter(
-      (s) => s.book_count > 0 && !s.is_system_agnostic && (!favOnly || isFavorite('system', s.id))
-    )
-    .sort(sortFn)
+  const visible = (s) =>
+    s.book_count > 0 && (!favOnly || isFavorite('system', s.id)) && matchesTags(s)
 
-  const agnosticSystems = systems
-    .filter(
-      (s) => s.book_count > 0 && s.is_system_agnostic && (!favOnly || isFavorite('system', s.id))
-    )
-    .sort(sortFn)
+  const normalSystems = systems.filter((s) => visible(s) && !s.is_system_agnostic).sort(sortFn)
+
+  const agnosticSystems = systems.filter((s) => visible(s) && s.is_system_agnostic).sort(sortFn)
+
+  const tagFiltered = selectedTags.size > 0
+  // Whether the library holds any browsable non-agnostic systems at all,
+  // ignoring the favorites/tag filters — drives the "Game Systems" section
+  // (its toolbar, tag filter, and empty states). Agnostic-only libraries skip
+  // it and rely on the agnostic chips section above.
+  const hasNormalSystems = systems.some((s) => s.book_count > 0 && !s.is_system_agnostic)
+  // Whether the library is completely empty (no browsable systems of any kind).
+  const isEmptyLibrary = !systems.some((s) => s.book_count > 0)
 
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'
@@ -267,11 +281,11 @@ export default function LibraryView() {
       )}
 
       {/* Game Systems */}
-      {(normalSystems.length > 0 || favOnly) && (
+      {hasNormalSystems && (
         <>
           <div
             style={{
-              marginBottom: 32,
+              marginBottom: 24,
               display: 'flex',
               alignItems: 'flex-end',
               justifyContent: 'space-between',
@@ -293,10 +307,39 @@ export default function LibraryView() {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {canEdit && (
+                <button
+                  onClick={() => (bulk.bulkMode ? bulk.exit() : bulk.enter())}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: bulk.bulkMode ? 'rgba(180,120,60,0.15)' : 'var(--bg-card)',
+                    color: bulk.bulkMode ? 'var(--gold)' : 'var(--text-dim)',
+                    border: '1px solid var(--border)',
+                    outline: bulk.bulkMode ? '1px solid var(--gold-dim)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <LuListChecks size={13} />
+                  {bulk.bulkMode ? t('library.cancelBulk') : t('common.select')}
+                </button>
+              )}
               <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} />
               <FavToggle active={favOnly} onClick={() => setFavOnly((v) => !v)} />
             </div>
           </div>
+
+          <TagFilterBar
+            tags={allTags}
+            selected={selectedTags}
+            onToggle={toggleTag}
+            onClear={clearTags}
+          />
+
           {normalSystems.length > 0 ? (
             <div
               style={
@@ -316,9 +359,23 @@ export default function LibraryView() {
                   onClick={() => navigate(`/library/system/${system.id}`)}
                   compact={compact}
                   list={list}
+                  selectable={bulk.bulkMode}
+                  selected={bulk.selectedIds.has(system.id)}
+                  onToggleSelect={(mods) =>
+                    bulk.toggleItem(system.id, {
+                      ...mods,
+                      orderedIds: normalSystems.map((s) => s.id),
+                    })
+                  }
+                  onTagClick={toggleTag}
+                  activeTags={selectedTags}
                 />
               ))}
             </div>
+          ) : tagFiltered ? (
+            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 32 }}>
+              {t('library.noTagMatch')}
+            </p>
           ) : favOnly ? (
             <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 32 }}>
               {t('favorites.noFavoritesInView')}
@@ -327,8 +384,8 @@ export default function LibraryView() {
         </>
       )}
 
-      {/* Empty state when library has no systems at all (not filtered) */}
-      {!favOnly && normalSystems.length === 0 && agnosticSystems.length === 0 && (
+      {/* Empty state when the library has no browsable systems at all */}
+      {isEmptyLibrary && (
         <div style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
           <p
@@ -342,6 +399,29 @@ export default function LibraryView() {
             {t('library.subtitle', { count: 0 })}
           </p>
         </div>
+      )}
+
+      {bulk.bulkMode && (
+        <BulkActionBar
+          count={bulk.count}
+          onApplyTags={library.applyTags}
+          onBulkEdit={() => setShowBulkEdit(true)}
+          onDone={bulk.exit}
+          applying={library.applying}
+        />
+      )}
+
+      {showBulkEdit && (
+        <BulkEditModal
+          type="system"
+          items={library.selectedSystems}
+          onClose={() => setShowBulkEdit(false)}
+          onSaved={(edited) => {
+            library.applyEdits(edited)
+            setShowBulkEdit(false)
+            bulk.exit()
+          }}
+        />
       )}
     </div>
   )
