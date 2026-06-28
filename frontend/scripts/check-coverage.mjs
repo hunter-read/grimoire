@@ -14,19 +14,30 @@
  * Base ref for the diff comes from $BASE_REF (CI sets this), falling back to
  * origin/main, then main. Override the threshold with $MIN_COVERAGE.
  */
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const MIN_PCT = Number(process.env.MIN_COVERAGE || 80)
 const SUMMARY_PATH = resolve(process.cwd(), 'coverage/coverage-summary.json')
 
-function sh(cmd, cwd) {
-  return execSync(cmd, { encoding: 'utf8', cwd }).trim()
+// Run git with args passed as an array (no shell), so values derived from
+// untrusted input (e.g. a PR branch name in BASE_REF) can never be interpreted
+// as shell syntax.
+function git(args, cwd) {
+  return execFileSync('git', args, { encoding: 'utf8', cwd }).trim()
+}
+
+function gitLines(args, cwd) {
+  try {
+    return git(args, cwd).split('\n')
+  } catch {
+    return []
+  }
 }
 
 function repoRoot() {
-  return sh('git rev-parse --show-toplevel')
+  return git(['rev-parse', '--show-toplevel'])
 }
 
 // Pick the first base ref that git can resolve.
@@ -34,21 +45,13 @@ function resolveBase(root) {
   const candidates = [process.env.BASE_REF, 'origin/main', 'main'].filter(Boolean)
   for (const ref of candidates) {
     try {
-      sh(`git rev-parse --verify --quiet ${ref}^{commit}`, root)
+      git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], root)
       return ref
     } catch {
       // try next
     }
   }
   return null
-}
-
-function gitLines(cmd, root) {
-  try {
-    return sh(cmd, root).split('\n')
-  } catch {
-    return []
-  }
 }
 
 // Source files (under frontend/src) changed vs the base, excluding test files.
@@ -59,9 +62,12 @@ function gitLines(cmd, root) {
 // Returns absolute paths so they match the coverage-summary keys.
 function changedSourceFiles(base, root) {
   const files = new Set([
-    ...gitLines(`git diff --name-only --diff-filter=ACMR ${base}...HEAD -- frontend/src`, root),
-    ...gitLines('git diff --name-only --diff-filter=ACMR HEAD -- frontend/src', root),
-    ...gitLines('git ls-files --others --exclude-standard -- frontend/src', root),
+    ...gitLines(
+      ['diff', '--name-only', '--diff-filter=ACMR', `${base}...HEAD`, '--', 'frontend/src'],
+      root
+    ),
+    ...gitLines(['diff', '--name-only', '--diff-filter=ACMR', 'HEAD', '--', 'frontend/src'], root),
+    ...gitLines(['ls-files', '--others', '--exclude-standard', '--', 'frontend/src'], root),
   ])
   return [...files]
     .map((p) => p.trim())
