@@ -1,6 +1,6 @@
 """Admin user management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import text
+from sqlalchemy import func, text
 
 from ...config import SessionLocal
 from ...models import User, Campaign
@@ -21,6 +21,11 @@ def list_users(_: CurrentUser = Depends(require_admin)):
             .order_by(User.username)
             .all()
         )
+        owned_counts = dict(
+            db.query(Campaign.owner_id, func.count(Campaign.id))
+            .group_by(Campaign.owner_id)
+            .all()
+        )
         return [
             {
                 "id": u.id,
@@ -30,6 +35,7 @@ def list_users(_: CurrentUser = Depends(require_admin)):
                 "role": u.role,
                 "allow_explicit": bool(u.allow_explicit) if u.allow_explicit is not None else True,
                 "campaign_access": u.campaign_access is None or bool(u.campaign_access),
+                "campaign_count": owned_counts.get(u.id, 0),
                 "oidc_linked": bool(u.oidc_subject),
                 "created_at": u.created_at.isoformat(),
             }
@@ -48,10 +54,14 @@ def create_user(data: UserCreate, _: CurrentUser = Depends(require_admin)):
             raise HTTPException(400, "Email already in use")
         user = User(
             username=data.username.strip(),
-            hashed_password=hash_password(data.password),
+            hashed_password=hash_password(data.password) if data.password else None,
             role=data.role,
             email=data.email,
         )
+        if data.allow_explicit is not None:
+            user.allow_explicit = data.allow_explicit
+        if data.campaign_access is not None:
+            user.campaign_access = data.campaign_access
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -60,6 +70,10 @@ def create_user(data: UserCreate, _: CurrentUser = Depends(require_admin)):
             "username": user.username,
             "email": user.email,
             "role": user.role,
+            "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
+            "campaign_access": user.campaign_access is None or bool(user.campaign_access),
+            "campaign_count": 0,
+            "oidc_linked": bool(user.oidc_subject),
         }
     finally:
         db.close()

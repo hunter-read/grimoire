@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "nativeName": "English (US)"
+    "nativeName": "English (Canada)"
   },
   "app": {
     "name": "GRIMOIRE",
@@ -11,7 +11,7 @@
     "maps": "Maps",
     "tokens": "Tokens",
     "search": "Search",
-    "favorites": "Favorites",
+    "favorites": "Favourites",
     "campaigns": "Campaigns",
     "settings": "Settings",
     "logOut": "Log out",
@@ -80,8 +80,8 @@
     "published": "Published by",
     "sizeMB": "{{size}} MB",
     "sizeGB": "{{size}} GB",
-    "addToFavorites": "Add to favorites",
-    "removeFromFavorites": "Remove from favorites",
+    "addToFavorites": "Add to favourites",
+    "removeFromFavorites": "Remove from favourites",
     "select": "Select Multiple"
   },
   "login": {
@@ -165,14 +165,14 @@
     "pdf": "PDF",
     "contents": "Contents",
     "bookmarks": "Bookmarks",
-    "addToFavorites": "Add to favorites",
-    "removeFromFavorites": "Remove from favorites",
+    "addToFavorites": "Add to favourites",
+    "removeFromFavorites": "Remove from favourites",
     "bookmarkPage": "Bookmark this page",
     "downloadFile": "Download",
     "keyboardShortcuts": "Keyboard Shortcuts",
     "shortcutPrevNext": "Previous / next page",
     "shortcutPrevNextVertical": "Previous / next page (vertical)",
-    "shortcutFavorite": "Toggle favorite",
+    "shortcutFavorite": "Toggle favourite",
     "shortcutToc": "Table of contents",
     "shortcutBookmarks": "Bookmarks",
     "shortcutSearch": "Search",
@@ -205,15 +205,15 @@
     "audio": "Audio"
   },
   "favorites": {
-    "title": "Favorites",
-    "empty": "No favorites yet",
+    "title": "Favourites",
+    "empty": "No favourites yet",
     "emptyHint": "Click the heart icon on any system, book, map, or token to save it here.",
     "systems": "Systems ({{count}})",
     "books": "Books ({{count}})",
     "maps": "Maps ({{count}})",
     "tokens": "Tokens ({{count}})",
-    "onlyFavorites": "Favorites only",
-    "noFavoritesInView": "No favorites here yet. Click the heart icon on any item to save it.",
+    "onlyFavorites": "Favourites only",
+    "noFavoritesInView": "No favourites here yet. Click the heart icon on any item to save it.",
     "audio": "Audio ({{count}})"
   },
   "maps": {
@@ -420,7 +420,7 @@
     },
     "deleteAccount": {
       "title": "Delete Account",
-      "description": "Permanently deletes your account and all associated bookmarks and favorites. This cannot be undone.",
+      "description": "Permanently deletes your account and all associated bookmarks and favourites. This cannot be undone.",
       "adminWarning": "Admin accounts cannot be self-deleted.",
       "deleteButton": "Delete My Account",
       "confirmMessage": "Are you sure? This cannot be undone.",
@@ -730,7 +730,7 @@
     "descriptionPlaceholder": "A brief description of this campaign...",
     "systemLabel": "Game System",
     "systemNone": "— None —",
-    "systemGroupFavorites": "Favorites",
+    "systemGroupFavorites": "Favourites",
     "systemGroupAll": "All systems",
     "gmTitleLabel": "Your Title",
     "gmTitlePlaceholder": "Dungeon Master, Game Master, Navigator...",

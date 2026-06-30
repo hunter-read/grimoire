@@ -3,16 +3,23 @@ import { useTranslation } from 'react-i18next'
 import { LuCheck, LuX } from 'react-icons/lu'
 import api from '../../api'
 
-export default function AddUserForm({ onAdd, onCancel }) {
+export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = true }) {
   const { t } = useTranslation()
-  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'player' })
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    role: 'player',
+    allow_explicit: true,
+    campaign_access: true,
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (form.password.length < 8) {
+    if (passwordAuthEnabled && form.password.length < 8) {
       setError(t('users.passwordTooShort'))
       return
     }
@@ -20,8 +27,10 @@ export default function AddUserForm({ onAdd, onCancel }) {
     try {
       const payload = {
         username: form.username,
-        password: form.password,
         role: form.role,
+        allow_explicit: form.allow_explicit,
+        campaign_access: form.campaign_access,
+        ...(passwordAuthEnabled && form.password ? { password: form.password } : {}),
         ...(form.email.trim() ? { email: form.email.trim() } : {}),
       }
       const user = await api.post('/users', payload)
@@ -49,7 +58,7 @@ export default function AddUserForm({ onAdd, onCancel }) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr auto',
+            gridTemplateColumns: passwordAuthEnabled ? '1fr 1fr auto' : '1fr auto',
             gap: 12,
             alignItems: 'end',
           }}
@@ -69,20 +78,22 @@ export default function AddUserForm({ onAdd, onCancel }) {
               style={{ width: '100%' }}
             />
           </div>
-          <div>
-            <label htmlFor="add-user-password" style={labelStyle}>
-              {t('users.password')}
-            </label>
-            <input
-              id="add-user-password"
-              type="password"
-              required
-              autoComplete="new-password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              style={{ width: '100%' }}
-            />
-          </div>
+          {passwordAuthEnabled && (
+            <div>
+              <label htmlFor="add-user-password" style={labelStyle}>
+                {t('users.password')}
+              </label>
+              <input
+                id="add-user-password"
+                type="password"
+                required
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
           <div>
             <label htmlFor="add-user-role" style={labelStyle}>
               {t('users.role')}
@@ -119,6 +130,40 @@ export default function AddUserForm({ onAdd, onCancel }) {
             style={{ width: '100%' }}
           />
         </div>
+
+        <div>
+          <span style={labelStyle}>{t('users.permissions')}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 2 }}>
+            <label
+              htmlFor="add-user-campaign-access"
+              title={t('users.campaignAccessTitle')}
+              style={permLabelStyle}
+            >
+              <input
+                id="add-user-campaign-access"
+                type="checkbox"
+                checked={form.campaign_access}
+                onChange={(e) => setForm({ ...form, campaign_access: e.target.checked })}
+                style={{ width: 14, height: 14, accentColor: 'var(--gold)' }}
+              />
+              {t('users.campaignAccess')}
+            </label>
+            <label
+              htmlFor="add-user-allow-explicit"
+              title={t('users.allowExplicitTitle')}
+              style={permLabelStyle}
+            >
+              <input
+                id="add-user-allow-explicit"
+                type="checkbox"
+                checked={form.allow_explicit}
+                onChange={(e) => setForm({ ...form, allow_explicit: e.target.checked })}
+                style={{ width: 14, height: 14, accentColor: '#e07070' }}
+              />
+              {t('users.explicit')}
+            </label>
+          </div>
+        </div>
       </div>
 
       {error && <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{error}</div>}
@@ -145,6 +190,15 @@ export default function AddUserForm({ onAdd, onCancel }) {
 }
 
 const labelStyle = { display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4 }
+
+const permLabelStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 13,
+  color: 'var(--text)',
+  cursor: 'pointer',
+}
 
 const primaryBtnStyle = {
   padding: '8px 16px',

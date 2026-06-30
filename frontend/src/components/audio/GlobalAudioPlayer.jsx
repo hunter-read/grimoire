@@ -33,7 +33,7 @@ const iconBtn = (active = false) => ({
  * AppShell (outside <Routes>) so playback survives navigation. Renders nothing
  * when the queue is empty.
  */
-export default function GlobalAudioPlayer({ isMobile = false }) {
+export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }) {
   const { t } = useTranslation()
   const player = useAudioPlayer()
   const {
@@ -84,15 +84,18 @@ export default function GlobalAudioPlayer({ isMobile = false }) {
   }
 
   const bottom = isMobile ? 64 : 0
+  // On desktop, start the bar at the sidebar's right edge so it doesn't cover
+  // the sidebar (and its logout button). On mobile the sidebar is a bottom bar.
+  const left = isMobile ? 0 : sidebarWidth
 
   return (
     <>
-      {expanded && <AudioQueuePanel bottom={bottom + PLAYER_HEIGHT} />}
+      {expanded && <AudioQueuePanel bottom={bottom + PLAYER_HEIGHT} left={left} />}
 
       <div
         style={{
           position: 'fixed',
-          left: 0,
+          left,
           right: 0,
           bottom,
           height: PLAYER_HEIGHT,

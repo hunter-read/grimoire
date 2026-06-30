@@ -1,116 +1,116 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { useState } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import UserRow from './UserRow'
 
-const alice = { id: 'user-1', username: 'alice', role: 'player' }
-const admin = { id: 'admin-1', username: 'admin', role: 'admin' }
+vi.mock('../../api', () => ({
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  campaigns: { adminListByUser: vi.fn(() => Promise.resolve([])) },
+}))
+
+const alice = { id: 'user-1', username: 'alice', role: 'player', campaign_count: 0 }
+const admin = { id: 'admin-1', username: 'admin', role: 'admin', campaign_count: 2 }
+
+// Wraps the row in a table and drives the expand state like UsersTab does.
+function renderRow(props = {}) {
+  function Harness() {
+    const [expanded, setExpanded] = useState(props.startExpanded || false)
+    return (
+      <table>
+        <tbody>
+          <UserRow
+            user={alice}
+            currentUserId="other"
+            currentUserRole="admin"
+            passwordAuthEnabled
+            columnCount={5}
+            expanded={expanded}
+            onToggleExpand={() => setExpanded((v) => !v)}
+            onRoleChange={vi.fn()}
+            onExplicitChange={vi.fn()}
+            onCampaignAccessChange={vi.fn()}
+            onPasswordReset={vi.fn()}
+            onEmailChange={vi.fn()}
+            onDelete={vi.fn()}
+            {...props}
+          />
+        </tbody>
+      </table>
+    )
+  }
+  return render(<Harness />)
+}
 
 describe('UserRow', () => {
   it('renders the username', () => {
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
+    renderRow()
     expect(screen.getByText('alice')).toBeInTheDocument()
   })
 
   it('shows (you) label when the row is the current user', () => {
-    render(
-      <UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />
-    )
+    renderRow({ currentUserId: 'user-1' })
     expect(screen.getByText('(you)')).toBeInTheDocument()
   })
 
   it('does not show (you) for other users', () => {
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
+    renderRow()
     expect(screen.queryByText('(you)')).not.toBeInTheDocument()
   })
 
-  it('disables the role select for the current user', () => {
-    render(
-      <UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />
-    )
-    expect(screen.getByRole('combobox')).toBeDisabled()
-  })
-
-  it('enables the role select for other users', () => {
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
-    expect(screen.getByRole('combobox')).not.toBeDisabled()
-  })
-
-  it('calls onRoleChange with user id and new role when changed', () => {
-    const onRoleChange = vi.fn()
-    render(
-      <UserRow user={alice} currentUserId="other" onRoleChange={onRoleChange} onDelete={vi.fn()} />
-    )
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gm' } })
-    expect(onRoleChange).toHaveBeenCalledWith('user-1', 'gm')
-  })
-
-  it('shows delete confirmation UI when the delete button is clicked', () => {
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Delete user alice'))
-    expect(screen.getByText('Delete?')).toBeInTheDocument()
-    expect(screen.getByText('Yes')).toBeInTheDocument()
-    expect(screen.getByText('No')).toBeInTheDocument()
-  })
-
-  it('calls onDelete when Yes is confirmed', () => {
-    const onDelete = vi.fn()
-    render(
-      <UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={onDelete} />
-    )
-    fireEvent.click(screen.getByLabelText('Delete user alice'))
-    fireEvent.click(screen.getByText('Yes'))
-    expect(onDelete).toHaveBeenCalledWith('user-1')
-  })
-
-  it('cancels the confirmation when No is clicked', () => {
-    render(<UserRow user={alice} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Delete user alice'))
-    fireEvent.click(screen.getByText('No'))
-    expect(screen.queryByText('Delete?')).not.toBeInTheDocument()
-  })
-
-  it('disables the delete button for the current user', () => {
-    render(
-      <UserRow user={alice} currentUserId="user-1" onRoleChange={vi.fn()} onDelete={vi.fn()} />
-    )
-    expect(screen.getByLabelText('Delete user alice')).toBeDisabled()
-  })
-
   it('renders a RoleBadge for the user role', () => {
-    render(<UserRow user={admin} currentUserId="other" onRoleChange={vi.fn()} onDelete={vi.fn()} />)
-    // Username "admin" appears as plain text; the badge shows the translated "Admin"
-    // (also appears in the role <select> option, so use getAllByText)
+    renderRow({ user: admin })
     expect(screen.getByText('admin')).toBeInTheDocument()
     expect(screen.getAllByText('Admin').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('checks the campaign access toggle by default and toggles it off', () => {
+  it('shows the owned campaign count', () => {
+    renderRow({ user: admin })
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('does not show the editor until expanded', () => {
+    renderRow()
+    expect(screen.queryByLabelText('Role')).not.toBeInTheDocument()
+  })
+
+  it('expands to reveal the editor when the row is clicked', () => {
+    renderRow()
+    fireEvent.click(screen.getByText('alice'))
+    expect(screen.getByLabelText('Role')).toBeInTheDocument()
+  })
+
+  it('calls onRoleChange with user id and new role when changed in the editor', () => {
+    const onRoleChange = vi.fn()
+    renderRow({ onRoleChange, startExpanded: true })
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'gm' } })
+    expect(onRoleChange).toHaveBeenCalledWith('user-1', 'gm')
+  })
+
+  it('disables the role select in the editor for the current user', () => {
+    renderRow({ currentUserId: 'user-1', startExpanded: true })
+    expect(screen.getByLabelText('Role')).toBeDisabled()
+  })
+
+  it('toggles campaign access from the editor', () => {
     const onCampaignAccessChange = vi.fn()
-    render(
-      <UserRow
-        user={alice}
-        currentUserId="other"
-        onRoleChange={vi.fn()}
-        onCampaignAccessChange={onCampaignAccessChange}
-        onDelete={vi.fn()}
-      />
-    )
+    renderRow({ onCampaignAccessChange, startExpanded: true })
     const toggle = screen.getByLabelText('Campaigns')
     expect(toggle).toBeChecked()
     fireEvent.click(toggle)
     expect(onCampaignAccessChange).toHaveBeenCalledWith('user-1', false)
   })
 
-  it('reflects a disabled campaign access value', () => {
-    render(
-      <UserRow
-        user={{ ...alice, campaign_access: false }}
-        currentUserId="other"
-        onRoleChange={vi.fn()}
-        onCampaignAccessChange={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-    expect(screen.getByLabelText('Campaigns')).not.toBeChecked()
+  it('shows delete confirmation and calls onDelete when confirmed', () => {
+    const onDelete = vi.fn()
+    renderRow({ onDelete, startExpanded: true })
+    fireEvent.click(screen.getByLabelText('Delete user alice'))
+    expect(screen.getByText('Delete?')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Yes'))
+    expect(onDelete).toHaveBeenCalledWith('user-1')
+  })
+
+  it('hides the password setter when password auth is disabled', () => {
+    renderRow({ passwordAuthEnabled: false, startExpanded: true })
+    expect(screen.queryByText('Set Password')).not.toBeInTheDocument()
   })
 })

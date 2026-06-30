@@ -38,8 +38,44 @@ class TestListUsers:
         assert "created_at" in user
         assert "hashed_password" not in user
 
+    def test_list_includes_campaign_count(self, client, admin_headers):
+        resp = client.get("/api/users", headers=admin_headers)
+        assert resp.status_code == 200
+        for user in resp.json():
+            assert "campaign_count" in user
+            assert isinstance(user["campaign_count"], int)
+
 
 class TestCreateUser:
+    def test_create_accepts_permission_flags(self, client, admin_headers):
+        username = unique_user()
+        resp = client.post(
+            "/api/users",
+            json={
+                "username": username,
+                "password": "validpass123",
+                "role": "player",
+                "allow_explicit": False,
+                "campaign_access": False,
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["allow_explicit"] is False
+        assert body["campaign_access"] is False
+        assert body["campaign_count"] == 0
+
+    def test_create_without_password_for_oidc_only_account(self, client, admin_headers):
+        username = unique_user()
+        resp = client.post(
+            "/api/users",
+            json={"username": username, "role": "player"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["username"] == username
+
     def test_admin_creates_player(self, client, admin_headers):
         username = unique_user()
         resp = client.post(

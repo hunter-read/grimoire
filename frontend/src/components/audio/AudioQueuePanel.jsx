@@ -10,7 +10,7 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext'
  * row can be removed, and rows can be dragged by their handle to reorder the
  * queue (without interrupting playback).
  */
-export default function AudioQueuePanel({ bottom = 72 }) {
+export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
   const { t } = useTranslation()
   const { queue, currentIndex, jumpTo, removeAt, moveTrack } = useAudioPlayer()
 
@@ -28,7 +28,7 @@ export default function AudioQueuePanel({ bottom = 72 }) {
     <div
       style={{
         position: 'fixed',
-        left: 0,
+        left,
         right: 0,
         bottom,
         zIndex: 94,

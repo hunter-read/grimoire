@@ -151,7 +151,7 @@ export default function AppShell() {
 
         {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
 
-        <GlobalAudioPlayer isMobile={isMobile} />
+        <GlobalAudioPlayer isMobile={isMobile} sidebarWidth={sidebarCollapsed ? 64 : 220} />
       </div>
     </UISettingsProvider>
   )

@@ -449,6 +449,7 @@
       "viewModeBooks": "Livres",
       "viewModeMaps": "Cartes",
       "viewModeTokens": "Pions",
+      "viewModeAudio": "Audio",
       "recentLimit": "Livres récemment ouverts",
       "recentLimitHint": "Nombre de livres récemment ouverts à mémoriser (0–{{max}}). Mettre 0 pour masquer la section."
     },
@@ -550,7 +551,12 @@
       "toggleLabel": "Campagnes",
       "none": "Aucune campagne.",
       "loadFailed": "Impossible de charger les campagnes."
-    }
+    },
+    "permissions": "Autorisations",
+    "noPermissions": "Aucune",
+    "ownedCampaigns": "Campagnes possédées",
+    "deleteUserShort": "Supprimer l’utilisateur",
+    "emailLabel": "Courriel"
   },
   "maintenance": {
     "rescan": {
@@ -1109,10 +1115,11 @@
     "embed_token": "Jeton",
     "embed_audio": "Audio",
     "embedBookPage": "Livre — p. {{page}}",
-    "manageGroups": "Gérer les groupes",
-    "uncategorized": "Non classé",
-    "groupLabel": "Groupe",
-    "emptyGroup": "Aucune page",
+    "parentLabel": "Page parente",
+    "noParent": "Niveau supérieur",
+    "addSubpage": "Ajouter une sous-page",
+    "expand": "Développer",
+    "collapse": "Réduire",
     "iconLabel": "Icône",
     "export": "Exporter",
     "exportMd": "Exporter en Markdown (.zip)",
@@ -1277,6 +1284,7 @@
     },
     "player": {
       "title": "Lecture en cours",
+      "play": "Lire",
       "untitled": "Piste sans titre",
       "queue": "File d'attente",
       "emptyQueue": "La file d'attente est vide",

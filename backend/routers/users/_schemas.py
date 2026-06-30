@@ -25,9 +25,13 @@ def _normalize_email(v: Optional[str]) -> Optional[str]:
 
 class UserCreate(BaseModel):
     username: str
-    password: str
+    # Optional so admins can create OIDC-only accounts when password auth is
+    # disabled. When provided it must still meet the length requirement.
+    password: Optional[str] = None
     role: str = "player"
     email: Optional[str] = None
+    allow_explicit: Optional[bool] = None
+    campaign_access: Optional[bool] = None
 
     @field_validator("role")
     @classmethod
@@ -39,7 +43,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_valid(cls, v):
-        if len(v) < 8:
+        if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
 
