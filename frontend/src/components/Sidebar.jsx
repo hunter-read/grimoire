@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   LuLibrary,
   LuMap,
+  LuMusic,
   LuSearch,
   LuSettings,
   LuLogOut,
@@ -69,6 +70,7 @@ export default function Sidebar({
   const isGuest = user?.role === 'guest'
   const hide_maps = uiSettings.hide_maps
   const hide_tokens = uiSettings.hide_tokens
+  const hide_audio = uiSettings.hide_audio
   const hide_campaigns = uiSettings.hide_campaigns
   const {
     show_stat_systems = true,
@@ -186,6 +188,7 @@ export default function Sidebar({
         {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
         {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
+        {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
         {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
 
         {!isGuest && (

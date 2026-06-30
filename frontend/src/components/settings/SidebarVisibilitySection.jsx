@@ -13,6 +13,7 @@ export default function SidebarVisibilitySection() {
   const VISIBILITY_ITEMS = [
     { key: 'hide_maps', label: t('appSettings.sidebarVisibility.hideMaps') },
     { key: 'hide_tokens', label: t('appSettings.sidebarVisibility.hideTokens') },
+    { key: 'hide_audio', label: t('appSettings.sidebarVisibility.hideAudio') },
     { key: 'hide_campaigns', label: t('appSettings.sidebarVisibility.hideCampaigns') },
   ]
 
@@ -23,10 +24,18 @@ export default function SidebarVisibilitySection() {
         setValues({
           hide_maps: d.hide_maps,
           hide_tokens: d.hide_tokens,
+          hide_audio: d.hide_audio,
           hide_campaigns: d.hide_campaigns,
         })
       )
-      .catch(() => setValues({ hide_maps: false, hide_tokens: false, hide_campaigns: false }))
+      .catch(() =>
+        setValues({
+          hide_maps: false,
+          hide_tokens: false,
+          hide_audio: false,
+          hide_campaigns: false,
+        })
+      )
   }, [])
 
   const toggle = async (key) => {

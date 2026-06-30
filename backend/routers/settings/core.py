@@ -66,6 +66,8 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
             _set(db, "hide_maps", "true" if data.hide_maps else "false")
         if data.hide_tokens is not None:
             _set(db, "hide_tokens", "true" if data.hide_tokens else "false")
+        if data.hide_audio is not None:
+            _set(db, "hide_audio", "true" if data.hide_audio else "false")
         if data.hide_campaigns is not None:
             _set(db, "hide_campaigns", "true" if data.hide_campaigns else "false")
         for key in (
@@ -194,6 +196,7 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user)):
         return {
             "hide_maps": raw["hide_maps"] == "true",
             "hide_tokens": raw["hide_tokens"] == "true",
+            "hide_audio": raw["hide_audio"] == "true",
             "hide_campaigns": raw["hide_campaigns"] == "true",
             "show_stat_systems": raw["show_stat_systems"] == "true",
             "show_stat_books": raw["show_stat_books"] == "true",

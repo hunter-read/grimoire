@@ -17,7 +17,20 @@ vi.mock('../../api', () => ({
     getWikiPage: vi.fn(),
     updateWikiPage: vi.fn(),
     reorderWikiPages: vi.fn(),
+    createWikiPage: vi.fn(),
+    deleteWikiPage: vi.fn(),
   },
+}))
+
+const playQueue = vi.fn()
+vi.mock('../../context/AudioPlayerContext', () => ({
+  useAudioPlayer: () => ({
+    playQueue,
+    playNext: vi.fn(),
+    togglePlay: vi.fn(),
+    isCurrent: () => false,
+    isPlayingId: () => false,
+  }),
 }))
 
 import { campaigns } from '../../api'
@@ -319,5 +332,108 @@ describe('WikiView markdown formatting toolbar', () => {
     textarea.setSelectionRange(0, 0)
     fireEvent.click(screen.getByRole('button', { name: 'Bullet list' }))
     expect(textarea.value).toBe('- Here be dragons')
+  })
+})
+
+describe('WikiView audio "play all"', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    playQueue.mockClear()
+  })
+
+  const pageWithAudio = {
+    ...page,
+    body: 'Intro [[audio:a1]] middle [[audio:a2|Custom]] end',
+  }
+
+  it('shows a Play all button when the note embeds audio and queues them in order', async () => {
+    campaigns.listWikiPages.mockResolvedValue([pageWithAudio])
+    campaigns.getWikiPage.mockResolvedValue(pageWithAudio)
+    renderView()
+    const playAll = await screen.findByRole('button', { name: /play all/i })
+    fireEvent.click(playAll)
+    expect(playQueue).toHaveBeenCalledTimes(1)
+    expect(playQueue.mock.calls[0][0].map((t) => t.id)).toEqual(['a1', 'a2'])
+  })
+
+  it('does not show a Play all button when the note has no audio embeds', async () => {
+    campaigns.listWikiPages.mockResolvedValue([page])
+    campaigns.getWikiPage.mockResolvedValue(page)
+    renderView()
+    await waitFor(() => screen.getByText('Dragons'))
+    expect(screen.queryByTitle(/play all/i)).not.toBeInTheDocument()
+  })
+
+  it('shows Play all to a non-editor viewer when the note has audio', async () => {
+    campaigns.listWikiPages.mockResolvedValue([pageWithAudio])
+    campaigns.getWikiPage.mockResolvedValue({ ...pageWithAudio, can_edit: false })
+    renderView({ isOwner: false })
+    expect(await screen.findByRole('button', { name: /play all/i })).toBeInTheDocument()
+  })
+})
+
+describe('WikiView create / delete / search', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.listWikiPages.mockResolvedValue([page])
+    campaigns.getWikiPage.mockResolvedValue(page)
+    campaigns.updateWikiPage.mockResolvedValue(page)
+    campaigns.deleteWikiPage.mockResolvedValue({})
+  })
+
+  it('opens the page editor when New Page is clicked', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    fireEvent.click(screen.getByRole('button', { name: /new page/i }))
+    // The editor exposes a Markdown textarea.
+    expect(await screen.findByLabelText('Markdown')).toBeInTheDocument()
+  })
+
+  it('deletes the open page after confirmation', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderView()
+    await screen.findByText('Here be dragons')
+    // The page header has a delete (trash) button.
+    const buttons = screen.getAllByRole('button')
+    const del = buttons.find((b) => b.querySelector('svg') && b.textContent === '')
+    // Fall back: click the trash button near the Edit button.
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    // Re-open view, then delete.
+    await screen.findByText('Here be dragons')
+    const trash = screen.getAllByRole('button').find((b) => b.style.color === 'var(--danger)')
+    fireEvent.click(trash)
+    await waitFor(() => expect(campaigns.deleteWikiPage).toHaveBeenCalledWith('c1', 'p1'))
+    window.confirm.mockRestore()
+  })
+
+  it('filters the page list by the search query', async () => {
+    campaigns.listWikiPages.mockResolvedValue([
+      { ...page, id: 'p1', title: 'Dragons', slug: 'dragons' },
+      { ...page, id: 'p2', title: 'Kobolds', slug: 'kobolds' },
+    ])
+    renderView()
+    await screen.findByText('Kobolds')
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'kobold' } })
+    // The non-matching sidebar entry is filtered out; Kobolds remains.
+    expect(screen.getByText('Kobolds')).toBeInTheDocument()
+    // "Dragons" remains only as the open page's title heading, not a list row.
+    const dragonNodes = screen.getAllByText('Dragons')
+    expect(dragonNodes.every((n) => n.tagName === 'H2')).toBe(true)
+  })
+
+  it('navigates to a page by clicking its sidebar entry', async () => {
+    campaigns.listWikiPages.mockResolvedValue([
+      { ...page, id: 'p1', title: 'Dragons', slug: 'dragons' },
+      { ...page, id: 'p2', title: 'Kobolds', slug: 'kobolds' },
+    ])
+    campaigns.getWikiPage.mockImplementation((_c, id) =>
+      Promise.resolve({ ...page, id, title: id === 'p2' ? 'Kobolds' : 'Dragons' })
+    )
+    renderView()
+    await screen.findByText('Kobolds')
+    campaigns.getWikiPage.mockClear()
+    fireEvent.click(screen.getByText('Kobolds'))
+    await waitFor(() => expect(campaigns.getWikiPage).toHaveBeenCalledWith('c1', 'p2'))
   })
 })

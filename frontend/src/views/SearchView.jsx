@@ -1,7 +1,15 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuSearch, LuMap, LuUser, LuBookOpen, LuChevronDown, LuChevronRight } from 'react-icons/lu'
+import {
+  LuSearch,
+  LuMap,
+  LuMusic,
+  LuUser,
+  LuBookOpen,
+  LuChevronDown,
+  LuChevronRight,
+} from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import BookGroup from '../components/search/BookGroup'
@@ -97,7 +105,8 @@ export default function SearchView() {
   const totalFiltered =
     groupedBooks.reduce((s, g) => s + g.pages.length, 0) +
     (results?.maps?.length ?? 0) +
-    (results?.tokens?.length ?? 0)
+    (results?.tokens?.length ?? 0) +
+    (results?.audio?.length ?? 0)
 
   return (
     <div
@@ -151,6 +160,7 @@ export default function SearchView() {
         (() => {
           const maps = results.maps ?? []
           const tokens = results.tokens ?? []
+          const audio = results.audio ?? []
 
           return (
             <div>
@@ -279,6 +289,36 @@ export default function SearchView() {
                           {tok.relative_path}
                         </div>
                         {tok.tags?.length > 0 && <TagList tags={tok.tags} />}
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {audio.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <button onClick={() => toggleSection('audio')} style={sectionHeadStyle}>
+                    {collapsed.audio ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                    <LuMusic size={14} /> {t('search.audio')}
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                      {audio.length}
+                    </span>
+                  </button>
+                  {!collapsed.audio &&
+                    audio.map((a) => (
+                      <div
+                        key={a.id}
+                        onClick={() => navigate(`/audio/${a.id}`)}
+                        style={cardStyle}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
+                        }
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
+                      >
+                        <div style={{ fontWeight: 500, fontSize: 15 }}>{a.title || a.filename}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
+                          {a.relative_path}
+                        </div>
+                        {a.tags?.length > 0 && <TagList tags={a.tags} />}
                       </div>
                     ))}
                 </div>

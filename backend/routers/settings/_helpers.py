@@ -23,6 +23,7 @@ _DEFAULTS = {
     "stats_api_key": "",
     "hide_maps": "false",
     "hide_tokens": "false",
+    "hide_audio": "false",
     "hide_campaigns": "false",
     # Sidebar stats visibility (true = shown)
     "show_stat_systems": "true",
@@ -106,6 +107,7 @@ def _to_typed(raw: dict) -> dict:
         "stats_api_key": raw["stats_api_key"],
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
+        "hide_audio": raw["hide_audio"] == "true",
         "hide_campaigns": raw["hide_campaigns"] == "true",
         "show_stat_systems": raw["show_stat_systems"] == "true",
         "show_stat_books": raw["show_stat_books"] == "true",

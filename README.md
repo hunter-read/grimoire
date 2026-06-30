@@ -19,15 +19,17 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 ## Features
 
 - **Library Browser** — Organizes your collection by game system with automatic folder detection
-- **Full-Text Search** — Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps and tokens by filename, folder, or tag
+- **Full-Text Search** — Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps, tokens, and audio by filename, folder, or tag
 - **Page-by-Page Viewer** — PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
 - **Map Gallery** — Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download
 - **Token Browser** — Browse and tag character tokens and portrait assets
+- **Audio Library** — Browse ambient tracks, soundscapes, music, and sound effects by directory structure with tag filtering and in-browser playback (MP3, OGG, Opus, FLAC, WAV, M4A, AAC). Reads embedded duration and title/artist/album tags, and uses folder `cover`/`folder` images or embedded album art for artwork
+- **Global Audio Player** — A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
 - **Bookmarks** — Per-user page and text-selection bookmarks with inline highlights
-- **Favorites** — Save systems, books, maps, and tokens for quick access
-- **View Modes** — Toggle the systems, books, maps, and tokens grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
+- **Favorites** — Save systems, books, maps, tokens, and audio for quick access
+- **View Modes** — Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
 - **Metadata Editor** — Add descriptions, tags, genre, publisher links, and character builder URLs
-- **Bulk Actions** — Multi-select books, maps, and tokens (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel
+- **Bulk Actions** — Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel
 - **Campaigns** — Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
 - **OPDS Catalog** — Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
 - **Docker Ready** — One command to run, mount your library directory, done
@@ -65,9 +67,13 @@ library/
 │   └── Sunken Temple (22x22)/
 │       ├── Sunken Temple Basement.png
 │       └── The Sunken Temple.png
-└── tokens/
-    └── Monsters/
-        └── goblin.png
+├── tokens/
+│   └── Monsters/
+│       └── goblin.png
+└── audio/
+    └── Ambient/
+        ├── cover.jpg
+        └── tavern-night.mp3
 ```
 
 See [Library Structure](#library-structure) for the full layout and category rules.
@@ -350,11 +356,22 @@ tokens/
     └── token-file.png
 ```
 
+### Audio — organize by category or creator
+
+```
+audio/
+└── Category or Creator/
+    ├── cover.jpg        # optional folder artwork (cover.* or folder.*)
+    └── track.mp3
+```
+
+The folder name is shown as a group header in the audio library. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`. Duration and embedded title/artist/album tags are read on scan. For artwork, Grimoire uses a `cover.*` or `folder.*` image in the track's folder if present, otherwise falls back to embedded album art.
+
 ---
 
 ## Tagging with tags.json
 
-Drop a `tags.json` file into any `maps/` or `tokens/` folder (or subfolder) to automatically apply tags when the library is scanned. You can also place one inside a game system folder under `books/` to tag the system itself.
+Drop a `tags.json` file into any `maps/`, `tokens/`, or `audio/` folder (or subfolder) to automatically apply tags when the library is scanned. You can also place one inside a game system folder under `books/` to tag the system itself.
 
 `tags.json` is a plain JSON object. Keys are paths resolved relative to the folder the file lives in:
 
@@ -511,7 +528,7 @@ docker compose up -d
 | `admin` | Everything — user management, app settings, metadata editing, rescan |
 | `gm` | Read everything, edit metadata, create GM campaigns |
 | `player` | Read-only access, personal campaigns, session notes |
-| `guest` | Code-only account scoped to a single campaign. No access to the library, maps, tokens, or search. See [Guest invites](#guest-invites). |
+| `guest` | Code-only account scoped to a single campaign. No access to the library, maps, tokens, audio, or search. See [Guest invites](#guest-invites). |
 
 Create additional accounts in **Settings → Users** after logging in as admin.
 
@@ -540,7 +557,7 @@ When OIDC is configured, this flag can be driven by the provider's [permissions 
 
 ### Guest invites
 
-Guests let you share a single campaign with people who don't have full accounts — for example a player who's only joining one game. A guest is a code-only account: no password, no OIDC, and no access to the library, maps, tokens, or search. They can only see the campaign they were invited to (and its shared resources, wiki, and schedule), and can edit only their **own** character name, character art, character sheet, session notes, and availability.
+Guests let you share a single campaign with people who don't have full accounts — for example a player who's only joining one game. A guest is a code-only account: no password, no OIDC, and no access to the library, maps, tokens, audio, or search. They can only see the campaign they were invited to (and its shared resources, wiki, and schedule), and can edit only their **own** character name, character art, character sheet, session notes, and availability.
 
 - **Enable it server-wide** in **Settings → Authentication → Guest Access**, or pin it with the `GUEST_ACCESS_ENABLED` environment variable. It's off by default.
 - **Invite from a GM campaign** — open the members roster and use **Guests** (admins and GMs only). Add a guest with a nickname; each guest gets a unique 10-character invite code. A campaign can have multiple guests.
@@ -557,12 +574,12 @@ Each campaign has a full-page markdown **wiki** (opened from the campaign overvi
 - **GM secrets inline** — wrap text in `||double pipes||` (or use the **GM secret** button) to hide just that span inside an otherwise shared page. The GM sees it highlighted; players never receive it — it's stripped on the server before the page is sent. (Personal campaigns keep everything, since only you can read them.)
 - **Nested pages** — organize the sidebar as a tree: any page can hold subpages, to any depth (a "category" is just a page with children). Drag pages to re-nest them, add a subpage from the parent row, and collapse/expand branches. Deleting a page lifts its subpages up to the parent rather than removing them.
 - **Page links** — write `[[Page Title]]` to link pages; missing targets are auto-created as stubs, and each page shows what links back to it.
-- **Grimoire embeds** — drop a book (optionally at a page), map, token, or campaign file straight into a page. The embed picker lists the campaign's **linked resources** (link new library content in the Resources panel first). You can also **upload an image** right from the picker — it's embedded inline and added to your linked resources, filed under an existing category or a new one you name on the spot (e.g. *NPC art*).
+- **Grimoire embeds** — drop a book (optionally at a page), map, token, audio track (plays in the global player; a note with several can be played as a playlist via "Play all"), or campaign file straight into a page. The embed picker lists the campaign's **linked resources** (link new library content in the Resources panel first). You can also **upload an image** right from the picker — it's embedded inline and added to your linked resources, filed under an existing category or a new one you name on the spot (e.g. *NPC art*).
 - **Import & export** (GM only) — export the whole wiki as a Markdown `.zip` (one file per page with YAML frontmatter — an Obsidian-style vault) or a JSON bundle, and import pages from Markdown, a Grimoire JSON bundle, or a **LegendKeeper** export (`.json`, `.lk`, or `.zip` — both the per-page export and the current `{version, resources}` bundle). LegendKeeper HTML and ProseMirror page bodies are converted to Markdown and the page hierarchy is preserved; LegendKeeper-only block types (e.g. secrets, embeds) are dropped, matching LegendKeeper's own export caveats. Imports are non-destructive — pages are always added, never overwritten.
 
 Existing session notes are automatically rolled into wiki pages (nested under a "Session Notes" page) the first time the new version starts; empty notes are discarded.
 
-**Resources** — link books, maps, and tokens, or upload campaign files (handouts, images, etc.) the GM keeps with the campaign. Each resource has a visibility: **Public** (all players), **Private** (shared with specific players — e.g. a handout for 2 of 4), or **GM only**. Resources group under their type by default, but the GM can create custom categories (e.g. *Player Handouts*), drag items between categories and reorder them, and delete categories (keeping items uncategorized or unlinking them). Each group can be **collapsed or expanded** (remembered per campaign), and the GM can **reorder all the groups** — custom categories and the built-in Books / Maps / Tokens / Files groups together — from the category manager.
+**Resources** — link books, maps, tokens, and audio, or upload campaign files (handouts, images, etc.) the GM keeps with the campaign. Each resource has a visibility: **Public** (all players), **Private** (shared with specific players — e.g. a handout for 2 of 4), or **GM only**. Resources group under their type by default, but the GM can create custom categories (e.g. *Player Handouts*), drag items between categories and reorder them, and delete categories (keeping items uncategorized or unlinking them). Each group can be **collapsed or expanded** (remembered per campaign), and the GM can **reorder all the groups** — custom categories and the built-in Books / Maps / Tokens / Audio / Files groups together — from the category manager.
 
 Uploaded campaign files live in the data directory, separate from the library. Admins can disable these uploads app-wide or cap them by per-file and per-campaign size in **Settings → App** (admins themselves are exempt).
 

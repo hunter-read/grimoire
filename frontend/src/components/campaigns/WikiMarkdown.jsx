@@ -11,10 +11,10 @@ import EmbedCard from './EmbedCard'
 // custom `a` renderer below.
 //   [[Page Title]]            -> [Page Title](grimoire-wiki:slug-of-title)
 //   [[Page Title|label]]      -> [label](grimoire-wiki:slug-of-title)
-//   [[book:ID]] / [[book:ID:PAGE]] / [[map:ID]] / [[token:ID]] / [[file:ID]] / [[image:ID]]
+//   [[book:ID]] / [[book:ID:PAGE]] / [[map:ID]] / [[token:ID]] / [[audio:ID]] / [[file:ID]] / [[image:ID]]
 //                             -> [embed](grimoire-embed:book:ID:PAGE)
 const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
-const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'file:', 'image:']
+const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'file:', 'image:']
 
 // ||GM-only text||. Only the owner ever receives a body still containing these
 // (the backend strips them for everyone else), so rendering them as a tinted

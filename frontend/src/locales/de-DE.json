@@ -17,7 +17,8 @@
     "logOut": "Abmelden",
     "more": "Mehr",
     "collapseSidebar": null,
-    "expandSidebar": null
+    "expandSidebar": null,
+    "audio": "Audio"
   },
   "stats": {
     "systems": "Systeme",
@@ -195,7 +196,8 @@
     "groupedBy": null,
     "groupedBy_other": null,
     "expandBook": null,
-    "collapseBook": null
+    "collapseBook": null,
+    "audio": "Audio"
   },
   "favorites": {
     "title": "Favoriten",
@@ -206,7 +208,8 @@
     "maps": "Karten ({{count}})",
     "tokens": "Tokens ({{count}})",
     "onlyFavorites": null,
-    "noFavoritesInView": null
+    "noFavoritesInView": null,
+    "audio": "Audio ({{count}})"
   },
   "maps": {
     "title": "Karten",
@@ -411,7 +414,8 @@
       "description": "Abschnitte aus der Seitenleiste und mobilen Navigation für alle Benutzer ausblenden.",
       "hideMaps": "Karten ausblenden",
       "hideTokens": "Tokens ausblenden",
-      "hideCampaigns": "Kampagnen ausblenden"
+      "hideCampaigns": "Kampagnen ausblenden",
+      "hideAudio": "Audio ausblenden"
     },
     "sidebarStats": {
       "title": "Seitenleisten-Statistiken",
@@ -858,7 +862,8 @@
     "uploadFile": null,
     "uploading": null,
     "emptyCategory": null,
-    "deleteFileConfirm": null
+    "deleteFileConfirm": null,
+    "audio": "Audio"
   },
   "download": {
     "title": "Archiv herunterladen",
@@ -1034,6 +1039,7 @@
     "embed_book": null,
     "embed_map": null,
     "embed_token": null,
+    "embed_audio": "Audio",
     "embedBookPage": null,
     "manageGroups": null,
     "uncategorized": null,
@@ -1159,5 +1165,66 @@
         "warning": "This overwrites fields you've edited in the UI."
       }
     }
+  },
+  "audio": {
+    "title": "Audio",
+    "subtitle_one": "{{count}} Titel in deiner Sammlung",
+    "subtitle_other": "{{count}} Titel in deiner Sammlung",
+    "filterPlaceholder": "Audio filtern…",
+    "filterAriaLabel": "Audio filtern",
+    "bulkTag": "Massen-Tag",
+    "cancelBulk": "Abbrechen",
+    "bulkHint": "Klicke auf Ordnerüberschriften oder Audiokarten, um sie auszuwählen, und füge dann unten Tags hinzu.",
+    "tagsPlaceholder": "Tags hinzufügen, kommagetrennt…",
+    "addTags": "Tags hinzufügen",
+    "applying": "Wird angewendet…",
+    "noAudioFilter": "Keine Audiodateien entsprechen deinem Filter.",
+    "noAudio": "Keine Audiodateien gefunden. Füge Audio zu /library/audio/ hinzu und scanne neu.",
+    "audioCount_one": "{{count}} Titel",
+    "audioCount_other": "{{count}} Titel",
+    "expandFolder": "{{folder}} ausklappen",
+    "collapseFolder": "{{folder}} einklappen",
+    "downloadAllInFolder": "Alle Audiodateien in {{folder}} herunterladen",
+    "downloadInSubfolder": "Audiodateien in {{folder}} herunterladen",
+    "editTags": "Bearbeiten",
+    "editTagsFull": "Tags bearbeiten",
+    "download": "Herunterladen",
+    "missing": "Fehlend",
+    "play": "Abspielen",
+    "pause": "Pause",
+    "detail": {
+      "title": "Titeldetails",
+      "back": "Zurück zu Audio",
+      "details": "Details",
+      "location": "Speicherort",
+      "fileSize": "Dateigröße",
+      "trackTitle": "Titel",
+      "artist": "Künstler",
+      "album": "Album",
+      "duration": "Dauer",
+      "folderTags": "Ordner-Tags",
+      "trackTags": "Titel-Tags",
+      "editTags": "Bearbeiten",
+      "noTags": "Keine"
+    },
+    "player": {
+      "title": "Aktuelle Wiedergabe",
+      "untitled": "Unbenannter Titel",
+      "queue": "Warteschlange",
+      "emptyQueue": "Warteschlange ist leer",
+      "previous": "Vorheriger Titel",
+      "next": "Nächster Titel",
+      "repeatOn": "Aktuellen Titel wiederholen: an",
+      "repeatOff": "Aktuellen Titel wiederholen: aus",
+      "playNext": "Als Nächstes abspielen",
+      "toggleQueue": "Warteschlange anzeigen",
+      "close": "Player schließen",
+      "seek": "Suchen",
+      "removeFromQueue": "Aus Warteschlange entfernen",
+      "reorder": "Zum Umsortieren ziehen"
+    },
+    "playFolder": "{{folder}} abspielen",
+    "playGroup": "Audio abspielen",
+    "playAll": "Alle abspielen"
   }
 }

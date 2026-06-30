@@ -2,6 +2,7 @@
 import pytest
 from backend.tests.conftest import make_game_system, make_book
 from backend.config import SessionLocal
+from backend.models import MapFolder, TokenFolder, AudioFolder
 from sqlalchemy import text
 
 
@@ -109,6 +110,63 @@ class TestSearch:
         resp = client.get("/api/search?q=shadowgoblintoken", headers=admin_headers)
         body = resp.json()
         assert any(item["id"] == t.id for item in body["tokens"])
+
+    def test_global_search_includes_audio_key(self, client, admin_headers, indexed_book):
+        resp = client.get("/api/search?q=fireball", headers=admin_headers)
+        body = resp.json()
+        assert "audio" in body
+        assert isinstance(body["audio"], list)
+
+    def test_global_search_finds_audio_by_title(self, client, admin_headers):
+        from backend.tests.conftest import make_audio
+
+        a = make_audio(
+            filename="track-xyz.mp3",
+            relative_path="track-xyz.mp3",
+            title="Mystic Cavern Drone",
+        )
+        resp = client.get("/api/search?q=mystic+cavern", headers=admin_headers)
+        body = resp.json()
+        assert any(item["id"] == a.id for item in body["audio"])
+
+    def test_global_search_finds_map_via_folder_tag(self, client, admin_headers):
+        from backend.tests.conftest import make_map
+
+        db = SessionLocal()
+        try:
+            db.add(MapFolder(path="Swamplands", tags=["bayoutag"]))
+            db.commit()
+        finally:
+            db.close()
+        m = make_map(filename="nondescript.png", relative_path="maps/Swamplands/nondescript.png")
+        resp = client.get("/api/search?q=bayoutag", headers=admin_headers)
+        assert any(item["id"] == m.id for item in resp.json()["maps"])
+
+    def test_global_search_finds_token_via_folder_path(self, client, admin_headers):
+        from backend.tests.conftest import make_token
+
+        db = SessionLocal()
+        try:
+            db.add(TokenFolder(path="Gnolltribe", tags=["pack"]))
+            db.commit()
+        finally:
+            db.close()
+        tk = make_token(filename="plain.png", relative_path="tokens/Gnolltribe/plain.png")
+        resp = client.get("/api/search?q=gnolltribe", headers=admin_headers)
+        assert any(item["id"] == tk.id for item in resp.json()["tokens"])
+
+    def test_global_search_finds_audio_via_folder_tag(self, client, admin_headers):
+        from backend.tests.conftest import make_audio
+
+        db = SessionLocal()
+        try:
+            db.add(AudioFolder(path="Soundscapes", tags=["windswept"]))
+            db.commit()
+        finally:
+            db.close()
+        a = make_audio(filename="plain.mp3", relative_path="audio/Soundscapes/plain.mp3", title="")
+        resp = client.get("/api/search?q=windswept", headers=admin_headers)
+        assert any(item["id"] == a.id for item in resp.json()["audio"])
 
     def test_scoped_search_returns_empty_maps_tokens(self, client, admin_headers, indexed_book):
         """When scoped to a system or book, maps and tokens are always empty."""

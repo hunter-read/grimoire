@@ -1,5 +1,6 @@
 import { useAuth } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
+import { AudioPlayerProvider } from './context/AudioPlayerContext'
 import SetupView from './views/SetupView'
 import LoginView from './views/LoginView'
 import LoadingScreen from './components/LoadingScreen'
@@ -13,7 +14,9 @@ export default function App() {
   if (status === 'unauthenticated') return <LoginView onLogin={login} />
   return (
     <FavoritesProvider>
-      <AppShell />
+      <AudioPlayerProvider>
+        <AppShell />
+      </AudioPlayerProvider>
     </FavoritesProvider>
   )
 }

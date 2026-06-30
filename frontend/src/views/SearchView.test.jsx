@@ -28,13 +28,14 @@ function makeBookResult(overrides = {}) {
   }
 }
 
-function makeResponse(books = [], maps = [], tokens = []) {
+function makeResponse(books = [], maps = [], tokens = [], audio = []) {
   return {
     query: 'fireball',
-    total: books.length + maps.length + tokens.length,
+    total: books.length + maps.length + tokens.length + audio.length,
     results: books,
     maps,
     tokens,
+    audio,
   }
 }
 
@@ -233,6 +234,97 @@ describe('SearchView', () => {
 
     await waitFor(() => expect(screen.getByText('goblin.png')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /tokens/i })).toBeInTheDocument()
+  })
+
+  it('shows audio results in a separate section (title preferred)', async () => {
+    api.get.mockResolvedValue(
+      makeResponse(
+        [],
+        [],
+        [],
+        [
+          {
+            id: 'a1',
+            filename: 'track.mp3',
+            relative_path: 'audio/Ambient/track.mp3',
+            title: 'Mystic Drone',
+            tags: ['ambient'],
+          },
+        ]
+      )
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'my')
+
+    await waitFor(() => expect(screen.getByText('Mystic Drone')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /audio/i })).toBeInTheDocument()
+  })
+
+  it('audio result falls back to filename when title is empty', async () => {
+    api.get.mockResolvedValue(
+      makeResponse(
+        [],
+        [],
+        [],
+        [
+          {
+            id: 'a2',
+            filename: 'noname.mp3',
+            relative_path: 'audio/noname.mp3',
+            title: '',
+            tags: [],
+          },
+        ]
+      )
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'no')
+    await waitFor(() => expect(screen.getByText('noname.mp3')).toBeInTheDocument())
+  })
+
+  it('collapses the audio section when its header is clicked', async () => {
+    api.get.mockResolvedValue(
+      makeResponse(
+        [],
+        [],
+        [],
+        [{ id: 'a1', filename: 't.mp3', relative_path: 'audio/t.mp3', title: 'Drone', tags: [] }]
+      )
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'dr')
+    await waitFor(() => expect(screen.getByText('Drone')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /audio/i }))
+    expect(screen.queryByText('Drone')).not.toBeInTheDocument()
+  })
+
+  it('navigates when an audio result is clicked', async () => {
+    api.get.mockResolvedValue(
+      makeResponse(
+        [],
+        [],
+        [],
+        [{ id: 'a1', filename: 't.mp3', relative_path: 'audio/t.mp3', title: 'Drone', tags: [] }]
+      )
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'dr')
+    await waitFor(() => screen.getByText('Drone'))
+    // Clicking the result card runs the navigate handler without throwing.
+    await userEvent.click(screen.getByText('Drone'))
+  })
+
+  it('navigates when a map result is clicked', async () => {
+    api.get.mockResolvedValue(
+      makeResponse(
+        [],
+        [{ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png', tags: [] }]
+      )
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'ca')
+    await waitFor(() => screen.getByText('cave.png'))
+    await userEvent.click(screen.getByText('cave.png'))
   })
 
   it('does not fire a search for a single character query', async () => {

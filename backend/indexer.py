@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder
+from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder, Audio, AudioFolder
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -104,6 +104,9 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"}
 PDF_EXTS = {".pdf"}
 DOC_EXTS = {".pdf", ".epub", ".djvu"}
 MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS
+AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
+# Basenames (sans extension) treated as folder cover art for audio tracks.
+_AUDIO_COVER_STEMS = {"cover", "folder"}
 
 
 def slugify(name: str) -> str:
@@ -240,6 +243,103 @@ def _count_eligible_files(directory: Path, extensions: set) -> int:
     return count
 
 
+def _read_audio_metadata(filepath: str) -> dict:
+    """Read duration and embedded tags from an audio file (best-effort).
+
+    Returns a dict with ``duration`` (float seconds), ``title``, ``artist``,
+    ``album`` (strings, blank when absent) and ``embedded_art`` (bool — whether
+    the file carries embedded cover art).  Never raises; on any failure it
+    returns zeroed/empty values so scanning continues.
+    """
+    info = {"duration": 0.0, "title": "", "artist": "", "album": "", "embedded_art": False}
+    try:
+        from mutagen import File as MutagenFile  # local import keeps startup light
+
+        easy = MutagenFile(filepath, easy=True)
+        if easy is not None:
+            if getattr(easy, "info", None) is not None:
+                length = getattr(easy.info, "length", 0) or 0
+                info["duration"] = round(float(length), 3)
+
+            def _first(key: str) -> str:
+                val = easy.get(key) if hasattr(easy, "get") else None
+                if isinstance(val, (list, tuple)) and val:
+                    return str(val[0]).strip()
+                return str(val).strip() if val else ""
+
+            info["title"] = _first("title")
+            info["artist"] = _first("artist")
+            info["album"] = _first("album")
+
+        info["embedded_art"] = _has_embedded_art(filepath)
+    except Exception as exc:
+        logger.debug(f"Could not read audio metadata for '{filepath}': {exc}")
+    return info
+
+
+def _has_embedded_art(filepath: str) -> bool:
+    """Return True if the audio file carries embedded cover art."""
+    try:
+        return _extract_embedded_art(filepath) is not None
+    except Exception:
+        return False
+
+
+def _extract_embedded_art(filepath: str):
+    """Return ``(image_bytes, mime)`` for embedded cover art, or None.
+
+    Handles ID3 APIC (MP3), FLAC/Opus PICTURE blocks, and MP4/M4A ``covr`` atoms.
+    """
+    try:
+        from mutagen import File as MutagenFile
+
+        audio = MutagenFile(filepath)
+        if audio is None:
+            return None
+
+        # FLAC / OggOpus expose .pictures
+        pics = getattr(audio, "pictures", None)
+        if pics:
+            pic = pics[0]
+            return (bytes(pic.data), getattr(pic, "mime", "") or "image/jpeg")
+
+        tags = getattr(audio, "tags", None)
+        if not tags:
+            return None
+
+        # ID3 APIC frames (MP3, sometimes WAV/AIFF)
+        if hasattr(tags, "getall"):
+            apics = tags.getall("APIC")
+            if apics:
+                apic = apics[0]
+                return (bytes(apic.data), getattr(apic, "mime", "") or "image/jpeg")
+
+        # MP4 / M4A cover atoms
+        covr = tags.get("covr") if hasattr(tags, "get") else None
+        if covr:
+            cover = covr[0]
+            fmt = getattr(cover, "imageformat", None)
+            mime = "image/png" if fmt == 14 else "image/jpeg"  # 14 == PNG in MP4Cover
+            return (bytes(cover), mime)
+    except Exception as exc:
+        logger.debug(f"Could not extract embedded art from '{filepath}': {exc}")
+    return None
+
+
+def _find_folder_artwork(folder: str):
+    """Return the path of a ``cover.*`` / ``folder.*`` image in ``folder``, or None."""
+    try:
+        for entry in os.scandir(folder):
+            if not entry.is_file():
+                continue
+            p = Path(entry.name)
+            if p.stem.lower() in _AUDIO_COVER_STEMS and p.suffix.lower() in IMAGE_EXTS:
+                return entry.path
+    except OSError:
+        pass
+    return None
+
+
 _OPF_NS = {
     "dc": "http://purl.org/dc/elements/1.1/",
     "opf": "http://www.idpf.org/2007/opf",
@@ -327,7 +427,7 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
     """Resolve a user-supplied scope path against the library root.
 
     `scope_path` is a path relative to the library root and must begin with one
-    of the known collection folders (``books``/``maps``/``tokens``).  Returns a
+    of the known collection folders (``books``/``maps``/``tokens``/``audio``).  Returns a
     tuple of (section, absolute_dir).  Raises ValueError if the scope escapes the
     library root or names an unknown collection.
     """
@@ -337,8 +437,10 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
         raise ValueError("scope path is empty")
 
     section = cleaned.split("/", 1)[0]
-    if section not in ("books", "maps", "tokens"):
-        raise ValueError(f"scope must start with books/, maps/, or tokens/: {scope_path!r}")
+    if section not in ("books", "maps", "tokens", "audio"):
+        raise ValueError(
+            f"scope must start with books/, maps/, tokens/, or audio/: {scope_path!r}"
+        )
 
     # Build the target without resolving symlinks so the walked paths match the
     # filepaths stored by an unscoped scan (which uses library_path verbatim).
@@ -389,8 +491,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                  should_stop=None, scope_path: str | None = None, metadata_mode: str = "new"):
     """Scan the library directory and register all files in the database.
 
-    on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens, total_tokens)
-    is called after each file is processed if provided.
+    on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens,
+    total_tokens, scanned_audio, total_audio) is called after each file is processed if provided.
 
     should_stop() is an optional callable that returns True when the scan should abort early.
 
@@ -406,12 +508,14 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     books_dir = library / "books"
     maps_dir = library / "maps"
     tokens_dir = library / "tokens"
+    audio_dir = library / "audio"
     thumb_dir = Path(data_path) / "thumbnails"
     stats = {
         "new_systems": 0,
         "new_books": 0,
         "new_maps": 0,
         "new_tokens": 0,
+        "new_audio": 0,
         "updated_books": 0,
         "indexed_pages": 0,
         "errors": 0,
@@ -427,11 +531,13 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     scan_books = scope_section in (None, "books")
     scan_maps = scope_section in (None, "maps")
     scan_tokens = scope_section in (None, "tokens")
+    scan_audio = scope_section in (None, "audio")
 
     # For a scoped books scan, walk only the scope dir; otherwise iterate every system.
     books_walk_dir = scope_dir if scope_section == "books" else books_dir
     maps_walk_dir = scope_dir if scope_section == "maps" else maps_dir
     tokens_walk_dir = scope_dir if scope_section == "tokens" else tokens_dir
+    audio_walk_dir = scope_dir if scope_section == "audio" else audio_dir
 
     total_books = (
         _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS)
@@ -445,10 +551,14 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
         _count_eligible_files(tokens_walk_dir, IMAGE_EXTS)
         if scan_tokens and tokens_walk_dir.exists() else 0
     )
-    scanned_books = scanned_maps = scanned_tokens = 0
+    total_audio = (
+        _count_eligible_files(audio_walk_dir, AUDIO_EXTS)
+        if scan_audio and audio_walk_dir.exists() else 0
+    )
+    scanned_books = scanned_maps = scanned_tokens = scanned_audio = 0
 
     if on_progress:
-        on_progress(0, total_books, 0, total_maps, 0, total_tokens)
+        on_progress(0, total_books, 0, total_maps, 0, total_tokens, 0, total_audio)
 
     # --- Scan /books ---
     if scan_books and books_dir.exists():
@@ -543,6 +653,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             total_maps,
                             scanned_tokens,
                             total_tokens,
+                            scanned_audio,
+                            total_audio,
                         )
                     if should_stop and should_stop():
                         logger.info("scan_library: stop requested during books scan.")
@@ -721,6 +833,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_maps,
                         scanned_tokens,
                         total_tokens,
+                        scanned_audio,
+                        total_audio,
                     )
                 if should_stop and should_stop():
                     logger.info("scan_library: stop requested during maps scan.")
@@ -804,6 +918,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_maps,
                         scanned_tokens,
                         total_tokens,
+                        scanned_audio,
+                        total_audio,
                     )
                 if should_stop and should_stop():
                     logger.info("scan_library: stop requested during tokens scan.")
@@ -864,6 +980,88 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     session.rollback()
                     logger.debug(f"Token already exists, skipping: {filepath}")
 
+    if scan_audio and audio_walk_dir.exists():
+        for root, dirs, files in os.walk(audio_walk_dir):
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+
+            for filename in sorted(files):
+                if filename.startswith("."):
+                    continue
+
+                filepath = os.path.join(root, filename)
+                ext = Path(filename).suffix.lower()
+
+                if ext not in AUDIO_EXTS:
+                    continue
+
+                scanned_audio += 1
+                if on_progress:
+                    on_progress(
+                        scanned_books,
+                        total_books,
+                        scanned_maps,
+                        total_maps,
+                        scanned_tokens,
+                        total_tokens,
+                        scanned_audio,
+                        total_audio,
+                    )
+                if should_stop and should_stop():
+                    logger.info("scan_library: stop requested during audio scan.")
+                    return stats
+
+                relative_path = os.path.relpath(filepath, library_path)
+
+                logger.info(f"Scanning audio ({scanned_audio}/{total_audio}): {filepath}")
+                logger.debug(f"DB: querying existing audio '{filepath}'")
+                try:
+                    existing = _run_with_timeout(
+                        lambda fp=filepath: session.query(Audio).filter_by(filepath=fp).first(),
+                        _DB_TIMEOUT, f"query audio '{filepath}'"
+                    )
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
+                if existing:
+                    logger.debug(f"Already registered, skipping: {filename}")
+                    continue
+
+                try:
+                    file_size = os.path.getsize(filepath)
+                except OSError:
+                    logger.warning(f"Cannot stat file, skipping: {filepath}")
+                    continue
+
+                meta = _read_audio_metadata(filepath)
+                has_artwork = bool(meta["embedded_art"]) or _find_folder_artwork(root) is not None
+
+                track = Audio(
+                    filename=filename,
+                    filepath=filepath,
+                    relative_path=relative_path,
+                    file_size=file_size,
+                    duration=meta["duration"],
+                    title=meta["title"],
+                    artist=meta["artist"],
+                    album=meta["album"],
+                    has_artwork=has_artwork,
+                )
+
+                session.add(track)
+                logger.debug(f"DB: committing new audio '{filename}'")
+                try:
+                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
+                    stats["new_audio"] += 1
+                    logger.info(f"New audio saved: {meta['title'] or filename}")
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                    session.rollback()
+                    stats["errors"] += 1
+                except IntegrityError:
+                    session.rollback()
+                    logger.debug(f"Audio already exists, skipping: {filepath}")
+
     _apply_tags_from_library(library_path, session, scope_dir=scope_dir)
 
     # --- Mark / unmark missing files ---
@@ -879,7 +1077,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
             return query.filter(model.filepath.like(f"{scope_dir}{os.sep}%"))
         return query
 
-    missing_books = missing_maps = missing_tokens = 0
+    missing_books = missing_maps = missing_tokens = missing_audio = 0
     if scan_books:
         for book in _scoped(session.query(Book), Book).all():
             gone = not os.path.exists(book.filepath)
@@ -904,8 +1102,19 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 if gone:
                     missing_tokens += 1
                     logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
-    if missing_books or missing_maps or missing_tokens:
-        logger.info(f"Missing files: {missing_books} book(s), {missing_maps} map(s), {missing_tokens} token(s)")
+    if scan_audio:
+        for a in _scoped(session.query(Audio), Audio).all():
+            gone = not os.path.exists(a.filepath)
+            if gone != bool(a.is_missing):
+                a.is_missing = gone
+                if gone:
+                    missing_audio += 1
+                    logger.warning(f"Missing audio: '{a.filename}' ({a.filepath})")
+    if missing_books or missing_maps or missing_tokens or missing_audio:
+        logger.info(
+            f"Missing files: {missing_books} book(s), {missing_maps} map(s), "
+            f"{missing_tokens} token(s), {missing_audio} audio"
+        )
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, "commit missing flags")
     except (TimeoutError, Exception) as e:
@@ -915,6 +1124,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     stats["missing_books"] = missing_books
     stats["missing_maps"] = missing_maps
     stats["missing_tokens"] = missing_tokens
+    stats["missing_audio"] = missing_audio
 
     return stats
 
@@ -967,7 +1177,12 @@ def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Pat
     """
     library = Path(library_path)
 
-    for section in ("maps", "tokens"):
+    _section_models = {
+        "maps": (MapFolder, GenericMap),
+        "tokens": (TokenFolder, Token),
+        "audio": (AudioFolder, Audio),
+    }
+    for section in ("maps", "tokens", "audio"):
         section_dir = library / section
         if not section_dir.exists():
             continue
@@ -975,8 +1190,7 @@ def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Pat
         if scope_dir is not None and not _within_scope(scope_dir, section_dir):
             continue
 
-        folder_model = MapFolder if section == "maps" else TokenFolder
-        file_model = GenericMap if section == "maps" else Token
+        folder_model, file_model = _section_models[section]
 
         for root, dirs, files in os.walk(section_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]

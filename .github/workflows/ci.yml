@@ -50,6 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the per-changed-file coverage gate can diff against
+          # the PR base branch.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -67,5 +71,13 @@ jobs:
       - name: Check imports
         run: python -c "import backend.main"
 
-      - name: Run tests
-        run: pytest backend/tests/ -v
+      - name: Run tests with coverage
+        run: pytest backend/tests/ -v --cov=backend --cov-report=json --cov-report=term
+
+      - name: Check per-changed-file coverage
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+          python backend/scripts/check_coverage.py

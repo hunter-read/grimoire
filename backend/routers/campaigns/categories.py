@@ -23,7 +23,7 @@ from ._schemas import (
 )
 
 _KINDS = ("note", "resource")
-_TYPE_GROUP_KEYS = ("type:book", "type:map", "type:token", "type:file")
+_TYPE_GROUP_KEYS = ("type:book", "type:map", "type:token", "type:audio", "type:file")
 
 
 def _serialize(cat: CampaignCategory) -> dict:

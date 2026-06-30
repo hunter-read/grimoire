@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from ...config import SessionLocal
 from ...models import Book, GameSystem
-from ._helpers import _CATEGORY_PRIORITY, _search_maps, _search_tokens
+from ._helpers import _CATEGORY_PRIORITY, _search_maps, _search_tokens, _search_audio
 
 
 def search_library(
@@ -89,16 +89,19 @@ def search_library(
 
         maps = []
         tokens = []
+        audio = []
         if not book_id and not system_id:
             maps = _search_maps(db, q)
             tokens = _search_tokens(db, q)
+            audio = _search_audio(db, q)
 
         return {
             "query": q,
-            "total": len(enriched) + len(maps) + len(tokens),
+            "total": len(enriched) + len(maps) + len(tokens) + len(audio),
             "results": enriched,
             "maps": maps,
             "tokens": tokens,
+            "audio": audio,
         }
     finally:
         db.close()

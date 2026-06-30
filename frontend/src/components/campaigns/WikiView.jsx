@@ -12,8 +12,10 @@ import {
   LuUpload,
   LuChevronRight,
   LuChevronDown,
+  LuListMusic,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
+import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
@@ -24,8 +26,16 @@ import VisibilityEditor from './VisibilityEditor'
 import PageEditor from './PageEditor'
 import { descendantIds, VIS_META, ghostBtn, goldBtn } from './wikiShared'
 
+// Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
+const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
+function extractAudioEmbedIds(body) {
+  if (!body) return []
+  return Array.from(body.matchAll(AUDIO_EMBED_RE), (m) => m[1].trim()).filter(Boolean)
+}
+
 export default function WikiView({ campaign, isOwner }) {
   const { t } = useTranslation()
+  const { playQueue } = useAudioPlayer()
   const [pages, setPages] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
   const [page, setPage] = useState(null)
@@ -607,16 +617,36 @@ export default function WikiView({ campaign, isOwner }) {
                   )}
                 </div>
               </div>
-              {page.can_edit && (
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => setEditing(true)} style={ghostBtn}>
-                    <LuPencil size={13} /> {t('common.edit')}
-                  </button>
-                  <button onClick={handleDelete} style={{ ...ghostBtn, color: 'var(--danger)' }}>
-                    <LuTrash2 size={13} />
-                  </button>
-                </div>
-              )}
+              {(() => {
+                const audioIds = extractAudioEmbedIds(page.body)
+                if (!page.can_edit && audioIds.length === 0) return null
+                return (
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    {audioIds.length > 0 && (
+                      <button
+                        onClick={() => playQueue(audioIds.map((id) => ({ id })))}
+                        style={ghostBtn}
+                        title={t('audio.playAll')}
+                      >
+                        <LuListMusic size={13} /> {t('audio.playAll')}
+                      </button>
+                    )}
+                    {page.can_edit && (
+                      <>
+                        <button onClick={() => setEditing(true)} style={ghostBtn}>
+                          <LuPencil size={13} /> {t('common.edit')}
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          style={{ ...ghostBtn, color: 'var(--danger)' }}
+                        >
+                          <LuTrash2 size={13} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
 
             <div

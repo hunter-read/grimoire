@@ -14,6 +14,10 @@ const CONFIG = {
     endpoint: (id) => `/tokens/${id}`,
     fields: ['tags', 'is_explicit'],
   },
+  audio: {
+    endpoint: (id) => `/audio/${id}`,
+    fields: ['tags'],
+  },
   book: {
     endpoint: (id) => `/books/${id}`,
     fields: ['title', 'category', 'description', 'publisher', 'year', 'tags', 'is_explicit'],
