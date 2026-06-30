@@ -155,7 +155,7 @@ export default function AvailabilityChart({
                           status={entry.status}
                           isCancelled={false}
                           isOwner={isOwner && isMyRow}
-                          onSet={(status) => onSetAvailability(date, status)}
+                          onSet={(status) => onSetAvailability(date, status, row.user_id)}
                           onCancel={() => onCancelDate(date)}
                           availOptions={translatedAvailOptions}
                         />
