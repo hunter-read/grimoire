@@ -4,13 +4,13 @@ from sqlalchemy.exc import IntegrityError
 
 from ...config import SessionLocal
 from ...auth import get_current_user, CurrentUser
-from ...models import Favorite, Book, GenericMap, Token, GameSystem
+from ...models import Favorite, Book, GenericMap, Token, Audio, GameSystem
 from ..systems._helpers import resolve_cover_book_id
 from ._schemas import FavoriteIn
 
 router = APIRouter()
 
-VALID_TYPES = {"book", "map", "token", "system"}
+VALID_TYPES = {"book", "map", "token", "audio", "system"}
 
 
 def list_favorites(user: CurrentUser = Depends(get_current_user)):
@@ -21,11 +21,13 @@ def list_favorites(user: CurrentUser = Depends(get_current_user)):
         book_ids = [r.item_id for r in rows if r.item_type == "book"]
         map_ids = [r.item_id for r in rows if r.item_type == "map"]
         token_ids = [r.item_id for r in rows if r.item_type == "token"]
+        audio_ids = [r.item_id for r in rows if r.item_type == "audio"]
         system_ids = [r.item_id for r in rows if r.item_type == "system"]
 
         books = {b.id: b for b in db.query(Book).filter(Book.id.in_(book_ids))}
         maps = {m.id: m for m in db.query(GenericMap).filter(GenericMap.id.in_(map_ids))}
         tokens = {t.id: t for t in db.query(Token).filter(Token.id.in_(token_ids))}
+        audio = {a.id: a for a in db.query(Audio).filter(Audio.id.in_(audio_ids))}
         systems = {s.id: s for s in db.query(GameSystem).filter(GameSystem.id.in_(system_ids))}
 
         enriched = []
@@ -66,6 +68,20 @@ def list_favorites(user: CurrentUser = Depends(get_current_user)):
                         "has_thumbnail": t.has_thumbnail,
                         "file_size": t.file_size,
                         "tags": t.tags or [],
+                    }
+                )
+            elif r.item_type == "audio" and r.item_id in audio:
+                a = audio[r.item_id]
+                enriched.append(
+                    {
+                        "item_type": "audio",
+                        "item_id": a.id,
+                        "filename": a.filename,
+                        "title": a.title or "",
+                        "duration": a.duration or 0.0,
+                        "has_artwork": bool(a.has_artwork),
+                        "file_size": a.file_size,
+                        "tags": a.tags or [],
                     }
                 )
             elif r.item_type == "system" and r.item_id in systems:

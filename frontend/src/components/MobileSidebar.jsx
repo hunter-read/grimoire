@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   LuLibrary,
   LuMap,
+  LuMusic,
   LuSearch,
   LuSettings,
   LuLogOut,
@@ -20,11 +21,12 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
   const isGuest = user?.role === 'guest'
-  const { hide_maps, hide_tokens, hide_campaigns } = uiSettings
+  const { hide_maps, hide_tokens, hide_audio, hide_campaigns } = uiSettings
   const moreRoutes = [
     '/settings',
     ...(!hide_maps ? ['/maps'] : []),
     ...(!hide_tokens ? ['/tokens'] : []),
+    ...(!hide_audio ? ['/audio'] : []),
   ]
   const moreActive = moreRoutes.some((r) => location.pathname.startsWith(r))
 
@@ -92,6 +94,14 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
                 to="/tokens"
                 Icon={LuUser}
                 label={t('nav.tokens')}
+                onClick={() => setMoreOpen(false)}
+              />
+            )}
+            {!hide_audio && (
+              <MoreItem
+                to="/audio"
+                Icon={LuMusic}
+                label={t('nav.audio')}
                 onClick={() => setMoreOpen(false)}
               />
             )}

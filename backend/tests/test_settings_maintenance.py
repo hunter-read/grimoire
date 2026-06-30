@@ -356,3 +356,97 @@ class TestRunCleanupSync:
 
         assert db.query(Book).filter_by(id=book_id).first() is None
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/settings — broad field coverage + UI settings + API key
+# ---------------------------------------------------------------------------
+
+
+class TestSettingsBroadPatch:
+    def test_patch_many_fields_persists_and_clamps(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings",
+            json={
+                "rescan_schedule_enabled": True,
+                "rescan_schedule_interval": "weekly",
+                "rescan_schedule_hour": 99,  # clamped to 23
+                "rescan_schedule_minute": 200,  # clamped to 59
+                "rescan_schedule_weekday": 9,  # clamped to 6
+                "hide_maps": True,
+                "hide_tokens": True,
+                "hide_audio": True,
+                "hide_campaigns": True,
+                "show_stat_systems": False,
+                "show_stat_books": True,
+                "campaign_uploads_disabled": True,
+                "campaign_upload_max_file_mb": -5,  # clamped to 0
+                "campaign_upload_max_total_mb": 50,
+                "custom_login_message_enabled": True,
+                "custom_login_message": "Welcome adventurers",
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["rescan_schedule_hour"] == 23
+        assert body["rescan_schedule_minute"] == 59
+        assert body["rescan_schedule_weekday"] == 6
+        assert body["hide_audio"] is True
+        # Campaign upload limits surface on the /ui endpoint (clamped to >= 0).
+        ui = client.get("/api/settings/ui", headers=admin_headers).json()
+        assert ui["campaign_upload_max_file_mb"] == 0
+        assert ui["campaign_upload_max_total_mb"] == 50
+
+    def test_invalid_interval_rejected(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings",
+            json={"rescan_schedule_interval": "fortnightly"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_player_cannot_patch(self, client, player_headers):
+        resp = client.patch(
+            "/api/settings", json={"hide_audio": True}, headers=player_headers
+        )
+        assert resp.status_code == 403
+
+
+class TestUiSettings:
+    def test_ui_settings_shape(self, client, admin_headers):
+        client.patch("/api/settings", json={"hide_audio": True}, headers=admin_headers)
+        body = client.get("/api/settings/ui", headers=admin_headers).json()
+        for key in (
+            "hide_maps",
+            "hide_tokens",
+            "hide_audio",
+            "hide_campaigns",
+            "campaign_upload_max_file_mb",
+            "guest_access_enabled",
+        ):
+            assert key in body
+        assert body["hide_audio"] is True
+
+    def test_ui_settings_available_to_player(self, client, player_headers):
+        assert client.get("/api/settings/ui", headers=player_headers).status_code == 200
+
+    def test_ui_settings_requires_auth(self, client):
+        assert client.get("/api/settings/ui").status_code == 401
+
+
+class TestStatsApiKey:
+    def test_generate_then_revoke(self, client, admin_headers):
+        gen = client.post("/api/settings/api-key/generate", headers=admin_headers)
+        assert gen.status_code == 200
+        assert len(gen.json()["stats_api_key"]) > 0
+
+        rev = client.delete("/api/settings/api-key", headers=admin_headers)
+        assert rev.status_code == 200
+        assert rev.json()["stats_api_key"] == ""
+
+    def test_generate_requires_admin(self, client, player_headers):
+        assert (
+            client.post("/api/settings/api-key/generate", headers=player_headers).status_code
+            == 403
+        )

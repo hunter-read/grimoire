@@ -274,6 +274,13 @@ class TestWikiLinks:
         # File/image embeds must not auto-create stub pages.
         assert not any(p["slug"].startswith(("image", "file")) for p in listed)
 
+    def test_audio_embed_not_page_link(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        _create(client, gm_headers, cid, title="WithAudioEmbed", body="[[audio:track789]]")
+        listed = client.get(f"/api/campaigns/{cid}/wiki", headers=gm_headers).json()
+        # An audio embed must not auto-create a stub page.
+        assert not any(p["slug"].startswith("audio") for p in listed)
+
     def test_stub_inherits_source_visibility(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         _create(client, gm_headers, cid, title="GroupHub", body="[[Sub Page]]", visibility="group")

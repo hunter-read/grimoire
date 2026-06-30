@@ -13,6 +13,7 @@ from fastapi import Depends, HTTPException
 from ...auth import CurrentUser, get_current_user
 from ...config import SessionLocal
 from ...models import (
+    Audio,
     Book,
     CampaignFile,
     CampaignResource,
@@ -42,6 +43,9 @@ def _resource_meta(db, rtype: str, rid: str):
     if rtype == "token":
         obj = db.query(Token).filter_by(id=rid).first()
         return (obj.filename, obj.has_thumbnail, False) if obj else (rid, False, False)
+    if rtype == "audio":
+        obj = db.query(Audio).filter_by(id=rid).first()
+        return (obj.title or obj.filename, bool(obj.has_artwork), False) if obj else (rid, False, False)
     if rtype == "file":
         obj = db.query(CampaignFile).filter_by(id=rid).first()
         if not obj:
@@ -146,7 +150,7 @@ def add_resource(
     try:
         c = get_campaign_or_404(db, campaign_id)
         assert_can_manage(c, current_user, db)
-        if data.resource_type not in ("book", "map", "token", "file"):
+        if data.resource_type not in ("book", "map", "token", "audio", "file"):
             raise HTTPException(400, "Invalid resource_type")
 
         existing = (
@@ -205,7 +209,7 @@ def bulk_add_resources(
         order = len(existing_keys)
         created = []
         for item in data.resources:
-            if item.resource_type not in ("book", "map", "token", "file"):
+            if item.resource_type not in ("book", "map", "token", "audio", "file"):
                 continue
             key = (item.resource_type, item.resource_id)
             if key in existing_keys:

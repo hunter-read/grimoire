@@ -563,7 +563,7 @@ def _parse_upload(filename: str, data: bytes) -> tuple:
 
 # [[target]] / [[target|label]] for link remapping (embeds left untouched).
 _WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
-_EMBED_PREFIXES = ("book:", "map:", "token:")
+_EMBED_PREFIXES = ("book:", "map:", "token:", "audio:")
 
 
 def _remap_links(body: str, key_to_title: dict) -> str:

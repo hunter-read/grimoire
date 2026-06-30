@@ -12,6 +12,7 @@ from . import scheduler, session_creator
 from .auth import get_current_user
 from .config import DATA_PATH, LIBRARY_PATH, OPDS_ENABLED, SessionLocal, VERSION, logger
 from .routers import (
+    audio as audio_router,
     auth as auth_router,
     bookmarks as bookmarks_router,
     books as books_router,
@@ -62,6 +63,7 @@ _TAGS = [
         "description": "Book catalog — browse, read, download, and edit book metadata.",
     },
     {"name": "maps", "description": "Map gallery — browse, tag, and download battle maps."},
+    {"name": "audio", "description": "Audio library — browse, tag, stream, and download tracks."},
     {"name": "search", "description": "Full-text search across all indexed book pages."},
     {
         "name": "campaigns",
@@ -163,6 +165,7 @@ api.include_router(systems_router.router)
 api.include_router(books_router.router)
 api.include_router(maps_router.router)
 api.include_router(tokens_router.router)
+api.include_router(audio_router.router)
 api.include_router(library_router.router)
 api.include_router(search_router.router)
 api.include_router(campaigns_router.router)

@@ -23,7 +23,7 @@ from .campaigns import (
 )
 from .db import init_db
 from .library import Book, BookFolder, GameSystem
-from .media import GenericMap, MapFolder, Token, TokenFolder
+from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
 from .settings import AppSetting
 from .users import Bookmark, Favorite, User
 
@@ -39,6 +39,8 @@ __all__ = [
     "MapFolder",
     "Token",
     "TokenFolder",
+    "Audio",
+    "AudioFolder",
     # Users
     "User",
     "Bookmark",

@@ -13,6 +13,7 @@ class SettingsPatch(BaseModel):
     stats_api_key: Optional[str] = None  # set to "" to clear
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
+    hide_audio: Optional[bool] = None
     hide_campaigns: Optional[bool] = None
     show_stat_systems: Optional[bool] = None
     show_stat_books: Optional[bool] = None

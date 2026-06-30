@@ -5,6 +5,7 @@ import FavoritesSection from '../components/favorites/FavoritesSection'
 import BookFavorite from '../components/favorites/BookFavorite'
 import MapFavorite from '../components/favorites/MapFavorite'
 import TokenFavorite from '../components/favorites/TokenFavorite'
+import AudioFavorite from '../components/favorites/AudioFavorite'
 import SystemFavorite from '../components/favorites/SystemFavorite'
 
 export default function FavoritesView() {
@@ -15,6 +16,7 @@ export default function FavoritesView() {
   const books = items.filter((i) => i.item_type === 'book')
   const maps = items.filter((i) => i.item_type === 'map')
   const tokens = items.filter((i) => i.item_type === 'token')
+  const audio = items.filter((i) => i.item_type === 'audio')
 
   if (items.length === 0) {
     return (
@@ -77,6 +79,15 @@ export default function FavoritesView() {
           title={t('favorites.tokens', { count: tokens.length })}
           items={tokens}
           renderItem={(item, grid) => <TokenFavorite key={item.item_id} item={item} grid={grid} />}
+        />
+      )}
+
+      {audio.length > 0 && (
+        <FavoritesSection
+          type="audio"
+          title={t('favorites.audio', { count: audio.length })}
+          items={audio}
+          renderItem={(item, grid) => <AudioFavorite key={item.item_id} item={item} grid={grid} />}
         />
       )}
     </div>

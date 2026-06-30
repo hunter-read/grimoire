@@ -5,6 +5,7 @@ import { mediaUrl } from '../../api'
 import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
+import AudioPlayer from '../audio/AudioPlayer'
 
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
@@ -39,6 +40,15 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
 
   // Badges that apply to this item, in config order.
   const activeBadges = config.badges.filter((b) => item[b.flag])
+
+  // Which item field signals an available thumbnail/artwork (audio uses artwork).
+  const hasThumbnail = item[config.thumbnailFlag || 'has_thumbnail']
+
+  // Track ref for the global audio player (audio gallery only).
+  const isAudio = !!config.audioFileUrl
+  const track = isAudio
+    ? { id: item.id, title: item.title || item.filename, artwork: item.has_artwork }
+    : null
 
   if (list) {
     return (
@@ -92,7 +102,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
             justifyContent: 'center',
           }}
         >
-          {item.has_thumbnail ? (
+          {hasThumbnail ? (
             <img
               src={mediaUrl(config.thumbnailUrl(item.id))}
               alt=""
@@ -133,7 +143,8 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           </div>
         </div>
         {!bulkMode && (
-          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            {isAudio && !item.is_missing && <AudioPlayer track={track} showPlayNext size={30} />}
             <DownloadButton
               type={config.downloadType}
               id={item.id}
@@ -216,7 +227,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           position: 'relative',
         }}
       >
-        {item.has_thumbnail ? (
+        {hasThumbnail ? (
           <img
             src={mediaUrl(config.thumbnailUrl(item.id))}
             alt=""
@@ -225,6 +236,20 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           />
         ) : (
           <Icon size={32} color="var(--text-muted)" aria-hidden="true" style={{ opacity: 0.4 }} />
+        )}
+        {isAudio && !item.is_missing && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1,
+            }}
+          >
+            <AudioPlayer track={track} />
+          </div>
         )}
         {activeBadges
           .filter((b) => b.corner)

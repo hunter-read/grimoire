@@ -1,4 +1,4 @@
-import { LuMap, LuUser } from 'react-icons/lu'
+import { LuMap, LuUser, LuMusic } from 'react-icons/lu'
 
 /**
  * Per-entity configuration for the shared media gallery components (MediaCard,
@@ -89,6 +89,41 @@ export const MEDIA_CONFIGS = {
       },
     ],
     titleFontSize: 13,
+    listIcon: { width: 40, height: 40 },
+  },
+  audio: {
+    type: 'audio',
+    collection: 'audio',
+    i18n: 'audio',
+    countKey: 'audioCount',
+    emptyFilterKey: 'noAudioFilter',
+    emptyKey: 'noAudio',
+    icon: LuMusic,
+    listUrl: '/audio',
+    foldersUrl: '/audio-folders',
+    itemUrl: (id) => `/audio/${id}`,
+    // Audio uses folder/embedded artwork in place of a generated thumbnail.
+    thumbnailUrl: (id) => `/audio/${id}/artwork`,
+    thumbnailFlag: 'has_artwork',
+    detailPath: (id) => `/audio/${id}`,
+    downloadType: 'audio',
+    archiveType: 'audio_folder',
+    sessionKey: 'grimoire:audio:collapsed',
+    gridMin: { comfortable: '200px', compact: '140px' },
+    gridGap: 16,
+    thumb: { kind: 'square' },
+    // Inline play/pause button overlaid on the card artwork.
+    audioFileUrl: (id) => `/audio/${id}/file`,
+    badges: [
+      {
+        flag: 'is_missing',
+        label: 'missing',
+        color: 'rgba(200,134,10,0.9)',
+        corner: 'bottom-left',
+        inlineColor: '#c8860a',
+      },
+    ],
+    titleFontSize: 14,
     listIcon: { width: 40, height: 40 },
   },
 }

@@ -10,7 +10,15 @@ from pathlib import Path
 import pytest
 
 from backend.config import SessionLocal
-from backend.models import GenericMap, MapFolder, Token, TokenFolder, GameSystem
+from backend.models import (
+    GenericMap,
+    MapFolder,
+    Token,
+    TokenFolder,
+    Audio,
+    AudioFolder,
+    GameSystem,
+)
 from backend.indexer import _load_tags_json, _apply_tags_from_library
 
 
@@ -116,6 +124,41 @@ def _get_token_folder(path: str) -> TokenFolder | None:
     db = SessionLocal()
     try:
         return db.query(TokenFolder).filter_by(path=path).first()
+    finally:
+        db.close()
+
+
+def _add_audio(lib: Path, rel: str, tags=None) -> Audio:
+    full = str(lib / rel)
+    db = SessionLocal()
+    try:
+        a = Audio(
+            id=str(uuid.uuid4()),
+            filename=Path(rel).name,
+            filepath=full,
+            relative_path=rel,
+            tags=tags or [],
+        )
+        db.add(a)
+        db.commit()
+        db.refresh(a)
+        return a
+    finally:
+        db.close()
+
+
+def _get_audio(audio_id: str) -> Audio | None:
+    db = SessionLocal()
+    try:
+        return db.query(Audio).filter_by(id=audio_id).first()
+    finally:
+        db.close()
+
+
+def _get_audio_folder(path: str) -> AudioFolder | None:
+    db = SessionLocal()
+    try:
+        return db.query(AudioFolder).filter_by(path=path).first()
     finally:
         db.close()
 
@@ -333,6 +376,53 @@ def test_apply_sets_tags_on_token_subfolder():
     folder = _get_token_folder("Heroes/warriors")
     assert folder is not None
     assert folder.tags == ["melee", "fighter"]
+
+
+# ---------------------------------------------------------------------------
+# _apply_tags_from_library — audio
+# ---------------------------------------------------------------------------
+
+
+def test_apply_sets_tags_on_audio_file():
+    _, lib = _mk_lib()
+    audio_dir = lib / "audio" / "Ambient"
+    audio_dir.mkdir(parents=True)
+    (audio_dir / "tavern.mp3").touch()
+
+    rel = "audio/Ambient/tavern.mp3"
+    a = _add_audio(lib, rel)
+
+    _write_json(audio_dir / "tags.json", {"tavern.mp3": ["ambient", "tavern"]})
+    _run(lib)
+
+    assert _get_audio(a.id).tags == ["ambient", "tavern"]
+
+
+def test_apply_sets_tags_on_audio_folder():
+    _, lib = _mk_lib()
+    audio_dir = lib / "audio" / "Soundscapes"
+    audio_dir.mkdir(parents=True)
+
+    _write_json(audio_dir / "tags.json", {".": ["soundscape", "atmosphere"]})
+    _run(lib)
+
+    folder = _get_audio_folder("Soundscapes")
+    assert folder is not None
+    assert folder.tags == ["soundscape", "atmosphere"]
+
+
+def test_apply_sets_tags_on_audio_subfolder():
+    _, lib = _mk_lib()
+    audio_dir = lib / "audio" / "Creator"
+    sub = audio_dir / "battle"
+    sub.mkdir(parents=True)
+
+    _write_json(audio_dir / "tags.json", {"battle": ["combat", "intense"]})
+    _run(lib)
+
+    folder = _get_audio_folder("Creator/battle")
+    assert folder is not None
+    assert folder.tags == ["combat", "intense"]
 
 
 # ---------------------------------------------------------------------------

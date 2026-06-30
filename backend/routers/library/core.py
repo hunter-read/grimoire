@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header
 from sqlalchemy import func
 
 from ...config import SessionLocal, LIBRARY_PATH, VERSION, COMMIT_HASH
-from ...models import GameSystem, Book, GenericMap, Token
+from ...models import GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ..settings import get_stats_api_key
@@ -88,6 +88,7 @@ def get_stats(
             "books": db.query(Book).count(),
             "maps": db.query(GenericMap).count(),
             "tokens": db.query(Token).count(),
+            "audio": db.query(Audio).count(),
             "indexed_books": db.query(Book).filter_by(indexed=True).count(),
             "total_pages": db.query(func.sum(Book.page_count)).scalar() or 0,
             "total_size_mb": round((db.query(func.sum(Book.file_size)).scalar() or 0) / 1048576, 1),

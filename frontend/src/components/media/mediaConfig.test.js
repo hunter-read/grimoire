@@ -1,0 +1,58 @@
+import { describe, it, expect } from 'vitest'
+import { MEDIA_CONFIGS, getFolderPath, getTopFolder, getSubPath } from './mediaConfig'
+
+describe('MEDIA_CONFIGS', () => {
+  it('defines map, token, and audio configs', () => {
+    expect(MEDIA_CONFIGS.map.type).toBe('map')
+    expect(MEDIA_CONFIGS.token.type).toBe('token')
+    expect(MEDIA_CONFIGS.audio.type).toBe('audio')
+  })
+
+  it('audio config exposes file/artwork urls and an artwork thumbnail flag', () => {
+    const a = MEDIA_CONFIGS.audio
+    expect(a.audioFileUrl('x')).toBe('/audio/x/file')
+    expect(a.thumbnailUrl('x')).toBe('/audio/x/artwork')
+    expect(a.thumbnailFlag).toBe('has_artwork')
+    expect(a.itemUrl('x')).toBe('/audio/x')
+    expect(a.detailPath('x')).toBe('/audio/x')
+    expect(a.archiveType).toBe('audio_folder')
+  })
+
+  it('map/token configs have no audioFileUrl', () => {
+    expect(MEDIA_CONFIGS.map.audioFileUrl).toBeUndefined()
+    expect(MEDIA_CONFIGS.token.audioFileUrl).toBeUndefined()
+  })
+
+  it('map and token url builders produce the expected paths', () => {
+    const m = MEDIA_CONFIGS.map
+    expect(m.itemUrl('x')).toBe('/maps/x')
+    expect(m.thumbnailUrl('x')).toBe('/maps/x/thumbnail')
+    expect(m.detailPath('x')).toBe('/maps/x')
+    const tk = MEDIA_CONFIGS.token
+    expect(tk.itemUrl('y')).toBe('/tokens/y')
+    expect(tk.thumbnailUrl('y')).toBe('/tokens/y/thumbnail')
+    expect(tk.detailPath('y')).toBe('/tokens/y')
+  })
+})
+
+describe('folder path helpers', () => {
+  const item = (rp) => ({ relative_path: rp })
+
+  it('getFolderPath drops the collection prefix and filename', () => {
+    expect(getFolderPath(item('audio/Ambient/Sub/track.mp3'))).toBe('Ambient/Sub')
+  })
+
+  it('getTopFolder returns the first folder or (Root)', () => {
+    expect(getTopFolder(item('audio/Ambient/track.mp3'))).toBe('Ambient')
+    expect(getTopFolder(item('audio/track.mp3'))).toBe('(Root)')
+  })
+
+  it('getSubPath returns the path below the top folder', () => {
+    expect(getSubPath(item('audio/Ambient/Sub/track.mp3'))).toBe('Sub')
+    expect(getSubPath(item('audio/Ambient/track.mp3'))).toBe('')
+  })
+
+  it('handles backslash separators', () => {
+    expect(getTopFolder(item('audio\\Ambient\\track.mp3'))).toBe('Ambient')
+  })
+})

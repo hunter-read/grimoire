@@ -3,6 +3,8 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import useScrollRestoration from '../hooks/useScrollRestoration'
 import { useAuth } from '../context/AuthContext'
 import { UISettingsProvider } from '../context/UISettingsContext'
+import { useAudioPlayer } from '../context/AudioPlayerContext'
+import GlobalAudioPlayer, { PLAYER_HEIGHT } from './audio/GlobalAudioPlayer'
 import api, { settings as settingsApi } from '../api'
 import Sidebar from './Sidebar'
 import MobileSidebar from './MobileSidebar'
@@ -13,6 +15,8 @@ import MapsView from '../views/MapsView'
 import MapDetailView from './maps/MapDetailView'
 import TokensView from '../views/TokensView'
 import TokenDetailView from './tokens/TokenDetailView'
+import AudioView from '../views/AudioView'
+import AudioDetailView from './audio/AudioDetailView'
 import SearchView from '../views/SearchView'
 import SettingsView from '../views/SettingsView'
 import FavoritesView from '../views/FavoritesView'
@@ -29,6 +33,7 @@ export default function AppShell() {
   const [uiSettings, setUiSettings] = useState({
     hide_maps: false,
     hide_tokens: false,
+    hide_audio: false,
     hide_campaigns: false,
   })
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -49,6 +54,8 @@ export default function AppShell() {
     location.pathname.startsWith('/maps/') ||
     location.pathname.startsWith('/tokens/')
   const mainRef = useScrollRestoration()
+  const { queue } = useAudioPlayer()
+  const playerActive = queue.length > 0
 
   const refreshUiSettings = () =>
     settingsApi
@@ -103,7 +110,7 @@ export default function AppShell() {
             minWidth: 0,
             height: '100%',
             overflow: isReader ? 'hidden' : 'auto',
-            paddingBottom: isMobile ? 64 : 0,
+            paddingBottom: (isMobile ? 64 : 0) + (playerActive ? PLAYER_HEIGHT : 0),
           }}
         >
           {isGuest ? (
@@ -125,6 +132,8 @@ export default function AppShell() {
               <Route path="/maps/:mapId" element={<MapDetailView />} />
               <Route path="/tokens" element={<TokensView />} />
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+              <Route path="/audio" element={<AudioView />} />
+              <Route path="/audio/:audioId" element={<AudioDetailView />} />
               <Route path="/search" element={<SearchView />} />
               <Route path="/favorites" element={<FavoritesView />} />
               <Route path="/campaigns" element={<CampaignsView />} />
@@ -141,6 +150,8 @@ export default function AppShell() {
         </main>
 
         {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
+
+        <GlobalAudioPlayer isMobile={isMobile} />
       </div>
     </UISettingsProvider>
   )

@@ -83,6 +83,7 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
   "books": 340,
   "maps": 1500,
   "tokens": 800,
+  "audio": 250,
   "indexed_books": 320,
   "total_pages": 45000,
   "total_size_mb": 18240.5,
@@ -101,9 +102,12 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
   "total_maps": 1500,
   "scanned_tokens": 0,
   "total_tokens": 800,
+  "scanned_audio": 0,
+  "total_audio": 250,
   "new_books": 5,
   "new_maps": 0,
   "new_tokens": 0,
+  "new_audio": 0,
   "updated_books": 0,
   "indexed": 80,
   "to_index": 320
@@ -122,7 +126,7 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `scope` | `null` | Restrict the rescan to a subtree relative to the library root. Must begin with `books/`, `maps/`, or `tokens/`. Omit to rescan the whole library. Paths that escape the library root return `400`. |
+| `scope` | `null` | Restrict the rescan to a subtree relative to the library root. Must begin with `books/`, `maps/`, `tokens/`, or `audio/`. Omit to rescan the whole library. Paths that escape the library root return `400`. |
 | `metadata_mode` | `"new"` | `"new"` adds new files and flags missing ones (existing records untouched). `"missing"` additionally fills **empty** book fields from sidecar metadata (`<stem>.opf` / `metadata.opf`), leaving fields you've already set in place. `"replace"` overwrites fields wherever the sidecar provides a value (destructive to UI-edited metadata). |
 
 Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a scan is already in progress (scoped and global rescans share the same single-worker lock).
@@ -187,6 +191,20 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 | `/api/token-folders` | GET | any | List folder tag assignments |
 | `/api/token-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
 
+### Audio
+
+Audio tracks behave like maps/tokens, with embedded metadata. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`. Items include `duration`, `title`, `artist`, `album`, `has_artwork` |
+| `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
+| `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
+| `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests) |
+| `/api/audio/:id/artwork` | GET | any | Folder cover art or embedded album art. 404 if none |
+| `/api/audio-folders` | GET | any | List folder tag assignments |
+| `/api/audio-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
+
 ### Favorites
 
 | Endpoint | Method | Auth | Description |
@@ -195,7 +213,7 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 | `/api/favorites` | POST | any | Add a favorite (idempotent). Body: `{item_type, item_id}` |
 | `/api/favorites/:type/:id` | DELETE | any | Remove a favorite (silent 204 if not found) |
 
-Item types: `book`, `map`, `token`, `system`
+Item types: `book`, `map`, `token`, `audio`, `system`
 
 ### Bookmarks
 
@@ -214,7 +232,7 @@ Bookmarks are per-user — users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/search?q=` | GET | any | FTS5 full-text search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Global search also matches maps and tokens by filename. |
+| `/api/search?q=` | GET | any | FTS5 full-text search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Global search also matches maps, tokens, and audio by filename/folder/tag (audio additionally matches embedded title/artist/album). |
 
 **Response:**
 ```json
@@ -223,7 +241,8 @@ Bookmarks are per-user — users cannot see or modify each other's bookmarks.
   "total": 42,
   "results": [{"id": "uuid", "title": "...", "game_system": "...", "page_number": 42, "snippet": "...", "category": "core"}],
   "maps":    [{"id": "uuid", "filename": "...", "relative_path": "...", "tags": [...]}],
-  "tokens":  [{"id": "uuid", "filename": "...", "relative_path": "...", "tags": [...]}]
+  "tokens":  [{"id": "uuid", "filename": "...", "relative_path": "...", "tags": [...]}],
+  "audio":   [{"id": "uuid", "filename": "...", "relative_path": "...", "title": "...", "tags": [...]}]
 }
 ```
 
@@ -291,7 +310,7 @@ Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed 
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens. Books match on title (filter with `system_id?`); maps/tokens match on folder path first then filename, with the folder in `subtitle`. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 30) |
+| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Books match on title (filter with `system_id?`); maps/tokens/audio match on folder path first then filename, with the folder in `subtitle`. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 30) |
 | `/api/campaigns/resources/suggested/:system_id` | GET | any | Books in a game system for the create wizard. Core-category books are flagged `suggested` and ordered first. |
 | `/api/campaigns/:id/resources` | GET | member or owner | List linked resources (each with `visibility`, `category_id`, `sort_order`, `has_thumbnail`; owner items also include `shared_user_ids`). Ordered public → private → gm, then by `sort_order`. Players see only what their visibility allows. |
 | `/api/campaigns/:id/resources` | POST | owner | Link a resource. Body: `{resource_type, resource_id, visibility?, shared_user_ids?, category_id?}` |
@@ -303,7 +322,7 @@ Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed 
 | `/api/campaigns/:id/images` | POST | owner | Upload an image (multipart `file`, image types only) to embed in a wiki note; links it as a `file` resource with `is_image: true`. Optional multipart fields: `category_id` (file it under an existing resource category) or `new_category_name` (create a category and file it there). |
 | `/api/campaigns/:id/files/:file_id` | GET | per visibility | Download a campaign file (honours the linking resource's visibility); for an image this also serves it inline/as its thumbnail |
 
-Resource types: `book`, `map`, `token`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload — those render inline with a thumbnail instead of as a download card).
+Resource types: `book`, `map`, `token`, `audio`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload — those render inline with a thumbnail instead of as a download card).
 
 Resource **visibility** is one of: `public` (every accepted member), `private` (the owner plus the users in `shared_user_ids`), or `gm` (owner only). The character-sheet upload endpoints also accept a URL alternative via the member PATCH: `PATCH /api/campaigns/:id/members/:user_id` with `{character_sheet_url}` (`""` clears it; setting a URL clears any uploaded sheet, and uploading a sheet clears the URL).
 
@@ -326,7 +345,7 @@ The resource panel's **group display order** (custom categories interleaved with
 
 #### Wiki (notes)
 
-The campaign notebook is a set of markdown **wiki pages**. Pages link to one another with `[[Page Title]]` (or `[[Page Title|label]]`) syntax and embed campaign content inline with `[[book:ID]]`, `[[book:ID:PAGE]]`, `[[map:ID]]`, `[[token:ID]]`, `[[file:ID]]` (a download card for a campaign file), or `[[image:ID]]` (an uploaded image rendered inline). `ID` is the resource's underlying id; the embed picker lists only resources already linked to the campaign (and offers an image upload). On save the body is re-parsed: unknown `[[Page Title]]` targets auto-create a stub page (inheriting the source page's visibility), embed tokens are skipped (never create stubs), and backlink rows are rebuilt.
+The campaign notebook is a set of markdown **wiki pages**. Pages link to one another with `[[Page Title]]` (or `[[Page Title|label]]`) syntax and embed campaign content inline with `[[book:ID]]`, `[[book:ID:PAGE]]`, `[[map:ID]]`, `[[token:ID]]`, `[[audio:ID]]` (an inline audio player), `[[file:ID]]` (a download card for a campaign file), or `[[image:ID]]` (an uploaded image rendered inline). `ID` is the resource's underlying id; the embed picker lists only resources already linked to the campaign (and offers an image upload). On save the body is re-parsed: unknown `[[Page Title]]` targets auto-create a stub page (inheriting the source page's visibility), embed tokens are skipped (never create stubs), and backlink rows are rebuilt.
 
 Pages nest: each page has an optional `parent_id` (null = top level), forming a tree of arbitrary depth (a "category" is just a page with children). Deleting a page re-parents its children to the deleted page's parent rather than removing the subtree. A page may not be its own parent or be moved under one of its own descendants (400).
 
@@ -421,6 +440,7 @@ Availability statuses: `available`, `tentative`, `unavailable`
 | `rescan_schedule_weekday` | int | Weekday (0–6) for weekly rescans |
 | `hide_maps` | bool | Hide the maps section in the UI |
 | `hide_tokens` | bool | Hide the tokens section in the UI |
+| `hide_audio` | bool | Hide the audio section in the UI |
 | `hide_campaigns` | bool | Hide the campaigns section in the UI |
 | `show_stat_systems` | bool | Show/hide game system count in sidebar |
 | `show_stat_books` | bool | Show/hide book count in sidebar |

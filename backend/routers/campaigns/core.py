@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException
 from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import SessionLocal
 from ...models import (
+    Audio,
     Book,
     Campaign,
     CampaignMember,
@@ -123,7 +124,7 @@ def create_campaign(data: CampaignCreate, current_user: CurrentUser = Depends(ge
             seen = set()
             order = 0
             for r in data.resources:
-                if r.resource_type not in ("book", "map", "token", "file"):
+                if r.resource_type not in ("book", "map", "token", "audio", "file"):
                     continue
                 key = (r.resource_type, r.resource_id)
                 if key in seen:
@@ -244,11 +245,11 @@ def search_resources_global(
     limit: int = 30,
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Search across books, maps, and tokens for the resource picker.
+    """Search across books, maps, tokens, and audio for the resource picker.
 
-    Books match on title and can be narrowed by game system. Maps and tokens
-    match on their folder path *first*, then filename, so a folder name like
-    "Abyssal Fall (30x49)" surfaces every map inside it. Folder-path matches are
+    Books match on title and can be narrowed by game system. Maps, tokens, and
+    audio match on their folder path *first*, then filename, so a folder name like
+    "Abyssal Fall (30x49)" surfaces every item inside it. Folder-path matches are
     ranked above filename-only matches.
     """
     if current_user.role == "guest":
@@ -274,23 +275,30 @@ def search_resources_global(
                         }
                     )
 
-        # Maps/tokens: prefer folder-path matches, then filename matches.
+        # Maps/tokens/audio: prefer folder-path matches, then filename matches.
         def _media_results(rtype, model):
             folder_hits, name_hits = [], []
             for item in db.query(model).order_by(model.filename).limit(1000).all():
                 folder = _resource_folder(item.relative_path)
+                # Audio has no thumbnail; use its artwork flag and prefer its title.
+                if rtype == "audio":
+                    name = item.title or item.filename
+                    has_thumb = bool(item.has_artwork)
+                else:
+                    name = item.filename
+                    has_thumb = item.has_thumbnail
                 row = {
                     "resource_type": rtype,
                     "resource_id": item.id,
-                    "name": item.filename,
+                    "name": name,
                     "subtitle": folder,
-                    "has_thumbnail": item.has_thumbnail,
+                    "has_thumbnail": has_thumb,
                 }
                 if not q:
                     name_hits.append(row)
                 elif q_lower in folder.lower():
                     folder_hits.append(row)
-                elif q_lower in (item.filename or "").lower():
+                elif q_lower in (name or "").lower():
                     name_hits.append(row)
             return folder_hits + name_hits
 
@@ -299,6 +307,9 @@ def search_resources_global(
 
         if not resource_type or resource_type == "token":
             results.extend(_media_results("token", Token))
+
+        if not resource_type or resource_type == "audio":
+            results.extend(_media_results("audio", Audio))
 
         return results[:limit]
     finally:

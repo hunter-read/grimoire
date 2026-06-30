@@ -17,6 +17,8 @@ def _normalize_tags_in_db(conn) -> None:
         "map_folders",
         "tokens",
         "token_folders",
+        "audio",
+        "audio_folders",
     ]
     for table in tables:
         rows = conn.execute(

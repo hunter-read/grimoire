@@ -17,7 +17,8 @@
     "logOut": "Se déconnecter",
     "more": "Plus",
     "collapseSidebar": "Réduire la barre latérale",
-    "expandSidebar": "Développer la barre latérale"
+    "expandSidebar": "Développer la barre latérale",
+    "audio": "Audio"
   },
   "stats": {
     "systems": "Systèmes",
@@ -200,7 +201,8 @@
     "groupedBy": "{{count}} page",
     "groupedBy_other": "{{count}} pages",
     "expandBook": "Développer {{title}}",
-    "collapseBook": "Réduire {{title}}"
+    "collapseBook": "Réduire {{title}}",
+    "audio": "Audio"
   },
   "favorites": {
     "title": "Favoris",
@@ -211,7 +213,8 @@
     "maps": "Cartes ({{count}})",
     "tokens": "Pions ({{count}})",
     "onlyFavorites": "Favoris uniquement",
-    "noFavoritesInView": "Pas encore de favoris ici. Cliquez sur l'icône cœur d'un élément pour l'enregistrer."
+    "noFavoritesInView": "Pas encore de favoris ici. Cliquez sur l'icône cœur d'un élément pour l'enregistrer.",
+    "audio": "Audio ({{count}})"
   },
   "maps": {
     "title": "Cartes",
@@ -473,7 +476,8 @@
       "description": "Masquer des sections de la barre latérale et de la navigation mobile pour tous les utilisateurs.",
       "hideMaps": "Masquer les cartes",
       "hideTokens": "Masquer les pions",
-      "hideCampaigns": "Masquer les campagnes"
+      "hideCampaigns": "Masquer les campagnes",
+      "hideAudio": "Masquer l'audio"
     },
     "sidebarStats": {
       "title": "Statistiques de la barre latérale",
@@ -926,7 +930,8 @@
     "uploadFile": "Téléverser un fichier",
     "uploading": "Téléversement…",
     "emptyCategory": "Glissez des ressources ici",
-    "deleteFileConfirm": "Retirer ce fichier ? Il sera supprimé de la campagne."
+    "deleteFileConfirm": "Retirer ce fichier ? Il sera supprimé de la campagne.",
+    "audio": "Audio"
   },
   "download": {
     "title": "Télécharger l'archive",
@@ -1102,6 +1107,7 @@
     "embed_book": "Livre",
     "embed_map": "Carte",
     "embed_token": "Jeton",
+    "embed_audio": "Audio",
     "embedBookPage": "Livre — p. {{page}}",
     "manageGroups": "Gérer les groupes",
     "uncategorized": "Non classé",
@@ -1227,5 +1233,66 @@
         "warning": "This overwrites fields you've edited in the UI."
       }
     }
+  },
+  "audio": {
+    "title": "Audio",
+    "subtitle_one": "{{count}} piste dans votre collection",
+    "subtitle_other": "{{count}} pistes dans votre collection",
+    "filterPlaceholder": "Filtrer l'audio…",
+    "filterAriaLabel": "Filtrer l'audio",
+    "bulkTag": "Étiquetage en masse",
+    "cancelBulk": "Annuler",
+    "bulkHint": "Cliquez sur les en-têtes de dossier ou les cartes audio pour les sélectionner, puis ajoutez des étiquettes ci-dessous.",
+    "tagsPlaceholder": "Étiquettes à ajouter, séparées par des virgules…",
+    "addTags": "Ajouter des étiquettes",
+    "applying": "Application…",
+    "noAudioFilter": "Aucun fichier audio ne correspond à votre filtre.",
+    "noAudio": "Aucun fichier audio trouvé. Ajoutez de l'audio à /library/audio/ et relancez l'analyse.",
+    "audioCount_one": "{{count}} piste",
+    "audioCount_other": "{{count}} pistes",
+    "expandFolder": "Développer {{folder}}",
+    "collapseFolder": "Réduire {{folder}}",
+    "downloadAllInFolder": "Télécharger tout l'audio dans {{folder}}",
+    "downloadInSubfolder": "Télécharger l'audio dans {{folder}}",
+    "editTags": "Modifier",
+    "editTagsFull": "Modifier les étiquettes",
+    "download": "Télécharger",
+    "missing": "Manquant",
+    "play": "Lire",
+    "pause": "Pause",
+    "detail": {
+      "title": "Détails de la piste",
+      "back": "Retour à l'audio",
+      "details": "Détails",
+      "location": "Emplacement",
+      "fileSize": "Taille du fichier",
+      "trackTitle": "Titre",
+      "artist": "Artiste",
+      "album": "Album",
+      "duration": "Durée",
+      "folderTags": "Étiquettes du dossier",
+      "trackTags": "Étiquettes de la piste",
+      "editTags": "Modifier",
+      "noTags": "Aucune"
+    },
+    "player": {
+      "title": "Lecture en cours",
+      "untitled": "Piste sans titre",
+      "queue": "File d'attente",
+      "emptyQueue": "La file d'attente est vide",
+      "previous": "Piste précédente",
+      "next": "Piste suivante",
+      "repeatOn": "Répéter la piste actuelle : activé",
+      "repeatOff": "Répéter la piste actuelle : désactivé",
+      "playNext": "Lire ensuite",
+      "toggleQueue": "Afficher la file d'attente",
+      "close": "Fermer le lecteur",
+      "seek": "Rechercher",
+      "removeFromQueue": "Retirer de la file d'attente",
+      "reorder": "Glisser pour réorganiser"
+    },
+    "playFolder": "Lire {{folder}}",
+    "playGroup": "Lire l'audio",
+    "playAll": "Tout lire"
   }
 }

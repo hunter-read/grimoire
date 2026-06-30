@@ -21,7 +21,10 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.js'],
     globals: true,
     coverage: {
-      provider: 'v8',
+      // Istanbul (not v8) so per-file coverage merges correctly across the many
+      // test files that touch shared components — v8 under-reports cumulative
+      // coverage in that case, which breaks the per-changed-file gate.
+      provider: 'istanbul',
       // Reporters: human-readable text in the terminal, an HTML report under
       // coverage/, and a json-summary that scripts/check-coverage.mjs reads to
       // gate per-file coverage on changed files. No global `thresholds` here by

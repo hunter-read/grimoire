@@ -17,7 +17,8 @@
     "logOut": "Log out",
     "more": "More",
     "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar"
+    "expandSidebar": "Expand sidebar",
+    "audio": "Audio"
   },
   "stats": {
     "systems": "Systems",
@@ -200,7 +201,8 @@
     "groupedBy": "{{count}} page",
     "groupedBy_other": "{{count}} pages",
     "expandBook": "Expand {{title}}",
-    "collapseBook": "Collapse {{title}}"
+    "collapseBook": "Collapse {{title}}",
+    "audio": "Audio"
   },
   "favorites": {
     "title": "Favorites",
@@ -211,7 +213,8 @@
     "maps": "Maps ({{count}})",
     "tokens": "Tokens ({{count}})",
     "onlyFavorites": "Favorites only",
-    "noFavoritesInView": "No favorites here yet. Click the heart icon on any item to save it."
+    "noFavoritesInView": "No favorites here yet. Click the heart icon on any item to save it.",
+    "audio": "Audio ({{count}})"
   },
   "maps": {
     "title": "Maps",
@@ -473,7 +476,8 @@
       "description": "Hide sections from the sidebar and mobile navigation for all users.",
       "hideMaps": "Hide Maps",
       "hideTokens": "Hide Tokens",
-      "hideCampaigns": "Hide Campaigns"
+      "hideCampaigns": "Hide Campaigns",
+      "hideAudio": "Hide Audio"
     },
     "sidebarStats": {
       "title": "Sidebar Stats",
@@ -926,7 +930,8 @@
     "uploadFile": "Upload file",
     "uploading": "Uploading…",
     "emptyCategory": "Drag resources here",
-    "deleteFileConfirm": "Remove this file? It will be deleted from the campaign."
+    "deleteFileConfirm": "Remove this file? It will be deleted from the campaign.",
+    "audio": "Audio"
   },
   "download": {
     "title": "Download Archive",
@@ -1102,6 +1107,7 @@
     "embed_book": "Book",
     "embed_map": "Map",
     "embed_token": "Token",
+    "embed_audio": "Audio",
     "embedBookPage": "Book — p. {{page}}",
     "parentLabel": "Parent page",
     "noParent": "Top level",
@@ -1228,5 +1234,66 @@
         "warning": "This overwrites fields you've edited in the UI."
       }
     }
+  },
+  "audio": {
+    "title": "Audio",
+    "subtitle_one": "{{count}} track in your collection",
+    "subtitle_other": "{{count}} tracks in your collection",
+    "filterPlaceholder": "Filter audio…",
+    "filterAriaLabel": "Filter audio",
+    "bulkTag": "Bulk Tag",
+    "cancelBulk": "Cancel",
+    "bulkHint": "Click folder headers or audio cards to select them, then add tags below.",
+    "tagsPlaceholder": "Tags to add, comma-separated…",
+    "addTags": "Add Tags",
+    "applying": "Applying…",
+    "noAudioFilter": "No audio matches your filter.",
+    "noAudio": "No audio found. Add audio to /library/audio/ and rescan.",
+    "audioCount_one": "{{count}} track",
+    "audioCount_other": "{{count}} tracks",
+    "expandFolder": "Expand {{folder}}",
+    "collapseFolder": "Collapse {{folder}}",
+    "downloadAllInFolder": "Download all audio in {{folder}}",
+    "downloadInSubfolder": "Download audio in {{folder}}",
+    "editTags": "Edit",
+    "editTagsFull": "Edit tags",
+    "download": "Download",
+    "missing": "Missing",
+    "play": "Play",
+    "pause": "Pause",
+    "detail": {
+      "title": "Track Details",
+      "back": "Back to audio",
+      "details": "Details",
+      "location": "Location",
+      "fileSize": "File Size",
+      "trackTitle": "Title",
+      "artist": "Artist",
+      "album": "Album",
+      "duration": "Duration",
+      "folderTags": "Folder Tags",
+      "trackTags": "Track Tags",
+      "editTags": "Edit",
+      "noTags": "None"
+    },
+    "player": {
+      "title": "Now Playing",
+      "untitled": "Untitled track",
+      "queue": "Queue",
+      "emptyQueue": "Queue is empty",
+      "previous": "Previous track",
+      "next": "Next track",
+      "repeatOn": "Repeat current track: on",
+      "repeatOff": "Repeat current track: off",
+      "playNext": "Play next",
+      "toggleQueue": "Show queue",
+      "close": "Close player",
+      "seek": "Seek",
+      "removeFromQueue": "Remove from queue",
+      "reorder": "Drag to reorder"
+    },
+    "playFolder": "Play {{folder}}",
+    "playGroup": "Play audio",
+    "playAll": "Play all"
   }
 }
