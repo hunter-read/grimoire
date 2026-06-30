@@ -85,7 +85,7 @@ export default function AudioQueuePanel({ bottom = 72 }) {
                 draggable
                 onDragStart={(e) => {
                   dragFrom.current = i
-                  e.dataTransfer.effectAllowed = 'move'
+                  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
                 }}
                 onDragEnd={() => {
                   dragFrom.current = null
