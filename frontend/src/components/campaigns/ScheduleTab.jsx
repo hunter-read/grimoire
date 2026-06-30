@@ -25,8 +25,12 @@ export default function ScheduleTab({ campaign, isOwner, userId }) {
     loadAvailability()
   }, [campaign.id])
 
-  const handleSetAvailability = async (date, status) => {
-    await campaigns.setAvailability(campaign.id, date, { status })
+  const handleSetAvailability = async (date, status, targetUserId) => {
+    // Include user_id only when the GM is editing another member's row; the
+    // backend defaults to the caller when it's absent.
+    const body =
+      targetUserId && targetUserId !== userId ? { status, user_id: targetUserId } : { status }
+    await campaigns.setAvailability(campaign.id, date, body)
     loadAvailability()
   }
 
