@@ -1,8 +1,11 @@
 """Tests for map and map folder endpoints."""
+import hashlib
+
 import pytest
 from backend.tests.conftest import make_map
 from backend.config import SessionLocal
 from backend.models import MapFolder
+from backend.indexer import slugify
 
 
 @pytest.fixture(scope="module")
@@ -43,6 +46,43 @@ class TestListMaps:
         resp = client.get("/api/maps?limit=1&offset=0", headers=admin_headers)
         assert resp.status_code == 200
         assert len(resp.json()["maps"]) <= 1
+
+
+class TestListMapsByFolder:
+    @pytest.fixture(scope="class")
+    def folder_maps(self):
+        # relative_path = <GameSystem>/<Category>/.../<file>; folder is parts[1:-1]
+        a1 = make_map(filename="a1.png", relative_path="DnD/Dungeons/a1.png")
+        a2 = make_map(filename="a2.png", relative_path="DnD/Dungeons/a2.png")
+        b1 = make_map(filename="b1.png", relative_path="DnD/Cities/b1.png")
+        return {"a1": a1, "a2": a2, "b1": b1}
+
+    def test_filters_to_matching_folder(self, client, admin_headers, folder_maps):
+        resp = client.get("/api/maps?folder=Dungeons", headers=admin_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        ids = {m["id"] for m in body["maps"]}
+        assert folder_maps["a1"].id in ids
+        assert folder_maps["a2"].id in ids
+        assert folder_maps["b1"].id not in ids
+        assert body["total"] == len(body["maps"])
+
+    def test_other_folder_excluded(self, client, admin_headers, folder_maps):
+        resp = client.get("/api/maps?folder=Cities", headers=admin_headers)
+        ids = {m["id"] for m in resp.json()["maps"]}
+        assert ids == {folder_maps["b1"].id}
+
+    def test_empty_folder_matches_top_level(self, client, admin_headers, map_entry):
+        # map_entry has a bare relative_path, so its folder is "".
+        resp = client.get("/api/maps?folder=", headers=admin_headers)
+        assert resp.status_code == 200
+        ids = {m["id"] for m in resp.json()["maps"]}
+        assert map_entry.id in ids
+
+    def test_unknown_folder_returns_empty(self, client, admin_headers, folder_maps):
+        resp = client.get("/api/maps?folder=Nope", headers=admin_headers)
+        assert resp.json()["maps"] == []
+        assert resp.json()["total"] == 0
 
 
 class TestGetMap:
@@ -177,3 +217,69 @@ class TestMapFolders:
             headers=player_headers,
         )
         assert resp.status_code == 403
+
+
+class TestServeMapFile:
+    def test_serves_existing_file(self, client, admin_headers, tmp_path):
+        f = tmp_path / "battle.png"
+        f.write_bytes(b"fake-png-bytes")
+        m = make_map(filename="battle.png", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/file", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
+        assert resp.content == b"fake-png-bytes"
+
+    def test_pdf_map_served_as_pdf(self, client, admin_headers, tmp_path):
+        f = tmp_path / "atlas.pdf"
+        f.write_bytes(b"%PDF-1.4")
+        m = make_map(filename="atlas.pdf", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/file", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/pdf"
+
+    def test_missing_map_returns_404(self, client, admin_headers):
+        resp = client.get("/api/maps/does-not-exist/file", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_file_absent_from_disk_marks_missing(self, client, admin_headers, tmp_path):
+        gone = tmp_path / "gone.png"
+        m = make_map(filename="gone.png", filepath=str(gone))
+        resp = client.get(f"/api/maps/{m.id}/file", headers=admin_headers)
+        assert resp.status_code == 404
+        db = SessionLocal()
+        try:
+            from backend.models import GenericMap
+
+            assert db.query(GenericMap).filter_by(id=m.id).first().is_missing
+        finally:
+            db.close()
+
+
+class TestServeMapThumbnail:
+    def test_returns_thumbnail_when_present(self, client, admin_headers, tmp_path, monkeypatch):
+        from backend.routers.maps import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "maps").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        m = make_map(filename="cave-map.png", filepath=str(tmp_path / "cave-map.png"))
+        slug = slugify("cave map")
+        fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]
+        (thumb_root / "maps" / f"{slug}_{fhash}.webp").write_bytes(b"webp")
+
+        resp = client.get(f"/api/maps/{m.id}/thumbnail", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/webp"
+
+    def test_missing_thumbnail_returns_404(self, client, admin_headers, tmp_path, monkeypatch):
+        from backend.routers.maps import core
+
+        monkeypatch.setattr(core, "THUMB_DIR", str(tmp_path / "empty"))
+        m = make_map(filename="no-thumb.png")
+        resp = client.get(f"/api/maps/{m.id}/thumbnail", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_unknown_map_returns_404(self, client, admin_headers):
+        resp = client.get("/api/maps/nope/thumbnail", headers=admin_headers)
+        assert resp.status_code == 404

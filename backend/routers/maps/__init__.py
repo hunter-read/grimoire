@@ -21,7 +21,7 @@ router.add_api_route(
     list_maps,
     methods=["GET"],
     summary="List maps",
-    description="Returns a paginated list of maps. Filter by `map_type`.",
+    description="Returns a paginated list of maps. Filter by `map_type` or `folder`.",
     dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(

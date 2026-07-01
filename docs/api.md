@@ -177,7 +177,7 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/maps` | GET | any | Paginated map list. Query: `limit`, `offset`, `tag` |
+| `/api/maps` | GET | any | Paginated map list. Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level) |
 | `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail` |
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size` |
 | `/api/maps/:id/file` | GET | any | Download/stream the map image |

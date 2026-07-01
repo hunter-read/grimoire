@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown } from 'react-icons/lu'
+import {
+  LuArrowLeft,
+  LuDownload,
+  LuInfo,
+  LuChevronDown,
+  LuChevronLeft,
+  LuChevronRight,
+} from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
-
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
-
-const getFolderPath = (m) =>
-  (m.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
 import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
@@ -15,6 +17,28 @@ import InlineTagEditor from './InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
+
+const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+
+const getFolderPath = (m) =>
+  (m.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
+
+const navButtonStyle = {
+  position: 'absolute',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  zIndex: 2,
+  width: 44,
+  height: 44,
+  borderRadius: '50%',
+  border: '1px solid var(--border)',
+  background: 'rgba(0, 0, 0, 0.55)',
+  color: 'var(--text)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+}
 
 export default function MapDetailView() {
   const { mapId } = useParams()
@@ -26,23 +50,29 @@ export default function MapDetailView() {
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const imagePane = useRef(null)
+  const loadedFolder = useRef(null)
 
-  // Load siblings for prev/next navigation
+  // Load siblings (same-folder maps) for prev/next navigation. Only refetch when
+  // the folder changes — navigating within a folder reuses the loaded list.
   useEffect(() => {
+    if (!map) return
+    const folder = getFolderPath(map)
+    if (loadedFolder.current === folder) return
+    loadedFolder.current = folder
     api
-      .get('/maps')
-      .then((all) => {
-        if (!map) return
-        const folder = getFolderPath(map)
-        const sorted = all
-          .filter((m) => getFolderPath(m) === folder)
-          .sort((a, b) => a.filename.localeCompare(b.filename))
+      .get(`/maps?folder=${encodeURIComponent(folder)}`)
+      .then((res) => {
+        const sorted = (res.maps ?? []).sort((a, b) => a.filename.localeCompare(b.filename))
         setSiblings(sorted)
       })
-      .catch(() => {})
+      .catch(() => {
+        loadedFolder.current = null
+      })
   }, [map])
 
   const siblingIdx = siblings.findIndex((m) => m.id === mapId)
+  const hasPrev = siblingIdx > 0
+  const hasNext = siblingIdx >= 0 && siblingIdx < siblings.length - 1
   const onNext = useCallback(() => {
     if (siblingIdx < siblings.length - 1) navigate(`/maps/${siblings[siblingIdx + 1].id}`)
   }, [siblingIdx, siblings, navigate])
@@ -137,6 +167,17 @@ export default function MapDetailView() {
         >
           {map.filename}
         </span>
+        {siblingIdx >= 0 && siblings.length > 1 && (
+          <span
+            style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}
+            aria-label={t('maps.detail.position', {
+              current: siblingIdx + 1,
+              total: siblings.length,
+            })}
+          >
+            {siblingIdx + 1} / {siblings.length}
+          </span>
+        )}
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails((v) => !v)}
@@ -198,6 +239,7 @@ export default function MapDetailView() {
         <div
           ref={imagePane}
           style={{
+            position: 'relative',
             flex: 1,
             overflow: 'auto',
             background: 'var(--bg-deep)',
@@ -219,6 +261,26 @@ export default function MapDetailView() {
             }}
             draggable={false}
           />
+          {hasPrev && (
+            <button
+              onClick={onPrev}
+              aria-label={t('maps.detail.previous')}
+              title={t('maps.detail.previous')}
+              style={{ ...navButtonStyle, left: 12 }}
+            >
+              <LuChevronLeft size={26} />
+            </button>
+          )}
+          {hasNext && (
+            <button
+              onClick={onNext}
+              aria-label={t('maps.detail.next')}
+              title={t('maps.detail.next')}
+              style={{ ...navButtonStyle, right: 12 }}
+            >
+              <LuChevronRight size={26} />
+            </button>
+          )}
         </div>
 
         {/* Metadata sidebar — always visible on desktop, toggle-controlled on mobile */}
