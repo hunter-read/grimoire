@@ -15,7 +15,7 @@ The live API is self-documented via OpenAPI. With the server running:
 
 ## Authentication
 
-All endpoints except `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, and `/api/auth/config` require a JWT.
+All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, and `/api/auth/config` require a JWT.
 
 **Header** (preferred for API clients):
 ```
@@ -40,6 +40,12 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 ---
 
 ## Endpoints
+
+### Health
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/health` | GET | — | Unauthenticated readiness probe used by the container `HEALTHCHECK`. Checks the database (always) and Valkey (only when configured). Returns `200` with `{"status": "ok", "checks": {...}}` when all dependencies are reachable, or `503` with `{"status": "unhealthy", ...}` otherwise. |
 
 ### Auth
 

@@ -263,6 +263,7 @@ Your library and all your data (bookmarks, metadata, accounts) are stored in a s
 **The page won't load at `localhost:9481`**
 - Make sure Docker Desktop is running (check for the whale icon in your taskbar/menu bar).
 - Run `docker compose up -d` again from your Grimoire folder and wait a few seconds before refreshing.
+- Check whether the container reports itself healthy with `docker ps` — the `STATUS` column shows `(healthy)` once Grimoire is serving. If it stays `(unhealthy)`, run `docker compose logs grimoire` to see why.
 
 **I see an error about the port being in use**
 - Something else on your computer is using port 9481. In `docker-compose.yml`, change `"9481:9481"` to `"9482:9481"` (or any other unused port) and then access the app at `http://localhost:9482`.
