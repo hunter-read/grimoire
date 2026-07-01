@@ -144,6 +144,19 @@ docker compose up -d
 docker build --build-arg APP_VERSION=1.0.0 -t grimoire:1.0.0 .
 ```
 
+### 7. Container health
+
+The image ships a `HEALTHCHECK` that probes the unauthenticated `GET /api/health`
+endpoint. It verifies the app is serving on port 9481 and can reach the database
+(and Valkey, when configured), so `docker ps` shows `(healthy)` / `(unhealthy)`
+rather than just "running". Orchestrators can gate startup on it:
+
+```yaml
+depends_on:
+  grimoire:
+    condition: service_healthy
+```
+
 ---
 
 ## Running without Docker

@@ -7,10 +7,19 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from . import scheduler, session_creator
 from .auth import get_current_user
-from .config import DATA_PATH, LIBRARY_PATH, OPDS_ENABLED, SessionLocal, VERSION, logger
+from .config import (
+    DATA_PATH,
+    LIBRARY_PATH,
+    OPDS_ENABLED,
+    SessionLocal,
+    VERSION,
+    _valkey,
+    logger,
+)
 from .routers import (
     audio as audio_router,
     auth as auth_router,
@@ -150,6 +159,40 @@ if os.path.isdir(_assets_dir):
     app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
 # --- Public (unauthenticated) routes -----------------------------------------
+@app.get("/api/health", tags=["maintenance"], summary="Liveness/readiness probe")
+def health():
+    """Unauthenticated readiness probe used by the container HEALTHCHECK.
+
+    Verifies the app can reach its dependencies: the database (always) and the
+    Valkey/Redis page cache (only when configured). Returns HTTP 200 with a
+    per-check status when everything is reachable, and HTTP 503 otherwise so
+    orchestrators mark a wedged container unhealthy rather than "up".
+    """
+    checks = {}
+    healthy = True
+
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        checks["database"] = "error"
+        healthy = False
+    finally:
+        db.close()
+
+    if _valkey is not None:
+        try:
+            _valkey.ping()
+            checks["valkey"] = "ok"
+        except Exception:
+            checks["valkey"] = "error"
+            healthy = False
+
+    body = {"status": "ok" if healthy else "unhealthy", "checks": checks}
+    return JSONResponse(body, status_code=200 if healthy else 503)
+
+
 app.include_router(auth_router.public_router)
 app.include_router(oidc_router.public_router)
 app.include_router(library_router.public_router)
