@@ -3,7 +3,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from backend.config import SessionLocal
 from backend.models import User
@@ -129,7 +128,7 @@ def test_no_admin_in_file_skips_all_creation():
 
 def test_no_admin_in_file_with_only_gm_also_rejected():
     uname = _unique("seed_gmonly")
-    tmp = _run([{"username": uname, "password": "pass1234", "role": "gm"}])
+    _run([{"username": uname, "password": "pass1234", "role": "gm"}])
     assert _get_user(uname) is None
 
 

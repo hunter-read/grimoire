@@ -68,6 +68,9 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -r requirements-test.txt
 
+      - name: Run lint
+        run: ruff check backend/
+
       - name: Check imports
         run: python -c "import backend.main"
 

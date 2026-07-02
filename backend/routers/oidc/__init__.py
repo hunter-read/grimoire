@@ -50,6 +50,8 @@ public_router.add_api_route(
 __all__ = [
     "router",
     "public_router",
+    # Re-exported so tests can patch ``backend.routers.oidc.httpx.get``
+    "httpx",
     # Re-exported for tests
     "_OIDCError",
     "_permissions_from_claim",

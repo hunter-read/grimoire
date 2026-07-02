@@ -13,7 +13,7 @@ from xml.sax.saxutils import escape
 from fastapi import HTTPException
 from fastapi.responses import Response, FileResponse
 
-from ...config import SessionLocal, THUMB_DIR
+from ...config import SessionLocal
 from ...models import Book, User
 
 
@@ -98,7 +98,9 @@ def catalog(token: str, request_url: str = "") -> Response:
     """Root navigation feed — lists available sub-feeds."""
     db = SessionLocal()
     try:
-        user = _resolve_user(db, token)
+        # Validates the token (raises on an invalid/expired one) before we build
+        # the feed; the resolved user itself isn't needed for the root catalog.
+        _resolve_user(db, token)
         # Derive base URL from the request — FastAPI passes Request via DI,
         # but we keep this free-function friendly by computing it from config.
         base_url = _base_url()

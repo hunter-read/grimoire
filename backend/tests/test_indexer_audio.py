@@ -4,7 +4,6 @@ Covers the metadata reader, folder/embedded-artwork lookup, and the audio scan
 loop in scan_library (the code added for the audio library feature).
 """
 import os
-import struct
 import tempfile
 import uuid
 import wave
@@ -12,7 +11,7 @@ import wave
 from PIL import Image
 
 from backend.config import SessionLocal
-from backend.models import Audio, AudioFolder
+from backend.models import Audio
 from backend.indexer import (
     AUDIO_EXTS,
     _read_audio_metadata,

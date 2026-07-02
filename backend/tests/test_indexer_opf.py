@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
 
 from backend.config import SessionLocal
 from backend.indexer import parse_opf_metadata, scan_library

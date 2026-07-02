@@ -8,6 +8,8 @@ from ._helpers import _invalidate_book_cache  # re-exported for library.py
 
 router = APIRouter(prefix="/books", tags=["books"])
 
+__all__ = ["router", "_invalidate_book_cache"]
+
 # Browsing the whole book library is blocked for guests; reading an individual
 # book shared into their campaign (by id) is not.
 router.add_api_route(

@@ -83,7 +83,6 @@ def test_guest_login_and_scope(client, gm_headers, admin_headers, gm_campaign):
     assert resp.status_code == 200
 
     # Guest can update their own character name + availability.
-    member_id = created["id"]
     user_id = created["user_id"]
     patch = client.patch(
         f"/api/campaigns/{gm_campaign}/members/{user_id}",

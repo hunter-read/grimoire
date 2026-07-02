@@ -9,7 +9,7 @@ from ...auth import (
     verify_password,
 )
 from ...config import SessionLocal
-from ...models import Campaign, CampaignMember, User
+from ...models import CampaignMember, User
 from ..settings._helpers import (
     _get_raw,
     guest_access_effective,

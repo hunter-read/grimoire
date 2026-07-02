@@ -1,7 +1,6 @@
 """Audio CRUD, file-serving, and folder-tagging endpoints."""
 import os
 from pathlib import Path
-from typing import Optional
 
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response

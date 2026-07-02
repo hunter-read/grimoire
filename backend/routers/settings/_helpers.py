@@ -2,7 +2,6 @@
 import re
 
 from ...config import (
-    SessionLocal,
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
     GUEST_ACCESS_ENABLED_ENV,
     OIDC_ENV,

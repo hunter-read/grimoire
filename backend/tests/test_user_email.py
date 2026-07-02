@@ -1,5 +1,4 @@
 """Tests for the user-email field (admin endpoints + self-service)."""
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +137,7 @@ class TestSelfEmail:
     def test_self_cannot_take_anothers_email(self, client, admin_headers, gm_headers):
         # Admin claims an email
         client.patch(
-            f"/api/users/me/preferences",
+            "/api/users/me/preferences",
             headers=admin_headers,
             json={"email": "claimed@example.com"},
         )

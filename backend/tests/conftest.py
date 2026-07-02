@@ -20,13 +20,11 @@ from fastapi.testclient import TestClient  # noqa: E402
 from backend.main import app  # noqa: E402
 from backend.config import SessionLocal  # noqa: E402
 from backend.models import (  # noqa: E402
-    User,
     GameSystem,
     Book,
     GenericMap,
     Token,
     Audio,
-    Favorite,
     Campaign,
 )
 
