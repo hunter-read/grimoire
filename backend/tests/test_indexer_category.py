@@ -1,5 +1,4 @@
 """Tests for guess_category(), agnostic_category(), and is_system_agnostic_folder() in the library indexer."""
-import pytest
 from backend.indexer import guess_category, agnostic_category, is_system_agnostic_folder
 
 

@@ -1,7 +1,7 @@
 """Tests for campaign management endpoints."""
 import uuid
 import pytest
-from backend.tests.conftest import make_campaign, make_game_system, make_book, make_map, make_token
+from backend.tests.conftest import make_campaign, make_game_system, make_book, make_map
 
 
 def uid():
@@ -768,7 +768,7 @@ class TestSchedule:
 # ---------------------------------------------------------------------------
 
 
-class TestResourceSearch:
+class TestResourceSearchAccess:
     def test_search_returns_list(self, client, gm_headers):
         resp = client.get("/api/campaigns/resources/search?q=", headers=gm_headers)
         assert resp.status_code == 200

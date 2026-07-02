@@ -1,7 +1,6 @@
 """Tests for scoped rescan + sidecar metadata refresh (issues #109, #106)."""
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 from textwrap import dedent
@@ -13,7 +12,6 @@ from backend.indexer import (
     resolve_scope,
     scan_library,
     _apply_opf_to_book,
-    _find_opf_meta,
 )
 from backend.models import Book
 

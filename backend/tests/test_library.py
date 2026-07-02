@@ -1,6 +1,5 @@
 """Tests for library stats and scan endpoints."""
-import pytest
-from backend.tests.conftest import make_game_system, make_book, make_map, make_token
+from backend.tests.conftest import make_game_system, make_book
 
 
 class TestLibraryStats:

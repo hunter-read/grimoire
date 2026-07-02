@@ -1,10 +1,8 @@
 """Tests for settings API and maintenance/cleanup endpoint."""
-import os
 import uuid
 from typing import Optional
 from unittest.mock import patch
 
-import pytest
 
 from backend.tests.conftest import make_book, make_game_system, make_map, make_token
 from backend.config import SessionLocal

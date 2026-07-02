@@ -19,7 +19,6 @@ from ._helpers import (
     _VALID_SIGNING_ALGS,
     _OIDC_STRING_FIELDS,
     _OIDC_BOOL_FIELDS,
-    password_auth_effective,
     guest_access_effective,
     sanitize_login_message,
 )

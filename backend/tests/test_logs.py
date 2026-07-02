@@ -1,6 +1,5 @@
 """Tests for the /api/logs endpoint."""
 import logging
-import pytest
 
 
 class TestLogsAccess:

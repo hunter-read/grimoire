@@ -450,7 +450,6 @@ class TestScanFailed:
         worker kill mid-hang leaves the flag set and prevents infinite retries."""
         tmp, lib = _mk_lib()
         folder = self._books_dir(lib, "ScanFailBefore")
-        pdf_path = str(folder / "hang.pdf")
         (folder / "hang.pdf").write_bytes(b"%PDF-1.4")
 
         scan_failed_before_thumb = []
