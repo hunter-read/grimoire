@@ -680,7 +680,14 @@
     "gm": "GM: {{name}}",
     "unknownGm": "Unknown",
     "nextSession": "Next session",
-    "openNotes": "Notes"
+    "openNotes": "Notes",
+    "inviteBanner": {
+      "title": "Pending invitations",
+      "single": "{{gm}} invited you to join {{name}}.",
+      "multi": "You have {{count}} pending campaign invitations.",
+      "view": "View",
+      "dismiss": "Dismiss"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campaigns",

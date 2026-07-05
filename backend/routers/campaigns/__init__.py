@@ -12,6 +12,7 @@ from .core import (
     invite_member,
     update_member_status,
     remove_member,
+    list_invites,
     suggested_resources,
     eligible_members,
     admin_list_user_campaigns,
@@ -106,6 +107,15 @@ router.add_api_route(
 router.add_api_route(
     "", create_campaign, methods=["POST"], summary="Create a campaign", status_code=201
 )
+
+# --- Pending invites (must be before /{campaign_id} to avoid routing conflict) ---
+router.add_api_route(
+    "/invites",
+    list_invites,
+    methods=["GET"],
+    summary="List the current user's pending campaign invitations",
+)
+
 router.add_api_route("/{campaign_id}", get_campaign, methods=["GET"], summary="Get a campaign")
 router.add_api_route(
     "/{campaign_id}", update_campaign, methods=["PATCH"], summary="Update a campaign"

@@ -89,6 +89,52 @@ def list_campaigns(current_user: CurrentUser = Depends(get_current_user)):
         db.close()
 
 
+def list_invites(current_user: CurrentUser = Depends(get_current_user)):
+    """Pending campaign invitations for the current user.
+
+    Returns the minimal fields the app-level invite banner needs: one entry per
+    GM campaign the user has been invited to but not yet accepted or declined.
+    """
+    db = SessionLocal()
+    try:
+        invited = (
+            db.query(CampaignMember)
+            .filter(
+                CampaignMember.user_id == current_user.id,
+                CampaignMember.status == "invited",
+            )
+            .all()
+        )
+        if not invited:
+            return []
+        campaign_ids = {m.campaign_id for m in invited}
+        campaigns = {
+            c.id: c
+            for c in db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
+        }
+        owner_ids = {c.owner_id for c in campaigns.values()}
+        owners = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()}
+        result = []
+        for m in invited:
+            c = campaigns.get(m.campaign_id)
+            if not c:
+                continue
+            owner = owners.get(c.owner_id)
+            result.append(
+                {
+                    "campaign_id": c.id,
+                    "name": c.name,
+                    "description": c.description,
+                    "owner_display_name": (owner.display_name or owner.username)
+                    if owner
+                    else "",
+                }
+            )
+        return result
+    finally:
+        db.close()
+
+
 def create_campaign(data: CampaignCreate, current_user: CurrentUser = Depends(get_current_user)):
     if current_user.role == "guest":
         raise HTTPException(403, "Guests cannot create campaigns")

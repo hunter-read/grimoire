@@ -680,7 +680,14 @@
     "gm": "GM: {{name}}",
     "unknownGm": "Onbekend",
     "nextSession": "Volgende sessie",
-    "openNotes": "Notities"
+    "openNotes": "Notities",
+    "inviteBanner": {
+      "title": "Openstaande uitnodigingen",
+      "single": "{{gm}} heeft je uitgenodigd voor {{name}}.",
+      "multi": "Je hebt {{count}} openstaande campagne-uitnodigingen.",
+      "view": "Bekijken",
+      "dismiss": "Sluiten"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campagnes",

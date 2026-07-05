@@ -23,6 +23,7 @@ import FavoritesView from '../views/FavoritesView'
 import CampaignsView from '../views/CampaignsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
+import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
 
 const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
 
@@ -113,6 +114,7 @@ export default function AppShell() {
             paddingBottom: (isMobile ? 64 : 0) + (playerActive ? PLAYER_HEIGHT : 0),
           }}
         >
+          {!isGuest && <PendingInvitesBanner />}
           {isGuest ? (
             // Guests are scoped to their campaign(s); everything else redirects.
             <Routes>
