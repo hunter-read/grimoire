@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { LuUserPlus, LuRefreshCw, LuTrash2, LuShare2, LuCopy, LuMail } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
+import GuestIconBtn from './GuestIconBtn'
+import ShareBtn from './ShareBtn'
 
 /** GM-only management of a campaign's code-based guests. */
 export default function GuestPanel({ campaignId, onChanged }) {
@@ -140,19 +142,19 @@ export default function GuestPanel({ campaignId, onChanged }) {
                 {g.guest_code}
               </code>
             </span>
-            <IconBtn title={t('guests.share')} onClick={() => openShare(g.id)}>
+            <GuestIconBtn title={t('guests.share')} onClick={() => openShare(g.id)}>
               <LuShare2 size={13} />
-            </IconBtn>
-            <IconBtn
+            </GuestIconBtn>
+            <GuestIconBtn
               title={t('guests.regenerate')}
               onClick={() => regenerate(g.id)}
               disabled={busy}
             >
               <LuRefreshCw size={13} />
-            </IconBtn>
-            <IconBtn title={t('guests.remove')} onClick={() => remove(g.id)} disabled={busy}>
+            </GuestIconBtn>
+            <GuestIconBtn title={t('guests.remove')} onClick={() => remove(g.id)} disabled={busy}>
               <LuTrash2 size={13} />
-            </IconBtn>
+            </GuestIconBtn>
           </div>
         ))
       )}
@@ -225,51 +227,5 @@ export default function GuestPanel({ campaignId, onChanged }) {
         </div>
       )}
     </div>
-  )
-}
-
-function IconBtn({ children, title, onClick, disabled }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={title}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: 6,
-        background: 'var(--bg-deep)',
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        color: 'var(--text-dim)',
-        cursor: disabled ? 'default' : 'pointer',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ShareBtn({ children, onClick, as = 'button' }) {
-  const Tag = as
-  return (
-    <Tag
-      onClick={onClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '6px 12px',
-        background: 'var(--bg-deep)',
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        color: 'var(--text-dim)',
-        cursor: 'pointer',
-        fontSize: 13,
-      }}
-    >
-      {children}
-    </Tag>
   )
 }

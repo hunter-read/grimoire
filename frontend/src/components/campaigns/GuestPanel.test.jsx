@@ -51,4 +51,24 @@ describe('GuestPanel', () => {
     await waitFor(() => expect(campaigns.createGuest).toHaveBeenCalledWith('c1', 'Bob'))
     expect(onChanged).toHaveBeenCalled()
   })
+
+  it('opens the share modal with copy/email actions', async () => {
+    campaigns.listGuests.mockResolvedValue([
+      { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
+    ])
+    campaigns.guestShareTemplate.mockResolvedValue({
+      message: 'join here',
+      discord_message: 'discord join',
+      mailto_url: 'mailto:test@example.com',
+    })
+    render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
+    await screen.findByText('Alice')
+
+    fireEvent.click(screen.getByTitle(/share/i))
+
+    // ShareBtn buttons + mailto span render inside the modal.
+    expect(await screen.findByDisplayValue('join here')).toBeTruthy()
+    expect(screen.getByText(/copy for discord/i)).toBeTruthy()
+    expect(screen.getByText(/email/i)).toBeTruthy()
+  })
 })
