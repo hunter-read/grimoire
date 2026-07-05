@@ -53,6 +53,8 @@ export default function CampaignsView() {
   const respondToInvite = async (campaign, status) => {
     await campaigns.updateMember(campaign.id, user.id, status)
     load()
+    // Let the app-level invite banner drop this invite too.
+    window.dispatchEvent(new CustomEvent('grimoire:campaigns-changed'))
   }
 
   return (

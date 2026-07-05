@@ -680,7 +680,14 @@
     "gm": "DM: {{name}}",
     "unknownGm": "Unbekannt",
     "nextSession": "Nächste Sitzung",
-    "openNotes": "Notizen"
+    "openNotes": "Notizen",
+    "inviteBanner": {
+      "title": "Ausstehende Einladungen",
+      "single": "{{gm}} hat dich eingeladen, {{name}} beizutreten.",
+      "multi": "Du hast {{count}} ausstehende Kampagneneinladungen.",
+      "view": "Ansehen",
+      "dismiss": "Ausblenden"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Kampagnen",

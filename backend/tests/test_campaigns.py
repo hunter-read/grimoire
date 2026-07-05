@@ -320,6 +320,56 @@ class TestMembers:
         assert resp.status_code == 404
 
 
+class TestPendingInvites:
+    """GET /api/campaigns/invites — the current user's pending invitations."""
+
+    @pytest.fixture(scope="class")
+    def invite_campaign(self, client, gm_headers, gm_id):
+        resp = client.post(
+            "/api/campaigns",
+            json={"name": f"Invite Test {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201
+        return resp.json()
+
+    def test_lists_pending_invite(self, client, gm_headers, player_headers, player_id, invite_campaign):
+        client.post(
+            f"/api/campaigns/{invite_campaign['id']}/invite",
+            json={"user_id": player_id},
+            headers=gm_headers,
+        )
+        resp = client.get("/api/campaigns/invites", headers=player_headers)
+        assert resp.status_code == 200
+        ids = [i["campaign_id"] for i in resp.json()]
+        assert invite_campaign["id"] in ids
+        entry = next(i for i in resp.json() if i["campaign_id"] == invite_campaign["id"])
+        assert entry["name"] == invite_campaign["name"]
+        assert "owner_display_name" in entry
+
+    def test_only_own_invites_visible(self, client, gm_headers, invite_campaign):
+        # The GM (owner) is not an invited member, so they see no invites here.
+        resp = client.get("/api/campaigns/invites", headers=gm_headers)
+        assert resp.status_code == 200
+        ids = [i["campaign_id"] for i in resp.json()]
+        assert invite_campaign["id"] not in ids
+
+    def test_accepting_removes_from_invites(
+        self, client, gm_headers, player_headers, player_id, invite_campaign
+    ):
+        client.patch(
+            f"/api/campaigns/{invite_campaign['id']}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        resp = client.get("/api/campaigns/invites", headers=player_headers)
+        ids = [i["campaign_id"] for i in resp.json()]
+        assert invite_campaign["id"] not in ids
+
+    def test_unauthenticated_denied(self, client):
+        assert client.get("/api/campaigns/invites").status_code == 401
+
+
 # ---------------------------------------------------------------------------
 # Resources
 # ---------------------------------------------------------------------------

@@ -680,7 +680,14 @@
     "gm": "DJ: {{name}}",
     "unknownGm": "Desconocido",
     "nextSession": "Próxima sesión",
-    "openNotes": "Notas"
+    "openNotes": "Notas",
+    "inviteBanner": {
+      "title": "Invitaciones pendientes",
+      "single": "{{gm}} te invitó a unirte a {{name}}.",
+      "multi": "Tienes {{count}} invitaciones de campaña pendientes.",
+      "view": "Ver",
+      "dismiss": "Descartar"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campañas",

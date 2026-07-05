@@ -680,7 +680,14 @@
     "gm": "MJ : {{name}}",
     "unknownGm": "Inconnu",
     "nextSession": "Prochaine séance",
-    "openNotes": "Notes"
+    "openNotes": "Notes",
+    "inviteBanner": {
+      "title": "Invitations en attente",
+      "single": "{{gm}} vous a invité à rejoindre {{name}}.",
+      "multi": "Vous avez {{count}} invitations de campagne en attente.",
+      "view": "Voir",
+      "dismiss": "Ignorer"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campagnes",

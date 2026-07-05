@@ -29,6 +29,7 @@ export const mediaUrl = (path, params = {}) => {
 // Campaign Manager helpers
 export const campaigns = {
   list: () => api.get('/campaigns'),
+  invites: () => api.get('/campaigns/invites'),
   get: (id) => api.get(`/campaigns/${id}`),
   create: (data) => api.post('/campaigns', data),
   update: (id, data) => api.patch(`/campaigns/${id}`, data),

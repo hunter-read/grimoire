@@ -40,6 +40,7 @@ vi.mock('../views/FavoritesView', () => ({ default: () => <div>favorites</div> }
 vi.mock('../views/CampaignsView', () => ({ default: () => <div>campaigns</div> }))
 vi.mock('../views/CampaignDetailView', () => ({ default: () => <div>campaign-detail</div> }))
 vi.mock('../views/CampaignNotesView', () => ({ default: () => <div>campaign-notes</div> }))
+vi.mock('./campaigns/PendingInvitesBanner', () => ({ default: () => null }))
 
 const renderAt = (path) =>
   render(

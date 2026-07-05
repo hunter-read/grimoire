@@ -10,8 +10,20 @@ vi.mock('../api', () => ({
   },
 }))
 
+let mockUser = { id: 'user1', role: 'player' }
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 'user1', role: 'player' } }),
+  useAuth: () => ({ user: mockUser }),
+}))
+
+// Stub the editor so we can assert it opens without pulling in its full tree.
+vi.mock('../components/campaigns/CampaignEditor', () => ({
+  default: ({ onClose, onSaved }) => (
+    <div>
+      <div>campaign-editor</div>
+      <button onClick={onClose}>editor-close</button>
+      <button onClick={() => onSaved({ id: 'new-c' })}>editor-save</button>
+    </div>
+  ),
 }))
 
 import { campaigns } from '../api'
@@ -55,6 +67,7 @@ function renderView() {
 describe('CampaignsView', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    mockUser = { id: 'user1', role: 'player' }
   })
 
   it('shows GM campaign name when user is the campaign owner', async () => {
@@ -140,5 +153,59 @@ describe('CampaignsView', () => {
     await waitFor(() => screen.getByText('Lost Mines'))
     expect(screen.getByText('GM Campaigns')).toBeTruthy()
     expect(screen.getByText('Personal Campaigns')).toBeTruthy()
+  })
+
+  it('calls updateMember with declined when Decline is clicked', async () => {
+    const invite = {
+      ...joinedGmCampaign,
+      id: 'c3',
+      name: 'Curse of Strahd',
+      description: 'A gothic horror campaign',
+      invitation_status: 'invited',
+    }
+    campaigns.list.mockResolvedValueOnce([invite]).mockResolvedValueOnce([])
+    campaigns.updateMember.mockResolvedValue({})
+    renderView()
+    await waitFor(() => screen.getByText('Decline'))
+    // The invite row renders its description too.
+    expect(screen.getByText('A gothic horror campaign')).toBeTruthy()
+    fireEvent.click(screen.getByText('Decline'))
+    await waitFor(() =>
+      expect(campaigns.updateMember).toHaveBeenCalledWith('c3', 'user1', 'declined')
+    )
+  })
+
+  it('shows an error message when the list request fails', async () => {
+    campaigns.list.mockRejectedValue(new Error('boom'))
+    renderView()
+    await waitFor(() => expect(screen.getByText('boom')).toBeTruthy())
+  })
+
+  it('opens the editor from the new-campaign button and closes it', async () => {
+    campaigns.list.mockResolvedValue([])
+    renderView()
+    await waitFor(() => screen.getByText('No campaigns yet'))
+    fireEvent.click(screen.getByText(/new campaign/i))
+    expect(screen.getByText('campaign-editor')).toBeTruthy()
+    fireEvent.click(screen.getByText('editor-close'))
+    await waitFor(() => expect(screen.queryByText('campaign-editor')).toBeNull())
+  })
+
+  it('navigates to the new campaign after the editor saves', async () => {
+    campaigns.list.mockResolvedValue([])
+    renderView()
+    await waitFor(() => screen.getByText('No campaigns yet'))
+    fireEvent.click(screen.getByText(/new campaign/i))
+    fireEvent.click(screen.getByText('editor-save'))
+    await waitFor(() => expect(screen.queryByText('campaign-editor')).toBeNull())
+  })
+
+  it('hides the create button and shows a hint when access is disabled', async () => {
+    mockUser = { id: 'user1', role: 'player', campaign_access: false }
+    campaigns.list.mockResolvedValue([])
+    renderView()
+    await waitFor(() => screen.getByText('No campaigns yet'))
+    expect(screen.queryByText(/new campaign/i)).toBeNull()
+    expect(screen.getByText(/access disabled/i)).toBeTruthy()
   })
 })

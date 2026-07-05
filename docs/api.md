@@ -266,6 +266,7 @@ Bookmarks are per-user — users cannot see or modify each other's bookmarks.
 | `/api/campaigns/:id` | PATCH | owner | Update `name`, `description` (markdown), `gm_title`, `system_id`, `system_name`, `parent_campaign_id`. Setting `system_id` clears `system_name` and vice-versa (`system_name: ""` clears it). |
 | `/api/campaigns/:id` | DELETE | owner | Delete campaign and all related data. Admins delete via the database directly. |
 | `/api/campaigns/admin/by-user/:user_id` | GET | admin | Read-only minimal list of a user's campaigns (`id`, `name`, `description`, `is_gm_campaign`, `system_id`, `system_name`) for the user-management page |
+| `/api/campaigns/invites` | GET | any | The current user's pending invitations (members in `invited` status). Returns a list of `{campaign_id, name, description, owner_display_name}`. Powers the app-level invite banner. |
 
 #### Members
 

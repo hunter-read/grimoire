@@ -680,7 +680,14 @@
     "gm": "GM: {{name}}",
     "unknownGm": "Desconhecido",
     "nextSession": "Próxima sessão",
-    "openNotes": "Notas"
+    "openNotes": "Notas",
+    "inviteBanner": {
+      "title": "Convites pendentes",
+      "single": "{{gm}} convidou-o para participar em {{name}}.",
+      "multi": "Tem {{count}} convites de campanha pendentes.",
+      "view": "Ver",
+      "dismiss": "Ignorar"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campanhas",
