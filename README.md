@@ -692,7 +692,7 @@ The live API is self-documented via OpenAPI. With the server running:
 | `http://localhost:9481/api/redoc` | ReDoc — readable reference |
 | `http://localhost:9481/api/openapi.json` | Raw OpenAPI schema |
 
-For the database schema — an ER diagram and a table-by-table reference of the models and their foreign keys — see [docs/data-model.md](docs/data-model.md).
+For contributors, [docs/architecture.md](docs/architecture.md) is a developer-facing architecture reference — module map, request lifecycle, auth/OIDC flow, and startup migrations. For the database schema — an ER diagram and a table-by-table reference of the models and their foreign keys — see [docs/data-model.md](docs/data-model.md).
 
 ---
 
