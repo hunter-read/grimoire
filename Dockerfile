@@ -26,6 +26,7 @@ WORKDIR /app
 COPY --from=backend-builder /install /usr/local
 
 COPY backend/ ./backend/
+COPY alembic.ini ./alembic.ini
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN mkdir -p /data /library

@@ -207,19 +207,39 @@ process on startup:
 
 ### Schema migrations
 
-Schema changes are applied at startup by `init_db` in
-[`backend/models/db.py`](../backend/models/db.py), not by a dedicated migration tool:
+Schema changes are managed by **Alembic** (revisions in
+[`backend/migrations/`](../backend/migrations/), config in
+[`alembic.ini`](../alembic.ini)). `init_db` in
+[`backend/models/db.py`](../backend/models/db.py) applies them at startup:
 
-- `Base.metadata.create_all(engine)` creates any missing tables from the ORM models.
-- A list of idempotent `ALTER TABLE ... ADD COLUMN` / `CREATE INDEX IF NOT EXISTS`
-  statements adds columns introduced after initial release; each is wrapped in a
-  try/except so an already-applied migration is a no-op.
-- One-off data backfills run afterward (tag normalization, resource-visibility backfill from
-  the legacy `shared`/`gm_only` flags, a `users` table rebuild to drop the old
-  `hashed_password NOT NULL` constraint).
-- The FTS5 `book_search` virtual table is created here and populated by the indexer.
+- **Fresh / already-on-Alembic database** → `alembic upgrade head` runs every revision
+  from the baseline (or just the new ones), landing at the head revision recorded in
+  `alembic_version`.
+- **Existing pre-Alembic database** (real tables, but no `alembic_version`) → the legacy
+  imperative `ALTER TABLE`/`CREATE INDEX` replay runs one final time to bring the schema
+  exactly to the baseline, then the DB is `stamp`ed at head — the baseline migration is
+  **not** re-run (which would try to recreate existing tables). This keeps upgrades from
+  any prior version transparent, with no manual action.
+- **Concurrency** — `init_db` runs once per worker process; a blocking file lock
+  (`<db>.migrate.lock`) serializes the migration so, with multiple uvicorn workers, the
+  first migrates and the rest wait and then find the DB already at head.
+- After migrations, idempotent data fixups run on every startup (tag normalization,
+  resource-visibility backfill from the legacy `shared`/`gm_only` flags) and the FTS5
+  `book_search` virtual table is created (it's not an ORM table, so Alembic doesn't manage
+  it).
 
-> This runtime-migration approach is being migrated to a proper migration tool (Alembic).
-> When that lands, update this section to describe the baseline migration and how migrations
-> are applied, and cross-check the schema-of-record against
-> [`docs/data-model.md`](data-model.md).
+SQLite's limited `ALTER TABLE` support means table rebuilds go through Alembic's **batch
+mode** (`render_as_batch=True`, set in [`env.py`](../backend/migrations/env.py)).
+
+**Authoring a migration:** change the models, then autogenerate a revision and review it:
+
+```bash
+alembic revision --autogenerate -m "describe the change"   # writes backend/migrations/versions/
+alembic upgrade head                                        # apply locally
+alembic downgrade -1                                        # verify it reverses
+```
+
+`env.py` targets `Base.metadata`, so autogenerate diffs the models against the DB. The
+`sqlalchemy.url` isn't in `alembic.ini` — it resolves from the app config (or an
+`-x url=sqlite:///...` override). Keep the schema-of-record in
+[`docs/data-model.md`](data-model.md) in sync when you add a revision.

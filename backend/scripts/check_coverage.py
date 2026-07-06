@@ -87,6 +87,10 @@ def changed_source_files(base, root):
             continue
         if p.startswith("backend/scripts/"):
             continue
+        # Alembic migration scaffolding (env.py) and revision scripts are
+        # generated/boilerplate and exercised via integration, not unit-covered.
+        if p.startswith("backend/migrations/"):
+            continue
         result.append(p)
     return sorted(result)
 
