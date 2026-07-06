@@ -371,10 +371,11 @@ def parse_opf_metadata(opf_path: str) -> dict:
     if title:
         meta["title"] = title
 
+    # Calibre writes "Unknown" as the creator when no author is set — skip it.
     authors = [
-        el.text.strip()
+        author
         for el in root.findall("opf:metadata/dc:creator", _OPF_NS)
-        if el.text and el.text.strip()
+        if el.text and (author := el.text.strip()) and author.lower() != "unknown"
     ]
     if authors:
         meta["authors"] = authors
