@@ -7,9 +7,26 @@ import json
 import os
 import tempfile
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 
-from backend.models.db import init_db, _normalize_tags_in_db
+from backend.models.base import Base
+from backend.models.db import _alembic_config, init_db, _normalize_tags_in_db
+
+
+def _alembic_head(path):
+    """The current head revision, read from a fresh Alembic config."""
+    from alembic.script import ScriptDirectory
+
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.connect() as conn:
+        cfg = _alembic_config(conn)
+    return ScriptDirectory.from_config(cfg).get_current_head()
+
+
+def _stamped_revision(path):
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.connect() as conn:
+        return conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
 
 
 def _fresh_db():
@@ -171,3 +188,174 @@ class TestLegacyUserMigration:
             assert hp[3] == 0  # notnull is now 0 (nullable)
             # The existing row survived the rebuild.
             assert conn.execute(text("SELECT username FROM users WHERE id='u1'")).scalar() == "admin"
+
+
+class TestAlembicCutover:
+    def test_ancient_prealembic_db_migrates_data_and_schema(self):
+        """A minimal early-schema DB (pre-dozens-of-ALTERs) cuts over correctly.
+
+        Verifies the end-to-end upgrade path for a user on a very old version:
+        existing rows survive, every later column is added (including is_guest,
+        which the users-table rebuild must not drop), missing tables are created,
+        the FTS table exists, and the legacy data backfills run. Re-running is a
+        no-op (idempotent).
+        """
+        path = os.path.join(tempfile.mkdtemp(), "ancient.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            # Early users table: NOT NULL password, before opds/email/oidc/
+            # campaign_access/is_guest were added.
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE users (
+                        id VARCHAR(36) PRIMARY KEY,
+                        username VARCHAR(100) NOT NULL UNIQUE,
+                        display_name VARCHAR(100),
+                        hashed_password VARCHAR(255) NOT NULL,
+                        role VARCHAR(20), allow_explicit BOOLEAN, created_at DATETIME
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO users (id, username, hashed_password, role, allow_explicit) "
+                    "VALUES ('u1', 'admin', 'h', 'admin', 1)"
+                )
+            )
+            # Early campaign_resources with the legacy `shared` flag but no
+            # `visibility` column yet.
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE campaign_resources (
+                        id VARCHAR(36) PRIMARY KEY,
+                        campaign_id VARCHAR(36) NOT NULL,
+                        resource_type VARCHAR(20) NOT NULL,
+                        resource_id VARCHAR(36) NOT NULL,
+                        shared BOOLEAN DEFAULT 0
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO campaign_resources "
+                    "(id, campaign_id, resource_type, resource_id, shared) "
+                    "VALUES ('r1', 'c1', 'book', 'b1', 1)"
+                )
+            )
+        engine.dispose()
+
+        init_db(path)
+        init_db(path)  # second boot must be a no-op
+
+        engine = create_engine(f"sqlite:///{path}")
+        insp = inspect(engine)
+        ucols = {c["name"]: c for c in insp.get_columns("users")}
+        rcols = {c["name"] for c in insp.get_columns("campaign_resources")}
+        tables = set(insp.get_table_names())
+
+        # Existing data survived.
+        with engine.connect() as conn:
+            assert conn.execute(
+                text("SELECT username FROM users WHERE id='u1'")
+            ).scalar() == "admin"
+            # Legacy shared=1 backfilled to visibility='public'.
+            assert conn.execute(
+                text("SELECT visibility FROM campaign_resources WHERE id='r1'")
+            ).scalar() == "public"
+
+        # Schema is fully current.
+        assert ucols["hashed_password"]["nullable"] is True
+        assert {"opds_token", "email", "oidc_subject", "campaign_access", "is_guest"} <= set(
+            ucols
+        )
+        assert {"visibility", "category_id", "sort_order", "gm_only"} <= rcols
+        # Tables absent from the old DB were created; FTS table exists.
+        assert {"game_systems", "campaigns", "wiki_pages", "book_search"} <= tables
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_fresh_db_upgrades_to_head(self):
+        """A brand-new DB runs migrations from the baseline and lands at head."""
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        names = set(inspect(engine).get_table_names())
+        assert "alembic_version" in names
+        assert "campaigns" in names and "wiki_pages" in names
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_fresh_db_matches_metadata_schema(self):
+        """The Alembic-built schema matches Base.metadata (no drift)."""
+        path = _fresh_db()
+        other = os.path.join(tempfile.mkdtemp(), "meta.db")
+        meta_engine = create_engine(f"sqlite:///{other}")
+        Base.metadata.create_all(meta_engine)
+
+        def app_tables(p):
+            insp = inspect(create_engine(f"sqlite:///{p}"))
+            return {
+                t
+                for t in insp.get_table_names()
+                if t != "alembic_version" and not t.startswith("book_search")
+            }
+
+        assert app_tables(path) == app_tables(other)
+
+    def test_pre_alembic_db_is_stamped_not_replayed(self):
+        """An existing DB with tables but no alembic_version is stamped at head.
+
+        The baseline migration is NOT re-run (which would try to CREATE existing
+        tables and fail); existing data survives and the version table appears.
+        """
+        # Build a "current-schema" DB, then strip the alembic_version table to
+        # simulate a database produced by the old imperative system.
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug) "
+                    "VALUES ('gs1', 'Sys', 'sys')"
+                )
+            )
+            conn.execute(text("DROP TABLE alembic_version"))
+        engine.dispose()
+
+        assert "alembic_version" not in set(inspect(engine).get_table_names())
+
+        # Re-init: detects the pre-Alembic DB, replays legacy migrations, stamps.
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            assert conn.execute(
+                text("SELECT name FROM game_systems WHERE id='gs1'")
+            ).scalar() == "Sys"
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_baseline_upgrade_and_downgrade(self):
+        """The baseline revision upgrades to head and downgrades back to base.
+
+        Downgrading drops every table, proving the revision is reversible.
+        """
+        from alembic import command
+
+        path = os.path.join(tempfile.mkdtemp(), "reversible.db")
+        engine = create_engine(f"sqlite:///{path}")
+
+        with engine.connect() as conn:
+            cfg = _alembic_config(conn)
+            command.upgrade(cfg, "head")
+        assert "campaigns" in set(inspect(engine).get_table_names())
+
+        with engine.connect() as conn:
+            cfg = _alembic_config(conn)
+            command.downgrade(cfg, "base")
+        remaining = {
+            t
+            for t in inspect(engine).get_table_names()
+            if t != "alembic_version"
+        }
+        assert remaining == set()

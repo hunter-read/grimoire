@@ -202,6 +202,10 @@ Open `http://localhost:9481`. On first launch you'll be prompted to create an ad
 
 The database, search index, and rendered thumbnails are all stored under `DATA_PATH`. Back this directory up to preserve your library metadata and user accounts.
 
+### Upgrading
+
+Database schema changes are applied automatically on startup via [Alembic](https://alembic.sqlalchemy.org/) — **no manual action is required** when upgrading, including from versions that predate Alembic. On first run under the new system, an existing database is detected and stamped at the correct baseline, so only genuinely new migrations run thereafter. Back up `DATA_PATH` before upgrading, as always.
+
 ### Optional: Valkey/Redis page cache
 
 Set `VALKEY_URL` to a Redis-compatible URL to enable in-memory page caching:
@@ -692,7 +696,7 @@ The live API is self-documented via OpenAPI. With the server running:
 | `http://localhost:9481/api/redoc` | ReDoc — readable reference |
 | `http://localhost:9481/api/openapi.json` | Raw OpenAPI schema |
 
-For the database schema — an ER diagram and a table-by-table reference of the models and their foreign keys — see [docs/data-model.md](docs/data-model.md).
+For contributors, [docs/architecture.md](docs/architecture.md) is a developer-facing architecture reference — module map, request lifecycle, auth/OIDC flow, and startup migrations. For the database schema — an ER diagram and a table-by-table reference of the models and their foreign keys — see [docs/data-model.md](docs/data-model.md).
 
 ---
 
