@@ -446,6 +446,9 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `ALLOW_PASSWORD_AUTHENTICATION` | — | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
 | `GUEST_ACCESS_ENABLED` | — | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
 | `OIDC_*` env vars | — | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
+| `AUTH_RATE_LIMIT` | `10/minute` | Per-IP throttle applied to the credential-checking endpoints (`/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats`). Exceeding it returns `429`. Uses a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string like `20/minute` or `100/hour`. See [Security hardening](#security-hardening) below. |
+| `RATE_LIMIT_ENABLED` | `true` | Optional. Set to `false` to disable auth rate limiting entirely. |
+| `TRUST_FORWARDED_FOR` | `true` | Optional. When `true`, the rate limiter keys on the left-most `X-Forwarded-For` address so each client gets its own bucket behind a reverse proxy. Set to `false` only if Grimoire is exposed directly (no trusted proxy), so a spoofed header can't sidestep the limit. |
 
 ### Volumes
 
@@ -475,6 +478,22 @@ PDFs are rendered page-by-page server-side as WebP images rather than streamed a
 ### Caching
 
 Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an in-memory Redis-compatible cache instead for faster repeat loads.
+
+---
+
+## Security hardening
+
+### Auth rate limiting
+
+The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats` — are rate-limited per client IP to slow online password / invite-code brute-forcing. The default is **`10/minute`** per IP; exceeding it returns HTTP `429`. Tune it with `AUTH_RATE_LIMIT` (a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string such as `20/minute` or `100/hour`), or turn it off with `RATE_LIMIT_ENABLED=false`.
+
+**Behind a reverse proxy:** keying is done on the left-most `X-Forwarded-For` address by default (`TRUST_FORWARDED_FOR=true`) so each real client — not the proxy — gets its own bucket. Make sure your proxy sets `X-Forwarded-For`. If Grimoire is exposed directly with no trusted proxy in front, set `TRUST_FORWARDED_FOR=false` so a spoofed header can't be used to sidestep the limit.
+
+**Multiple replicas:** when `VALKEY_URL` is set the limit counters are shared through Valkey so the limit is enforced consistently across all workers/replicas; without it each process keeps its own in-memory counters (and the limiter falls back to in-memory automatically if Valkey becomes unreachable).
+
+### Security headers
+
+Every response carries a `Content-Security-Policy` scoped to what the SPA actually loads (own scripts, inline styles used by React, Google Fonts, and `data:`/`blob:` images for rendered pages), plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` (matching the CSP `frame-ancestors 'none'`), and `Referrer-Policy: strict-origin-when-cross-origin`. `Strict-Transport-Security` is emitted **only when the request is HTTPS** — either directly or via an `X-Forwarded-Proto: https` header from your TLS-terminating proxy — so it is never sent over plain HTTP.
 
 ---
 

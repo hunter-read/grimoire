@@ -29,6 +29,10 @@ Authorization: Bearer <token>
 
 Tokens are returned by `/api/auth/login` and expire after **30 days**.
 
+### Rate limiting
+
+The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and `/api/stats` — are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](../README.md#security-hardening).
+
 ### Roles
 
 | Role | Permissions |

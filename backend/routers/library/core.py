@@ -2,13 +2,14 @@
 import sys
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Request
 from sqlalchemy import func
 
 from ...config import SessionLocal, LIBRARY_PATH, VERSION, COMMIT_HASH
 from ...models import GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, CurrentUser
 from ...indexer import resolve_scope
+from ...security import AUTH_RATE_LIMIT, limiter
 from ..settings import get_stats_api_key
 from . import _helpers
 from ._schemas import RescanRequest
@@ -73,7 +74,9 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
     summary="Library statistics",
     description="Returns library counts and version. Accepts either a valid JWT (Authorization: Bearer) or a configured X-API-Key header for external integrations.",
 )
+@limiter.limit(AUTH_RATE_LIMIT)
 def get_stats(
+    request: Request,
     x_api_key: Optional[str] = Header(default=None),
     user=Depends(optional_get_current_user),
 ):

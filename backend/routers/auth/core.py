@@ -1,5 +1,5 @@
 """Authentication endpoint handlers."""
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 
 from ...auth import (
     CurrentUser,
@@ -10,6 +10,7 @@ from ...auth import (
 )
 from ...config import SessionLocal
 from ...models import CampaignMember, User
+from ...security import AUTH_RATE_LIMIT, limiter
 from ..settings._helpers import (
     _get_raw,
     guest_access_effective,
@@ -28,7 +29,8 @@ def auth_status():
         db.close()
 
 
-def auth_setup(data: SetupRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+def auth_setup(request: Request, data: SetupRequest):
     db = SessionLocal()
     try:
         if db.query(User).count() > 0:
@@ -50,7 +52,8 @@ def auth_setup(data: SetupRequest):
         db.close()
 
 
-def auth_login(data: LoginRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+def auth_login(request: Request, data: LoginRequest):
     db = SessionLocal()
     try:
         if not password_auth_effective(_get_raw(db)):
@@ -67,7 +70,8 @@ def auth_login(data: LoginRequest):
         db.close()
 
 
-def guest_login(data: GuestLoginRequest):
+@limiter.limit(AUTH_RATE_LIMIT)
+def guest_login(request: Request, data: GuestLoginRequest):
     db = SessionLocal()
     try:
         if not guest_access_effective(_get_raw(db)):
