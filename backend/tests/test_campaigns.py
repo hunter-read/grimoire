@@ -1118,6 +1118,130 @@ class TestCharacterUploads:
         assert m["has_art"] is False
 
 
+class TestUploadCaching:
+    """Uploaded/served files carry cache validators + Cache-Control, revalidate
+    to 304, and change their validator when the file is replaced (issue #154)."""
+
+    @pytest.fixture()
+    def member(self, client, gm_headers, player_headers, player_id):
+        c = client.post(
+            "/api/campaigns",
+            json={"name": f"Cache {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        client.post(
+            f"/api/campaigns/{c['id']}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        client.patch(
+            f"/api/campaigns/{c['id']}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        body = client.get(f"/api/campaigns/{c['id']}", headers=gm_headers).json()
+        member_id = next(m["id"] for m in body["members"] if not m.get("is_owner"))
+        return c, member_id
+
+    def _upload_banner(self, client, gm_headers, cid, color=(120, 80, 200)):
+        resp = client.post(
+            f"/api/campaigns/{cid}/banner",
+            files={"file": ("banner.png", _png_bytes(color), "image/png")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+    def test_banner_has_cache_headers(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        img = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers)
+        assert img.status_code == 200
+        assert "private" in img.headers["cache-control"]
+        assert "max-age=" in img.headers["cache-control"]
+        assert img.headers.get("etag")
+        assert img.headers.get("last-modified")
+
+    def test_banner_conditional_request_returns_304(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        first = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers)
+        etag = first.headers["etag"]
+        revalidated = client.get(
+            f"/api/campaigns/{c['id']}/banner",
+            headers={**gm_headers, "If-None-Match": etag},
+        )
+        assert revalidated.status_code == 304
+
+    def test_if_modified_since_returns_304(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        first = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers)
+        last_modified = first.headers["last-modified"]
+        revalidated = client.get(
+            f"/api/campaigns/{c['id']}/banner",
+            headers={**gm_headers, "If-Modified-Since": last_modified},
+        )
+        assert revalidated.status_code == 304
+
+    def test_wildcard_if_none_match_returns_304(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        revalidated = client.get(
+            f"/api/campaigns/{c['id']}/banner",
+            headers={**gm_headers, "If-None-Match": "*"},
+        )
+        assert revalidated.status_code == 304
+
+    def test_reupload_changes_validator(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"], color=(10, 20, 30))
+        etag = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers).headers["etag"]
+        # A differently sized/mtimed image invalidates the mtime+size-derived ETag.
+        self._upload_banner(client, gm_headers, c["id"], color=(200, 200, 200))
+        new_etag = client.get(
+            f"/api/campaigns/{c['id']}/banner", headers=gm_headers
+        ).headers["etag"]
+        assert new_etag != etag
+
+    def test_art_and_sheet_have_cache_headers(self, client, gm_headers, member):
+        c, member_id = member
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/art",
+            files={"file": ("art.png", _png_bytes(), "image/png")},
+            headers=gm_headers,
+        )
+        art = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/art", headers=gm_headers
+        )
+        assert art.status_code == 200
+        assert "max-age=" in art.headers["cache-control"]
+        assert art.headers.get("etag")
+
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
+            files={"file": ("hero.pdf", b"%PDF-1.4 fake", "application/pdf")},
+            headers=gm_headers,
+        )
+        sheet = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet", headers=gm_headers
+        )
+        assert sheet.status_code == 200
+        assert "max-age=" in sheet.headers["cache-control"]
+        assert sheet.headers.get("etag")
+
+    def test_campaign_file_has_cache_headers(self, client, gm_headers, member):
+        c, _ = member
+        res = client.post(
+            f"/api/campaigns/{c['id']}/files",
+            files={"file": ("h.txt", b"hello world", "text/plain")},
+            headers=gm_headers,
+        ).json()
+        dl = client.get(
+            f"/api/campaigns/{c['id']}/files/{res['resource_id']}", headers=gm_headers
+        )
+        assert dl.status_code == 200
+        assert "max-age=" in dl.headers["cache-control"]
+        assert dl.headers.get("etag")
+
+
 # ---------------------------------------------------------------------------
 # In-app character sheets: AcroForm fields + duplicate from a template
 # ---------------------------------------------------------------------------
