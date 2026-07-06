@@ -9,8 +9,11 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from slowapi import _rate_limit_exceeded_handler
+
 from . import scheduler, session_creator
 from .auth import get_current_user
+from .security import RateLimitExceeded, SecurityHeadersMiddleware, limiter
 from .config import (
     DATA_PATH,
     LIBRARY_PATH,
@@ -152,6 +155,12 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
+
+# Rate limiting on auth endpoints (see backend/security.py) and security
+# headers on every response.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SecurityHeadersMiddleware)
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 _assets_dir = os.path.join(FRONTEND_DIR, "assets")
