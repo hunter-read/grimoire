@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuChevronRight, LuFileText, LuHeart, LuPencil, LuCheck, LuDownload } from 'react-icons/lu'
+import {
+  LuChevronRight,
+  LuFileArchive,
+  LuFileText,
+  LuHeart,
+  LuPencil,
+  LuCheck,
+  LuDownload,
+} from 'react-icons/lu'
 import { mediaUrl } from '../../api'
-import { CATEGORY_ICONS } from '../../constants'
+import { CATEGORY_ICONS, isArchiveBook } from '../../constants'
 import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
@@ -28,7 +36,8 @@ export default function BookRow({
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const { isFavorite, toggleFavorite } = useFavorites()
-  const CatIcon = CATEGORY_ICONS[book.category] || LuFileText
+  const isArchive = isArchiveBook(book)
+  const CatIcon = isArchive ? LuFileArchive : CATEGORY_ICONS[book.category] || LuFileText
 
   const lastPage = getBookPrefs(book.id).page || 0
   const progress = book.page_count > 0 && lastPage > 1 ? Math.min(lastPage / book.page_count, 1) : 0
@@ -38,6 +47,16 @@ export default function BookRow({
     if (bulkMode) {
       e.stopPropagation()
       onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+      return
+    }
+    // Archives have no reader view — open() downloads the file instead.
+    if (isArchive) {
+      const a = document.createElement('a')
+      a.href = mediaUrl(`/books/${book.id}/file`)
+      a.download = book.filename || ''
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
       return
     }
     onOpen()

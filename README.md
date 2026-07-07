@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="frontend/static/android-chrome-192x192.png" alt="Grimoire" width="144">
+  <img src="frontend/static/grimoire-logo.svg" alt="Grimoire" width="144">
 
   # Grimoire — Self-Hosted TTRPG Library Manager
 
@@ -266,6 +266,19 @@ books/
 ```
 
 Books without a subfolder are shown ungrouped at the top of their category section, above any subfolder groups. Subfolder groups are collapsible and include a download button for the whole group.
+
+#### Archive files
+
+Archive files placed anywhere under `books/` are shown alongside your books in their category — handy for bundling a set of related files (a maps pack, a COMP/CON export, loose handouts) next to the book they belong to. Recognized extensions:
+
+| Type | Extensions |
+|---|---|
+| Zip | `.zip`, `.cbz` |
+| RAR | `.rar`, `.cbr` |
+| 7-Zip | `.7z`, `.cb7` |
+| Tar | `.tar`, `.cbt`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2` |
+
+Archives are treated as opaque downloads — Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive. Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) additionally get a cover thumbnail generated from the first image inside them.
 
 #### System-agnostic collections
 

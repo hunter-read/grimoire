@@ -1,12 +1,16 @@
 """Library scanner, PDF indexer, and metadata fetcher for Grimoire."""
 
+import io
 import os
 import re
 import json
 import logging
 import hashlib
+import tarfile
 import threading
+import zipfile
 from pathlib import Path
+from typing import Optional
 from xml.etree import ElementTree
 import fitz  # PyMuPDF
 from PIL import Image
@@ -105,8 +109,56 @@ PDF_EXTS = {".pdf"}
 DOC_EXTS = {".pdf", ".epub", ".djvu"}
 MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS
 AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
+# Archive files shown alongside books in a category and served/bundled as opaque
+# blobs (their contents are not extracted during the scan).  Comic-book variants
+# (.cbz/.cbr/.cb7/.cbt) additionally get a first-image thumbnail, see
+# generate_thumbnail.  Multi-suffix names (.tar.gz/.tar.bz2) are matched by
+# archive_ext() rather than Path.suffix.
+ARCHIVE_EXTS = {
+    ".zip", ".cbz",
+    ".rar", ".cbr",
+    ".7z", ".cb7",
+    ".tar", ".cbt", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2",
+}
+# Comic-book archives whose first image is used as a cover thumbnail.
+_COMIC_ARCHIVE_EXTS = {".cbz", ".cbr", ".cb7", ".cbt"}
 # Basenames (sans extension) treated as folder cover art for audio tracks.
 _AUDIO_COVER_STEMS = {"cover", "folder"}
+
+
+def archive_ext(filename: str) -> str:
+    """Return the archive extension for *filename* (lowercased), or "".
+
+    Handles two-part suffixes like ``.tar.gz``/``.tar.bz2`` that
+    ``Path.suffix`` cannot, falling back to the single suffix otherwise.
+    """
+    lower = filename.lower()
+    for ext in (".tar.gz", ".tar.bz2"):
+        if lower.endswith(ext):
+            return ext
+    suffix = Path(lower).suffix
+    return suffix if suffix in ARCHIVE_EXTS else ""
+
+
+_ARCHIVE_MIME = {
+    ".zip": "application/zip",
+    ".cbz": "application/vnd.comicbook+zip",
+    ".rar": "application/vnd.rar",
+    ".cbr": "application/vnd.comicbook-rar",
+    ".7z": "application/x-7z-compressed",
+    ".cb7": "application/x-7z-compressed",
+    ".tar": "application/x-tar",
+    ".cbt": "application/x-tar",
+    ".tar.gz": "application/gzip",
+    ".tgz": "application/gzip",
+    ".tar.bz2": "application/x-bzip2",
+    ".tbz2": "application/x-bzip2",
+}
+
+
+def archive_mime(arc_ext: str) -> str:
+    """Return a MIME type for a known archive extension (falls back to octet-stream)."""
+    return _ARCHIVE_MIME.get(arc_ext, "application/octet-stream")
 
 
 def slugify(name: str) -> str:
@@ -154,12 +206,74 @@ def agnostic_category(relative_path: str) -> str:
 
 _THUMBNAIL_TIMEOUT = 30  # seconds
 
+# Cap the archive listing we scan for a cover image so a maliciously large
+# central directory can't stall a thumbnail worker.
+_ARCHIVE_LIST_CAP = 5000
+
+
+def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
+    """Return the raw bytes of the first image inside a comic-book archive.
+
+    Entries are considered in case-insensitive name order (the usual page
+    ordering for CBZ/CBR), and only the single chosen member is decompressed.
+    Returns None if the archive can't be opened or holds no image.  Never
+    raises — callers treat a None as "no cover available".
+    """
+    try:
+        if arc_ext in (".cbz", ".zip"):
+            with zipfile.ZipFile(filepath) as zf:
+                names = [n for n in zf.namelist()[:_ARCHIVE_LIST_CAP] if not n.endswith("/")]
+                for name in sorted(names, key=str.lower):
+                    if Path(name).suffix.lower() in IMAGE_EXTS:
+                        return zf.read(name)
+        elif arc_ext in (".cbr", ".rar"):
+            import rarfile
+
+            with rarfile.RarFile(filepath) as rf:
+                names = [n for n in rf.namelist()[:_ARCHIVE_LIST_CAP]]
+                for name in sorted(names, key=str.lower):
+                    if Path(name).suffix.lower() in IMAGE_EXTS:
+                        return rf.read(name)
+        elif arc_ext in (".cb7", ".7z"):
+            import py7zr
+
+            with py7zr.SevenZipFile(filepath) as zf:
+                names = [n for n in zf.getnames()[:_ARCHIVE_LIST_CAP]]
+                targets = sorted(
+                    (n for n in names if Path(n).suffix.lower() in IMAGE_EXTS),
+                    key=str.lower,
+                )
+                if targets:
+                    first = targets[0]
+                    data = zf.read([first])
+                    bio = data.get(first)
+                    return bio.read() if bio is not None else None
+        elif arc_ext in (".cbt", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2"):
+            with tarfile.open(filepath) as tf:
+                members = [m for m in tf.getmembers() if m.isfile()]
+                for member in sorted(members, key=lambda m: m.name.lower()):
+                    if Path(member.name).suffix.lower() in IMAGE_EXTS:
+                        fh = tf.extractfile(member)
+                        return fh.read() if fh is not None else None
+    except Exception as exc:
+        logger.debug(f"Could not read cover image from archive '{filepath}': {exc}")
+    return None
+
 
 def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, result: list, exc: list):
     """Worker executed in a daemon thread by generate_thumbnail."""
     try:
         ext = Path(filepath).suffix.lower()
-        if ext == ".pdf":
+        arc_ext = archive_ext(filepath)
+        if arc_ext in _COMIC_ARCHIVE_EXTS:
+            data = _first_image_from_archive(filepath, arc_ext)
+            if data is None:
+                result[0] = False
+                return
+            img = Image.open(io.BytesIO(data))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+        elif ext == ".pdf":
             doc = fitz.open(filepath)
             if len(doc) == 0:
                 result[0] = False
@@ -238,7 +352,9 @@ def _count_eligible_files(directory: Path, extensions: set) -> int:
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if not d.startswith(".")]
         for f in files:
-            if not f.startswith(".") and Path(f).suffix.lower() in extensions:
+            if f.startswith("."):
+                continue
+            if Path(f).suffix.lower() in extensions or archive_ext(f) in extensions:
                 count += 1
     return count
 
@@ -541,7 +657,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     audio_walk_dir = scope_dir if scope_section == "audio" else audio_dir
 
     total_books = (
-        _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS)
+        _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS)
         if scan_books and books_walk_dir.exists() else 0
     )
     total_maps = (
@@ -637,8 +753,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                     filepath = os.path.join(root, filename)
                     ext = Path(filename).suffix.lower()
+                    arc_ext = archive_ext(filename)
 
-                    if ext not in DOC_EXTS and ext not in IMAGE_EXTS:
+                    if ext not in DOC_EXTS and ext not in IMAGE_EXTS and not arc_ext:
                         continue
 
                     if filename in opf_cover_filenames:
@@ -690,7 +807,10 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         if existing.scan_failed:
                             logger.debug(f"Already registered, skipping: {filename}")
                             continue
-                        needs_thumbnail = not existing.has_thumbnail
+                        # Archives are opaque: only comic-book variants get a
+                        # cover thumbnail, and none carry a page count.
+                        thumbnailable = ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+                        needs_thumbnail = thumbnailable and not existing.has_thumbnail
                         needs_page_count = ext == ".pdf" and existing.page_count == 0 and not existing.index_error
                         if ext in IMAGE_EXTS and existing.page_count == 0:
                             existing.page_count = 1
@@ -722,7 +842,11 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             relative_path=relative_path,
                             category=category,
                             file_size=file_size,
-                            mime_type="application/pdf" if ext == ".pdf" else f"image/{ext[1:]}",
+                            mime_type=(
+                                "application/pdf" if ext == ".pdf"
+                                else archive_mime(arc_ext) if arc_ext
+                                else f"image/{ext[1:]}"
+                            ),
                             authors=opf_meta.get("authors"),
                             description=opf_meta.get("description"),
                             publisher=opf_meta.get("publisher"),
@@ -748,7 +872,11 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             session.rollback()
                             logger.debug(f"Book already exists, skipping: {filepath}")
                             continue
-                        needs_thumbnail = True
+                        # Archives are opaque: only comic-book variants get a
+                        # cover thumbnail, and none carry a page count.
+                        needs_thumbnail = (
+                            ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+                        )
                         needs_page_count = ext == ".pdf"
                         if ext in IMAGE_EXTS:
                             book.page_count = 1

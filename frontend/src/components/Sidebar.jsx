@@ -152,7 +152,7 @@ export default function Sidebar({
         }}
       >
         <img
-          src="/android-chrome-192x192.png"
+          src="/grimoire-logo.svg"
           alt=""
           aria-hidden="true"
           width={collapsed ? 40 : 72}

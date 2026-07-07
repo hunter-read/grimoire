@@ -22,6 +22,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# `unar` provides RAR extraction for rarfile (used to render .cbr cover
+# thumbnails); without it .cbr archives are still served, just without a cover.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    unar \
+    && rm -rf /var/lib/apt/lists/*
+
 # Bring in the pre-built Python packages from the builder stage.
 COPY --from=backend-builder /install /usr/local
 

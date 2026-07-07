@@ -180,7 +180,8 @@
     "shortcutClose": "Fermer les panneaux",
     "spreadCover": "Couverture",
     "spreadIncludeCover": "Inclure la couverture dans la double page (pages 1-2, 3-4…)",
-    "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)"
+    "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)",
+    "archiveNotViewable": "Ce fichier est une archive et ne peut pas être affiché dans le lecteur. Téléchargez-le pour en ouvrir le contenu."
   },
   "search": {
     "title": "Rechercher dans votre bibliothèque",
