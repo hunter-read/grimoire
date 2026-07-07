@@ -163,6 +163,12 @@ export default function SystemDetailView() {
 
   const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
 
+  // Distinct category slugs already in use across this system's books, so the
+  // book editor can offer them for consistent reuse alongside the defaults.
+  const existingCategories = [
+    ...new Set((system.books || []).map((b) => b.category).filter(Boolean)),
+  ].sort()
+
   const toggleTag = (tag) =>
     setSelectedTags((prev) => {
       const next = new Set(prev)
@@ -894,6 +900,7 @@ export default function SystemDetailView() {
                                   <BookEditor
                                     book={book}
                                     allTags={allTags}
+                                    existingCategories={existingCategories}
                                     onSave={(updated) => {
                                       saveBook(book.id, updated)
                                       setEditingBookId(null)
@@ -956,6 +963,7 @@ export default function SystemDetailView() {
                                       <BookEditor
                                         book={book}
                                         allTags={allTags}
+                                        existingCategories={existingCategories}
                                         onSave={(updated) => {
                                           saveBook(book.id, updated)
                                           setEditingBookId(null)

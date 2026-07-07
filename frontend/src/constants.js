@@ -59,3 +59,22 @@ const ARCHIVE_MIME_TYPES = new Set([
 export function isArchiveBook(book) {
   return !!book && ARCHIVE_MIME_TYPES.has(book.mime_type)
 }
+
+/**
+ * Create a URL-safe slug from a name. Mirrors `slugify` in `backend/indexer.py`
+ * so custom category names entered in the UI match what the backend produces.
+ */
+export function slugify(name) {
+  return (name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** Friendly label for a category slug, falling back to the slug itself. */
+export function categoryLabel(slug) {
+  return CATEGORY_LABELS[slug] || slug
+}
