@@ -102,8 +102,6 @@ class TestSubfoldersWithinCategory:
         assert result == "supplement"
 
     def test_homebrew_subfolder_still_homebrew(self):
-        # Use a subfolder name that doesn't accidentally contain a category keyword
-        # as a substring (e.g. "Community" contains "mm" which matches "core").
         result = guess_category("books/D&D 5e/homebrew/Personal/custom.pdf")
         assert result == "homebrew"
 
@@ -124,6 +122,46 @@ class TestSubfoldersWithinCategory:
         # books/System/adventures/AP Name/Part 1/chapter.pdf → adventure
         result = guess_category("books/PF2e/adventures/Abomination Vaults/Part 1/ruins.pdf")
         assert result == "adventure"
+
+
+class TestWholeWordKeywordMatching:
+    """Regression tests for issue #188: keywords must match whole tokens, not substrings.
+
+    Short keywords like ``mm`` (core) previously matched inside unrelated words
+    (``ga**mm**a``), misclassifying campaign books as Core.
+    """
+
+    def test_gamma_world_under_campaigns_is_adventure(self):
+        # "gamma" contains the substring "mm" (a core keyword) but is not the
+        # token "mm"; the explicit campaigns/ folder should win.
+        result = guess_category("books/Gamma World/campaigns/Gamma World/gw.pdf")
+        assert result == "adventure"
+
+    def test_gamma_token_alone_does_not_match_core(self):
+        # A folder literally named "Gamma World" must not classify as core.
+        result = guess_category("books/System/Gamma World/gw.pdf")
+        assert result == "gamma-world"
+
+    def test_hollow_world_under_campaigns_is_adventure(self):
+        result = guess_category("books/D&D BECMI/campaigns/Hollow World/hw.pdf")
+        assert result == "adventure"
+
+    def test_rules_cyclopedia_still_matches_core(self):
+        # Genuine whole-token match on "rules" is preserved.
+        result = guess_category("books/D&D BECMI/core/Rules Cyclopedia/rc.pdf")
+        assert result == "core"
+
+    def test_map_substring_does_not_false_match(self):
+        # "map" is a keyword; "Champaign" / "Mapper" style substrings should not hit.
+        result = guess_category("books/System/Roadmapping/notes.pdf")
+        assert result == "roadmapping"
+
+    def test_multiword_keyword_still_matches(self):
+        # Multi-word keywords (character sheet) match as contiguous tokens.
+        assert guess_category("books/D&D 5e/Character Sheet/blank.pdf") == "character-sheet"
+
+    def test_multiword_keyword_battle_map(self):
+        assert guess_category("books/D&D 5e/Battle Map/grid.pdf") == "map"
 
 
 class TestIsSystemAgnosticFolder:
