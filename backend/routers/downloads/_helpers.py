@@ -18,7 +18,12 @@ _FORMATS = {
     "tar.bz2": {"ext": ".tar.bz2", "mime": "application/x-bzip2"},
 }
 
-_ZIP_STORED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".zip"}
+_ZIP_STORED_EXTS = {
+    ".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif",
+    # Already-compressed archive payloads — re-deflating them wastes CPU.
+    ".zip", ".cbz", ".rar", ".cbr", ".7z", ".cb7",
+    ".tar", ".cbt", ".gz", ".tgz", ".bz2", ".tbz2",
+}
 _WIN_ILLEGAL = set(':*?"<>|\\')
 
 

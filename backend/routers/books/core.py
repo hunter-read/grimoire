@@ -44,6 +44,7 @@ def list_books(
                     "category": b.category,
                     "page_count": b.page_count,
                     "file_size": b.file_size,
+                    "mime_type": b.mime_type,
                     "game_system_id": b.game_system_id,
                     "has_thumbnail": b.has_thumbnail,
                     "indexed": b.indexed,

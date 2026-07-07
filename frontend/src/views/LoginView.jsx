@@ -142,11 +142,7 @@ export default function LoginView({ onLogin }) {
       <div style={{ width: '100%', maxWidth: 360 }}>
         {/* Branding */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <img
-            src="/android-chrome-192x192.png"
-            alt="Grimoire"
-            style={{ width: 148, height: 148 }}
-          />
+          <img src="/grimoire-logo.svg" alt="Grimoire" style={{ width: 148, height: 148 }} />
           <h1 style={{ fontSize: 32, letterSpacing: '0.1em', marginBottom: 8 }}>{t('app.name')}</h1>
           <p
             style={{

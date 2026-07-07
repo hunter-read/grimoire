@@ -180,7 +180,8 @@
     "shortcutClose": "Close panels",
     "spreadCover": "Cover",
     "spreadIncludeCover": "Include cover in spread (pair pages 1-2, 3-4…)",
-    "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)"
+    "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)",
+    "archiveNotViewable": "This is an archive file and cannot be viewed in the reader. Download it to open its contents."
   },
   "search": {
     "title": "Search Your Library",

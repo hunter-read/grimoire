@@ -41,3 +41,21 @@ export const CATEGORY_ICONS = {
   handout: LuFileText,
   homebrew: LuWrench,
 }
+
+// MIME types for archive files that are shown alongside books but have no
+// viewable pages — clicking one downloads it instead of opening the reader.
+const ARCHIVE_MIME_TYPES = new Set([
+  'application/zip',
+  'application/vnd.comicbook+zip',
+  'application/vnd.rar',
+  'application/vnd.comicbook-rar',
+  'application/x-7z-compressed',
+  'application/x-tar',
+  'application/gzip',
+  'application/x-bzip2',
+])
+
+/** True when a book record is an archive file (zip/rar/7z/tar/comic-book). */
+export function isArchiveBook(book) {
+  return !!book && ARCHIVE_MIME_TYPES.has(book.mime_type)
+}

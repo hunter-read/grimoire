@@ -180,7 +180,8 @@
     "shortcutClose": "Fechar painéis",
     "spreadCover": "Capa",
     "spreadIncludeCover": "Incluir capa na página dupla (emparelhar páginas 1-2, 3-4…)",
-    "spreadExcludeCover": "Excluir capa da página dupla (emparelhar páginas 2-3, 4-5…)"
+    "spreadExcludeCover": "Excluir capa da página dupla (emparelhar páginas 2-3, 4-5…)",
+    "archiveNotViewable": "Este é um ficheiro de arquivo e não pode ser visualizado no leitor. Descarregue-o para abrir o seu conteúdo."
   },
   "search": {
     "title": "Pesquisar na sua biblioteca",
