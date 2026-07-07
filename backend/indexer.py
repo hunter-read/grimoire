@@ -120,13 +120,47 @@ def _normalize_folder(name: str) -> str:
     return re.sub(r"[-_\s]+", " ", name.lower()).strip()
 
 
+def _token_matches_keyword(token: str, kw_token: str) -> bool:
+    """Match a single folder token against a single keyword on word boundaries.
+
+    Accepts an exact match or a simple English plural of the keyword
+    (``supplement`` -> ``supplements``, ``bestiary`` -> ``bestiaries``) so that
+    folders like ``Supplements`` or ``Maps`` still classify, while incidental
+    substrings (``mm`` inside ``gamma``) no longer do.
+    """
+    if token == kw_token:
+        return True
+    if token == kw_token + "s":
+        return True
+    if token == kw_token + "es":
+        return True
+    if kw_token.endswith("y") and token == kw_token[:-1] + "ies":
+        return True
+    return False
+
+
+def _keyword_matches(keyword: str, tokens: list[str]) -> bool:
+    """Return True if ``keyword`` matches ``tokens`` on whole-word boundaries.
+
+    Single-word keywords must match a whole token (so ``mm`` no longer matches
+    inside ``gamma``). Multi-word keywords (e.g. ``character sheet``) match as a
+    contiguous run of tokens.
+    """
+    kw_tokens = keyword.split()
+    n = len(kw_tokens)
+    for i in range(len(tokens) - n + 1):
+        if all(_token_matches_keyword(tokens[i + j], kw_tokens[j]) for j in range(n)):
+            return True
+    return False
+
+
 def guess_category(filepath: str) -> str:
     """Infer book category from path segments, innermost folder takes priority."""
     segments = filepath.replace("\\", "/").split("/")
     for segment in reversed(segments[:-1]):
-        normalized = _normalize_folder(segment)
+        tokens = _normalize_folder(segment).split()
         for category, keywords in CATEGORY_MAP.items():
-            if any(kw in normalized for kw in keywords):
+            if any(_keyword_matches(kw, tokens) for kw in keywords):
                 return category
     # 4+ segments means a named subfolder exists under the system root
     if len(segments) > 3:
