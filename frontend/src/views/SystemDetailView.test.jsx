@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SystemDetailView from './SystemDetailView'
@@ -42,16 +42,47 @@ vi.mock('../components/DownloadArchiveModal', () => ({
   ),
 }))
 
+const bookEditorProps = vi.fn()
 vi.mock('../components/system/BookEditor', () => ({
-  default: ({ onClose }) => (
-    <div data-testid="book-editor">
-      <button onClick={onClose}>Close Editor</button>
-    </div>
-  ),
+  default: (props) => {
+    bookEditorProps(props)
+    return (
+      <div data-testid="book-editor">
+        <button onClick={props.onClose}>Close Editor</button>
+      </div>
+    )
+  },
 }))
 
 vi.mock('../components/system/SystemEditor', () => ({
   default: () => <div data-testid="system-editor" />,
+}))
+
+// Bulk-selection surfaces: expose minimal buttons that fire the callbacks the
+// view wires up, so the bulk handlers (applyBulkTags / applyBookEdits) run.
+vi.mock('../components/BulkActionBar', () => ({
+  default: ({ count, applying, onApplyTags, onBulkEdit }) => (
+    <div data-testid="bulk-bar">
+      <span data-testid="bulk-count">{count}</span>
+      <span data-testid="bulk-applying">{String(applying)}</span>
+      <button onClick={() => onApplyTags(['fresh'])}>bulk-apply-tags</button>
+      <button onClick={onBulkEdit}>bulk-edit</button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/BulkEditModal', () => ({
+  default: ({ items, onSaved }) => (
+    <div data-testid="bulk-edit-modal">
+      <button onClick={() => onSaved(Object.fromEntries(items.map((b) => [b.id, { year: 1999 }])))}>
+        bulk-save
+      </button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/AddToCampaignModal', () => ({
+  default: () => <div data-testid="add-to-campaign" />,
 }))
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -401,5 +432,118 @@ describe('SystemDetailView — book view mode', () => {
     expect(toggle).toHaveAccessibleName(/compact/i)
     // Books still render in card/compact grid layouts.
     expect(screen.getByText('PHB')).toBeInTheDocument()
+  })
+})
+
+describe('SystemDetailView — book editor categories', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsFavorite.mockReturnValue(false)
+  })
+
+  it('passes the distinct set of in-use categories to the book editor', async () => {
+    const books = [
+      makeBook({ id: 'b1', title: 'PHB', category: 'core' }),
+      makeBook({ id: 'b2', title: 'CoS', category: 'adventure' }),
+      makeBook({ id: 'b3', title: 'Homebrew Doc', category: 'my-custom' }),
+      makeBook({ id: 'b4', title: 'DMG', category: 'core' }), // duplicate slug
+    ]
+    api.get.mockResolvedValue(makeSystem(books))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    // Open the editor for the first book via its edit affordance.
+    fireEvent.click(screen.getAllByRole('button', { name: /edit metadata/i })[0])
+    await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
+
+    const props = bookEditorProps.mock.calls.at(-1)[0]
+    expect(props.existingCategories).toEqual(['adventure', 'core', 'my-custom'])
+  })
+})
+
+describe('SystemDetailView — header, tag filter, and bulk actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsFavorite.mockReturnValue(false)
+    api.patch.mockResolvedValue({})
+  })
+
+  it('renders publisher links and plain-text publishers in the header', async () => {
+    const system = makeSystem([makeBook({ title: 'PHB' })])
+    system.publishers = [{ name: 'WotC', url: 'https://wotc.com' }, { name: 'TSR' }]
+    api.get.mockResolvedValue(system)
+    renderView()
+
+    await waitFor(() => expect(screen.getByText('Published by')).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'WotC' })).toHaveAttribute('href', 'https://wotc.com')
+    expect(screen.getByText('TSR', { exact: false })).toBeInTheDocument()
+  })
+
+  it('toggles a tag filter and hides books lacking that tag', async () => {
+    api.get.mockResolvedValue(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'Tagged', tags: ['spooky'] }),
+        makeBook({ id: 'b2', title: 'Untagged', tags: [] }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Tagged')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Spooky' }))
+    expect(screen.getByText('Tagged')).toBeInTheDocument()
+    expect(screen.queryByText('Untagged')).not.toBeInTheDocument()
+  })
+
+  it('reveals the rest of the tags via the show-all toggle when there are many', async () => {
+    const tags = Array.from({ length: 20 }, (_, i) => `tag-${String(i).padStart(2, '0')}`)
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB', tags })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    // The 16th+ tags are hidden until the show-all toggle is clicked.
+    expect(screen.queryByRole('button', { name: 'Tag-19' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /\+\d+ more/i }))
+    expect(screen.getByRole('button', { name: 'Tag-19' })).toBeInTheDocument()
+  })
+
+  it('applies bulk tags to the selected books', async () => {
+    api.get.mockResolvedValue(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'PHB', tags: ['old'] }),
+        makeBook({ id: 'b2', title: 'DMG', tags: [] }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open phb/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open dmg/i }))
+    expect(screen.getByTestId('bulk-count').textContent).toBe('2')
+
+    fireEvent.click(screen.getByText('bulk-apply-tags'))
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2))
+    const patchedTags = api.patch.mock.calls.map((c) => c[1].tags)
+    expect(patchedTags).toContainEqual(['old', 'fresh'])
+    expect(patchedTags).toContainEqual(['fresh'])
+    // Selection is cleared after applying (count resets to 0).
+    await waitFor(() => expect(screen.getByTestId('bulk-count').textContent).toBe('0'))
+  })
+
+  it('applies bulk edits from the bulk edit modal', async () => {
+    api.get.mockResolvedValue(makeSystem([makeBook({ id: 'b1', title: 'PHB', year: 2014 })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open phb/i }))
+    fireEvent.click(screen.getByText('bulk-edit'))
+    expect(screen.getByTestId('bulk-edit-modal')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('bulk-save'))
+    // Edits merge into the book and the bulk UI closes.
+    await waitFor(() => expect(screen.queryByTestId('bulk-edit-modal')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByTestId('bulk-bar')).not.toBeInTheDocument())
   })
 })
