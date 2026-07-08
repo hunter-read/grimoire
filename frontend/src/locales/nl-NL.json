@@ -1063,6 +1063,8 @@
     "indexedTitle": "Volledige tekst geïndexeerd",
     "imageOnly": "Alleen afbeelding",
     "imageOnlyTitle": "Deze pdf bevat alleen gescande afbeeldingen — geen tekstlaag om te doorzoeken",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Volledig geïndexeerd via OCR (gescande pagina's)",
     "indexFailed": "Indexering mislukt",
     "indexFailedTitle": "Indexering mislukt",
     "indexFailedWithError": "Indexering mislukt: {{error}}",

@@ -106,6 +106,18 @@ async def lifespan(app: FastAPI):
         clear_stop()
         _set_status({**_DEFAULT_STATUS})
         try:
+            # If OCR is available, re-queue any books previously skipped as
+            # image-only so this scan runs them through OCR.
+            from . import ocr
+
+            db = SessionLocal()
+            try:
+                ocr.requeue_image_only_books(db)
+            except Exception as e:
+                logger.error(f"OCR re-queue error: {e}")
+            finally:
+                db.close()
+
             logger.info(f"Scanning library at {LIBRARY_PATH}...")
             run_rescan_sync()
         finally:

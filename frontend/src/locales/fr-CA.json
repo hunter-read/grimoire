@@ -1063,6 +1063,8 @@
     "indexedTitle": "Indexé en texte intégral",
     "imageOnly": "Images uniquement",
     "imageOnlyTitle": "Ce PDF ne contient que des images numérisées — aucune couche de texte consultable",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Indexé en texte intégral via OCR (pages numérisées)",
     "indexFailed": "Échec d'indexation",
     "indexFailedTitle": "Échec de l'indexation",
     "indexFailedWithError": "Échec de l'indexation : {{error}}",

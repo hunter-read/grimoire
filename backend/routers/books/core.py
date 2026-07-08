@@ -49,6 +49,7 @@ def list_books(
                     "has_thumbnail": b.has_thumbnail,
                     "indexed": b.indexed,
                     "index_failed": b.index_failed,
+                    "ocr_indexed": b.index_error == "ocr",
                     "is_explicit": bool(b.is_explicit),
                     "is_missing": bool(b.is_missing),
                 }
@@ -86,6 +87,7 @@ def get_book(book_id: str, current_user: CurrentUser = Depends(get_current_user)
             "year": book.year,
             "indexed": book.indexed,
             "index_failed": book.index_failed,
+            "ocr_indexed": book.index_error == "ocr",
             "is_missing": bool(book.is_missing),
             "mime_type": book.mime_type,
             "has_thumbnail": book.has_thumbnail,

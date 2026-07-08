@@ -434,7 +434,7 @@ export default function BookRow({
             </span>
           ) : (
             <>
-              {book.indexed && book.index_error !== 'image-only' && (
+              {book.indexed && book.index_error !== 'image-only' && book.index_error !== 'ocr' && (
                 <span
                   title={t('bookRow.indexedTitle')}
                   style={{
@@ -446,6 +446,21 @@ export default function BookRow({
                   }}
                 >
                   {t('bookRow.indexed')}
+                </span>
+              )}
+              {book.indexed && book.index_error === 'ocr' && (
+                <span
+                  title={t('bookRow.ocrIndexedTitle')}
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--green)',
+                    background: 'rgba(90,154,90,0.1)',
+                    padding: '1px 6px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(90,154,90,0.35)',
+                  }}
+                >
+                  {t('bookRow.ocrIndexed')}
                 </span>
               )}
               {book.indexed && book.index_error === 'image-only' && (

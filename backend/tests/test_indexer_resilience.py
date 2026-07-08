@@ -142,7 +142,7 @@ class TestIndexBookTextIndexFailed:
             db.commit()
             db.refresh(book)
 
-            with patch("backend.indexer.extract_text_from_pdf", return_value=[]):
+            with patch("backend.indexer.extract_text_from_pdf", return_value=([], False)):
                 result = index_book_text(book, "/tmp", db)
 
             db.refresh(book)
@@ -172,13 +172,14 @@ class TestIndexBookTextIndexFailed:
             db.commit()
             db.refresh(book)
 
-            with patch("backend.indexer.extract_text_from_pdf", return_value=pages):
+            with patch("backend.indexer.extract_text_from_pdf", return_value=(pages, False)):
                 result = index_book_text(book, "/tmp", db)
 
             db.refresh(book)
             assert result is True
             assert book.indexed is True
             assert book.index_failed is False
+            assert book.index_error == ""
         finally:
             db.close()
 

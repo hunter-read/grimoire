@@ -103,6 +103,8 @@ Or pin to a specific release:
 docker pull hunterreadca/grimoire:1.0.0
 ```
 
+**Image variants:** the default tags (`latest`, `1.0.0`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.0.0-slim`), which omits Tesseract.
+
 ### 4. Minimal `docker-compose.yml`
 
 ```yaml
@@ -454,6 +456,8 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
 | `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy — used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
 | `VALKEY_URL` | — | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
+| `OCR_ENABLED` | `true` | Optional. Set to `false` to disable OCR of image-only PDFs even on the OCR-capable image. See [OCR](#ocr) below. |
+| `OCR_LANGUAGES` | `eng` | Optional. Tesseract language codes for OCR, e.g. `eng` or `eng+deu+fra`. Extra languages require their tessdata files to be present (see [OCR](#ocr)). |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
 | `ALLOW_PASSWORD_AUTHENTICATION` | — | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
@@ -483,6 +487,17 @@ volumes:
 On first startup Grimoire scans the library and indexes every PDF page for full-text search. This can take several minutes for large collections. The index is stored in the data volume and subsequent startups are fast.
 
 Use the **Rescan** button in the sidebar to pick up newly added files, or configure a scheduled rescan in **Settings → Maintenance**.
+
+### OCR
+
+Some PDFs contain only scanned page images with no embedded text layer (common with older, scanned game books). These can't be full-text searched from their text layer alone and show an **Image Only** badge.
+
+The default Grimoire image bundles the [Tesseract](https://github.com/tesseract-ocr/tesseract) OCR engine (English), so on first scan these image-only PDFs are run through OCR and their recognised text is added to the search index. Books indexed this way show an **OCR** badge. OCR runs entirely in-process — no extra container or service is required.
+
+- **Disable OCR:** set `OCR_ENABLED=false`. Image-only PDFs are then left unindexed (the pre-OCR behaviour), exactly as on the slim image.
+- **Slim image:** the `-slim` tags (e.g. `hunterreadca/grimoire:v1.5.0-slim`, `:slim`, `:edge-slim`) omit Tesseract for a smaller image. OCR is automatically disabled there and Grimoire degrades gracefully.
+- **Re-queue on upgrade:** when OCR becomes available (upgrading from a slim image, or enabling it), previously image-only books are automatically re-queued for OCR on the next startup scan.
+- **Additional languages:** set `OCR_LANGUAGES` to a `+`-joined list of Tesseract language codes (e.g. `eng+deu+fra`). The extra languages' tessdata files must be present in the image's tessdata directory — mount a directory of `.traineddata` files over it (or point `TESSDATA_PREFIX` at a mounted directory) to add languages without rebuilding.
 
 ### Page rendering
 

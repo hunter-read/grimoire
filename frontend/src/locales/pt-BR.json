@@ -1063,6 +1063,8 @@
     "indexedTitle": "Indexado em texto completo",
     "imageOnly": "Apenas imagem",
     "imageOnlyTitle": "Este PDF contém apenas imagens digitalizadas — sem camada de texto para buscar",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Indexado em texto completo via OCR (páginas digitalizadas)",
     "indexFailed": "Falha na indexação",
     "indexFailedTitle": "Falha na indexação",
     "indexFailedWithError": "Falha na indexação: {{error}}",
