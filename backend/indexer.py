@@ -209,17 +209,44 @@ def _keyword_matches(keyword: str, tokens: list[str]) -> bool:
     return False
 
 
+def _match_category(segment: str) -> str | None:
+    """Return the CATEGORY_MAP category a single folder ``segment`` matches, or None."""
+    tokens = _normalize_folder(segment).split()
+    for category, keywords in CATEGORY_MAP.items():
+        if any(_keyword_matches(kw, tokens) for kw in keywords):
+            return category
+    return None
+
+
 def guess_category(filepath: str) -> str:
-    """Infer book category from path segments, innermost folder takes priority."""
+    """Infer book category from path segments.
+
+    The top-level category folder (the first folder under the system root, e.g.
+    ``core`` in ``books/Shadowrun/core/Companions/x.pdf``) is the deliberate
+    category the user chose, so it takes priority: if it matches a keyword, that
+    category wins even when a deeper subfolder (``Companions``, ``DM Guide``)
+    incidentally matches a different keyword. Only when the top-level folder does
+    not match do we scan deeper subfolders innermost-first, then fall back to the
+    top-level folder name as a custom category slug.
+    """
     segments = filepath.replace("\\", "/").split("/")
-    for segment in reversed(segments[:-1]):
-        tokens = _normalize_folder(segment).split()
-        for category, keywords in CATEGORY_MAP.items():
-            if any(_keyword_matches(kw, tokens) for kw in keywords):
-                return category
-    # 4+ segments means a named subfolder exists under the system root
-    if len(segments) > 3:
-        return slugify(segments[2])
+    # segments[-1] is the filename; the category folder is the first segment
+    # under the system root (index 2 for the standard books/<system>/<cat>/ layout).
+    folder_segments = segments[:-1]
+    if len(folder_segments) > 2:
+        top_category_folder = folder_segments[2]
+        matched = _match_category(top_category_folder)
+        if matched is not None:
+            return matched
+        # Top-level folder is a custom (non-keyword) category. Its name wins over
+        # any keyword-matching subfolder nested beneath it.
+        return slugify(top_category_folder)
+    # No dedicated category folder under the system root — scan whatever folders
+    # exist innermost-first for a keyword match.
+    for segment in reversed(folder_segments):
+        matched = _match_category(segment)
+        if matched is not None:
+            return matched
     return "core"
 
 

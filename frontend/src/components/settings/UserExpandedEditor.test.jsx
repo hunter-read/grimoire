@@ -68,9 +68,9 @@ describe('UserExpandedEditor', () => {
     expect(onExplicitChange).toHaveBeenCalledWith('u1', false)
   })
 
-  it('does not load the campaigns list for the current user', () => {
+  it('loads the campaigns list for the current user (read-only, safe on own row)', () => {
     setup({ isSelf: true })
-    expect(campaigns.adminListByUser).not.toHaveBeenCalled()
+    expect(campaigns.adminListByUser).toHaveBeenCalledWith('u1')
   })
 
   it('loads the campaigns list for other users', () => {

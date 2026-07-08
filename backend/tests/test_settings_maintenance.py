@@ -4,9 +4,15 @@ from typing import Optional
 from unittest.mock import patch
 
 
-from backend.tests.conftest import make_book, make_game_system, make_map, make_token
+from backend.tests.conftest import (
+    make_book,
+    make_campaign,
+    make_game_system,
+    make_map,
+    make_token,
+)
 from backend.config import SessionLocal
-from backend.models import AppSetting, Bookmark
+from backend.models import AppSetting, Bookmark, GameSystem
 
 
 # ---------------------------------------------------------------------------
@@ -228,12 +234,14 @@ class TestCleanupMissingShape:
         assert "books" in data["removed"]
         assert "maps" in data["removed"]
         assert "tokens" in data["removed"]
+        assert "systems" in data["removed"]
 
     def test_removed_counts_are_ints(self, client, admin_headers):
         data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
         assert isinstance(data["removed"]["books"], int)
         assert isinstance(data["removed"]["maps"], int)
         assert isinstance(data["removed"]["tokens"], int)
+        assert isinstance(data["removed"]["systems"], int)
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +332,70 @@ class TestCleanupMissingBehavior:
         ):
             resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# POST /api/maintenance/cleanup-missing — prunes orphaned game systems
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupOrphanedSystems:
+    def test_removes_system_left_with_no_books(self, client, admin_headers):
+        # A system whose only book's file is gone: the book is removed, then the
+        # now-empty system is pruned so it stops showing in the campaign picker.
+        sys = make_game_system()
+        sys_id = sys.id
+        make_book(
+            system_id=sys_id,
+            filepath="/tmp/orphan-sys-book-" + uuid.uuid4().hex + ".pdf",
+        )
+        data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
+        assert data["removed"]["systems"] >= 1
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=sys_id).first() is None
+        db.close()
+
+    def test_keeps_system_with_remaining_book(self, client, admin_headers, tmp_path):
+        pdf = tmp_path / "keep.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+        sys = make_game_system()
+        sys_id = sys.id
+        make_book(system_id=sys_id, filepath=str(pdf))
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=sys_id).first() is not None
+        db.close()
+
+    def test_keeps_empty_system_referenced_by_campaign(
+        self, client, admin_headers, admin_id
+    ):
+        # An empty system still linked to a campaign is kept so the campaign's
+        # system_id foreign key doesn't dangle.
+        sys = make_game_system()
+        sys_id = sys.id
+        make_campaign(owner_id=admin_id, system_id=sys_id)
+        data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=sys_id).first() is not None
+        db.close()
+        # It was skipped, not counted as removed.
+        assert isinstance(data["removed"]["systems"], int)
+
+    def test_book_backed_system_not_pruned_leaves_it_visible(
+        self, client, admin_headers, tmp_path
+    ):
+        # Regression guard: a healthy system with a present book stays listed.
+        pdf = tmp_path / "present.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+        sys = make_game_system()
+        sys_id = sys.id
+        make_book(system_id=sys_id, filepath=str(pdf))
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+        listed = client.get("/api/systems", headers=admin_headers).json()
+        assert any(s["id"] == sys_id for s in listed)
 
 
 # ---------------------------------------------------------------------------

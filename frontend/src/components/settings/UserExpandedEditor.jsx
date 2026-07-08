@@ -24,7 +24,9 @@ export default function UserExpandedEditor({
   const [settingPassword, setSettingPassword] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const isAdmin = currentUserRole === 'admin'
-  const showCampaigns = isAdmin && !isSelf
+  // The campaigns list is read-only, so it's safe to show on every user's row —
+  // including the admin's own row — not just other users'.
+  const showCampaigns = isAdmin
 
   return (
     <div
