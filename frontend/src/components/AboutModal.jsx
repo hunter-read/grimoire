@@ -6,7 +6,7 @@ import { SiGithub } from 'react-icons/si'
 
 const GITHUB_REPO_URL = 'https://github.com/hunter-read/grimoire'
 
-export default function AboutModal({ stats, latestVersion, hasUpdate, onClose }) {
+export default function AboutModal({ about, latestVersion, hasUpdate, onClose }) {
   const { t } = useTranslation()
   const closeRef = useRef(null)
 
@@ -19,9 +19,9 @@ export default function AboutModal({ stats, latestVersion, hasUpdate, onClose })
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const currentVersion = stats?.version ?? '—'
-  const commitHash = stats?.commit_hash || null
-  const pythonVersion = stats?.python_version ?? '—'
+  const currentVersion = about?.version ?? '—'
+  const commitHash = about?.commit_hash || null
+  const pythonVersion = about?.python_version ?? '—'
   const releaseUrl = `${GITHUB_REPO_URL}/releases/tag/v${currentVersion}`
 
   const rowStyle = {

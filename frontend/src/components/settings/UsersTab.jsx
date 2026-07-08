@@ -6,6 +6,7 @@ import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
 import UserRow from './UserRow'
 import AddUserForm from './AddUserForm'
+import GuestsSection from './GuestsSection'
 
 const COLUMN_COUNT = 5
 
@@ -89,6 +90,11 @@ export default function UsersTab() {
       { campaign_count: 0, created_at: new Date().toISOString(), ...newUser },
     ])
     setShowAddForm(false)
+  }
+
+  // A converted guest becomes a permanent user, so surface it in the main list.
+  const handleGuestConverted = (newUser) => {
+    if (newUser) setUsers((prev) => [...prev, newUser])
   }
 
   if (!users)
@@ -207,6 +213,8 @@ export default function UsersTab() {
           </tbody>
         </table>
       </div>
+
+      <GuestsSection passwordAuthEnabled={passwordAuthEnabled} onConverted={handleGuestConverted} />
     </div>
   )
 }

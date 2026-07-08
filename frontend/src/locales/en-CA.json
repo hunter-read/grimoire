@@ -1224,7 +1224,15 @@
     "copyMessage": "Copy message",
     "copyForDiscord": "Copy for Discord",
     "email": "Email",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "name": "Name",
+    "campaign": "Campaign",
+    "invitedBy": "Invited by",
+    "actions": "Actions",
+    "convert": "Convert",
+    "converting": "Converting…",
+    "convertFailed": "Failed to convert guest.",
+    "usernamePlaceholder": "Username"
   },
   "rescan": {
     "button": {

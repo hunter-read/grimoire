@@ -75,6 +75,8 @@ def test_guest_login_and_scope(client, gm_headers, admin_headers, gm_campaign):
     assert login.status_code == 200, login.text
     data = login.json()
     assert data["user"]["role"] == "guest"
+    # The guest sees the GM-set nickname, not the internal guest_<hex> username.
+    assert data["user"]["display_name"] == "Carol"
     assert data["campaign_id"] == gm_campaign
     guest_headers = {"Authorization": f"Bearer {data['token']}"}
 

@@ -83,6 +83,39 @@ class UserUpdate(BaseModel):
         return _normalize_email(v)
 
 
+class GuestConvert(BaseModel):
+    """Promote a guest to a permanent account. Password is optional because it's
+    only applied when password auth is enabled (validated in the handler)."""
+
+    username: str
+    password: Optional[str] = None
+    role: str = "player"
+
+    @field_validator("username")
+    @classmethod
+    def username_valid(cls, v):
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Username is required")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def role_valid(cls, v):
+        # A guest promoted to a permanent account shouldn't stay a guest.
+        if v not in ROLES or v == "guest":
+            allowed = ", ".join(r for r in ROLES if r != "guest")
+            raise ValueError(f"Role must be one of: {allowed}")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_valid(cls, v):
+        if v is not None and v != "" and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str

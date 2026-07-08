@@ -1,7 +1,7 @@
 """Users package — registers all user routes on a single router."""
 from fastapi import APIRouter
 
-from .core import list_users, create_user, update_user, delete_user
+from .core import list_users, list_guests, create_user, convert_guest, update_user, delete_user
 from .me import (
     update_own_preferences,
     change_own_password,
@@ -16,6 +16,15 @@ router = APIRouter(prefix="/users", tags=["users"])
 # --- Collection ---
 router.add_api_route("", list_users, methods=["GET"], summary="List all users")
 router.add_api_route("", create_user, methods=["POST"], summary="Create a user", status_code=201)
+
+# --- Guests (registered before /{user_id} to avoid routing conflict) ---
+router.add_api_route(
+    "/guests",
+    list_guests,
+    methods=["GET"],
+    summary="List guest accounts",
+    description="Lists all per-campaign guest accounts with their campaign and inviter.",
+)
 
 # --- Self-service (registered before /{user_id} to avoid routing conflict) ---
 router.add_api_route(
@@ -46,6 +55,17 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update user role or password",
     description="Change a user's role or reset their password. Cannot demote the last admin.",
+)
+router.add_api_route(
+    "/{user_id}/convert",
+    convert_guest,
+    methods=["POST"],
+    summary="Convert a guest to a permanent user",
+    description=(
+        "Promotes a guest account to a permanent user, keeping its campaign "
+        "membership and character. A password is required only when password "
+        "auth is enabled."
+    ),
 )
 router.add_api_route(
     "/{user_id}",

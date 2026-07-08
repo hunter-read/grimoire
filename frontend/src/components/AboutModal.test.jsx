@@ -5,7 +5,7 @@ import AboutModal from './AboutModal'
 // __REACT_VERSION__ is injected by Vite at build time; stub it for tests.
 globalThis.__REACT_VERSION__ = '18.3.1'
 
-const defaultStats = {
+const defaultAbout = {
   version: '1.2.0',
   commit_hash: 'abc123def456789',
   python_version: '3.12.4',
@@ -14,7 +14,7 @@ const defaultStats = {
 function renderModal(props = {}) {
   return render(
     <AboutModal
-      stats={defaultStats}
+      about={defaultAbout}
       latestVersion={null}
       hasUpdate={false}
       onClose={vi.fn()}
@@ -44,12 +44,12 @@ describe('AboutModal — rendering', () => {
   })
 
   it('does not render commit hash row when commit_hash is empty', () => {
-    renderModal({ stats: { ...defaultStats, commit_hash: '' } })
+    renderModal({ about: { ...defaultAbout, commit_hash: '' } })
     expect(screen.queryByText(/commit hash/i)).toBeNull()
   })
 
   it('does not render commit hash row when commit_hash is null', () => {
-    renderModal({ stats: { ...defaultStats, commit_hash: null } })
+    renderModal({ about: { ...defaultAbout, commit_hash: null } })
     expect(screen.queryByText(/commit hash/i)).toBeNull()
   })
 
@@ -94,7 +94,7 @@ describe('AboutModal — rendering', () => {
   })
 
   it('renders fallback dashes when stats is null', () => {
-    renderModal({ stats: null })
+    renderModal({ about: null })
     // version shows '—' when stats is null
     expect(screen.getByText('v—')).toBeInTheDocument()
   })

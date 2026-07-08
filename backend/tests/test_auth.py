@@ -56,6 +56,9 @@ class TestAuthLogin:
         assert "token" in body
         assert body["user"]["username"] == "admin"
         assert body["user"]["role"] == "admin"
+        # display_name is included so the client can show it immediately without
+        # waiting for a /auth/me round-trip.
+        assert "display_name" in body["user"]
 
     def test_login_wrong_password(self, client, admin_setup):
         resp = client.post(

@@ -1224,7 +1224,15 @@
     "copyMessage": "Bericht kopiëren",
     "copyForDiscord": "Kopiëren voor Discord",
     "email": "E-mail",
-    "copied": "Gekopieerd!"
+    "copied": "Gekopieerd!",
+    "name": "Naam",
+    "campaign": "Campagne",
+    "invitedBy": "Uitgenodigd door",
+    "actions": "Acties",
+    "convert": "Omzetten",
+    "converting": "Omzetten…",
+    "convertFailed": "Gast omzetten mislukt.",
+    "usernamePlaceholder": "Gebruikersnaam"
   },
   "rescan": {
     "button": {

@@ -629,7 +629,8 @@ Guests let you share a single campaign with people who don't have full accounts 
 - **Invite from a GM campaign** — open the members roster and use **Guests** (admins and GMs only). Add a guest with a nickname; each guest gets a unique 10-character invite code. A campaign can have multiple guests.
 - **Share the code** with the built-in **Share** button: copy a ready-made message, copy a version for a Discord DM, or open a pre-filled email. The message includes a deep link (`/guest?code=…`) and the code itself.
 - **Manage codes** — regenerate a guest's code (invalidating the old one) or remove the guest entirely (which deletes their guest account and contributions).
-- **Guests log in** from the login screen via **Have an invite code?**, which works even on OIDC-only servers where password login is disabled.
+- **Guests log in** from the login screen via **Have an invite code?**, which works even on OIDC-only servers where password login is disabled. In the app a guest sees the nickname their GM gave them and a **GUEST** role.
+- **Admin overview** — **Settings → Users** lists every guest account (grouped separately from full users) with its nickname, the campaign it's attached to, and who invited it. From there an admin can **convert a guest to a permanent user**: give it a username (and a password when password auth is enabled) and it keeps its campaign membership and character.
 
 ### Notes wiki
 

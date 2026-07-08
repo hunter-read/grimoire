@@ -58,6 +58,7 @@ function isNewer(latestVersion, currentVersion) {
 
 export default function Sidebar({
   stats,
+  about,
   user,
   onLogout,
   uiSettings = {},
@@ -83,7 +84,7 @@ export default function Sidebar({
 
   const [showAbout, setShowAbout] = useState(false)
   const latestVersion = useLatestRelease()
-  const hasUpdate = isNewer(latestVersion, stats?.version)
+  const hasUpdate = isNewer(latestVersion, about?.version)
 
   const [updateDismissed, setUpdateDismissed] = useState(() => {
     const stored = localStorage.getItem(UPDATE_DISMISSED_KEY)
@@ -277,7 +278,7 @@ export default function Sidebar({
         </div>
       )}
 
-      {!collapsed && stats && (
+      {!collapsed && about && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
           <button
             onClick={() => setShowAbout(true)}
@@ -300,7 +301,7 @@ export default function Sidebar({
               {t('stats.version')}
             </span>
             <span style={{ color: 'var(--text-dim)', fontFamily: 'monospace' }}>
-              v{stats.version}
+              v{about.version}
             </span>
           </button>
 
@@ -432,7 +433,7 @@ export default function Sidebar({
 
       {showAbout && (
         <AboutModal
-          stats={stats}
+          about={about}
           latestVersion={latestVersion}
           hasUpdate={hasUpdate}
           onClose={() => setShowAbout(false)}

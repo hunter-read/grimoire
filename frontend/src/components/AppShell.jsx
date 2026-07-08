@@ -31,6 +31,9 @@ const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
 export default function AppShell() {
   const { user, logout } = useAuth()
   const [stats, setStats] = useState(null)
+  // Build info (version/commit/python) lives on a login-only endpoint, kept off
+  // the API-key-gated /stats so it isn't exposed to external integrations.
+  const [about, setAbout] = useState(null)
   const [uiSettings, setUiSettings] = useState({
     hide_maps: false,
     hide_tokens: false,
@@ -69,6 +72,10 @@ export default function AppShell() {
       .get('/stats')
       .then(setStats)
       .catch(() => {})
+    api
+      .get('/about')
+      .then(setAbout)
+      .catch(() => {})
     refreshUiSettings()
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
@@ -96,6 +103,7 @@ export default function AppShell() {
         {!isMobile && (
           <Sidebar
             stats={stats}
+            about={about}
             user={user}
             onLogout={logout}
             uiSettings={uiSettings}

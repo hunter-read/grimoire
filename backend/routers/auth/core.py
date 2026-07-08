@@ -46,7 +46,12 @@ def auth_setup(request: Request, data: SetupRequest):
         token = create_token(user.id, user.username, user.role)
         return {
             "token": token,
-            "user": {"id": user.id, "username": user.username, "role": user.role},
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "role": user.role,
+            },
         }
     finally:
         db.close()
@@ -64,7 +69,12 @@ def auth_login(request: Request, data: LoginRequest):
         token = create_token(user.id, user.username, user.role)
         return {
             "token": token,
-            "user": {"id": user.id, "username": user.username, "role": user.role},
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "role": user.role,
+            },
         }
     finally:
         db.close()
@@ -94,7 +104,12 @@ def guest_login(request: Request, data: GuestLoginRequest):
         token = create_token(user.id, user.username, user.role)
         return {
             "token": token,
-            "user": {"id": user.id, "username": user.username, "role": user.role},
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "role": user.role,
+            },
             "campaign_id": member.campaign_id,
         }
     finally:

@@ -3,9 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, text
 
 from ...config import SessionLocal
-from ...models import User, Campaign
+from ...models import User, Campaign, CampaignMember
 from ...auth import require_admin, CurrentUser, hash_password
-from ._schemas import UserCreate, UserUpdate
+from ..settings._helpers import _get_raw, password_auth_effective
+from ._schemas import UserCreate, UserUpdate, GuestConvert
 
 router = APIRouter()
 
@@ -41,6 +42,49 @@ def list_users(_: CurrentUser = Depends(require_admin)):
             }
             for u in users
         ]
+    finally:
+        db.close()
+
+
+def list_guests(_: CurrentUser = Depends(require_admin)):
+    """List every guest account with the campaign it belongs to and who invited it.
+
+    Guests are code-only accounts scoped to a single campaign, so each one maps to
+    exactly one CampaignMember. The inviter is the campaign owner (the GM).
+    """
+    db = SessionLocal()
+    try:
+        guests = (
+            db.query(User)
+            .filter(User.is_guest == True)  # noqa: E712
+            .order_by(User.created_at)
+            .all()
+        )
+        members = {
+            m.user_id: m
+            for m in db.query(CampaignMember).filter_by(is_guest=True).all()
+        }
+        campaigns = {c.id: c for c in db.query(Campaign).all()}
+        owners = {u.id: u for u in db.query(User).all()}
+
+        result = []
+        for g in guests:
+            member = members.get(g.id)
+            campaign = campaigns.get(member.campaign_id) if member else None
+            inviter = owners.get(campaign.owner_id) if campaign else None
+            result.append(
+                {
+                    "id": g.id,
+                    "display_name": g.display_name,
+                    "created_at": g.created_at.isoformat(),
+                    "campaign_id": campaign.id if campaign else None,
+                    "campaign_name": campaign.name if campaign else None,
+                    "invited_by": (
+                        (inviter.display_name or inviter.username) if inviter else None
+                    ),
+                }
+            )
+        return result
     finally:
         db.close()
 
@@ -117,6 +161,64 @@ def update_user(user_id: str, data: UserUpdate, _: CurrentUser = Depends(require
             if user.allow_explicit is not None
             else True,
             "campaign_access": user.campaign_access is None or bool(user.campaign_access),
+        }
+    finally:
+        db.close()
+
+
+def convert_guest(
+    user_id: str, data: GuestConvert, _: CurrentUser = Depends(require_admin)
+):
+    """Promote a guest account to a permanent user.
+
+    Clears the guest flag and its campaign codes but keeps the underlying User
+    (and its campaign membership, notes, and character), so the player keeps
+    everything they built up as a guest. A password is only set when password
+    auth is enabled on the server; otherwise the account is OIDC/password-reset
+    only, matching how admin-created accounts behave.
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(id=user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        if not user.is_guest:
+            raise HTTPException(400, "User is not a guest")
+
+        new_username = data.username.strip()
+        existing = db.query(User).filter_by(username=new_username).first()
+        if existing and existing.id != user.id:
+            raise HTTPException(400, "Username already exists")
+
+        password_enabled = password_auth_effective(_get_raw(db))
+        if password_enabled:
+            if not data.password:
+                raise HTTPException(400, "Password is required")
+            user.hashed_password = hash_password(data.password)
+
+        user.username = new_username
+        user.role = data.role
+        user.is_guest = False
+
+        # The membership stays, but it's no longer a guest membership — drop the
+        # invite code so the old code can't mint a token for this now-real user.
+        for member in db.query(CampaignMember).filter_by(user_id=user.id).all():
+            member.is_guest = False
+            member.guest_code = None
+
+        db.commit()
+        db.refresh(user)
+        return {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "email": user.email,
+            "role": user.role,
+            "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
+            "campaign_access": user.campaign_access is None or bool(user.campaign_access),
+            "campaign_count": db.query(Campaign).filter_by(owner_id=user.id).count(),
+            "oidc_linked": bool(user.oidc_subject),
+            "created_at": user.created_at.isoformat(),
         }
     finally:
         db.close()

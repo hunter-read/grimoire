@@ -1224,7 +1224,15 @@
     "copyMessage": "Copiar mensaje",
     "copyForDiscord": "Copiar para Discord",
     "email": "Correo electrónico",
-    "copied": "¡Copiado!"
+    "copied": "¡Copiado!",
+    "name": "Nombre",
+    "campaign": "Campaña",
+    "invitedBy": "Invitado por",
+    "actions": "Acciones",
+    "convert": "Convertir",
+    "converting": "Convirtiendo…",
+    "convertFailed": "No se pudo convertir al invitado.",
+    "usernamePlaceholder": "Usuario"
   },
   "rescan": {
     "button": {

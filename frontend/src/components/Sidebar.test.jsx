@@ -19,15 +19,18 @@ vi.mock('./AboutModal', () => ({
 const DISMISSED_KEY = 'grimoire_update_dismissed'
 
 const baseStats = {
-  version: '1.2.0',
-  commit_hash: 'abc123def456',
-  python_version: '3.12.0',
   game_systems: 5,
   books: 42,
   total_pages: 10000,
   maps: 8,
   tokens: 30,
   total_size_mb: 512,
+}
+
+const baseAbout = {
+  version: '1.2.0',
+  commit_hash: 'abc123def456',
+  python_version: '3.12.0',
 }
 
 const baseUser = { username: 'jdoe', display_name: 'Jane Doe', role: 'player' }
@@ -42,7 +45,14 @@ function mockFetch(tagName = null, ok = true) {
 function renderSidebar(props = {}) {
   return render(
     <MemoryRouter>
-      <Sidebar user={baseUser} onLogout={vi.fn()} stats={baseStats} uiSettings={{}} {...props} />
+      <Sidebar
+        user={baseUser}
+        onLogout={vi.fn()}
+        stats={baseStats}
+        about={baseAbout}
+        uiSettings={{}}
+        {...props}
+      />
     </MemoryRouter>
   )
 }
@@ -125,8 +135,8 @@ describe('Sidebar version row', () => {
     expect(screen.getByText('v1.2.0')).toBeInTheDocument()
   })
 
-  it('does not render the version button when stats are null', () => {
-    renderSidebar({ stats: null })
+  it('does not render the version button when about is null', () => {
+    renderSidebar({ about: null })
     expect(screen.queryByRole('button', { name: /about grimoire/i })).toBeNull()
   })
 

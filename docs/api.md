@@ -58,8 +58,8 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
 | `/api/auth/status` | GET | — | Returns `{"initialized": bool}` — used by the frontend to decide whether to show first-run setup |
 | `/api/auth/config` | GET | — | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
 | `/api/auth/setup` | POST | — | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}`. Fails with 400 if any users exist. |
-| `/api/auth/login` | POST | — | Authenticate. Body: `{username, password}`. Returns `{token, user}`. Returns 403 if password authentication is disabled. |
-| `/api/auth/guest-login` | POST | — | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}`. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
+| `/api/auth/login` | POST | — | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`). Returns 403 if password authentication is disabled. |
+| `/api/auth/guest-login` | POST | — | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` — `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
 | `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}` |
 | `/api/auth/openid/login` | GET | — | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
 | `/api/auth/openid/callback` | GET | — | OIDC callback. Validates the code, finds/creates the local user, and redirects to the frontend with `#oidc_token=<jwt>`. |
@@ -71,7 +71,9 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
 |----------|--------|------|-------------|
 | `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
 | `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
+| `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
 | `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, or `email` (use `""` to clear the email). `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. |
+| `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin) |
 | `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear) |
 | `/api/users/me/password` | PATCH | any | Change own password. Body: `{current_password, new_password}` |
@@ -81,7 +83,8 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size, version |
+| `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size |
+| `/api/about` | GET | any (JWT) | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so these details aren't readable via the `X-API-Key` fallback. |
 | `/api/scan-status` | GET | admin | Current scan state |
 | `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode) |
 | `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job |
@@ -96,8 +99,7 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
   "audio": 250,
   "indexed_books": 320,
   "total_pages": 45000,
-  "total_size_mb": 18240.5,
-  "version": "1.0.0"
+  "total_size_mb": 18240.5
 }
 ```
 
