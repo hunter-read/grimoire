@@ -100,6 +100,23 @@ describe('BookRow', () => {
     expect(badge.title).toBe('This PDF contains only scanned images — no text layer to search')
   })
 
+  // --- OCR badge ---
+
+  it('shows "OCR" badge when indexed via OCR (index_error is ocr)', () => {
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} onOpen={() => {}} />)
+    expect(screen.getByText('OCR')).toBeInTheDocument()
+  })
+
+  it('does not show the plain "Indexed" badge for OCR-indexed books', () => {
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} onOpen={() => {}} />)
+    expect(screen.queryByText('Indexed')).not.toBeInTheDocument()
+  })
+
+  it('"OCR" badge has the correct tooltip', () => {
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} onOpen={() => {}} />)
+    expect(screen.getByText('OCR').title).toBe('Full-text indexed via OCR (scanned pages)')
+  })
+
   // --- index_failed badge ---
 
   it('shows "Index Failed" badge when index_failed is true', () => {

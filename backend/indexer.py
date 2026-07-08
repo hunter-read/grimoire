@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from . import ocr
 from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder, Audio, AudioFolder
 
 logger = logging.getLogger("grimoire.indexer")
@@ -392,19 +393,39 @@ def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400)
     return bool(result[0])
 
 
-def extract_text_from_pdf(filepath: str, should_stop=None) -> list[dict]:
-    """Extract text from all pages of a PDF. Returns list of {page, content}."""
+def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], bool]:
+    """Extract text from all pages of a PDF.
+
+    Returns ``(pages, used_ocr)`` where ``pages`` is a list of
+    ``{page, content}`` dicts and ``used_ocr`` is True if any page's text came
+    from OCR rather than an embedded text layer.
+
+    Pages with an embedded text layer are read directly. Pages with no embedded
+    text are OCR'd when OCR is available (default image); otherwise they are
+    skipped, so a PDF with no extractable text yields an empty list — the
+    caller then marks it ``image-only``.
+    """
     pages = []
+    used_ocr = False
+    ocr_on = ocr.ocr_available()
     try:
         doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
         for i, page in enumerate(doc):
+            if should_stop and should_stop():
+                break
             page_text = page.get_text().strip()
             if page_text:
                 pages.append({"page": i + 1, "content": page_text})
+            elif ocr_on:
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                ocr_text = ocr.ocr_pixmap(pix, should_stop=should_stop)
+                if ocr_text:
+                    pages.append({"page": i + 1, "content": ocr_text})
+                    used_ocr = True
         doc.close()
     except Exception as e:
         logger.error(f"Text extraction failed for {filepath}: {e}")
-    return pages
+    return pages, used_ocr
 
 
 def _count_eligible_files(directory: Path, extensions: set) -> int:
@@ -1461,7 +1482,7 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         return False
 
     logger.info(f"Indexing: extracting text from '{book.filepath}'")
-    pages = extract_text_from_pdf(book.filepath, should_stop=should_stop)
+    pages, used_ocr = extract_text_from_pdf(book.filepath, should_stop=should_stop)
     if not pages:
         logger.info(f"No text extracted from '{book.filename}' — image-only PDF, marking as indexed")
         book.index_error = "image-only"
@@ -1485,7 +1506,9 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         )
 
     book.indexed = True
-    book.index_error = ""
+    # "ocr" marks books whose text was (at least partly) recognised via OCR, so
+    # the UI can badge them and startup re-queue can target them. Empty = native.
+    book.index_error = "ocr" if used_ocr else ""
     logger.debug(f"DB: committing index for '{book.filename}'")
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index '{book.filepath}'")

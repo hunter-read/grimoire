@@ -107,7 +107,7 @@ links from `campaign_resources`/`favorites`, which are *not* declared foreign ke
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
 | `game_systems` | A TTRPG system (D&D 5e, PbtA, …). | `name`, `slug` unique. `is_system_agnostic` flags cross-system content. |
-| `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. |
+| `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, not OCR'd) / `ocr` (indexed via OCR). |
 | `book_folders` | Tags auto-applied to a book subcategory folder path. | `path` unique. |
 
 ### Media — [`backend/models/media.py`](../backend/models/media.py)

@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Stage 3: Runtime image (no build toolchain)
-FROM python:3.12-slim
+# Stage 3: Runtime base shared by both variants (no build toolchain)
+FROM python:3.12-slim AS runtime-base
 
 WORKDIR /app
 
@@ -50,3 +50,19 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 
 ENV WORKERS=2
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
+
+# Stage 4a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only
+# PDFs stay excluded from full-text search, exactly as before OCR was added. Built
+# with `--target slim` and published under the `-slim` tag family.
+FROM runtime-base AS slim
+
+# Stage 4b: Default variant — bundles Tesseract + English language data so image-only
+# PDFs are OCR'd into the full-text index out of the box. Extra languages can be added
+# at runtime by mounting tessdata and setting OCR_LANGUAGES (see README); no rebuild
+# required. This is the last stage, so a plain `docker build` (no --target) yields it.
+FROM runtime-base AS ocr
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*

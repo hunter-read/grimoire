@@ -1063,6 +1063,8 @@
     "indexedTitle": "Full-text indexed",
     "imageOnly": "Image Only",
     "imageOnlyTitle": "This PDF contains only scanned images — no text layer to search",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Full-text indexed via OCR (scanned pages)",
     "indexFailed": "Index Failed",
     "indexFailedTitle": "Index failed",
     "indexFailedWithError": "Index failed: {{error}}",

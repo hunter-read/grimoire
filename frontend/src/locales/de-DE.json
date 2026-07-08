@@ -1063,6 +1063,8 @@
     "indexedTitle": "Volltext indiziert",
     "imageOnly": "Nur Bild",
     "imageOnlyTitle": "Dieses PDF enthält nur gescannte Bilder — keine Textebene zum Durchsuchen",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Volltext per OCR indexiert (gescannte Seiten)",
     "indexFailed": "Indizierung fehlgeschlagen",
     "indexFailedTitle": "Indizierung fehlgeschlagen",
     "indexFailedWithError": "Indizierung fehlgeschlagen: {{error}}",

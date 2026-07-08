@@ -19,3 +19,4 @@ markdownify==0.14.1
 mutagen==1.47.0
 rarfile==4.2
 py7zr==0.22.0
+pytesseract==0.3.13

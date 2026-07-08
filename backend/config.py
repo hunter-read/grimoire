@@ -21,6 +21,18 @@ THUMB_DIR = os.path.join(DATA_PATH, "thumbnails")
 PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 CAMPAIGN_UPLOAD_DIR = os.path.join(DATA_PATH, "campaign_uploads")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
+
+# OCR: image-only PDFs (scanned pages with no embedded text layer) can be run
+# through Tesseract so their text is added to the full-text index. The default
+# image bundles Tesseract + English; the `-slim` image omits it and degrades
+# gracefully (image-only PDFs stay unindexed). OCR is auto-disabled when the
+# tesseract binary is absent, so no config is needed to turn it off on slim.
+#   OCR_ENABLED   — "false" force-disables OCR even when tesseract is present.
+#   OCR_LANGUAGES — Tesseract language codes, e.g. "eng" or "eng+deu+fra".
+#                   Extra languages need their tessdata files present (bundle
+#                   them by mounting a tessdata dir and setting TESSDATA_PREFIX).
+OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
+OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
 # Optional override for password authentication. When the env var is set,
