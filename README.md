@@ -100,10 +100,10 @@ docker pull hunterreadca/grimoire:latest
 Or pin to a specific release:
 
 ```bash
-docker pull hunterreadca/grimoire:1.0.0
+docker pull hunterreadca/grimoire:1.5.0
 ```
 
-**Image variants:** the default tags (`latest`, `1.0.0`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.0.0-slim`), which omits Tesseract.
+**Image variants:** the default tags (`latest`, `1.5.0`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.5.0-slim`), which omits Tesseract.
 
 ### 4. Minimal `docker-compose.yml`
 
@@ -140,13 +140,7 @@ cp docs/docker/docker-compose.valkey.yml docker-compose.yml
 docker compose up -d
 ```
 
-### 6. Build from source
-
-```bash
-docker build --build-arg APP_VERSION=1.0.0 -t grimoire:1.0.0 .
-```
-
-### 7. Container health
+### 6. Container health
 
 The image ships a `HEALTHCHECK` that probes the unauthenticated `GET /api/health`
 endpoint. It verifies the app is serving on port 9481 and can reach the database
@@ -161,62 +155,17 @@ depends_on:
 
 ---
 
-## Running without Docker
+## Persistent data
 
-If you prefer to run Grimoire directly on the host, you need Python 3.12+ and Node 20+.
+The database, search index, and rendered thumbnails are all stored under `DATA_PATH` (the `/app/data` volume). Back this directory up to preserve your library metadata and user accounts.
 
-### 1. Build the frontend
+## Upgrading
 
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-```
+Pull the new image and restart (`docker compose pull && docker compose up -d`). Database schema changes are applied automatically on startup via [Alembic](https://alembic.sqlalchemy.org/) — **no manual action is required** when upgrading, including from versions that predate Alembic. On first run under the new system, an existing database is detected and stamped at the correct baseline, so only genuinely new migrations run thereafter. Back up `DATA_PATH` before upgrading, as always.
 
-This produces a `frontend/dist/` directory that the backend serves as static files.
+## Running from source
 
-### 2. Install backend dependencies
-
-```bash
-pip install -r backend/requirements.txt
-```
-
-### 3. Set environment variables
-
-```bash
-export SECRET_KEY=$(openssl rand -hex 32)
-export LIBRARY_PATH=/path/to/your/library
-export DATA_PATH=/path/to/your/data
-```
-
-See [Configuration](#configuration) for the full list of environment variables.
-
-### 4. Start the server
-
-```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 9481
-```
-
-Open `http://localhost:9481`. On first launch you'll be prompted to create an admin account.
-
-### Persistent data
-
-The database, search index, and rendered thumbnails are all stored under `DATA_PATH`. Back this directory up to preserve your library metadata and user accounts.
-
-### Upgrading
-
-Database schema changes are applied automatically on startup via [Alembic](https://alembic.sqlalchemy.org/) — **no manual action is required** when upgrading, including from versions that predate Alembic. On first run under the new system, an existing database is detected and stamped at the correct baseline, so only genuinely new migrations run thereafter. Back up `DATA_PATH` before upgrading, as always.
-
-### Optional: Valkey/Redis page cache
-
-Set `VALKEY_URL` to a Redis-compatible URL to enable in-memory page caching:
-
-```bash
-export VALKEY_URL=redis://localhost:6379/0
-```
-
-Without it, rendered pages are cached to disk under `DATA_PATH`.
+Prefer to build the image yourself or run Grimoire directly on the host (Python 3.12+, Node 20+) without Docker? See [docs/running-from-source.md](docs/running-from-source.md).
 
 ---
 

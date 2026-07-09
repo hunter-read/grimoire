@@ -11,6 +11,14 @@ jobs:
   frontend:
     name: Frontend build + test
     runs-on: ubuntu-latest
+    # A direct push to `dev` while the `dev -> main` PR is open makes CI run
+    # twice for the same commit: once for `push` and once for `pull_request`.
+    # Skip the redundant `pull_request` run when its head branch is `dev` — the
+    # `push` run already covers that commit. This also stops `edge.yml` from
+    # being triggered twice (once per CI completion) and racing on the build cache.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +64,11 @@ jobs:
   backend:
     name: Backend lint + test
     runs-on: ubuntu-latest
+    # See the frontend job: skip the redundant `pull_request` run for the
+    # `dev -> main` PR, which is already covered by the `push` run on `dev`.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@v4
         with:

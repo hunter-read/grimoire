@@ -77,7 +77,7 @@ The easiest way to get a local dev environment running is with the included Dock
 docker compose -f docker-compose.dev.yml up
 ```
 
-See the [README](../README.md#running-without-docker) for instructions on running Grimoire locally without Docker.
+See [docs/running-from-source.md](../docs/running-from-source.md) for instructions on building the image yourself or running Grimoire locally without Docker.
 
 ## Security vulnerabilities
 
