@@ -1,12 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createRequire } from 'module'
+import { cpSync } from 'fs'
+import { dirname, join } from 'path'
 
 const require = createRequire(import.meta.url)
 const reactVersion = require('react/package.json').version
 
+// pdf.js decodes JPEG2000/JBIG2 images via OpenJPEG/JBIG2 WASM modules it loads
+// at runtime from `wasmUrl`. Copy that directory (shipped in pdfjs-dist) into the
+// served public dir so those images decode instead of failing — without it, PDF
+// pages containing JPX images render blank. Copying from the package on every
+// build keeps the WASM in lockstep with the installed pdf.js version. The copy
+// lands in static/pdfjs-wasm/ (gitignored) and is served at /pdfjs-wasm/.
+const pdfjsWasmDir = join(dirname(require.resolve('pdfjs-dist/package.json')), 'wasm')
+function pdfjsWasm() {
+  return {
+    name: 'pdfjs-wasm-copy',
+    buildStart() {
+      cpSync(pdfjsWasmDir, join(import.meta.dirname, 'static', 'pdfjs-wasm'), { recursive: true })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pdfjsWasm()],
   define: {
     __REACT_VERSION__: JSON.stringify(reactVersion),
   },

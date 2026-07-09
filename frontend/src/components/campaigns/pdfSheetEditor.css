@@ -1,0 +1,27 @@
+/*
+ * Grimoire's global `input, textarea, select` rule (padding, border, radius,
+ * background, transition — see index.css) leaks into pdf.js's AcroForm widgets
+ * and breaks them: text fields get squeezed by the 8px/12px padding, and the
+ * checkbox/radio marks (drawn as absolutely-positioned pseudo-elements) land in
+ * the wrong place because of the inherited padding and border. pdf.js already
+ * styles its own widgets correctly via pdf_viewer.css, so undo our globals here
+ * and let the viewer stylesheet win.
+ */
+.annotationLayer input,
+.annotationLayer textarea,
+.annotationLayer select {
+  font-family: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  transition: none;
+}
+
+/* The checkbox/radio marks are positioned relative to a zero-padding box. */
+.annotationLayer .buttonWidgetAnnotation.checkBox input,
+.annotationLayer .buttonWidgetAnnotation.radioButton input {
+  padding: 0;
+  margin: 0;
+}

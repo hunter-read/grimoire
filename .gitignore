@@ -12,6 +12,7 @@ __pycache__/
 frontend/node_modules
 frontend/dist
 frontend/coverage
+frontend/static/pdfjs-wasm
 node_modules
 .venv
 .pytest_cache

@@ -8,4 +8,10 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
 
+// Where pdf.js loads its image-codec WASM (OpenJPEG for JPEG2000, JBIG2) from at
+// runtime. The vite config copies pdfjs-dist/wasm/ here; pass this as `wasmUrl`
+// to getDocument or PDFs with JPX/JBIG2 images render blank. Trailing slash: the
+// library appends the filename (e.g. `openjpeg.wasm`) directly.
+export const WASM_URL = '/pdfjs-wasm/'
+
 export default pdfjs

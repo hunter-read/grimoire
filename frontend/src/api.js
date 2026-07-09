@@ -66,7 +66,10 @@ export const campaigns = {
   uploadMemberSheet: (id, memberId, file) =>
     api.upload(`/campaigns/${id}/members/${memberId}/sheet`, file),
   deleteMemberSheet: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/sheet`),
-  memberSheetUrl: (id, memberId) => mediaUrl(`/campaigns/${id}/members/${memberId}/sheet`),
+  // `v` cache-busts the 5-minute upload cache after an in-app edit so the fresh
+  // PDF is fetched instead of the stale copy the browser is still holding.
+  memberSheetUrl: (id, memberId, v) =>
+    mediaUrl(`/campaigns/${id}/members/${memberId}/sheet`, v ? { v } : {}),
   duplicateMemberSheet: (id, memberId, body) =>
     api.post(`/campaigns/${id}/members/${memberId}/sheet/duplicate`, body),
   listSheetSources: (id) => api.get(`/campaigns/${id}/sheet-sources`),
