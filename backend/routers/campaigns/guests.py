@@ -2,8 +2,9 @@
 
 A guest is a lightweight, code-only User (role="guest", no password/OIDC) backing
 a CampaignMember. The 10-char alphanumeric guest_code mints a JWT for that guest
-via POST /api/auth/guest-login. Guests are single-campaign: deleting the member
-also deletes the guest User and cascades their notes/availability.
+via POST /api/auth/guest-login. Guests are single-campaign: removing the member
+(here or via the generic member-removal endpoint) also deletes the guest User and
+its contributions (see delete_guest_user).
 """
 
 import secrets
@@ -16,7 +17,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import SessionLocal, BASE_URL
 from ...models import Campaign, CampaignMember, User
 from ..settings._helpers import _get_raw, guest_access_effective
-from ._helpers import assert_can_manage, get_campaign_or_404
+from ._helpers import assert_can_manage, delete_guest_user, get_campaign_or_404
 from ._schemas import GuestCreate
 
 _CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -176,12 +177,11 @@ def remove_guest(
     try:
         _get_managed_campaign(db, campaign_id, current_user)
         member = _get_guest_member(db, campaign_id, member_id)
-        guest_user = db.query(User).filter_by(id=member.user_id).first()
+        user_id = member.user_id
         db.delete(member)
-        # Guests are single-campaign — drop the backing User too so no orphan
-        # account lingers. Only ever delete genuine guest accounts.
-        if guest_user and guest_user.is_guest:
-            db.delete(guest_user)
+        # Guests are single-campaign — drop the backing User and its
+        # contributions too so no orphan account lingers.
+        delete_guest_user(db, user_id)
         db.commit()
     finally:
         db.close()

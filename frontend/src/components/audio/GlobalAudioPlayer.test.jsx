@@ -165,4 +165,52 @@ describe('GlobalAudioPlayer', () => {
     act(() => api.playQueue([{ id: 'a', title: 'A' }]))
     expect(screen.getByTestId('global-audio-element')).toBeInTheDocument()
   })
+
+  const prefetchHref = () => {
+    const links = [...document.head.querySelectorAll('link[rel="prefetch"]')]
+    return links.length ? links[links.length - 1].getAttribute('href') : undefined
+  }
+
+  it('prefetches the next track in the queue', () => {
+    renderPlayer()
+    act(() =>
+      api.playQueue([
+        { id: 'a', title: 'A' },
+        { id: 'b', title: 'B' },
+      ])
+    )
+    expect(prefetchHref()).toBe('http://localhost/audio/b/file')
+  })
+
+  it('moves the prefetch to the new next track when skipping', () => {
+    renderPlayer()
+    act(() =>
+      api.playQueue([
+        { id: 'a', title: 'A' },
+        { id: 'b', title: 'B' },
+        { id: 'c', title: 'C' },
+      ])
+    )
+    expect(prefetchHref()).toBe('http://localhost/audio/b/file')
+    act(() => api.next())
+    expect(prefetchHref()).toBe('http://localhost/audio/c/file')
+  })
+
+  it('does not prefetch past the end of the queue', () => {
+    renderPlayer()
+    act(() => api.playQueue([{ id: 'a', title: 'A' }]))
+    expect(prefetchHref()).toBeUndefined()
+  })
+
+  it('does not prefetch a next track when repeat-one is on', () => {
+    renderPlayer()
+    act(() =>
+      api.playQueue([
+        { id: 'a', title: 'A' },
+        { id: 'b', title: 'B' },
+      ])
+    )
+    act(() => api.toggleRepeat())
+    expect(prefetchHref()).toBeUndefined()
+  })
 })

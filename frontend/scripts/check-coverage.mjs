@@ -75,6 +75,12 @@ function changedSourceFiles(base, root) {
     .filter((p) => /\.(js|jsx)$/.test(p))
     .filter((p) => !/\.test\.(js|jsx)$/.test(p))
     .filter((p) => !p.startsWith('frontend/src/test/'))
+    // Mirror the coverage `exclude` globs in vite.config.js so files that are
+    // intentionally not instrumented (entry point, third-party setup glue,
+    // config) aren't flagged as 0%.
+    .filter((p) => p !== 'frontend/src/main.jsx')
+    .filter((p) => !p.startsWith('frontend/src/lib/'))
+    .filter((p) => !/\.config\.(js|jsx)$/.test(p))
     .map((p) => resolve(root, p))
 }
 

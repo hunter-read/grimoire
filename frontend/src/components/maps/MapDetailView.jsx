@@ -10,6 +10,7 @@ import {
   LuChevronRight,
 } from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
+import useImagePrefetch from '../../hooks/useImagePrefetch'
 import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
@@ -86,6 +87,10 @@ export default function MapDetailView() {
     containerRef: imagePane,
     resetKey: mapId,
   })
+
+  // Warm the cache for neighbouring maps so prev/next feels instant.
+  const mapFileUrl = useCallback((m) => mediaUrl(`/maps/${m.id}/file`), [])
+  useImagePrefetch(siblings, siblingIdx, mapFileUrl)
 
   useEffect(() => {
     api.get(`/maps/${mapId}`).then(setMap)

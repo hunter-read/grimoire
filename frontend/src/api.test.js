@@ -279,8 +279,6 @@ describe('api', () => {
         campaigns.deleteMemberArt('c1', 'm1'),
         campaigns.uploadMemberSheet('c1', 'm1', file),
         campaigns.deleteMemberSheet('c1', 'm1'),
-        campaigns.getMemberSheetFields('c1', 'm1'),
-        campaigns.saveMemberSheetFields('c1', 'm1', {}),
         campaigns.duplicateMemberSheet('c1', 'm1', {}),
         campaigns.listSheetSources('c1'),
         campaigns.listResources('c1'),

@@ -406,6 +406,62 @@ describe('SystemDetailView — in-system search persistence', () => {
     const searchCalls = api.get.mock.calls.filter(([url]) => url.includes('/search'))
     expect(searchCalls).toHaveLength(0)
   })
+
+  it('shows books matching the query above the page results', async () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify('fireball'))
+    // System has a book whose title matches the query.
+    api.get.mockImplementation((url) => {
+      if (url.includes('/search')) {
+        return Promise.resolve({
+          query: 'fireball',
+          total: 1,
+          results: [
+            {
+              id: 'b1',
+              title: 'Spell Compendium',
+              game_system: 'Test System',
+              category: 'core',
+              page_number: 7,
+              snippet: 'A <mark>fireball</mark> spell.',
+            },
+          ],
+          maps: [],
+          tokens: [],
+        })
+      }
+      return Promise.resolve(
+        makeSystem([makeBook({ id: 'fb', title: 'Fireball Grimoire' }), makeBook({ title: 'PHB' })])
+      )
+    })
+    renderView()
+
+    // The matching book title appears (from the book grid, not the page hit).
+    await waitFor(() => expect(screen.getByText('Fireball Grimoire')).toBeInTheDocument())
+    // The "matching books" heading is shown.
+    expect(screen.getByText(/matching book/i)).toBeInTheDocument()
+    // Page results still render below.
+    expect(screen.getByText('Spell Compendium')).toBeInTheDocument()
+    expect(screen.getByText(/in pages/i)).toBeInTheDocument()
+  })
+
+  it('shows no-results when neither a book nor a page matches', async () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify('zzznomatch'))
+    api.get.mockImplementation((url) => {
+      if (url.includes('/search')) {
+        return Promise.resolve({
+          query: 'zzznomatch',
+          total: 0,
+          results: [],
+          maps: [],
+          tokens: [],
+        })
+      }
+      return Promise.resolve(makeSystem([makeBook({ title: 'PHB' })]))
+    })
+    renderView()
+
+    await waitFor(() => expect(screen.getByText(/no results found/i)).toBeInTheDocument())
+  })
 })
 
 describe('SystemDetailView — book view mode', () => {

@@ -36,6 +36,7 @@ import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import { CATEGORY_ICONS, CATEGORY_ORDER } from '../constants'
+import matchBooks from '../utils/matchBooks'
 
 /** Extract the subfolder name from a book's relative_path.
  *  Path structure: books/{SystemName}/{categoryDir}/{SubFolder}/book.pdf
@@ -254,6 +255,20 @@ export default function SystemDetailView() {
   const card = viewMode === 'card'
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'
+
+  // When searching, surface books whose title/metadata match the query above the
+  // full-text page hits, honouring the same tag/favourite filters as the grid.
+  const matchedBooks = searchResults
+    ? matchBooks(
+        (system.books || []).filter(
+          (book) =>
+            (selectedTags.size === 0 ||
+              [...selectedTags].every((tag) => (book.tags || []).includes(tag))) &&
+            (!favOnly || isFavorite('book', book.id))
+        ),
+        searchResults.query
+      )
+    : []
   // Container for a list of books in the current view mode.
   const booksContainerStyle = list
     ? { display: 'flex', flexDirection: 'column', gap: 8 }
@@ -687,20 +702,54 @@ export default function SystemDetailView() {
           </div>
         )}
 
-        {/* Search results */}
-        {searchResults && (
+        {/* Matching books (title / metadata) — shown above the page hits so a
+            search finds the book itself, not just the pages inside it. */}
+        {searchResults && matchedBooks.length > 0 && (
           <div style={{ marginBottom: 32 }}>
             <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-              {t('systemDetail.results', {
-                count: searchResults.total,
+              {t('systemDetail.matchingBooks', { count: matchedBooks.length })}
+            </div>
+            <div style={booksContainerStyle}>
+              {matchedBooks.map((book) => (
+                <BookRow
+                  key={book.id}
+                  book={book}
+                  card={card}
+                  compact={compact}
+                  onOpen={() =>
+                    navigate(`/library/book/${book.id}`, {
+                      state: { from: window.location.pathname },
+                    })
+                  }
+                  onEdit={null}
+                  editing={false}
+                  bulkMode={false}
+                  selected={false}
+                  onToggle={() => {}}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nothing matched — neither a book nor a page. */}
+        {searchResults && matchedBooks.length === 0 && searchResults.results.length === 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+              {t('systemDetail.noResultsFound')}
+            </div>
+          </div>
+        )}
+
+        {/* Full-text page results */}
+        {searchResults && searchResults.results.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
+              {t('systemDetail.resultsInPages', {
+                count: searchResults.results.length,
                 query: searchResults.query,
               })}
             </div>
-            {searchResults.total === 0 && (
-              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-                {t('systemDetail.noResultsFound')}
-              </div>
-            )}
             {searchResults.results.map((r, i) => (
               <div
                 key={i}

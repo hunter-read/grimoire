@@ -1286,61 +1286,6 @@ class TestCharacterSheetInApp:
         member_id = next(m["id"] for m in body["members"] if not m.get("is_owner"))
         return c, member_id
 
-    def _upload_form_sheet(self, client, headers, c, member_id):
-        return client.post(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
-            files={"file": ("hero.pdf", _form_pdf_bytes(), "application/pdf")},
-            headers=headers,
-        )
-
-    def test_fields_reports_fillable_and_lists_widgets(self, client, player_headers, member):
-        c, member_id = member
-        assert self._upload_form_sheet(client, player_headers, c, member_id).status_code == 200
-        resp = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        )
-        assert resp.status_code == 200, resp.text
-        body = resp.json()
-        assert body["fillable"] is True
-        assert [f["name"] for f in body["fields"]] == ["name"]
-        assert body["fields"][0]["type"] == "text"
-
-    def test_save_fields_persists_value(self, client, player_headers, member):
-        c, member_id = member
-        self._upload_form_sheet(client, player_headers, c, member_id)
-        resp = client.put(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields",
-            json={"fields": {"name": "Aragorn"}},
-            headers=player_headers,
-        )
-        assert resp.status_code == 200, resp.text
-        # Re-read to confirm persistence.
-        again = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        ).json()
-        assert again["fields"][0]["value"] == "Aragorn"
-
-    def test_fields_not_fillable_for_image_sheet(self, client, player_headers, member):
-        c, member_id = member
-        client.post(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
-            files={"file": ("sheet.png", _png_bytes(), "image/png")},
-            headers=player_headers,
-        )
-        resp = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        )
-        assert resp.status_code == 200
-        assert resp.json() == {"fillable": False, "fields": []}
-
-    def test_unrelated_user_cannot_edit_fields(self, client, player_headers, admin_headers, member):
-        c, member_id = member
-        self._upload_form_sheet(client, player_headers, c, member_id)
-        resp = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=admin_headers
-        )
-        assert resp.status_code == 403
-
     def test_duplicate_from_campaign_file(self, client, gm_headers, player_headers, member):
         c, member_id = member
         # GM uploads a form-fillable PDF as a campaign file.
@@ -1359,10 +1304,11 @@ class TestCharacterSheetInApp:
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["character_sheet_filename"] == "blank.pdf"
-        fields = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        ).json()
-        assert fields["fillable"] is True
+        # The duplicated sheet is served back and can be fetched for in-app editing.
+        got = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet", headers=player_headers
+        )
+        assert got.status_code == 200
 
     def test_duplicate_from_library_book(self, client, player_headers, member):
         c, member_id = member

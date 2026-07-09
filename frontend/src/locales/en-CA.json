@@ -154,7 +154,11 @@
     "showLess": "Show less",
     "clearTags": "Clear",
     "download": "Download",
-    "backToLibrary2": "Back to Library"
+    "backToLibrary2": "Back to Library",
+    "matchingBooks_one": "{{count}} matching book",
+    "matchingBooks_other": "{{count}} matching books",
+    "resultsInPages_one": "{{count}} result in pages for \"{{query}}\"",
+    "resultsInPages_other": "{{count}} results in pages for \"{{query}}\""
   },
   "reader": {
     "back": "Back",
@@ -817,7 +821,9 @@
     "replaceSheet": "Replace sheet",
     "replaceSheetWarning": "Uploading a new sheet replaces the current one. The previous version cannot be recovered.",
     "downloadCurrent": "Download current",
-    "replace": "Replace"
+    "replace": "Replace",
+    "saveCopy": "Save copy",
+    "sheetEditError": "Could not open or save this sheet. It may not be a valid PDF."
   },
   "sessions": {
     "title": "Session Notes",

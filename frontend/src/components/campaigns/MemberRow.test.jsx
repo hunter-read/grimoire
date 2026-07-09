@@ -17,7 +17,7 @@ vi.mock('../../api', () => ({
 
 // The nested editor/picker/dialog components make their own API calls — stub
 // them so these tests stay focused on MemberRow's own wiring.
-vi.mock('./CharacterSheetEditor', () => ({
+vi.mock('./PdfSheetEditor', () => ({
   default: ({ onClose }) => (
     <div data-testid="sheet-editor">
       <button onClick={onClose}>close-editor</button>

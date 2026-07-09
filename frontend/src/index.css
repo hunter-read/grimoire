@@ -19,6 +19,10 @@
   --tag-bg: #2a2420;
   --tag-border: #4a3e34;
   --mark-bg: rgba(201, 168, 76, 0.3);
+  /* Attention banners (e.g. pending campaign invites): a warm gold wash that
+     stands out against the dark panels without shouting like an error. */
+  --invite-bg: rgba(201, 168, 76, 0.14);
+  --invite-border: var(--gold);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }

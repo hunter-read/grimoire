@@ -154,7 +154,11 @@
     "showLess": "Voir moins",
     "clearTags": "Effacer",
     "download": "Télécharger",
-    "backToLibrary2": "Retour à la bibliothèque"
+    "backToLibrary2": "Retour à la bibliothèque",
+    "matchingBooks_one": "{{count}} livre correspondant",
+    "matchingBooks_other": "{{count}} livres correspondants",
+    "resultsInPages_one": "{{count}} résultat dans les pages pour \"{{query}}\"",
+    "resultsInPages_other": "{{count}} résultats dans les pages pour \"{{query}}\""
   },
   "reader": {
     "back": "Retour",
@@ -817,7 +821,9 @@
     "replaceSheet": "Remplacer la feuille",
     "replaceSheetWarning": "Le téléversement d’une nouvelle feuille remplace l’actuelle. La version précédente ne pourra pas être récupérée.",
     "downloadCurrent": "Télécharger l’actuelle",
-    "replace": "Remplacer"
+    "replace": "Remplacer",
+    "saveCopy": "Enregistrer une copie",
+    "sheetEditError": "Impossible d’ouvrir ou d’enregistrer cette fiche. Ce n’est peut-être pas un PDF valide."
   },
   "sessions": {
     "title": "Notes de session",

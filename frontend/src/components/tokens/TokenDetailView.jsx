@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
+import useImagePrefetch from '../../hooks/useImagePrefetch'
 
 const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
 
@@ -59,6 +60,10 @@ export default function TokenDetailView() {
     containerRef: imagePane,
     resetKey: tokenId,
   })
+
+  // Warm the cache for neighbouring tokens so prev/next feels instant.
+  const tokenFileUrl = useCallback((tok) => mediaUrl(`/tokens/${tok.id}/file`), [])
+  useImagePrefetch(siblings, siblingIdx, tokenFileUrl)
 
   useEffect(() => {
     api.get(`/tokens/${tokenId}`).then(setToken)

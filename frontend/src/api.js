@@ -67,10 +67,6 @@ export const campaigns = {
     api.upload(`/campaigns/${id}/members/${memberId}/sheet`, file),
   deleteMemberSheet: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/sheet`),
   memberSheetUrl: (id, memberId) => mediaUrl(`/campaigns/${id}/members/${memberId}/sheet`),
-  getMemberSheetFields: (id, memberId) =>
-    api.get(`/campaigns/${id}/members/${memberId}/sheet/fields`),
-  saveMemberSheetFields: (id, memberId, fields) =>
-    api.put(`/campaigns/${id}/members/${memberId}/sheet/fields`, { fields }),
   duplicateMemberSheet: (id, memberId, body) =>
     api.post(`/campaigns/${id}/members/${memberId}/sheet/duplicate`, body),
   listSheetSources: (id) => api.get(`/campaigns/${id}/sheet-sources`),

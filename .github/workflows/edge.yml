@@ -13,9 +13,13 @@ jobs:
   edge:
     name: Build and push edge
     runs-on: ubuntu-latest
+    # Build once per dev push. A direct push to dev with an open dev->main PR
+    # produces two CI runs (one `push`, one `pull_request`); only the push run
+    # should trigger an edge build, otherwise the image is built twice.
     if: |
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'dev'
+      github.event.workflow_run.head_branch == 'dev' &&
+      github.event.workflow_run.event == 'push'
 
     steps:
       - uses: actions/checkout@v4

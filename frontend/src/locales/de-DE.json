@@ -154,7 +154,11 @@
     "showLess": "Weniger anzeigen",
     "clearTags": "Löschen",
     "download": "Herunterladen",
-    "backToLibrary2": "Zurück zur Bibliothek"
+    "backToLibrary2": "Zurück zur Bibliothek",
+    "matchingBooks_one": "{{count}} passendes Buch",
+    "matchingBooks_other": "{{count}} passende Bücher",
+    "resultsInPages_one": "{{count}} Treffer in Seiten für \"{{query}}\"",
+    "resultsInPages_other": "{{count}} Treffer in Seiten für \"{{query}}\""
   },
   "reader": {
     "back": "Zurück",
@@ -817,7 +821,9 @@
     "replaceSheet": "Bogen ersetzen",
     "replaceSheetWarning": "Das Hochladen eines neuen Bogens ersetzt den aktuellen. Die vorherige Version kann nicht wiederhergestellt werden.",
     "downloadCurrent": "Aktuellen herunterladen",
-    "replace": "Ersetzen"
+    "replace": "Ersetzen",
+    "saveCopy": "Kopie speichern",
+    "sheetEditError": "Dieses Blatt konnte nicht geöffnet oder gespeichert werden. Möglicherweise ist es keine gültige PDF-Datei."
   },
   "sessions": {
     "title": "Sitzungsnotizen",

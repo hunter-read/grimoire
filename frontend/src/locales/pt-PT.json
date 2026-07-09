@@ -154,7 +154,11 @@
     "showLess": "Mostrar menos",
     "clearTags": "Limpar",
     "download": "Transferir",
-    "backToLibrary2": "Voltar à biblioteca"
+    "backToLibrary2": "Voltar à biblioteca",
+    "matchingBooks_one": "{{count}} livro correspondente",
+    "matchingBooks_other": "{{count}} livros correspondentes",
+    "resultsInPages_one": "{{count}} resultado nas páginas para \"{{query}}\"",
+    "resultsInPages_other": "{{count}} resultados nas páginas para \"{{query}}\""
   },
   "reader": {
     "back": "Voltar",
@@ -817,7 +821,9 @@
     "replaceSheet": "Substituir ficha",
     "replaceSheetWarning": "Carregar uma nova ficha substitui a atual. A versão anterior não pode ser recuperada.",
     "downloadCurrent": "Transferir atual",
-    "replace": "Substituir"
+    "replace": "Substituir",
+    "saveCopy": "Salvar cópia",
+    "sheetEditError": "Não foi possível abrir ou salvar esta ficha. Pode não ser um PDF válido."
   },
   "sessions": {
     "title": "Notas de sessão",

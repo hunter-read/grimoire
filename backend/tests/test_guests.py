@@ -1,6 +1,9 @@
 """Tests for the guest invite system (issue #96)."""
 import pytest
 
+from backend.config import SessionLocal
+from backend.models import PlayerSessionNote, SessionAvailability, SessionNote, User
+
 
 def _set_guest_access(client, admin_headers, enabled: bool):
     resp = client.patch(
@@ -173,6 +176,79 @@ def test_remove_guest_deletes_account(client, gm_headers, admin_headers, gm_camp
     # The guest does not appear in the global user list.
     users = client.get("/api/users", headers=admin_headers).json()
     assert all(u["id"] != created["user_id"] for u in users)
+
+
+def test_remove_via_member_endpoint_deletes_guest(client, gm_headers, admin_headers, gm_campaign):
+    """Removing a guest through the generic member-removal endpoint (keyed by
+    user_id) must delete the backing guest account too, not just the membership."""
+    _set_guest_access(client, admin_headers, True)
+    created = client.post(
+        f"/api/campaigns/{gm_campaign}/guests",
+        json={"nickname": "Georgia"},
+        headers=gm_headers,
+    ).json()
+    user_id = created["user_id"]
+    code = created["guest_code"]
+
+    resp = client.delete(
+        f"/api/campaigns/{gm_campaign}/members/{user_id}",
+        headers=gm_headers,
+    )
+    assert resp.status_code == 204, resp.text
+
+    # Old code can't log in and the guest User is gone.
+    assert client.post("/api/auth/guest-login", json={"code": code}).status_code == 401
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter_by(id=user_id).first() is None
+    finally:
+        db.close()
+
+
+def test_remove_guest_cleans_up_contributions(client, gm_headers, admin_headers, gm_campaign):
+    """A removed guest's session notes and availability are deleted with them,
+    not left orphaned pointing at a now-missing user."""
+    _set_guest_access(client, admin_headers, True)
+    created = client.post(
+        f"/api/campaigns/{gm_campaign}/guests",
+        json={"nickname": "Hank"},
+        headers=gm_headers,
+    ).json()
+    user_id = created["user_id"]
+    member_id = created["id"]
+
+    # Seed a session note and an availability row for the guest.
+    db = SessionLocal()
+    try:
+        session = SessionNote(campaign_id=gm_campaign, session_date="2026-01-01", title="S1")
+        db.add(session)
+        db.flush()
+        db.add(PlayerSessionNote(session_id=session.id, user_id=user_id, content="hi"))
+        db.add(
+            SessionAvailability(
+                campaign_id=gm_campaign,
+                user_id=user_id,
+                session_date="2026-01-01",
+                status="available",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.delete(
+        f"/api/campaigns/{gm_campaign}/guests/{member_id}",
+        headers=gm_headers,
+    )
+    assert resp.status_code == 204
+
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter_by(id=user_id).first() is None
+        assert db.query(PlayerSessionNote).filter_by(user_id=user_id).count() == 0
+        assert db.query(SessionAvailability).filter_by(user_id=user_id).count() == 0
+    finally:
+        db.close()
 
 
 def test_guests_not_in_eligible_members(client, gm_headers, admin_headers, gm_campaign):

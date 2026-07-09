@@ -58,8 +58,6 @@ from .uploads import (
     get_campaign_file,
 )
 from .sheets import (
-    get_member_sheet_fields,
-    save_member_sheet_fields,
     duplicate_member_sheet,
     list_sheet_sources,
 )
@@ -251,18 +249,6 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Remove a member's character sheet",
     status_code=204,
-)
-router.add_api_route(
-    "/{campaign_id}/members/{member_id}/sheet/fields",
-    get_member_sheet_fields,
-    methods=["GET"],
-    summary="Read a member's character sheet form fields",
-)
-router.add_api_route(
-    "/{campaign_id}/members/{member_id}/sheet/fields",
-    save_member_sheet_fields,
-    methods=["PUT"],
-    summary="Write a member's character sheet form fields",
 )
 router.add_api_route(
     "/{campaign_id}/members/{member_id}/sheet/duplicate",

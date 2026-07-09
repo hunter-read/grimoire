@@ -154,7 +154,11 @@
     "showLess": "Mostrar menos",
     "clearTags": "Borrar",
     "download": "Descargar",
-    "backToLibrary2": "Volver a la biblioteca"
+    "backToLibrary2": "Volver a la biblioteca",
+    "matchingBooks_one": "{{count}} libro coincidente",
+    "matchingBooks_other": "{{count}} libros coincidentes",
+    "resultsInPages_one": "{{count}} resultado en páginas para \"{{query}}\"",
+    "resultsInPages_other": "{{count}} resultados en páginas para \"{{query}}\""
   },
   "reader": {
     "back": "Atrás",
@@ -817,7 +821,9 @@
     "replaceSheet": "Reemplazar hoja",
     "replaceSheetWarning": "Subir una hoja nueva reemplaza la actual. La versión anterior no se puede recuperar.",
     "downloadCurrent": "Descargar actual",
-    "replace": "Reemplazar"
+    "replace": "Reemplazar",
+    "saveCopy": "Guardar copia",
+    "sheetEditError": "No se pudo abrir o guardar esta hoja. Puede que no sea un PDF válido."
   },
   "sessions": {
     "title": "Notas de sesión",

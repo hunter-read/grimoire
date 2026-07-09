@@ -65,13 +65,14 @@ export default function PendingInvitesBanner() {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        padding: '10px 18px',
-        background: 'var(--bg-card)',
-        borderBottom: '1px solid var(--border)',
-        borderLeft: '3px solid var(--gold)',
+        padding: '12px 18px',
+        background: 'var(--invite-bg)',
+        borderBottom: '1px solid var(--gold-dim)',
+        borderLeft: '4px solid var(--invite-border)',
+        boxShadow: 'inset 0 0 24px rgba(201, 168, 76, 0.08)',
       }}
     >
-      <LuMailOpen size={17} color="var(--gold)" style={{ flexShrink: 0 }} />
+      <LuMailOpen size={18} color="var(--gold-bright)" style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
         {single ? (
           <span>

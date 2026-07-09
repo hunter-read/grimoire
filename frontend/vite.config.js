@@ -36,6 +36,9 @@ export default defineConfig({
         'src/**/*.test.{js,jsx}',
         'src/test/**',
         'src/main.jsx',
+        // Third-party setup glue (e.g. pdf.js worker wiring) that is mocked in
+        // tests and carries no logic of its own to exercise.
+        'src/lib/**',
         'src/**/*.config.{js,jsx}',
       ],
     },

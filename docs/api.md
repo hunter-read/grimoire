@@ -316,8 +316,6 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/members/:member_id/sheet` | POST | member (own) or owner | Upload/replace character sheet (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/sheet` | GET | member or owner | Download character sheet (original filename) |
 | `/api/campaigns/:id/members/:member_id/sheet` | DELETE | member (own) or owner | Remove character sheet |
-| `/api/campaigns/:id/members/:member_id/sheet/fields` | GET | member (own) or owner | Read a sheet's fillable PDF form fields (`{ fillable, fields: [{name, type, value, options?}] }`; `fillable: false` when not a form-fillable PDF) |
-| `/api/campaigns/:id/members/:member_id/sheet/fields` | PUT | member (own) or owner | Write form field values back into the sheet PDF (body `{ fields: {name: value} }`); returns the refreshed fields |
 | `/api/campaigns/:id/members/:member_id/sheet/duplicate` | POST | member (own) or owner | Copy a blank PDF into the member's sheet (body `{ source_type: "book"\|"file", source_id }`) |
 | `/api/campaigns/:id/sheet-sources` | GET | member or owner | List duplicatable blank sheets (`{ books, files }`): library `character-sheet` PDFs (filtered to the campaign's system when set) and campaign PDF files |
 

@@ -154,7 +154,11 @@
     "showLess": "Minder tonen",
     "clearTags": "Wissen",
     "download": "Downloaden",
-    "backToLibrary2": "Terug naar bibliotheek"
+    "backToLibrary2": "Terug naar bibliotheek",
+    "matchingBooks_one": "{{count}} overeenkomend boek",
+    "matchingBooks_other": "{{count}} overeenkomende boeken",
+    "resultsInPages_one": "{{count}} resultaat in paginas voor \"{{query}}\"",
+    "resultsInPages_other": "{{count}} resultaten in paginas voor \"{{query}}\""
   },
   "reader": {
     "back": "Terug",
@@ -817,7 +821,9 @@
     "replaceSheet": "Vel vervangen",
     "replaceSheetWarning": "Een nieuw vel uploaden vervangt het huidige. De vorige versie kan niet worden hersteld.",
     "downloadCurrent": "Huidige downloaden",
-    "replace": "Vervangen"
+    "replace": "Vervangen",
+    "saveCopy": "Kopie opslaan",
+    "sheetEditError": "Kan dit blad niet openen of opslaan. Mogelijk is het geen geldige PDF."
   },
   "sessions": {
     "title": "Sessienotities",

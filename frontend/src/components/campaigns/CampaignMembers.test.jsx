@@ -8,8 +8,6 @@ vi.mock('../../api', () => ({
     eligibleMembers: vi.fn(),
     invite: vi.fn(),
     memberSheetUrl: vi.fn(() => '/api/sheet'),
-    getMemberSheetFields: vi.fn(),
-    saveMemberSheetFields: vi.fn(),
     listSheetSources: vi.fn(),
     duplicateMemberSheet: vi.fn(),
   },

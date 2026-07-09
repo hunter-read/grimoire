@@ -39,6 +39,8 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
   const {
     audioRef,
     playRequested,
+    queue,
+    currentIndex,
     currentTrack,
     isPlaying,
     setIsPlaying,
@@ -70,6 +72,23 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
+
+  // Prefetch the next track in the queue so skipping forward (or a track ending)
+  // starts without a fetch stall. A <link rel="prefetch"> lets the browser pull
+  // the file at idle priority; repeat-one has no "next", so skip it then.
+  const nextTrack = !repeatOne && currentIndex >= 0 ? queue[currentIndex + 1] : null
+  const nextSrc = nextTrack ? mediaUrl(`/audio/${nextTrack.id}/file`) : null
+  useEffect(() => {
+    if (!nextSrc) return
+    const link = document.createElement('link')
+    link.rel = 'prefetch'
+    link.as = 'audio'
+    link.href = nextSrc
+    document.head.appendChild(link)
+    return () => {
+      document.head.removeChild(link)
+    }
+  }, [nextSrc])
 
   if (!currentTrack) return null
 

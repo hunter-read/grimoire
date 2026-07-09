@@ -91,7 +91,17 @@ _CONSOLE_LEVEL = getattr(logging, _LOG_LEVEL_NAME, logging.INFO)
 _LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=_LOG_FORMAT)
 
-for _noisy in ("uvicorn", "uvicorn.access", "uvicorn.error", "fastapi", "sqlalchemy.engine"):
+for _noisy in (
+    "uvicorn",
+    "uvicorn.access",
+    "uvicorn.error",
+    "fastapi",
+    "sqlalchemy.engine",
+    # redis-py 7+ logs a benign DEBUG line on connect when the server (Valkey /
+    # OSS Redis) doesn't support its "maintenance notifications" probe. We only
+    # use it as a page cache, so keep that noise out of the log buffer.
+    "redis",
+):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 for _h in logging.root.handlers:
@@ -224,6 +234,10 @@ if VALKEY_URL:
     try:
         import redis as _redis_mod  # type: ignore[import-untyped]
 
+        # Note: redis-py 7+ probes for "maintenance notifications" (a Redis
+        # Enterprise feature) on connect under RESP3; Valkey/OSS Redis reject it
+        # and redis-py logs a benign DEBUG line. That logger is quieted above —
+        # we only use this as a page cache and don't need the feature.
         _valkey = _redis_mod.from_url(VALKEY_URL, decode_responses=False)
         _valkey.ping()
         logger.info(f"Valkey page cache connected: {VALKEY_URL}")

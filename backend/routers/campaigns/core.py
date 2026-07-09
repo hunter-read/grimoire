@@ -20,6 +20,7 @@ from ._helpers import (
     assert_can_manage,
     build_members,
     can_view,
+    delete_guest_user,
     get_campaign_or_404,
     is_gm_or_admin,
     serialize_campaign,
@@ -496,7 +497,12 @@ def remove_member(
             db.query(CampaignMember).filter_by(campaign_id=campaign_id, user_id=user_id).first()
         )
         if member:
+            was_guest = bool(member.is_guest)
             db.delete(member)
+            # A guest is single-campaign, so removing them from it leaves nothing
+            # behind — delete the backing guest account and its contributions too.
+            if was_guest:
+                delete_guest_user(db, user_id)
             db.commit()
     finally:
         db.close()
