@@ -462,6 +462,7 @@ Availability statuses: `available`, `tentative`, `unavailable`
 | `show_stat_pages` | bool | Show/hide page count in sidebar |
 | `show_stat_maps` | bool | Show/hide map count in sidebar |
 | `show_stat_tokens` | bool | Show/hide token count in sidebar |
+| `show_stat_audio` | bool | Show/hide audio track count in sidebar (default off) |
 | `show_stat_size` | bool | Show/hide library size in sidebar |
 | `show_stat_version` | bool | Show/hide version in sidebar |
 | `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. |

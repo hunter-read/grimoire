@@ -16,6 +16,7 @@ export default function StatsDisplaySection() {
     { key: 'show_stat_pages', label: t('stats.pages') },
     { key: 'show_stat_maps', label: t('stats.maps') },
     { key: 'show_stat_tokens', label: t('stats.tokens') },
+    { key: 'show_stat_audio', label: t('stats.audio') },
     { key: 'show_stat_size', label: t('stats.size') },
   ]
 

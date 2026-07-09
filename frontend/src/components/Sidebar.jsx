@@ -79,6 +79,7 @@ export default function Sidebar({
     show_stat_pages = true,
     show_stat_maps = false,
     show_stat_tokens = false,
+    show_stat_audio = false,
     show_stat_size = true,
   } = uiSettings
 
@@ -111,6 +112,7 @@ export default function Sidebar({
     show_stat_pages ||
     show_stat_maps ||
     show_stat_tokens ||
+    show_stat_audio ||
     show_stat_size
 
   const navItem = (to, icon, label, { end = true } = {}) => (
@@ -200,7 +202,8 @@ export default function Sidebar({
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
       </nav>
 
-      {/* Collapse toggle — bottom of the nav section, above the stats footer */}
+      {/* Collapse toggle — bottom of the nav section, above the stats footer.
+          No top border: it reads as part of the nav, not a separate section. */}
       <button
         onClick={onToggleCollapse}
         title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
@@ -213,7 +216,6 @@ export default function Sidebar({
           gap: 6,
           background: 'none',
           border: 'none',
-          borderTop: '1px solid var(--border)',
           color: 'var(--text-muted)',
           cursor: 'pointer',
           padding: collapsed ? '8px 0' : '8px 16px',
@@ -263,6 +265,12 @@ export default function Sidebar({
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span>{t('stats.tokens')}</span>
               <span style={{ color: 'var(--text-dim)' }}>{stats.tokens}</span>
+            </div>
+          )}
+          {show_stat_audio && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span>{t('stats.audio')}</span>
+              <span style={{ color: 'var(--text-dim)' }}>{stats.audio}</span>
             </div>
           )}
           {show_stat_size && (

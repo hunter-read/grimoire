@@ -27,7 +27,8 @@
     "maps": "Cartes",
     "tokens": "Pions",
     "size": "Taille",
-    "version": "Version"
+    "version": "Version",
+    "audio": "Audio"
   },
   "about": {
     "title": "À propos de Grimoire",
@@ -621,7 +622,8 @@
       "exporting": "Exportation…",
       "library": "Bibliothèque",
       "maps": "Cartes",
-      "tokens": "Pions"
+      "tokens": "Pions",
+      "audio": "Audio"
     },
     "cleanup": {
       "title": "Nettoyage de la base de données",

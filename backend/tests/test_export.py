@@ -161,6 +161,7 @@ class TestExportTagsFormat:
         assert "library" in data
         assert "maps" in data
         assert "tokens" in data
+        assert "audio" in data
 
     def test_library_has_expected_keys(self, client, admin_headers):
         data = client.get("/api/export/tags", headers=admin_headers).json()
@@ -327,15 +328,30 @@ class TestExportTagsToggles:
         assert "maps" in data
         assert "tokens" not in data
 
+    def test_exclude_audio(self, client, admin_headers):
+        data = client.get(
+            "/api/export/tags",
+            headers=admin_headers,
+            params={"include_audio": False},
+        ).json()
+        assert "library" in data
+        assert "audio" not in data
+
     def test_exclude_all_sections(self, client, admin_headers):
         data = client.get(
             "/api/export/tags",
             headers=admin_headers,
-            params={"include_library": False, "include_maps": False, "include_tokens": False},
+            params={
+                "include_library": False,
+                "include_maps": False,
+                "include_tokens": False,
+                "include_audio": False,
+            },
         ).json()
         assert "library" not in data
         assert "maps" not in data
         assert "tokens" not in data
+        assert "audio" not in data
         assert "exported_at" in data
 
     def test_library_only(self, client, admin_headers):

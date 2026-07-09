@@ -283,10 +283,10 @@ describe('MaintenanceTab — ExportTagsSection', () => {
     expect(screen.getByRole('button', { name: /export tags/i })).toBeInTheDocument()
   })
 
-  it('renders all three section checkboxes checked by default', () => {
+  it('renders all four section checkboxes checked by default', () => {
     render(<MaintenanceTab />)
     const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes).toHaveLength(3)
+    expect(checkboxes).toHaveLength(4)
     checkboxes.forEach((cb) => expect(cb).toBeChecked())
   })
 
@@ -297,6 +297,7 @@ describe('MaintenanceTab — ExportTagsSection', () => {
       include_library: true,
       include_maps: true,
       include_tokens: true,
+      include_audio: true,
     })
   })
 
@@ -316,6 +317,7 @@ describe('MaintenanceTab — ExportTagsSection', () => {
       include_library: false,
       include_maps: true,
       include_tokens: true,
+      include_audio: true,
     })
   })
 
@@ -328,6 +330,7 @@ describe('MaintenanceTab — ExportTagsSection', () => {
       include_library: true,
       include_maps: false,
       include_tokens: true,
+      include_audio: true,
     })
   })
 
@@ -340,6 +343,20 @@ describe('MaintenanceTab — ExportTagsSection', () => {
       include_library: true,
       include_maps: true,
       include_tokens: false,
+      include_audio: true,
+    })
+  })
+
+  it('passes include_audio=false when Audio checkbox is unchecked', () => {
+    render(<MaintenanceTab />)
+    const [, , , audioCheckbox] = screen.getAllByRole('checkbox')
+    fireEvent.click(audioCheckbox)
+    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
+    expect(mediaUrl).toHaveBeenCalledWith('/export/tags', {
+      include_library: true,
+      include_maps: true,
+      include_tokens: true,
+      include_audio: false,
     })
   })
 

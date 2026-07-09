@@ -75,6 +75,7 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
             "show_stat_pages",
             "show_stat_maps",
             "show_stat_tokens",
+            "show_stat_audio",
             "show_stat_size",
         ):
             val = getattr(data, key)
@@ -202,6 +203,7 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user)):
             "show_stat_pages": raw["show_stat_pages"] == "true",
             "show_stat_maps": raw["show_stat_maps"] == "true",
             "show_stat_tokens": raw["show_stat_tokens"] == "true",
+            "show_stat_audio": raw["show_stat_audio"] == "true",
             "show_stat_size": raw["show_stat_size"] == "true",
             "campaign_uploads_disabled": raw["campaign_uploads_disabled"] == "true",
             "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),

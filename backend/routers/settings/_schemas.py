@@ -20,6 +20,7 @@ class SettingsPatch(BaseModel):
     show_stat_pages: Optional[bool] = None
     show_stat_maps: Optional[bool] = None
     show_stat_tokens: Optional[bool] = None
+    show_stat_audio: Optional[bool] = None
     show_stat_size: Optional[bool] = None
     campaign_uploads_disabled: Optional[bool] = None
     campaign_upload_max_file_mb: Optional[int] = None

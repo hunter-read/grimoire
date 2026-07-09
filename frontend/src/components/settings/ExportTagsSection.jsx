@@ -10,6 +10,7 @@ export default function ExportTagsSection() {
   const [includeLibrary, setIncludeLibrary] = useState(true)
   const [includeMaps, setIncludeMaps] = useState(true)
   const [includeTokens, setIncludeTokens] = useState(true)
+  const [includeAudio, setIncludeAudio] = useState(true)
 
   const handleExport = () => {
     setExporting(true)
@@ -17,6 +18,7 @@ export default function ExportTagsSection() {
       include_library: includeLibrary,
       include_maps: includeMaps,
       include_tokens: includeTokens,
+      include_audio: includeAudio,
     }
     const url = mediaUrl('/export/tags', params)
     const a = document.createElement('a')
@@ -27,6 +29,8 @@ export default function ExportTagsSection() {
     document.body.removeChild(a)
     setTimeout(() => setExporting(false), 800)
   }
+
+  const noneSelected = !includeLibrary && !includeMaps && !includeTokens && !includeAudio
 
   const checkboxStyle = {
     display: 'flex',
@@ -75,11 +79,20 @@ export default function ExportTagsSection() {
           />
           {t('maintenance.tagExport.tokens')}
         </label>
+        <label htmlFor="export-tags-audio" style={checkboxStyle}>
+          <input
+            id="export-tags-audio"
+            type="checkbox"
+            checked={includeAudio}
+            onChange={(e) => setIncludeAudio(e.target.checked)}
+          />
+          {t('maintenance.tagExport.audio')}
+        </label>
       </div>
 
       <button
         onClick={handleExport}
-        disabled={exporting || (!includeLibrary && !includeMaps && !includeTokens)}
+        disabled={exporting || noneSelected}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -91,11 +104,8 @@ export default function ExportTagsSection() {
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           color: exporting ? 'var(--gold)' : 'var(--text-dim)',
-          cursor:
-            exporting || (!includeLibrary && !includeMaps && !includeTokens)
-              ? 'default'
-              : 'pointer',
-          opacity: !includeLibrary && !includeMaps && !includeTokens ? 0.5 : 1,
+          cursor: exporting || noneSelected ? 'default' : 'pointer',
+          opacity: noneSelected ? 0.5 : 1,
         }}
       >
         {exporting ? <Spinner size={13} /> : <LuDownload size={13} />}

@@ -27,7 +27,8 @@
     "maps": "Mapas",
     "tokens": "Tokens",
     "size": "Tamanho",
-    "version": "Versão"
+    "version": "Versão",
+    "audio": "Áudio"
   },
   "about": {
     "title": "Acerca do Grimoire",
@@ -621,7 +622,8 @@
       "exporting": "A exportar…",
       "library": "Biblioteca",
       "maps": "Mapas",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "audio": "Áudio"
     },
     "cleanup": {
       "title": "Limpeza da base de dados",

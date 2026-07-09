@@ -3,8 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import BulkEditModal from './BulkEditModal'
 
 const patch = vi.fn(() => Promise.resolve({}))
+const get = vi.fn(() => Promise.resolve({ books: [] }))
 vi.mock('../api', () => ({
-  default: { patch: (...args) => patch(...args) },
+  default: { patch: (...args) => patch(...args), get: (...args) => get(...args) },
+  mediaUrl: (p) => p,
 }))
 
 const items = [
@@ -51,22 +53,64 @@ describe('BulkEditModal', () => {
     expect(onSaved).toHaveBeenCalledWith({ m1: { tags: ['old', 'new'] } })
   })
 
-  it('edits game systems via the /systems endpoint', async () => {
+  it('edits a system genre via the /systems endpoint', async () => {
     const onSaved = vi.fn()
-    const systems = [{ id: 's1', name: 'Alpha', tags: ['osr'], genre: '', is_explicit: false }]
+    // Seed `books` so the cover picker doesn't lazy-fetch.
+    const systems = [
+      { id: 's1', name: 'Alpha', tags: ['osr'], genre: '', is_explicit: false, books: [] },
+    ]
     render(<BulkEditModal type="system" items={systems} onClose={vi.fn()} onSaved={onSaved} />)
 
-    // System name is shown in the carousel header.
     expect(screen.getByText('Alpha')).toBeInTheDocument()
 
-    // Fields render in config order (genre, character builder url, tags); genre
-    // is the first text input. Labels aren't `for`-associated, so select by order.
-    const genreInput = screen.getAllByRole('textbox')[0]
-    fireEvent.change(genreInput, { target: { value: 'Fantasy' } })
+    // Genre is a labelled field in the rich system editor.
+    fireEvent.change(screen.getByLabelText('Genre'), { target: { value: 'Fantasy' } })
     fireEvent.click(screen.getByText('Save all'))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(patch).toHaveBeenCalledWith('/systems/s1', { genre: 'Fantasy' })
     expect(onSaved).toHaveBeenCalledWith({ s1: { genre: 'Fantasy' } })
+  })
+
+  it('edits system description, publishers, and explicit flag', async () => {
+    const onSaved = vi.fn()
+    const systems = [
+      {
+        id: 's1',
+        name: 'Alpha',
+        description: '',
+        tags: [],
+        publishers: [],
+        genre: '',
+        is_explicit: false,
+        books: [],
+      },
+    ]
+    render(<BulkEditModal type="system" items={systems} onClose={vi.fn()} onSaved={onSaved} />)
+
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'A dark realm' } })
+
+    // Add a publisher row and fill in its name.
+    fireEvent.click(screen.getByText('Add Publisher'))
+    fireEvent.change(screen.getByPlaceholderText('Publisher name'), {
+      target: { value: 'Acme' },
+    })
+
+    fireEvent.click(screen.getByLabelText(/mark system as explicit/i))
+
+    fireEvent.click(screen.getByText('Save all'))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(patch).toHaveBeenCalledWith('/systems/s1', {
+      description: 'A dark realm',
+      publishers: [{ name: 'Acme', url: '' }],
+      is_explicit: true,
+    })
+  })
+
+  it('lazy-fetches books for the cover picker when absent', async () => {
+    const systems = [{ id: 's1', name: 'Alpha', tags: [], genre: '', is_explicit: false }]
+    render(<BulkEditModal type="system" items={systems} onClose={vi.fn()} onSaved={vi.fn()} />)
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/systems/s1'))
   })
 })

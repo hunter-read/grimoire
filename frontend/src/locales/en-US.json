@@ -27,7 +27,8 @@
     "maps": "Maps",
     "tokens": "Tokens",
     "size": "Size",
-    "version": "Version"
+    "version": "Version",
+    "audio": "Audio"
   },
   "about": {
     "title": "About Grimoire",
@@ -616,12 +617,13 @@
     },
     "tagExport": {
       "title": "Export Tags",
-      "description": "Download all tags assigned to books, maps, tokens, systems, and folders as a JSON file.",
+      "description": "Download all tags assigned to books, maps, tokens, audio, systems, and folders as a JSON file.",
       "button": "Export Tags",
       "exporting": "Exporting…",
       "library": "Library",
       "maps": "Maps",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "audio": "Audio"
     },
     "cleanup": {
       "title": "Database Cleanup",

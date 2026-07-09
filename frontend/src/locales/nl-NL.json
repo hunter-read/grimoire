@@ -27,7 +27,8 @@
     "maps": "Kaarten",
     "tokens": "Tokens",
     "size": "Grootte",
-    "version": "Versie"
+    "version": "Versie",
+    "audio": "Audio"
   },
   "about": {
     "title": "Over Grimoire",
@@ -621,7 +622,8 @@
       "exporting": "Exporteren…",
       "library": "Bibliotheek",
       "maps": "Kaarten",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "audio": "Audio"
     },
     "cleanup": {
       "title": "Databaseopschoning",
