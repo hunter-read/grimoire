@@ -297,6 +297,11 @@ _THUMBNAIL_TIMEOUT = 30  # seconds
 # central directory can't stall a thumbnail worker.
 _ARCHIVE_LIST_CAP = 5000
 
+# Ceiling on the bytes we let py7zr decompress for a single cover image. Covers
+# are ordinary page images, so 256 MiB is generous; the cap also doubles as a
+# decompression-bomb guard for the in-memory 7z extraction path.
+_ARCHIVE_MEMBER_SIZE_CAP = 256 * 1024 * 1024
+
 
 def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
     """Return the raw bytes of the first image inside a comic-book archive.
@@ -323,6 +328,7 @@ def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
                         return rf.read(name)
         elif arc_ext in (".cb7", ".7z"):
             import py7zr
+            from py7zr.io import BytesIOFactory
 
             with py7zr.SevenZipFile(filepath) as zf:
                 names = [n for n in zf.getnames()[:_ARCHIVE_LIST_CAP]]
@@ -332,9 +338,14 @@ def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
                 )
                 if targets:
                     first = targets[0]
-                    data = zf.read([first])
-                    bio = data.get(first)
-                    return bio.read() if bio is not None else None
+                    # py7zr 1.x dropped SevenZipFile.read(); extract the single
+                    # chosen member into memory via a BytesIOFactory instead.
+                    factory = BytesIOFactory(limit=_ARCHIVE_MEMBER_SIZE_CAP)
+                    zf.extract(targets=[first], factory=factory)
+                    bio = factory.get(first)
+                    if bio is not None:
+                        bio.seek(0)
+                        return bio.read()
         elif arc_ext in (".cbt", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2"):
             with tarfile.open(filepath) as tf:
                 members = [m for m in tf.getmembers() if m.isfile()]
