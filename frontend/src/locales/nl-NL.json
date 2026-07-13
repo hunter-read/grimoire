@@ -1093,6 +1093,7 @@
   },
   "wiki": {
     "newPage": "Nieuwe pagina",
+    "backToPages": "Pagina’s",
     "searchPlaceholder": "Pagina's zoeken…",
     "noPages": "Nog geen pagina's.",
     "selectPrompt": "Selecteer een pagina of maak een nieuwe aan.",

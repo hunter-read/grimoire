@@ -1093,6 +1093,7 @@
   },
   "wiki": {
     "newPage": "Neue Seite",
+    "backToPages": "Seiten",
     "searchPlaceholder": "Seiten durchsuchen…",
     "noPages": "Noch keine Seiten.",
     "selectPrompt": "Wähle eine Seite oder erstelle eine neue.",
