@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, SessionLocal, THUMB_DIR
+from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...models import Book, GameSystem
 from ._helpers import _allow_explicit
@@ -131,6 +132,10 @@ def serve_book_file(book_id: str):
             headers={
                 "Accept-Ranges": "bytes",
                 "Content-Disposition": f'inline; filename="{book.filename}"',
+                # The reader embeds this file in a same-origin <iframe> (PDF mode).
+                # Override the global frame-ancestors 'none' so Firefox doesn't
+                # block the frame, while keeping cross-origin framing denied.
+                **SAME_ORIGIN_FRAME_HEADERS,
             },
         )
     finally:

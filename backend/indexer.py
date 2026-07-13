@@ -4,10 +4,13 @@ import io
 import os
 import re
 import json
+import pickle
 import logging
 import hashlib
 import tarfile
+import tempfile
 import threading
+import multiprocessing
 import zipfile
 from pathlib import Path
 from typing import Optional
@@ -25,6 +28,28 @@ logger = logging.getLogger("grimoire.indexer")
 
 _FITZ_TIMEOUT = 30   # seconds — files that can't be opened in 30s are unreadable
 _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
+
+# Wall-clock budget for extracting text from a single PDF in the isolated
+# worker process.  Generous because OCR of a large scanned book is slow; a file
+# that can't finish in this window is treated as unindexable rather than allowed
+# to stall the scan forever.
+_EXTRACT_TIMEOUT = 1800  # seconds (30 min)
+
+# Spawn (not fork) a fresh interpreter for the extraction worker.  The app runs
+# many threads and holds a SQLite connection; forking that state into a child
+# is unsafe, whereas spawn re-imports this module cleanly with no inherited
+# locks or file handles.
+_MP_CONTEXT = multiprocessing.get_context("spawn")
+
+
+class PdfExtractionCrashError(Exception):
+    """The isolated extraction worker died (segfault, OOM-kill, or timeout).
+
+    Raised by ``extract_text_isolated`` when the child process terminates
+    without producing a result — e.g. a native crash inside MuPDF or an
+    out-of-memory kill on a low-RAM host.  The caller marks the book failed so
+    the file is skipped instead of crashing the server and re-looping the scan.
+    """
 
 
 def _run_with_timeout(fn, timeout: int, label: str):
@@ -426,6 +451,65 @@ def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], 
     except Exception as e:
         logger.error(f"Text extraction failed for {filepath}: {e}")
     return pages, used_ocr
+
+
+def extract_text_isolated(filepath: str, should_stop=None) -> tuple[list[dict], bool]:
+    """Extract text from a PDF in a separate process, isolating native crashes.
+
+    Returns ``(pages, used_ocr)`` exactly like ``extract_text_from_pdf``.  The
+    extraction runs in a spawned child process; if that process dies without
+    producing a result — a segfault inside MuPDF, an out-of-memory kill, or
+    exceeding ``_EXTRACT_TIMEOUT`` — this raises ``PdfExtractionCrashError`` so
+    the caller can mark the book failed and continue, instead of the whole
+    worker crashing and re-looping the scan on restart.
+
+    A cooperative ``should_stop`` cancels by terminating the child and raising
+    TimeoutError, matching the abort semantics of the rest of the indexer.
+    """
+    from . import pdf_worker
+
+    fd, result_path = tempfile.mkstemp(prefix="grimoire_extract_", suffix=".pkl")
+    os.close(fd)
+    proc = _MP_CONTEXT.Process(target=pdf_worker.main, args=(filepath, result_path))
+    try:
+        proc.start()
+        poll_interval = 0.5
+        elapsed = 0.0
+        while proc.is_alive() and elapsed < _EXTRACT_TIMEOUT:
+            proc.join(poll_interval)
+            elapsed += poll_interval
+            if should_stop and should_stop():
+                proc.terminate()
+                proc.join()
+                raise TimeoutError(f"Text extraction aborted by stop request for {filepath}")
+
+        if proc.is_alive():
+            logger.error(f"Text extraction timed out after {_EXTRACT_TIMEOUT}s for {filepath}")
+            proc.terminate()
+            proc.join()
+            raise PdfExtractionCrashError(f"extraction timed out after {_EXTRACT_TIMEOUT}s")
+
+        # Child exited.  A clean run left a result file; a crash (negative
+        # exitcode = killed by signal, or nonzero without a result) did not.
+        if os.path.getsize(result_path) == 0:
+            code = proc.exitcode
+            reason = (
+                f"killed by signal {-code}" if code is not None and code < 0
+                else f"exited with code {code}"
+            )
+            logger.error(f"Text extraction worker crashed ({reason}) for {filepath}")
+            raise PdfExtractionCrashError(f"extraction worker {reason}")
+
+        with open(result_path, "rb") as fh:
+            return pickle.load(fh)
+    finally:
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+        try:
+            os.unlink(result_path)
+        except OSError:
+            pass
 
 
 def _count_eligible_files(directory: Path, extensions: set) -> int:
@@ -1477,12 +1561,51 @@ def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Pat
 
 
 def index_book_text(book: Book, data_path: str, session: Session, should_stop=None):
-    """Extract and index text from a PDF for full-text search."""
+    """Extract and index text from a PDF for full-text search.
+
+    Text extraction runs in an isolated worker process (see
+    ``extract_text_isolated``).  Before extraction the book is marked
+    ``index_failed`` and committed, so that even if a native crash escaped the
+    isolation and took down the whole server, the book would already be flagged
+    and skipped on the next scan instead of re-crashing in an endless loop.  The
+    flag is cleared once extraction succeeds.
+    """
     if book.indexed or book.index_failed or book.mime_type != "application/pdf":
         return False
 
+    # Crash-loop guard: persist "attempt in progress" before the risky call so a
+    # process-killing crash (segfault / OOM) can't cause this file to be retried
+    # forever.  Committed up front; cleared on success below.
+    book.index_failed = True
+    try:
+        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index attempt '{book.filepath}'")
+    except (TimeoutError, IntegrityError) as e:
+        logger.error(f"DB hang marking index attempt for '{book.filename}': {e}")
+        session.rollback()
+
     logger.info(f"Indexing: extracting text from '{book.filepath}'")
-    pages, used_ocr = extract_text_from_pdf(book.filepath, should_stop=should_stop)
+    try:
+        pages, used_ocr = extract_text_isolated(book.filepath, should_stop=should_stop)
+    except PdfExtractionCrashError as e:
+        logger.error(f"Text extraction crashed for '{book.filename}': {e} — marking index_failed")
+        book.index_error = f"extraction crashed: {e}"[:500]
+        book.index_failed = True
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index_failed '{book.filepath}'")
+        except (TimeoutError, IntegrityError) as e2:
+            logger.error(f"DB hang saving index_failed for '{book.filename}': {e2}")
+            session.rollback()
+        return False
+    except TimeoutError:
+        # Cancelled via should_stop — clear the attempt marker so the file is
+        # resumed on the next scan rather than being left permanently failed.
+        book.index_failed = False
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index cancel '{book.filepath}'")
+        except (TimeoutError, IntegrityError):
+            session.rollback()
+        return False
+
     if not pages:
         logger.info(f"No text extracted from '{book.filename}' — image-only PDF, marking as indexed")
         book.index_error = "image-only"
@@ -1506,6 +1629,7 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         )
 
     book.indexed = True
+    book.index_failed = False  # clear the crash-loop guard set before extraction
     # "ocr" marks books whose text was (at least partly) recognised via OCR, so
     # the UI can badge them and startup re-queue can target them. Empty = native.
     book.index_error = "ocr" if used_ocr else ""

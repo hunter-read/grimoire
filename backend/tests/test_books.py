@@ -264,6 +264,14 @@ class TestServeBookFile:
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "application/pdf"
             assert "inline" in resp.headers["content-disposition"]
+            # The reader frames this file in a same-origin <iframe> (PDF mode), so
+            # the response must relax the global frame-ancestors 'none' to 'self'
+            # (which Firefox strictly enforces) while still blocking cross-origin
+            # framing. See backend/security.py SAME_ORIGIN_FRAME_HEADERS.
+            assert resp.headers["X-Frame-Options"] == "SAMEORIGIN"
+            csp = resp.headers["Content-Security-Policy"]
+            assert "frame-ancestors 'self'" in csp
+            assert "frame-ancestors 'none'" not in csp
         finally:
             os.unlink(fpath)
 

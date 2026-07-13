@@ -11,12 +11,30 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backend.config import SessionLocal
+from backend import indexer, pdf_worker
 from backend.indexer import (
+    PdfExtractionCrashError,
     _fitz_open_with_timeout,
+    extract_text_isolated,
     index_book_text,
     scan_library,
 )
 from backend.models import Book, GenericMap, Token
+
+
+# Top-level (picklable) worker stand-ins for the spawned extraction process.
+# Defined at module scope so the "spawn" start method can import them by name.
+def _worker_crash(filepath: str, result_path: str) -> None:
+    """Simulate a native crash / OOM-kill: die without writing a result."""
+    os._exit(1)
+
+
+def _worker_ok(filepath: str, result_path: str) -> None:
+    """Simulate a clean extraction: write a small result payload."""
+    import pickle
+
+    with open(result_path, "wb") as fh:
+        pickle.dump(([{"page": 1, "content": "hello"}], False), fh)
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +160,7 @@ class TestIndexBookTextIndexFailed:
             db.commit()
             db.refresh(book)
 
-            with patch("backend.indexer.extract_text_from_pdf", return_value=([], False)):
+            with patch("backend.indexer.extract_text_isolated", return_value=([], False)):
                 result = index_book_text(book, "/tmp", db)
 
             db.refresh(book)
@@ -172,7 +190,7 @@ class TestIndexBookTextIndexFailed:
             db.commit()
             db.refresh(book)
 
-            with patch("backend.indexer.extract_text_from_pdf", return_value=(pages, False)):
+            with patch("backend.indexer.extract_text_isolated", return_value=(pages, False)):
                 result = index_book_text(book, "/tmp", db)
 
             db.refresh(book)
@@ -809,5 +827,115 @@ class TestMissingFiles:
             assert "missing_maps" in stats
             assert "missing_tokens" in stats
             assert stats["missing_books"] >= 1
+        finally:
+            db.close()
+
+
+# ---------------------------------------------------------------------------
+# extract_text_isolated / crash-loop protection (issue #204)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractIsolated:
+    def test_worker_crash_raises(self):
+        """A worker that dies without a result raises PdfExtractionCrashError."""
+        with patch.object(pdf_worker, "main", _worker_crash):
+            with pytest.raises(PdfExtractionCrashError):
+                extract_text_isolated("/tmp/whatever.pdf")
+
+    def test_worker_success_returns_result(self):
+        """A worker that writes a result returns it unchanged to the caller."""
+        with patch.object(pdf_worker, "main", _worker_ok):
+            pages, used_ocr = extract_text_isolated("/tmp/whatever.pdf")
+        assert pages == [{"page": 1, "content": "hello"}]
+        assert used_ocr is False
+
+    def test_stop_request_aborts(self):
+        """should_stop() short-circuits the wait with TimeoutError."""
+        with patch.object(pdf_worker, "main", _worker_ok):
+            with pytest.raises(TimeoutError):
+                extract_text_isolated("/tmp/whatever.pdf", should_stop=lambda: True)
+
+
+class TestIndexBookTextCrashLoop:
+    def test_crash_marks_index_failed_not_indexed(self):
+        """A crashing extraction leaves the book index_failed=True, indexed=False.
+
+        This is the fix for the endless-rescan loop: the failed book is excluded
+        from the unindexed re-query, so the scan can't pick it up and crash again.
+        """
+        uid = str(uuid.uuid4())[:8]
+        db = SessionLocal()
+        try:
+            book = Book(
+                title=f"CrashBook-{uid}",
+                filename=f"book-{uid}.pdf",
+                filepath=f"/tmp/nonexistent-{uid}.pdf",
+                relative_path=f"book-{uid}.pdf",
+                mime_type="application/pdf",
+                indexed=False,
+                index_failed=False,
+            )
+            db.add(book)
+            db.commit()
+            db.refresh(book)
+            book_id = book.id
+
+            with patch.object(
+                indexer,
+                "extract_text_isolated",
+                side_effect=PdfExtractionCrashError("killed by signal 11"),
+            ):
+                result = index_book_text(book, "/tmp", db)
+
+            db.refresh(book)
+            assert result is False
+            assert book.index_failed is True
+            assert book.indexed is False
+            assert "extraction crashed" in book.index_error
+        finally:
+            db.close()
+
+        # The book must now be excluded from the "still needs indexing" query,
+        # which is what breaks the loop.
+        db = SessionLocal()
+        try:
+            pending = (
+                db.query(Book)
+                .filter_by(indexed=False, index_failed=False, mime_type="application/pdf")
+                .filter(Book.id == book_id)
+                .first()
+            )
+            assert pending is None
+        finally:
+            db.close()
+
+    def test_cancel_leaves_book_retryable(self):
+        """A should_stop cancellation clears index_failed so the file resumes next scan."""
+        uid = str(uuid.uuid4())[:8]
+        db = SessionLocal()
+        try:
+            book = Book(
+                title=f"CancelBook-{uid}",
+                filename=f"book-{uid}.pdf",
+                filepath=f"/tmp/nonexistent-{uid}.pdf",
+                relative_path=f"book-{uid}.pdf",
+                mime_type="application/pdf",
+                indexed=False,
+                index_failed=False,
+            )
+            db.add(book)
+            db.commit()
+            db.refresh(book)
+
+            with patch.object(
+                indexer, "extract_text_isolated", side_effect=TimeoutError("aborted")
+            ):
+                result = index_book_text(book, "/tmp", db)
+
+            db.refresh(book)
+            assert result is False
+            assert book.index_failed is False
+            assert book.indexed is False
         finally:
             db.close()

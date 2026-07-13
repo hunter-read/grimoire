@@ -171,7 +171,7 @@ class TestIndexMarker:
 
             pages = [{"page": 1, "content": "ocr text"}]
             with patch(
-                "backend.indexer.extract_text_from_pdf", return_value=(pages, True)
+                "backend.indexer.extract_text_isolated", return_value=(pages, True)
             ):
                 result = indexer.index_book_text(book, "/tmp", db)
 

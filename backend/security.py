@@ -114,6 +114,18 @@ _SECURITY_HEADERS = {
     "Referrer-Policy": "strict-origin-when-cross-origin",
 }
 
+# Framing override for same-origin-embeddable responses (e.g. the raw book file
+# served into the reader's PDF-mode <iframe>). The global policy is
+# frame-ancestors 'none' / X-Frame-Options: DENY, which Firefox strictly enforces
+# on framed subresources and so blocks the reader's same-origin iframe. Endpoints
+# that are legitimately framed by our own SPA set these headers on their response;
+# SecurityHeadersMiddleware leaves any header the response already set untouched.
+# Cross-origin framing stays blocked ('self' / SAMEORIGIN).
+SAME_ORIGIN_FRAME_HEADERS = {
+    "Content-Security-Policy": _CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
+    "X-Frame-Options": "SAMEORIGIN",
+}
+
 _HSTS = "max-age=31536000; includeSubDomains"
 
 
@@ -162,6 +174,7 @@ __all__ = [
     "AUTH_RATE_LIMIT",
     "RateLimitExceeded",
     "Response",
+    "SAME_ORIGIN_FRAME_HEADERS",
     "SecurityHeadersMiddleware",
     "limiter",
 ]

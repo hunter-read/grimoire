@@ -30,7 +30,8 @@ backend on port 9481.
 | [`backend/config.py`](../backend/config.py) | Environment loading, `DATA_PATH`/`LIBRARY_PATH` and cache dirs, logging setup (incl. the in-memory ring buffer for `/api/logs`), the SQLAlchemy `engine` + `SessionLocal`, the `get_db` dependency, and the optional `_valkey` client. |
 | [`backend/models/`](../backend/models/) | ORM models split by domain (`library.py`, `media.py`, `users.py`, `campaigns.py`, `settings.py`); `db.py` holds `init_db`, runtime migrations, and FTS5 setup. See [`docs/data-model.md`](data-model.md). |
 | [`backend/auth.py`](../backend/auth.py) | JWT creation/validation, password hashing (`bcrypt_sha256`), the `get_current_user` dependency, and the role-guard dependencies (`require_admin`, `require_gm_or_admin`, `require_not_guest`). |
-| [`backend/indexer.py`](../backend/indexer.py) | Library scanning, PDF FTS5 indexing, thumbnail generation, and OPF/metadata parsing. |
+| [`backend/indexer.py`](../backend/indexer.py) | Library scanning, PDF FTS5 indexing, thumbnail generation, and OPF/metadata parsing. PDF text extraction runs in an isolated subprocess (see below). |
+| [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs — never `backend.config` — so a throwaway extraction child does not open the DB or run migrations. |
 | [`backend/routers/`](../backend/routers/) | One package per feature area (see the router shape below). |
 | [`backend/scheduler.py`](../backend/scheduler.py), [`backend/session_creator.py`](../backend/session_creator.py) | Campaign session scheduling — apply recurrence on startup and auto-create upcoming sessions. |
 | [`backend/seed_users.py`](../backend/seed_users.py) | First-run / env-driven user pre-seeding. |
@@ -204,6 +205,27 @@ process on startup:
    notes and flat note-categories into the current nested-page model.
 4. **Scheduler** — apply campaign session recurrence and start the session creator (skipped
    under pytest).
+
+### Crash-isolated PDF indexing
+
+PDF text extraction can crash the interpreter natively — a malformed object that
+segfaults MuPDF, or an out-of-memory kill on a low-RAM host — which no
+`try/except` can catch. Left unguarded this is catastrophic: the killed worker is
+respawned by the server, the respawn re-runs the startup scan, hits the same file,
+and crashes again in an endless loop (see issue #204). Two layers prevent this:
+
+1. **Process isolation** — `index_book_text` runs extraction via
+   `extract_text_isolated`, which spawns [`pdf_worker.py`](../backend/pdf_worker.py)
+   in a separate process (`spawn`, not `fork`, to avoid inheriting threads and the
+   SQLite connection). The child writes its result to a temp file; if it dies
+   without producing one — signal death, OOM-kill, or exceeding the extraction
+   timeout — the parent raises `PdfExtractionCrashError`, marks the book
+   `index_failed`, and moves on. The server never goes down.
+2. **Crash-loop guard** — before extraction, `index_book_text` commits
+   `index_failed=True` up front (cleared on success). So even in the worst case
+   where a crash somehow escaped isolation and took the whole worker down, the book
+   is already flagged and is skipped on the next scan instead of re-looping. This
+   mirrors the `scan_failed` guard used for the thumbnail/page-count phase.
 
 ### Schema migrations
 
