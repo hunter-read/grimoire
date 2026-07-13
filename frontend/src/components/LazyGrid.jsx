@@ -50,7 +50,10 @@ export default function LazyGrid({ count, cardSize, list, children }) {
     } else {
       const cardW = cardSize === 'compact' ? 156 : 216
       const cardH = cardSize === 'compact' ? 190 : 230
-      const cols = Math.max(1, Math.floor((window.innerWidth - 120) / cardW))
+      // Subtract the surrounding chrome: sidebar + page padding on desktop, but
+      // just page padding on mobile where the sidebar is a bottom bar (no width).
+      const chrome = window.innerWidth < 768 ? 32 : 120
+      const cols = Math.max(1, Math.floor((window.innerWidth - chrome) / cardW))
       const rows = Math.ceil(count / cols)
       estimatedHeight = rows * (cardH + 16)
     }

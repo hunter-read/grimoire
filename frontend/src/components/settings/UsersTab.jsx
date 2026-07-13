@@ -177,7 +177,9 @@ export default function UsersTab() {
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: 8,
-          overflow: 'hidden',
+          // Scroll the wide table within its card on narrow screens instead of
+          // clipping columns or pushing the whole page sideways.
+          overflowX: 'auto',
           marginTop: showAddForm ? 16 : 0,
         }}
       >

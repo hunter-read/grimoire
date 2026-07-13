@@ -105,7 +105,14 @@ export default function RescanModal({ scope, onConfirm, onClose }) {
             <LuX size={16} />
           </button>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+        <p
+          style={{
+            fontSize: 13,
+            color: 'var(--text-muted)',
+            marginBottom: 20,
+            overflowWrap: 'anywhere',
+          }}
+        >
           {scope ? t('rescan.modal.scopeLabel', { scope }) : t('rescan.modal.wholeLibrary')}
         </p>
 

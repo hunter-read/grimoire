@@ -8,8 +8,7 @@ import LazyGrid from '../LazyGrid'
 import RescanButton from '../RescanButton'
 import { toTitleCase } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
-
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+import useIsMobile from '../../hooks/useIsMobile'
 
 const zipBtnStyle = {
   display: 'inline-flex',
@@ -52,6 +51,7 @@ export default function MediaFolderGroup({
   onDownload,
 }) {
   const { t } = useTranslation()
+  const isMobilePhone = useIsMobile(640)
   const { i18n, archiveType, countKey } = config
   const { playQueue } = useAudioPlayer()
   const [editingRoot, setEditingRoot] = useState(false)
@@ -93,7 +93,7 @@ export default function MediaFolderGroup({
         }}
       >
         {/* Top row: chevron + icon + name + dot leader + count */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {bulkMode && (
             <FolderCheckbox
               checked={groupFolderChecked}

@@ -18,8 +18,7 @@ import InlineTagEditor from './InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
-
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+import useIsMobile from '../../hooks/useIsMobile'
 
 const getFolderPath = (m) =>
   (m.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
@@ -45,6 +44,7 @@ export default function MapDetailView() {
   const { mapId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const isMobilePhone = useIsMobile(640)
   const [map, setMap] = useState(null)
   const [siblings, setSiblings] = useState([])
   const [editingMapTags, setEditingMapTags] = useState(false)
@@ -141,6 +141,7 @@ export default function MapDetailView() {
           background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
+          flexWrap: 'wrap',
         }}
       >
         <button
@@ -157,7 +158,7 @@ export default function MapDetailView() {
             gap: 5,
           }}
         >
-          <LuArrowLeft size={15} /> {t('common.back')}
+          <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <span
@@ -165,6 +166,7 @@ export default function MapDetailView() {
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -227,7 +229,7 @@ export default function MapDetailView() {
             textDecoration: 'none',
           }}
         >
-          <LuDownload size={13} /> {t('common.download')}
+          <LuDownload size={13} /> {!isMobilePhone && t('common.download')}
         </a>
       </div>
 

@@ -85,7 +85,7 @@ export default function UserRow({
           )}
         </td>
 
-        <td style={cellStyle}>
+        <td style={{ ...cellStyle, whiteSpace: 'nowrap' }}>
           <RoleBadge role={user.role} />
         </td>
 

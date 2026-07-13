@@ -76,7 +76,7 @@ export default function LibraryView() {
     <div
       className="fade-in"
       style={{
-        padding: '32px 40px',
+        padding: 'clamp(20px, 4vw, 32px) clamp(16px, 4vw, 40px)',
         maxWidth: 1400,
         width: '100%',
         margin: '0 auto',

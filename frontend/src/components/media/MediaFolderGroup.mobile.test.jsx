@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MEDIA_CONFIGS } from './mediaConfig'
 
-// `isMobilePhone` is read once at module load, so stub matchMedia to report a
-// phone BEFORE importing the component, then load it dynamically. This exercises
-// the mobile-only branches that the desktop test can't reach.
+// The component reads `isMobilePhone` via useIsMobile(640), so stub matchMedia to
+// report a phone BEFORE importing the component, then load it dynamically. This
+// exercises the mobile-only branches that the desktop test can't reach.
 vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({ playQueue: vi.fn() }),
 }))
@@ -26,7 +26,13 @@ vi.mock('./FolderTagRow', () => ({
 let MediaFolderGroup
 
 beforeAll(async () => {
-  window.matchMedia = vi.fn().mockReturnValue({ matches: true, addListener: vi.fn() })
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: true,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  })
   vi.resetModules()
   MediaFolderGroup = (await import('./MediaFolderGroup')).default
 })

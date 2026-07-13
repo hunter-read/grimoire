@@ -74,7 +74,9 @@ export default function GuestsSection({ passwordAuthEnabled, onConverted }) {
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border)',
                 borderRadius: 8,
-                overflow: 'hidden',
+                // Scroll within the card on narrow screens rather than clipping
+                // columns or pushing the page sideways.
+                overflowX: 'auto',
               }}
             >
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>

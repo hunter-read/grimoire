@@ -77,11 +77,17 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
         if (!container) return
         container.replaceChildren()
 
+        // On narrow screens (phones) the full 820px sheet would render wider than
+        // the viewport, forcing horizontal panning per page. Fit the render width
+        // to the available scroll area instead, never exceeding RENDER_WIDTH.
+        const available = container.clientWidth - 8
+        const renderWidth = available > 0 ? Math.min(RENDER_WIDTH, available) : RENDER_WIDTH
+
         for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
           if (signal.cancelled) return
           const page = await doc.getPage(pageNum)
           const baseViewport = page.getViewport({ scale: 1 })
-          const scale = RENDER_WIDTH / baseViewport.width
+          const scale = renderWidth / baseViewport.width
           const viewport = page.getViewport({ scale })
 
           // pdf.js sizes pages and positions every AcroForm widget from CSS custom

@@ -27,6 +27,7 @@ import MemberRow from '../components/campaigns/MemberRow'
 import InvitePanel from '../components/campaigns/InvitePanel'
 import GuestPanel from '../components/campaigns/GuestPanel'
 import { utcTimeToLocal, USER_TZ } from '../components/campaigns/_scheduleShared'
+import useIsMobile from '../hooks/useIsMobile'
 
 const CARD = {
   background: 'var(--bg-card)',
@@ -123,6 +124,7 @@ export default function CampaignDetailView() {
   const { campaignId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const { guest_access_enabled } = useUISettings()
   const [campaign, setCampaign] = useState(null)
   const [systems, setSystems] = useState([])
@@ -291,21 +293,24 @@ export default function CampaignDetailView() {
           marginBottom: 24,
         }}
       >
-        <div style={{ flex: '1 1 360px', minWidth: 280, maxWidth: 800 }}>
+        <div style={{ flex: '1 1 360px', minWidth: isMobile ? 0 : 280, maxWidth: 800 }}>
           <BannerHero campaign={campaign} isOwner={canManage} onChanged={load} />
         </div>
 
         <div
           style={{
             flex: '1 1 320px',
-            minWidth: 280,
+            minWidth: isMobile ? 0 : 280,
             display: 'flex',
+            // On phones stack the title/description above the actions so the
+            // description gets the full page width instead of a cramped column.
+            flexDirection: isMobile ? 'column' : 'row',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
             gap: 16,
           }}
         >
-          <div>
+          <div style={{ minWidth: 0, width: isMobile ? '100%' : undefined }}>
             <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{campaign.name}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {!isGmCampaign && (

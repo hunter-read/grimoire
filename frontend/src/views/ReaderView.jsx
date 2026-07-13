@@ -9,6 +9,7 @@ import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPre
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { useFavorites } from '../context/FavoritesContext'
 import useReaderGestures from '../hooks/useReaderGestures'
+import useIsMobile from '../hooks/useIsMobile'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
 import BookmarkSidebar from '../components/reader/BookmarkSidebar'
@@ -48,7 +49,7 @@ export default function ReaderView() {
   const _prefs = getBookPrefs(bookId)
   const _userPrefs = getUserPrefs()
   const initialPage = parseInt(searchParams.get('page')) || _prefs.page || 1
-  const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+  const isMobilePhone = useIsMobile(640)
   const _globalMode = ['page', 'spread', 'pdf'].includes(_userPrefs.readerMode)
     ? _userPrefs.readerMode
     : null

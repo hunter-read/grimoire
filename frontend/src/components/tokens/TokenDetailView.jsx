@@ -5,8 +5,7 @@ import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
-
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+import useIsMobile from '../../hooks/useIsMobile'
 
 const getFolderPath = (tok) =>
   (tok.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
@@ -23,6 +22,7 @@ export default function TokenDetailView() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { user } = useAuth()
+  const isMobilePhone = useIsMobile(640)
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
   const [token, setToken] = useState(null)
   const [siblings, setSiblings] = useState([])
@@ -114,6 +114,7 @@ export default function TokenDetailView() {
           background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
+          flexWrap: 'wrap',
         }}
       >
         <button
@@ -130,7 +131,7 @@ export default function TokenDetailView() {
             gap: 5,
           }}
         >
-          <LuArrowLeft size={15} /> {t('common.back')}
+          <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <span
@@ -138,6 +139,7 @@ export default function TokenDetailView() {
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -189,7 +191,7 @@ export default function TokenDetailView() {
             textDecoration: 'none',
           }}
         >
-          <LuDownload size={13} /> {t('common.download')}
+          <LuDownload size={13} /> {!isMobilePhone && t('common.download')}
         </a>
       </div>
 

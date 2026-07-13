@@ -263,7 +263,10 @@ export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenS
   )
 
   return (
-    <div className="wiki-markdown" style={{ fontSize: 15, lineHeight: 1.7 }}>
+    <div
+      className="wiki-markdown"
+      style={{ fontSize: 15, lineHeight: 1.7, overflowWrap: 'anywhere' }}
+    >
       {segments.map((seg, i) =>
         seg.block ? (
           <div key={i} title={t('wiki.secretHint')} style={secretBlockStyle}>

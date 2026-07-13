@@ -10,13 +10,13 @@ import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
-
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+import useIsMobile from '../../hooks/useIsMobile'
 
 export default function AudioDetailView() {
   const { audioId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const isMobilePhone = useIsMobile(640)
   const [track, setTrack] = useState(null)
   const [editingTrackTags, setEditingTrackTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
@@ -65,6 +65,7 @@ export default function AudioDetailView() {
           background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
+          flexWrap: 'wrap',
         }}
       >
         <button
@@ -81,7 +82,7 @@ export default function AudioDetailView() {
             gap: 5,
           }}
         >
-          <LuArrowLeft size={15} /> {t('common.back')}
+          <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <span
@@ -89,6 +90,7 @@ export default function AudioDetailView() {
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -140,7 +142,7 @@ export default function AudioDetailView() {
             textDecoration: 'none',
           }}
         >
-          <LuDownload size={13} /> {t('common.download')}
+          <LuDownload size={13} /> {!isMobilePhone && t('common.download')}
         </a>
       </div>
 
