@@ -6,7 +6,7 @@
   [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/9Sd4CGZC63)
   [![CI](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
   [![Backend coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/hunter-read/ae49bfa368af7a6492b40a0e4ae2455a/raw/grimoire-backend-coverage.json)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
-  [![Frontend coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/hunter-read/ae49bfa368af7a6492b40a0e4ae2455a/raw/grimoire-frontend-coverage.json)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
+  [![Frontend coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/hunter-read/975eddb70b9da1a0a43f34f7cf193335/raw/grimoire-frontend-coverage.json)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
   [![Python](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
   [![React](https://img.shields.io/badge/react-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
   [![License](https://img.shields.io/github/license/hunter-read/grimoire)](LICENSE)
