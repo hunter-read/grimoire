@@ -103,6 +103,56 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
 }
 ```
 
+`/api/stats` is the only endpoint that accepts the `X-API-Key` header, so it's
+the safe way to surface library counts on an external dashboard. Generate a key
+as an admin under **Settings → App Settings → Stats API Key** (regenerate or
+revoke it there at any time).
+
+**Homepage Custom API widget** — add this to your Homepage `services.yaml`
+([Custom API widget docs](https://gethomepage.dev/widgets/services/customapi/)):
+
+```yaml
+- Grimoire:
+    href: https://grimoire.example.com
+    icon: grimoire.png
+    widget:
+      type: customapi
+      url: https://grimoire.example.com/api/stats
+      refreshInterval: 60000
+      headers:
+        X-API-Key: your-key-here
+      mappings:
+        - field: books
+          label: Books
+          format: number
+        - field: maps
+          label: Maps
+          format: number
+        - field: tokens
+          label: Tokens
+          format: number
+        - field: total_size_mb
+          label: Size
+          format: float
+          scale: 0.001
+          suffix: " GB"
+```
+
+Homepage shows up to four fields per row; pick the counts you care about from the
+available fields below. Use a `refreshInterval` of 60s or higher — `/api/stats`
+is rate limited.
+
+| Field | Meaning | Suggested `format` |
+|-------|---------|--------------------|
+| `game_systems` | Number of game systems (top-level library folders) | `number` |
+| `books` | Total books (PDFs) | `number` |
+| `maps` | Total maps | `number` |
+| `tokens` | Total tokens | `number` |
+| `audio` | Total audio tracks | `number` |
+| `indexed_books` | Books with a searchable full-text index | `number` |
+| `total_pages` | Sum of all book page counts | `number` |
+| `total_size_mb` | Total library size in MB | `float` — add `scale: 0.001` + `suffix: " GB"` to show GB |
+
 **Scan-status response:**
 ```json
 {
