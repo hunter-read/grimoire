@@ -61,6 +61,32 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      # Publish a coverage badge from the numbers just computed. Runs only on a
+      # push to main so the badge tracks the released code, never a PR/feature
+      # branch. Extracts the total line-coverage % from the json-summary reporter
+      # output and writes it to a Shields.io endpoint gist (no third-party service
+      # ingests the code). Requires the GIST_SECRET repo secret and FRONTEND_COVERAGE_GIST_ID var.
+      - name: Extract frontend coverage %
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: frontend_cov
+        working-directory: frontend
+        run: |
+          pct=$(node -e "process.stdout.write(String(require('./coverage/coverage-summary.json').total.lines.pct))")
+          echo "pct=${pct}" >> "$GITHUB_OUTPUT"
+
+      - name: Update frontend coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ vars.FRONTEND_COVERAGE_GIST_ID }}
+          filename: grimoire-frontend-coverage.json
+          label: frontend coverage
+          message: ${{ steps.frontend_cov.outputs.pct }}%
+          valColorRange: ${{ steps.frontend_cov.outputs.pct }}
+          minColorRange: 50
+          maxColorRange: 90
+
   backend:
     name: Backend lint + test
     runs-on: ubuntu-latest
@@ -105,3 +131,26 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
           python backend/scripts/check_coverage.py
+
+      # See the frontend job: publish a coverage badge on push to main only.
+      # Reads the total line-coverage % from coverage.py's JSON report and writes
+      # it to a Shields.io endpoint gist. Requires GIST_SECRET + BACKEND_COVERAGE_GIST_ID.
+      - name: Extract backend coverage %
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: backend_cov
+        run: |
+          pct=$(python -c "import json; print(round(json.load(open('coverage.json'))['totals']['percent_covered'], 1))")
+          echo "pct=${pct}" >> "$GITHUB_OUTPUT"
+
+      - name: Update backend coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ vars.BACKEND_COVERAGE_GIST_ID }}
+          filename: grimoire-backend-coverage.json
+          label: backend coverage
+          message: ${{ steps.backend_cov.outputs.pct }}%
+          valColorRange: ${{ steps.backend_cov.outputs.pct }}
+          minColorRange: 50
+          maxColorRange: 90

@@ -40,6 +40,28 @@ the coverage check (`npm run coverage:check` / `backend/scripts/check_coverage.p
 diffs against the PR base branch and fails if any new or touched source file is below 80%
 line coverage. See [CLAUDE.md](../CLAUDE.md#testing-conventions) for details.
 
+### Coverage badges
+
+On **push to `main` only**, each job extracts its total line-coverage % (frontend from
+`coverage/coverage-summary.json`, backend from coverage.py's `coverage.json`) and publishes it
+to a [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badge stored in a GitHub
+Gist via [`schneegans/dynamic-badges-action`](https://github.com/schneegans/dynamic-badges-action).
+No third-party service ingests the code — the badge JSON lives in a gist you own. The badges
+render in the [README](../README.md) badge row.
+
+**One-time setup** (already done for this repo; documented for forks):
+
+1. Create a **public** GitHub Gist with two files:
+   `grimoire-backend-coverage.json` and `grimoire-frontend-coverage.json` (any placeholder
+   contents). The gist ID is the hash in its URL.
+2. Create a [personal access token](https://github.com/settings/tokens) with **only** the
+   `gist` scope and add it as the repo secret **`GIST_SECRET`**.
+3. Add the gist ID as two repo **variables** (Settings → Secrets and variables → Actions →
+   Variables): **`BACKEND_COVERAGE_GIST_ID`** and **`FRONTEND_COVERAGE_GIST_ID`** (both may be
+   the same gist).
+4. In the [README](../README.md), replace the `BACKEND_COVERAGE_GIST_ID` /
+   `FRONTEND_COVERAGE_GIST_ID` placeholders in the two coverage-badge URLs with the gist ID.
+
 ### Note: the `dev → main` PR runs once, not twice
 
 A direct push to `dev` while the `dev → main` pull request is open would normally make CI run
