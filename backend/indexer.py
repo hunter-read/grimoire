@@ -1,12 +1,19 @@
 """Library scanner, PDF indexer, and metadata fetcher for Grimoire."""
 
+import io
 import os
 import re
 import json
+import pickle
 import logging
 import hashlib
+import tarfile
+import tempfile
 import threading
+import multiprocessing
+import zipfile
 from pathlib import Path
+from typing import Optional
 from xml.etree import ElementTree
 import fitz  # PyMuPDF
 from PIL import Image
@@ -14,12 +21,35 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder
+from . import ocr
+from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder, Audio, AudioFolder
 
 logger = logging.getLogger("grimoire.indexer")
 
 _FITZ_TIMEOUT = 30   # seconds — files that can't be opened in 30s are unreadable
 _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
+
+# Wall-clock budget for extracting text from a single PDF in the isolated
+# worker process.  Generous because OCR of a large scanned book is slow; a file
+# that can't finish in this window is treated as unindexable rather than allowed
+# to stall the scan forever.
+_EXTRACT_TIMEOUT = 1800  # seconds (30 min)
+
+# Spawn (not fork) a fresh interpreter for the extraction worker.  The app runs
+# many threads and holds a SQLite connection; forking that state into a child
+# is unsafe, whereas spawn re-imports this module cleanly with no inherited
+# locks or file handles.
+_MP_CONTEXT = multiprocessing.get_context("spawn")
+
+
+class PdfExtractionCrashError(Exception):
+    """The isolated extraction worker died (segfault, OOM-kill, or timeout).
+
+    Raised by ``extract_text_isolated`` when the child process terminates
+    without producing a result — e.g. a native crash inside MuPDF or an
+    out-of-memory kill on a low-RAM host.  The caller marks the book failed so
+    the file is skipped instead of crashing the server and re-looping the scan.
+    """
 
 
 def _run_with_timeout(fn, timeout: int, label: str):
@@ -104,6 +134,57 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"}
 PDF_EXTS = {".pdf"}
 DOC_EXTS = {".pdf", ".epub", ".djvu"}
 MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS
+AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
+# Archive files shown alongside books in a category and served/bundled as opaque
+# blobs (their contents are not extracted during the scan).  Comic-book variants
+# (.cbz/.cbr/.cb7/.cbt) additionally get a first-image thumbnail, see
+# generate_thumbnail.  Multi-suffix names (.tar.gz/.tar.bz2) are matched by
+# archive_ext() rather than Path.suffix.
+ARCHIVE_EXTS = {
+    ".zip", ".cbz",
+    ".rar", ".cbr",
+    ".7z", ".cb7",
+    ".tar", ".cbt", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2",
+}
+# Comic-book archives whose first image is used as a cover thumbnail.
+_COMIC_ARCHIVE_EXTS = {".cbz", ".cbr", ".cb7", ".cbt"}
+# Basenames (sans extension) treated as folder cover art for audio tracks.
+_AUDIO_COVER_STEMS = {"cover", "folder"}
+
+
+def archive_ext(filename: str) -> str:
+    """Return the archive extension for *filename* (lowercased), or "".
+
+    Handles two-part suffixes like ``.tar.gz``/``.tar.bz2`` that
+    ``Path.suffix`` cannot, falling back to the single suffix otherwise.
+    """
+    lower = filename.lower()
+    for ext in (".tar.gz", ".tar.bz2"):
+        if lower.endswith(ext):
+            return ext
+    suffix = Path(lower).suffix
+    return suffix if suffix in ARCHIVE_EXTS else ""
+
+
+_ARCHIVE_MIME = {
+    ".zip": "application/zip",
+    ".cbz": "application/vnd.comicbook+zip",
+    ".rar": "application/vnd.rar",
+    ".cbr": "application/vnd.comicbook-rar",
+    ".7z": "application/x-7z-compressed",
+    ".cb7": "application/x-7z-compressed",
+    ".tar": "application/x-tar",
+    ".cbt": "application/x-tar",
+    ".tar.gz": "application/gzip",
+    ".tgz": "application/gzip",
+    ".tar.bz2": "application/x-bzip2",
+    ".tbz2": "application/x-bzip2",
+}
+
+
+def archive_mime(arc_ext: str) -> str:
+    """Return a MIME type for a known archive extension (falls back to octet-stream)."""
+    return _ARCHIVE_MIME.get(arc_ext, "application/octet-stream")
 
 
 def slugify(name: str) -> str:
@@ -154,17 +235,44 @@ def _keyword_matches(keyword: str, tokens: list[str]) -> bool:
     return False
 
 
+def _match_category(segment: str) -> str | None:
+    """Return the CATEGORY_MAP category a single folder ``segment`` matches, or None."""
+    tokens = _normalize_folder(segment).split()
+    for category, keywords in CATEGORY_MAP.items():
+        if any(_keyword_matches(kw, tokens) for kw in keywords):
+            return category
+    return None
+
+
 def guess_category(filepath: str) -> str:
-    """Infer book category from path segments, innermost folder takes priority."""
+    """Infer book category from path segments.
+
+    The top-level category folder (the first folder under the system root, e.g.
+    ``core`` in ``books/Shadowrun/core/Companions/x.pdf``) is the deliberate
+    category the user chose, so it takes priority: if it matches a keyword, that
+    category wins even when a deeper subfolder (``Companions``, ``DM Guide``)
+    incidentally matches a different keyword. Only when the top-level folder does
+    not match do we scan deeper subfolders innermost-first, then fall back to the
+    top-level folder name as a custom category slug.
+    """
     segments = filepath.replace("\\", "/").split("/")
-    for segment in reversed(segments[:-1]):
-        tokens = _normalize_folder(segment).split()
-        for category, keywords in CATEGORY_MAP.items():
-            if any(_keyword_matches(kw, tokens) for kw in keywords):
-                return category
-    # 4+ segments means a named subfolder exists under the system root
-    if len(segments) > 3:
-        return slugify(segments[2])
+    # segments[-1] is the filename; the category folder is the first segment
+    # under the system root (index 2 for the standard books/<system>/<cat>/ layout).
+    folder_segments = segments[:-1]
+    if len(folder_segments) > 2:
+        top_category_folder = folder_segments[2]
+        matched = _match_category(top_category_folder)
+        if matched is not None:
+            return matched
+        # Top-level folder is a custom (non-keyword) category. Its name wins over
+        # any keyword-matching subfolder nested beneath it.
+        return slugify(top_category_folder)
+    # No dedicated category folder under the system root — scan whatever folders
+    # exist innermost-first for a keyword match.
+    for segment in reversed(folder_segments):
+        matched = _match_category(segment)
+        if matched is not None:
+            return matched
     return "core"
 
 
@@ -185,12 +293,74 @@ def agnostic_category(relative_path: str) -> str:
 
 _THUMBNAIL_TIMEOUT = 30  # seconds
 
+# Cap the archive listing we scan for a cover image so a maliciously large
+# central directory can't stall a thumbnail worker.
+_ARCHIVE_LIST_CAP = 5000
+
+
+def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
+    """Return the raw bytes of the first image inside a comic-book archive.
+
+    Entries are considered in case-insensitive name order (the usual page
+    ordering for CBZ/CBR), and only the single chosen member is decompressed.
+    Returns None if the archive can't be opened or holds no image.  Never
+    raises — callers treat a None as "no cover available".
+    """
+    try:
+        if arc_ext in (".cbz", ".zip"):
+            with zipfile.ZipFile(filepath) as zf:
+                names = [n for n in zf.namelist()[:_ARCHIVE_LIST_CAP] if not n.endswith("/")]
+                for name in sorted(names, key=str.lower):
+                    if Path(name).suffix.lower() in IMAGE_EXTS:
+                        return zf.read(name)
+        elif arc_ext in (".cbr", ".rar"):
+            import rarfile
+
+            with rarfile.RarFile(filepath) as rf:
+                names = [n for n in rf.namelist()[:_ARCHIVE_LIST_CAP]]
+                for name in sorted(names, key=str.lower):
+                    if Path(name).suffix.lower() in IMAGE_EXTS:
+                        return rf.read(name)
+        elif arc_ext in (".cb7", ".7z"):
+            import py7zr
+
+            with py7zr.SevenZipFile(filepath) as zf:
+                names = [n for n in zf.getnames()[:_ARCHIVE_LIST_CAP]]
+                targets = sorted(
+                    (n for n in names if Path(n).suffix.lower() in IMAGE_EXTS),
+                    key=str.lower,
+                )
+                if targets:
+                    first = targets[0]
+                    data = zf.read([first])
+                    bio = data.get(first)
+                    return bio.read() if bio is not None else None
+        elif arc_ext in (".cbt", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2"):
+            with tarfile.open(filepath) as tf:
+                members = [m for m in tf.getmembers() if m.isfile()]
+                for member in sorted(members, key=lambda m: m.name.lower()):
+                    if Path(member.name).suffix.lower() in IMAGE_EXTS:
+                        fh = tf.extractfile(member)
+                        return fh.read() if fh is not None else None
+    except Exception as exc:
+        logger.debug(f"Could not read cover image from archive '{filepath}': {exc}")
+    return None
+
 
 def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, result: list, exc: list):
     """Worker executed in a daemon thread by generate_thumbnail."""
     try:
         ext = Path(filepath).suffix.lower()
-        if ext == ".pdf":
+        arc_ext = archive_ext(filepath)
+        if arc_ext in _COMIC_ARCHIVE_EXTS:
+            data = _first_image_from_archive(filepath, arc_ext)
+            if data is None:
+                result[0] = False
+                return
+            img = Image.open(io.BytesIO(data))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+        elif ext == ".pdf":
             doc = fitz.open(filepath)
             if len(doc) == 0:
                 result[0] = False
@@ -248,19 +418,98 @@ def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400)
     return bool(result[0])
 
 
-def extract_text_from_pdf(filepath: str, should_stop=None) -> list[dict]:
-    """Extract text from all pages of a PDF. Returns list of {page, content}."""
+def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], bool]:
+    """Extract text from all pages of a PDF.
+
+    Returns ``(pages, used_ocr)`` where ``pages`` is a list of
+    ``{page, content}`` dicts and ``used_ocr`` is True if any page's text came
+    from OCR rather than an embedded text layer.
+
+    Pages with an embedded text layer are read directly. Pages with no embedded
+    text are OCR'd when OCR is available (default image); otherwise they are
+    skipped, so a PDF with no extractable text yields an empty list — the
+    caller then marks it ``image-only``.
+    """
     pages = []
+    used_ocr = False
+    ocr_on = ocr.ocr_available()
     try:
         doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
         for i, page in enumerate(doc):
+            if should_stop and should_stop():
+                break
             page_text = page.get_text().strip()
             if page_text:
                 pages.append({"page": i + 1, "content": page_text})
+            elif ocr_on:
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                ocr_text = ocr.ocr_pixmap(pix, should_stop=should_stop)
+                if ocr_text:
+                    pages.append({"page": i + 1, "content": ocr_text})
+                    used_ocr = True
         doc.close()
     except Exception as e:
         logger.error(f"Text extraction failed for {filepath}: {e}")
-    return pages
+    return pages, used_ocr
+
+
+def extract_text_isolated(filepath: str, should_stop=None) -> tuple[list[dict], bool]:
+    """Extract text from a PDF in a separate process, isolating native crashes.
+
+    Returns ``(pages, used_ocr)`` exactly like ``extract_text_from_pdf``.  The
+    extraction runs in a spawned child process; if that process dies without
+    producing a result — a segfault inside MuPDF, an out-of-memory kill, or
+    exceeding ``_EXTRACT_TIMEOUT`` — this raises ``PdfExtractionCrashError`` so
+    the caller can mark the book failed and continue, instead of the whole
+    worker crashing and re-looping the scan on restart.
+
+    A cooperative ``should_stop`` cancels by terminating the child and raising
+    TimeoutError, matching the abort semantics of the rest of the indexer.
+    """
+    from . import pdf_worker
+
+    fd, result_path = tempfile.mkstemp(prefix="grimoire_extract_", suffix=".pkl")
+    os.close(fd)
+    proc = _MP_CONTEXT.Process(target=pdf_worker.main, args=(filepath, result_path))
+    try:
+        proc.start()
+        poll_interval = 0.5
+        elapsed = 0.0
+        while proc.is_alive() and elapsed < _EXTRACT_TIMEOUT:
+            proc.join(poll_interval)
+            elapsed += poll_interval
+            if should_stop and should_stop():
+                proc.terminate()
+                proc.join()
+                raise TimeoutError(f"Text extraction aborted by stop request for {filepath}")
+
+        if proc.is_alive():
+            logger.error(f"Text extraction timed out after {_EXTRACT_TIMEOUT}s for {filepath}")
+            proc.terminate()
+            proc.join()
+            raise PdfExtractionCrashError(f"extraction timed out after {_EXTRACT_TIMEOUT}s")
+
+        # Child exited.  A clean run left a result file; a crash (negative
+        # exitcode = killed by signal, or nonzero without a result) did not.
+        if os.path.getsize(result_path) == 0:
+            code = proc.exitcode
+            reason = (
+                f"killed by signal {-code}" if code is not None and code < 0
+                else f"exited with code {code}"
+            )
+            logger.error(f"Text extraction worker crashed ({reason}) for {filepath}")
+            raise PdfExtractionCrashError(f"extraction worker {reason}")
+
+        with open(result_path, "rb") as fh:
+            return pickle.load(fh)
+    finally:
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+        try:
+            os.unlink(result_path)
+        except OSError:
+            pass
 
 
 def _count_eligible_files(directory: Path, extensions: set) -> int:
@@ -269,9 +518,108 @@ def _count_eligible_files(directory: Path, extensions: set) -> int:
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if not d.startswith(".")]
         for f in files:
-            if not f.startswith(".") and Path(f).suffix.lower() in extensions:
+            if f.startswith("."):
+                continue
+            if Path(f).suffix.lower() in extensions or archive_ext(f) in extensions:
                 count += 1
     return count
+
+
+def _read_audio_metadata(filepath: str) -> dict:
+    """Read duration and embedded tags from an audio file (best-effort).
+
+    Returns a dict with ``duration`` (float seconds), ``title``, ``artist``,
+    ``album`` (strings, blank when absent) and ``embedded_art`` (bool — whether
+    the file carries embedded cover art).  Never raises; on any failure it
+    returns zeroed/empty values so scanning continues.
+    """
+    info = {"duration": 0.0, "title": "", "artist": "", "album": "", "embedded_art": False}
+    try:
+        from mutagen import File as MutagenFile  # local import keeps startup light
+
+        easy = MutagenFile(filepath, easy=True)
+        if easy is not None:
+            if getattr(easy, "info", None) is not None:
+                length = getattr(easy.info, "length", 0) or 0
+                info["duration"] = round(float(length), 3)
+
+            def _first(key: str) -> str:
+                val = easy.get(key) if hasattr(easy, "get") else None
+                if isinstance(val, (list, tuple)) and val:
+                    return str(val[0]).strip()
+                return str(val).strip() if val else ""
+
+            info["title"] = _first("title")
+            info["artist"] = _first("artist")
+            info["album"] = _first("album")
+
+        info["embedded_art"] = _has_embedded_art(filepath)
+    except Exception as exc:
+        logger.debug(f"Could not read audio metadata for '{filepath}': {exc}")
+    return info
+
+
+def _has_embedded_art(filepath: str) -> bool:
+    """Return True if the audio file carries embedded cover art."""
+    try:
+        return _extract_embedded_art(filepath) is not None
+    except Exception:
+        return False
+
+
+def _extract_embedded_art(filepath: str):
+    """Return ``(image_bytes, mime)`` for embedded cover art, or None.
+
+    Handles ID3 APIC (MP3), FLAC/Opus PICTURE blocks, and MP4/M4A ``covr`` atoms.
+    """
+    try:
+        from mutagen import File as MutagenFile
+
+        audio = MutagenFile(filepath)
+        if audio is None:
+            return None
+
+        # FLAC / OggOpus expose .pictures
+        pics = getattr(audio, "pictures", None)
+        if pics:
+            pic = pics[0]
+            return (bytes(pic.data), getattr(pic, "mime", "") or "image/jpeg")
+
+        tags = getattr(audio, "tags", None)
+        if not tags:
+            return None
+
+        # ID3 APIC frames (MP3, sometimes WAV/AIFF)
+        if hasattr(tags, "getall"):
+            apics = tags.getall("APIC")
+            if apics:
+                apic = apics[0]
+                return (bytes(apic.data), getattr(apic, "mime", "") or "image/jpeg")
+
+        # MP4 / M4A cover atoms
+        covr = tags.get("covr") if hasattr(tags, "get") else None
+        if covr:
+            cover = covr[0]
+            fmt = getattr(cover, "imageformat", None)
+            mime = "image/png" if fmt == 14 else "image/jpeg"  # 14 == PNG in MP4Cover
+            return (bytes(cover), mime)
+    except Exception as exc:
+        logger.debug(f"Could not extract embedded art from '{filepath}': {exc}")
+    return None
+
+
+def _find_folder_artwork(folder: str):
+    """Return the path of a ``cover.*`` / ``folder.*`` image in ``folder``, or None."""
+    try:
+        for entry in os.scandir(folder):
+            if not entry.is_file():
+                continue
+            p = Path(entry.name)
+            if p.stem.lower() in _AUDIO_COVER_STEMS and p.suffix.lower() in IMAGE_EXTS:
+                return entry.path
+    except OSError:
+        pass
+    return None
 
 
 _OPF_NS = {
@@ -305,10 +653,11 @@ def parse_opf_metadata(opf_path: str) -> dict:
     if title:
         meta["title"] = title
 
+    # Calibre writes "Unknown" as the creator when no author is set — skip it.
     authors = [
-        el.text.strip()
+        author
         for el in root.findall("opf:metadata/dc:creator", _OPF_NS)
-        if el.text and el.text.strip()
+        if el.text and (author := el.text.strip()) and author.lower() != "unknown"
     ]
     if authors:
         meta["authors"] = authors
@@ -350,41 +699,161 @@ def parse_opf_metadata(opf_path: str) -> dict:
     return meta
 
 
-def scan_library(library_path: str, data_path: str, session: Session, on_progress=None, should_stop=None):
+# Metadata-refresh modes for scan_library / _apply_opf_to_book.
+METADATA_MODES = ("new", "missing", "replace")
+
+# Book fields that can be sourced from an OPF sidecar.
+_OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year", "tags")
+
+
+def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
+    """Resolve a user-supplied scope path against the library root.
+
+    `scope_path` is a path relative to the library root and must begin with one
+    of the known collection folders (``books``/``maps``/``tokens``/``audio``).  Returns a
+    tuple of (section, absolute_dir).  Raises ValueError if the scope escapes the
+    library root or names an unknown collection.
+    """
+    library = Path(library_path)
+    cleaned = (scope_path or "").strip().replace("\\", "/").strip("/")
+    if not cleaned:
+        raise ValueError("scope path is empty")
+
+    section = cleaned.split("/", 1)[0]
+    if section not in ("books", "maps", "tokens", "audio"):
+        raise ValueError(
+            f"scope must start with books/, maps/, tokens/, or audio/: {scope_path!r}"
+        )
+
+    # Build the target without resolving symlinks so the walked paths match the
+    # filepaths stored by an unscoped scan (which uses library_path verbatim).
+    target = library / cleaned
+    # Guard against path traversal using fully-resolved paths.
+    resolved_lib = str(library.resolve())
+    if os.path.commonpath([resolved_lib, str(target.resolve())]) != resolved_lib:
+        raise ValueError(f"scope path escapes the library root: {scope_path!r}")
+
+    return section, target
+
+
+def _find_opf_meta(root: str, filename: str) -> dict:
+    """Look up sidecar OPF metadata for a file: sibling <stem>.opf, then metadata.opf."""
+    opf_path = os.path.join(root, Path(filename).stem + ".opf")
+    if not os.path.isfile(opf_path):
+        opf_path = os.path.join(root, "metadata.opf")
+    return parse_opf_metadata(opf_path) if os.path.isfile(opf_path) else {}
+
+
+def _apply_opf_to_book(book: Book, opf_meta: dict, mode: str) -> bool:
+    """Re-apply OPF metadata to an already-indexed book.
+
+    mode="missing": only fill a field whose current DB value is falsy
+    (None/""/[]), treating any populated value as user-protected.
+    mode="replace": overwrite a field whenever the OPF provides it.
+    Fields absent from `opf_meta` are never touched.
+
+    Returns True if any field was changed.
+    """
+    if not opf_meta or mode not in ("missing", "replace"):
+        return False
+
+    changed = False
+    for field in _OPF_BOOK_FIELDS:
+        if field not in opf_meta:
+            continue
+        new_value = opf_meta[field]
+        if mode == "missing" and getattr(book, field, None):
+            continue
+        if getattr(book, field, None) != new_value:
+            setattr(book, field, new_value)
+            changed = True
+    return changed
+
+
+def scan_library(library_path: str, data_path: str, session: Session, on_progress=None,
+                 should_stop=None, scope_path: str | None = None, metadata_mode: str = "new"):
     """Scan the library directory and register all files in the database.
 
-    on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens, total_tokens)
-    is called after each file is processed if provided.
+    on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens,
+    total_tokens, scanned_audio, total_audio) is called after each file is processed if provided.
 
     should_stop() is an optional callable that returns True when the scan should abort early.
+
+    scope_path, when given, restricts the scan to a single subtree (relative to the
+    library root, e.g. "books/D&D 5e/adventure").  Only the matching collection is
+    walked and the missing-file sweep is limited to that subtree.
+
+    metadata_mode controls how sidecar metadata is applied to already-indexed books:
+    "new" (default) leaves existing records alone, "missing" fills empty fields from
+    OPF sidecars, "replace" overwrites fields wherever the sidecar provides a value.
     """
     library = Path(library_path)
     books_dir = library / "books"
     maps_dir = library / "maps"
     tokens_dir = library / "tokens"
+    audio_dir = library / "audio"
     thumb_dir = Path(data_path) / "thumbnails"
     stats = {
         "new_systems": 0,
         "new_books": 0,
         "new_maps": 0,
         "new_tokens": 0,
+        "new_audio": 0,
+        "updated_books": 0,
         "indexed_pages": 0,
         "errors": 0,
     }
 
+    # --- Resolve scope (which collections to walk, and the subtree root) ---
+    scope_section: str | None = None
+    scope_dir: Path | None = None
+    if scope_path:
+        scope_section, scope_dir = resolve_scope(library_path, scope_path)
+        logger.info(f"Scoped scan: section={scope_section}, dir={scope_dir}, mode={metadata_mode}")
+
+    scan_books = scope_section in (None, "books")
+    scan_maps = scope_section in (None, "maps")
+    scan_tokens = scope_section in (None, "tokens")
+    scan_audio = scope_section in (None, "audio")
+
+    # For a scoped books scan, walk only the scope dir; otherwise iterate every system.
+    books_walk_dir = scope_dir if scope_section == "books" else books_dir
+    maps_walk_dir = scope_dir if scope_section == "maps" else maps_dir
+    tokens_walk_dir = scope_dir if scope_section == "tokens" else tokens_dir
+    audio_walk_dir = scope_dir if scope_section == "audio" else audio_dir
+
     total_books = (
-        _count_eligible_files(books_dir, DOC_EXTS | IMAGE_EXTS) if books_dir.exists() else 0
+        _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS)
+        if scan_books and books_walk_dir.exists() else 0
     )
-    total_maps = _count_eligible_files(maps_dir, MAP_IMAGE_EXTS) if maps_dir.exists() else 0
-    total_tokens = _count_eligible_files(tokens_dir, IMAGE_EXTS) if tokens_dir.exists() else 0
-    scanned_books = scanned_maps = scanned_tokens = 0
+    total_maps = (
+        _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS)
+        if scan_maps and maps_walk_dir.exists() else 0
+    )
+    total_tokens = (
+        _count_eligible_files(tokens_walk_dir, IMAGE_EXTS)
+        if scan_tokens and tokens_walk_dir.exists() else 0
+    )
+    total_audio = (
+        _count_eligible_files(audio_walk_dir, AUDIO_EXTS)
+        if scan_audio and audio_walk_dir.exists() else 0
+    )
+    scanned_books = scanned_maps = scanned_tokens = scanned_audio = 0
 
     if on_progress:
-        on_progress(0, total_books, 0, total_maps, 0, total_tokens)
+        on_progress(0, total_books, 0, total_maps, 0, total_tokens, 0, total_audio)
 
     # --- Scan /books ---
-    if books_dir.exists():
-        for system_dir in sorted(books_dir.iterdir()):
+    if scan_books and books_dir.exists():
+        # When scoped, the owning system is the first path segment under books/;
+        # otherwise iterate every top-level system folder.
+        scope_parts = Path(scope_path.replace("\\", "/").strip("/")).parts if scope_path else ()
+        if scope_section == "books" and len(scope_parts) > 1:
+            system_dirs = [books_dir / scope_parts[1]]
+        else:
+            # Whole library, or scope == "books" root: iterate every system.
+            system_dirs = sorted(books_dir.iterdir())
+        for system_dir in system_dirs:
             if not system_dir.is_dir() or system_dir.name.startswith("."):
                 continue
 
@@ -427,7 +896,10 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
             if is_agnostic and not system.is_system_agnostic:
                 system.is_system_agnostic = True
 
-            for root, dirs, files in os.walk(system_dir):
+            # When scoped to a path deeper than the system dir, walk only that
+            # subtree; otherwise walk the whole system.
+            walk_root = scope_dir if (scope_section == "books" and len(scope_parts) > 1) else system_dir
+            for root, dirs, files in os.walk(walk_root):
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
 
                 # Collect cover image filenames declared in any OPF files in this
@@ -447,8 +919,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
                     filepath = os.path.join(root, filename)
                     ext = Path(filename).suffix.lower()
+                    arc_ext = archive_ext(filename)
 
-                    if ext not in DOC_EXTS and ext not in IMAGE_EXTS:
+                    if ext not in DOC_EXTS and ext not in IMAGE_EXTS and not arc_ext:
                         continue
 
                     if filename in opf_cover_filenames:
@@ -464,6 +937,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             total_maps,
                             scanned_tokens,
                             total_tokens,
+                            scanned_audio,
+                            total_audio,
                         )
                     if should_stop and should_stop():
                         logger.info("scan_library: stop requested during books scan.")
@@ -483,10 +958,25 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         stats["errors"] += 1
                         continue
                     if existing:
+                        # Re-apply sidecar metadata to already-indexed books when
+                        # requested (modes "missing"/"replace") — see _apply_opf_to_book.
+                        if metadata_mode in ("missing", "replace"):
+                            opf_meta = _find_opf_meta(root, filename)
+                            if _apply_opf_to_book(existing, opf_meta, metadata_mode):
+                                logger.info(f"Refreshing metadata for '{filename}' (mode={metadata_mode})")
+                                try:
+                                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit metadata refresh '{filepath}'")
+                                    stats["updated_books"] += 1
+                                except (TimeoutError, IntegrityError) as e:
+                                    logger.error(f"DB hang refreshing metadata for '{filename}': {e}")
+                                    session.rollback()
                         if existing.scan_failed:
                             logger.debug(f"Already registered, skipping: {filename}")
                             continue
-                        needs_thumbnail = not existing.has_thumbnail
+                        # Archives are opaque: only comic-book variants get a
+                        # cover thumbnail, and none carry a page count.
+                        thumbnailable = ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+                        needs_thumbnail = thumbnailable and not existing.has_thumbnail
                         needs_page_count = ext == ".pdf" and existing.page_count == 0 and not existing.index_error
                         if ext in IMAGE_EXTS and existing.page_count == 0:
                             existing.page_count = 1
@@ -506,12 +996,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             continue
 
                         # Check sibling <stem>.opf first, then Calibre's metadata.opf in the same dir.
-                        opf_path = os.path.join(root, Path(filename).stem + ".opf")
-                        if not os.path.isfile(opf_path):
-                            opf_path = os.path.join(root, "metadata.opf")
-                        opf_meta = parse_opf_metadata(opf_path) if os.path.isfile(opf_path) else {}
+                        opf_meta = _find_opf_meta(root, filename)
                         if opf_meta:
-                            logger.info(f"Applying OPF metadata to '{filename}' from '{Path(opf_path).name}'")
+                            logger.info(f"Applying OPF metadata to '{filename}'")
 
                         book = Book(
                             game_system_id=system.id,
@@ -521,7 +1008,11 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             relative_path=relative_path,
                             category=category,
                             file_size=file_size,
-                            mime_type="application/pdf" if ext == ".pdf" else f"image/{ext[1:]}",
+                            mime_type=(
+                                "application/pdf" if ext == ".pdf"
+                                else archive_mime(arc_ext) if arc_ext
+                                else f"image/{ext[1:]}"
+                            ),
                             authors=opf_meta.get("authors"),
                             description=opf_meta.get("description"),
                             publisher=opf_meta.get("publisher"),
@@ -547,7 +1038,11 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             session.rollback()
                             logger.debug(f"Book already exists, skipping: {filepath}")
                             continue
-                        needs_thumbnail = True
+                        # Archives are opaque: only comic-book variants get a
+                        # cover thumbnail, and none carry a page count.
+                        needs_thumbnail = (
+                            ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+                        )
                         needs_page_count = ext == ".pdf"
                         if ext in IMAGE_EXTS:
                             book.page_count = 1
@@ -610,8 +1105,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                                 logger.error(f"DB hang saving index_error for '{filename}': {e2}")
                                 session.rollback()
 
-    if maps_dir.exists():
-        for root, dirs, files in os.walk(maps_dir):
+    if scan_maps and maps_walk_dir.exists():
+        for root, dirs, files in os.walk(maps_walk_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
 
             for filename in sorted(files):
@@ -633,6 +1128,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_maps,
                         scanned_tokens,
                         total_tokens,
+                        scanned_audio,
+                        total_audio,
                     )
                 if should_stop and should_stop():
                     logger.info("scan_library: stop requested during maps scan.")
@@ -693,8 +1190,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     session.rollback()
                     logger.debug(f"Map already exists, skipping: {filepath}")
 
-    if tokens_dir.exists():
-        for root, dirs, files in os.walk(tokens_dir):
+    if scan_tokens and tokens_walk_dir.exists():
+        for root, dirs, files in os.walk(tokens_walk_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
 
             for filename in sorted(files):
@@ -716,6 +1213,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_maps,
                         scanned_tokens,
                         total_tokens,
+                        scanned_audio,
+                        total_audio,
                     )
                 if should_stop and should_stop():
                     logger.info("scan_library: stop requested during tokens scan.")
@@ -776,38 +1275,141 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     session.rollback()
                     logger.debug(f"Token already exists, skipping: {filepath}")
 
-    _apply_tags_from_library(library_path, session)
+    if scan_audio and audio_walk_dir.exists():
+        for root, dirs, files in os.walk(audio_walk_dir):
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+
+            for filename in sorted(files):
+                if filename.startswith("."):
+                    continue
+
+                filepath = os.path.join(root, filename)
+                ext = Path(filename).suffix.lower()
+
+                if ext not in AUDIO_EXTS:
+                    continue
+
+                scanned_audio += 1
+                if on_progress:
+                    on_progress(
+                        scanned_books,
+                        total_books,
+                        scanned_maps,
+                        total_maps,
+                        scanned_tokens,
+                        total_tokens,
+                        scanned_audio,
+                        total_audio,
+                    )
+                if should_stop and should_stop():
+                    logger.info("scan_library: stop requested during audio scan.")
+                    return stats
+
+                relative_path = os.path.relpath(filepath, library_path)
+
+                logger.info(f"Scanning audio ({scanned_audio}/{total_audio}): {filepath}")
+                logger.debug(f"DB: querying existing audio '{filepath}'")
+                try:
+                    existing = _run_with_timeout(
+                        lambda fp=filepath: session.query(Audio).filter_by(filepath=fp).first(),
+                        _DB_TIMEOUT, f"query audio '{filepath}'"
+                    )
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
+                if existing:
+                    logger.debug(f"Already registered, skipping: {filename}")
+                    continue
+
+                try:
+                    file_size = os.path.getsize(filepath)
+                except OSError:
+                    logger.warning(f"Cannot stat file, skipping: {filepath}")
+                    continue
+
+                meta = _read_audio_metadata(filepath)
+                has_artwork = bool(meta["embedded_art"]) or _find_folder_artwork(root) is not None
+
+                track = Audio(
+                    filename=filename,
+                    filepath=filepath,
+                    relative_path=relative_path,
+                    file_size=file_size,
+                    duration=meta["duration"],
+                    title=meta["title"],
+                    artist=meta["artist"],
+                    album=meta["album"],
+                    has_artwork=has_artwork,
+                )
+
+                session.add(track)
+                logger.debug(f"DB: committing new audio '{filename}'")
+                try:
+                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
+                    stats["new_audio"] += 1
+                    logger.info(f"New audio saved: {meta['title'] or filename}")
+                except TimeoutError as e:
+                    logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                    session.rollback()
+                    stats["errors"] += 1
+                except IntegrityError:
+                    session.rollback()
+                    logger.debug(f"Audio already exists, skipping: {filepath}")
+
+    _apply_tags_from_library(library_path, session, scope_dir=scope_dir)
 
     # --- Mark / unmark missing files ---
     # After walking the filesystem, any DB record whose file is gone gets
     # is_missing=True; records that exist on disk have is_missing cleared.
+    # When scoped, only reconcile records under the scope subtree so unrelated
+    # corners of the library are left untouched.
     if should_stop and should_stop():
         return stats
 
-    missing_books = missing_maps = missing_tokens = 0
-    for book in session.query(Book).all():
-        gone = not os.path.exists(book.filepath)
-        if gone != bool(book.is_missing):
-            book.is_missing = gone
-            if gone:
-                missing_books += 1
-                logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
-    for m in session.query(GenericMap).all():
-        gone = not os.path.exists(m.filepath)
-        if gone != bool(m.is_missing):
-            m.is_missing = gone
-            if gone:
-                missing_maps += 1
-                logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
-    for t in session.query(Token).all():
-        gone = not os.path.exists(t.filepath)
-        if gone != bool(t.is_missing):
-            t.is_missing = gone
-            if gone:
-                missing_tokens += 1
-                logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
-    if missing_books or missing_maps or missing_tokens:
-        logger.info(f"Missing files: {missing_books} book(s), {missing_maps} map(s), {missing_tokens} token(s)")
+    def _scoped(query, model):
+        if scope_dir is not None:
+            return query.filter(model.filepath.like(f"{scope_dir}{os.sep}%"))
+        return query
+
+    missing_books = missing_maps = missing_tokens = missing_audio = 0
+    if scan_books:
+        for book in _scoped(session.query(Book), Book).all():
+            gone = not os.path.exists(book.filepath)
+            if gone != bool(book.is_missing):
+                book.is_missing = gone
+                if gone:
+                    missing_books += 1
+                    logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
+    if scan_maps:
+        for m in _scoped(session.query(GenericMap), GenericMap).all():
+            gone = not os.path.exists(m.filepath)
+            if gone != bool(m.is_missing):
+                m.is_missing = gone
+                if gone:
+                    missing_maps += 1
+                    logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
+    if scan_tokens:
+        for t in _scoped(session.query(Token), Token).all():
+            gone = not os.path.exists(t.filepath)
+            if gone != bool(t.is_missing):
+                t.is_missing = gone
+                if gone:
+                    missing_tokens += 1
+                    logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
+    if scan_audio:
+        for a in _scoped(session.query(Audio), Audio).all():
+            gone = not os.path.exists(a.filepath)
+            if gone != bool(a.is_missing):
+                a.is_missing = gone
+                if gone:
+                    missing_audio += 1
+                    logger.warning(f"Missing audio: '{a.filename}' ({a.filepath})")
+    if missing_books or missing_maps or missing_tokens or missing_audio:
+        logger.info(
+            f"Missing files: {missing_books} book(s), {missing_maps} map(s), "
+            f"{missing_tokens} token(s), {missing_audio} audio"
+        )
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, "commit missing flags")
     except (TimeoutError, Exception) as e:
@@ -817,6 +1419,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     stats["missing_books"] = missing_books
     stats["missing_maps"] = missing_maps
     stats["missing_tokens"] = missing_tokens
+    stats["missing_audio"] = missing_audio
 
     return stats
 
@@ -852,20 +1455,43 @@ def _load_tags_json(folder_path: str) -> dict:
         return {}
 
 
-def _apply_tags_from_library(library_path: str, session: Session) -> None:
-    """Apply tags declared in tags.json files throughout the library tree."""
+def _within_scope(path: Path, scope_dir: Path | None) -> bool:
+    """Return True if `path` is the scope dir or lives under it (or scope is None)."""
+    if scope_dir is None:
+        return True
+    try:
+        return path == scope_dir or scope_dir in path.parents
+    except Exception:
+        return False
+
+
+def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Path | None = None) -> None:
+    """Apply tags declared in tags.json files throughout the library tree.
+
+    When `scope_dir` is given, only tags.json files within that subtree are applied.
+    """
     library = Path(library_path)
 
-    for section in ("maps", "tokens"):
+    _section_models = {
+        "maps": (MapFolder, GenericMap),
+        "tokens": (TokenFolder, Token),
+        "audio": (AudioFolder, Audio),
+    }
+    for section in ("maps", "tokens", "audio"):
         section_dir = library / section
         if not section_dir.exists():
             continue
+        # Skip sections the scope doesn't touch (scope under section, or == section).
+        if scope_dir is not None and not _within_scope(scope_dir, section_dir):
+            continue
 
-        folder_model = MapFolder if section == "maps" else TokenFolder
-        file_model = GenericMap if section == "maps" else Token
+        folder_model, file_model = _section_models[section]
 
         for root, dirs, files in os.walk(section_dir):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
+
+            if not _within_scope(Path(root), scope_dir):
+                continue
 
             if "tags.json" not in files:
                 continue
@@ -909,9 +1535,12 @@ def _apply_tags_from_library(library_path: str, session: Session) -> None:
 
     # --- books/ section (system-level tags only) ---
     books_dir = library / "books"
-    if books_dir.exists():
+    if books_dir.exists() and (scope_dir is None or _within_scope(scope_dir, books_dir)):
         for system_dir in sorted(books_dir.iterdir()):
             if not system_dir.is_dir() or system_dir.name.startswith("."):
+                continue
+            # System-level tags only matter when the scope includes this system dir.
+            if scope_dir is not None and not _within_scope(scope_dir, system_dir):
                 continue
 
             tag_map = _load_tags_json(str(system_dir))
@@ -932,12 +1561,51 @@ def _apply_tags_from_library(library_path: str, session: Session) -> None:
 
 
 def index_book_text(book: Book, data_path: str, session: Session, should_stop=None):
-    """Extract and index text from a PDF for full-text search."""
+    """Extract and index text from a PDF for full-text search.
+
+    Text extraction runs in an isolated worker process (see
+    ``extract_text_isolated``).  Before extraction the book is marked
+    ``index_failed`` and committed, so that even if a native crash escaped the
+    isolation and took down the whole server, the book would already be flagged
+    and skipped on the next scan instead of re-crashing in an endless loop.  The
+    flag is cleared once extraction succeeds.
+    """
     if book.indexed or book.index_failed or book.mime_type != "application/pdf":
         return False
 
+    # Crash-loop guard: persist "attempt in progress" before the risky call so a
+    # process-killing crash (segfault / OOM) can't cause this file to be retried
+    # forever.  Committed up front; cleared on success below.
+    book.index_failed = True
+    try:
+        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index attempt '{book.filepath}'")
+    except (TimeoutError, IntegrityError) as e:
+        logger.error(f"DB hang marking index attempt for '{book.filename}': {e}")
+        session.rollback()
+
     logger.info(f"Indexing: extracting text from '{book.filepath}'")
-    pages = extract_text_from_pdf(book.filepath, should_stop=should_stop)
+    try:
+        pages, used_ocr = extract_text_isolated(book.filepath, should_stop=should_stop)
+    except PdfExtractionCrashError as e:
+        logger.error(f"Text extraction crashed for '{book.filename}': {e} — marking index_failed")
+        book.index_error = f"extraction crashed: {e}"[:500]
+        book.index_failed = True
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index_failed '{book.filepath}'")
+        except (TimeoutError, IntegrityError) as e2:
+            logger.error(f"DB hang saving index_failed for '{book.filename}': {e2}")
+            session.rollback()
+        return False
+    except TimeoutError:
+        # Cancelled via should_stop — clear the attempt marker so the file is
+        # resumed on the next scan rather than being left permanently failed.
+        book.index_failed = False
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index cancel '{book.filepath}'")
+        except (TimeoutError, IntegrityError):
+            session.rollback()
+        return False
+
     if not pages:
         logger.info(f"No text extracted from '{book.filename}' — image-only PDF, marking as indexed")
         book.index_error = "image-only"
@@ -961,7 +1629,10 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         )
 
     book.indexed = True
-    book.index_error = ""
+    book.index_failed = False  # clear the crash-loop guard set before extraction
+    # "ocr" marks books whose text was (at least partly) recognised via OCR, so
+    # the UI can badge them and startup re-queue can target them. Empty = native.
+    book.index_error = "ocr" if used_ocr else ""
     logger.debug(f"DB: committing index for '{book.filename}'")
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index '{book.filepath}'")

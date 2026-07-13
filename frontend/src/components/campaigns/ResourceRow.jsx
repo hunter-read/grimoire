@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { LuBookOpen, LuTrash2, LuChevronRight } from 'react-icons/lu'
 import { campaigns, mediaUrl } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
+import AudioPlayer from '../audio/AudioPlayer'
 
 /** A single linked campaign resource with owner controls (visibility, category, share). */
 export default function ResourceRow({
@@ -25,15 +26,20 @@ export default function ResourceRow({
   const { Icon } = TYPE_ICONS[resource.resource_type] || { Icon: LuBookOpen }
   const isBook = resource.resource_type === 'book'
   const isFile = resource.resource_type === 'file'
+  const isAudio = resource.resource_type === 'audio'
   const isImage = isFile && resource.is_image
 
+  // Audio serves folder/embedded artwork from its own endpoint; other media use
+  // the standard /<collection>/:id/thumbnail route.
   const thumbUrl = isImage
     ? campaigns.fileUrl(campaignId, resource.resource_id)
-    : resource.has_thumbnail && !isFile
-      ? mediaUrl(
-          `/${isBook ? 'books' : resource.resource_type + 's'}/${resource.resource_id}/thumbnail`
-        )
-      : null
+    : resource.has_thumbnail && isAudio
+      ? mediaUrl(`/audio/${resource.resource_id}/artwork`)
+      : resource.has_thumbnail && !isFile
+        ? mediaUrl(
+            `/${isBook ? 'books' : resource.resource_type + 's'}/${resource.resource_id}/thumbnail`
+          )
+        : null
 
   const handleNav = () => {
     if (isFile) {
@@ -225,6 +231,24 @@ export default function ResourceRow({
           </div>
         )}
       </div>
+
+      {isAudio && (
+        <div
+          onClick={stop}
+          role="presentation"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+        >
+          <AudioPlayer
+            track={{
+              id: resource.resource_id,
+              title: resource.name,
+              artwork: resource.has_thumbnail,
+            }}
+            showPlayNext
+            size={34}
+          />
+        </div>
+      )}
     </div>
   )
 }

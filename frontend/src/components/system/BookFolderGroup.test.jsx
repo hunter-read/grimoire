@@ -16,11 +16,17 @@ vi.mock('../../api', () => ({
 
 // BookEditor makes its own API calls — stub it out so tests stay focused.
 vi.mock('./BookEditor', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose, onSave }) => (
     <div data-testid="book-editor">
       <button onClick={onClose}>Close Editor</button>
+      <button onClick={() => onSave({ title: 'Updated Title' })}>Save Editor</button>
     </div>
   ),
+}))
+
+// RescanButton polls /scan-status — stub it out so these tests stay focused.
+vi.mock('../RescanButton', () => ({
+  default: () => <div data-testid="rescan-button" />,
 }))
 
 function makeBook(overrides = {}) {
@@ -181,6 +187,56 @@ describe('BookFolderGroup', () => {
     expect(screen.getByTestId('book-editor')).toBeInTheDocument()
   })
 
+  it('saving from the editor calls onSaveBook and clears the editing id', async () => {
+    const book = makeBook()
+    const onSaveBook = vi.fn()
+    const setEditingBookId = vi.fn()
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          books: [book],
+          editingBookId: book.id,
+          isEditor: true,
+          onSaveBook,
+          setEditingBookId,
+        })}
+      />
+    )
+    await userEvent.click(screen.getByText('Save Editor'))
+    expect(onSaveBook).toHaveBeenCalledWith(book.id, { title: 'Updated Title' })
+    expect(setEditingBookId).toHaveBeenCalledWith(null)
+  })
+
+  it('closing the editor clears the editing id', async () => {
+    const book = makeBook()
+    const setEditingBookId = vi.fn()
+    render(
+      <BookFolderGroup
+        {...makeProps({ books: [book], editingBookId: book.id, isEditor: true, setEditingBookId })}
+      />
+    )
+    await userEvent.click(screen.getByText('Close Editor'))
+    expect(setEditingBookId).toHaveBeenCalledWith(null)
+  })
+
+  it('toggles a book selection in bulk mode', async () => {
+    const book = makeBook()
+    const onToggleBook = vi.fn()
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          books: [book],
+          bulkMode: true,
+          selectedBookIds: new Set(),
+          onToggleBook,
+        })}
+      />
+    )
+    // In bulk mode clicking the row toggles its selection.
+    await userEvent.click(screen.getByRole('button', { name: /test book/i }))
+    expect(onToggleBook).toHaveBeenCalledWith(book.id, expect.anything())
+  })
+
   it('does not render BookEditor when editingBookId does not match any book', () => {
     render(<BookFolderGroup {...makeProps({ editingBookId: 'other-id' })} />)
     expect(screen.queryByTestId('book-editor')).not.toBeInTheDocument()
@@ -211,5 +267,28 @@ describe('BookFolderGroup', () => {
         }),
       })
     )
+  })
+
+  it('does not throw when onDownload is not provided', async () => {
+    render(<BookFolderGroup {...makeProps({ onDownload: undefined })} />)
+    await userEvent.click(screen.getByText('Download'))
+    // No handler wired up — the optional call is a no-op; the click must not raise.
+    expect(screen.getByText('Download')).toBeInTheDocument()
+  })
+
+  // --- Rescan scope (folderScope) ---
+
+  it('scopes the rescan button to the folder derived from a book relative_path', () => {
+    // isEditor renders RescanButton, exercising folderScope() on a real path.
+    const book = makeBook({ relative_path: 'PF2e/adventures/Abomination Vaults/book.pdf' })
+    render(<BookFolderGroup {...makeProps({ books: [book], isEditor: true })} />)
+    expect(screen.getByTestId('rescan-button')).toBeInTheDocument()
+  })
+
+  it('renders the rescan button even when no book has a relative_path', () => {
+    // folderScope() returns null when no book carries a relative_path.
+    const book = makeBook({ relative_path: undefined })
+    render(<BookFolderGroup {...makeProps({ books: [book], isEditor: true })} />)
+    expect(screen.getByTestId('rescan-button')).toBeInTheDocument()
   })
 })

@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-from ...models import Book, GameSystem, GenericMap, Token, User
+from ...models import Audio, Book, GameSystem, GenericMap, Token, User
 
 
 _FORMATS = {
@@ -18,7 +18,12 @@ _FORMATS = {
     "tar.bz2": {"ext": ".tar.bz2", "mime": "application/x-bzip2"},
 }
 
-_ZIP_STORED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".zip"}
+_ZIP_STORED_EXTS = {
+    ".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif",
+    # Already-compressed archive payloads — re-deflating them wastes CPU.
+    ".zip", ".cbz", ".rar", ".cbr", ".7z", ".cb7",
+    ".tar", ".cbt", ".gz", ".tgz", ".bz2", ".tbz2",
+}
 _WIN_ILLEGAL = set(':*?"<>|\\')
 
 
@@ -240,3 +245,22 @@ def _files_for_token_folder(db, folder: str, see_explicit: bool) -> tuple[list, 
         and (safe := _safe_filepath(t.filepath))
     ]
     return files, f"tokens_{_safe_name(folder)}"
+
+
+def _files_for_audio_folder(db, folder: str) -> tuple[list, str]:
+    prefix = folder.strip("/") + "/"
+    tracks = db.query(Audio).all()
+
+    def _arcname(a: Audio) -> str:
+        rp = a.relative_path.replace("\\", "/")
+        rel = rp.split("/", 1)[1] if "/" in rp else rp
+        raw = rel[len(prefix):] if rel.startswith(prefix) else (rel or a.filename)
+        return _safe_arcname(raw)
+
+    files = [
+        (safe, _arcname(a))
+        for a in tracks
+        if a.relative_path.replace("\\", "/").lstrip("/").startswith("audio/" + prefix)
+        and (safe := _safe_filepath(a.filepath))
+    ]
+    return files, f"audio_{_safe_name(folder)}"

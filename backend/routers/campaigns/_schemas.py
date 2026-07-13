@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class CampaignResourceInput(BaseModel):
-    resource_type: str  # book | map | token | file
+    resource_type: str  # book | map | token | audio | file
     resource_id: str
     visibility: str = "gm"  # public | private | gm
     shared_user_ids: Optional[List[str]] = None  # for private visibility
@@ -37,6 +37,10 @@ class InvitePayload(BaseModel):
     user_id: str
 
 
+class GuestCreate(BaseModel):
+    nickname: str = ""
+
+
 class MemberStatusUpdate(BaseModel):
     status: Optional[str] = None  # accepted | declined
     character_name: Optional[str] = None
@@ -44,7 +48,7 @@ class MemberStatusUpdate(BaseModel):
 
 
 class ResourceAdd(BaseModel):
-    resource_type: str  # book | map | token | file
+    resource_type: str  # book | map | token | audio | file
     resource_id: str
     visibility: str = "gm"  # public | private | gm
     shared_user_ids: Optional[List[str]] = None  # for private visibility
@@ -83,7 +87,7 @@ class CategoryReorder(BaseModel):
 
 
 class ResourceGroupOrder(BaseModel):
-    # Ordered list of group keys ("type:book"/"type:map"/"type:token"/"type:file"
+    # Ordered list of group keys ("type:book"/"type:map"/"type:token"/"type:audio"/"type:file"
     # and "cat:<category_id>") defining the resource panel's group display order.
     ordered_keys: List[str]
 

@@ -5,7 +5,7 @@ export const VIEW_MODES = ['card', 'compact', 'list']
 
 // Content types that have an independent, remembered view mode. Each gets its
 // own default and its own persisted Settings preference.
-export const CONTENT_TYPES = ['system', 'book', 'map', 'token']
+export const CONTENT_TYPES = ['system', 'book', 'map', 'token', 'audio']
 
 // Per-content-type default view mode, used when the user has not chosen one.
 export const DEFAULT_VIEW_MODES = {
@@ -13,6 +13,7 @@ export const DEFAULT_VIEW_MODES = {
   book: 'list',
   map: 'compact',
   token: 'compact',
+  audio: 'list',
 }
 
 const sessionKey = (type) => `grimoire:view-mode:${type}`

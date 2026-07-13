@@ -12,8 +12,11 @@ import {
   LuUpload,
   LuChevronRight,
   LuChevronDown,
+  LuListMusic,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
+import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import useIsMobile from '../../hooks/useIsMobile'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
@@ -24,8 +27,17 @@ import VisibilityEditor from './VisibilityEditor'
 import PageEditor from './PageEditor'
 import { descendantIds, VIS_META, ghostBtn, goldBtn } from './wikiShared'
 
-export default function WikiView({ campaign, isOwner }) {
+// Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
+const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
+function extractAudioEmbedIds(body) {
+  if (!body) return []
+  return Array.from(body.matchAll(AUDIO_EMBED_RE), (m) => m[1].trim()).filter(Boolean)
+}
+
+export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const { t } = useTranslation()
+  const { playQueue } = useAudioPlayer()
+  const isMobile = useIsMobile()
   const [pages, setPages] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
   const [page, setPage] = useState(null)
@@ -73,10 +85,13 @@ export default function WikiView({ campaign, isOwner }) {
       campaigns.listWikiPages(campaign.id).then((list) => {
         setPages(list)
         if (selectId) setSelectedId(selectId)
-        else if (!selectId && list.length && !selectedId) setSelectedId(list[0].id)
+        // Desktop auto-opens the first page so the pane isn't empty. On mobile the
+        // tree and note swap full-screen, so auto-opening would drop the user into
+        // a note instead of the page list — land them on the list instead.
+        else if (!selectId && list.length && !selectedId && !isMobile) setSelectedId(list[0].id)
       })
     },
-    [campaign.id, selectedId]
+    [campaign.id, selectedId, isMobile]
   )
 
   useEffect(() => {
@@ -95,6 +110,14 @@ export default function WikiView({ campaign, isOwner }) {
       .then(setPage)
       .catch(() => setPage(null))
   }, [campaign.id, selectedId])
+
+  // Tell the parent when the note pane is shown full-screen on mobile, so it can
+  // hide its own header (campaign title / back-to-overview) and give the note the
+  // whole screen. Only meaningful on mobile; desktop shows both panes.
+  const viewingNoteOnMobile = isMobile && (creating || editing || !!page)
+  useEffect(() => {
+    onViewingNoteChange?.(viewingNoteOnMobile)
+  }, [viewingNoteOnMobile, onViewingNoteChange])
 
   const openSlug = (slug) => {
     const match = pages?.find((p) => p.slug === slug)
@@ -446,10 +469,31 @@ export default function WikiView({ campaign, isOwner }) {
     )
   }
 
+  // On phones the tree and note can't share a row (the note ends up ~50px wide),
+  // so we swap between them full-screen: show the tree until a page is opened
+  // (or a create/edit starts), then show only the note with a "Pages" button
+  // back to the list. On desktop both panes render side by side as before.
+  const showMainOnMobile = creating || editing || !!page
+  const showList = !isMobile || !showMainOnMobile
+  const showMain = !isMobile || showMainOnMobile
+  const backToList = () => {
+    setCreating(false)
+    setEditing(false)
+    setSelectedId(null)
+    setPage(null)
+  }
+
   return (
     <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
       {/* Page list */}
-      <div style={{ flex: '0 0 240px', maxWidth: 240 }}>
+      <div
+        style={{
+          flex: isMobile ? '1 1 auto' : '0 0 240px',
+          maxWidth: isMobile ? '100%' : 240,
+          width: isMobile ? '100%' : undefined,
+          display: showList ? 'block' : 'none',
+        }}
+      >
         <button
           onClick={() => startCreate('')}
           style={{ ...goldBtn, width: '100%', justifyContent: 'center', marginBottom: 10 }}
@@ -528,7 +572,14 @@ export default function WikiView({ campaign, isOwner }) {
       </div>
 
       {/* Main pane */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, display: showMain ? 'block' : 'none' }}>
+        {/* In the note-reading view the "Pages" button shares the title's action
+            row (below); here it only fronts the create/edit editors. */}
+        {isMobile && (creating || editing) && (
+          <button onClick={backToList} style={mobileBackBtn}>
+            <LuArrowLeft size={14} /> {t('wiki.backToPages')}
+          </button>
+        )}
         {creating ? (
           <PageEditor
             campaign={campaign}
@@ -554,70 +605,124 @@ export default function WikiView({ campaign, isOwner }) {
           />
         ) : (
           <div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 12,
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 6px' }}>
-                  {(() => {
-                    const visColor = (VIS_META[page.visibility] || VIS_META.gm).color
-                    return page.can_edit ? (
-                      <IconPicker
-                        value={page.icon}
-                        onChange={(icon) => changeIcon(page.id, icon)}
-                        fallback={<LuFileText size={20} aria-hidden="true" />}
-                        ariaLabel={t('wiki.iconLabel')}
-                        compact
-                        size={20}
-                        color={visColor}
+            {(() => {
+              const audioIds = extractAudioEmbedIds(page.body)
+              const hasActions = page.can_edit || audioIds.length > 0
+              const actionButtons = hasActions && (
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  {audioIds.length > 0 && (
+                    <button
+                      onClick={() => playQueue(audioIds.map((id) => ({ id })))}
+                      style={ghostBtn}
+                      title={t('audio.playAll')}
+                    >
+                      <LuListMusic size={13} /> {t('audio.playAll')}
+                    </button>
+                  )}
+                  {page.can_edit && (
+                    <>
+                      <button onClick={() => setEditing(true)} style={ghostBtn}>
+                        <LuPencil size={13} /> {t('common.edit')}
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        style={{ ...ghostBtn, color: 'var(--danger)' }}
+                      >
+                        <LuTrash2 size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+              const titleBlock = (
+                <div>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 6px' }}
+                  >
+                    {(() => {
+                      const visColor = (VIS_META[page.visibility] || VIS_META.gm).color
+                      return page.can_edit ? (
+                        <IconPicker
+                          value={page.icon}
+                          onChange={(icon) => changeIcon(page.id, icon)}
+                          fallback={<LuFileText size={20} aria-hidden="true" />}
+                          ariaLabel={t('wiki.iconLabel')}
+                          compact
+                          size={20}
+                          color={visColor}
+                        />
+                      ) : (
+                        <CampaignIcon
+                          name={page.icon}
+                          fallback={LuFileText}
+                          size={20}
+                          style={{ color: visColor }}
+                        />
+                      )
+                    })()}
+                    <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{page.title}</h2>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {page.can_edit ? (
+                      <VisibilityEditor
+                        campaign={campaign}
+                        isOwner={isOwner}
+                        page={page}
+                        onSetVisibility={changeVisibility}
+                        onSetShares={changeShares}
                       />
                     ) : (
-                      <CampaignIcon
-                        name={page.icon}
-                        fallback={LuFileText}
-                        size={20}
-                        style={{ color: visColor }}
-                      />
-                    )
-                  })()}
-                  <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{page.title}</h2>
+                      <VisibilityBadge visibility={page.visibility} />
+                    )}
+                    {page.created_by_name && (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {t('wiki.byAuthor', { name: page.created_by_name })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  {page.can_edit ? (
-                    <VisibilityEditor
-                      campaign={campaign}
-                      isOwner={isOwner}
-                      page={page}
-                      onSetVisibility={changeVisibility}
-                      onSetShares={changeShares}
-                    />
-                  ) : (
-                    <VisibilityBadge visibility={page.visibility} />
-                  )}
-                  {page.created_by_name && (
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {t('wiki.byAuthor', { name: page.created_by_name })}
-                    </span>
-                  )}
+              )
+
+              // Mobile: a single toolbar row (← Pages | actions) above the title,
+              // so the title gets the full width on the line below.
+              if (isMobile) {
+                return (
+                  <>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <button onClick={backToList} style={mobileBackBtn}>
+                        <LuArrowLeft size={14} /> {t('wiki.backToPages')}
+                      </button>
+                      {actionButtons}
+                    </div>
+                    <div style={{ marginBottom: 12 }}>{titleBlock}</div>
+                  </>
+                )
+              }
+
+              // Desktop: title block on the left, actions on the right.
+              return (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  {titleBlock}
+                  {actionButtons}
                 </div>
-              </div>
-              {page.can_edit && (
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => setEditing(true)} style={ghostBtn}>
-                    <LuPencil size={13} /> {t('common.edit')}
-                  </button>
-                  <button onClick={handleDelete} style={{ ...ghostBtn, color: 'var(--danger)' }}>
-                    <LuTrash2 size={13} />
-                  </button>
-                </div>
-              )}
-            </div>
+              )
+            })()}
 
             <div
               style={{
@@ -704,4 +809,18 @@ const dashedBtn = {
   color: 'var(--text-muted)',
   cursor: 'pointer',
   fontSize: 12,
+}
+
+const mobileBackBtn = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 5,
+  flexShrink: 0,
+  padding: '7px 12px',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
+  borderRadius: 8,
+  color: 'var(--text-dim)',
+  cursor: 'pointer',
+  fontSize: 13,
 }

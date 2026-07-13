@@ -1,65 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
-import api from '../../api'
 import Spinner from '../Spinner'
+import RescanModal from '../RescanModal'
+import useScanStatus from '../../hooks/useScanStatus'
 
 export default function RescanSection() {
   const { t } = useTranslation()
-  const [status, setStatus] = useState({
-    running: false,
-    phase: null,
-    total_books: 0,
-    scanned_books: 0,
-    total_maps: 0,
-    scanned_maps: 0,
-    total_tokens: 0,
-    scanned_tokens: 0,
-    indexed: 0,
-    to_index: 0,
-    new_books: 0,
-    new_maps: 0,
-    new_tokens: 0,
-  })
-  const [lastResult, setLastResult] = useState(null)
-  const [stopping, setStopping] = useState(false)
+  const { status, lastResult, stopping, startRescan, stopScan } = useScanStatus()
+  const [showModal, setShowModal] = useState(false)
 
-  useEffect(() => {
-    const poll = () => {
-      api
-        .get('/scan-status')
-        .then((s) => {
-          setStatus(s)
-          if (!s.running) {
-            const total = s.new_books + s.new_maps + s.new_tokens
-            if (total > 0 || s.indexed > 0) setLastResult(s)
-          }
-        })
-        .catch(() => {})
-    }
-
-    poll()
-    const id = setInterval(poll, status.running ? 1000 : 30000)
-    return () => clearInterval(id)
-  }, [status.running])
-
-  const handleRescan = async () => {
-    if (status.running) return
-    setLastResult(null)
-    setStopping(false)
-    setStatus((s) => ({ ...s, running: true, phase: 'scanning' }))
-    try {
-      await api.post('/rescan')
-    } catch (_) {
-      setStatus((s) => ({ ...s, running: false, phase: null }))
-    }
-  }
-
-  const handleStop = async () => {
-    setStopping(true)
-    try {
-      await api.post('/cancel-scan')
-    } catch (_) {}
+  const handleConfirm = (metadata_mode) => {
+    startRescan({ scope: null, metadata_mode }).catch(() => {})
   }
 
   const {
@@ -99,7 +51,7 @@ export default function RescanSection() {
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
-          onClick={handleRescan}
+          onClick={() => !running && setShowModal(true)}
           disabled={running}
           style={{
             display: 'inline-flex',
@@ -120,7 +72,7 @@ export default function RescanSection() {
         </button>
         {running && (
           <button
-            onClick={handleStop}
+            onClick={stopScan}
             disabled={stopping}
             title={t('maintenance.rescan.stop')}
             style={{
@@ -277,14 +229,22 @@ export default function RescanSection() {
               {lastResult.indexed > 0 && (
                 <span>{t('maintenance.rescan.indexed', { count: lastResult.indexed })}</span>
               )}
+              {lastResult.updated_books > 0 && (
+                <span>{t('maintenance.rescan.updated', { count: lastResult.updated_books })}</span>
+              )}
               {lastResult.new_books +
                 lastResult.new_maps +
                 lastResult.new_tokens +
-                lastResult.indexed ===
+                lastResult.indexed +
+                (lastResult.updated_books || 0) ===
                 0 && <span>{t('maintenance.rescan.noNewFiles')}</span>}
             </div>
           </div>
         </div>
+      )}
+
+      {showModal && (
+        <RescanModal scope={null} onConfirm={handleConfirm} onClose={() => setShowModal(false)} />
       )}
     </div>
   )

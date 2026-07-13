@@ -1,6 +1,5 @@
 """Tests for library stats and scan endpoints."""
-import pytest
-from backend.tests.conftest import make_game_system, make_book, make_map, make_token
+from backend.tests.conftest import make_game_system, make_book
 
 
 class TestLibraryStats:
@@ -18,7 +17,14 @@ class TestLibraryStats:
         assert "indexed_books" in body
         assert "total_pages" in body
         assert "total_size_mb" in body
-        assert "version" in body
+
+    def test_stats_omits_build_info(self, client, admin_headers):
+        # Build details are intentionally kept off the API-key-gated /stats
+        # endpoint so external integrations can't read them (issue: 1.5.0).
+        body = client.get("/api/stats", headers=admin_headers).json()
+        assert "version" not in body
+        assert "commit_hash" not in body
+        assert "python_version" not in body
 
     def test_stats_counts_are_non_negative(self, client, admin_headers):
         resp = client.get("/api/stats", headers=admin_headers)
@@ -50,6 +56,24 @@ class TestLibraryStats:
     def test_unauthenticated_denied(self, client):
         resp = client.get("/api/stats")
         assert resp.status_code == 401
+
+
+class TestAbout:
+    def test_about_returns_build_info(self, client, admin_headers):
+        resp = client.get("/api/about", headers=admin_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "version" in body
+        assert "commit_hash" in body
+        assert "python_version" in body
+
+    def test_about_available_to_players(self, client, player_headers):
+        resp = client.get("/api/about", headers=player_headers)
+        assert resp.status_code == 200
+
+    def test_about_requires_auth(self, client):
+        # No API-key fallback: the build info is login-only.
+        assert client.get("/api/about").status_code == 401
 
 
 class TestScanStatus:

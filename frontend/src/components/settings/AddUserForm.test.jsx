@@ -56,7 +56,42 @@ describe('AddUserForm', () => {
       username: 'alice',
       password: 'securepassword',
       role: 'player',
+      allow_explicit: true,
+      campaign_access: true,
     })
+  })
+
+  it('hides the password field and omits password when password auth is disabled', async () => {
+    const created = { id: '3', username: 'carol', role: 'player' }
+    api.post.mockResolvedValueOnce(created)
+    const onAdd = vi.fn()
+
+    render(<AddUserForm onAdd={onAdd} onCancel={vi.fn()} passwordAuthEnabled={false} />)
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Username'), 'carol')
+    fireEvent.click(screen.getByText('Create User'))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty('password')
+  })
+
+  it('passes permission toggles in the payload', async () => {
+    const created = { id: '4', username: 'dave', role: 'player' }
+    api.post.mockResolvedValueOnce(created)
+
+    render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.type(screen.getByLabelText('Username'), 'dave')
+    await userEvent.type(screen.getByLabelText('Password'), 'validpassword')
+    fireEvent.click(screen.getByLabelText('Campaigns'))
+    fireEvent.click(screen.getByText('Create User'))
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/users',
+        expect.objectContaining({ campaign_access: false, allow_explicit: true })
+      )
+    )
   })
 
   it('shows API error message when creation fails', async () => {

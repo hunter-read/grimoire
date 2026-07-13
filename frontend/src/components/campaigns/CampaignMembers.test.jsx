@@ -8,8 +8,6 @@ vi.mock('../../api', () => ({
     eligibleMembers: vi.fn(),
     invite: vi.fn(),
     memberSheetUrl: vi.fn(() => '/api/sheet'),
-    getMemberSheetFields: vi.fn(),
-    saveMemberSheetFields: vi.fn(),
     listSheetSources: vi.fn(),
     duplicateMemberSheet: vi.fn(),
   },
@@ -66,6 +64,16 @@ describe('MemberRow', () => {
   it('shows member status badge', () => {
     renderRow({ status: 'invited' })
     expect(screen.getByText('invited')).toBeTruthy()
+  })
+
+  it('shows a Guest badge for guest members', () => {
+    renderRow({ is_guest: true, display_name: 'Wanderer' })
+    expect(screen.getByText('Guest')).toBeTruthy()
+  })
+
+  it('does not show a Guest badge for normal members', () => {
+    renderRow({ is_guest: false })
+    expect(screen.queryByText('Guest')).toBeNull()
   })
 
   it('shows accept/decline buttons for current user with invited status', () => {

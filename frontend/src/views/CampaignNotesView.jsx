@@ -15,6 +15,9 @@ export default function CampaignNotesView() {
   const { user } = useAuth()
   const [campaign, setCampaign] = useState(null)
   const [error, setError] = useState(null)
+  // On mobile the notes wiki takes over the screen when a note is open, so hide
+  // this page's own header (campaign title / back-to-overview) to give it room.
+  const [viewingNote, setViewingNote] = useState(false)
 
   useEffect(() => {
     campaigns
@@ -40,36 +43,38 @@ export default function CampaignNotesView() {
 
   return (
     <div className="fade-in" style={{ padding: 24 }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          onClick={() => navigate(`/campaigns/${campaignId}/overview`)}
+      {!viewingNote && (
+        <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 5,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            color: 'var(--text-dim)',
-            cursor: 'pointer',
-            fontSize: 13,
-            padding: '7px 12px',
+            gap: 14,
+            marginBottom: 20,
+            flexWrap: 'wrap',
           }}
         >
-          <LuChevronLeft size={14} /> {t('campaignNotes.backToOverview')}
-        </button>
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{campaign.name}</h2>
-      </div>
+          <button
+            onClick={() => navigate(`/campaigns/${campaignId}/overview`)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+              fontSize: 13,
+              padding: '7px 12px',
+            }}
+          >
+            <LuChevronLeft size={14} /> {t('campaignNotes.backToOverview')}
+          </button>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{campaign.name}</h2>
+        </div>
+      )}
 
-      <WikiView campaign={campaign} isOwner={canManage} />
+      <WikiView campaign={campaign} isOwner={canManage} onViewingNoteChange={setViewingNote} />
     </div>
   )
 }

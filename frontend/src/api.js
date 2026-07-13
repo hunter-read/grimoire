@@ -29,6 +29,7 @@ export const mediaUrl = (path, params = {}) => {
 // Campaign Manager helpers
 export const campaigns = {
   list: () => api.get('/campaigns'),
+  invites: () => api.get('/campaigns/invites'),
   get: (id) => api.get(`/campaigns/${id}`),
   create: (data) => api.post('/campaigns', data),
   update: (id, data) => api.patch(`/campaigns/${id}`, data),
@@ -44,6 +45,14 @@ export const campaigns = {
   removeMember: (id, userId) => api.delete(`/campaigns/${id}/members/${userId}`),
   eligibleMembers: (id) => api.get(`/campaigns/${id}/eligible-members`),
 
+  // Guests (code-based, GM-managed)
+  listGuests: (id) => api.get(`/campaigns/${id}/guests`),
+  createGuest: (id, nickname) => api.post(`/campaigns/${id}/guests`, { nickname }),
+  regenerateGuestCode: (id, memberId) => api.post(`/campaigns/${id}/guests/${memberId}/regenerate`),
+  removeGuest: (id, memberId) => api.delete(`/campaigns/${id}/guests/${memberId}`),
+  guestShareTemplate: (id, memberId) =>
+    api.get(`/campaigns/${id}/guests/${memberId}/share-template`),
+
   // Banner (keyed by campaign id)
   uploadBanner: (id, file) => api.upload(`/campaigns/${id}/banner`, file),
   deleteBanner: (id) => api.delete(`/campaigns/${id}/banner`),
@@ -57,11 +66,10 @@ export const campaigns = {
   uploadMemberSheet: (id, memberId, file) =>
     api.upload(`/campaigns/${id}/members/${memberId}/sheet`, file),
   deleteMemberSheet: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/sheet`),
-  memberSheetUrl: (id, memberId) => mediaUrl(`/campaigns/${id}/members/${memberId}/sheet`),
-  getMemberSheetFields: (id, memberId) =>
-    api.get(`/campaigns/${id}/members/${memberId}/sheet/fields`),
-  saveMemberSheetFields: (id, memberId, fields) =>
-    api.put(`/campaigns/${id}/members/${memberId}/sheet/fields`, { fields }),
+  // `v` cache-busts the 5-minute upload cache after an in-app edit so the fresh
+  // PDF is fetched instead of the stale copy the browser is still holding.
+  memberSheetUrl: (id, memberId, v) =>
+    mediaUrl(`/campaigns/${id}/members/${memberId}/sheet`, v ? { v } : {}),
   duplicateMemberSheet: (id, memberId, body) =>
     api.post(`/campaigns/${id}/members/${memberId}/sheet/duplicate`, body),
   listSheetSources: (id) => api.get(`/campaigns/${id}/sheet-sources`),
@@ -152,6 +160,11 @@ export const campaigns = {
 
   // Admin: read-only view of a user's campaigns (user page)
   adminListByUser: (userId) => api.get(`/campaigns/admin/by-user/${userId}`),
+}
+
+export const auth = {
+  config: () => api.get('/auth/config'),
+  guestLogin: (code) => api.post('/auth/guest-login', { code }),
 }
 
 export const opds = {

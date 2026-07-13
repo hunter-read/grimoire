@@ -6,6 +6,7 @@ import {
   LuBookOpen,
   LuMap,
   LuUser,
+  LuMusic,
   LuFile,
   LuImage,
   LuPlus,
@@ -16,7 +17,7 @@ import Spinner from '../Spinner'
 import ImageUploadPanel from './ImageUploadPanel'
 import { miniBtn, miniBtnGhost } from './embedPickerStyles'
 
-const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser, file: LuFile }
+const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser, audio: LuMusic, file: LuFile }
 
 // Picks a linked campaign resource (or uploads a new image) and returns the
 // [[...]] embed token to insert into a wiki note. Only resources already linked
@@ -281,6 +282,10 @@ function thumbnailUrl(campaignId, item) {
     return item.is_image ? campaigns.fileUrl(campaignId, item.resource_id) : null
   }
   if (!item.has_thumbnail) return null
+  // Audio has no thumbnail endpoint — it serves folder/embedded artwork instead.
+  if (item.resource_type === 'audio') {
+    return mediaUrl(`/audio/${item.resource_id}/artwork`)
+  }
   const seg = item.resource_type === 'book' ? 'books' : `${item.resource_type}s`
   return mediaUrl(`/${seg}/${item.resource_id}/thumbnail`)
 }

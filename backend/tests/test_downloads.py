@@ -515,6 +515,53 @@ class TestDownloadSystemCategoryZip:
 
 
 # ---------------------------------------------------------------------------
+# ZIP — archive files bundled alongside books (issue #94)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def archive_book(system):
+    """A .zip archive registered as a book in a 'utilities' category."""
+    uid = uuid.uuid4().hex[:6]
+    # A real zip payload so it can actually be streamed into the outer archive.
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as zf:
+        zf.writestr("readme.txt", "comp/con bundle")
+    path = _real_file(f"lancer_bundle_{uid}.zip", inner.getvalue())
+    return make_book(
+        system_id=system.id,
+        title=f"LANCER Bundle {uid}",
+        filename=os.path.basename(path),
+        filepath=path,
+        relative_path=f"books/utilities/{os.path.basename(path)}",
+        category="utilities",
+        mime_type="application/zip",
+    )
+
+
+class TestDownloadArchiveBooksBundled:
+    def test_zip_contains_archive_book(self, client, admin_headers, system, archive_book):
+        content = _get_archive(client, admin_headers, {"type": "system", "id": system.id})
+        names = _zip_names(content)
+        assert any(archive_book.filename in n for n in names)
+
+    def test_archive_entry_is_stored_not_deflated(
+        self, client, admin_headers, system, archive_book
+    ):
+        content = _get_archive(client, admin_headers, {"type": "system", "id": system.id})
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            info = next(i for i in zf.infolist() if archive_book.filename in i.filename)
+        assert info.compress_type == zipfile.ZIP_STORED
+
+    def test_tar_contains_archive_book(self, client, admin_headers, system, archive_book):
+        content = _get_archive(
+            client, admin_headers, {"type": "system", "id": system.id, "fmt": "tar"}
+        )
+        names = _tar_names(content)
+        assert any(archive_book.filename in n for n in names)
+
+
+# ---------------------------------------------------------------------------
 # ZIP — map_folder scope
 # ---------------------------------------------------------------------------
 

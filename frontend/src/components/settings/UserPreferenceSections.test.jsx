@@ -38,7 +38,7 @@ describe('LanguageSection — rendering', () => {
 
   it('renders at least the English option', () => {
     render(<LanguageSection />)
-    expect(screen.getByRole('option', { name: /english/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('option', { name: /english/i }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('defaults to en-US when localStorage has no saved language', () => {

@@ -11,8 +11,20 @@ jobs:
   frontend:
     name: Frontend build + test
     runs-on: ubuntu-latest
+    # A direct push to `dev` while the `dev -> main` PR is open makes CI run
+    # twice for the same commit: once for `push` and once for `pull_request`.
+    # Skip the redundant `pull_request` run when its head branch is `dev` — the
+    # `push` run already covers that commit. This also stops `edge.yml` from
+    # being triggered twice (once per CI completion) and racing on the build cache.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the per-changed-file coverage gate can diff against
+          # the PR base branch.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -24,9 +36,26 @@ jobs:
         working-directory: frontend
         run: npm install
 
-      - name: Run tests
+      - name: Check formatting
         working-directory: frontend
-        run: npm test
+        run: npm run format:check
+
+      - name: Run lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage
+
+      - name: Check per-changed-file coverage
+        if: github.event_name == 'pull_request'
+        working-directory: frontend
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+          npm run coverage:check
 
       - name: Build
         working-directory: frontend
@@ -35,8 +64,17 @@ jobs:
   backend:
     name: Backend lint + test
     runs-on: ubuntu-latest
+    # See the frontend job: skip the redundant `pull_request` run for the
+    # `dev -> main` PR, which is already covered by the `push` run on `dev`.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the per-changed-file coverage gate can diff against
+          # the PR base branch.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -51,8 +89,19 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -r requirements-test.txt
 
+      - name: Run lint
+        run: ruff check backend/
+
       - name: Check imports
         run: python -c "import backend.main"
 
-      - name: Run tests
-        run: pytest backend/tests/ -v
+      - name: Run tests with coverage
+        run: pytest backend/tests/ -v --cov=backend --cov-report=json --cov-report=term
+
+      - name: Check per-changed-file coverage
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+          python backend/scripts/check_coverage.py

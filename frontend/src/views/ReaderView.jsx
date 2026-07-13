@@ -3,11 +3,13 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
+import { isArchiveBook } from '../constants'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
 import { getUserPrefs } from '../hooks/useUserPrefs'
 import { useFavorites } from '../context/FavoritesContext'
 import useReaderGestures from '../hooks/useReaderGestures'
+import useIsMobile from '../hooks/useIsMobile'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
 import BookmarkSidebar from '../components/reader/BookmarkSidebar'
@@ -47,7 +49,7 @@ export default function ReaderView() {
   const _prefs = getBookPrefs(bookId)
   const _userPrefs = getUserPrefs()
   const initialPage = parseInt(searchParams.get('page')) || _prefs.page || 1
-  const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+  const isMobilePhone = useIsMobile(640)
   const _globalMode = ['page', 'spread', 'pdf'].includes(_userPrefs.readerMode)
     ? _userPrefs.readerMode
     : null
@@ -321,6 +323,51 @@ export default function ReaderView() {
 
   if (book.mime_type?.startsWith('image/')) {
     return <ImageBookViewer book={book} bookId={bookId} backPath={backPathRef.current} />
+  }
+
+  // Archives have no page reader — offer a download instead of a broken viewer.
+  if (isArchiveBook(book)) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <button
+          onClick={() => (backPathRef.current ? navigate(backPathRef.current) : navigate(-1))}
+          aria-label={t('common.back')}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 24,
+          }}
+        >
+          <LuArrowLeft size={16} aria-hidden="true" /> {t('common.back')}
+        </button>
+        <h2 style={{ marginBottom: 8 }}>{book.title}</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
+          {t('reader.archiveNotViewable')}
+        </p>
+        <a
+          href={mediaUrl(`/books/${bookId}/file`)}
+          download={book.filename || ''}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 18px',
+            borderRadius: 8,
+            background: 'var(--gold)',
+            color: 'var(--bg-deep)',
+            fontWeight: 500,
+            textDecoration: 'none',
+          }}
+        >
+          <LuDownload size={16} aria-hidden="true" /> {t('common.download')}
+        </a>
+      </div>
+    )
   }
 
   const rightPage = currentPage + 1

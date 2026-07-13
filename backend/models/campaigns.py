@@ -4,7 +4,6 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
-    Index,
     Integer,
     JSON,
     String,
@@ -35,6 +34,11 @@ class Campaign(Base):
 
     # Relative filename of the campaign banner, stored under DATA_PATH/campaign_uploads/banners/
     banner_path = Column(String(255), nullable=True)
+
+    # Whether this campaign accepts guest invite codes. Gated globally by the
+    # app-level guest_access_enabled setting; this flips true the first time the
+    # owner creates a guest for the campaign.
+    guest_invites_enabled = Column(Boolean, default=False)
 
     # Manual display order for the resource panel's groups, interleaving the
     # built-in type groups (keys "type:book", "type:map", "type:token",
@@ -87,6 +91,11 @@ class CampaignMember(Base):
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     status = Column(String(20), default="invited")
     character_name = Column(String(100), nullable=True)
+
+    # Guest membership: a member backed by a guest User. guest_code is the unique
+    # 10-char alphanumeric code that mints a token for this guest.
+    is_guest = Column(Boolean, default=False)
+    guest_code = Column(String(10), nullable=True, index=True)
 
     # Relative filenames under DATA_PATH/campaign_uploads/{art,sheets}/
     character_art_path = Column(String(255), nullable=True)

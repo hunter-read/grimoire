@@ -17,8 +17,14 @@ from ._schemas import FolderTagsUpdate, MapUpdate
 router = APIRouter()
 
 
+def _folder_path(relative_path: str) -> str:
+    """Folder portion of a map's relative_path (drops game system and filename)."""
+    return "/".join(Path(relative_path.replace("\\", "/")).parts[1:-1])
+
+
 def list_maps(
     map_type: Optional[str] = None,
+    folder: Optional[str] = None,
     limit: int = Query(100000),
     offset: int = 0,
 ):
@@ -27,8 +33,16 @@ def list_maps(
         q = db.query(GenericMap)
         if map_type:
             q = q.filter_by(map_type=map_type)
-        total = q.count()
-        maps = q.order_by(GenericMap.filename).offset(offset).limit(limit).all()
+        q = q.order_by(GenericMap.filename)
+        if folder is not None:
+            # Folder is derived from relative_path, not a column, so filter in
+            # Python. Paginate the filtered result.
+            filtered = [m for m in q.all() if _folder_path(m.relative_path) == folder]
+            total = len(filtered)
+            maps = filtered[offset : offset + limit]
+        else:
+            total = q.count()
+            maps = q.offset(offset).limit(limit).all()
         return {
             "total": total,
             "maps": [
@@ -80,7 +94,7 @@ def get_map(map_id: str):
         if not m:
             raise HTTPException(404)
         img_info = _map_image_info(m.filepath, m.relative_path)
-        folder_path = "/".join(Path(m.relative_path).parts[1:-1])
+        folder_path = _folder_path(m.relative_path)
         folder = db.query(MapFolder).filter_by(path=folder_path).first()
         return {
             "id": m.id,

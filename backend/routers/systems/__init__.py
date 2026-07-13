@@ -1,6 +1,7 @@
 """Systems package — registers all game system routes on a single router."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from ...auth import require_not_guest
 from .core import (
     get_system,
     list_book_folders,
@@ -11,12 +12,14 @@ from .core import (
 
 router = APIRouter(prefix="/systems", tags=["systems"])
 
+# Browsing systems and their book lists is library browsing — blocked for guests.
 router.add_api_route(
     "",
     list_systems,
     methods=["GET"],
     summary="List all game systems",
     description="Returns all game systems with book counts, tags, genre, and mechanics.",
+    dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
     "/{system_id}",
@@ -27,6 +30,7 @@ router.add_api_route(
         "Returns full details for a game system including all associated books "
         "grouped by category."
     ),
+    dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
     "/{system_id}/book-folders",

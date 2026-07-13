@@ -2,7 +2,7 @@
 
 Pages hold markdown bodies and link to each other with `[[Page Title]]` syntax.
 Grimoire content is embedded inline as `[[book:<id>]]`, `[[book:<id>:<page>]]`,
-`[[map:<id>]]`, or `[[token:<id>]]` — those are rendered by the frontend and are
+`[[map:<id>]]`, `[[token:<id>]]`, or `[[audio:<id>]]` — those are rendered by the frontend and are
 not tracked as page-to-page links. On every save we re-parse the body, auto-create
 stub pages for any unknown `[[Page Title]]` targets, and rebuild backlink rows.
 """
@@ -25,7 +25,7 @@ from ._helpers import (
 from ._schemas import WikiPageCreate, WikiPageUpdate, WikiReorder
 
 # Reserved prefixes for Grimoire content embeds — not page-title links.
-_EMBED_PREFIXES = ("book:", "map:", "token:", "file:", "image:")
+_EMBED_PREFIXES = ("book:", "map:", "token:", "audio:", "file:", "image:")
 
 # Matches [[target]] or [[target|label]]; target/label captured separately.
 _LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")

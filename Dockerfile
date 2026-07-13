@@ -6,22 +6,33 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Python app
-FROM python:3.12-slim
+# Stage 2: Build Python dependencies (compilers live here, not in the runtime image)
+FROM python:3.12-slim AS backend-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libmupdf-dev \
-    mupdf-tools \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Stage 3: Runtime base shared by both variants (no build toolchain)
+FROM python:3.12-slim AS runtime-base
+
 WORKDIR /app
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# `unar` provides RAR extraction for rarfile (used to render .cbr cover
+# thumbnails); without it .cbr archives are still served, just without a cover.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    unar \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bring in the pre-built Python packages from the builder stage.
+COPY --from=backend-builder /install /usr/local
 
 COPY backend/ ./backend/
+COPY alembic.ini ./alembic.ini
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN mkdir -p /data /library
@@ -34,5 +45,24 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 9481
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9481/api/health', timeout=4).status == 200 else 1)" || exit 1
+
 ENV WORKERS=2
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
+
+# Stage 4a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only
+# PDFs stay excluded from full-text search, exactly as before OCR was added. Built
+# with `--target slim` and published under the `-slim` tag family.
+FROM runtime-base AS slim
+
+# Stage 4b: Default variant — bundles Tesseract + English language data so image-only
+# PDFs are OCR'd into the full-text index out of the box. Extra languages can be added
+# at runtime by mounting tessdata and setting OCR_LANGUAGES (see README); no rebuild
+# required. This is the last stage, so a plain `docker build` (no --target) yields it.
+FROM runtime-base AS ocr
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*

@@ -1,9 +1,10 @@
-import { LuBookOpen, LuMap, LuUser, LuFile } from 'react-icons/lu'
+import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
 
 export const TYPE_ICONS = {
   book: { Icon: LuBookOpen, color: '#a78bfa' },
   map: { Icon: LuMap, color: '#60a5fa' },
   token: { Icon: LuUser, color: '#34d399' },
+  audio: { Icon: LuMusic, color: '#f0a868' },
   file: { Icon: LuFile, color: '#e0b341' },
 }
 
@@ -11,6 +12,7 @@ export const RESOURCE_NAV = {
   book: (id) => `/library/book/${id}`,
   map: (id) => `/maps/${id}`,
   token: (id) => `/tokens/${id}`,
+  audio: (id) => `/audio/${id}`,
 }
 
 // Visibility selector order: public, then private, then GM-only.

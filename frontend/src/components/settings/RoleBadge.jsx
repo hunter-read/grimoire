@@ -12,6 +12,7 @@ export default function RoleBadge({ role }) {
   return (
     <span
       style={{
+        display: 'inline-block',
         padding: '3px 10px',
         borderRadius: 20,
         fontSize: 12,
@@ -21,6 +22,9 @@ export default function RoleBadge({ role }) {
         color: c.text,
         textTransform: 'uppercase',
         letterSpacing: '0.04em',
+        // Keep the role on one line so a squeezed column doesn't wrap it into a
+        // vertical stack of letters; the column stays as wide as the longest role.
+        whiteSpace: 'nowrap',
       }}
     >
       {t(`users.roles.${role}`, { defaultValue: role })}

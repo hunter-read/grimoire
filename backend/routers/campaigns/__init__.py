@@ -12,6 +12,7 @@ from .core import (
     invite_member,
     update_member_status,
     remove_member,
+    list_invites,
     suggested_resources,
     eligible_members,
     admin_list_user_campaigns,
@@ -57,8 +58,6 @@ from .uploads import (
     get_campaign_file,
 )
 from .sheets import (
-    get_member_sheet_fields,
-    save_member_sheet_fields,
     duplicate_member_sheet,
     list_sheet_sources,
 )
@@ -71,6 +70,13 @@ from .wiki import (
     search_pages,
     page_titles,
     reorder_pages,
+)
+from .guests import (
+    create_guest,
+    list_guests,
+    regenerate_guest_code,
+    remove_guest,
+    guest_share_template,
 )
 from .wiki_io import export_wiki, import_wiki
 from .categories import (
@@ -99,6 +105,15 @@ router.add_api_route(
 router.add_api_route(
     "", create_campaign, methods=["POST"], summary="Create a campaign", status_code=201
 )
+
+# --- Pending invites (must be before /{campaign_id} to avoid routing conflict) ---
+router.add_api_route(
+    "/invites",
+    list_invites,
+    methods=["GET"],
+    summary="List the current user's pending campaign invitations",
+)
+
 router.add_api_route("/{campaign_id}", get_campaign, methods=["GET"], summary="Get a campaign")
 router.add_api_route(
     "/{campaign_id}", update_campaign, methods=["PATCH"], summary="Update a campaign"
@@ -144,6 +159,40 @@ router.add_api_route(
     remove_member,
     methods=["DELETE"],
     summary="Remove a member",
+    status_code=204,
+)
+
+# --- Guests (code-based, GM-managed) ---
+router.add_api_route(
+    "/{campaign_id}/guests",
+    create_guest,
+    methods=["POST"],
+    summary="Create a guest invite code for a GM campaign",
+    status_code=201,
+)
+router.add_api_route(
+    "/{campaign_id}/guests",
+    list_guests,
+    methods=["GET"],
+    summary="List a campaign's guests and their invite codes",
+)
+router.add_api_route(
+    "/{campaign_id}/guests/{member_id}/regenerate",
+    regenerate_guest_code,
+    methods=["POST"],
+    summary="Regenerate a guest's invite code",
+)
+router.add_api_route(
+    "/{campaign_id}/guests/{member_id}/share-template",
+    guest_share_template,
+    methods=["GET"],
+    summary="Get share text and links for a guest invite code",
+)
+router.add_api_route(
+    "/{campaign_id}/guests/{member_id}",
+    remove_guest,
+    methods=["DELETE"],
+    summary="Remove a guest (deletes the guest account)",
     status_code=204,
 )
 
@@ -200,18 +249,6 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Remove a member's character sheet",
     status_code=204,
-)
-router.add_api_route(
-    "/{campaign_id}/members/{member_id}/sheet/fields",
-    get_member_sheet_fields,
-    methods=["GET"],
-    summary="Read a member's character sheet form fields",
-)
-router.add_api_route(
-    "/{campaign_id}/members/{member_id}/sheet/fields",
-    save_member_sheet_fields,
-    methods=["PUT"],
-    summary="Write a member's character sheet form fields",
 )
 router.add_api_route(
     "/{campaign_id}/members/{member_id}/sheet/duplicate",

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuUserMinus,
@@ -16,10 +16,12 @@ import {
   LuPencilLine,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
-import CharacterSheetEditor from './CharacterSheetEditor'
 import SheetTemplatePicker from './SheetTemplatePicker'
 import ReplaceSheetDialog from './ReplaceSheetDialog'
 import { STATUS_COLORS, sheetActionBtn, smallBtn } from './memberStyles'
+
+// Lazy so pdf.js (a large dependency) is only fetched when a sheet is edited.
+const PdfSheetEditor = lazy(() => import('./PdfSheetEditor'))
 
 export default function MemberRow({
   member,
@@ -299,6 +301,22 @@ export default function MemberRow({
               {t('members.gm')}
             </span>
           )}
+          {member.is_guest && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--text-dim)',
+                fontWeight: 600,
+                background: 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '1px 6px',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {t('guests.guest')}
+            </span>
+          )}
           {isCurrentUser && (
             <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{t('members.you')}</span>
           )}
@@ -470,12 +488,14 @@ export default function MemberRow({
               />
             )}
             {editingSheet && (
-              <CharacterSheetEditor
-                campaignId={campaignId}
-                memberId={member.id}
-                onClose={() => setEditingSheet(false)}
-                onSaved={onMediaChanged}
-              />
+              <Suspense fallback={null}>
+                <PdfSheetEditor
+                  campaignId={campaignId}
+                  memberId={member.id}
+                  onClose={() => setEditingSheet(false)}
+                  onSaved={onMediaChanged}
+                />
+              </Suspense>
             )}
             {pickingTemplate && (
               <SheetTemplatePicker

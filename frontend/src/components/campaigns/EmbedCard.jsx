@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { LuBookOpen, LuMap, LuUser, LuFile } from 'react-icons/lu'
+import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
 import { campaigns } from '../../api'
+import AudioPlayer from '../audio/AudioPlayer'
 
 const embedCardStyle = {
   display: 'inline-flex',
@@ -17,12 +18,46 @@ const embedCardStyle = {
 }
 
 /**
- * Renders a [[book:ID]] / [[map:ID]] / [[token:ID]] / [[file:ID]] / [[image:ID]]
- * wiki embed as an inline image or a link/download card.
+ * Renders a [[book:ID]] / [[map:ID]] / [[token:ID]] / [[audio:ID]] / [[file:ID]] / [[image:ID]]
+ * wiki embed as an inline image, an inline audio player, or a link/download card.
  */
 export default function EmbedCard({ spec, campaignId, onNavigate }) {
   const { t } = useTranslation()
   const [type, id, page] = spec.split(':')
+
+  // An embedded audio track plays in the global player (play / play next), with a
+  // click-through to its detail page.
+  if (type === 'audio') {
+    return (
+      <span
+        style={{
+          ...embedCardStyle,
+          cursor: 'default',
+          gap: 10,
+        }}
+      >
+        <AudioPlayer track={{ id }} showPlayNext size={34} />
+        <button
+          type="button"
+          onClick={() => onNavigate(`/audio/${id}`)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            font: 'inherit',
+            color: 'var(--text)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <LuMusic size={15} color="#f0a868" />
+          {t('wiki.embed_audio')}
+        </button>
+      </span>
+    )
+  }
 
   // An embedded image renders inline. It's served from the campaign file endpoint
   // (token-authenticated), so we need the campaign id to build the URL.

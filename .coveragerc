@@ -1,0 +1,15 @@
+# Coverage config for the backend per-changed-file coverage gate
+# (backend/scripts/check_coverage.py). Run with:
+#   pytest --cov=backend --cov-report=json
+[run]
+source = backend
+omit =
+    backend/tests/*
+    backend/scripts/*
+
+[report]
+# Lines that never need coverage (defensive branches, type-checking imports).
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:

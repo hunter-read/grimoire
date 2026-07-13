@@ -16,8 +16,9 @@
     "settings": "Einstellungen",
     "logOut": "Abmelden",
     "more": "Mehr",
-    "collapseSidebar": null,
-    "expandSidebar": null
+    "collapseSidebar": "Seitenleiste einklappen",
+    "expandSidebar": "Seitenleiste ausklappen",
+    "audio": "Audio"
   },
   "stats": {
     "systems": "Systeme",
@@ -26,7 +27,8 @@
     "maps": "Karten",
     "tokens": "Tokens",
     "size": "Größe",
-    "version": "Version"
+    "version": "Version",
+    "audio": "Audio"
   },
   "about": {
     "title": "Über Grimoire",
@@ -43,7 +45,7 @@
   "common": {
     "save": "Speichern",
     "saving": "Speichern…",
-    "saved": null,
+    "saved": "Gespeichert",
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
@@ -90,7 +92,15 @@
     "entering": "Anmelden…",
     "loginFailed": "Anmeldung fehlgeschlagen.",
     "serverUnreachable": "Server nicht erreichbar.",
-    "passwordAuthDisabled": null
+    "passwordAuthDisabled": "Die Passwort-Anmeldung ist derzeit deaktiviert. Bitte wende dich an deinen Administrator.",
+    "or": "oder",
+    "oidcDefault": "Mit SSO anmelden",
+    "oidcError": "Single Sign-On fehlgeschlagen: {{error}}",
+    "oidcLoginFailed": "Single Sign-On war erfolgreich, aber die Sitzung konnte nicht hergestellt werden.",
+    "haveInviteCode": "Einladungscode vorhanden?",
+    "inviteCode": "Einladungscode",
+    "enterAsGuest": "Als Gast eintreten",
+    "guestInvalidCode": "Ungültiger oder abgelaufener Einladungscode."
   },
   "setup": {
     "title": "Ersteinrichtung",
@@ -110,6 +120,7 @@
     "subtitle_one": "{{count}} Spielsystem in deiner Bibliothek",
     "subtitle_other": "{{count}} Spielsysteme in deiner Bibliothek",
     "recentlyOpened": "Zuletzt geöffnet",
+    "removeFromRecent": "Aus zuletzt geöffnet entfernen",
     "bookCount_one": "{{count}} Buch",
     "bookCount_other": "{{count}} Bücher",
     "agnosticTitle": "Systemunabhängig",
@@ -120,7 +131,10 @@
       "list": "Liste",
       "toggle": "Ansicht ändern",
       "toggleWithMode": "Ansicht ändern (aktuell {{mode}})"
-    }
+    },
+    "cancelBulk": "Abbrechen",
+    "noTagMatch": "Keine Systeme stimmen mit den ausgewählten Tags überein.",
+    "filterByTag": "Nach {{tag}} filtern"
   },
   "systemDetail": {
     "backToLibrary": "Zurück zur Bibliothek",
@@ -140,7 +154,11 @@
     "showLess": "Weniger anzeigen",
     "clearTags": "Löschen",
     "download": "Herunterladen",
-    "backToLibrary2": "Zurück zur Bibliothek"
+    "backToLibrary2": "Zurück zur Bibliothek",
+    "matchingBooks_one": "{{count}} passendes Buch",
+    "matchingBooks_other": "{{count}} passende Bücher",
+    "resultsInPages_one": "{{count}} Treffer in Seiten für \"{{query}}\"",
+    "resultsInPages_other": "{{count}} Treffer in Seiten für \"{{query}}\""
   },
   "reader": {
     "back": "Zurück",
@@ -165,9 +183,10 @@
     "shortcutSearch": "Suche",
     "shortcutHelp": "Diese Hilfe",
     "shortcutClose": "Panels schließen",
-    "spreadCover": null,
-    "spreadIncludeCover": null,
-    "spreadExcludeCover": null
+    "spreadCover": "Titelseite",
+    "spreadIncludeCover": "Titelseite in Doppelseite einbeziehen (Seiten 1-2, 3-4 paaren…)",
+    "spreadExcludeCover": "Titelseite aus Doppelseite ausschließen (Seiten 2-3, 4-5 paaren…)",
+    "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht im Reader angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen."
   },
   "search": {
     "title": "Bibliothek durchsuchen",
@@ -181,14 +200,15 @@
     "noResults": "Keine Ergebnisse gefunden. Andere Suchbegriffe versuchen oder sicherstellen, dass die Bücher indiziert sind.",
     "emptyHint": "Durchsuche jede Seite deiner indizierten Sammlung sowie Karten und Tokens nach Dateiname, Tag oder Ordner.",
     "emptyHint2": "Ergebnisse verlinken direkt zur passenden Seite.",
-    "filterSystem": null,
-    "allSystems": null,
-    "sortRelevance": null,
-    "sortTitle": null,
-    "groupedBy": null,
-    "groupedBy_other": null,
-    "expandBook": null,
-    "collapseBook": null
+    "filterSystem": "Spielsystem",
+    "allSystems": "Alle Systeme",
+    "sortRelevance": "Relevanz",
+    "sortTitle": "Buchtitel",
+    "groupedBy": "{{count}} Seite",
+    "groupedBy_other": "{{count}} Seiten",
+    "expandBook": "{{title}} ausklappen",
+    "collapseBook": "{{title}} einklappen",
+    "audio": "Audio"
   },
   "favorites": {
     "title": "Favoriten",
@@ -198,8 +218,9 @@
     "books": "Bücher ({{count}})",
     "maps": "Karten ({{count}})",
     "tokens": "Tokens ({{count}})",
-    "onlyFavorites": null,
-    "noFavoritesInView": null
+    "onlyFavorites": "Nur Favoriten",
+    "noFavoritesInView": "Hier gibt es noch keine Favoriten. Klicke auf das Herz-Symbol bei einem beliebigen Element, um es zu speichern.",
+    "audio": "Audio ({{count}})"
   },
   "maps": {
     "title": "Karten",
@@ -229,6 +250,9 @@
       "title": "Kartendetails",
       "back": "Zurück zu Karten",
       "details": "Details",
+      "previous": "Vorherige Karte",
+      "next": "Nächste Karte",
+      "position": "{{current}} von {{total}}",
       "location": "Speicherort",
       "fileSize": "Dateigröße",
       "resolution": "Auflösung",
@@ -294,7 +318,7 @@
     "tabs": {
       "account": "Konto",
       "users": "Benutzer",
-      "authentication": null,
+      "authentication": "Authentifizierung",
       "application": "Anwendung",
       "maintenance": "Wartung",
       "logs": "Protokoll"
@@ -302,16 +326,72 @@
   },
   "authSettings": {
     "customMessage": {
-      "title": null,
-      "description": null,
-      "enable": null,
-      "editorLabel": null
+      "title": "Eigene Login-Nachricht",
+      "description": "Zeige eine eigene Nachricht über dem Anmeldeformular an. Nützlich für rechtliche Hinweise, Support-Kontaktdaten oder einen Willkommenstext.",
+      "enable": "Eigene Nachricht beim Login anzeigen",
+      "editorLabel": "Eigene Login-Nachricht"
     },
     "passwordAuth": {
-      "title": null,
-      "description": null,
-      "enable": null,
-      "envLocked": null
+      "title": "Passwort-Authentifizierung",
+      "description": "Erlaube Benutzern die Anmeldung mit Benutzername und Passwort. Wenn deaktiviert, sind keine Passwort-Anmeldungen mehr möglich.",
+      "enable": "Passwort-Authentifizierung aktivieren",
+      "envLocked": "Gesperrt durch die Umgebungsvariable ALLOW_PASSWORD_AUTHENTICATION (aktueller Wert: {{value}})."
+    },
+    "oidc": {
+      "title": "OpenID-Connect-Authentifizierung",
+      "description": "Erlaube Benutzern die Anmeldung über einen OIDC-kompatiblen Identitätsanbieter (Keycloak, Authentik, Authelia, Auth0, Okta usw.).",
+      "enable": "OpenID Connect aktivieren",
+      "enableHint": "Wenn aktiviert und vollständig konfiguriert, zeigt die Login-Seite eine Schaltfläche zur Anmeldung über deinen IdP an.",
+      "envLocked": "Per Umgebungsvariable gesetzt",
+      "envLockedTitle": "Dieser Wert ist durch eine Umgebungsvariable festgelegt und kann nicht in der Oberfläche geändert werden.",
+      "redirectUriLabel": "Redirect-URI (registriere diese bei deinem Identitätsanbieter)",
+      "redirectUriHint": "Setze BASE_URL auf deine öffentliche URL, damit dieser Wert deinen tatsächlichen Host widerspiegelt. Der Pfad ist fest.",
+      "copy": "Kopieren",
+      "issuerUrl": "Issuer-URL",
+      "issuerUrlHint": "Die Basis-URL deines IdP. Wird für Discovery verwendet (.well-known/openid-configuration).",
+      "autopopulate": "Automatisch ausfüllen",
+      "autopopulating": "Wird abgerufen…",
+      "autopopulateTitle": "Endpunkt-URLs aus dem Discovery-Dokument des Issuers abrufen",
+      "discoverNeedsIssuer": "Gib zuerst die Issuer-URL ein.",
+      "discoverFailed": "Das Discovery-Dokument konnte nicht abgerufen werden.",
+      "tokenIssuer": "Token-Issuer",
+      "authorizationEndpoint": "Authorize-URL",
+      "tokenEndpoint": "Token-URL",
+      "userinfoEndpoint": "Userinfo-URL",
+      "jwksUri": "JWKS-URL",
+      "endSessionEndpoint": "Logout-URL",
+      "endSessionHint": "Optional. Leite Benutzer beim Abmelden hierher, wenn dein IdP RP-initiiertes Logout unterstützt.",
+      "clientId": "Client-ID",
+      "clientSecret": "Client-Secret",
+      "clientSecretPlaceholder": "Füge ein neues Secret ein, um es zu setzen",
+      "clientSecretReplace": "Füge ein neues Secret ein, um es zu ersetzen",
+      "showSecret": "Anzeigen",
+      "hideSecret": "Verbergen",
+      "signingAlg": "Signaturalgorithmus",
+      "buttonText": "Schaltflächentext",
+      "buttonTextHint": "Was die SSO-Schaltfläche auf dem Anmeldebildschirm anzeigen soll.",
+      "groupsClaim": "Groups-Claim",
+      "groupsClaimHint": "Name des OIDC-Claims, der eine Liste der Gruppen des Benutzers enthält (üblicherweise 'groups'). Wenn gesetzt, weist die App Rollen anhand der Mitgliedschaft in Gruppen mit den Namen (Groß-/Kleinschreibung egal) 'admin', 'gm' oder 'player' zu — die höchste Stufe gewinnt. Passt keine Gruppe, wird der Zugriff verweigert.",
+      "permissionsClaim": "Erweiterter Berechtigungs-Claim",
+      "permissionsClaimHint": "Name des OIDC-Claims, der ein Berechtigungsobjekt für Nicht-Admin-Benutzer enthält. Unterstützt derzeit {viewNSFW: bool}. Fehlt der Claim vollständig, wird der Zugriff verweigert; fehlende Schlüssel sind standardmäßig false.",
+      "matchBy": "Bestehende Benutzer abgleichen anhand",
+      "matchByOptions": {
+        "none": "Nicht abgleichen",
+        "email": "E-Mail",
+        "username": "Benutzername"
+      },
+      "matchByHint": "Verknüpfe bei der ersten Anmeldung ein bestehendes lokales Konto über dieses Feld mit dem OIDC-Subjekt. Spätere Anmeldungen werden über das stabile Subjekt abgeglichen.",
+      "autoLaunch": "Automatisch starten",
+      "autoLaunchHint": "Beim Aufruf der Login-Seite automatisch zum IdP weiterleiten. Füge ?autoLaunch=0 hinzu, um dies zu umgehen.",
+      "autoRegister": "Automatisch registrieren",
+      "autoRegisterHint": "Erstelle bei der ersten OIDC-Anmeldung automatisch neue lokale Konten. Ohne diese Option müssen Benutzer bereits lokal existieren.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "guestAccess": {
+      "title": "Gastzugang",
+      "description": "Erlaubt SLs und Administratoren, Einladungscodes für ihre Kampagnen zu erstellen. Gäste erhalten ein eingeschränktes, codebasiertes Konto für eine einzelne Kampagne.",
+      "enable": "Einladungscodes aktivieren",
+      "envLocked": "Gesperrt durch die Umgebungsvariable GUEST_ACCESS_ENABLED (aktueller Wert: {{value}})."
     }
   },
   "userSettings": {
@@ -321,6 +401,13 @@
       "label": "Anzeigename",
       "save": "Speichern",
       "saving": "Speichern…"
+    },
+    "email": {
+      "title": "E-Mail",
+      "description": "Optional. Wird von Single Sign-On zum Kontoabgleich verwendet. Anderen Benutzern nicht angezeigt.",
+      "label": "E-Mail-Adresse",
+      "placeholder": "du@beispiel.de",
+      "failed": "E-Mail konnte nicht aktualisiert werden."
     },
     "contentPreferences": {
       "title": "Inhaltseinstellungen",
@@ -371,6 +458,7 @@
       "viewModeBooks": "Bücher",
       "viewModeMaps": "Karten",
       "viewModeTokens": "Tokens",
+      "viewModeAudio": "Audio",
       "recentLimit": "Zuletzt geöffnete Bücher",
       "recentLimitHint": "Wie viele zuletzt geöffnete Bücher gemerkt werden (0–{{max}}). Auf 0 setzen, um den Bereich auszublenden."
     },
@@ -398,7 +486,8 @@
       "description": "Abschnitte aus der Seitenleiste und mobilen Navigation für alle Benutzer ausblenden.",
       "hideMaps": "Karten ausblenden",
       "hideTokens": "Tokens ausblenden",
-      "hideCampaigns": "Kampagnen ausblenden"
+      "hideCampaigns": "Kampagnen ausblenden",
+      "hideAudio": "Audio ausblenden"
     },
     "sidebarStats": {
       "title": "Seitenleisten-Statistiken",
@@ -417,12 +506,12 @@
       "copyKey": "Schlüssel kopieren"
     },
     "campaignUploads": {
-      "title": null,
-      "description": null,
-      "disable": null,
-      "perFile": null,
-      "perCampaign": null,
-      "hint": null
+      "title": "Kampagnen-Uploads",
+      "description": "Steuere die von GMs hochgeladenen Dateien, die an Kampagnen angehängt sind. Du (Admin) bist von diesen Limits ausgenommen.",
+      "disable": "Datei-Uploads für Kampagnen für Nicht-Admins deaktivieren",
+      "perFile": "Maximale Dateigröße (MB, 0 = unbegrenzt)",
+      "perCampaign": "Maximum pro Kampagne insgesamt (MB, 0 = unbegrenzt)",
+      "hint": "Dateien werden im Datenverzeichnis gespeichert, getrennt von der Bibliothek."
     }
   },
   "users": {
@@ -461,11 +550,22 @@
     "failedUpdateExplicit": "Explizit-Einstellung konnte nicht aktualisiert werden.",
     "failedSetPasswordErr": "Passwort konnte nicht gesetzt werden.",
     "passwordTooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
+    "emailOptional": "E-Mail (optional)",
+    "emailPlaceholder": "benutzer@beispiel.de",
+    "noEmail": "keine E-Mail",
+    "editEmail": "E-Mail bearbeiten",
+    "failedSetEmail": "E-Mail konnte nicht aktualisiert werden.",
+    "oidcLinkedTitle": "Dieses Konto ist mit einem OpenID-Connect-Identitätsanbieter verknüpft.",
     "campaigns": {
-      "toggleLabel": null,
-      "none": null,
-      "loadFailed": null
-    }
+      "toggleLabel": "Kampagnen",
+      "none": "Keine Kampagnen.",
+      "loadFailed": "Kampagnen konnten nicht geladen werden."
+    },
+    "permissions": "Berechtigungen",
+    "noPermissions": "Keine",
+    "ownedCampaigns": "Eigene Kampagnen",
+    "deleteUserShort": "Benutzer löschen",
+    "emailLabel": "E-Mail"
   },
   "maintenance": {
     "rescan": {
@@ -491,7 +591,9 @@
       "booksProgress": "{{scanned}}/{{total}} Bücher",
       "mapsProgress": "{{scanned}}/{{total}} Karten",
       "tokensProgress": "{{scanned}}/{{total}} Tokens",
-      "indexProgress": "{{pct}}% — {{indexed}} von {{total}} PDFs indiziert"
+      "indexProgress": "{{pct}}% — {{indexed}} von {{total}} PDFs indiziert",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated"
     },
     "scheduledRescan": {
       "title": "Geplanter Rescan",
@@ -506,7 +608,7 @@
       "saveSchedule": "Zeitplan speichern",
       "saving": "Speichern…",
       "saved": "Gespeichert",
-      "alsoRunCleanup": null,
+      "alsoRunCleanup": "Nach jedem erneuten Scan auch die Datenbankbereinigung ausführen",
       "weekdays": {
         "mon": "Mo",
         "tue": "Di",
@@ -518,13 +620,14 @@
       }
     },
     "tagExport": {
-      "title": null,
-      "description": null,
-      "button": null,
-      "exporting": null,
-      "library": null,
-      "maps": null,
-      "tokens": null
+      "title": "Tags exportieren",
+      "description": "Lade alle Tags, die Büchern, Karten, Tokens, Systemen und Ordnern zugewiesen sind, als JSON-Datei herunter.",
+      "button": "Tags exportieren",
+      "exporting": "Wird exportiert…",
+      "library": "Bibliothek",
+      "maps": "Karten",
+      "tokens": "Tokens",
+      "audio": "Audio"
     },
     "cleanup": {
       "title": "Datenbankbereinigung",
@@ -583,8 +686,15 @@
     "decline": "Ablehnen",
     "gm": "DM: {{name}}",
     "unknownGm": "Unbekannt",
-    "nextSession": null,
-    "openNotes": null
+    "nextSession": "Nächste Sitzung",
+    "openNotes": "Notizen",
+    "inviteBanner": {
+      "title": "Ausstehende Einladungen",
+      "single": "{{gm}} hat dich eingeladen, {{name}} beizutreten.",
+      "multi": "Du hast {{count}} ausstehende Kampagneneinladungen.",
+      "view": "Ansehen",
+      "dismiss": "Ausblenden"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Kampagnen",
@@ -595,7 +705,7 @@
       "sessionNotes": "Sitzungsnotizen",
       "schedule": "Zeitplan",
       "resources": "Ressourcen",
-      "notes": null
+      "notes": "Notizen"
     },
     "overview": {
       "details": "Details",
@@ -607,26 +717,26 @@
       "members": "Mitglieder",
       "invite": "Einladen",
       "noMembers": "Noch keine Mitglieder. Spieler oben einladen.",
-      "gameMaster": null,
-      "players": null,
-      "availability": null,
-      "customDates_one": null,
-      "customDates_other": null
+      "gameMaster": "Spielleiter",
+      "players": "Spieler",
+      "availability": "Verfügbarkeit",
+      "customDates_one": "{{count}} individueller Termin",
+      "customDates_other": "{{count}} individuelle Termine"
     },
     "edit": "Bearbeiten",
     "deleteAriaLabel": "Kampagne löschen",
     "deleteConfirm": "Kampagne \"{{name}}\" löschen? Dies kann nicht rückgängig gemacht werden.",
     "banner": {
-      "empty": null,
-      "upload": null,
-      "replace": null,
-      "remove": null,
-      "suggestedSize": null,
-      "edit": null,
-      "modalTitle": null,
-      "allowedFormats": null
+      "empty": "Kein Bannerbild",
+      "upload": "Banner hochladen",
+      "replace": "Banner ersetzen",
+      "remove": "Banner entfernen",
+      "suggestedSize": "Empfohlene Größe: 1600 × 800",
+      "edit": "Banner bearbeiten",
+      "modalTitle": "Kampagnen-Banner",
+      "allowedFormats": "PNG, JPEG, WebP oder GIF, bis zu 5 MB."
     },
-    "openNotes": null
+    "openNotes": "Notizen öffnen"
   },
   "campaignEditor": {
     "titleNew": "Neue Kampagne",
@@ -648,22 +758,22 @@
     "saveChanges": "Änderungen speichern",
     "createCampaign": "Kampagne erstellen",
     "saving": "Speichern...",
-    "next": null,
-    "back": null,
-    "stepIndicator": null,
+    "next": "Weiter",
+    "back": "Zurück",
+    "stepIndicator": "Schritt {{current}} von {{total}}",
     "resources": {
-      "title": null,
-      "intro": null,
-      "selected": null,
-      "selectedCount": null,
-      "ungrouped": null,
-      "none": null,
-      "suggested": null,
-      "searchPlaceholder": null,
-      "visibilityLabel": null,
-      "visShared": null,
-      "visGm": null,
-      "visPrivate": null,
+      "title": "Ressourcen",
+      "intro": "Ressourcen sind optional. Durchsuche deine Bibliothek nach Ordnern und wähle aus, was eingebunden werden soll — für das gewählte System sind die Grundregelwerke vorausgewählt.",
+      "selected": "Ausgewählt",
+      "selectedCount": "Ausgewählt ({{count}})",
+      "ungrouped": "Sonstige",
+      "none": "Keine Ressourcen ausgewählt.",
+      "suggested": "Vorgeschlagen",
+      "searchPlaceholder": "Bücher, Karten und Tokens durchsuchen…",
+      "visibilityLabel": "Sichtbarkeit",
+      "visShared": "Mit Spielern geteilt",
+      "visGm": "Nur GM",
+      "visPrivate": "Privat für Eigentümer",
       "type_all": "Alle",
       "type_book": "Bücher",
       "type_map": "Karten",
@@ -671,15 +781,15 @@
       "systemFilterLabel": "Nach Spielsystem filtern",
       "systemFilterAll": "Alle Systeme"
     },
-    "bannerLabel": null,
-    "bannerChoose": null,
-    "descriptionMarkdownHint": null,
-    "systemCustom": null,
-    "systemCustomPlaceholder": null,
-    "delete": null,
-    "scheduleLabel": null,
-    "scheduleEnabled": null,
-    "scheduleDisabled": null
+    "bannerLabel": "Banner (optional)",
+    "bannerChoose": "Bild auswählen…",
+    "descriptionMarkdownHint": "Markdown unterstützt",
+    "systemCustom": "Eigenes (nicht in Bibliothek)…",
+    "systemCustomPlaceholder": "Systemname",
+    "delete": "Löschen",
+    "scheduleLabel": "Sitzungsplan",
+    "scheduleEnabled": "Zeitplan aktiviert",
+    "scheduleDisabled": "Zeitplan deaktiviert"
   },
   "members": {
     "noCharacterName": "Kein Charaktername",
@@ -692,13 +802,13 @@
     "invitePlayer": "Spieler einladen:",
     "allInvited": "Alle Benutzer wurden bereits eingeladen.",
     "invite": "Einladen",
-    "uploadArt": null,
-    "characterSheet": null,
-    "uploadSheet": null,
-    "removeSheet": null,
-    "characterSheetLink": null,
-    "linkSheet": null,
-    "sheetUrlPlaceholder": null,
+    "uploadArt": "Charakterbild hochladen",
+    "characterSheet": "Charakterbogen",
+    "uploadSheet": "Bogen hochladen",
+    "removeSheet": "Bogen entfernen",
+    "characterSheetLink": "Charakterbogen (Link)",
+    "linkSheet": "Link hinzufügen",
+    "sheetUrlPlaceholder": "https://… Bogen oder PDF",
     "editSheetInApp": "In der App bearbeiten",
     "editSheetTitle": "Charakterbogen bearbeiten",
     "sheetNotFillable": "Diese PDF hat keine ausfüllbaren Formularfelder und kann daher nur heruntergeladen, extern bearbeitet und erneut hochgeladen werden.",
@@ -711,7 +821,9 @@
     "replaceSheet": "Bogen ersetzen",
     "replaceSheetWarning": "Das Hochladen eines neuen Bogens ersetzt den aktuellen. Die vorherige Version kann nicht wiederhergestellt werden.",
     "downloadCurrent": "Aktuellen herunterladen",
-    "replace": "Ersetzen"
+    "replace": "Ersetzen",
+    "saveCopy": "Kopie speichern",
+    "sheetEditError": "Dieses Blatt konnte nicht geöffnet oder gespeichert werden. Möglicherweise ist es keine gültige PDF-Datei."
   },
   "sessions": {
     "title": "Sitzungsnotizen",
@@ -829,21 +941,22 @@
     "tokens": "Tokens",
     "sharedAriaLabel": "Geteilt — klicken, um privat zu machen",
     "privateAriaLabel": "Privat — klicken, um mit Spielern zu teilen",
-    "visibilityLabel": null,
-    "visShared": null,
-    "visGm": null,
-    "visPrivate": null,
-    "manageCategories": null,
-    "categoryLabel": null,
-    "typeGroup": null,
-    "vis_public": null,
-    "vis_private": null,
-    "vis_gm": null,
-    "files": null,
-    "uploadFile": null,
-    "uploading": null,
-    "emptyCategory": null,
-    "deleteFileConfirm": null
+    "visibilityLabel": "Sichtbarkeit",
+    "visShared": "Geteilt",
+    "visGm": "Nur GM",
+    "visPrivate": "Privat",
+    "manageCategories": "Kategorien",
+    "categoryLabel": "Kategorie",
+    "typeGroup": "Standardgruppe",
+    "vis_public": "Öffentlich",
+    "vis_private": "Privat",
+    "vis_gm": "Nur GM",
+    "files": "Dateien",
+    "uploadFile": "Datei hochladen",
+    "uploading": "Wird hochgeladen…",
+    "emptyCategory": "Ressourcen hierher ziehen",
+    "deleteFileConfirm": "Diese Datei entfernen? Sie wird aus der Kampagne gelöscht.",
+    "audio": "Audio"
   },
   "download": {
     "title": "Archiv herunterladen",
@@ -956,8 +1069,10 @@
     "editBook": "Metadaten bearbeiten",
     "indexed": "Indiziert",
     "indexedTitle": "Volltext indiziert",
-    "imageOnly": null,
-    "imageOnlyTitle": null,
+    "imageOnly": "Nur Bild",
+    "imageOnlyTitle": "Dieses PDF enthält nur gescannte Bilder — keine Textebene zum Durchsuchen",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Volltext per OCR indexiert (gescannte Seiten)",
     "indexFailed": "Indizierung fehlgeschlagen",
     "indexFailedTitle": "Indizierung fehlgeschlagen",
     "indexFailedWithError": "Indizierung fehlgeschlagen: {{error}}",
@@ -977,65 +1092,68 @@
     "homebrew": "Homebrew"
   },
   "wiki": {
-    "newPage": null,
-    "searchPlaceholder": null,
-    "noPages": null,
-    "selectPrompt": null,
-    "untitled": null,
-    "titleLabel": null,
-    "titlePlaceholder": null,
-    "bodyPlaceholder": null,
-    "markdown": null,
-    "preview": null,
-    "saving": null,
-    "visibilityLabel": null,
-    "vis_gm": null,
-    "vis_group": null,
-    "vis_members": null,
-    "shareWith": null,
-    "noMembers": null,
-    "changeVisibility": null,
-    "bold": null,
-    "italic": null,
-    "strikethrough": null,
-    "heading": null,
-    "bulletList": null,
-    "quote": null,
-    "insertLink": null,
-    "insertEmbed": null,
-    "insertSecret": null,
-    "insertSecretHint": null,
-    "backlinks": null,
-    "byAuthor": null,
-    "deleteConfirm": null,
-    "emptyPage": null,
-    "missingPageHint": null,
-    "secretHint": null,
-    "embedPickerTitle": null,
-    "embedSearchPlaceholder": null,
-    "insert": null,
-    "withPage": null,
-    "pageNum": null,
-    "embed_book": null,
-    "embed_map": null,
-    "embed_token": null,
-    "embedBookPage": null,
-    "manageGroups": null,
-    "uncategorized": null,
-    "groupLabel": null,
-    "emptyGroup": null,
-    "iconLabel": null,
-    "export": null,
-    "exportMd": null,
-    "exportJson": null,
-    "import": null,
-    "importTitle": null,
-    "importHint": null,
-    "importFormats": null,
-    "chooseFile": null,
-    "importing": null,
-    "imported": null,
-    "imported_other": null,
+    "newPage": "Neue Seite",
+    "backToPages": "Seiten",
+    "searchPlaceholder": "Seiten durchsuchen…",
+    "noPages": "Noch keine Seiten.",
+    "selectPrompt": "Wähle eine Seite oder erstelle eine neue.",
+    "untitled": "Ohne Titel",
+    "titleLabel": "Seitentitel",
+    "titlePlaceholder": "Seitentitel",
+    "bodyPlaceholder": "Schreibe in Markdown. Verlinke Seiten mit [[Seitentitel]] und bette Grimoire-Inhalte über die Symbolleiste ein.",
+    "markdown": "Markdown",
+    "preview": "Vorschau",
+    "saving": "Wird gespeichert…",
+    "visibilityLabel": "Sichtbarkeit",
+    "vis_gm": "Nur GM",
+    "vis_group": "Öffentlich",
+    "vis_members": "Privat",
+    "shareWith": "Teilen mit",
+    "noMembers": "Keine Mitglieder zum Teilen.",
+    "changeVisibility": "Sichtbarkeit ändern",
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "strikethrough": "Durchgestrichen",
+    "heading": "Überschrift",
+    "bulletList": "Aufzählung",
+    "quote": "Zitat",
+    "insertLink": "Seite verlinken",
+    "insertEmbed": "Inhalt einbetten",
+    "insertSecret": "GM-Geheimnis",
+    "insertSecretHint": "Umschließe Text mit || ||, sodass nur du (der GM) ihn sehen kannst; Spieler erhalten ihn nie.",
+    "backlinks": "Verlinkt von",
+    "byAuthor": "von {{name}}",
+    "deleteConfirm": "\"{{title}}\" löschen? Dies kann nicht rückgängig gemacht werden.",
+    "emptyPage": "Diese Seite ist leer.",
+    "missingPageHint": "Diese Seite existiert noch nicht — sie wird erstellt.",
+    "secretHint": "Nur GM — vor Spielern verborgen",
+    "embedPickerTitle": "Grimoire-Inhalt einbetten",
+    "embedSearchPlaceholder": "Bücher, Karten und Tokens durchsuchen…",
+    "insert": "Einfügen",
+    "withPage": "Bei Seite…",
+    "pageNum": "Seite",
+    "embed_book": "Buch",
+    "embed_map": "Karte",
+    "embed_token": "Token",
+    "embed_audio": "Audio",
+    "embedBookPage": "Buch — S. {{page}}",
+    "parentLabel": "Übergeordnete Seite",
+    "noParent": "Oberste Ebene",
+    "addSubpage": "Unterseite hinzufügen",
+    "expand": "Ausklappen",
+    "collapse": "Einklappen",
+    "iconLabel": "Symbol",
+    "export": "Exportieren",
+    "exportMd": "Als Markdown exportieren (.zip)",
+    "exportJson": "Als JSON exportieren",
+    "import": "Importieren",
+    "importTitle": "Wiki-Seiten importieren",
+    "importHint": "Füge Seiten aus Markdown, einem Grimoire-JSON-Bundle oder einem LegendKeeper-Export hinzu. Die Verschachtelung der Seiten bleibt erhalten. Vorhandene Seiten werden nie überschrieben.",
+    "importFormats": "Akzeptiert .zip, .json, .lk, .md, .markdown oder .txt.",
+    "chooseFile": "Datei auswählen",
+    "importing": "Wird importiert…",
+    "imported": "{{count}} Seite importiert",
+    "imported_other": "{{count}} Seiten importiert",
     "embed_file": "Datei",
     "uploadImage": "Bild hochladen",
     "uploadAndEmbed": "Hochladen & einbetten",
@@ -1045,26 +1163,26 @@
     "chooseImage": "Bild auswählen"
   },
   "campaignNotes": {
-    "backToOverview": null
+    "backToOverview": "Zurück zur Übersicht"
   },
   "campaignCategories": {
-    "titleNotes": null,
-    "titleResources": null,
-    "newPlaceholder": null,
-    "add": null,
-    "none": null,
-    "moveUp": null,
-    "moveDown": null,
-    "deletePrompt": null,
-    "leaveUncategorized": null,
-    "deletePages": null,
-    "unlinkResources": null,
-    "iconLabel": null,
+    "titleNotes": "Notizgruppen",
+    "titleResources": "Ressourcenkategorien",
+    "newPlaceholder": "Name der neuen Kategorie…",
+    "add": "Hinzufügen",
+    "none": "Noch keine Kategorien.",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "deletePrompt": "\"{{name}}\" löschen?",
+    "leaveUncategorized": "Elemente unkategorisiert lassen",
+    "deletePages": "Seiten darin löschen",
+    "unlinkResources": "Ressourcen darin trennen",
+    "iconLabel": "Symbol",
     "builtIn": "Integriert"
   },
   "iconPicker": {
-    "label": null,
-    "none": null
+    "label": "Symbol auswählen",
+    "none": "Kein Symbol"
   },
   "bulk": {
     "hint": "Klicke auf Elemente oder Ordner, um sie auszuwählen. Umschalt-Klick für einen Bereich, ⌘/Strg-Klick zum Umschalten.",
@@ -1097,6 +1215,122 @@
     "field_gridSize": "Rastergröße",
     "field_explicit": "Explizite Inhalte",
     "previous": "Zurück",
-    "next": "Weiter"
+    "next": "Weiter",
+    "field_genre": "Genre",
+    "field_characterBuilderUrl": "Charaktergenerator-URL"
+  },
+  "guests": {
+    "guests": "Gäste",
+    "guest": "Gast",
+    "add": "Hinzufügen",
+    "none": "Noch keine Gäste.",
+    "nicknamePlaceholder": "Gast-Spitzname",
+    "share": "Einladung teilen",
+    "regenerate": "Code neu erzeugen",
+    "remove": "Gast entfernen",
+    "confirmRemove": "Diesen Gast entfernen? Sein Konto und seine Beiträge werden gelöscht.",
+    "shareTitle": "Gast-Einladung teilen",
+    "copyMessage": "Nachricht kopieren",
+    "copyForDiscord": "Für Discord kopieren",
+    "email": "E-Mail",
+    "copied": "Kopiert!",
+    "name": "Name",
+    "campaign": "Kampagne",
+    "invitedBy": "Eingeladen von",
+    "actions": "Aktionen",
+    "convert": "Umwandeln",
+    "converting": "Wird umgewandelt…",
+    "convertFailed": "Gast konnte nicht umgewandelt werden.",
+    "usernamePlaceholder": "Benutzername"
+  },
+  "rescan": {
+    "button": {
+      "label": "Rescan",
+      "title": "Rescan this folder"
+    },
+    "modal": {
+      "title": "Rescan",
+      "wholeLibrary": "This will rescan the entire library.",
+      "scopeLabel": "Scope: {{scope}}",
+      "confirm": "Start rescan",
+      "cancel": "Cancel"
+    },
+    "modes": {
+      "new": {
+        "label": "Find new files",
+        "description": "Add newly added files and flag any that have gone missing. Existing entries are left as-is."
+      },
+      "missing": {
+        "label": "Update missing metadata",
+        "description": "Also fill in empty fields from sidecar files (OPF, tags.json). Fields you've already set are kept."
+      },
+      "replace": {
+        "label": "Replace all metadata",
+        "description": "Overwrite metadata with whatever the sidecar files provide.",
+        "warning": "This overwrites fields you've edited in the UI."
+      }
+    }
+  },
+  "audio": {
+    "title": "Audio",
+    "subtitle_one": "{{count}} Titel in deiner Sammlung",
+    "subtitle_other": "{{count}} Titel in deiner Sammlung",
+    "filterPlaceholder": "Audio filtern…",
+    "filterAriaLabel": "Audio filtern",
+    "bulkTag": "Massen-Tag",
+    "cancelBulk": "Abbrechen",
+    "bulkHint": "Klicke auf Ordnerüberschriften oder Audiokarten, um sie auszuwählen, und füge dann unten Tags hinzu.",
+    "tagsPlaceholder": "Tags hinzufügen, kommagetrennt…",
+    "addTags": "Tags hinzufügen",
+    "applying": "Wird angewendet…",
+    "noAudioFilter": "Keine Audiodateien entsprechen deinem Filter.",
+    "noAudio": "Keine Audiodateien gefunden. Füge Audio zu /library/audio/ hinzu und scanne neu.",
+    "audioCount_one": "{{count}} Titel",
+    "audioCount_other": "{{count}} Titel",
+    "expandFolder": "{{folder}} ausklappen",
+    "collapseFolder": "{{folder}} einklappen",
+    "downloadAllInFolder": "Alle Audiodateien in {{folder}} herunterladen",
+    "downloadInSubfolder": "Audiodateien in {{folder}} herunterladen",
+    "editTags": "Bearbeiten",
+    "editTagsFull": "Tags bearbeiten",
+    "download": "Herunterladen",
+    "missing": "Fehlend",
+    "play": "Abspielen",
+    "pause": "Pause",
+    "detail": {
+      "title": "Titeldetails",
+      "back": "Zurück zu Audio",
+      "details": "Details",
+      "location": "Speicherort",
+      "fileSize": "Dateigröße",
+      "trackTitle": "Titel",
+      "artist": "Künstler",
+      "album": "Album",
+      "duration": "Dauer",
+      "folderTags": "Ordner-Tags",
+      "trackTags": "Titel-Tags",
+      "editTags": "Bearbeiten",
+      "noTags": "Keine"
+    },
+    "player": {
+      "title": "Aktuelle Wiedergabe",
+      "play": "Abspielen",
+      "untitled": "Unbenannter Titel",
+      "queue": "Warteschlange",
+      "emptyQueue": "Warteschlange ist leer",
+      "previous": "Vorheriger Titel",
+      "next": "Nächster Titel",
+      "repeatOn": "Aktuellen Titel wiederholen: an",
+      "repeatOff": "Aktuellen Titel wiederholen: aus",
+      "playNext": "Als Nächstes abspielen",
+      "toggleQueue": "Warteschlange anzeigen",
+      "close": "Player schließen",
+      "seek": "Suchen",
+      "removeFromQueue": "Aus Warteschlange entfernen",
+      "reorder": "Zum Umsortieren ziehen"
+    },
+    "playFolder": "{{folder}} abspielen",
+    "playGroup": "Audio abspielen",
+    "playAll": "Alle abspielen"
   }
 }

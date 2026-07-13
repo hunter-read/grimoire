@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
 
 from backend.config import SessionLocal
 from backend.indexer import parse_opf_metadata, scan_library
@@ -57,6 +56,29 @@ MULTI_AUTHOR_OPF = dedent("""\
             <dc:title>Collaborative Work</dc:title>
             <dc:creator opf:role="aut">Alice Smith</dc:creator>
             <dc:creator opf:role="aut">Bob Jones</dc:creator>
+        </metadata>
+    </package>
+""")
+
+# Calibre writes "Unknown" as the creator when no author is set.
+UNKNOWN_AUTHOR_OPF = dedent("""\
+    <?xml version='1.0' encoding='utf-8'?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+        <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+            <dc:title>Authorless Book</dc:title>
+            <dc:creator opf:role="aut">Unknown</dc:creator>
+        </metadata>
+    </package>
+""")
+
+# A real author alongside Calibre's "Unknown" placeholder.
+MIXED_UNKNOWN_AUTHOR_OPF = dedent("""\
+    <?xml version='1.0' encoding='utf-8'?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+        <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+            <dc:title>Partly Known</dc:title>
+            <dc:creator opf:role="aut">unknown</dc:creator>
+            <dc:creator opf:role="aut">Alice Smith</dc:creator>
         </metadata>
     </package>
 """)
@@ -125,6 +147,14 @@ class TestParseOpfMetadataMinimal:
     def test_multiple_authors(self):
         path = _write_opf(self.tmp, "multi.opf", MULTI_AUTHOR_OPF)
         assert parse_opf_metadata(path)["authors"] == ["Alice Smith", "Bob Jones"]
+
+    def test_calibre_unknown_author_omitted(self):
+        path = _write_opf(self.tmp, "unknown.opf", UNKNOWN_AUTHOR_OPF)
+        assert "authors" not in parse_opf_metadata(path)
+
+    def test_calibre_unknown_author_filtered_from_real_authors(self):
+        path = _write_opf(self.tmp, "mixed.opf", MIXED_UNKNOWN_AUTHOR_OPF)
+        assert parse_opf_metadata(path)["authors"] == ["Alice Smith"]
 
     def test_nonexistent_file_returns_empty_dict(self):
         result = parse_opf_metadata(os.path.join(self.tmp, "nonexistent.opf"))

@@ -1,14 +1,18 @@
 """Tests for settings API and maintenance/cleanup endpoint."""
-import os
 import uuid
 from typing import Optional
 from unittest.mock import patch
 
-import pytest
 
-from backend.tests.conftest import make_book, make_game_system, make_map, make_token
+from backend.tests.conftest import (
+    make_book,
+    make_campaign,
+    make_game_system,
+    make_map,
+    make_token,
+)
 from backend.config import SessionLocal
-from backend.models import AppSetting, Bookmark
+from backend.models import AppSetting, Bookmark, GameSystem
 
 
 # ---------------------------------------------------------------------------
@@ -230,12 +234,14 @@ class TestCleanupMissingShape:
         assert "books" in data["removed"]
         assert "maps" in data["removed"]
         assert "tokens" in data["removed"]
+        assert "systems" in data["removed"]
 
     def test_removed_counts_are_ints(self, client, admin_headers):
         data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
         assert isinstance(data["removed"]["books"], int)
         assert isinstance(data["removed"]["maps"], int)
         assert isinstance(data["removed"]["tokens"], int)
+        assert isinstance(data["removed"]["systems"], int)
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +335,70 @@ class TestCleanupMissingBehavior:
 
 
 # ---------------------------------------------------------------------------
+# POST /api/maintenance/cleanup-missing — prunes orphaned game systems
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupOrphanedSystems:
+    def test_removes_system_left_with_no_books(self, client, admin_headers):
+        # A system whose only book's file is gone: the book is removed, then the
+        # now-empty system is pruned so it stops showing in the campaign picker.
+        sys = make_game_system()
+        sys_id = sys.id
+        make_book(
+            system_id=sys_id,
+            filepath="/tmp/orphan-sys-book-" + uuid.uuid4().hex + ".pdf",
+        )
+        data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
+        assert data["removed"]["systems"] >= 1
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=sys_id).first() is None
+        db.close()
+
+    def test_keeps_system_with_remaining_book(self, client, admin_headers, tmp_path):
+        pdf = tmp_path / "keep.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+        sys = make_game_system()
+        sys_id = sys.id
+        make_book(system_id=sys_id, filepath=str(pdf))
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=sys_id).first() is not None
+        db.close()
+
+    def test_keeps_empty_system_referenced_by_campaign(
+        self, client, admin_headers, admin_id
+    ):
+        # An empty system still linked to a campaign is kept so the campaign's
+        # system_id foreign key doesn't dangle.
+        sys = make_game_system()
+        sys_id = sys.id
+        make_campaign(owner_id=admin_id, system_id=sys_id)
+        data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=sys_id).first() is not None
+        db.close()
+        # It was skipped, not counted as removed.
+        assert isinstance(data["removed"]["systems"], int)
+
+    def test_book_backed_system_not_pruned_leaves_it_visible(
+        self, client, admin_headers, tmp_path
+    ):
+        # Regression guard: a healthy system with a present book stays listed.
+        pdf = tmp_path / "present.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+        sys = make_game_system()
+        sys_id = sys.id
+        make_book(system_id=sys_id, filepath=str(pdf))
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+        listed = client.get("/api/systems", headers=admin_headers).json()
+        assert any(s["id"] == sys_id for s in listed)
+
+
+# ---------------------------------------------------------------------------
 # run_cleanup_sync — scheduler callable
 # ---------------------------------------------------------------------------
 
@@ -356,3 +426,102 @@ class TestRunCleanupSync:
 
         assert db.query(Book).filter_by(id=book_id).first() is None
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/settings — broad field coverage + UI settings + API key
+# ---------------------------------------------------------------------------
+
+
+class TestSettingsBroadPatch:
+    def test_patch_many_fields_persists_and_clamps(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings",
+            json={
+                "rescan_schedule_enabled": True,
+                "rescan_schedule_interval": "weekly",
+                "rescan_schedule_hour": 99,  # clamped to 23
+                "rescan_schedule_minute": 200,  # clamped to 59
+                "rescan_schedule_weekday": 9,  # clamped to 6
+                "hide_maps": True,
+                "hide_tokens": True,
+                "hide_audio": True,
+                "hide_campaigns": True,
+                "show_stat_systems": False,
+                "show_stat_books": True,
+                "show_stat_audio": True,
+                "campaign_uploads_disabled": True,
+                "campaign_upload_max_file_mb": -5,  # clamped to 0
+                "campaign_upload_max_total_mb": 50,
+                "custom_login_message_enabled": True,
+                "custom_login_message": "Welcome adventurers",
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["rescan_schedule_hour"] == 23
+        assert body["rescan_schedule_minute"] == 59
+        assert body["rescan_schedule_weekday"] == 6
+        assert body["hide_audio"] is True
+        assert body["show_stat_audio"] is True
+        # Campaign upload limits surface on the /ui endpoint (clamped to >= 0).
+        ui = client.get("/api/settings/ui", headers=admin_headers).json()
+        assert ui["campaign_upload_max_file_mb"] == 0
+        assert ui["campaign_upload_max_total_mb"] == 50
+        # The audio stat toggle also reaches the UI-settings endpoint that the
+        # sidebar reads. Default is off; we just set it on.
+        assert ui["show_stat_audio"] is True
+
+    def test_invalid_interval_rejected(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings",
+            json={"rescan_schedule_interval": "fortnightly"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_player_cannot_patch(self, client, player_headers):
+        resp = client.patch(
+            "/api/settings", json={"hide_audio": True}, headers=player_headers
+        )
+        assert resp.status_code == 403
+
+
+class TestUiSettings:
+    def test_ui_settings_shape(self, client, admin_headers):
+        client.patch("/api/settings", json={"hide_audio": True}, headers=admin_headers)
+        body = client.get("/api/settings/ui", headers=admin_headers).json()
+        for key in (
+            "hide_maps",
+            "hide_tokens",
+            "hide_audio",
+            "hide_campaigns",
+            "campaign_upload_max_file_mb",
+            "guest_access_enabled",
+        ):
+            assert key in body
+        assert body["hide_audio"] is True
+
+    def test_ui_settings_available_to_player(self, client, player_headers):
+        assert client.get("/api/settings/ui", headers=player_headers).status_code == 200
+
+    def test_ui_settings_requires_auth(self, client):
+        assert client.get("/api/settings/ui").status_code == 401
+
+
+class TestStatsApiKey:
+    def test_generate_then_revoke(self, client, admin_headers):
+        gen = client.post("/api/settings/api-key/generate", headers=admin_headers)
+        assert gen.status_code == 200
+        assert len(gen.json()["stats_api_key"]) > 0
+
+        rev = client.delete("/api/settings/api-key", headers=admin_headers)
+        assert rev.status_code == 200
+        assert rev.json()["stats_api_key"] == ""
+
+    def test_generate_requires_admin(self, client, player_headers):
+        assert (
+            client.post("/api/settings/api-key/generate", headers=player_headers).status_code
+            == 403
+        )

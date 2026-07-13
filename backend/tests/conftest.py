@@ -20,12 +20,11 @@ from fastapi.testclient import TestClient  # noqa: E402
 from backend.main import app  # noqa: E402
 from backend.config import SessionLocal  # noqa: E402
 from backend.models import (  # noqa: E402
-    User,
     GameSystem,
     Book,
     GenericMap,
     Token,
-    Favorite,
+    Audio,
     Campaign,
 )
 
@@ -234,6 +233,25 @@ def make_token(**kwargs) -> Token:
     db.refresh(t)
     db.close()
     return t
+
+
+def make_audio(**kwargs) -> Audio:
+    uid = str(uuid.uuid4())[:8]
+    defaults = dict(
+        filename=f"track-{uid}.mp3",
+        filepath=f"/tmp/track-{uid}.mp3",
+        relative_path=f"track-{uid}.mp3",
+        duration=123.5,
+        title=f"Track {uid}",
+    )
+    defaults.update(kwargs)
+    db = SessionLocal()
+    a = Audio(**defaults)
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+    db.close()
+    return a
 
 
 def make_campaign(owner_id: str, **kwargs) -> Campaign:

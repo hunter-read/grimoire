@@ -2,11 +2,16 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ghostBtnStyle, saveBtnStyle } from './settingsButtons'
 
-/** Inline email editor used in the admin user row. */
-export default function SetEmailInline({ initial, onSave, onCancel }) {
+/**
+ * Inline email editor used in the admin user editor.
+ * When `persistent` is set the field stays open after saving (it lives in an
+ * always-visible panel) and shows a brief "saved" hint instead of closing.
+ */
+export default function SetEmailInline({ initial, onSave, onCancel, persistent = false }) {
   const { t } = useTranslation()
   const [value, setValue] = useState(initial || '')
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [err, setErr] = useState('')
 
   const handleSave = async () => {
@@ -14,7 +19,12 @@ export default function SetEmailInline({ initial, onSave, onCancel }) {
     setErr('')
     try {
       await onSave(value.trim())
-      onCancel()
+      if (persistent) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1500)
+      } else {
+        onCancel()
+      }
     } catch (e) {
       setErr(e?.message || t('users.failedSetEmail'))
     } finally {
@@ -50,12 +60,15 @@ export default function SetEmailInline({ initial, onSave, onCancel }) {
         }}
       />
       {err && <span style={{ fontSize: 12, color: 'var(--red)' }}>{err}</span>}
+      {saved && <span style={{ fontSize: 12, color: 'var(--gold)' }}>{t('common.saved')}</span>}
       <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
         {saving ? '…' : t('common.save')}
       </button>
-      <button onClick={onCancel} style={ghostBtnStyle}>
-        {t('common.cancel')}
-      </button>
+      {!persistent && (
+        <button onClick={onCancel} style={ghostBtnStyle}>
+          {t('common.cancel')}
+        </button>
+      )}
     </div>
   )
 }

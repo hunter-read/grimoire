@@ -1,6 +1,5 @@
 """Tests for the public auth-config endpoint, login enforcement, and the
 custom-login-message HTML sanitizer."""
-import pytest
 
 from backend.routers.settings._helpers import sanitize_login_message
 

@@ -13,9 +13,14 @@ jobs:
   edge:
     name: Build and push edge
     runs-on: ubuntu-latest
+    # Build once per dev push. CI already skips the redundant `pull_request`
+    # run for the dev->main PR (see ci.yml), so only the `push` CI run reaches
+    # here. The `event == 'push'` check is kept as defense-in-depth so a stray
+    # non-push CI completion can never trigger a second edge build.
     if: |
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'dev'
+      github.event.workflow_run.head_branch == 'dev' &&
+      github.event.workflow_run.event == 'push'
 
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +43,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: ocr
           push: true
           platforms: linux/amd64,linux/arm64/v8
           build-args: |

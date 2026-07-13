@@ -7,11 +7,24 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+
+from slowapi import _rate_limit_exceeded_handler
 
 from . import scheduler, session_creator
 from .auth import get_current_user
-from .config import DATA_PATH, LIBRARY_PATH, OPDS_ENABLED, SessionLocal, VERSION, logger
+from .security import RateLimitExceeded, SecurityHeadersMiddleware, limiter
+from .config import (
+    DATA_PATH,
+    LIBRARY_PATH,
+    OPDS_ENABLED,
+    SessionLocal,
+    VERSION,
+    _valkey,
+    logger,
+)
 from .routers import (
+    audio as audio_router,
     auth as auth_router,
     bookmarks as bookmarks_router,
     books as books_router,
@@ -62,6 +75,7 @@ _TAGS = [
         "description": "Book catalog — browse, read, download, and edit book metadata.",
     },
     {"name": "maps", "description": "Map gallery — browse, tag, and download battle maps."},
+    {"name": "audio", "description": "Audio library — browse, tag, stream, and download tracks."},
     {"name": "search", "description": "Full-text search across all indexed book pages."},
     {
         "name": "campaigns",
@@ -92,6 +106,18 @@ async def lifespan(app: FastAPI):
         clear_stop()
         _set_status({**_DEFAULT_STATUS})
         try:
+            # If OCR is available, re-queue any books previously skipped as
+            # image-only so this scan runs them through OCR.
+            from . import ocr
+
+            db = SessionLocal()
+            try:
+                ocr.requeue_image_only_books(db)
+            except Exception as e:
+                logger.error(f"OCR re-queue error: {e}")
+            finally:
+                db.close()
+
             logger.info(f"Scanning library at {LIBRARY_PATH}...")
             run_rescan_sync()
         finally:
@@ -142,12 +168,52 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate limiting on auth endpoints (see backend/security.py) and security
+# headers on every response.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SecurityHeadersMiddleware)
+
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 _assets_dir = os.path.join(FRONTEND_DIR, "assets")
 if os.path.isdir(_assets_dir):
     app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
 # --- Public (unauthenticated) routes -----------------------------------------
+@app.get("/api/health", tags=["maintenance"], summary="Liveness/readiness probe")
+def health():
+    """Unauthenticated readiness probe used by the container HEALTHCHECK.
+
+    Verifies the app can reach its dependencies: the database (always) and the
+    Valkey/Redis page cache (only when configured). Returns HTTP 200 with a
+    per-check status when everything is reachable, and HTTP 503 otherwise so
+    orchestrators mark a wedged container unhealthy rather than "up".
+    """
+    checks = {}
+    healthy = True
+
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        checks["database"] = "error"
+        healthy = False
+    finally:
+        db.close()
+
+    if _valkey is not None:
+        try:
+            _valkey.ping()
+            checks["valkey"] = "ok"
+        except Exception:
+            checks["valkey"] = "error"
+            healthy = False
+
+    body = {"status": "ok" if healthy else "unhealthy", "checks": checks}
+    return JSONResponse(body, status_code=200 if healthy else 503)
+
+
 app.include_router(auth_router.public_router)
 app.include_router(oidc_router.public_router)
 app.include_router(library_router.public_router)
@@ -163,6 +229,7 @@ api.include_router(systems_router.router)
 api.include_router(books_router.router)
 api.include_router(maps_router.router)
 api.include_router(tokens_router.router)
+api.include_router(audio_router.router)
 api.include_router(library_router.router)
 api.include_router(search_router.router)
 api.include_router(campaigns_router.router)

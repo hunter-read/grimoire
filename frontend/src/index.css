@@ -19,17 +19,31 @@
   --tag-bg: #2a2420;
   --tag-border: #4a3e34;
   --mark-bg: rgba(201, 168, 76, 0.3);
+  /* Attention banners (e.g. pending campaign invites): a warm gold wash that
+     stands out against the dark panels without shouting like an error. */
+  --invite-bg: rgba(201, 168, 76, 0.14);
+  --invite-border: var(--gold);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
+  max-width: 100%;
+  /* Safety net: nothing should ever push a page-level horizontal scrollbar.
+     Too-wide content must wrap, truncate, or scroll within its own container. */
+  overflow-x: hidden;
   background: var(--bg-deep);
   color: var(--text);
   font-family: 'Alegreya Sans', sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Long unbroken strings (URLs, file paths) wrap instead of overflowing. */
+body {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 h1, h2, h3, h4 {
@@ -102,6 +116,9 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 /* SystemDetailView — responsive header panel */
 .system-btn-row {
   justify-content: flex-end;
+  /* Let the toolbar buttons wrap onto multiple lines instead of forcing the
+     panel wider than the viewport on narrow screens. */
+  flex-wrap: wrap;
 }
 
 @media (max-width: 640px) {

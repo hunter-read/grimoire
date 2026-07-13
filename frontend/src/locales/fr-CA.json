@@ -17,7 +17,8 @@
     "logOut": "Se déconnecter",
     "more": "Plus",
     "collapseSidebar": "Réduire la barre latérale",
-    "expandSidebar": "Développer la barre latérale"
+    "expandSidebar": "Développer la barre latérale",
+    "audio": "Audio"
   },
   "stats": {
     "systems": "Systèmes",
@@ -26,7 +27,8 @@
     "maps": "Cartes",
     "tokens": "Pions",
     "size": "Taille",
-    "version": "Version"
+    "version": "Version",
+    "audio": "Audio"
   },
   "about": {
     "title": "À propos de Grimoire",
@@ -94,7 +96,11 @@
     "or": "ou",
     "oidcDefault": "Se connecter via SSO",
     "oidcError": "Échec de la connexion unique : {{error}}",
-    "oidcLoginFailed": "La connexion unique a réussi, mais la session n'a pas pu être établie."
+    "oidcLoginFailed": "La connexion unique a réussi, mais la session n'a pas pu être établie.",
+    "haveInviteCode": "Vous avez un code d'invitation ?",
+    "inviteCode": "Code d'invitation",
+    "enterAsGuest": "Entrer en tant qu'invité",
+    "guestInvalidCode": "Code d'invitation invalide ou expiré."
   },
   "setup": {
     "title": "Configuration initiale",
@@ -125,7 +131,10 @@
       "list": "Liste",
       "toggle": "Changer la vue",
       "toggleWithMode": "Changer la vue (actuellement {{mode}})"
-    }
+    },
+    "cancelBulk": "Annuler",
+    "noTagMatch": "Aucun système ne correspond aux étiquettes sélectionnées.",
+    "filterByTag": "Filtrer par {{tag}}"
   },
   "systemDetail": {
     "backToLibrary": "Retour à la bibliothèque",
@@ -145,7 +154,11 @@
     "showLess": "Voir moins",
     "clearTags": "Effacer",
     "download": "Télécharger",
-    "backToLibrary2": "Retour à la bibliothèque"
+    "backToLibrary2": "Retour à la bibliothèque",
+    "matchingBooks_one": "{{count}} livre correspondant",
+    "matchingBooks_other": "{{count}} livres correspondants",
+    "resultsInPages_one": "{{count}} résultat dans les pages pour \"{{query}}\"",
+    "resultsInPages_other": "{{count}} résultats dans les pages pour \"{{query}}\""
   },
   "reader": {
     "back": "Retour",
@@ -172,7 +185,8 @@
     "shortcutClose": "Fermer les panneaux",
     "spreadCover": "Couverture",
     "spreadIncludeCover": "Inclure la couverture dans la double page (pages 1-2, 3-4…)",
-    "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)"
+    "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)",
+    "archiveNotViewable": "Ce fichier est une archive et ne peut pas être affiché dans le lecteur. Téléchargez-le pour en ouvrir le contenu."
   },
   "search": {
     "title": "Rechercher dans votre bibliothèque",
@@ -193,7 +207,8 @@
     "groupedBy": "{{count}} page",
     "groupedBy_other": "{{count}} pages",
     "expandBook": "Développer {{title}}",
-    "collapseBook": "Réduire {{title}}"
+    "collapseBook": "Réduire {{title}}",
+    "audio": "Audio"
   },
   "favorites": {
     "title": "Favoris",
@@ -204,7 +219,8 @@
     "maps": "Cartes ({{count}})",
     "tokens": "Pions ({{count}})",
     "onlyFavorites": "Favoris uniquement",
-    "noFavoritesInView": "Pas encore de favoris ici. Cliquez sur l'icône cœur d'un élément pour l'enregistrer."
+    "noFavoritesInView": "Pas encore de favoris ici. Cliquez sur l'icône cœur d'un élément pour l'enregistrer.",
+    "audio": "Audio ({{count}})"
   },
   "maps": {
     "title": "Cartes",
@@ -234,6 +250,9 @@
       "title": "Détails de la carte",
       "back": "Retour aux cartes",
       "details": "Détails",
+      "previous": "Carte précédente",
+      "next": "Carte suivante",
+      "position": "{{current}} sur {{total}}",
       "location": "Emplacement",
       "fileSize": "Taille du fichier",
       "resolution": "Résolution",
@@ -367,6 +386,12 @@
       "autoRegister": "Inscription automatique",
       "autoRegisterHint": "Crée automatiquement les comptes locaux lors de la première connexion OIDC. Sans cela, les utilisateurs doivent déjà exister localement.",
       "saveFailed": "Impossible d'enregistrer."
+    },
+    "guestAccess": {
+      "title": "Accès invité",
+      "description": "Permet aux MJ et administrateurs de créer des codes d'invitation pour leurs campagnes. Les invités obtiennent un compte restreint, basé sur un code et limité à une seule campagne.",
+      "enable": "Activer les codes d'invitation",
+      "envLocked": "Verrouillé par la variable d'environnement GUEST_ACCESS_ENABLED (valeur actuelle : {{value}})."
     }
   },
   "userSettings": {
@@ -433,6 +458,7 @@
       "viewModeBooks": "Livres",
       "viewModeMaps": "Cartes",
       "viewModeTokens": "Pions",
+      "viewModeAudio": "Audio",
       "recentLimit": "Livres récemment ouverts",
       "recentLimitHint": "Nombre de livres récemment ouverts à mémoriser (0–{{max}}). Mettre 0 pour masquer la section."
     },
@@ -460,7 +486,8 @@
       "description": "Masquer des sections de la barre latérale et de la navigation mobile pour tous les utilisateurs.",
       "hideMaps": "Masquer les cartes",
       "hideTokens": "Masquer les pions",
-      "hideCampaigns": "Masquer les campagnes"
+      "hideCampaigns": "Masquer les campagnes",
+      "hideAudio": "Masquer l'audio"
     },
     "sidebarStats": {
       "title": "Statistiques de la barre latérale",
@@ -533,7 +560,12 @@
       "toggleLabel": "Campagnes",
       "none": "Aucune campagne.",
       "loadFailed": "Impossible de charger les campagnes."
-    }
+    },
+    "permissions": "Autorisations",
+    "noPermissions": "Aucune",
+    "ownedCampaigns": "Campagnes possédées",
+    "deleteUserShort": "Supprimer l’utilisateur",
+    "emailLabel": "Courriel"
   },
   "maintenance": {
     "rescan": {
@@ -559,7 +591,9 @@
       "booksProgress": "{{scanned}}/{{total}} livres",
       "mapsProgress": "{{scanned}}/{{total}} cartes",
       "tokensProgress": "{{scanned}}/{{total}} pions",
-      "indexProgress": "{{pct}} % — {{indexed}} sur {{total}} PDF indexés"
+      "indexProgress": "{{pct}} % — {{indexed}} sur {{total}} PDF indexés",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated"
     },
     "scheduledRescan": {
       "title": "Réanalyse planifiée",
@@ -592,7 +626,8 @@
       "exporting": "Exportation…",
       "library": "Bibliothèque",
       "maps": "Cartes",
-      "tokens": "Pions"
+      "tokens": "Pions",
+      "audio": "Audio"
     },
     "cleanup": {
       "title": "Nettoyage de la base de données",
@@ -652,7 +687,14 @@
     "gm": "MJ : {{name}}",
     "unknownGm": "Inconnu",
     "nextSession": "Prochaine séance",
-    "openNotes": "Notes"
+    "openNotes": "Notes",
+    "inviteBanner": {
+      "title": "Invitations en attente",
+      "single": "{{gm}} vous a invité à rejoindre {{name}}.",
+      "multi": "Vous avez {{count}} invitations de campagne en attente.",
+      "view": "Voir",
+      "dismiss": "Ignorer"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campagnes",
@@ -779,7 +821,9 @@
     "replaceSheet": "Remplacer la feuille",
     "replaceSheetWarning": "Le téléversement d’une nouvelle feuille remplace l’actuelle. La version précédente ne pourra pas être récupérée.",
     "downloadCurrent": "Télécharger l’actuelle",
-    "replace": "Remplacer"
+    "replace": "Remplacer",
+    "saveCopy": "Enregistrer une copie",
+    "sheetEditError": "Impossible d’ouvrir ou d’enregistrer cette fiche. Ce n’est peut-être pas un PDF valide."
   },
   "sessions": {
     "title": "Notes de session",
@@ -911,7 +955,8 @@
     "uploadFile": "Téléverser un fichier",
     "uploading": "Téléversement…",
     "emptyCategory": "Glissez des ressources ici",
-    "deleteFileConfirm": "Retirer ce fichier ? Il sera supprimé de la campagne."
+    "deleteFileConfirm": "Retirer ce fichier ? Il sera supprimé de la campagne.",
+    "audio": "Audio"
   },
   "download": {
     "title": "Télécharger l'archive",
@@ -1026,6 +1071,8 @@
     "indexedTitle": "Indexé en texte intégral",
     "imageOnly": "Images uniquement",
     "imageOnlyTitle": "Ce PDF ne contient que des images numérisées — aucune couche de texte consultable",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Indexé en texte intégral via OCR (pages numérisées)",
     "indexFailed": "Échec d'indexation",
     "indexFailedTitle": "Échec de l'indexation",
     "indexFailedWithError": "Échec de l'indexation : {{error}}",
@@ -1046,6 +1093,7 @@
   },
   "wiki": {
     "newPage": "Nouvelle page",
+    "backToPages": "Pages",
     "searchPlaceholder": "Rechercher des pages…",
     "noPages": "Aucune page.",
     "selectPrompt": "Sélectionnez une page ou créez-en une.",
@@ -1087,11 +1135,13 @@
     "embed_book": "Livre",
     "embed_map": "Carte",
     "embed_token": "Jeton",
+    "embed_audio": "Audio",
     "embedBookPage": "Livre — p. {{page}}",
-    "manageGroups": "Gérer les groupes",
-    "uncategorized": "Non classé",
-    "groupLabel": "Groupe",
-    "emptyGroup": "Aucune page",
+    "parentLabel": "Page parente",
+    "noParent": "Niveau supérieur",
+    "addSubpage": "Ajouter une sous-page",
+    "expand": "Développer",
+    "collapse": "Réduire",
     "iconLabel": "Icône",
     "export": "Exporter",
     "exportMd": "Exporter en Markdown (.zip)",
@@ -1165,6 +1215,122 @@
     "field_gridSize": "Taille de grille",
     "field_explicit": "Contenu explicite",
     "previous": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "field_genre": "Genre",
+    "field_characterBuilderUrl": "URL du créateur de personnage"
+  },
+  "guests": {
+    "guests": "Invités",
+    "guest": "Invité",
+    "add": "Ajouter",
+    "none": "Aucun invité pour le moment.",
+    "nicknamePlaceholder": "Surnom de l'invité",
+    "share": "Partager l'invitation",
+    "regenerate": "Régénérer le code",
+    "remove": "Supprimer l'invité",
+    "confirmRemove": "Supprimer cet invité ? Son compte et ses contributions seront supprimés.",
+    "shareTitle": "Partager l'invitation",
+    "copyMessage": "Copier le message",
+    "copyForDiscord": "Copier pour Discord",
+    "email": "Courriel",
+    "copied": "Copié !",
+    "name": "Nom",
+    "campaign": "Campagne",
+    "invitedBy": "Invité par",
+    "actions": "Actions",
+    "convert": "Convertir",
+    "converting": "Conversion…",
+    "convertFailed": "Échec de la conversion de l’invité.",
+    "usernamePlaceholder": "Nom d’utilisateur"
+  },
+  "rescan": {
+    "button": {
+      "label": "Rescan",
+      "title": "Rescan this folder"
+    },
+    "modal": {
+      "title": "Rescan",
+      "wholeLibrary": "This will rescan the entire library.",
+      "scopeLabel": "Scope: {{scope}}",
+      "confirm": "Start rescan",
+      "cancel": "Cancel"
+    },
+    "modes": {
+      "new": {
+        "label": "Find new files",
+        "description": "Add newly added files and flag any that have gone missing. Existing entries are left as-is."
+      },
+      "missing": {
+        "label": "Update missing metadata",
+        "description": "Also fill in empty fields from sidecar files (OPF, tags.json). Fields you've already set are kept."
+      },
+      "replace": {
+        "label": "Replace all metadata",
+        "description": "Overwrite metadata with whatever the sidecar files provide.",
+        "warning": "This overwrites fields you've edited in the UI."
+      }
+    }
+  },
+  "audio": {
+    "title": "Audio",
+    "subtitle_one": "{{count}} piste dans votre collection",
+    "subtitle_other": "{{count}} pistes dans votre collection",
+    "filterPlaceholder": "Filtrer l'audio…",
+    "filterAriaLabel": "Filtrer l'audio",
+    "bulkTag": "Étiquetage en masse",
+    "cancelBulk": "Annuler",
+    "bulkHint": "Cliquez sur les en-têtes de dossier ou les cartes audio pour les sélectionner, puis ajoutez des étiquettes ci-dessous.",
+    "tagsPlaceholder": "Étiquettes à ajouter, séparées par des virgules…",
+    "addTags": "Ajouter des étiquettes",
+    "applying": "Application…",
+    "noAudioFilter": "Aucun fichier audio ne correspond à votre filtre.",
+    "noAudio": "Aucun fichier audio trouvé. Ajoutez de l'audio à /library/audio/ et relancez l'analyse.",
+    "audioCount_one": "{{count}} piste",
+    "audioCount_other": "{{count}} pistes",
+    "expandFolder": "Développer {{folder}}",
+    "collapseFolder": "Réduire {{folder}}",
+    "downloadAllInFolder": "Télécharger tout l'audio dans {{folder}}",
+    "downloadInSubfolder": "Télécharger l'audio dans {{folder}}",
+    "editTags": "Modifier",
+    "editTagsFull": "Modifier les étiquettes",
+    "download": "Télécharger",
+    "missing": "Manquant",
+    "play": "Lire",
+    "pause": "Pause",
+    "detail": {
+      "title": "Détails de la piste",
+      "back": "Retour à l'audio",
+      "details": "Détails",
+      "location": "Emplacement",
+      "fileSize": "Taille du fichier",
+      "trackTitle": "Titre",
+      "artist": "Artiste",
+      "album": "Album",
+      "duration": "Durée",
+      "folderTags": "Étiquettes du dossier",
+      "trackTags": "Étiquettes de la piste",
+      "editTags": "Modifier",
+      "noTags": "Aucune"
+    },
+    "player": {
+      "title": "Lecture en cours",
+      "play": "Lire",
+      "untitled": "Piste sans titre",
+      "queue": "File d'attente",
+      "emptyQueue": "La file d'attente est vide",
+      "previous": "Piste précédente",
+      "next": "Piste suivante",
+      "repeatOn": "Répéter la piste actuelle : activé",
+      "repeatOff": "Répéter la piste actuelle : désactivé",
+      "playNext": "Lire ensuite",
+      "toggleQueue": "Afficher la file d'attente",
+      "close": "Fermer le lecteur",
+      "seek": "Rechercher",
+      "removeFromQueue": "Retirer de la file d'attente",
+      "reorder": "Glisser pour réorganiser"
+    },
+    "playFolder": "Lire {{folder}}",
+    "playGroup": "Lire l'audio",
+    "playAll": "Tout lire"
   }
 }

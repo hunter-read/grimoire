@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 import api from '../api'
+import SystemBulkEditFields from './system/SystemBulkEditFields'
 
 // Per-type editable fields and the PATCH endpoint they save to. Tags are edited
 // as a comma-separated string and split on save.
@@ -14,11 +15,35 @@ const CONFIG = {
     endpoint: (id) => `/tokens/${id}`,
     fields: ['tags', 'is_explicit'],
   },
+  audio: {
+    endpoint: (id) => `/audio/${id}`,
+    fields: ['tags'],
+  },
   book: {
     endpoint: (id) => `/books/${id}`,
     fields: ['title', 'category', 'description', 'publisher', 'year', 'tags', 'is_explicit'],
   },
+  system: {
+    endpoint: (id) => `/systems/${id}`,
+    // Systems use a bespoke editor body (SystemBulkEditFields) rather than the
+    // generic field loop, so tags/publishers stay native arrays and the cover
+    // image can be picked from each system's own books.
+    fields: [
+      'description',
+      'tags',
+      'publishers',
+      'character_builder_url',
+      'genre',
+      'is_explicit',
+      'cover_book_id',
+    ],
+    custom: true,
+  },
 }
+
+// Fields that are stored as arrays/objects rather than strings — kept as native
+// values in the draft (not stringified) and compared by JSON on save.
+const STRUCTURED_FIELDS = new Set(['publishers'])
 
 // Pull a grid size like "22x22" out of a map's filename or folder, e.g.
 // "Sunken Temple (22x22)" → "22x22". Used to pre-fill an empty grid size.
@@ -52,13 +77,17 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
   const [error, setError] = useState(null)
 
   // Working drafts keyed by item id, seeded from the items' current values.
+  // Custom bodies (systems) keep structured fields as native arrays/objects;
+  // the generic body stores everything as strings.
   const [drafts, setDrafts] = useState(() => {
     const out = {}
     for (const it of items) {
       const d = {}
       for (const f of cfg.fields) {
-        if (f === 'tags') d[f] = tagsToString(it.tags)
+        if (f === 'tags') d[f] = cfg.custom ? it.tags || [] : tagsToString(it.tags)
+        else if (STRUCTURED_FIELDS.has(f)) d[f] = it[f] || []
         else if (f === 'grid_size') d[f] = it.grid_size || inferGridSize(it)
+        else if (f === 'cover_book_id') d[f] = it[f] ?? null
         else d[f] = it[f] ?? ''
       }
       out[it.id] = d
@@ -77,6 +106,8 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
       year: t('bulkEdit.field_year'),
       tags: t('bulkEdit.field_tags'),
       grid_size: t('bulkEdit.field_gridSize'),
+      genre: t('bulkEdit.field_genre'),
+      character_builder_url: t('bulkEdit.field_characterBuilderUrl'),
       is_explicit: t('bulkEdit.field_explicit'),
     }),
     [t]
@@ -99,10 +130,17 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
         const patch = {}
         for (const f of cfg.fields) {
           if (f === 'tags') {
-            const next = stringToTags(d.tags)
+            const next = cfg.custom ? d.tags : stringToTags(d.tags)
             if (tagsToString(next) !== tagsToString(it.tags)) patch.tags = next
+          } else if (STRUCTURED_FIELDS.has(f)) {
+            // Drop empty publisher rows before comparing/saving.
+            const next = (d[f] || []).filter((p) => p.name?.trim())
+            if (JSON.stringify(next) !== JSON.stringify(it[f] || [])) patch[f] = next
           } else if (f === 'is_explicit') {
             if (!!d.is_explicit !== !!it.is_explicit) patch.is_explicit = !!d.is_explicit
+          } else if (f === 'cover_book_id') {
+            if ((d.cover_book_id ?? null) !== (it.cover_book_id ?? null))
+              patch.cover_book_id = d.cover_book_id ?? null
           } else if (f === 'year') {
             const next = d.year === '' ? null : Number(d.year)
             if (next !== (it.year ?? null)) patch.year = next
@@ -152,7 +190,7 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
           </button>
           <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, ...ellipsis }}>
-              {current.filename || current.title}
+              {current.filename || current.title || current.name}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               {t('bulkEdit.position', { current: index + 1, total: items.length })}
@@ -168,44 +206,48 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {cfg.fields.map((f) => {
-            if (f === 'is_explicit') {
+        {cfg.custom && type === 'system' ? (
+          <SystemBulkEditFields system={current} draft={draft} setField={setField} />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {cfg.fields.map((f) => {
+              if (f === 'is_explicit') {
+                return (
+                  <label key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!draft[f]}
+                      onChange={(e) => setField(f, e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 13 }}>{fieldLabels[f]}</span>
+                  </label>
+                )
+              }
+              const multiline = f === 'description'
               return (
-                <label key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!draft[f]}
-                    onChange={(e) => setField(f, e.target.checked)}
-                    style={{ width: 16, height: 16, cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: 13 }}>{fieldLabels[f]}</span>
-                </label>
+                <div key={f}>
+                  <label style={label}>{fieldLabels[f]}</label>
+                  {multiline ? (
+                    <textarea
+                      value={draft[f]}
+                      onChange={(e) => setField(f, e.target.value)}
+                      rows={3}
+                      style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
+                    />
+                  ) : (
+                    <input
+                      value={draft[f]}
+                      onChange={(e) => setField(f, e.target.value)}
+                      placeholder={f === 'tags' ? t('bulkEdit.tagsPlaceholder') : ''}
+                      style={input}
+                    />
+                  )}
+                </div>
               )
-            }
-            const multiline = f === 'description'
-            return (
-              <div key={f}>
-                <label style={label}>{fieldLabels[f]}</label>
-                {multiline ? (
-                  <textarea
-                    value={draft[f]}
-                    onChange={(e) => setField(f, e.target.value)}
-                    rows={3}
-                    style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-                ) : (
-                  <input
-                    value={draft[f]}
-                    onChange={(e) => setField(f, e.target.value)}
-                    placeholder={f === 'tags' ? t('bulkEdit.tagsPlaceholder') : ''}
-                    style={input}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </div>
+            })}
+          </div>
+        )}
 
         {error && (
           <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</div>

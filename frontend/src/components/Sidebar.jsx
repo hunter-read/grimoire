@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   LuLibrary,
   LuMap,
+  LuMusic,
   LuSearch,
   LuSettings,
   LuLogOut,
@@ -57,6 +58,7 @@ function isNewer(latestVersion, currentVersion) {
 
 export default function Sidebar({
   stats,
+  about,
   user,
   onLogout,
   uiSettings = {},
@@ -64,8 +66,12 @@ export default function Sidebar({
   onToggleCollapse,
 }) {
   const { t } = useTranslation()
+  // Guests only see their campaign(s) — no library, maps, tokens, search,
+  // favorites, or settings.
+  const isGuest = user?.role === 'guest'
   const hide_maps = uiSettings.hide_maps
   const hide_tokens = uiSettings.hide_tokens
+  const hide_audio = uiSettings.hide_audio
   const hide_campaigns = uiSettings.hide_campaigns
   const {
     show_stat_systems = true,
@@ -73,12 +79,13 @@ export default function Sidebar({
     show_stat_pages = true,
     show_stat_maps = false,
     show_stat_tokens = false,
+    show_stat_audio = false,
     show_stat_size = true,
   } = uiSettings
 
   const [showAbout, setShowAbout] = useState(false)
   const latestVersion = useLatestRelease()
-  const hasUpdate = isNewer(latestVersion, stats?.version)
+  const hasUpdate = isNewer(latestVersion, about?.version)
 
   const [updateDismissed, setUpdateDismissed] = useState(() => {
     const stored = localStorage.getItem(UPDATE_DISMISSED_KEY)
@@ -105,6 +112,7 @@ export default function Sidebar({
     show_stat_pages ||
     show_stat_maps ||
     show_stat_tokens ||
+    show_stat_audio ||
     show_stat_size
 
   const navItem = (to, icon, label, { end = true } = {}) => (
@@ -147,7 +155,7 @@ export default function Sidebar({
         }}
       >
         <img
-          src="/android-chrome-192x192.png"
+          src="/grimoire-logo.svg"
           alt=""
           aria-hidden="true"
           width={collapsed ? 40 : 72}
@@ -180,18 +188,22 @@ export default function Sidebar({
         aria-label="Main navigation"
         style={{ padding: collapsed ? '12px 8px' : '12px 8px', flex: 1 }}
       >
-        {navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
-        {!hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
-        {!hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
-        {navItem('/search', <LuSearch size={16} />, t('nav.search'))}
+        {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
+        {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
+        {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
+        {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
+        {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
 
-        <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+        {!isGuest && (
+          <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+        )}
 
-        {navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
+        {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
       </nav>
 
-      {/* Collapse toggle — bottom of the nav section, above the stats footer */}
+      {/* Collapse toggle — bottom of the nav section, above the stats footer.
+          No top border: it reads as part of the nav, not a separate section. */}
       <button
         onClick={onToggleCollapse}
         title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
@@ -204,7 +216,6 @@ export default function Sidebar({
           gap: 6,
           background: 'none',
           border: 'none',
-          borderTop: '1px solid var(--border)',
           color: 'var(--text-muted)',
           cursor: 'pointer',
           padding: collapsed ? '8px 0' : '8px 16px',
@@ -256,6 +267,12 @@ export default function Sidebar({
               <span style={{ color: 'var(--text-dim)' }}>{stats.tokens}</span>
             </div>
           )}
+          {show_stat_audio && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span>{t('stats.audio')}</span>
+              <span style={{ color: 'var(--text-dim)' }}>{stats.audio}</span>
+            </div>
+          )}
           {show_stat_size && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>{t('stats.size')}</span>
@@ -269,7 +286,7 @@ export default function Sidebar({
         </div>
       )}
 
-      {!collapsed && stats && (
+      {!collapsed && about && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
           <button
             onClick={() => setShowAbout(true)}
@@ -292,7 +309,7 @@ export default function Sidebar({
               {t('stats.version')}
             </span>
             <span style={{ color: 'var(--text-dim)', fontFamily: 'monospace' }}>
-              v{stats.version}
+              v{about.version}
             </span>
           </button>
 
@@ -382,24 +399,26 @@ export default function Sidebar({
               </div>
             </div>
           )}
-          <NavLink
-            to="/settings"
-            title={t('nav.settings')}
-            aria-label={t('nav.settings')}
-            style={({ isActive }) => ({
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: isActive ? 'var(--gold)' : 'var(--text-muted)',
-              padding: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-            })}
-          >
-            <LuSettings size={14} />
-          </NavLink>
+          {!isGuest && (
+            <NavLink
+              to="/settings"
+              title={t('nav.settings')}
+              aria-label={t('nav.settings')}
+              style={({ isActive }) => ({
+                background: 'none',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: isActive ? 'var(--gold)' : 'var(--text-muted)',
+                padding: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+              })}
+            >
+              <LuSettings size={14} />
+            </NavLink>
+          )}
           <button
             onClick={onLogout}
             title={t('nav.logOut')}
@@ -422,7 +441,7 @@ export default function Sidebar({
 
       {showAbout && (
         <AboutModal
-          stats={stats}
+          about={about}
           latestVersion={latestVersion}
           hasUpdate={hasUpdate}
           onClose={() => setShowAbout(false)}

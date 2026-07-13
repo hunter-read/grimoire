@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { sanitizeLoginMessage } from '../utils/sanitizeLoginMessage'
+import { auth as authApi } from '../api'
 
 export default function LoginView({ onLogin }) {
   const { t } = useTranslation()
@@ -9,6 +10,7 @@ export default function LoginView({ onLogin }) {
   const [loading, setLoading] = useState(false)
   const [config, setConfig] = useState({
     password_auth_enabled: true,
+    guest_access_enabled: false,
     custom_login_message_enabled: false,
     custom_login_message: '',
     oidc_enabled: false,
@@ -20,6 +22,13 @@ export default function LoginView({ onLogin }) {
   // ?autoLaunch=0 (or other falsy strings) suppresses the auto-redirect.
   // Logout sets a sessionStorage flag so we don't bounce the user straight back.
   const queryParams = new URLSearchParams(window.location.search)
+
+  // Guest invite code entry. Pre-filled from /guest?code=… deep links.
+  const initialCode = queryParams.get('code') || ''
+  const [showGuest, setShowGuest] = useState(!!initialCode)
+  const [guestCode, setGuestCode] = useState(initialCode)
+  const [guestError, setGuestError] = useState('')
+  const [guestLoading, setGuestLoading] = useState(false)
   const autoLaunchParam = queryParams.get('autoLaunch')
   const suppressAutoLaunch =
     autoLaunchParam === '0' ||
@@ -55,6 +64,7 @@ export default function LoginView({ onLogin }) {
         if (!data || typeof data.password_auth_enabled !== 'boolean') return
         const next = {
           password_auth_enabled: data.password_auth_enabled,
+          guest_access_enabled: !!data.guest_access_enabled,
           custom_login_message_enabled: !!data.custom_login_message_enabled,
           custom_login_message: data.custom_login_message || '',
           oidc_enabled: !!data.oidc_enabled,
@@ -99,6 +109,24 @@ export default function LoginView({ onLogin }) {
     }
   }
 
+  const handleGuestSubmit = async (e) => {
+    e.preventDefault()
+    setGuestError('')
+    setGuestLoading(true)
+    try {
+      const data = await authApi.guestLogin(guestCode.trim())
+      // Land the guest directly in the campaign their code belongs to.
+      if (data.campaign_id) {
+        sessionStorage.setItem('grimoire:guest_campaign', data.campaign_id)
+      }
+      onLogin(data.token, data.user)
+    } catch (err) {
+      setGuestError(err?.body?.detail || t('login.guestInvalidCode'))
+    } finally {
+      setGuestLoading(false)
+    }
+  }
+
   return (
     <div
       style={{
@@ -114,11 +142,7 @@ export default function LoginView({ onLogin }) {
       <div style={{ width: '100%', maxWidth: 360 }}>
         {/* Branding */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <img
-            src="/android-chrome-192x192.png"
-            alt="Grimoire"
-            style={{ width: 148, height: 148 }}
-          />
+          <img src="/grimoire-logo.svg" alt="Grimoire" style={{ width: 148, height: 148 }} />
           <h1 style={{ fontSize: 32, letterSpacing: '0.1em', marginBottom: 8 }}>{t('app.name')}</h1>
           <p
             style={{
@@ -271,6 +295,65 @@ export default function LoginView({ onLogin }) {
                 </button>
               )}
             </>
+          )}
+
+          {/* Guest invite code — works independently of password/OIDC auth. */}
+          {config.guest_access_enabled && (
+            <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              {!showGuest ? (
+                <button
+                  type="button"
+                  onClick={() => setShowGuest(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    width: '100%',
+                    textAlign: 'center',
+                  }}
+                >
+                  {t('login.haveInviteCode')}
+                </button>
+              ) : (
+                <form onSubmit={handleGuestSubmit}>
+                  <label htmlFor="guest-code" style={labelStyle}>
+                    {t('login.inviteCode')}
+                  </label>
+                  <input
+                    id="guest-code"
+                    type="text"
+                    value={guestCode}
+                    onChange={(e) => setGuestCode(e.target.value.toUpperCase())}
+                    required
+                    autoFocus
+                    maxLength={10}
+                    autoComplete="off"
+                    style={{ width: '100%', marginBottom: 12, letterSpacing: '0.2em' }}
+                  />
+                  {guestError && (
+                    <div
+                      style={{
+                        color: 'var(--red)',
+                        fontSize: 13,
+                        marginBottom: 12,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {guestError}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={guestLoading}
+                    style={submitBtnStyle(guestLoading)}
+                  >
+                    {guestLoading ? t('login.entering') : t('login.enterAsGuest')}
+                  </button>
+                </form>
+              )}
+            </div>
           )}
         </div>
       </div>

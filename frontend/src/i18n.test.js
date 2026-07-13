@@ -59,7 +59,18 @@ function makeDetect(availableLocales) {
   }
 }
 
-const LOCALES = ['en-US', 'fr-CA', 'fr-FR', 'de-DE']
+const LOCALES = [
+  'en-US',
+  'en-CA',
+  'fr-CA',
+  'fr-FR',
+  'de-DE',
+  'pt-PT',
+  'pt-BR',
+  'es-ES',
+  'es-MX',
+  'nl-NL',
+]
 const detect = makeDetect(LOCALES)
 
 describe('detectLanguage — priority', () => {
@@ -96,5 +107,70 @@ describe('detectLanguage — priority', () => {
 
   it('falls back to en-US when navigator languages is null', () => {
     expect(detect(null, null)).toBe('en-US')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Locale parity — every locale must mirror en-US exactly
+// ---------------------------------------------------------------------------
+
+const localeModules = import.meta.glob('./locales/*.json', { eager: true })
+
+function flatten(obj, prefix = '') {
+  const out = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(out, flatten(value, `${prefix}${key}.`))
+    } else {
+      out[`${prefix}${key}`] = value
+    }
+  }
+  return out
+}
+
+function placeholders(str) {
+  if (typeof str !== 'string') return []
+  return [...str.matchAll(/{{\s*(\w+)\s*}}/g)].map((m) => m[1]).sort()
+}
+
+function loadLocale(code) {
+  const path = `./locales/${code}.json`
+  const mod = localeModules[path]
+  return flatten(mod.default ?? mod)
+}
+
+describe('locale parity with en-US', () => {
+  const base = loadLocale('en-US')
+  const baseKeys = Object.keys(base)
+  const others = Object.keys(localeModules)
+    .map((p) => p.match(/\/([a-zA-Z-]+)\.json$/)[1])
+    .filter((c) => c !== 'en-US')
+
+  it('discovers more than just en-US', () => {
+    expect(others.length).toBeGreaterThan(0)
+  })
+
+  it.each(others)('%s has exactly the same keys as en-US', (code) => {
+    const locale = loadLocale(code)
+    const localeKeys = Object.keys(locale)
+    const missing = baseKeys.filter((k) => !(k in locale))
+    const extra = localeKeys.filter((k) => !(k in base))
+    expect({ code, missing, extra }).toEqual({ code, missing: [], extra: [] })
+  })
+
+  it.each(others)('%s has no null/empty values', (code) => {
+    const locale = loadLocale(code)
+    const empties = Object.entries(locale)
+      .filter(([, v]) => v === null || v === undefined || v === '')
+      .map(([k]) => k)
+    expect(empties).toEqual([])
+  })
+
+  it.each(others)('%s preserves en-US interpolation placeholders', (code) => {
+    const locale = loadLocale(code)
+    const mismatches = baseKeys
+      .filter((k) => k in locale)
+      .filter((k) => placeholders(locale[k]).join(',') !== placeholders(base[k]).join(','))
+    expect(mismatches).toEqual([])
   })
 })

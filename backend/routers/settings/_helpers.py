@@ -1,7 +1,12 @@
 """Shared helpers and defaults for settings endpoints."""
 import re
 
-from ...config import SessionLocal, ALLOW_PASSWORD_AUTHENTICATION_ENV, OIDC_ENV, BASE_URL
+from ...config import (
+    ALLOW_PASSWORD_AUTHENTICATION_ENV,
+    GUEST_ACCESS_ENABLED_ENV,
+    OIDC_ENV,
+    BASE_URL,
+)
 from ...models import AppSetting
 
 
@@ -17,6 +22,7 @@ _DEFAULTS = {
     "stats_api_key": "",
     "hide_maps": "false",
     "hide_tokens": "false",
+    "hide_audio": "false",
     "hide_campaigns": "false",
     # Sidebar stats visibility (true = shown)
     "show_stat_systems": "true",
@@ -24,8 +30,11 @@ _DEFAULTS = {
     "show_stat_pages": "true",
     "show_stat_maps": "false",
     "show_stat_tokens": "false",
+    "show_stat_audio": "false",
     "show_stat_size": "true",
     "password_auth_enabled": "true",
+    # Whether GMs/admins may create guest invite codes for their campaigns.
+    "guest_access_enabled": "false",
     "custom_login_message_enabled": "false",
     "custom_login_message": "",
     # OIDC — all stored as strings; "" means unset
@@ -98,15 +107,19 @@ def _to_typed(raw: dict) -> dict:
         "stats_api_key": raw["stats_api_key"],
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
+        "hide_audio": raw["hide_audio"] == "true",
         "hide_campaigns": raw["hide_campaigns"] == "true",
         "show_stat_systems": raw["show_stat_systems"] == "true",
         "show_stat_books": raw["show_stat_books"] == "true",
         "show_stat_pages": raw["show_stat_pages"] == "true",
         "show_stat_maps": raw["show_stat_maps"] == "true",
         "show_stat_tokens": raw["show_stat_tokens"] == "true",
+        "show_stat_audio": raw["show_stat_audio"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
         "password_auth_enabled": password_auth_effective(raw),
         "password_auth_env_locked": ALLOW_PASSWORD_AUTHENTICATION_ENV is not None,
+        "guest_access_enabled": guest_access_effective(raw),
+        "guest_access_env_locked": GUEST_ACCESS_ENABLED_ENV is not None,
         "custom_login_message_enabled": raw.get("custom_login_message_enabled", "false") == "true",
         "custom_login_message": raw.get("custom_login_message", ""),
         # OIDC
@@ -138,6 +151,13 @@ def password_auth_effective(raw: dict) -> bool:
     if ALLOW_PASSWORD_AUTHENTICATION_ENV is not None:
         return ALLOW_PASSWORD_AUTHENTICATION_ENV
     return raw.get("password_auth_enabled", "true") == "true"
+
+
+def guest_access_effective(raw: dict) -> bool:
+    """Return the effective guest-access setting, honoring the env override."""
+    if GUEST_ACCESS_ENABLED_ENV is not None:
+        return GUEST_ACCESS_ENABLED_ENV
+    return raw.get("guest_access_enabled", "false") == "true"
 
 
 def oidc_effective(raw: dict) -> dict:

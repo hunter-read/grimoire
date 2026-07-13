@@ -3,7 +3,12 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ...config import SessionLocal, ALLOW_PASSWORD_AUTHENTICATION_ENV, DISABLE_PASSWORD_CHANGE, OIDC_ENV
+from ...config import (
+    SessionLocal,
+    ALLOW_PASSWORD_AUTHENTICATION_ENV,
+    GUEST_ACCESS_ENABLED_ENV,
+    OIDC_ENV,
+)
 from ...auth import require_admin, get_current_user, CurrentUser
 from ._helpers import (
     _get_raw,
@@ -14,7 +19,7 @@ from ._helpers import (
     _VALID_SIGNING_ALGS,
     _OIDC_STRING_FIELDS,
     _OIDC_BOOL_FIELDS,
-    password_auth_effective,
+    guest_access_effective,
     sanitize_login_message,
 )
 from ._schemas import SettingsPatch
@@ -60,6 +65,8 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
             _set(db, "hide_maps", "true" if data.hide_maps else "false")
         if data.hide_tokens is not None:
             _set(db, "hide_tokens", "true" if data.hide_tokens else "false")
+        if data.hide_audio is not None:
+            _set(db, "hide_audio", "true" if data.hide_audio else "false")
         if data.hide_campaigns is not None:
             _set(db, "hide_campaigns", "true" if data.hide_campaigns else "false")
         for key in (
@@ -68,6 +75,7 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
             "show_stat_pages",
             "show_stat_maps",
             "show_stat_tokens",
+            "show_stat_audio",
             "show_stat_size",
         ):
             val = getattr(data, key)
@@ -86,6 +94,13 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
                     "Password authentication is locked by the ALLOW_PASSWORD_AUTHENTICATION environment variable",
                 )
             _set(db, "password_auth_enabled", "true" if data.password_auth_enabled else "false")
+        if data.guest_access_enabled is not None:
+            if GUEST_ACCESS_ENABLED_ENV is not None:
+                raise HTTPException(
+                    400,
+                    "Guest access is locked by the GUEST_ACCESS_ENABLED environment variable",
+                )
+            _set(db, "guest_access_enabled", "true" if data.guest_access_enabled else "false")
         if data.custom_login_message_enabled is not None:
             _set(
                 db,
@@ -181,17 +196,19 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user)):
         return {
             "hide_maps": raw["hide_maps"] == "true",
             "hide_tokens": raw["hide_tokens"] == "true",
+            "hide_audio": raw["hide_audio"] == "true",
             "hide_campaigns": raw["hide_campaigns"] == "true",
             "show_stat_systems": raw["show_stat_systems"] == "true",
             "show_stat_books": raw["show_stat_books"] == "true",
             "show_stat_pages": raw["show_stat_pages"] == "true",
             "show_stat_maps": raw["show_stat_maps"] == "true",
             "show_stat_tokens": raw["show_stat_tokens"] == "true",
+            "show_stat_audio": raw["show_stat_audio"] == "true",
             "show_stat_size": raw["show_stat_size"] == "true",
-            "disable_password_change": DISABLE_PASSWORD_CHANGE,
             "campaign_uploads_disabled": raw["campaign_uploads_disabled"] == "true",
             "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
             "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),
+            "guest_access_enabled": guest_access_effective(raw),
         }
     finally:
         db.close()

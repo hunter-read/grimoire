@@ -11,6 +11,11 @@ __pycache__/
 .DS_Store
 frontend/node_modules
 frontend/dist
+frontend/coverage
+frontend/static/pdfjs-wasm
 node_modules
-.venv
+.venv*
 .pytest_cache
+.coverage
+coverage.json
+htmlcov

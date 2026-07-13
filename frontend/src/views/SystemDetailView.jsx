@@ -31,10 +31,12 @@ import BookRow from '../components/system/BookRow'
 import BookEditor from '../components/system/BookEditor'
 import SystemEditor from '../components/system/SystemEditor'
 import BookFolderGroup from '../components/system/BookFolderGroup'
+import RescanButton from '../components/RescanButton'
 import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import { CATEGORY_ICONS, CATEGORY_ORDER } from '../constants'
+import matchBooks from '../utils/matchBooks'
 
 /** Extract the subfolder name from a book's relative_path.
  *  Path structure: books/{SystemName}/{categoryDir}/{SubFolder}/book.pdf
@@ -43,6 +45,36 @@ function getBookSubfolder(book) {
   const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
   // parts[0]=books, parts[1]=SystemName, parts[2]=category dir, parts[3]=subfolder or filename
   return parts.length > 4 ? parts[3] : null
+}
+
+/** The library-root-relative folder a book lives in (its relative_path minus the
+ *  filename), e.g. "books/D&D 5e/adventure/Curse of Strahd". Used as the rescan scope. */
+function bookFolderScope(book) {
+  const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
+  return parts.slice(0, -1).join('/')
+}
+
+/** The "books/{SystemName}" scope for a whole system, derived from any of its books. */
+function systemScope(books) {
+  const ref = (books || []).find((b) => b.relative_path)
+  if (!ref) return null
+  const parts = ref.relative_path.replace(/\\/g, '/').split('/')
+  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null
+}
+
+/** The deepest common folder scope shared by a group of books (their category or
+ *  subfolder dir). Falls back to the system scope when paths diverge. */
+function groupScope(books) {
+  const dirs = (books || []).map(bookFolderScope).filter(Boolean)
+  if (dirs.length === 0) return null
+  const split = dirs.map((d) => d.split('/'))
+  const common = []
+  for (let i = 0; i < split[0].length; i++) {
+    const seg = split[0][i]
+    if (split.every((p) => p[i] === seg)) common.push(seg)
+    else break
+  }
+  return common.length >= 2 ? common.join('/') : systemScope(books)
 }
 
 export default function SystemDetailView() {
@@ -132,6 +164,12 @@ export default function SystemDetailView() {
 
   const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
 
+  // Distinct category slugs already in use across this system's books, so the
+  // book editor can offer them for consistent reuse alongside the defaults.
+  const existingCategories = [
+    ...new Set((system.books || []).map((b) => b.category).filter(Boolean)),
+  ].sort()
+
   const toggleTag = (tag) =>
     setSelectedTags((prev) => {
       const next = new Set(prev)
@@ -217,6 +255,20 @@ export default function SystemDetailView() {
   const card = viewMode === 'card'
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'
+
+  // When searching, surface books whose title/metadata match the query above the
+  // full-text page hits, honouring the same tag/favourite filters as the grid.
+  const matchedBooks = searchResults
+    ? matchBooks(
+        (system.books || []).filter(
+          (book) =>
+            (selectedTags.size === 0 ||
+              [...selectedTags].every((tag) => (book.tags || []).includes(tag))) &&
+            (!favOnly || isFavorite('book', book.id))
+        ),
+        searchResults.query
+      )
+    : []
   // Container for a list of books in the current view mode.
   const booksContainerStyle = list
     ? { display: 'flex', flexDirection: 'column', gap: 8 }
@@ -233,7 +285,7 @@ export default function SystemDetailView() {
     >
       <div
         style={{
-          padding: '32px 40px',
+          padding: 'clamp(20px, 4vw, 32px) clamp(16px, 4vw, 40px)',
           maxWidth: 1200,
           width: '100%',
           margin: '0 auto',
@@ -470,6 +522,13 @@ export default function SystemDetailView() {
                 >
                   <LuDownload size={13} /> {t('systemDetail.downloadAll')}
                 </button>
+                {isEditor && (
+                  <RescanButton
+                    scope={systemScope(system.books)}
+                    compact={false}
+                    label={t('rescan.button.label')}
+                  />
+                )}
               </div>
               {/* Row 2: Collapse / Expand */}
               <div
@@ -643,20 +702,54 @@ export default function SystemDetailView() {
           </div>
         )}
 
-        {/* Search results */}
-        {searchResults && (
+        {/* Matching books (title / metadata) — shown above the page hits so a
+            search finds the book itself, not just the pages inside it. */}
+        {searchResults && matchedBooks.length > 0 && (
           <div style={{ marginBottom: 32 }}>
             <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-              {t('systemDetail.results', {
-                count: searchResults.total,
+              {t('systemDetail.matchingBooks', { count: matchedBooks.length })}
+            </div>
+            <div style={booksContainerStyle}>
+              {matchedBooks.map((book) => (
+                <BookRow
+                  key={book.id}
+                  book={book}
+                  card={card}
+                  compact={compact}
+                  onOpen={() =>
+                    navigate(`/library/book/${book.id}`, {
+                      state: { from: window.location.pathname },
+                    })
+                  }
+                  onEdit={null}
+                  editing={false}
+                  bulkMode={false}
+                  selected={false}
+                  onToggle={() => {}}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nothing matched — neither a book nor a page. */}
+        {searchResults && matchedBooks.length === 0 && searchResults.results.length === 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+              {t('systemDetail.noResultsFound')}
+            </div>
+          </div>
+        )}
+
+        {/* Full-text page results */}
+        {searchResults && searchResults.results.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
+              {t('systemDetail.resultsInPages', {
+                count: searchResults.results.length,
                 query: searchResults.query,
               })}
             </div>
-            {searchResults.total === 0 && (
-              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-                {t('systemDetail.noResultsFound')}
-              </div>
-            )}
             {searchResults.results.map((r, i) => (
               <div
                 key={i}
@@ -791,6 +884,7 @@ export default function SystemDetailView() {
                     >
                       <LuDownload size={11} /> {t('systemDetail.download')}
                     </button>
+                    {isEditor && <RescanButton scope={groupScope(books)} />}
                   </div>
                   {!isCollapsed &&
                     (() => {
@@ -855,6 +949,7 @@ export default function SystemDetailView() {
                                   <BookEditor
                                     book={book}
                                     allTags={allTags}
+                                    existingCategories={existingCategories}
                                     onSave={(updated) => {
                                       saveBook(book.id, updated)
                                       setEditingBookId(null)
@@ -917,6 +1012,7 @@ export default function SystemDetailView() {
                                       <BookEditor
                                         book={book}
                                         allTags={allTags}
+                                        existingCategories={existingCategories}
                                         onSave={(updated) => {
                                           saveBook(book.id, updated)
                                           setEditingBookId(null)

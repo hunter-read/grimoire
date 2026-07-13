@@ -58,7 +58,7 @@ def seed_users(db: Session, data_path: str) -> None:
         deny_explicit = bool(entry.get("denyExplicit", False))
 
         if not username or not password:
-            log.warning(f"Skipping entry with missing username or password")
+            log.warning("Skipping entry with missing username or password")
             skipped += 1
             continue
 

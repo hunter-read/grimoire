@@ -5,9 +5,34 @@ import re
 from typing import Optional, List
 
 from fastapi import HTTPException
+from sqlalchemy import text
 
 from ...models import Campaign, CampaignMember, User
 from ...auth import CurrentUser
+
+
+def delete_guest_user(db, user_id: str) -> None:
+    """Delete a guest User and everything scoped to it.
+
+    Guests are single-campaign accounts, so once their CampaignMember is removed
+    there's nothing left for them — leaving the User (and its session notes /
+    availability, which aren't FK-cascaded off the user) behind would orphan a
+    login-less account. Only ever deletes genuine guest accounts.
+
+    The caller is responsible for deleting the CampaignMember; this cleans up the
+    backing User and its per-user contributions. Does not commit.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user or not user.is_guest:
+        return
+    for table in (
+        "player_session_notes",
+        "session_availability",
+        "bookmarks",
+        "favorites",
+    ):
+        db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
+    db.delete(user)
 
 
 # A GM-only secret span in a wiki body: ||text the players must never see||.
@@ -103,6 +128,8 @@ def build_members(c: Campaign, db) -> list:
             "status": m.status,
             "character_name": m.character_name,
             "is_owner": False,
+            "is_guest": bool(m.is_guest),
+            "guest_code": m.guest_code if m.is_guest else None,
             "campaign_access": _access(all_users.get(m.user_id)),
             "has_art": bool(m.character_art_path),
             "has_sheet": bool(m.character_sheet_path),

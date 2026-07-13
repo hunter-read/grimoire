@@ -1,6 +1,7 @@
 """Tokens package — registers all token routes on a single router."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from ...auth import require_not_guest
 from .core import (
     list_tokens,
     list_token_folders,
@@ -13,12 +14,15 @@ from .core import (
 
 router = APIRouter(tags=["tokens"])
 
+# Browsing the whole token library is blocked for guests; serving an individual
+# token/thumbnail by id is not, so shared campaign resources still render.
 router.add_api_route(
     "/tokens",
     list_tokens,
     methods=["GET"],
     summary="List tokens",
     description="Returns a paginated list of tokens.",
+    dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
     "/token-folders",
@@ -26,6 +30,7 @@ router.add_api_route(
     methods=["GET"],
     summary="List token folders",
     description="Returns all known token folder paths and their associated tags.",
+    dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
     "/token-folders",

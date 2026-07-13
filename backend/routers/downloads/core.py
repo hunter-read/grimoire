@@ -8,6 +8,7 @@ from ...config import SessionLocal
 from ._helpers import (
     _archive_response,
     _can_see_explicit,
+    _files_for_audio_folder,
     _files_for_book_folder,
     _files_for_map_folder,
     _files_for_system,
@@ -19,7 +20,7 @@ from ._helpers import (
 def download_archive(
     type: str = Query(
         ...,
-        description="Scope: system | system_category | book_folder | map_folder | token_folder",
+        description="Scope: system | system_category | book_folder | map_folder | token_folder | audio_folder",
     ),
     fmt: str = Query("zip", description="Archive format: zip | tar | tar.gz | tar.bz2"),
     id: Optional[str] = Query(
@@ -27,7 +28,7 @@ def download_archive(
     ),
     category: Optional[str] = Query(None, description="Book category slug (system_category)"),
     folder: Optional[str] = Query(
-        None, description="Folder path (book_folder / map_folder / token_folder)"
+        None, description="Folder path (book_folder / map_folder / token_folder / audio_folder)"
     ),
     current_user: CurrentUser = Depends(get_current_user),
 ):
@@ -63,6 +64,11 @@ def download_archive(
             if not folder:
                 raise HTTPException(400, "folder is required for type=token_folder")
             files, base = _files_for_token_folder(db, folder, see_explicit)
+
+        elif type == "audio_folder":
+            if not folder:
+                raise HTTPException(400, "folder is required for type=audio_folder")
+            files, base = _files_for_audio_folder(db, folder)
 
         else:
             raise HTTPException(400, f"Unknown type: {type!r}")

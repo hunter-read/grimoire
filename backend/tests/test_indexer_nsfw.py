@@ -1,10 +1,7 @@
 """Tests for (nsfw) folder detection in the library scanner."""
-import os
 import tempfile
-import uuid
 from pathlib import Path
 
-import pytest
 
 from backend.config import SessionLocal
 from backend.models import GameSystem

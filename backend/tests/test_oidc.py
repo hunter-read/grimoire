@@ -1,6 +1,6 @@
 """Tests for OIDC settings, helpers, discovery endpoint, and user resolution."""
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import httpx
 
@@ -9,11 +9,6 @@ from backend.routers.oidc import (
     _permissions_from_claim,
     _resolve_user,
     _OIDCError,
-)
-from backend.routers.settings._helpers import (
-    oidc_effective,
-    oidc_is_configured,
-    oidc_redirect_uri,
 )
 
 
@@ -441,7 +436,6 @@ class TestResolveUser:
 
     def test_auto_register_creates_user(self, client, admin_setup):
         from backend.config import SessionLocal
-        from backend.models import User
         db = SessionLocal()
         try:
             user = _resolve_user(
@@ -472,7 +466,6 @@ class TestResolveUser:
         ).json()
 
         from backend.config import SessionLocal
-        from backend.models import User
         db = SessionLocal()
         try:
             user = _resolve_user(
@@ -611,7 +604,6 @@ class TestResolveUser:
 
     def test_re_login_resyncs_role_from_groups(self, client, admin_setup):
         from backend.config import SessionLocal
-        from backend.models import User
         db = SessionLocal()
         try:
             # First login: gm

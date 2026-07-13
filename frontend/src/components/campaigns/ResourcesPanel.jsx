@@ -5,12 +5,15 @@ import {
   LuPlus,
   LuChevronRight,
   LuChevronDown,
+  LuFolder,
   LuFolderCog,
   LuUpload,
+  LuPlay,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { useUISettings } from '../../context/UISettingsContext'
+import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import Spinner from '../Spinner'
 import CategoryManager from './CategoryManager'
 import { CampaignIcon } from './campaignIcons'
@@ -22,12 +25,14 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const ui = useUISettings()
+  const { playQueue } = useAudioPlayer()
   const isGmCampaign = campaign.is_gm_campaign
 
   const TYPE_LABELS = {
     book: t('resources.books'),
     map: t('resources.maps'),
     token: t('resources.tokens'),
+    audio: t('resources.audio'),
     file: t('resources.files'),
   }
 
@@ -279,6 +284,8 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
           {visibleGroups.map((g) => {
             const TypeIcon = g.type ? TYPE_ICONS[g.type].Icon : LuFolder
             const isCollapsed = collapsed.has(g.key)
+            // Audio resources in this group, for the GM-only group play button.
+            const audioItems = g.items.filter((r) => r.resource_type === 'audio')
             return (
               <section
                 key={g.key}
@@ -286,37 +293,70 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
                 onDrop={isOwner ? () => onDropToGroup(g) : undefined}
                 style={{ marginBottom: 4 }}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleCollapse(g.key)}
-                  aria-expanded={!isCollapsed}
-                  style={{
-                    width: '100%',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.07em',
-                    marginBottom: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    font: 'inherit',
-                  }}
-                >
-                  {isCollapsed ? (
-                    <LuChevronRight size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
-                  ) : (
-                    <LuChevronDown size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapse(g.key)}
+                    aria-expanded={!isCollapsed}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.07em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      font: 'inherit',
+                    }}
+                  >
+                    {isCollapsed ? (
+                      <LuChevronRight size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    ) : (
+                      <LuChevronDown size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    )}
+                    <CampaignIcon name={g.icon} fallback={TypeIcon} size={12} /> {g.label} (
+                    {g.items.length})
+                  </button>
+                  {isOwner && audioItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        playQueue(
+                          audioItems.map((r) => ({
+                            id: r.resource_id,
+                            title: r.name,
+                            artwork: r.has_thumbnail,
+                          }))
+                        )
+                      }
+                      title={t('audio.playGroup')}
+                      aria-label={t('audio.playGroup')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        flexShrink: 0,
+                        padding: '2px 8px',
+                        borderRadius: 5,
+                        fontSize: 11,
+                        color: 'var(--text-dim)',
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-deep)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <LuPlay size={11} /> {t('audio.player.play')}
+                    </button>
                   )}
-                  <CampaignIcon name={g.icon} fallback={TypeIcon} size={12} /> {g.label} (
-                  {g.items.length})
-                </button>
+                </div>
                 {isCollapsed ? null : g.items.length === 0 ? (
                   <div
                     style={{

@@ -9,11 +9,11 @@ import io
 import os
 import uuid
 
-from fastapi import Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
 
 from ...auth import CurrentUser, get_current_user
 from ...config import CAMPAIGN_UPLOAD_DIR, SessionLocal
+from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
 from ._helpers import assert_can_manage, can_view, get_campaign_or_404
 
@@ -115,7 +115,9 @@ def upload_banner(
         db.close()
 
 
-def get_banner(campaign_id: str, current_user: CurrentUser = Depends(get_current_user)):
+def get_banner(
+    campaign_id: str, request: Request, current_user: CurrentUser = Depends(get_current_user)
+):
     db = SessionLocal()
     try:
         c = get_campaign_or_404(db, campaign_id)
@@ -126,7 +128,7 @@ def get_banner(campaign_id: str, current_user: CurrentUser = Depends(get_current
         path = os.path.join(_BANNER_DIR, c.banner_path)
         if not os.path.isfile(path):
             raise HTTPException(404, "No banner")
-        return FileResponse(path)
+        return cached_file_response(request, path)
     finally:
         db.close()
 
@@ -174,7 +176,10 @@ def upload_member_art(
 
 
 def get_member_art(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    member_id: str,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     db = SessionLocal()
     try:
@@ -187,7 +192,7 @@ def get_member_art(
         path = os.path.join(_ART_DIR, member.character_art_path)
         if not os.path.isfile(path):
             raise HTTPException(404, "No art")
-        return FileResponse(path)
+        return cached_file_response(request, path)
     finally:
         db.close()
 
@@ -244,7 +249,10 @@ def upload_member_sheet(
 
 
 def get_member_sheet(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    member_id: str,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     db = SessionLocal()
     try:
@@ -257,8 +265,10 @@ def get_member_sheet(
         path = os.path.join(_SHEET_DIR, member.character_sheet_path)
         if not os.path.isfile(path):
             raise HTTPException(404, "No sheet")
-        return FileResponse(
-            path, filename=member.character_sheet_filename or member.character_sheet_path
+        return cached_file_response(
+            request,
+            path,
+            filename=member.character_sheet_filename or member.character_sheet_path,
         )
     finally:
         db.close()
@@ -473,7 +483,10 @@ def upload_campaign_image(
 
 
 def get_campaign_file(
-    campaign_id: str, file_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    file_id: str,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     from ...models import CampaignFile, CampaignResource, CampaignResourceShare
 
@@ -507,6 +520,8 @@ def get_campaign_file(
         path = os.path.join(_FILES_DIR, cf.stored_path)
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
-        return FileResponse(path, filename=cf.filename, media_type=cf.mime_type)
+        return cached_file_response(
+            request, path, filename=cf.filename, media_type=cf.mime_type
+        )
     finally:
         db.close()

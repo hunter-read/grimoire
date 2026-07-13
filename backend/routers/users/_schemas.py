@@ -25,9 +25,13 @@ def _normalize_email(v: Optional[str]) -> Optional[str]:
 
 class UserCreate(BaseModel):
     username: str
-    password: str
+    # Optional so admins can create OIDC-only accounts when password auth is
+    # disabled. When provided it must still meet the length requirement.
+    password: Optional[str] = None
     role: str = "player"
     email: Optional[str] = None
+    allow_explicit: Optional[bool] = None
+    campaign_access: Optional[bool] = None
 
     @field_validator("role")
     @classmethod
@@ -39,7 +43,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_valid(cls, v):
-        if len(v) < 8:
+        if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
 
@@ -77,6 +81,39 @@ class UserUpdate(BaseModel):
         if v is None or v == "":
             return v
         return _normalize_email(v)
+
+
+class GuestConvert(BaseModel):
+    """Promote a guest to a permanent account. Password is optional because it's
+    only applied when password auth is enabled (validated in the handler)."""
+
+    username: str
+    password: Optional[str] = None
+    role: str = "player"
+
+    @field_validator("username")
+    @classmethod
+    def username_valid(cls, v):
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Username is required")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def role_valid(cls, v):
+        # A guest promoted to a permanent account shouldn't stay a guest.
+        if v not in ROLES or v == "guest":
+            allowed = ", ".join(r for r in ROLES if r != "guest")
+            raise ValueError(f"Role must be one of: {allowed}")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_valid(cls, v):
+        if v is not None and v != "" and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
 
 
 class PasswordChange(BaseModel):

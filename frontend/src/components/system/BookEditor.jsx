@@ -4,8 +4,15 @@ import { LuX } from 'react-icons/lu'
 import api from '../../api'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import { saveBookPrefs, getBookPrefs } from '../../hooks/useBookPrefs'
+import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
 
-export default function BookEditor({ book, onSave, onClose, allTags = [] }) {
+export default function BookEditor({
+  book,
+  onSave,
+  onClose,
+  allTags = [],
+  existingCategories = [],
+}) {
   const { t } = useTranslation()
   const [form, setForm] = useState({
     title: book.title || '',
@@ -21,6 +28,12 @@ export default function BookEditor({ book, onSave, onClose, allTags = [] }) {
   const [saving, setSaving] = useState(false)
   const [progressReset, setProgressReset] = useState(false)
   const hasProgress = !!getBookPrefs(book.id).page
+
+  // Combobox options: built-in categories followed by any custom category slugs
+  // already used in the library (deduped, current value always included).
+  const categorySlugs = [
+    ...new Set([...CATEGORY_ORDER, ...existingCategories, form.category].filter(Boolean)),
+  ]
 
   const field = (label, key, opts = {}) => (
     <div style={{ marginBottom: 10 }}>
@@ -50,10 +63,40 @@ export default function BookEditor({ book, onSave, onClose, allTags = [] }) {
     </div>
   )
 
+  // Editable combobox for Category: a text input backed by a <datalist> so users
+  // can pick a built-in/existing category (shown with its friendly label) or type
+  // a brand-new one. The typed value is slugified on save to match the backend.
+  const categoryField = () => (
+    <div style={{ marginBottom: 10 }}>
+      <label
+        htmlFor="book-field-category"
+        style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}
+      >
+        {t('bookEditor.categoryLabel')}
+      </label>
+      <input
+        id="book-field-category"
+        type="text"
+        list="book-category-options"
+        value={form.category}
+        onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+        style={{ width: '100%', fontSize: 13 }}
+      />
+      <datalist id="book-category-options">
+        {categorySlugs.map((slug) => (
+          <option key={slug} value={slug}>
+            {categoryLabel(slug)}
+          </option>
+        ))}
+      </datalist>
+    </div>
+  )
+
   const handleSave = () => {
     setSaving(true)
     const payload = {
       ...form,
+      category: slugify(form.category) || 'core',
       authors: form.authors
         .split(',')
         .map((a) => a.trim())
@@ -139,7 +182,7 @@ export default function BookEditor({ book, onSave, onClose, allTags = [] }) {
           {field(t('bookEditor.descriptionLabel'), 'description', { textarea: true })}
         </div>
         <div>
-          {field(t('bookEditor.categoryLabel'), 'category')}
+          {categoryField()}
           {field(t('bookEditor.authorsLabel'), 'authors')}
           {field(t('bookEditor.publisherLabel'), 'publisher')}
           {field(t('bookEditor.yearLabel'), 'year')}

@@ -7,13 +7,24 @@ from fastapi.responses import Response
 
 from ...auth import CurrentUser, require_admin
 from ...config import SessionLocal
-from ...models import Book, BookFolder, GameSystem, GenericMap, MapFolder, Token, TokenFolder
+from ...models import (
+    Audio,
+    AudioFolder,
+    Book,
+    BookFolder,
+    GameSystem,
+    GenericMap,
+    MapFolder,
+    Token,
+    TokenFolder,
+)
 
 
 def export_tags(
     include_library: bool = True,
     include_maps: bool = True,
     include_tokens: bool = True,
+    include_audio: bool = True,
     _: CurrentUser = Depends(require_admin),
 ):
     db = SessionLocal()
@@ -78,6 +89,22 @@ def export_tags(
                 for f in db.query(TokenFolder).order_by(TokenFolder.path).all()
             ]
             payload["tokens"] = {"items": tokens, "folders": token_folders}
+
+        if include_audio:
+            audio = [
+                {
+                    "id": a.id,
+                    "name": a.filename,
+                    "folder": "/".join(a.relative_path.split("/")[:-1]),
+                    "tags": a.tags or [],
+                }
+                for a in db.query(Audio).order_by(Audio.filename).all()
+            ]
+            audio_folders = [
+                {"path": f.path, "tags": f.tags or []}
+                for f in db.query(AudioFolder).order_by(AudioFolder.path).all()
+            ]
+            payload["audio"] = {"items": audio, "folders": audio_folders}
 
         date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         filename = f"grimoire-tags-{date_str}.json"

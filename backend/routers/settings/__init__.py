@@ -12,6 +12,8 @@ from ._helpers import get_stats_api_key  # re-exported for library.py
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
+__all__ = ["router", "get_stats_api_key"]
+
 router.add_api_route("", get_settings, methods=["GET"], summary="Get app settings")
 router.add_api_route("", update_settings, methods=["PATCH"], summary="Update app settings")
 router.add_api_route(

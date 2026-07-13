@@ -1,5 +1,4 @@
 """Tests for guess_category(), agnostic_category(), and is_system_agnostic_folder() in the library indexer."""
-import pytest
 from backend.indexer import guess_category, agnostic_category, is_system_agnostic_folder
 
 
@@ -82,9 +81,12 @@ class TestNoSubfolder:
 class TestSubfoldersWithinCategory:
     """Files nested one level deeper than the category folder.
 
-    The category is determined by the *category* folder name (segment 2),
-    not by the subfolder name (segment 3).  The subfolder is preserved in
-    relative_path and used for display grouping only.
+    The category is determined by the *category* folder name (segment 2, the
+    first folder under the system root), not by any deeper subfolder name.  The
+    top-level category folder is the deliberate category the user chose, so it
+    takes priority even when a nested subfolder incidentally matches a different
+    keyword.  Deeper subfolders are preserved in relative_path and used for
+    display grouping only.
     """
 
     def test_adventure_subfolder_still_adventure(self):
@@ -105,11 +107,25 @@ class TestSubfoldersWithinCategory:
         result = guess_category("books/D&D 5e/homebrew/Personal/custom.pdf")
         assert result == "homebrew"
 
-    def test_subfolder_keyword_takes_priority_over_outer_folder(self):
-        # guess_category scans innermost-first, so a subfolder whose name matches
-        # a category keyword takes priority over its parent category folder.
-        # A subfolder named "core" inside "adventures" → returns "core".
+    def test_top_level_category_folder_wins_over_keyword_subfolder(self):
+        # The top-level category folder (segment 2) is the deliberate category
+        # the user chose, so it wins over a deeper subfolder whose name happens
+        # to match a different keyword.  A subfolder named "core" inside
+        # "adventures" → still "adventure" (the top-level folder).
         result = guess_category("books/PF2e/adventures/core/book.pdf")
+        assert result == "adventure"
+
+    def test_companions_subfolder_under_core_stays_core(self):
+        # Regression for the #193 follow-up: a "Companions" subfolder (matches the
+        # "companion" supplement keyword) inside a "core" folder must not override
+        # the deliberate top-level "core" category.
+        result = guess_category("books/Shadowrun 4E/core/Companions/runner.pdf")
+        assert result == "core"
+
+    def test_guide_subfolder_under_core_stays_core(self):
+        # A "DM Guide" subfolder (matches the "guide" supplement keyword) inside a
+        # "Core" folder must stay core, not become a supplement.
+        result = guess_category("books/D&D 5E/Core/DM Guide/dmg.pdf")
         assert result == "core"
 
     def test_non_keyword_subfolder_does_not_override_category_folder(self):

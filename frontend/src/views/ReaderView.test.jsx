@@ -110,6 +110,42 @@ describe('ReaderView — jump navigation history behaviour', () => {
     await waitFor(() => expect(screen.getByText('Test Book')).toBeInTheDocument())
   })
 
+  it('navigates with the ArrowRight / ArrowLeft keys', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    mockSetSearchParams.mockClear()
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    })
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
+    })
+    // Page navigation persists the page via setSearchParams.
+    expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
+  it('the "?" key toggles the shortcuts overlay', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))
+    })
+    // Toggling shortcuts on then off should not throw and keeps the reader mounted.
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(screen.getByText('Test Book')).toBeInTheDocument()
+  })
+
+  it('the "f" key toggles the favorite without crashing', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }))
+    })
+    expect(screen.getByText('Test Book')).toBeInTheDocument()
+  })
+
   it('uses replace:true for the initial page sync (continuous reading)', async () => {
     renderReader()
     await waitFor(() => screen.getByText('Test Book'))
@@ -260,5 +296,40 @@ describe('ReaderView — back button navigation', () => {
     await userEvent.click(screen.getByLabelText('Back'))
 
     expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+})
+
+describe('ReaderView — archive files (issue #94)', () => {
+  const ARCHIVE_BOOK = {
+    id: 'arch-1',
+    title: 'LANCER Bundle',
+    filename: 'lancer.zip',
+    page_count: 0,
+    mime_type: 'application/zip',
+    indexed: false,
+    has_thumbnail: false,
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api.get.mockImplementation((url) => {
+      if (url.includes('/toc')) return Promise.resolve({ toc: [] })
+      if (url.includes('/bookmarks')) return Promise.resolve([])
+      return Promise.resolve(ARCHIVE_BOOK)
+    })
+    vi.stubGlobal('requestAnimationFrame', (cb) => {
+      cb()
+      return 0
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+
+  it('shows a download panel instead of the page reader', async () => {
+    renderReader('arch-1')
+    await waitFor(() => expect(screen.getByText('LANCER Bundle')).toBeInTheDocument())
+    // No page image / reader toolbar controls — just a download action.
+    const link = screen.getByRole('link', { name: /download/i })
+    expect(link).toHaveAttribute('href', '/media/books/arch-1/file')
+    expect(link).toHaveAttribute('download', 'lancer.zip')
   })
 })

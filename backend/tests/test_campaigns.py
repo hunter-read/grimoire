@@ -1,7 +1,7 @@
 """Tests for campaign management endpoints."""
 import uuid
 import pytest
-from backend.tests.conftest import make_campaign, make_game_system, make_book, make_map, make_token
+from backend.tests.conftest import make_campaign, make_game_system, make_book, make_map
 
 
 def uid():
@@ -318,6 +318,56 @@ class TestMembers:
             headers=gm_headers,
         )
         assert resp.status_code == 404
+
+
+class TestPendingInvites:
+    """GET /api/campaigns/invites — the current user's pending invitations."""
+
+    @pytest.fixture(scope="class")
+    def invite_campaign(self, client, gm_headers, gm_id):
+        resp = client.post(
+            "/api/campaigns",
+            json={"name": f"Invite Test {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201
+        return resp.json()
+
+    def test_lists_pending_invite(self, client, gm_headers, player_headers, player_id, invite_campaign):
+        client.post(
+            f"/api/campaigns/{invite_campaign['id']}/invite",
+            json={"user_id": player_id},
+            headers=gm_headers,
+        )
+        resp = client.get("/api/campaigns/invites", headers=player_headers)
+        assert resp.status_code == 200
+        ids = [i["campaign_id"] for i in resp.json()]
+        assert invite_campaign["id"] in ids
+        entry = next(i for i in resp.json() if i["campaign_id"] == invite_campaign["id"])
+        assert entry["name"] == invite_campaign["name"]
+        assert "owner_display_name" in entry
+
+    def test_only_own_invites_visible(self, client, gm_headers, invite_campaign):
+        # The GM (owner) is not an invited member, so they see no invites here.
+        resp = client.get("/api/campaigns/invites", headers=gm_headers)
+        assert resp.status_code == 200
+        ids = [i["campaign_id"] for i in resp.json()]
+        assert invite_campaign["id"] not in ids
+
+    def test_accepting_removes_from_invites(
+        self, client, gm_headers, player_headers, player_id, invite_campaign
+    ):
+        client.patch(
+            f"/api/campaigns/{invite_campaign['id']}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        resp = client.get("/api/campaigns/invites", headers=player_headers)
+        ids = [i["campaign_id"] for i in resp.json()]
+        assert invite_campaign["id"] not in ids
+
+    def test_unauthenticated_denied(self, client):
+        assert client.get("/api/campaigns/invites").status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -768,7 +818,7 @@ class TestSchedule:
 # ---------------------------------------------------------------------------
 
 
-class TestResourceSearch:
+class TestResourceSearchAccess:
     def test_search_returns_list(self, client, gm_headers):
         resp = client.get("/api/campaigns/resources/search?q=", headers=gm_headers)
         assert resp.status_code == 200
@@ -1068,6 +1118,130 @@ class TestCharacterUploads:
         assert m["has_art"] is False
 
 
+class TestUploadCaching:
+    """Uploaded/served files carry cache validators + Cache-Control, revalidate
+    to 304, and change their validator when the file is replaced (issue #154)."""
+
+    @pytest.fixture()
+    def member(self, client, gm_headers, player_headers, player_id):
+        c = client.post(
+            "/api/campaigns",
+            json={"name": f"Cache {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        client.post(
+            f"/api/campaigns/{c['id']}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        client.patch(
+            f"/api/campaigns/{c['id']}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        body = client.get(f"/api/campaigns/{c['id']}", headers=gm_headers).json()
+        member_id = next(m["id"] for m in body["members"] if not m.get("is_owner"))
+        return c, member_id
+
+    def _upload_banner(self, client, gm_headers, cid, color=(120, 80, 200)):
+        resp = client.post(
+            f"/api/campaigns/{cid}/banner",
+            files={"file": ("banner.png", _png_bytes(color), "image/png")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+    def test_banner_has_cache_headers(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        img = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers)
+        assert img.status_code == 200
+        assert "private" in img.headers["cache-control"]
+        assert "max-age=" in img.headers["cache-control"]
+        assert img.headers.get("etag")
+        assert img.headers.get("last-modified")
+
+    def test_banner_conditional_request_returns_304(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        first = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers)
+        etag = first.headers["etag"]
+        revalidated = client.get(
+            f"/api/campaigns/{c['id']}/banner",
+            headers={**gm_headers, "If-None-Match": etag},
+        )
+        assert revalidated.status_code == 304
+
+    def test_if_modified_since_returns_304(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        first = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers)
+        last_modified = first.headers["last-modified"]
+        revalidated = client.get(
+            f"/api/campaigns/{c['id']}/banner",
+            headers={**gm_headers, "If-Modified-Since": last_modified},
+        )
+        assert revalidated.status_code == 304
+
+    def test_wildcard_if_none_match_returns_304(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"])
+        revalidated = client.get(
+            f"/api/campaigns/{c['id']}/banner",
+            headers={**gm_headers, "If-None-Match": "*"},
+        )
+        assert revalidated.status_code == 304
+
+    def test_reupload_changes_validator(self, client, gm_headers, member):
+        c, _ = member
+        self._upload_banner(client, gm_headers, c["id"], color=(10, 20, 30))
+        etag = client.get(f"/api/campaigns/{c['id']}/banner", headers=gm_headers).headers["etag"]
+        # A differently sized/mtimed image invalidates the mtime+size-derived ETag.
+        self._upload_banner(client, gm_headers, c["id"], color=(200, 200, 200))
+        new_etag = client.get(
+            f"/api/campaigns/{c['id']}/banner", headers=gm_headers
+        ).headers["etag"]
+        assert new_etag != etag
+
+    def test_art_and_sheet_have_cache_headers(self, client, gm_headers, member):
+        c, member_id = member
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/art",
+            files={"file": ("art.png", _png_bytes(), "image/png")},
+            headers=gm_headers,
+        )
+        art = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/art", headers=gm_headers
+        )
+        assert art.status_code == 200
+        assert "max-age=" in art.headers["cache-control"]
+        assert art.headers.get("etag")
+
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
+            files={"file": ("hero.pdf", b"%PDF-1.4 fake", "application/pdf")},
+            headers=gm_headers,
+        )
+        sheet = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet", headers=gm_headers
+        )
+        assert sheet.status_code == 200
+        assert "max-age=" in sheet.headers["cache-control"]
+        assert sheet.headers.get("etag")
+
+    def test_campaign_file_has_cache_headers(self, client, gm_headers, member):
+        c, _ = member
+        res = client.post(
+            f"/api/campaigns/{c['id']}/files",
+            files={"file": ("h.txt", b"hello world", "text/plain")},
+            headers=gm_headers,
+        ).json()
+        dl = client.get(
+            f"/api/campaigns/{c['id']}/files/{res['resource_id']}", headers=gm_headers
+        )
+        assert dl.status_code == 200
+        assert "max-age=" in dl.headers["cache-control"]
+        assert dl.headers.get("etag")
+
+
 # ---------------------------------------------------------------------------
 # In-app character sheets: AcroForm fields + duplicate from a template
 # ---------------------------------------------------------------------------
@@ -1112,61 +1286,6 @@ class TestCharacterSheetInApp:
         member_id = next(m["id"] for m in body["members"] if not m.get("is_owner"))
         return c, member_id
 
-    def _upload_form_sheet(self, client, headers, c, member_id):
-        return client.post(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
-            files={"file": ("hero.pdf", _form_pdf_bytes(), "application/pdf")},
-            headers=headers,
-        )
-
-    def test_fields_reports_fillable_and_lists_widgets(self, client, player_headers, member):
-        c, member_id = member
-        assert self._upload_form_sheet(client, player_headers, c, member_id).status_code == 200
-        resp = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        )
-        assert resp.status_code == 200, resp.text
-        body = resp.json()
-        assert body["fillable"] is True
-        assert [f["name"] for f in body["fields"]] == ["name"]
-        assert body["fields"][0]["type"] == "text"
-
-    def test_save_fields_persists_value(self, client, player_headers, member):
-        c, member_id = member
-        self._upload_form_sheet(client, player_headers, c, member_id)
-        resp = client.put(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields",
-            json={"fields": {"name": "Aragorn"}},
-            headers=player_headers,
-        )
-        assert resp.status_code == 200, resp.text
-        # Re-read to confirm persistence.
-        again = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        ).json()
-        assert again["fields"][0]["value"] == "Aragorn"
-
-    def test_fields_not_fillable_for_image_sheet(self, client, player_headers, member):
-        c, member_id = member
-        client.post(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
-            files={"file": ("sheet.png", _png_bytes(), "image/png")},
-            headers=player_headers,
-        )
-        resp = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        )
-        assert resp.status_code == 200
-        assert resp.json() == {"fillable": False, "fields": []}
-
-    def test_unrelated_user_cannot_edit_fields(self, client, player_headers, admin_headers, member):
-        c, member_id = member
-        self._upload_form_sheet(client, player_headers, c, member_id)
-        resp = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=admin_headers
-        )
-        assert resp.status_code == 403
-
     def test_duplicate_from_campaign_file(self, client, gm_headers, player_headers, member):
         c, member_id = member
         # GM uploads a form-fillable PDF as a campaign file.
@@ -1185,10 +1304,11 @@ class TestCharacterSheetInApp:
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["character_sheet_filename"] == "blank.pdf"
-        fields = client.get(
-            f"/api/campaigns/{c['id']}/members/{member_id}/sheet/fields", headers=player_headers
-        ).json()
-        assert fields["fillable"] is True
+        # The duplicated sheet is served back and can be fetched for in-app editing.
+        got = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet", headers=player_headers
+        )
+        assert got.status_code == 200
 
     def test_duplicate_from_library_book(self, client, player_headers, member):
         c, member_id = member

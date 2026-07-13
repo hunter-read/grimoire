@@ -1,14 +1,14 @@
-"""In-app character sheet handlers: read/write AcroForm fields and duplicate
-a blank form-fillable sheet from the library or a campaign file.
+"""Character sheet source handlers: duplicate a blank form-fillable sheet from
+the library or a campaign file, and list what's available to duplicate.
 
 These complement the upload/download/delete handlers in `uploads.py`. A member's
-sheet lives at DATA_PATH/campaign_uploads/sheets/{member_id}.{ext}; for in-app
-editing it must be a form-fillable PDF (AcroForm widgets).
+sheet lives at DATA_PATH/campaign_uploads/sheets/{member_id}.{ext}. In-app
+editing is done client-side (pdf.js fills the form and re-uploads the copy), so
+the backend only needs to serve the file and manage these blank-sheet sources.
 """
 
 import os
 import shutil
-import tempfile
 
 from fastapi import Body, Depends, HTTPException
 
@@ -24,143 +24,6 @@ from .uploads import (
     _get_member_or_404,
     _remove_existing,
 )
-
-# Map PyMuPDF widget field types to a small, frontend-friendly vocabulary.
-_FIELD_TYPE_NAMES = {
-    "text": "text",
-    "checkbox": "checkbox",
-    "radiobutton": "radio",
-    "combobox": "combobox",
-    "listbox": "listbox",
-}
-
-
-def _member_sheet_pdf_path(member) -> str:
-    """Disk path of the member's sheet if it is a PDF, else raise 400/404."""
-    if not member.character_sheet_path:
-        raise HTTPException(404, "No sheet")
-    if not member.character_sheet_path.lower().endswith(".pdf"):
-        raise HTTPException(400, "Character sheet is not a PDF")
-    path = os.path.join(_SHEET_DIR, member.character_sheet_path)
-    if not os.path.isfile(path):
-        raise HTTPException(404, "No sheet")
-    return path
-
-
-def _field_type(widget) -> str:
-    """Normalize a widget's field type to our vocabulary (empty if unsupported)."""
-    raw = (widget.field_type_string or "").lower()
-    return _FIELD_TYPE_NAMES.get(raw, "")
-
-
-def _read_fields(path: str) -> list:
-    """Return the AcroForm fields of a PDF as a list of dicts (may be empty)."""
-    import fitz  # PyMuPDF
-
-    fields = []
-    seen = set()
-    doc = fitz.open(path)
-    try:
-        for page in doc:
-            for w in page.widgets() or []:
-                name = w.field_name
-                if not name or name in seen:
-                    continue
-                ftype = _field_type(w)
-                if not ftype:
-                    continue
-                seen.add(name)
-                value = w.field_value
-                if ftype == "checkbox":
-                    value = bool(value) and str(value).lower() not in ("off", "no", "false", "0")
-                field = {"name": name, "type": ftype, "value": value}
-                if ftype in ("combobox", "listbox", "radio"):
-                    opts = w.choice_values if ftype != "radio" else None
-                    if opts:
-                        # choice_values entries may be [export, display] pairs.
-                        field["options"] = [
-                            o[0] if isinstance(o, (list, tuple)) else o for o in opts
-                        ]
-                fields.append(field)
-    finally:
-        doc.close()
-    return fields
-
-
-def get_member_sheet_fields(
-    campaign_id: str,
-    member_id: str,
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    """Return whether the member's sheet is a fillable PDF and its form fields."""
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        member = _get_member_or_404(db, campaign_id, member_id)
-        _assert_can_edit_member(c, member, current_user)
-
-        if not member.character_sheet_path or not member.character_sheet_path.lower().endswith(
-            ".pdf"
-        ):
-            return {"fillable": False, "fields": []}
-        path = os.path.join(_SHEET_DIR, member.character_sheet_path)
-        if not os.path.isfile(path):
-            return {"fillable": False, "fields": []}
-
-        fields = _read_fields(path)
-        return {"fillable": bool(fields), "fields": fields}
-    finally:
-        db.close()
-
-
-def save_member_sheet_fields(
-    campaign_id: str,
-    member_id: str,
-    fields: dict = Body(..., embed=True),
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    """Write field values back into the member's PDF and return the new state."""
-    import fitz  # PyMuPDF
-
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        member = _get_member_or_404(db, campaign_id, member_id)
-        _assert_can_edit_member(c, member, current_user)
-        path = _member_sheet_pdf_path(member)
-
-        doc = fitz.open(path)
-        try:
-            changed = False
-            for page in doc:
-                for w in page.widgets() or []:
-                    name = w.field_name
-                    if name in fields:
-                        value = fields[name]
-                        if w.field_type_string and w.field_type_string.lower() == "checkbox":
-                            # Checkboxes take their "on" state name or "Off".
-                            states = (w.button_states() or {}).get("normal") or []
-                            on_state = next((s for s in states if s != "Off"), "Yes")
-                            w.field_value = on_state if value else "Off"
-                        else:
-                            w.field_value = "" if value is None else str(value)
-                        w.update()
-                        changed = True
-            if changed:
-                fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=_SHEET_DIR)
-                os.close(fd)
-                doc.save(tmp, garbage=3, deflate=True)
-                doc.close()
-                os.replace(tmp, path)
-            else:
-                doc.close()
-        except Exception:
-            doc.close()
-            raise
-
-        return {"fillable": True, "fields": _read_fields(path)}
-    finally:
-        db.close()
 
 
 def duplicate_member_sheet(

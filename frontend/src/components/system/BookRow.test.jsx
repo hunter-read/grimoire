@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import BookRow from './BookRow'
 import * as FavCtx from '../../context/FavoritesContext'
 import * as api from '../../api'
@@ -11,6 +11,12 @@ vi.mock('../../context/FavoritesContext', () => ({
 vi.mock('../../api', () => ({
   default: {},
   mediaUrl: (path) => `http://localhost${path}`,
+}))
+
+// Control reading progress so the progress-bar branches can be exercised.
+const mockGetBookPrefs = vi.fn(() => ({ page: 0 }))
+vi.mock('../../hooks/useBookPrefs', () => ({
+  getBookPrefs: (id) => mockGetBookPrefs(id),
 }))
 
 function makeBook(overrides = {}) {
@@ -92,6 +98,23 @@ describe('BookRow', () => {
     )
     const badge = screen.getByText('Image Only')
     expect(badge.title).toBe('This PDF contains only scanned images — no text layer to search')
+  })
+
+  // --- OCR badge ---
+
+  it('shows "OCR" badge when indexed via OCR (index_error is ocr)', () => {
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} onOpen={() => {}} />)
+    expect(screen.getByText('OCR')).toBeInTheDocument()
+  })
+
+  it('does not show the plain "Indexed" badge for OCR-indexed books', () => {
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} onOpen={() => {}} />)
+    expect(screen.queryByText('Indexed')).not.toBeInTheDocument()
+  })
+
+  it('"OCR" badge has the correct tooltip', () => {
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} onOpen={() => {}} />)
+    expect(screen.getByText('OCR').title).toBe('Full-text indexed via OCR (scanned pages)')
   })
 
   // --- index_failed badge ---
@@ -190,5 +213,179 @@ describe('BookRow', () => {
     expect(
       screen.getByRole('button', { name: /add to favorites|remove from favorites/i })
     ).toBeInTheDocument()
+  })
+
+  // --- archive files (issue #94) ---
+
+  const archiveBook = (overrides = {}) =>
+    makeBook({
+      id: 'arch-1',
+      title: 'LANCER Bundle',
+      filename: 'lancer.zip',
+      mime_type: 'application/zip',
+      ...overrides,
+    })
+
+  it('clicking an archive downloads it instead of opening the reader', () => {
+    const onOpen = vi.fn()
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    render(<BookRow book={archiveBook()} onOpen={onOpen} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open lancer bundle/i }))
+
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(clickSpy).toHaveBeenCalled()
+    clickSpy.mockRestore()
+  })
+
+  it('clicking a normal (pdf) book opens the reader', () => {
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook({ mime_type: 'application/pdf' })} onOpen={onOpen} />)
+    fireEvent.click(screen.getByRole('button', { name: /open player's handbook/i }))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('clicking an archive in card view downloads it', () => {
+    const onOpen = vi.fn()
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    render(<BookRow book={archiveBook()} onOpen={onOpen} card />)
+    fireEvent.click(screen.getByRole('button', { name: /open lancer bundle/i }))
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(clickSpy).toHaveBeenCalled()
+    clickSpy.mockRestore()
+  })
+
+  // --- grid layouts (card / compact) ---
+
+  it('renders a thumbnail image in card view when has_thumbnail is set', () => {
+    render(<BookRow book={makeBook({ id: 'b9', has_thumbnail: true })} onOpen={() => {}} card />)
+    const img = document.querySelector('img')
+    expect(img).toBeTruthy()
+    expect(img.getAttribute('src')).toContain('/books/b9/thumbnail')
+  })
+
+  it('renders in compact view with the title visible', () => {
+    render(<BookRow book={makeBook()} onOpen={() => {}} compact />)
+    expect(screen.getByText("Player's Handbook")).toBeInTheDocument()
+  })
+
+  it('keyboard Enter triggers open in card view', () => {
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook({ mime_type: 'application/pdf' })} onOpen={onOpen} card />)
+    fireEvent.keyDown(screen.getByRole('button', { name: /open player's handbook/i }), {
+      key: 'Enter',
+    })
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('card view shows the selection checkbox and toggles in bulk mode', () => {
+    const onToggle = vi.fn()
+    render(
+      <BookRow
+        book={makeBook()}
+        onOpen={() => {}}
+        card
+        bulkMode
+        selected={false}
+        onToggle={onToggle}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open player's handbook/i }))
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the reading-progress marker in the list layout', () => {
+    mockGetBookPrefs.mockReturnValueOnce({ page: 160 })
+    render(<BookRow book={makeBook({ page_count: 320 })} onOpen={() => {}} />)
+    expect(screen.getByText('p. 160')).toBeInTheDocument()
+  })
+
+  it('renders the progress bar in card view when partway through', () => {
+    mockGetBookPrefs.mockReturnValueOnce({ page: 80 })
+    render(<BookRow book={makeBook({ page_count: 320 })} onOpen={() => {}} card />)
+    // The card still renders its title alongside the progress bar.
+    expect(screen.getByText("Player's Handbook")).toBeInTheDocument()
+  })
+
+  it('reveals row actions on hover (mouse enter/leave)', () => {
+    render(<BookRow book={makeBook()} onOpen={() => {}} />)
+    const row = screen.getByRole('button', { name: /open player's handbook/i })
+    fireEvent.mouseEnter(row)
+    fireEvent.mouseOver(row)
+    fireEvent.mouseOut(row)
+    fireEvent.mouseLeave(row)
+    expect(row).toBeInTheDocument()
+  })
+
+  it('Space key opens a normal book', () => {
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook({ mime_type: 'application/pdf' })} onOpen={onOpen} />)
+    fireEvent.keyDown(screen.getByRole('button', { name: /open player's handbook/i }), {
+      key: ' ',
+    })
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the compact layout with a progress bar', () => {
+    mockGetBookPrefs.mockReturnValueOnce({ page: 40 })
+    render(
+      <BookRow
+        book={makeBook({ page_count: 320, has_thumbnail: true })}
+        onOpen={() => {}}
+        compact
+      />
+    )
+    expect(screen.getByText("Player's Handbook")).toBeInTheDocument()
+  })
+
+  it('archive without a filename still triggers a download click', () => {
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    render(<BookRow book={archiveBook({ filename: undefined })} onOpen={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /open lancer bundle/i }))
+    expect(clickSpy).toHaveBeenCalled()
+    clickSpy.mockRestore()
+  })
+
+  // --- inline actions (favorite / edit / download click) ---
+
+  it('clicking the favorite button toggles favorite and stops propagation', () => {
+    const toggleFavorite = vi.fn()
+    FavCtx.useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite })
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook()} onOpen={onOpen} />)
+    fireEvent.click(screen.getByRole('button', { name: /add to favorites/i }))
+    expect(toggleFavorite).toHaveBeenCalledWith('book', 'book-1')
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('clicking the download link does not open the book', () => {
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook()} onOpen={onOpen} />)
+    fireEvent.click(screen.getByRole('link', { name: /download/i }))
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('clicking edit in the list layout calls onEdit and not onOpen', () => {
+    const onEdit = vi.fn()
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook()} onOpen={onOpen} onEdit={onEdit} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('clicking edit in card view calls onEdit and not onOpen', () => {
+    const onEdit = vi.fn()
+    const onOpen = vi.fn()
+    render(<BookRow book={makeBook()} onOpen={onOpen} onEdit={onEdit} card />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('renders book tags in the list layout', () => {
+    render(<BookRow book={makeBook({ tags: ['official', 'errata'] })} onOpen={() => {}} />)
+    expect(screen.getByText('Official')).toBeInTheDocument()
+    expect(screen.getByText('Errata')).toBeInTheDocument()
   })
 })

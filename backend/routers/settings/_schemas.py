@@ -13,17 +13,20 @@ class SettingsPatch(BaseModel):
     stats_api_key: Optional[str] = None  # set to "" to clear
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
+    hide_audio: Optional[bool] = None
     hide_campaigns: Optional[bool] = None
     show_stat_systems: Optional[bool] = None
     show_stat_books: Optional[bool] = None
     show_stat_pages: Optional[bool] = None
     show_stat_maps: Optional[bool] = None
     show_stat_tokens: Optional[bool] = None
+    show_stat_audio: Optional[bool] = None
     show_stat_size: Optional[bool] = None
     campaign_uploads_disabled: Optional[bool] = None
     campaign_upload_max_file_mb: Optional[int] = None
     campaign_upload_max_total_mb: Optional[int] = None
     password_auth_enabled: Optional[bool] = None
+    guest_access_enabled: Optional[bool] = None
     custom_login_message_enabled: Optional[bool] = None
     custom_login_message: Optional[str] = None  # HTML (sanitized on save)
     # OIDC config

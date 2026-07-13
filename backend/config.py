@@ -21,12 +21,19 @@ THUMB_DIR = os.path.join(DATA_PATH, "thumbnails")
 PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 CAMPAIGN_UPLOAD_DIR = os.path.join(DATA_PATH, "campaign_uploads")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
-_PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
-# When true, non-admin users cannot change their own password via /users/me/password.
-# Admins can still reset any user's password via /users/{user_id}.
-# Intended for OIDC-only deployments where passwords are managed externally.
-DISABLE_PASSWORD_CHANGE = os.environ.get("DISABLE_PASSWORD_CHANGE", "false").lower() == "true"
+# OCR: image-only PDFs (scanned pages with no embedded text layer) can be run
+# through Tesseract so their text is added to the full-text index. The default
+# image bundles Tesseract + English; the `-slim` image omits it and degrades
+# gracefully (image-only PDFs stay unindexed). OCR is auto-disabled when the
+# tesseract binary is absent, so no config is needed to turn it off on slim.
+#   OCR_ENABLED   — "false" force-disables OCR even when tesseract is present.
+#   OCR_LANGUAGES — Tesseract language codes, e.g. "eng" or "eng+deu+fra".
+#                   Extra languages need their tessdata files present (bundle
+#                   them by mounting a tessdata dir and setting TESSDATA_PREFIX).
+OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
+OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
+_PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
 # Optional override for password authentication. When the env var is set,
 # it pins the value and the admin UI shows a read-only state. When unset,
@@ -44,6 +51,12 @@ def _bool_env(name: str) -> Optional[bool]:
     if raw is None:
         return None
     return raw.strip().lower() == "true"
+
+
+# Optional override for guest invite codes. When set, it pins the value and the
+# admin UI shows a read-only state. When unset, the DB setting
+# (guest_access_enabled) is used.
+GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 
 
 # OIDC env-var pins. When set, each individual field is locked and the UI
@@ -78,7 +91,17 @@ _CONSOLE_LEVEL = getattr(logging, _LOG_LEVEL_NAME, logging.INFO)
 _LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=_LOG_FORMAT)
 
-for _noisy in ("uvicorn", "uvicorn.access", "uvicorn.error", "fastapi", "sqlalchemy.engine"):
+for _noisy in (
+    "uvicorn",
+    "uvicorn.access",
+    "uvicorn.error",
+    "fastapi",
+    "sqlalchemy.engine",
+    # redis-py 7+ logs a benign DEBUG line on connect when the server (Valkey /
+    # OSS Redis) doesn't support its "maintenance notifications" probe. We only
+    # use it as a page cache, so keep that noise out of the log buffer.
+    "redis",
+):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 for _h in logging.root.handlers:
@@ -211,6 +234,10 @@ if VALKEY_URL:
     try:
         import redis as _redis_mod  # type: ignore[import-untyped]
 
+        # Note: redis-py 7+ probes for "maintenance notifications" (a Redis
+        # Enterprise feature) on connect under RESP3; Valkey/OSS Redis reject it
+        # and redis-py logs a benign DEBUG line. That logger is quieted above —
+        # we only use this as a page cache and don't need the feature.
         _valkey = _redis_mod.from_url(VALKEY_URL, decode_responses=False)
         _valkey.ping()
         logger.info(f"Valkey page cache connected: {VALKEY_URL}")

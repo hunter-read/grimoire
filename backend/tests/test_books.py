@@ -235,3 +235,127 @@ class TestImageBookPage:
         )
         resp = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
         assert resp.status_code == 404
+
+
+class TestServeBookFile:
+    """Direct file download endpoint — covers PDFs and archive files (issue #94)."""
+
+    @pytest.fixture(scope="module")
+    def sys(self):
+        return make_game_system()
+
+    def _make_file_book(self, system_id, suffix, mime_type, content):
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+            f.write(content)
+            fpath = f.name
+        book = make_book(
+            system_id=system_id,
+            title=f"File Book {suffix}",
+            filename=f"file{suffix}",
+            filepath=fpath,
+            mime_type=mime_type,
+        )
+        return book, fpath
+
+    def test_pdf_file_served(self, client, admin_headers, sys):
+        book, fpath = self._make_file_book(sys.id, ".pdf", "application/pdf", b"%PDF-1.4 hi")
+        try:
+            resp = client.get(f"/api/books/{book.id}/file", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "application/pdf"
+            assert "inline" in resp.headers["content-disposition"]
+            # The reader frames this file in a same-origin <iframe> (PDF mode), so
+            # the response must relax the global frame-ancestors 'none' to 'self'
+            # (which Firefox strictly enforces) while still blocking cross-origin
+            # framing. See backend/security.py SAME_ORIGIN_FRAME_HEADERS.
+            assert resp.headers["X-Frame-Options"] == "SAMEORIGIN"
+            csp = resp.headers["Content-Security-Policy"]
+            assert "frame-ancestors 'self'" in csp
+            assert "frame-ancestors 'none'" not in csp
+        finally:
+            os.unlink(fpath)
+
+    def test_archive_file_served(self, client, admin_headers, sys):
+        book, fpath = self._make_file_book(
+            sys.id, ".zip", "application/zip", b"PK\x03\x04payload"
+        )
+        try:
+            resp = client.get(f"/api/books/{book.id}/file", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "application/zip"
+            assert resp.content == b"PK\x03\x04payload"
+        finally:
+            os.unlink(fpath)
+
+    def test_nonexistent_book_returns_404(self, client, admin_headers):
+        resp = client.get("/api/books/no-such-book/file", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_missing_file_marks_book_missing(self, client, admin_headers, sys):
+        book = make_book(
+            system_id=sys.id,
+            title="Gone Book",
+            filename="gone.zip",
+            filepath="/nonexistent/path/gone.zip",
+            mime_type="application/zip",
+        )
+        resp = client.get(f"/api/books/{book.id}/file", headers=admin_headers)
+        assert resp.status_code == 404
+        detail = client.get(f"/api/books/{book.id}", headers=admin_headers).json()
+        assert detail["is_missing"] is True
+
+
+class TestServeBookThumbnail:
+    @pytest.fixture(scope="module")
+    def sys(self):
+        return make_game_system()
+
+    def test_thumbnail_not_found_returns_404(self, client, admin_headers, sys):
+        book = make_book(
+            system_id=sys.id,
+            title="No Thumb Book",
+            filename="nothumb.zip",
+            filepath="/tmp/nothumb-unique-xyz.zip",
+            mime_type="application/zip",
+        )
+        resp = client.get(f"/api/books/{book.id}/thumbnail", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_thumbnail_served_when_present(self, client, admin_headers, sys):
+        import hashlib
+
+        from backend.config import THUMB_DIR
+
+        fpath = "/tmp/thumb-present-unique-xyz.cbz"
+        book = make_book(
+            system_id=sys.id,
+            title="Thumb Book",
+            filename="thumb.cbz",
+            filepath=fpath,
+            mime_type="application/vnd.comicbook+zip",
+            has_thumbnail=True,
+        )
+        fhash = hashlib.md5(fpath.encode()).hexdigest()[:8]
+        thumb_dir = os.path.join(THUMB_DIR, "books")
+        os.makedirs(thumb_dir, exist_ok=True)
+        thumb_path = os.path.join(thumb_dir, f"thumb_{fhash}.webp")
+        with open(thumb_path, "wb") as f:
+            f.write(b"RIFF\x00\x00\x00\x00WEBP")
+        try:
+            resp = client.get(f"/api/books/{book.id}/thumbnail", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/webp"
+        finally:
+            os.unlink(thumb_path)
+
+    def test_thumbnail_nonexistent_book_returns_404(self, client, admin_headers):
+        resp = client.get("/api/books/no-such-book/thumbnail", headers=admin_headers)
+        assert resp.status_code == 404
+
+
+class TestListBooksMimeType:
+    def test_list_includes_mime_type(self, client, admin_headers, book):
+        resp = client.get("/api/books", headers=admin_headers)
+        assert resp.status_code == 200
+        books = resp.json()["books"]
+        assert all("mime_type" in b for b in books)

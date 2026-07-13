@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuFolder, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
+import { LuFolder, LuChevronDown, LuChevronRight, LuDownload, LuPlay } from 'react-icons/lu'
 import MediaCard from './MediaCard'
 import FolderTagRow from './FolderTagRow'
 import FolderCheckbox from '../FolderCheckbox'
 import LazyGrid from '../LazyGrid'
+import RescanButton from '../RescanButton'
 import { toTitleCase } from '../../utils'
-
-const isMobilePhone = window.matchMedia('(max-width: 640px)').matches
+import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import useIsMobile from '../../hooks/useIsMobile'
 
 const zipBtnStyle = {
   display: 'inline-flex',
@@ -50,11 +51,14 @@ export default function MediaFolderGroup({
   onDownload,
 }) {
   const { t } = useTranslation()
+  const isMobilePhone = useIsMobile(640)
   const { i18n, archiveType, countKey } = config
+  const { playQueue } = useAudioPlayer()
   const [editingRoot, setEditingRoot] = useState(false)
   const isCollapsed = collapsed.has(folder)
   const allInGroup = Object.values(subfolders).flat()
   const total = allInGroup.length
+  const isAudio = !!config.audioFileUrl
   const topLevelTags = folderTags[folder] ?? []
 
   const groupFolderChecked =
@@ -89,7 +93,7 @@ export default function MediaFolderGroup({
         }}
       >
         {/* Top row: chevron + icon + name + dot leader + count */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {bulkMode && (
             <FolderCheckbox
               checked={groupFolderChecked}
@@ -149,6 +153,21 @@ export default function MediaFolderGroup({
           <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
             {t(`${i18n}.${countKey}`, { count: total })}
           </span>
+          {!bulkMode && isAudio && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                const tracks = allInGroup
+                  .filter((i) => !i.is_missing)
+                  .map((i) => ({ id: i.id, title: i.title || i.filename, artwork: i.has_artwork }))
+                playQueue(tracks)
+              }}
+              style={zipBtnStyle}
+              title={t('audio.playFolder', { folder })}
+            >
+              <LuPlay size={11} /> {t('audio.player.play')}
+            </button>
+          )}
           {!bulkMode && (
             <button
               onClick={(e) => {
@@ -164,6 +183,7 @@ export default function MediaFolderGroup({
               <LuDownload size={11} /> {t(`${i18n}.download`)}
             </button>
           )}
+          {!bulkMode && canTag && <RescanButton scope={`${i18n}/${folder}`} />}
         </div>
 
         {/* Tags row (desktop only — mobile shows tags below when expanded) */}
@@ -315,6 +335,7 @@ export default function MediaFolderGroup({
                           >
                             <LuDownload size={11} /> {t(`${i18n}.download`)}
                           </button>
+                          {canTag && <RescanButton scope={`${i18n}/${folder}/${subPath}`} />}
                         </>
                       )}
                       {editingFolder === editKey && !isMobilePhone && (

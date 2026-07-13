@@ -1,0 +1,15 @@
+[tool.ruff]
+# Match the runtime target and keep line length aligned with the existing code.
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# Seeded ruleset that fits the existing PEP 8 code:
+#   E/W  pycodestyle    F  pyflakes (unused imports/vars, undefined names)
+select = ["E", "W", "F"]
+ignore = [
+    "E501",   # line length is enforced by `ruff format`, not the linter
+    # SQLAlchemy filter expressions require `== True` / `!= True`; the Pythonic
+    # `not column` rewrite ruff suggests changes the generated SQL and is wrong.
+    "E712",
+]

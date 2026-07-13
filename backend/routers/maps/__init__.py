@@ -1,6 +1,7 @@
 """Maps package — registers all map routes on a single router."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from ...auth import require_not_guest
 from .core import (
     list_maps,
     list_map_folders,
@@ -13,12 +14,15 @@ from .core import (
 
 router = APIRouter(tags=["maps"])
 
+# Browsing the whole map library is blocked for guests; serving an individual
+# map/thumbnail by id is not, so shared campaign resources still render.
 router.add_api_route(
     "/maps",
     list_maps,
     methods=["GET"],
     summary="List maps",
-    description="Returns a paginated list of maps. Filter by `map_type`.",
+    description="Returns a paginated list of maps. Filter by `map_type` or `folder`.",
+    dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
     "/map-folders",
@@ -26,6 +30,7 @@ router.add_api_route(
     methods=["GET"],
     summary="List map folders",
     description="Returns all known map folder paths and their associated tags.",
+    dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
     "/map-folders",

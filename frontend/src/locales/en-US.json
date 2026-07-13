@@ -17,7 +17,8 @@
     "logOut": "Log out",
     "more": "More",
     "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar"
+    "expandSidebar": "Expand sidebar",
+    "audio": "Audio"
   },
   "stats": {
     "systems": "Systems",
@@ -26,7 +27,8 @@
     "maps": "Maps",
     "tokens": "Tokens",
     "size": "Size",
-    "version": "Version"
+    "version": "Version",
+    "audio": "Audio"
   },
   "about": {
     "title": "About Grimoire",
@@ -94,7 +96,11 @@
     "or": "or",
     "oidcDefault": "Sign in with SSO",
     "oidcError": "Single sign-on failed: {{error}}",
-    "oidcLoginFailed": "Single sign-on succeeded but the session could not be established."
+    "oidcLoginFailed": "Single sign-on succeeded but the session could not be established.",
+    "haveInviteCode": "Have an invite code?",
+    "inviteCode": "Invite Code",
+    "enterAsGuest": "Enter as Guest",
+    "guestInvalidCode": "Invalid or expired invite code."
   },
   "setup": {
     "title": "First-Time Setup",
@@ -125,7 +131,10 @@
       "list": "List",
       "toggle": "Change view",
       "toggleWithMode": "Change view (currently {{mode}})"
-    }
+    },
+    "cancelBulk": "Cancel",
+    "noTagMatch": "No systems match the selected tags.",
+    "filterByTag": "Filter by {{tag}}"
   },
   "systemDetail": {
     "backToLibrary": "Back to Library",
@@ -145,7 +154,11 @@
     "showLess": "Show less",
     "clearTags": "Clear",
     "download": "Download",
-    "backToLibrary2": "Back to Library"
+    "backToLibrary2": "Back to Library",
+    "matchingBooks_one": "{{count}} matching book",
+    "matchingBooks_other": "{{count}} matching books",
+    "resultsInPages_one": "{{count}} result in pages for \"{{query}}\"",
+    "resultsInPages_other": "{{count}} results in pages for \"{{query}}\""
   },
   "reader": {
     "back": "Back",
@@ -172,7 +185,8 @@
     "shortcutClose": "Close panels",
     "spreadCover": "Cover",
     "spreadIncludeCover": "Include cover in spread (pair pages 1-2, 3-4…)",
-    "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)"
+    "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)",
+    "archiveNotViewable": "This is an archive file and cannot be viewed in the reader. Download it to open its contents."
   },
   "search": {
     "title": "Search Your Library",
@@ -193,7 +207,8 @@
     "groupedBy": "{{count}} page",
     "groupedBy_other": "{{count}} pages",
     "expandBook": "Expand {{title}}",
-    "collapseBook": "Collapse {{title}}"
+    "collapseBook": "Collapse {{title}}",
+    "audio": "Audio"
   },
   "favorites": {
     "title": "Favorites",
@@ -204,7 +219,8 @@
     "maps": "Maps ({{count}})",
     "tokens": "Tokens ({{count}})",
     "onlyFavorites": "Favorites only",
-    "noFavoritesInView": "No favorites here yet. Click the heart icon on any item to save it."
+    "noFavoritesInView": "No favorites here yet. Click the heart icon on any item to save it.",
+    "audio": "Audio ({{count}})"
   },
   "maps": {
     "title": "Maps",
@@ -234,6 +250,9 @@
       "title": "Map Details",
       "back": "Back to maps",
       "details": "Details",
+      "previous": "Previous map",
+      "next": "Next map",
+      "position": "{{current}} of {{total}}",
       "location": "Location",
       "fileSize": "File Size",
       "resolution": "Resolution",
@@ -367,6 +386,12 @@
       "autoRegister": "Auto-register",
       "autoRegisterHint": "Automatically create new local accounts on first OIDC login. Without this, users must already exist locally.",
       "saveFailed": "Could not save."
+    },
+    "guestAccess": {
+      "title": "Guest Access",
+      "description": "Allow GMs and admins to create guest invite codes for their campaigns. Guests get a code-based, locked-down account scoped to a single campaign.",
+      "enable": "Enable guest invite codes",
+      "envLocked": "Locked by the GUEST_ACCESS_ENABLED environment variable (current value: {{value}})."
     }
   },
   "userSettings": {
@@ -433,6 +458,7 @@
       "viewModeBooks": "Books",
       "viewModeMaps": "Maps",
       "viewModeTokens": "Tokens",
+      "viewModeAudio": "Audio",
       "recentLimit": "Recently opened books",
       "recentLimitHint": "How many recently opened books to remember (0–{{max}}). Set to 0 to hide the section."
     },
@@ -460,7 +486,8 @@
       "description": "Hide sections from the sidebar and mobile navigation for all users.",
       "hideMaps": "Hide Maps",
       "hideTokens": "Hide Tokens",
-      "hideCampaigns": "Hide Campaigns"
+      "hideCampaigns": "Hide Campaigns",
+      "hideAudio": "Hide Audio"
     },
     "sidebarStats": {
       "title": "Sidebar Stats",
@@ -533,7 +560,12 @@
       "toggleLabel": "Campaigns",
       "none": "No campaigns.",
       "loadFailed": "Failed to load campaigns."
-    }
+    },
+    "permissions": "Permissions",
+    "noPermissions": "None",
+    "ownedCampaigns": "Owned campaigns",
+    "deleteUserShort": "Delete user",
+    "emailLabel": "Email"
   },
   "maintenance": {
     "rescan": {
@@ -559,7 +591,9 @@
       "booksProgress": "{{scanned}}/{{total}} books",
       "mapsProgress": "{{scanned}}/{{total}} maps",
       "tokensProgress": "{{scanned}}/{{total}} tokens",
-      "indexProgress": "{{pct}}% — {{indexed}} of {{total}} PDFs indexed"
+      "indexProgress": "{{pct}}% — {{indexed}} of {{total}} PDFs indexed",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated"
     },
     "scheduledRescan": {
       "title": "Scheduled Rescan",
@@ -587,12 +621,13 @@
     },
     "tagExport": {
       "title": "Export Tags",
-      "description": "Download all tags assigned to books, maps, tokens, systems, and folders as a JSON file.",
+      "description": "Download all tags assigned to books, maps, tokens, audio, systems, and folders as a JSON file.",
       "button": "Export Tags",
       "exporting": "Exporting…",
       "library": "Library",
       "maps": "Maps",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "audio": "Audio"
     },
     "cleanup": {
       "title": "Database Cleanup",
@@ -652,7 +687,14 @@
     "gm": "GM: {{name}}",
     "unknownGm": "Unknown",
     "nextSession": "Next session",
-    "openNotes": "Notes"
+    "openNotes": "Notes",
+    "inviteBanner": {
+      "title": "Pending invitations",
+      "single": "{{gm}} invited you to join {{name}}.",
+      "multi": "You have {{count}} pending campaign invitations.",
+      "view": "View",
+      "dismiss": "Dismiss"
+    }
   },
   "campaignDetail": {
     "backToCampaigns": "Campaigns",
@@ -779,7 +821,9 @@
     "replaceSheet": "Replace sheet",
     "replaceSheetWarning": "Uploading a new sheet replaces the current one. The previous version cannot be recovered.",
     "downloadCurrent": "Download current",
-    "replace": "Replace"
+    "replace": "Replace",
+    "saveCopy": "Save copy",
+    "sheetEditError": "Could not open or save this sheet. It may not be a valid PDF."
   },
   "sessions": {
     "title": "Session Notes",
@@ -911,7 +955,8 @@
     "uploadFile": "Upload file",
     "uploading": "Uploading…",
     "emptyCategory": "Drag resources here",
-    "deleteFileConfirm": "Remove this file? It will be deleted from the campaign."
+    "deleteFileConfirm": "Remove this file? It will be deleted from the campaign.",
+    "audio": "Audio"
   },
   "download": {
     "title": "Download Archive",
@@ -1026,6 +1071,8 @@
     "indexedTitle": "Full-text indexed",
     "imageOnly": "Image Only",
     "imageOnlyTitle": "This PDF contains only scanned images — no text layer to search",
+    "ocrIndexed": "OCR",
+    "ocrIndexedTitle": "Full-text indexed via OCR (scanned pages)",
     "indexFailed": "Index Failed",
     "indexFailedTitle": "Index failed",
     "indexFailedWithError": "Index failed: {{error}}",
@@ -1046,6 +1093,7 @@
   },
   "wiki": {
     "newPage": "New Page",
+    "backToPages": "Pages",
     "searchPlaceholder": "Search pages…",
     "noPages": "No pages yet.",
     "selectPrompt": "Select a page, or create a new one.",
@@ -1087,6 +1135,7 @@
     "embed_book": "Book",
     "embed_map": "Map",
     "embed_token": "Token",
+    "embed_audio": "Audio",
     "embedBookPage": "Book — p. {{page}}",
     "parentLabel": "Parent page",
     "noParent": "Top level",
@@ -1166,6 +1215,122 @@
     "field_gridSize": "Grid size",
     "field_explicit": "Explicit content",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "field_genre": "Genre",
+    "field_characterBuilderUrl": "Character Builder URL"
+  },
+  "guests": {
+    "guests": "Guests",
+    "guest": "Guest",
+    "add": "Add",
+    "none": "No guests yet.",
+    "nicknamePlaceholder": "Guest nickname",
+    "share": "Share invite",
+    "regenerate": "Regenerate code",
+    "remove": "Remove guest",
+    "confirmRemove": "Remove this guest? Their account and contributions will be deleted.",
+    "shareTitle": "Share guest invite",
+    "copyMessage": "Copy message",
+    "copyForDiscord": "Copy for Discord",
+    "email": "Email",
+    "copied": "Copied!",
+    "name": "Name",
+    "campaign": "Campaign",
+    "invitedBy": "Invited by",
+    "actions": "Actions",
+    "convert": "Convert",
+    "converting": "Converting…",
+    "convertFailed": "Failed to convert guest.",
+    "usernamePlaceholder": "Username"
+  },
+  "rescan": {
+    "button": {
+      "label": "Rescan",
+      "title": "Rescan this folder"
+    },
+    "modal": {
+      "title": "Rescan",
+      "wholeLibrary": "This will rescan the entire library.",
+      "scopeLabel": "Scope: {{scope}}",
+      "confirm": "Start rescan",
+      "cancel": "Cancel"
+    },
+    "modes": {
+      "new": {
+        "label": "Find new files",
+        "description": "Add newly added files and flag any that have gone missing. Existing entries are left as-is."
+      },
+      "missing": {
+        "label": "Update missing metadata",
+        "description": "Also fill in empty fields from sidecar files (OPF, tags.json). Fields you've already set are kept."
+      },
+      "replace": {
+        "label": "Replace all metadata",
+        "description": "Overwrite metadata with whatever the sidecar files provide.",
+        "warning": "This overwrites fields you've edited in the UI."
+      }
+    }
+  },
+  "audio": {
+    "title": "Audio",
+    "subtitle_one": "{{count}} track in your collection",
+    "subtitle_other": "{{count}} tracks in your collection",
+    "filterPlaceholder": "Filter audio…",
+    "filterAriaLabel": "Filter audio",
+    "bulkTag": "Bulk Tag",
+    "cancelBulk": "Cancel",
+    "bulkHint": "Click folder headers or audio cards to select them, then add tags below.",
+    "tagsPlaceholder": "Tags to add, comma-separated…",
+    "addTags": "Add Tags",
+    "applying": "Applying…",
+    "noAudioFilter": "No audio matches your filter.",
+    "noAudio": "No audio found. Add audio to /library/audio/ and rescan.",
+    "audioCount_one": "{{count}} track",
+    "audioCount_other": "{{count}} tracks",
+    "expandFolder": "Expand {{folder}}",
+    "collapseFolder": "Collapse {{folder}}",
+    "downloadAllInFolder": "Download all audio in {{folder}}",
+    "downloadInSubfolder": "Download audio in {{folder}}",
+    "editTags": "Edit",
+    "editTagsFull": "Edit tags",
+    "download": "Download",
+    "missing": "Missing",
+    "play": "Play",
+    "pause": "Pause",
+    "detail": {
+      "title": "Track Details",
+      "back": "Back to audio",
+      "details": "Details",
+      "location": "Location",
+      "fileSize": "File Size",
+      "trackTitle": "Title",
+      "artist": "Artist",
+      "album": "Album",
+      "duration": "Duration",
+      "folderTags": "Folder Tags",
+      "trackTags": "Track Tags",
+      "editTags": "Edit",
+      "noTags": "None"
+    },
+    "player": {
+      "title": "Now Playing",
+      "play": "Play",
+      "untitled": "Untitled track",
+      "queue": "Queue",
+      "emptyQueue": "Queue is empty",
+      "previous": "Previous track",
+      "next": "Next track",
+      "repeatOn": "Repeat current track: on",
+      "repeatOff": "Repeat current track: off",
+      "playNext": "Play next",
+      "toggleQueue": "Show queue",
+      "close": "Close player",
+      "seek": "Seek",
+      "removeFromQueue": "Remove from queue",
+      "reorder": "Drag to reorder"
+    },
+    "playFolder": "Play {{folder}}",
+    "playGroup": "Play audio",
+    "playAll": "Play all"
   }
 }

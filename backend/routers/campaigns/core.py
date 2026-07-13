@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException
 from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import SessionLocal
 from ...models import (
+    Audio,
     Book,
     Campaign,
     CampaignMember,
@@ -19,6 +20,7 @@ from ._helpers import (
     assert_can_manage,
     build_members,
     can_view,
+    delete_guest_user,
     get_campaign_or_404,
     is_gm_or_admin,
     serialize_campaign,
@@ -88,7 +90,55 @@ def list_campaigns(current_user: CurrentUser = Depends(get_current_user)):
         db.close()
 
 
+def list_invites(current_user: CurrentUser = Depends(get_current_user)):
+    """Pending campaign invitations for the current user.
+
+    Returns the minimal fields the app-level invite banner needs: one entry per
+    GM campaign the user has been invited to but not yet accepted or declined.
+    """
+    db = SessionLocal()
+    try:
+        invited = (
+            db.query(CampaignMember)
+            .filter(
+                CampaignMember.user_id == current_user.id,
+                CampaignMember.status == "invited",
+            )
+            .all()
+        )
+        if not invited:
+            return []
+        campaign_ids = {m.campaign_id for m in invited}
+        campaigns = {
+            c.id: c
+            for c in db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
+        }
+        owner_ids = {c.owner_id for c in campaigns.values()}
+        owners = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()}
+        result = []
+        for m in invited:
+            c = campaigns.get(m.campaign_id)
+            if not c:
+                continue
+            owner = owners.get(c.owner_id)
+            result.append(
+                {
+                    "campaign_id": c.id,
+                    "name": c.name,
+                    "description": c.description,
+                    "owner_display_name": (owner.display_name or owner.username)
+                    if owner
+                    else "",
+                }
+            )
+        return result
+    finally:
+        db.close()
+
+
 def create_campaign(data: CampaignCreate, current_user: CurrentUser = Depends(get_current_user)):
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot create campaigns")
     if data.is_gm_campaign and not is_gm_or_admin(current_user):
         raise HTTPException(403, "Only GMs and admins can create GM-run campaigns")
 
@@ -121,7 +171,7 @@ def create_campaign(data: CampaignCreate, current_user: CurrentUser = Depends(ge
             seen = set()
             order = 0
             for r in data.resources:
-                if r.resource_type not in ("book", "map", "token", "file"):
+                if r.resource_type not in ("book", "map", "token", "audio", "file"):
                     continue
                 key = (r.resource_type, r.resource_id)
                 if key in seen:
@@ -242,13 +292,15 @@ def search_resources_global(
     limit: int = 30,
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Search across books, maps, and tokens for the resource picker.
+    """Search across books, maps, tokens, and audio for the resource picker.
 
-    Books match on title and can be narrowed by game system. Maps and tokens
-    match on their folder path *first*, then filename, so a folder name like
-    "Abyssal Fall (30x49)" surfaces every map inside it. Folder-path matches are
+    Books match on title and can be narrowed by game system. Maps, tokens, and
+    audio match on their folder path *first*, then filename, so a folder name like
+    "Abyssal Fall (30x49)" surfaces every item inside it. Folder-path matches are
     ranked above filename-only matches.
     """
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot browse the library")
     db = SessionLocal()
     try:
         results = []
@@ -270,23 +322,30 @@ def search_resources_global(
                         }
                     )
 
-        # Maps/tokens: prefer folder-path matches, then filename matches.
+        # Maps/tokens/audio: prefer folder-path matches, then filename matches.
         def _media_results(rtype, model):
             folder_hits, name_hits = [], []
             for item in db.query(model).order_by(model.filename).limit(1000).all():
                 folder = _resource_folder(item.relative_path)
+                # Audio has no thumbnail; use its artwork flag and prefer its title.
+                if rtype == "audio":
+                    name = item.title or item.filename
+                    has_thumb = bool(item.has_artwork)
+                else:
+                    name = item.filename
+                    has_thumb = item.has_thumbnail
                 row = {
                     "resource_type": rtype,
                     "resource_id": item.id,
-                    "name": item.filename,
+                    "name": name,
                     "subtitle": folder,
-                    "has_thumbnail": item.has_thumbnail,
+                    "has_thumbnail": has_thumb,
                 }
                 if not q:
                     name_hits.append(row)
                 elif q_lower in folder.lower():
                     folder_hits.append(row)
-                elif q_lower in (item.filename or "").lower():
+                elif q_lower in (name or "").lower():
                     name_hits.append(row)
             return folder_hits + name_hits
 
@@ -295,6 +354,9 @@ def search_resources_global(
 
         if not resource_type or resource_type == "token":
             results.extend(_media_results("token", Token))
+
+        if not resource_type or resource_type == "audio":
+            results.extend(_media_results("audio", Audio))
 
         return results[:limit]
     finally:
@@ -307,6 +369,8 @@ def suggested_resources(system_id: str, current_user: CurrentUser = Depends(get_
     Core-category books are flagged `suggested` so the wizard can pre-select them;
     nothing else is suggested. Ordered with suggested (core) books first.
     """
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot browse the library")
     db = SessionLocal()
     try:
         books = db.query(Book).filter_by(game_system_id=system_id).order_by(Book.title).all()
@@ -433,7 +497,12 @@ def remove_member(
             db.query(CampaignMember).filter_by(campaign_id=campaign_id, user_id=user_id).first()
         )
         if member:
+            was_guest = bool(member.is_guest)
             db.delete(member)
+            # A guest is single-campaign, so removing them from it leaves nothing
+            # behind — delete the backing guest account and its contributions too.
+            if was_guest:
+                delete_guest_user(db, user_id)
             db.commit()
     finally:
         db.close()
@@ -479,7 +548,15 @@ def eligible_members(campaign_id: str, current_user: CurrentUser = Depends(get_c
         existing = {
             m.user_id for m in db.query(CampaignMember).filter_by(campaign_id=campaign_id).all()
         }
-        users = db.query(User).filter(User.id != c.owner_id).all()
+        # Guests are not invitable here — they're created via the guest panel.
+        users = (
+            db.query(User)
+            .filter(
+                User.id != c.owner_id,
+                (User.is_guest == False) | (User.is_guest.is_(None)),  # noqa: E712
+            )
+            .all()
+        )
         return [
             {
                 "id": u.id,
