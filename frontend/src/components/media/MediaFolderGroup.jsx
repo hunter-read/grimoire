@@ -317,6 +317,25 @@ export default function MediaFolderGroup({
                             onSave={(newTags) => onSaveFolderTags(folderPath, newTags)}
                             onCancel={() => onSetEditingFolder(null)}
                           />
+                          {isAudio && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const tracks = subItems
+                                  .filter((i) => !i.is_missing)
+                                  .map((i) => ({
+                                    id: i.id,
+                                    title: i.title || i.filename,
+                                    artwork: i.has_artwork,
+                                  }))
+                                playQueue(tracks)
+                              }}
+                              style={zipBtnStyle}
+                              title={t('audio.playFolder', { folder: subPath })}
+                            >
+                              <LuPlay size={11} /> {t('audio.player.play')}
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()

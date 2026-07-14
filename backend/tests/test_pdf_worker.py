@@ -136,6 +136,159 @@ def test_main_writes_pickled_result(tmp_path):
     assert used_ocr is False
 
 
+def test_run_text_only_skips_ocr(tmp_path):
+    """text_only=True never OCRs: an image-only page yields no pages."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+
+    called = {"ocr": False}
+
+    def _spy(*a, **k):
+        called["ocr"] = True
+        return "should not run"
+
+    with patch.object(pdf_worker, "_ocr_settings", return_value=(True, "eng")):
+        with patch.object(pdf_worker, "_ocr_page", side_effect=_spy):
+            pages, used_ocr = pdf_worker.run(str(pdf), text_only=True)
+
+    assert pages == []
+    assert used_ocr is False
+    assert called["ocr"] is False
+
+
+def test_run_text_only_keeps_text_layer(tmp_path):
+    """text_only still reads embedded text; it only skips OCR of image pages."""
+    pdf = tmp_path / "mixed.pdf"
+    _make_text_pdf(pdf, ["Real text here"])
+
+    pages, used_ocr = pdf_worker.run(str(pdf), text_only=True)
+    assert pages == [{"page": 1, "content": "Real text here"}]
+    assert used_ocr is False
+
+
+def test_ocr_page_single(tmp_path):
+    """ocr_page OCRs one image-only page and returns its text."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+
+    with patch.object(pdf_worker, "_ocr_page", return_value="page text"):
+        out = pdf_worker.ocr_page(str(pdf), 0, "eng")
+    assert out == "page text"
+
+
+def test_ocr_page_skips_text_layer_pages(tmp_path):
+    """ocr_page returns "" for a page that already has a text layer (no dup)."""
+    pdf = tmp_path / "text.pdf"
+    _make_text_pdf(pdf, ["Already has text"])
+
+    with patch.object(pdf_worker, "_ocr_page", return_value="unexpected") as m:
+        out = pdf_worker.ocr_page(str(pdf), 0, "eng")
+    assert out == ""
+    assert not m.called
+
+
+def test_ocr_scale_default(monkeypatch):
+    monkeypatch.delenv("OCR_DPI", raising=False)
+    assert pdf_worker._ocr_scale() == 150.0 / 72.0
+
+
+def test_ocr_scale_reads_env(monkeypatch):
+    monkeypatch.setenv("OCR_DPI", "300")
+    assert pdf_worker._ocr_scale() == 300.0 / 72.0
+
+
+def test_ocr_scale_clamps_and_handles_bad_value(monkeypatch):
+    monkeypatch.setenv("OCR_DPI", "5000")
+    assert pdf_worker._ocr_scale() == 600.0 / 72.0  # clamped high
+    monkeypatch.setenv("OCR_DPI", "10")
+    assert pdf_worker._ocr_scale() == 72.0 / 72.0  # clamped low
+    monkeypatch.setenv("OCR_DPI", "bogus")
+    assert pdf_worker._ocr_scale() == 150.0 / 72.0  # fallback
+
+
+def test_ocr_page_uses_configured_dpi(tmp_path, monkeypatch):
+    """_ocr_page renders at the OCR_DPI-derived scale."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+    doc = fitz.open(str(pdf))
+    page = doc[0]
+
+    monkeypatch.setenv("OCR_DPI", "72")  # scale 1.0 → smaller pixmap
+    fake_tess = MagicMock()
+    fake_tess.image_to_string.return_value = "x"
+    captured = {}
+    real_get_pixmap = page.get_pixmap
+
+    def spy(*a, **k):
+        captured["matrix"] = k.get("matrix")
+        return real_get_pixmap(*a, **k)
+
+    page.get_pixmap = spy
+    with patch.dict(sys.modules, {"pytesseract": fake_tess}):
+        pdf_worker._ocr_page(page, "eng")
+    doc.close()
+    # 72 DPI → scale 1.0 identity matrix
+    assert captured["matrix"] == fitz.Matrix(1.0, 1.0)
+
+
+def test_ocr_scale_explicit_dpi_overrides_env(monkeypatch):
+    monkeypatch.setenv("OCR_DPI", "150")
+    # Explicit per-book DPI wins over the env default.
+    assert pdf_worker._ocr_scale(300) == 300.0 / 72.0
+    # None falls back to the env value.
+    assert pdf_worker._ocr_scale(None) == 150.0 / 72.0
+
+
+def test_ocr_scale_explicit_dpi_clamped(monkeypatch):
+    assert pdf_worker._ocr_scale(9000) == 600.0 / 72.0
+    assert pdf_worker._ocr_scale(1) == 72.0 / 72.0
+
+
+def test_ocr_page_threads_explicit_dpi(tmp_path):
+    """_ocr_page renders at the scale derived from an explicit DPI override."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+    doc = fitz.open(str(pdf))
+    page = doc[0]
+    real_get_pixmap = page.get_pixmap
+    captured = {}
+
+    def spy(*a, **k):
+        captured["matrix"] = k.get("matrix")
+        return real_get_pixmap(*a, **k)
+
+    page.get_pixmap = spy
+    fake_tess = MagicMock()
+    fake_tess.image_to_string.return_value = "x"
+    with patch.dict(sys.modules, {"pytesseract": fake_tess}):
+        pdf_worker._ocr_page(page, "eng", dpi=288)  # 288/72 = 4.0
+    doc.close()
+    assert captured["matrix"] == fitz.Matrix(4.0, 4.0)
+
+
+def test_ocr_page_main_passes_dpi(tmp_path):
+    """ocr_page_main forwards its dpi argument to ocr_page."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+    result_path = tmp_path / "out.pkl"
+    with patch.object(pdf_worker, "ocr_page", return_value="ok") as m:
+        pdf_worker.ocr_page_main(str(pdf), 0, "eng", str(result_path), dpi=250)
+    assert m.call_args.kwargs.get("dpi") == 250
+
+
+def test_ocr_page_main_writes_pickled_text(tmp_path):
+    """ocr_page_main pickles the recognised text to result_path."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+    result_path = tmp_path / "out.pkl"
+
+    with patch.object(pdf_worker, "_ocr_page", return_value="recognised"):
+        pdf_worker.ocr_page_main(str(pdf), 0, "eng", str(result_path))
+
+    with open(result_path, "rb") as fh:
+        assert pickle.load(fh) == "recognised"
+
+
 def test_worker_imports_no_heavy_backend_modules():
     """Importing pdf_worker must not pull in backend.config (DB/Valkey/Alembic).
 

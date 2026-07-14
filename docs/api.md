@@ -8,8 +8,8 @@ The live API is self-documented via OpenAPI. With the server running:
 
 | URL | Description |
 |-----|-------------|
-| `http://localhost:9481/api/docs` | **Swagger UI** — interactive, try-it-out docs |
-| `http://localhost:9481/api/redoc` | **ReDoc** — clean, readable reference |
+| `http://localhost:9481/api/docs` | **Swagger UI** - interactive, try-it-out docs |
+| `http://localhost:9481/api/redoc` | **ReDoc** - clean, readable reference |
 | `http://localhost:9481/api/openapi.json` | Raw OpenAPI schema |
 ---
 
@@ -31,7 +31,7 @@ Tokens are returned by `/api/auth/login` and expire after **30 days**.
 
 ### Rate limiting
 
-The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and `/api/stats` — are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](../README.md#security-hardening).
+The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and `/api/stats` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](../README.md#security-hardening).
 
 ### Roles
 
@@ -49,20 +49,20 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/health` | GET | — | Unauthenticated readiness probe used by the container `HEALTHCHECK`. Checks the database (always) and Valkey (only when configured). Returns `200` with `{"status": "ok", "checks": {...}}` when all dependencies are reachable, or `503` with `{"status": "unhealthy", ...}` otherwise. |
+| `/api/health` | GET | - | Unauthenticated readiness probe used by the container `HEALTHCHECK`. Checks the database (always) and Valkey (only when configured). Returns `200` with `{"status": "ok", "checks": {...}}` when all dependencies are reachable, or `503` with `{"status": "unhealthy", ...}` otherwise. |
 
 ### Auth
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/auth/status` | GET | — | Returns `{"initialized": bool}` — used by the frontend to decide whether to show first-run setup |
-| `/api/auth/config` | GET | — | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
-| `/api/auth/setup` | POST | — | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}`. Fails with 400 if any users exist. |
-| `/api/auth/login` | POST | — | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`). Returns 403 if password authentication is disabled. |
-| `/api/auth/guest-login` | POST | — | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` — `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
+| `/api/auth/status` | GET | - | Returns `{"initialized": bool}` - used by the frontend to decide whether to show first-run setup |
+| `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
+| `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}`. Fails with 400 if any users exist. |
+| `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`). Returns 403 if password authentication is disabled. |
+| `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
 | `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}` |
-| `/api/auth/openid/login` | GET | — | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
-| `/api/auth/openid/callback` | GET | — | OIDC callback. Validates the code, finds/creates the local user, and redirects to the frontend with `#oidc_token=<jwt>`. |
+| `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
+| `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, and redirects to the frontend with `#oidc_token=<jwt>`. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
 ### Users
@@ -85,7 +85,7 @@ The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/ap
 |----------|--------|------|-------------|
 | `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size |
 | `/api/about` | GET | any (JWT) | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so these details aren't readable via the `X-API-Key` fallback. |
-| `/api/scan-status` | GET | admin | Current scan state |
+| `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. |
 | `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode) |
 | `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job |
 
@@ -108,7 +108,7 @@ the safe way to surface library counts on an external dashboard. Generate a key
 as an admin under **Settings → App Settings → Stats API Key** (regenerate or
 revoke it there at any time).
 
-**Homepage Custom API widget** — add this to your Homepage `services.yaml`
+**Homepage Custom API widget** - add this to your Homepage `services.yaml`
 ([Custom API widget docs](https://gethomepage.dev/widgets/services/customapi/)):
 
 ```yaml
@@ -122,16 +122,16 @@ revoke it there at any time).
       headers:
         X-API-Key: your-key-here
       mappings:
-        - field: books
+ - field: books
           label: Books
           format: number
-        - field: maps
+ - field: maps
           label: Maps
           format: number
-        - field: tokens
+ - field: tokens
           label: Tokens
           format: number
-        - field: total_size_mb
+ - field: total_size_mb
           label: Size
           format: float
           scale: 0.001
@@ -139,7 +139,7 @@ revoke it there at any time).
 ```
 
 Homepage shows up to four fields per row; pick the counts you care about from the
-available fields below. Use a `refreshInterval` of 60s or higher — `/api/stats`
+available fields below. Use a `refreshInterval` of 60s or higher - `/api/stats`
 is rate limited.
 
 | Field | Meaning | Suggested `format` |
@@ -151,7 +151,7 @@ is rate limited.
 | `audio` | Total audio tracks | `number` |
 | `indexed_books` | Books with a searchable full-text index | `number` |
 | `total_pages` | Sum of all book page counts | `number` |
-| `total_size_mb` | Total library size in MB | `float` — add `scale: 0.001` + `suffix: " GB"` to show GB |
+| `total_size_mb` | Total library size in MB | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
 
 **Scan-status response:**
 ```json
@@ -197,7 +197,7 @@ Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a sc
 ```json
 {"status": "stop_requested"}
 ```
-Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is cooperative — the running scan checks for the stop signal after each file and exits at the next safe checkpoint. Poll `/api/scan-status` until `running` is `false` to confirm it has stopped.
+Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is cooperative - the running scan checks for the stop signal after each file and exits at the next safe checkpoint. Poll `/api/scan-status` until `running` is `false` to confirm it has stopped.
 
 ### Game Systems
 
@@ -218,6 +218,7 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
 | `/api/books/:id` | GET | any | Book detail with game system |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `publisher`, `publisher_url`, `year`, `is_explicit` |
+| `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background — poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
 | `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail |
 | `/api/books/:id/toc` | GET | any | PDF table of contents as `{title, page, level, children}[]` |
@@ -279,7 +280,7 @@ Item types: `book`, `map`, `token`, `audio`, `system`
 
 ### Bookmarks
 
-Bookmarks are per-user — users cannot see or modify each other's bookmarks.
+Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -317,8 +318,8 @@ Bookmarks are per-user — users cannot see or modify each other's bookmarks.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/campaigns` | GET | any | List own + invited campaigns (admins see only their own here). Each item includes `has_banner`, `next_session` (next scheduled date or null), and `last_accessed_at`. |
-| `/api/campaigns` | POST | any (gm/admin for `is_gm_campaign: true`) | Create campaign. Body: `{name, description?, is_gm_campaign?, gm_title?, system_id?, system_name?, parent_campaign_id?, resources?}`. `description` accepts markdown. `system_name` is free text for a system not in the library (ignored when `system_id` is set). `resources` is an explicit list of `{resource_type, resource_id, visibility?, shared_user_ids?}` to link — omit it (or send `[]`) to link nothing. No resources are auto-added. Returns 403 if the user's `campaign_access` is disabled. |
-| `/api/campaigns/:id` | GET | owner or member | Campaign detail with members and resources. Includes `has_banner` and `locked` (`true` when the owner's `campaign_access` is disabled — the campaign is then read-only for everyone, owner-management endpoints return 403, members keep read access) plus `owner_has_campaign_access`. Each member includes `id`, `has_art`, `has_sheet`, `character_sheet_filename`, and `campaign_access` (false → flagged as a disabled user). Opening this endpoint records `last_accessed_at` (drives recently-accessed sorting on the campaigns list). |
+| `/api/campaigns` | POST | any (gm/admin for `is_gm_campaign: true`) | Create campaign. Body: `{name, description?, is_gm_campaign?, gm_title?, system_id?, system_name?, parent_campaign_id?, resources?}`. `description` accepts markdown. `system_name` is free text for a system not in the library (ignored when `system_id` is set). `resources` is an explicit list of `{resource_type, resource_id, visibility?, shared_user_ids?}` to link - omit it (or send `[]`) to link nothing. No resources are auto-added. Returns 403 if the user's `campaign_access` is disabled. |
+| `/api/campaigns/:id` | GET | owner or member | Campaign detail with members and resources. Includes `has_banner` and `locked` (`true` when the owner's `campaign_access` is disabled - the campaign is then read-only for everyone, owner-management endpoints return 403, members keep read access) plus `owner_has_campaign_access`. Each member includes `id`, `has_art`, `has_sheet`, `character_sheet_filename`, and `campaign_access` (false → flagged as a disabled user). Opening this endpoint records `last_accessed_at` (drives recently-accessed sorting on the campaigns list). |
 | `/api/campaigns/:id` | PATCH | owner | Update `name`, `description` (markdown), `gm_title`, `system_id`, `system_name`, `parent_campaign_id`. Setting `system_id` clears `system_name` and vice-versa (`system_name: ""` clears it). |
 | `/api/campaigns/:id` | DELETE | owner | Delete campaign and all related data. Admins delete via the database directly. |
 | `/api/campaigns/admin/by-user/:user_id` | GET | admin | Read-only minimal list of a user's campaigns (`id`, `name`, `description`, `is_gm_campaign`, `system_id`, `system_name`) for the user-management page |
@@ -347,7 +348,7 @@ Guests are code-only accounts (role `guest`) scoped to a single GM campaign. All
 | `/api/campaigns/:id/guests/:member_id/share-template` | GET | owner | Returns share content: `{code, link, message, mailto_url, discord_message}`. `link` is a `/guest?code=…` deep link built from `BASE_URL`. |
 | `/api/campaigns/:id/guests/:member_id` | DELETE | owner | Remove a guest; also deletes the backing guest account and its contributions. |
 
-Guests authenticate via [`/api/auth/guest-login`](#auth) and may write only their own character name, art, sheet, session notes, and availability — everything else is read-only. The shared library, maps, tokens, and search return 403 for guests.
+Guests authenticate via [`/api/auth/guest-login`](#auth) and may write only their own character name, art, sheet, session notes, and availability - everything else is read-only. The shared library, maps, tokens, and search return 403 for guests.
 
 #### Banner, character art & sheets
 
@@ -385,7 +386,7 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/images` | POST | owner | Upload an image (multipart `file`, image types only) to embed in a wiki note; links it as a `file` resource with `is_image: true`. Optional multipart fields: `category_id` (file it under an existing resource category) or `new_category_name` (create a category and file it there). |
 | `/api/campaigns/:id/files/:file_id` | GET | per visibility | Download a campaign file (honours the linking resource's visibility); for an image this also serves it inline/as its thumbnail |
 
-Resource types: `book`, `map`, `token`, `audio`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload — those render inline with a thumbnail instead of as a download card).
+Resource types: `book`, `map`, `token`, `audio`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload - those render inline with a thumbnail instead of as a download card).
 
 Resource **visibility** is one of: `public` (every accepted member), `private` (the owner plus the users in `shared_user_ids`), or `gm` (owner only). The character-sheet upload endpoints also accept a URL alternative via the member PATCH: `PATCH /api/campaigns/:id/members/:user_id` with `{character_sheet_url}` (`""` clears it; setting a URL clears any uploaded sheet, and uploading a sheet clears the URL).
 
@@ -393,9 +394,9 @@ App-wide admin settings gate campaign file uploads (admins are exempt): `campaig
 
 #### Categories
 
-GM-defined groupings for linked **resources**, scoped per campaign. Resources carry an optional `category_id` (null = grouped under their built-in type group: Books / Maps / Tokens / Files), set via the resource PATCH endpoint (`category_id`), using `""` to clear it. Wiki pages no longer use categories — they nest under parent pages instead (see Wiki). `kind` `note` is retired: `POST` with `kind: "note"` returns 400, and legacy note categories are converted to parent pages on startup.
+GM-defined groupings for linked **resources**, scoped per campaign. Resources carry an optional `category_id` (null = grouped under their built-in type group: Books / Maps / Tokens / Files), set via the resource PATCH endpoint (`category_id`), using `""` to clear it. Wiki pages no longer use categories - they nest under parent pages instead (see Wiki). `kind` `note` is retired: `POST` with `kind: "note"` returns 400, and legacy note categories are converted to parent pages on startup.
 
-The resource panel's **group display order** (custom categories interleaved with the built-in type groups) is stored per campaign as `resource_group_order` (returned by the campaign GET): an ordered list of group keys — `type:book`, `type:map`, `type:token`, `type:file`, and `cat:<category_id>`. Groups absent from the list fall to the end in their default order; an empty list means the default order (categories then type groups).
+The resource panel's **group display order** (custom categories interleaved with the built-in type groups) is stored per campaign as `resource_group_order` (returned by the campaign GET): an ordered list of group keys - `type:book`, `type:map`, `type:token`, `type:file`, and `cat:<category_id>`. Groups absent from the list fall to the end in their default order; an empty list means the default order (categories then type groups).
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -414,7 +415,7 @@ Pages nest: each page has an optional `parent_id` (null = top level), forming a 
 
 Each page has a **visibility**: `gm` (owner only), `group` (all accepted members), or `members` (owner plus the users in `shared_user_ids`). The owner may create/edit/delete any page; a member may create `group` pages and edit/delete pages they authored, but cannot set `gm`/`members` visibility.
 
-Within a page body, text wrapped in `||double pipes||` is a **GM-only secret** — finer-grained than page visibility, it hides a span inside an otherwise shared page. Those spans (markers and enclosed text, which may span multiple lines) are stripped server-side from the `body` returned to anyone other than the campaign owner, and from `search` snippets/matches for non-owners. The owner always receives the raw `||...||`. Personal (non-GM) campaigns are never stripped, since only the owner can view them.
+Within a page body, text wrapped in `||double pipes||` is a **GM-only secret** - finer-grained than page visibility, it hides a span inside an otherwise shared page. Those spans (markers and enclosed text, which may span multiple lines) are stripped server-side from the `body` returned to anyone other than the campaign owner, and from `search` snippets/matches for non-owners. The owner always receives the raw `||...||`. Personal (non-GM) campaigns are never stripped, since only the owner can view them.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -423,8 +424,8 @@ Within a page body, text wrapped in `||double pipes||` is a **GM-only secret** �
 | `/api/campaigns/:id/wiki/search` | GET | member or owner | Search visible pages by title/body. Query: `q` |
 | `/api/campaigns/:id/wiki/titles` | GET | member or owner | `{title, slug}` list for `[[link]]` autocomplete |
 | `/api/campaigns/:id/wiki/reorder` | PUT | owner | Drag-and-drop order. Body: `{ordered_ids}` |
-| `/api/campaigns/:id/wiki/export` | GET | owner | Export all pages. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug — Obsidian-friendly) or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
-| `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` — a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
+| `/api/campaigns/:id/wiki/export` | GET | owner | Export all pages. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly) or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
+| `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
 | `/api/campaigns/:id/wiki/:page_id` | GET | per visibility | Page detail incl. `body`, `backlinks`, `shared_user_ids`, `icon`, `can_edit` |
 | `/api/campaigns/:id/wiki/:page_id` | PATCH | owner or page author | Update fields (each optional; `icon: ""` clears it) |
 | `/api/campaigns/:id/wiki/:page_id` | DELETE | owner or page author | Delete the page and its link rows |
@@ -466,7 +467,7 @@ Superseded by the wiki. On startup, any non-empty legacy session notes are rolle
 | Field | Description |
 |-------|-------------|
 | `frequency` | `weekly`, `biweekly`, `monthly`, or `custom` |
-| `days` | Weekday indices — `0` = Monday … `6` = Sunday |
+| `days` | Weekday indices - `0` = Monday … `6` = Sunday |
 | `time_utc` | Session time in UTC (`HH:MM`) |
 | `biweekly_reference` | Anchor date for biweekly cadence (`YYYY-MM-DD`) |
 | `monthly_week` | Week of month: `1`–`4`, or `-1` for last |
@@ -522,10 +523,10 @@ Availability statuses: `available`, `tentative`, `unavailable`
 | `oidc_authorization_endpoint` | string | Discovered or manual authorization endpoint URL. |
 | `oidc_token_endpoint` | string | Discovered or manual token endpoint URL. |
 | `oidc_userinfo_endpoint` | string | Discovered or manual userinfo endpoint URL. |
-| `oidc_jwks_uri` | string | Discovered or manual JWKS URL — required to validate the ID token signature. |
+| `oidc_jwks_uri` | string | Discovered or manual JWKS URL - required to validate the ID token signature. |
 | `oidc_end_session_endpoint` | string | Optional RP-initiated logout endpoint. |
 | `oidc_client_id` | string | Client ID issued by the IdP. |
-| `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value — instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
+| `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value - instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
 | `oidc_signing_alg` | string | One of `RS256`/`RS384`/`RS512`/`ES256`/`ES384`/`ES512`/`PS256`/`PS384`/`PS512`/`HS256`. Default `RS256`. |
 | `oidc_button_text` | string | Label for the SSO button on the login page. |
 | `oidc_groups_claim` | string | Optional. Name of the claim containing group memberships. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`; users without a matching group are denied. |
@@ -552,10 +553,10 @@ GET responses also include a sibling `<key>_env_locked: bool` for each individua
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `level` | `info` | Minimum log level: `debug`, `info`, `warning`, `error`, `critical`. Follows standard hierarchy — `debug` returns all levels, `info` returns info and above, etc. |
+| `level` | `info` | Minimum log level: `debug`, `info`, `warning`, `error`, `critical`. Follows standard hierarchy - `debug` returns all levels, `info` returns info and above, etc. |
 | `limit` | `200` | Max entries to return (1–20000) |
 | `offset` | `0` | Skip this many of the most-recent matching entries (historical pagination, ignored when `after_seq` is set) |
-| `after_seq` | — | Return only entries with `seq` greater than this value. Use the `max_seq` from the previous response as a cursor for live polling. Exact even when hundreds of entries arrive between polls. |
+| `after_seq` | - | Return only entries with `seq` greater than this value. Use the `max_seq` from the previous response as a cursor for live polling. Exact even when hundreds of entries arrive between polls. |
 
 **Response:**
 ```json
@@ -602,12 +603,12 @@ All errors follow FastAPI's standard format:
 
 | Status | Meaning |
 |--------|---------|
-| `400` | Bad request — validation failed or business rule violated |
-| `401` | Not authenticated — missing or invalid token |
-| `403` | Forbidden — insufficient role or not a campaign member |
+| `400` | Bad request - validation failed or business rule violated |
+| `401` | Not authenticated - missing or invalid token |
+| `403` | Forbidden - insufficient role or not a campaign member |
 | `404` | Resource not found |
-| `409` | Conflict — duplicate (e.g. duplicate username, resource already linked) |
-| `422` | Unprocessable entity — request body failed schema validation |
+| `409` | Conflict - duplicate (e.g. duplicate username, resource already linked) |
+| `422` | Unprocessable entity - request body failed schema validation |
 
 ---
 
@@ -639,8 +640,8 @@ Game system records are created automatically from the folder names under `books
 
 When a book is first indexed, the scanner looks for an OPF metadata file alongside the PDF. Two locations are checked in order:
 
-1. `<bookname>.opf` — same directory, same stem as the PDF.
-2. `metadata.opf` — same directory (Calibre's per-book-folder format).
+1. `<bookname>.opf` - same directory, same stem as the PDF.
+2. `metadata.opf` - same directory (Calibre's per-book-folder format).
 
 Fields read: `dc:title`, `dc:creator` (role=aut → authors), `dc:publisher`, `dc:date` (year), `dc:description` (HTML stripped), `dc:subject` (→ tags). Cover images referenced in the OPF `<guide>` are excluded from the book list automatically.
 

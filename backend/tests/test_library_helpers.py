@@ -21,6 +21,84 @@ class TestScanStatusState:
         for key in ("total_audio", "scanned_audio", "new_audio"):
             assert key in _helpers._DEFAULT_STATUS
 
+    def test_default_status_includes_ocr_fields(self):
+        for key in ("total_ocr", "ocr_done", "ocr_current"):
+            assert key in _helpers._DEFAULT_STATUS
+
+
+class TestOcrConcurrency:
+    def test_pool_used_when_concurrency_gt_1(self):
+        """OCR_CONCURRENCY>1 drains the queue via a ThreadPoolExecutor."""
+        import uuid as _uuid
+
+        from backend import config
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        # Clear any pending books left by other tests so we count only ours.
+        db = SessionLocal()
+        db.query(Book).filter_by(ocr_pending=True).update({"ocr_pending": False})
+        db.commit()
+        db.close()
+
+        ids = []
+        for _ in range(2):
+            uid = str(_uuid.uuid4())[:8]
+            db = SessionLocal()
+            b = Book(
+                title=f"S-{uid}", filename=f"s-{uid}.pdf", filepath=f"/tmp/s-{uid}.pdf",
+                relative_path=f"s-{uid}.pdf", mime_type="application/pdf",
+                ocr_pending=True,
+            )
+            db.add(b)
+            db.commit()
+            ids.append(b.id)
+            db.close()
+
+        with patch.object(config, "OCR_CONCURRENCY", 2), \
+             patch.object(_helpers, "_ocr_one_book", return_value="done") as m:
+            completed = _helpers.run_ocr_queue()
+
+        assert completed == 2
+        assert m.call_count == 2
+        assert set(m.call_args_list[i].args[0] for i in range(2)) == set(ids)
+
+    def test_concurrency_zero_disables_and_leaves_queue_pending(self):
+        """OCR_CONCURRENCY=0 skips the drain and leaves queued books untouched."""
+        import uuid as _uuid
+
+        from backend import config
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        db = SessionLocal()
+        uid = str(_uuid.uuid4())[:8]
+        b = Book(
+            title=f"Z-{uid}", filename=f"z-{uid}.pdf", filepath=f"/tmp/z-{uid}.pdf",
+            relative_path=f"z-{uid}.pdf", mime_type="application/pdf",
+            ocr_pending=True,
+        )
+        db.add(b)
+        db.commit()
+        bid = b.id
+        db.close()
+
+        with patch.object(config, "OCR_CONCURRENCY", 0), \
+             patch.object(_helpers, "_ocr_one_book") as m:
+            completed = _helpers.run_ocr_queue()
+
+        assert completed == 0
+        m.assert_not_called()
+        db = SessionLocal()
+        try:
+            assert db.get(Book, bid).ocr_pending is True  # left queued, not lost
+        finally:
+            db.close()
+
 
 class TestStopSignal:
     def test_request_and_clear_stop(self):

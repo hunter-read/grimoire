@@ -100,7 +100,11 @@
     "haveInviteCode": "Heb je een uitnodigingscode?",
     "inviteCode": "Uitnodigingscode",
     "enterAsGuest": "Als gast aanmelden",
-    "guestInvalidCode": "Ongeldige of verlopen uitnodigingscode."
+    "guestInvalidCode": "Ongeldige of verlopen uitnodigingscode.",
+    "show": "Tonen",
+    "hide": "Verbergen",
+    "showPassword": "Wachtwoord tonen",
+    "hidePassword": "Wachtwoord verbergen"
   },
   "setup": {
     "title": "Eerste configuratie",
@@ -575,6 +579,9 @@
       "scanning": "Scannen…",
       "scanningPercent": "Scannen… {{pct}}%",
       "indexing": "Pdf's indexeren… {{indexed}} / {{total}}",
+      "ocr": "OCR… {{done}} / {{total}}",
+      "ocrProgress": "{{pct}}% — {{done}} van {{total}} gescande boeken via OCR verwerkt",
+      "ocrCurrent": "Huidig: {{name}}",
       "stop": "Stoppen",
       "stopping": "Stoppen…",
       "complete": "Scan voltooid",
@@ -1061,6 +1068,17 @@
     "failed": "Opslaan mislukt.",
     "resetProgress": "Leesvoortgang opnieuw instellen",
     "progressReset": "Voortgang opnieuw ingesteld"
+  },
+  "reocr": {
+    "button": "OCR opnieuw",
+    "title": "OCR opnieuw met hogere DPI",
+    "dpiPlaceholder": "bijv. 300",
+    "dpiLabel": "OCR-resolutie (DPI)",
+    "run": "Uitvoeren",
+    "working": "Bezig…",
+    "queued": "In wachtrij",
+    "error": "OCR in wachtrij zetten mislukt",
+    "hint": "Leest dit gescande boek opnieuw in. Laat DPI leeg voor de standaard, of verhoog het (bijv. 300) voor een scherpere lezing. Draait op de achtergrond."
   },
   "bookRow": {
     "missingFile": "Ontbreekt",

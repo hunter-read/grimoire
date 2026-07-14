@@ -100,7 +100,11 @@
     "haveInviteCode": "¿Tienes un código de invitación?",
     "inviteCode": "Código de invitación",
     "enterAsGuest": "Entrar como invitado",
-    "guestInvalidCode": "Código de invitación no válido o caducado."
+    "guestInvalidCode": "Código de invitación no válido o caducado.",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña"
   },
   "setup": {
     "title": "Configuración inicial",
@@ -575,6 +579,9 @@
       "scanning": "Escaneando…",
       "scanningPercent": "Escaneando… {{pct}}%",
       "indexing": "Indexando PDF… {{indexed}} / {{total}}",
+      "ocr": "OCR… {{done}} / {{total}}",
+      "ocrProgress": "{{pct}}% — {{done}} de {{total}} libros escaneados procesados con OCR",
+      "ocrCurrent": "Actual: {{name}}",
       "stop": "Detener",
       "stopping": "Deteniendo…",
       "complete": "Escaneo completado",
@@ -1061,6 +1068,17 @@
     "failed": "Error al guardar.",
     "resetProgress": "Restablecer progreso de lectura",
     "progressReset": "Progreso restablecido"
+  },
+  "reocr": {
+    "button": "Repetir OCR",
+    "title": "Repetir OCR con mayor DPI",
+    "dpiPlaceholder": "p. ej. 300",
+    "dpiLabel": "Resolución de OCR (DPI)",
+    "run": "Ejecutar",
+    "working": "Procesando…",
+    "queued": "En cola",
+    "error": "No se pudo poner en cola el OCR",
+    "hint": "Vuelve a leer este libro escaneado. Deja el DPI en blanco para el valor predeterminado o súbelo (p. ej. 300) para una lectura más nítida. Se ejecuta en segundo plano."
   },
   "bookRow": {
     "missingFile": "Ausente",

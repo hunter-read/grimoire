@@ -359,3 +359,71 @@ class TestAlembicCutover:
             if t != "alembic_version"
         }
         assert remaining == set()
+
+
+class TestOcrQueueMigration:
+    """Revision a1f4c2e9b7d0 (ocr_pending/ocr_pages_done) must be recoverable.
+
+    An earlier version of this migration used batch_alter_table, which rebuilds
+    the books table through a temporary _alembic_tmp_books table. When a deploy
+    was interrupted mid-rebuild, that temp table was left behind and every
+    restart crashed with "table _alembic_tmp_books already exists" (the
+    migration never committed, so it re-ran forever). These tests pin the
+    recovery behaviour.
+    """
+
+    def _stuck_at_down_revision(self, path):
+        """Build a real DB, then roll it back to the state just before the OCR
+        migration: at the down_revision, without the OCR columns."""
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE alembic_version SET version_num='96c733b7c205'")
+            )
+            conn.execute(text("DROP INDEX IF EXISTS ix_books_ocr_pending"))
+            conn.execute(text("ALTER TABLE books DROP COLUMN ocr_pages_done"))
+            conn.execute(text("ALTER TABLE books DROP COLUMN ocr_pending"))
+        engine.dispose()
+
+    def test_recovers_from_leftover_temp_table(self):
+        """A stale _alembic_tmp_books (from an interrupted batch run) must not
+        block the migration; the columns and index still land at head."""
+        path = os.path.join(tempfile.mkdtemp(), "stuck.db")
+        self._stuck_at_down_revision(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            conn.execute(text("CREATE TABLE _alembic_tmp_books (id VARCHAR(36))"))
+        engine.dispose()
+
+        # This previously crashed with "table _alembic_tmp_books already exists".
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("books")}
+        idx = {i["name"] for i in insp.get_indexes("books")}
+        tables = set(insp.get_table_names())
+        assert {"ocr_pending", "ocr_pages_done"} <= cols
+        assert "ix_books_ocr_pending" in idx
+        assert "_alembic_tmp_books" not in tables
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_upgrade_is_reentrant_after_partial_apply(self):
+        """If the columns already exist but the version wasn't stamped (a partial
+        apply), re-running must not raise on duplicate columns/index."""
+        path = os.path.join(tempfile.mkdtemp(), "partial.db")
+        init_db(path)  # fully applies, columns present
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            # Simulate the version not having been committed while the columns
+            # from a prior run are already there.
+            conn.execute(
+                text("UPDATE alembic_version SET version_num='96c733b7c205'")
+            )
+        engine.dispose()
+
+        init_db(path)  # must be a clean no-op, not "duplicate column" error
+
+        assert _stamped_revision(path) == _alembic_head(path)

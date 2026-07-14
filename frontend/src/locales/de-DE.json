@@ -100,7 +100,11 @@
     "haveInviteCode": "Einladungscode vorhanden?",
     "inviteCode": "Einladungscode",
     "enterAsGuest": "Als Gast eintreten",
-    "guestInvalidCode": "Ungültiger oder abgelaufener Einladungscode."
+    "guestInvalidCode": "Ungültiger oder abgelaufener Einladungscode.",
+    "show": "Anzeigen",
+    "hide": "Verbergen",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen"
   },
   "setup": {
     "title": "Ersteinrichtung",
@@ -575,6 +579,9 @@
       "scanning": "Scannen…",
       "scanningPercent": "Scannen… {{pct}}%",
       "indexing": "PDFs indizieren… {{indexed}} / {{total}}",
+      "ocr": "OCR… {{done}} / {{total}}",
+      "ocrProgress": "{{pct}}% — {{done}} von {{total}} gescannten Büchern per OCR erfasst",
+      "ocrCurrent": "Aktuell: {{name}}",
       "stop": "Stoppen",
       "stopping": "Wird gestoppt…",
       "complete": "Scan abgeschlossen",
@@ -1061,6 +1068,17 @@
     "failed": "Speichern fehlgeschlagen.",
     "resetProgress": "Lesefortschritt zurücksetzen",
     "progressReset": "Fortschritt zurückgesetzt"
+  },
+  "reocr": {
+    "button": "OCR wiederholen",
+    "title": "OCR mit höherer DPI wiederholen",
+    "dpiPlaceholder": "z. B. 300",
+    "dpiLabel": "OCR-Auflösung (DPI)",
+    "run": "Starten",
+    "working": "Läuft…",
+    "queued": "Eingereiht",
+    "error": "Re-OCR konnte nicht eingereiht werden",
+    "hint": "Liest dieses gescannte Buch neu ein. DPI leer lassen für den Standard oder erhöhen (z. B. 300) für ein schärferes Ergebnis. Läuft im Hintergrund."
   },
   "bookRow": {
     "missingFile": "Fehlend",

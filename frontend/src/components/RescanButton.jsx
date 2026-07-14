@@ -47,10 +47,15 @@ export default function RescanButton({ scope = null, compact = true, label }) {
         style={{
           display: 'inline-flex',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: compact ? 0 : 6,
           padding: compact ? '2px 7px' : '6px 12px',
           borderRadius: compact ? 5 : 6,
           fontSize: compact ? 12 : 14,
+          // Match the sibling Download button's content height (18px line box)
+          // so an icon-only compact button isn't shorter than a text button.
+          lineHeight: compact ? '18px' : undefined,
+          minHeight: compact ? 18 : undefined,
           flexShrink: 0,
           color: running ? 'var(--gold)' : 'var(--text-muted)',
           border: '1px solid var(--border)',

@@ -1,16 +1,16 @@
 # Contributing to Grimoire
 
-Thanks for your interest in contributing! Contributions of all kinds are welcome — bug reports, feature ideas, documentation improvements, code, and translations.
+Thanks for your interest in contributing! Contributions of all kinds are welcome - bug reports, feature ideas, documentation improvements, code, and translations.
 
 ## Reporting a bug or requesting a feature
 
 Open a [GitHub issue](https://github.com/hunter-read/grimoire/issues/new/choose) and pick the template that fits:
 
-- **Bug Report** — something is broken or behaving unexpectedly
-- **Feature Request** — an idea or improvement you'd like to see
-- **Question / Help** — not sure how something works, or need help getting set up
+- **Bug Report** - something is broken or behaving unexpectedly
+- **Feature Request** - an idea or improvement you'd like to see
+- **Question / Help** - not sure how something works, or need help getting set up
 
-> Before opening a new issue, a quick search of [existing issues](https://github.com/hunter-read/grimoire/issues) can save time — someone may have already reported the same thing.
+> Before opening a new issue, a quick search of [existing issues](https://github.com/hunter-read/grimoire/issues) can save time - someone may have already reported the same thing.
 
 ### Getting useful logs for bug reports
 
@@ -39,7 +39,7 @@ Join the [Discord server](https://discord.gg/9Sd4CGZC63) to chat, share feedback
 
 ## Contributing code
 
-1. **Open an issue first** for anything beyond a small fix — it's worth aligning on the approach before you invest time writing code.
+1. **Open an issue first** for anything beyond a small fix - it's worth aligning on the approach before you invest time writing code.
 2. Fork the repo and create a feature branch off `main`.
 3. Make your changes. Run the test suites before opening a PR:
 

@@ -1,6 +1,6 @@
 # Adding Files to Your Library
 
-Grimoire is a **read-only viewer** — it never modifies the files in your library folder. This keeps your source files safe and lets you use whatever file manager you prefer to add, organize, and remove content.
+Grimoire is a **read-only viewer** - it never modifies the files in your library folder. This keeps your source files safe and lets you use whatever file manager you prefer to add, organize, and remove content.
 
 Two tools integrate especially well with Grimoire:
 
@@ -15,7 +15,7 @@ Both run as Docker containers sharing the same library volume as Grimoire. After
 
 ## Filebrowser Quantum
 
-[Filebrowser Quantum](https://github.com/gtsteffaniak/filebrowser) is a lightweight, browser-based file manager. Use it to upload PDFs, create folders, rename or move files, and delete content — all from a web UI with no software to install on your local machine.
+[Filebrowser Quantum](https://github.com/gtsteffaniak/filebrowser) is a lightweight, browser-based file manager. Use it to upload PDFs, create folders, rename or move files, and delete content - all from a web UI with no software to install on your local machine.
 
 ### How it works with Grimoire
 
@@ -33,7 +33,7 @@ docker compose up -d
 
 See [`docs/docker/docker-compose.filebrowser.yml`](./docker/docker-compose.filebrowser.yml) for the full file with inline comments.
 
-Access Filebrowser at `http://localhost:8080`. Default credentials are `admin` / `admin` — change these immediately in the settings.
+Access Filebrowser at `http://localhost:8080`. Default credentials are `admin` / `admin` - change these immediately in the settings.
 
 ### Recommended folder layout
 
@@ -56,7 +56,7 @@ See [Library Structure](../README.md#library-structure) for the full folder conv
 
 ## Calibre
 
-[Calibre](https://calibre-ebook.com/) is a full-featured ebook management application. Its [Content Server](https://manual.calibre-ebook.com/server.html) exposes a web UI for browsing and uploading books. Beyond uploads, Calibre's main value here is its metadata editing — it can write `.opf` sidecar files that Grimoire reads automatically on the next scan to populate titles, authors, publishers, descriptions, and tags.
+[Calibre](https://calibre-ebook.com/) is a full-featured ebook management application. Its [Content Server](https://manual.calibre-ebook.com/server.html) exposes a web UI for browsing and uploading books. Beyond uploads, Calibre's main value here is its metadata editing - it can write `.opf` sidecar files that Grimoire reads automatically on the next scan to populate titles, authors, publishers, descriptions, and tags.
 
 ### How it works with Grimoire
 
@@ -119,6 +119,6 @@ Point Calibre-Web at `/library/books` as its library path on first setup.
 Regardless of which tool you use, trigger a rescan in Grimoire to index new content:
 
 1. Click **Rescan** in the sidebar, or go to **Settings → Maintenance → Rescan Library**.
-2. Wait for the scan to complete — new books, maps, and tokens will appear.
+2. Wait for the scan to complete - new books, maps, and tokens will appear.
 
 To automate this, configure a scheduled rescan in **Settings → Maintenance → Scheduled Rescan**.

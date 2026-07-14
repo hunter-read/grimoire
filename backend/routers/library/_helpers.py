@@ -2,9 +2,10 @@
 import json
 import time
 
+from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey
 from ...models import Book
-from ...indexer import scan_library, index_book_text
+from ...indexer import scan_library, index_book_text, ocr_book
 from ..books import _invalidate_book_cache
 
 _SCAN_KEY = "grimoire:scan_status"
@@ -28,6 +29,11 @@ _DEFAULT_STATUS: dict = {
     "updated_books": 0,
     "indexed": 0,
     "to_index": 0,
+    # Deferred-OCR queue progress (phase "ocr"). total_ocr = books queued,
+    # ocr_done = books finished, ocr_current = filename in flight.
+    "total_ocr": 0,
+    "ocr_done": 0,
+    "ocr_current": None,
 }
 
 # In-process fallback when Valkey is unavailable (single-worker or no cache)
@@ -130,6 +136,124 @@ def background_indexer():
         db.close()
         if _get_status()["phase"] == "indexing":
             _set_status({"running": False, "phase": None})
+    # Drain any books the fast phase queued for OCR (or left over from before).
+    if not is_stop_requested():
+        try:
+            run_ocr_queue()
+        finally:
+            if _get_status()["phase"] == "ocr":
+                _set_status({"running": False, "phase": None})
+
+
+def _ocr_one_book(book_id: str) -> str:
+    """Drain a single queued book on its own DB session (thread-pool unit).
+
+    Returns ocr_book's result ("done"/"stopped"/"error"). Each book gets a fresh
+    session so concurrent OCR workers don't share a Session across threads.
+    """
+    db = SessionLocal()
+    try:
+        book = db.get(Book, book_id)
+        if not book or not book.ocr_pending:
+            return "done"
+        _set_status({"ocr_current": book.filename})
+        return ocr_book(book, db, should_stop=is_stop_requested)
+    finally:
+        db.close()
+
+
+def run_ocr_queue() -> int:
+    """Drain the deferred-OCR queue (books with ocr_pending=1).
+
+    Runs after the fast scan/index phases. Processes books serially, or with up
+    to OCR_CONCURRENCY workers when configured, each checkpointing pages as it
+    goes so a restart resumes rather than restarts. Sets phase "ocr" and updates
+    ocr_done/total_ocr for the admin UI. Returns the number of books completed.
+
+    Resumable and idempotent: a stop or crash leaves ocr_pending set with a page
+    checkpoint, so the next scan (or startup recovery) continues where it left
+    off. Returns immediately when the queue is empty, or when OCR is disabled
+    (OCR_CONCURRENCY=0) so already-queued books stay pending untouched until a
+    user re-enables it.
+    """
+    concurrency = config.OCR_CONCURRENCY
+    if concurrency == 0:
+        logger.info("OCR queue: OCR disabled (OCR_CONCURRENCY=0), skipping.")
+        return 0
+
+    db = SessionLocal()
+    try:
+        pending_ids = [
+            b.id
+            for b in db.query(Book)
+            .filter_by(ocr_pending=True, mime_type="application/pdf")
+            .order_by(Book.ocr_pages_done.desc())  # finish nearly-done books first
+            .all()
+        ]
+    finally:
+        db.close()
+
+    if not pending_ids:
+        return 0
+
+    _set_status(
+        {"running": True, "phase": "ocr", "total_ocr": len(pending_ids), "ocr_done": 0}
+    )
+    logger.info(
+        f"OCR queue: {len(pending_ids)} book(s) to OCR "
+        f"(concurrency={concurrency})"
+    )
+    completed = 0
+    try:
+        if concurrency <= 1:
+            for book_id in pending_ids:
+                if is_stop_requested():
+                    logger.info("OCR queue: stop requested, halting.")
+                    break
+                if _ocr_one_book(book_id) == "done":
+                    completed += 1
+                _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                for result in pool.map(_ocr_one_book, pending_ids):
+                    if result == "done":
+                        completed += 1
+                    _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
+        logger.info(f"OCR queue: complete — {completed}/{len(pending_ids)} book(s) OCR'd")
+    finally:
+        _set_status({"ocr_current": None})
+    return completed
+
+
+def background_ocr():
+    """Startup recovery: resume any books left ocr_pending by a prior run."""
+    time.sleep(2)
+    if _get_status()["running"]:
+        return
+    try:
+        run_ocr_queue()
+    finally:
+        if _get_status()["phase"] == "ocr":
+            _set_status({"running": False, "phase": None})
+
+
+def trigger_ocr_queue():
+    """Drain the OCR queue now (on-demand, e.g. after a per-book re-OCR request).
+
+    Unlike background_ocr this has no startup delay. It no-ops if a scan/OCR run
+    is already in progress — the newly-queued book is picked up by that run (or
+    the next one), since the queue lives in the DB. Clears the running/phase flags
+    on completion when this call owns the OCR phase.
+    """
+    if _get_status()["running"]:
+        return
+    try:
+        run_ocr_queue()
+    finally:
+        if _get_status()["phase"] == "ocr":
+            _set_status({"running": False, "phase": None})
 
 
 def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:
@@ -226,5 +350,11 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             logger.info(f"Index scan end: {indexed_count}/{len(to_index)} PDF(s) indexed")
         finally:
             db.close()
+
+        # --- Phase 3: deferred OCR of scanned/image-only PDFs ---
+        # Runs after the fast phases so text-layer books and other media are
+        # already searchable; scanned books grind here without blocking them.
+        if not is_stop_requested():
+            run_ocr_queue()
     finally:
         _set_status({"running": False, "phase": None})

@@ -181,6 +181,7 @@ const zipBtnStyle = {
   padding: '2px 7px',
   borderRadius: 5,
   fontSize: 12,
+  lineHeight: '18px',
   flexShrink: 0,
   color: 'var(--text-muted)',
   border: '1px solid var(--border)',

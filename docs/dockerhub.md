@@ -1,7 +1,7 @@
 <div align="center">
   <img src="frontend/static/android-chrome-192x192.png" alt="Grimoire" width="144">
 
-  # Grimoire — Self-Hosted TTRPG Library Manager
+  # Grimoire - Self-Hosted TTRPG Library Manager
 
   [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/9Sd4CGZC63)
   [![CI](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
@@ -31,9 +31,9 @@ pin. Given a release `v1.4.2`, the same image is pushed as `1.4.2`, `1.4`, and
 | Tag       | Example (for release `v1.4.2`) | Updates when you re-pull                                                                 |
 | --------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
 | `latest`  | `latest`                       | Always the most recent stable release. **Recommended for most deployments.**             |
-| `X`       | `1`                            | **Major** version — the newest release in the `1.x.x` line. Follows new features and patches, but never a breaking `2.0.0`. |
-| `X.Y`     | `1.4`                          | **Minor** version — the newest patch in the `1.4.x` line. Gets bug-fix patches only, not the new features introduced by `1.5`. |
-| `X.Y.Z`   | `1.4.2`                        | **Patch** version — an exact, immutable release. Never changes. Use to fully pin a deployment. |
+| `X`       | `1`                            | **Major** version - the newest release in the `1.x.x` line. Follows new features and patches, but never a breaking `2.0.0`. |
+| `X.Y`     | `1.4`                          | **Minor** version - the newest patch in the `1.4.x` line. Gets bug-fix patches only, not the new features introduced by `1.5`. |
+| `X.Y.Z`   | `1.4.2`                        | **Patch** version - an exact, immutable release. Never changes. Use to fully pin a deployment. |
 | `edge`    | `edge`                         | Latest commit on the default branch. Bleeding-edge; may be unstable. Not a release.       |
 
 The version parts follow semantic versioning: the **major** (`X`) bumps for
@@ -63,7 +63,7 @@ of `latest`):
 docker pull hunterreadca/grimoire:slim
 ```
 
-There is no `edge-slim` tag — `edge` is only published as the full (OCR) image.
+There is no `edge-slim` tag - `edge` is only published as the full (OCR) image.
 
 ### Supported Architectures
 
@@ -78,10 +78,10 @@ Docker automatically pulls the correct image for your platform.
 
 ```bash
 docker run -d \
-  --name grimoire \
-  -p 9481:9481 \
-  -v /path/to/library:/library \
-  -v /path/to/data:/data \
+ --name grimoire \
+ -p 9481:9481 \
+ -v /path/to/library:/library \
+ -v /path/to/data:/data \
   hunterreadca/grimoire:latest
 ```
 

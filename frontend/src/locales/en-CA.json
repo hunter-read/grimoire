@@ -100,7 +100,11 @@
     "haveInviteCode": "Have an invite code?",
     "inviteCode": "Invite Code",
     "enterAsGuest": "Enter as Guest",
-    "guestInvalidCode": "Invalid or expired invite code."
+    "guestInvalidCode": "Invalid or expired invite code.",
+    "show": "Show",
+    "hide": "Hide",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "setup": {
     "title": "First-Time Setup",
@@ -575,6 +579,9 @@
       "scanning": "Scanning…",
       "scanningPercent": "Scanning… {{pct}}%",
       "indexing": "Indexing PDFs… {{indexed}} / {{total}}",
+      "ocr": "OCR… {{done}} / {{total}}",
+      "ocrProgress": "{{pct}}% — {{done}} of {{total}} scanned books OCR'd",
+      "ocrCurrent": "Current: {{name}}",
       "stop": "Stop",
       "stopping": "Stopping…",
       "complete": "Scan complete",
@@ -1061,6 +1068,17 @@
     "failed": "Failed to save.",
     "resetProgress": "Reset reading progress",
     "progressReset": "Progress reset"
+  },
+  "reocr": {
+    "button": "Re-OCR",
+    "title": "Re-run OCR at a higher DPI",
+    "dpiPlaceholder": "e.g. 300",
+    "dpiLabel": "OCR resolution (DPI)",
+    "run": "Run",
+    "working": "Working…",
+    "queued": "Queued",
+    "error": "Failed to queue re-OCR",
+    "hint": "Re-reads this scanned book. Leave DPI blank for the default, or raise it (e.g. 300) for a sharper read. Runs in the background."
   },
   "bookRow": {
     "missingFile": "Missing",

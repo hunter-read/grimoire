@@ -31,8 +31,40 @@ VALKEY_URL = os.environ.get("VALKEY_URL", "")
 #   OCR_LANGUAGES — Tesseract language codes, e.g. "eng" or "eng+deu+fra".
 #                   Extra languages need their tessdata files present (bundle
 #                   them by mounting a tessdata dir and setting TESSDATA_PREFIX).
+#   OCR_CONCURRENCY — number of scanned books OCR'd in parallel by the deferred
+#                     OCR worker. Defaults to 1 (serial) to keep small self-hosted
+#                     boxes responsive; raise it on multi-core hosts with spare CPU.
+#                     Setting it to 0 disables OCR entirely (same effect as
+#                     OCR_ENABLED=false) — a runtime off switch for users hitting
+#                     repeated OCR errors or OOMs, without pulling the slim image.
 OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
 OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
+
+
+def _read_ocr_concurrency() -> int:
+    """Parallel-OCR worker count. 0 = OCR disabled; negatives clamp to 0; bad
+    values fall back to the serial default of 1."""
+    try:
+        return max(0, int(os.environ.get("OCR_CONCURRENCY", "1")))
+    except ValueError:
+        return 1
+
+
+OCR_CONCURRENCY = _read_ocr_concurrency()
+
+
+#   OCR_DPI — resolution at which scanned pages are rasterized before OCR.
+#             Rendering is the memory/CPU-heavy half of OCR; higher = more
+#             accurate but slower and more RAM per page. Default 150.
+def _read_ocr_dpi() -> float:
+    try:
+        dpi = float(os.environ.get("OCR_DPI", "150"))
+    except ValueError:
+        dpi = 150.0
+    return max(72.0, min(dpi, 600.0))
+
+
+OCR_DPI = _read_ocr_dpi()
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
 # Optional override for password authentication. When the env var is set,

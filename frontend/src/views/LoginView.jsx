@@ -6,6 +6,7 @@ import { auth as authApi } from '../api'
 export default function LoginView({ onLogin }) {
   const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', password: '' })
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [config, setConfig] = useState({
@@ -237,15 +238,28 @@ export default function LoginView({ onLogin }) {
                     <label htmlFor="login-password" style={labelStyle}>
                       {t('login.password')}
                     </label>
-                    <input
-                      id="login-password"
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      required
-                      autoComplete="current-password"
-                      style={{ width: '100%' }}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="login-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        required
+                        autoComplete="current-password"
+                        style={{ width: '100%', paddingRight: 44 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={
+                          showPassword ? t('login.hidePassword') : t('login.showPassword')
+                        }
+                        aria-pressed={showPassword}
+                        style={revealBtnStyle}
+                      >
+                        {showPassword ? t('login.hide') : t('login.show')}
+                      </button>
+                    </div>
                   </div>
 
                   {error && (
@@ -383,6 +397,21 @@ const submitBtnStyle = (loading) => ({
   cursor: loading ? 'not-allowed' : 'pointer',
   border: '1px solid var(--gold)',
 })
+
+const revealBtnStyle = {
+  position: 'absolute',
+  top: '50%',
+  right: 10,
+  transform: 'translateY(-50%)',
+  background: 'none',
+  border: 'none',
+  color: 'var(--text-muted)',
+  cursor: 'pointer',
+  fontSize: 12,
+  letterSpacing: '0.03em',
+  textTransform: 'uppercase',
+  padding: 4,
+}
 
 const oidcBtnStyle = {
   width: '100%',

@@ -4,16 +4,21 @@ import hashlib
 import os
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, SessionLocal, THUMB_DIR
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...models import Book, GameSystem
-from ._helpers import _allow_explicit
+from ._helpers import _allow_explicit, _invalidate_book_cache
 from ._schemas import BookUpdate
+
+# OCR DPI bounds, mirroring backend.config._read_ocr_dpi clamping.
+_OCR_DPI_MIN = 72
+_OCR_DPI_MAX = 600
 
 
 def list_books(
@@ -89,6 +94,8 @@ def get_book(book_id: str, current_user: CurrentUser = Depends(get_current_user)
             "indexed": book.indexed,
             "index_failed": book.index_failed,
             "ocr_indexed": book.index_error == "ocr",
+            "ocr_pending": bool(book.ocr_pending),
+            "ocr_dpi": book.ocr_dpi,
             "is_missing": bool(book.is_missing),
             "mime_type": book.mime_type,
             "has_thumbnail": book.has_thumbnail,
@@ -113,6 +120,64 @@ def update_book(book_id: str, data: BookUpdate, _: CurrentUser = Depends(require
         return {"status": "ok"}
     finally:
         db.close()
+
+
+def reindex_book(
+    book_id: str,
+    background_tasks: BackgroundTasks,
+    ocr_dpi: Optional[int] = Query(
+        None,
+        ge=_OCR_DPI_MIN,
+        le=_OCR_DPI_MAX,
+        description="Optional OCR resolution override (DPI, 72–600) for this book. "
+        "Omit to use the global OCR_DPI default.",
+    ),
+    _: CurrentUser = Depends(require_gm_or_admin),
+):
+    """Re-run OCR on a single scanned book, optionally at a higher DPI.
+
+    Clears the book's existing search index and re-queues it for OCR from page 1.
+    A higher ``ocr_dpi`` re-reads a specific book more sharply than the library
+    default, without re-OCRing the whole library. Only applies to OCR-sourced
+    (image-only) PDFs; books with a real text layer have nothing to re-OCR.
+
+    The OCR itself runs in the background; poll ``GET /api/scan-status`` (phase
+    ``ocr``) for progress.
+    """
+    from ..library._helpers import trigger_ocr_queue
+
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter_by(id=book_id).first()
+        if not book:
+            raise HTTPException(404, "Book not found")
+        if book.mime_type != "application/pdf":
+            raise HTTPException(400, "Only PDF books can be OCR'd")
+        if not os.path.exists(book.filepath):
+            raise HTTPException(404, "File not found on disk")
+        # Re-OCR only makes sense for image-only books (no embedded text layer).
+        # A book indexed from its own text layer (index_error == "") would gain
+        # nothing and OCRing it would duplicate content.
+        if book.index_error not in ("ocr", "image-only"):
+            raise HTTPException(
+                400, "This book has an embedded text layer; OCR does not apply to it."
+            )
+
+        # Drop the old search rows so the re-OCR starts from a clean index.
+        db.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book.id})
+        book.ocr_dpi = ocr_dpi  # None => global default
+        book.ocr_pending = True
+        book.ocr_pages_done = 0
+        book.indexed = False
+        book.index_failed = False
+        book.index_error = ""
+        db.commit()
+        _invalidate_book_cache()
+    finally:
+        db.close()
+
+    background_tasks.add_task(trigger_ocr_queue)
+    return {"status": "reindex_queued", "ocr_dpi": ocr_dpi}
 
 
 def serve_book_file(book_id: str):

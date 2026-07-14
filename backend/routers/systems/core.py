@@ -105,6 +105,7 @@ def get_system(system_id: str, current_user: CurrentUser = Depends(get_current_u
                     "index_failed": b.index_failed,
                     "index_error": b.index_error,
                     "ocr_indexed": b.index_error == "ocr",
+                    "ocr_dpi": b.ocr_dpi,
                     "has_thumbnail": b.has_thumbnail,
                     "tags": b.tags or [],
                     "is_explicit": bool(b.is_explicit),

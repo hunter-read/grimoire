@@ -100,7 +100,11 @@
     "haveInviteCode": "Vous avez un code d'invitation ?",
     "inviteCode": "Code d'invitation",
     "enterAsGuest": "Entrer en tant qu'invité",
-    "guestInvalidCode": "Code d'invitation invalide ou expiré."
+    "guestInvalidCode": "Code d'invitation invalide ou expiré.",
+    "show": "Afficher",
+    "hide": "Masquer",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
   },
   "setup": {
     "title": "Configuration initiale",
@@ -575,6 +579,9 @@
       "scanning": "Analyse…",
       "scanningPercent": "Analyse… {{pct}} %",
       "indexing": "Indexation des PDF… {{indexed}} / {{total}}",
+      "ocr": "OCR… {{done}} / {{total}}",
+      "ocrProgress": "{{pct}} % — {{done}} sur {{total}} livres numérisés traités par OCR",
+      "ocrCurrent": "En cours : {{name}}",
       "stop": "Arrêter",
       "stopping": "Arrêt…",
       "complete": "Analyse terminée",
@@ -1061,6 +1068,17 @@
     "failed": "Échec de l'enregistrement.",
     "resetProgress": "Réinitialiser la progression de lecture",
     "progressReset": "Progression réinitialisée"
+  },
+  "reocr": {
+    "button": "Relancer l'OCR",
+    "title": "Relancer l'OCR à une résolution plus élevée",
+    "dpiPlaceholder": "p. ex. 300",
+    "dpiLabel": "Résolution OCR (DPI)",
+    "run": "Lancer",
+    "working": "En cours…",
+    "queued": "En file",
+    "error": "Échec de la mise en file de l'OCR",
+    "hint": "Relit ce livre numérisé. Laissez le DPI vide pour la valeur par défaut, ou augmentez-le (p. ex. 300) pour une lecture plus nette. S'exécute en arrière-plan."
   },
   "bookRow": {
     "missingFile": "Manquant",

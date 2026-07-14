@@ -15,6 +15,7 @@ import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
+import ReocrButton from '../ReocrButton'
 
 /**
  * A single book entry. Renders as a list row by default; pass `card` or
@@ -42,6 +43,10 @@ export default function BookRow({
   const lastPage = getBookPrefs(book.id).page || 0
   const progress = book.page_count > 0 && lastPage > 1 ? Math.min(lastPage / book.page_count, 1) : 0
   const fav = isFavorite('book', book.id)
+  // Re-OCR is offered only for scanned/OCR'd books and only to editors (onEdit
+  // is passed only for gm/admin). A book with an embedded text layer has nothing
+  // to re-OCR.
+  const isOcrBook = book.index_error === 'ocr' || book.index_error === 'image-only'
 
   const handleClick = (e) => {
     if (bulkMode) {
@@ -110,6 +115,7 @@ export default function BookRow({
           pointerEvents: visible ? 'auto' : 'none',
         }}
       >
+        {onEdit && isOcrBook && <ReocrButton book={book} />}
         <a
           href={mediaUrl(`/books/${book.id}/file`)}
           download

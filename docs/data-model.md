@@ -1,6 +1,6 @@
 # Data Model Reference
 
-A map of Grimoire's database schema — the tables, their foreign-key relationships, and
+A map of Grimoire's database schema - the tables, their foreign-key relationships, and
 the notable constraints. The schema is defined by the SQLAlchemy models in
 [`backend/models/`](../backend/models/) (`library.py`, `media.py`, `users.py`,
 `campaigns.py`, `settings.py`); this document is a companion reference, so **keep it in
@@ -13,7 +13,7 @@ The backend runs on SQLite. All primary keys are 36-char UUID strings (`_uuid()`
 
 The diagram groups tables by their model file. Solid lines are foreign keys; the crow's-foot
 end marks the "many" side. Media tables (`generic_maps`, `tokens`, `audio`) and the
-`*_folders` tag tables have no foreign keys — they are linked to campaigns only indirectly,
+`*_folders` tag tables have no foreign keys - they are linked to campaigns only indirectly,
 through `campaign_resources` (a polymorphic `resource_type` + `resource_id`, not a real FK),
 so they are omitted from the relationship graph for clarity.
 
@@ -102,15 +102,15 @@ links from `campaign_resources`/`favorites`, which are *not* declared foreign ke
 
 ## Table reference
 
-### Library — [`backend/models/library.py`](../backend/models/library.py)
+### Library - [`backend/models/library.py`](../backend/models/library.py)
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
 | `game_systems` | A TTRPG system (D&D 5e, PbtA, …). | `name`, `slug` unique. `is_system_agnostic` flags cross-system content. |
-| `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, not OCR'd) / `ocr` (indexed via OCR). |
+| `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, OCR unavailable) / `ocr` (indexed via OCR). `ocr_pending` (indexed `ix_books_ocr_pending`) flags a scanned PDF queued for deferred OCR; `ocr_pages_done` is the per-page OCR checkpoint so a long book resumes rather than restarts after an interruption. `ocr_dpi` is an optional per-book OCR resolution override (NULL = global `OCR_DPI`), set when a book is re-OCR'd at a higher DPI via `POST /api/books/{id}/reindex`. |
 | `book_folders` | Tags auto-applied to a book subcategory folder path. | `path` unique. |
 
-### Media — [`backend/models/media.py`](../backend/models/media.py)
+### Media - [`backend/models/media.py`](../backend/models/media.py)
 
 None of these tables carry foreign keys; they are linked to campaigns polymorphically via
 `campaign_resources`.
@@ -122,7 +122,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | `audio` | An audio track. | `filepath` unique. Embedded metadata (`title`, `artist`, `duration`, …) populated by the indexer. |
 | `map_folders`, `token_folders`, `audio_folders` | Tags auto-applied to a media folder path. | `path` unique. |
 
-### Users — [`backend/models/users.py`](../backend/models/users.py)
+### Users - [`backend/models/users.py`](../backend/models/users.py)
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
@@ -130,7 +130,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
 | `favorites` | Per-user favorite across books/maps/tokens. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 
-### Campaigns — [`backend/models/campaigns.py`](../backend/models/campaigns.py)
+### Campaigns - [`backend/models/campaigns.py`](../backend/models/campaigns.py)
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
@@ -149,7 +149,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | `wiki_page_shares` | A user a `members` wiki page is shared with. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. |
 | `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
 
-### Settings — [`backend/models/settings.py`](../backend/models/settings.py)
+### Settings - [`backend/models/settings.py`](../backend/models/settings.py)
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |

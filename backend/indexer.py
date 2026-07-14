@@ -21,7 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import ocr
+from . import config, ocr
 from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder, Audio, AudioFolder
 
 logger = logging.getLogger("grimoire.indexer")
@@ -34,6 +34,11 @@ _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treat
 # that can't finish in this window is treated as unindexable rather than allowed
 # to stall the scan forever.
 _EXTRACT_TIMEOUT = 1800  # seconds (30 min)
+
+# Per-page OCR budget for the deferred-OCR worker.  OCR is checkpointed per page,
+# so the whole-book budget no longer applies to scanned PDFs — only a single
+# wedged page is abandoned after this, and the book continues to the next page.
+_OCR_PAGE_TIMEOUT = 120  # seconds
 
 # Spawn (not fork) a fresh interpreter for the extraction worker.  The app runs
 # many threads and holds a SQLite connection; forking that state into a child
@@ -303,6 +308,38 @@ _ARCHIVE_LIST_CAP = 5000
 _ARCHIVE_MEMBER_SIZE_CAP = 256 * 1024 * 1024
 
 
+def _extract_7z_member(zf, name: str) -> Optional[bytes]:
+    """Read a single member out of an open py7zr archive as bytes.
+
+    Tolerant of the py7zr 0.x/1.x API split: 1.x removed ``SevenZipFile.read()``
+    in favour of extracting through a ``BytesIOFactory``, while 0.x still has
+    ``read()``. Try the factory path first, fall back to ``read()``, so the cover
+    extraction works whichever version is installed. Returns None on any failure.
+    """
+    # py7zr 1.x: extract the chosen member into memory via BytesIOFactory.
+    try:
+        from py7zr.io import BytesIOFactory
+
+        factory = BytesIOFactory(limit=_ARCHIVE_MEMBER_SIZE_CAP)
+        zf.extract(targets=[name], factory=factory)
+        bio = factory.get(name)
+        if bio is not None:
+            bio.seek(0)
+            return bio.read()
+        return None
+    except ImportError:
+        pass
+
+    # py7zr 0.x: SevenZipFile.read() returns {name: BytesIO}.
+    zf.reset()
+    data = zf.read([name])
+    bio = data.get(name) if data else None
+    if bio is not None:
+        bio.seek(0)
+        return bio.read()
+    return None
+
+
 def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
     """Return the raw bytes of the first image inside a comic-book archive.
 
@@ -328,7 +365,6 @@ def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
                         return rf.read(name)
         elif arc_ext in (".cb7", ".7z"):
             import py7zr
-            from py7zr.io import BytesIOFactory
 
             with py7zr.SevenZipFile(filepath) as zf:
                 names = [n for n in zf.getnames()[:_ARCHIVE_LIST_CAP]]
@@ -337,15 +373,7 @@ def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
                     key=str.lower,
                 )
                 if targets:
-                    first = targets[0]
-                    # py7zr 1.x dropped SevenZipFile.read(); extract the single
-                    # chosen member into memory via a BytesIOFactory instead.
-                    factory = BytesIOFactory(limit=_ARCHIVE_MEMBER_SIZE_CAP)
-                    zf.extract(targets=[first], factory=factory)
-                    bio = factory.get(first)
-                    if bio is not None:
-                        bio.seek(0)
-                        return bio.read()
+                    return _extract_7z_member(zf, targets[0])
         elif arc_ext in (".cbt", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2"):
             with tarfile.open(filepath) as tf:
                 members = [m for m in tf.getmembers() if m.isfile()]
@@ -429,7 +457,9 @@ def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400)
     return bool(result[0])
 
 
-def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], bool]:
+def extract_text_from_pdf(
+    filepath: str, should_stop=None, text_only: bool = False
+) -> tuple[list[dict], bool]:
     """Extract text from all pages of a PDF.
 
     Returns ``(pages, used_ocr)`` where ``pages`` is a list of
@@ -440,10 +470,14 @@ def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], 
     text are OCR'd when OCR is available (default image); otherwise they are
     skipped, so a PDF with no extractable text yields an empty list — the
     caller then marks it ``image-only``.
+
+    When ``text_only`` is True, OCR is skipped: image-only pages are left out and
+    the book is queued for deferred OCR by the caller instead of being OCR'd
+    inline (which could stall the scan for hours on a large scanned book).
     """
     pages = []
     used_ocr = False
-    ocr_on = ocr.ocr_available()
+    ocr_on = False if text_only else ocr.ocr_available()
     try:
         doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
         for i, page in enumerate(doc):
@@ -453,7 +487,8 @@ def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], 
             if page_text:
                 pages.append({"page": i + 1, "content": page_text})
             elif ocr_on:
-                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                scale = config.OCR_DPI / 72.0
+                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
                 ocr_text = ocr.ocr_pixmap(pix, should_stop=should_stop)
                 if ocr_text:
                     pages.append({"page": i + 1, "content": ocr_text})
@@ -464,7 +499,9 @@ def extract_text_from_pdf(filepath: str, should_stop=None) -> tuple[list[dict], 
     return pages, used_ocr
 
 
-def extract_text_isolated(filepath: str, should_stop=None) -> tuple[list[dict], bool]:
+def extract_text_isolated(
+    filepath: str, should_stop=None, text_only: bool = False
+) -> tuple[list[dict], bool]:
     """Extract text from a PDF in a separate process, isolating native crashes.
 
     Returns ``(pages, used_ocr)`` exactly like ``extract_text_from_pdf``.  The
@@ -476,12 +513,17 @@ def extract_text_isolated(filepath: str, should_stop=None) -> tuple[list[dict], 
 
     A cooperative ``should_stop`` cancels by terminating the child and raising
     TimeoutError, matching the abort semantics of the rest of the indexer.
+
+    With ``text_only`` the child skips OCR (fast scan phase); image-only books
+    return empty ``pages`` and are queued for deferred OCR by the caller.
     """
     from . import pdf_worker
 
     fd, result_path = tempfile.mkstemp(prefix="grimoire_extract_", suffix=".pkl")
     os.close(fd)
-    proc = _MP_CONTEXT.Process(target=pdf_worker.main, args=(filepath, result_path))
+    proc = _MP_CONTEXT.Process(
+        target=pdf_worker.main, args=(filepath, result_path, text_only)
+    )
     try:
         proc.start()
         poll_interval = 0.5
@@ -521,6 +563,158 @@ def extract_text_isolated(filepath: str, should_stop=None) -> tuple[list[dict], 
             os.unlink(result_path)
         except OSError:
             pass
+
+
+def ocr_page_isolated(filepath: str, page_index: int, should_stop=None, dpi: int | None = None) -> str:
+    """OCR a single page in a spawned child, bounded by ``_OCR_PAGE_TIMEOUT``.
+
+    Returns the recognised text ("" on timeout, crash, cancel, or empty result —
+    never raises).  Isolation means a native OCR/MuPDF crash or a wedged page
+    kills only this throwaway process; the caller checkpoints the page as done
+    and moves on rather than losing the whole book or crashing the server.
+
+    ``dpi`` overrides the rasterization resolution (per-book re-OCR); None uses
+    the global ``OCR_DPI`` default.
+    """
+    from . import pdf_worker
+
+    fd, result_path = tempfile.mkstemp(prefix="grimoire_ocr_", suffix=".pkl")
+    os.close(fd)
+    proc = _MP_CONTEXT.Process(
+        target=pdf_worker.ocr_page_main,
+        args=(filepath, page_index, ocr.effective_languages(), result_path, dpi),
+    )
+    try:
+        proc.start()
+        poll_interval = 0.5
+        elapsed = 0.0
+        while proc.is_alive() and elapsed < _OCR_PAGE_TIMEOUT:
+            proc.join(poll_interval)
+            elapsed += poll_interval
+            if should_stop and should_stop():
+                proc.terminate()
+                proc.join()
+                return ""
+        if proc.is_alive():
+            logger.error(
+                f"OCR page {page_index + 1} timed out after {_OCR_PAGE_TIMEOUT}s for {filepath}"
+            )
+            proc.terminate()
+            proc.join()
+            return ""
+        if os.path.getsize(result_path) == 0:
+            logger.error(
+                f"OCR page {page_index + 1} worker crashed (exit {proc.exitcode}) for {filepath}"
+            )
+            return ""
+        with open(result_path, "rb") as fh:
+            return pickle.load(fh) or ""
+    finally:
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+        try:
+            os.unlink(result_path)
+        except OSError:
+            pass
+
+
+def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> str:
+    """OCR one queued book page-by-page, checkpointing progress as it goes.
+
+    Resumes from ``book.ocr_pages_done``: pages at or below that index were
+    already OCR'd and committed to the FTS index in a prior run, so a restart or
+    crash never loses work and never re-does a page.  Each recognised page is
+    inserted into ``book_search`` and ``ocr_pages_done`` is advanced and
+    committed before moving on, so the whole-book 30-min wall no longer applies —
+    a multi-hour scanned book makes steady, durable progress.
+
+    Returns one of: ``"done"`` (all pages processed, book indexed), ``"stopped"``
+    (cancelled via ``should_stop`` — resumable), or ``"error"`` (page count
+    unreadable).  ``on_page(done, total)`` is called after each page for live
+    status.
+    """
+    try:
+        page_count = _book_page_count(book.filepath)
+    except Exception as e:
+        logger.error(f"OCR: cannot open '{book.filename}' to count pages: {e}")
+        book.ocr_pending = False
+        book.index_failed = True
+        book.index_error = f"ocr open failed: {e}"[:500]
+        _commit(session, f"ocr open-failed '{book.filepath}'")
+        return "error"
+
+    start = book.ocr_pages_done or 0
+    dpi = book.ocr_dpi  # per-book override; None => global OCR_DPI default
+    logger.info(
+        f"OCR: '{book.filename}' — {page_count} page(s), resuming at page {start + 1}"
+        + (f" (dpi={dpi})" if dpi else "")
+    )
+    for i in range(start, page_count):
+        if should_stop and should_stop():
+            logger.info(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
+            return "stopped"
+
+        text_out = ocr_book_page_isolated_wrapper(book.filepath, i, should_stop, dpi=dpi)
+
+        # A page cancelled mid-flight comes back empty; treat that as a stop, not a
+        # processed page, so it isn't silently skipped forever on resume. Checked
+        # here (not just at the top) because the OCR call can take up to the
+        # per-page timeout, during which a stop may have been requested.
+        if should_stop and should_stop():
+            logger.info(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
+            return "stopped"
+
+        if text_out:
+            session.execute(
+                text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:bid, :pnum, :content)"
+                ),
+                {"bid": book.id, "pnum": i + 1, "content": text_out},
+            )
+        # Advance the checkpoint whether the page yielded text, was legitimately
+        # blank, or was abandoned (crash/timeout in the isolated worker — already
+        # logged there). The page is counted as processed exactly once and never
+        # re-OCR'd on resume, so a single pathological page can't stall or loop the
+        # book forever. Committed per page so a crash right after loses at most the
+        # page in flight.
+        book.ocr_pages_done = i + 1
+        _commit(session, f"ocr page {i + 1} '{book.filepath}'")
+        if on_page:
+            on_page(i + 1, page_count)
+
+    # All pages processed: the book is now fully indexed.  ``index_error='ocr'``
+    # badges it in the UI as OCR-sourced (same convention as inline OCR).
+    book.ocr_pending = False
+    book.indexed = True
+    book.index_failed = False
+    book.index_error = "ocr"
+    _commit(session, f"ocr done '{book.filepath}'")
+    logger.info(f"OCR: completed '{book.filename}' ({page_count} pages)")
+    return "done"
+
+
+# Indirection so tests can stub the isolated call without spawning subprocesses.
+def ocr_book_page_isolated_wrapper(filepath: str, page_index: int, should_stop=None) -> str:
+    return ocr_page_isolated(filepath, page_index, should_stop=should_stop)
+
+
+def _book_page_count(filepath: str) -> int:
+    doc = _fitz_open_with_timeout(filepath)
+    try:
+        return doc.page_count
+    finally:
+        doc.close()
+
+
+def _commit(session: Session, label: str) -> None:
+    """Commit with the standard indexer timeout guard; roll back on hang."""
+    try:
+        _run_with_timeout(session.commit, _DB_TIMEOUT, label)
+    except (TimeoutError, IntegrityError) as e:
+        logger.error(f"DB hang on commit ({label}): {e}")
+        session.rollback()
 
 
 def _count_eligible_files(directory: Path, extensions: set) -> int:
@@ -1596,7 +1790,12 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
 
     logger.info(f"Indexing: extracting text from '{book.filepath}'")
     try:
-        pages, used_ocr = extract_text_isolated(book.filepath, should_stop=should_stop)
+        # text_only: never OCR inline. Image-only books come back with no pages
+        # and are queued for the deferred-OCR worker below, so a large scanned
+        # book can't stall the scan for hours or hit the whole-book timeout.
+        pages, used_ocr = extract_text_isolated(
+            book.filepath, should_stop=should_stop, text_only=True
+        )
     except PdfExtractionCrashError as e:
         logger.error(f"Text extraction crashed for '{book.filename}': {e} — marking index_failed")
         book.index_error = f"extraction crashed: {e}"[:500]
@@ -1618,6 +1817,21 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         return False
 
     if not pages:
+        if ocr.ocr_available():
+            # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
+            # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
+            # worker (and startup recovery) picks it up; index_failed cleared so
+            # it isn't mistaken for a hard failure.
+            logger.info(f"No text layer in '{book.filename}' — queuing for deferred OCR")
+            book.ocr_pending = True
+            book.ocr_pages_done = 0
+            book.indexed = False
+            book.index_failed = False
+            book.index_error = ""
+            _commit(session, f"queue ocr '{book.filepath}'")
+            return False
+        # OCR unavailable (slim image): keep the pre-OCR behaviour — mark
+        # image-only and indexed so it isn't retried every scan.
         logger.info(f"No text extracted from '{book.filename}' — image-only PDF, marking as indexed")
         book.index_error = "image-only"
         book.indexed = True

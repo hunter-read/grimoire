@@ -25,14 +25,14 @@ Runs on every push to `main`/`dev` and on all pull requests. Validates the chang
 publishing anything. Two jobs run in parallel:
 
 **Frontend (`frontend/`):**
-- `npm run format:check` — Prettier formatting
-- `npm run lint` — ESLint (errors fail CI)
-- `npm run test:coverage` — Vitest with coverage
-- `npm run build` — production build (catches broken imports / JSX errors)
+- `npm run format:check` - Prettier formatting
+- `npm run lint` - ESLint (errors fail CI)
+- `npm run test:coverage` - Vitest with coverage
+- `npm run build` - production build (catches broken imports / JSX errors)
 
 **Backend:**
-- `ruff check backend/` — lint
-- `python -c "import backend.main"` — import smoke check
+- `ruff check backend/` - lint
+- `python -c "import backend.main"` - import smoke check
 - `pytest` with coverage
 
 **Per-changed-file coverage gate (PRs only):** on pull requests, each job additionally runs
@@ -46,7 +46,7 @@ On **push to `main` only**, each job extracts its total line-coverage % (fronten
 `coverage/coverage-summary.json`, backend from coverage.py's `coverage.json`) and publishes it
 to a [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badge stored in a GitHub
 Gist via [`schneegans/dynamic-badges-action`](https://github.com/schneegans/dynamic-badges-action).
-No third-party service ingests the code — the badge JSON lives in a gist you own. The badges
+No third-party service ingests the code - the badge JSON lives in a gist you own. The badges
 render in the [README](../README.md) badge row.
 
 **One-time setup** (already done for this repo; documented for forks):
@@ -65,7 +65,7 @@ render in the [README](../README.md) badge row.
 ### Note: the `dev → main` PR runs once, not twice
 
 A direct push to `dev` while the `dev → main` pull request is open would normally make CI run
-twice for the same commit — once for the `push` event and once for the `pull_request` event.
+twice for the same commit - once for the `push` event and once for the `pull_request` event.
 To avoid that (and the duplicate downstream **Edge** build it caused), both CI jobs are
 guarded to skip the `pull_request` run when the PR's head branch is `dev`:
 
@@ -100,13 +100,13 @@ runs when:
 - the CI run's triggering event was `push`.
 
 **What it produces:**
-- `hunterreadca/grimoire:edge` — multi-arch (`linux/amd64`, `linux/arm64/v8`), built from the
+- `hunterreadca/grimoire:edge` - multi-arch (`linux/amd64`, `linux/arm64/v8`), built from the
   Dockerfile's `ocr` target (bundles Tesseract OCR).
 
 Built with `APP_VERSION=edge` and the triggering commit SHA. Uses the GitHub Actions build
 cache (`type=gha`) to keep rebuilds fast.
 
-> **Edge is unstable.** It tracks `dev` and can change or break at any time — use it only for
+> **Edge is unstable.** It tracks `dev` and can change or break at any time - use it only for
 > testing upcoming changes, not for a production deployment.
 
 ---
@@ -124,20 +124,20 @@ git tag v1.5.0        # must match vX.Y.Z
 git push origin v1.5.0
 ```
 
-Pushing the tag is the entire trigger — there are no manual workflow inputs.
+Pushing the tag is the entire trigger - there are no manual workflow inputs.
 
 ### What it does
 
 The tag `v1.5.0` is parsed into `version=1.5.0`, `minor=1.5`, and `major=1`, then the workflow
 builds and pushes **two** multi-arch image variants (`linux/amd64`, `linux/arm64/v8`):
 
-**OCR (default) — Dockerfile `ocr` target, bundles Tesseract:**
+**OCR (default) - Dockerfile `ocr` target, bundles Tesseract:**
 - `hunterreadca/grimoire:latest`
 - `hunterreadca/grimoire:1`
 - `hunterreadca/grimoire:1.5`
 - `hunterreadca/grimoire:1.5.0`
 
-**Slim — Dockerfile `slim` target, no OCR engine, smaller image:**
+**Slim - Dockerfile `slim` target, no OCR engine, smaller image:**
 - `hunterreadca/grimoire:slim`
 - `hunterreadca/grimoire:1-slim`
 - `hunterreadca/grimoire:1.5-slim`
@@ -161,9 +161,9 @@ docker pull hunterreadca/grimoire:1.5.0-slim   # slim variant
 
 Grimoire follows [Semantic Versioning](https://semver.org/):
 
-- **PATCH** (`x.y.Z`) — bug fixes, dependency bumps, small tweaks
-- **MINOR** (`x.Y.0`) — new features, backwards-compatible
-- **MAJOR** (`X.0.0`) — breaking changes (config format, API, data migration required)
+- **PATCH** (`x.y.Z`) - bug fixes, dependency bumps, small tweaks
+- **MINOR** (`x.Y.0`) - new features, backwards-compatible
+- **MAJOR** (`X.0.0`) - breaking changes (config format, API, data migration required)
 
 The rolling `major` (`:1`) and `minor` (`:1.5`) tags let deployments pin to a compatibility
 level and still pick up patch updates. Because schema migrations run automatically on startup

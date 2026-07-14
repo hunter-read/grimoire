@@ -25,12 +25,16 @@ export default function RescanSection() {
     scanned_maps,
     total_tokens,
     scanned_tokens,
+    total_ocr,
+    ocr_done,
+    ocr_current,
   } = status
 
   const totalScan = total_books + total_maps + total_tokens
   const scannedScan = scanned_books + scanned_maps + scanned_tokens
   const scanPct = totalScan > 0 ? Math.round((scannedScan / totalScan) * 100) : null
   const indexPct = to_index > 0 ? Math.round((indexed / to_index) * 100) : 0
+  const ocrPct = total_ocr > 0 ? Math.round((ocr_done / total_ocr) * 100) : 0
 
   const phaseLabel =
     phase === 'scanning'
@@ -39,7 +43,9 @@ export default function RescanSection() {
         : t('maintenance.rescan.scanning')
       : phase === 'indexing'
         ? t('maintenance.rescan.indexing', { indexed, total: to_index })
-        : t('maintenance.rescan.scanning')
+        : phase === 'ocr'
+          ? t('maintenance.rescan.ocr', { done: ocr_done, total: total_ocr })
+          : t('maintenance.rescan.scanning')
 
   return (
     <div style={{ marginBottom: 40 }}>
@@ -186,6 +192,47 @@ export default function RescanSection() {
           <div style={{ marginTop: 5, fontSize: 12, color: 'var(--text-muted)' }}>
             {t('maintenance.rescan.indexProgress', { pct: indexPct, indexed, total: to_index })}
           </div>
+        </div>
+      )}
+
+      {/* Progress bar — deferred OCR phase */}
+      {running && phase === 'ocr' && total_ocr > 0 && (
+        <div style={{ marginTop: 12, maxWidth: 360 }}>
+          <div
+            style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
+          >
+            <div
+              style={{
+                height: '100%',
+                borderRadius: 2,
+                background: 'var(--gold)',
+                width: `${ocrPct}%`,
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
+          <div style={{ marginTop: 5, fontSize: 12, color: 'var(--text-muted)' }}>
+            {t('maintenance.rescan.ocrProgress', {
+              pct: ocrPct,
+              done: ocr_done,
+              total: total_ocr,
+            })}
+          </div>
+          {ocr_current && (
+            <div
+              style={{
+                marginTop: 3,
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={ocr_current}
+            >
+              {t('maintenance.rescan.ocrCurrent', { name: ocr_current })}
+            </div>
+          )}
         </div>
       )}
 

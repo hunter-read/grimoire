@@ -16,10 +16,10 @@ You'll receive a response as soon as possible. For valid vulnerabilities, a fix 
 
 The more detail you provide, the faster the issue can be assessed and fixed:
 
-- **Description** — what the vulnerability is and what it allows an attacker to do
-- **Steps to reproduce** — a minimal sequence of steps or a proof-of-concept
-- **Impact** — who is affected and under what conditions
-- **Suggested fix** — if you have one (optional but appreciated)
+- **Description** - what the vulnerability is and what it allows an attacker to do
+- **Steps to reproduce** - a minimal sequence of steps or a proof-of-concept
+- **Impact** - who is affected and under what conditions
+- **Suggested fix** - if you have one (optional but appreciated)
 
 ## Scope
 
