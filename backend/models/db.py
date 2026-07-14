@@ -112,6 +112,10 @@ def _apply_legacy_migrations(conn) -> None:
         "CREATE INDEX IF NOT EXISTS ix_campaign_members_guest_code ON campaign_members(guest_code)",
         "ALTER TABLE books ADD COLUMN tags JSON DEFAULT '[]'",
         "ALTER TABLE game_systems ADD COLUMN is_system_agnostic BOOLEAN DEFAULT 0",
+        "ALTER TABLE books ADD COLUMN ocr_pending BOOLEAN DEFAULT 0",
+        "ALTER TABLE books ADD COLUMN ocr_pages_done INTEGER DEFAULT 0",
+        "CREATE INDEX IF NOT EXISTS ix_books_ocr_pending ON books(ocr_pending)",
+        "ALTER TABLE books ADD COLUMN ocr_dpi INTEGER",
     ]:
         try:
             conn.execute(text(migration))

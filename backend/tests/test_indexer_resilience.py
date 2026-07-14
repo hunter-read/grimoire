@@ -24,12 +24,12 @@ from backend.models import Book, GenericMap, Token
 
 # Top-level (picklable) worker stand-ins for the spawned extraction process.
 # Defined at module scope so the "spawn" start method can import them by name.
-def _worker_crash(filepath: str, result_path: str) -> None:
+def _worker_crash(filepath: str, result_path: str, text_only: bool = False) -> None:
     """Simulate a native crash / OOM-kill: die without writing a result."""
     os._exit(1)
 
 
-def _worker_ok(filepath: str, result_path: str) -> None:
+def _worker_ok(filepath: str, result_path: str, text_only: bool = False) -> None:
     """Simulate a clean extraction: write a small result payload."""
     import pickle
 
@@ -142,8 +142,8 @@ class TestIndexBookTextIndexFailed:
 
         assert result is False
 
-    def test_image_only_pdf_marked_indexed(self):
-        """When extract_text_from_pdf returns empty, image-only PDF is marked indexed=True with index_error='image-only'."""
+    def test_image_only_pdf_marked_indexed_without_ocr(self):
+        """With OCR unavailable, an empty extraction marks the book image-only/indexed."""
         uid = str(uuid.uuid4())[:8]
         db = SessionLocal()
         try:
@@ -160,7 +160,8 @@ class TestIndexBookTextIndexFailed:
             db.commit()
             db.refresh(book)
 
-            with patch("backend.indexer.extract_text_isolated", return_value=([], False)):
+            with patch("backend.indexer.extract_text_isolated", return_value=([], False)), \
+                 patch("backend.indexer.ocr.ocr_available", return_value=False):
                 result = index_book_text(book, "/tmp", db)
 
             db.refresh(book)
@@ -168,6 +169,40 @@ class TestIndexBookTextIndexFailed:
             assert book.indexed is True
             assert book.index_failed is False
             assert book.index_error == "image-only"
+            assert book.ocr_pending is False
+        finally:
+            db.close()
+
+    def test_image_only_pdf_queued_for_ocr_when_available(self):
+        """With OCR available, an empty extraction defers the book to the OCR queue."""
+        uid = str(uuid.uuid4())[:8]
+        db = SessionLocal()
+        try:
+            book = Book(
+                title=f"TestBook-{uid}",
+                filename=f"book-{uid}.pdf",
+                filepath=f"/tmp/nonexistent-{uid}.pdf",
+                relative_path=f"book-{uid}.pdf",
+                mime_type="application/pdf",
+                indexed=False,
+                index_failed=False,
+            )
+            db.add(book)
+            db.commit()
+            db.refresh(book)
+
+            with patch("backend.indexer.extract_text_isolated", return_value=([], False)), \
+                 patch("backend.indexer.ocr.ocr_available", return_value=True):
+                result = index_book_text(book, "/tmp", db)
+
+            db.refresh(book)
+            # Not indexed yet — the deferred OCR worker will finish it.
+            assert result is False
+            assert book.indexed is False
+            assert book.index_failed is False
+            assert book.ocr_pending is True
+            assert book.ocr_pages_done == 0
+            assert book.index_error == ""
         finally:
             db.close()
 

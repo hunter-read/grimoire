@@ -155,6 +155,158 @@ class TestUpdateBook:
         assert resp.status_code == 404
 
 
+class TestReindexBook:
+    """POST /api/books/{id}/reindex — per-book re-OCR with optional DPI override."""
+
+    def _make_ocr_book(self, system_id, index_error="ocr"):
+        """A real on-disk PDF book flagged as OCR-sourced, with a search row."""
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            f.write(b"%PDF-1.4\n%stub\n")
+            fpath = f.name
+        book = make_book(
+            system_id=system_id,
+            title="Scanned Book",
+            filename="scanned.pdf",
+            filepath=fpath,
+            mime_type="application/pdf",
+            page_count=3,
+            indexed=True,
+            index_error=index_error,
+        )
+        # Seed a search row so we can assert it gets cleared.
+        from backend.config import SessionLocal
+        from sqlalchemy import text as _text
+
+        db = SessionLocal()
+        try:
+            db.execute(
+                _text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:b, 1, 'old text')"
+                ),
+                {"b": book.id},
+            )
+            db.commit()
+        finally:
+            db.close()
+        return book, fpath
+
+    @pytest.fixture(scope="module")
+    def sys(self):
+        return make_game_system()
+
+    def _search_count(self, book_id):
+        from backend.config import SessionLocal
+        from sqlalchemy import text as _text
+
+        db = SessionLocal()
+        try:
+            return db.execute(
+                _text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"),
+                {"b": book_id},
+            ).scalar()
+        finally:
+            db.close()
+
+    def _book_row(self, book_id):
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        db = SessionLocal()
+        try:
+            b = db.get(Book, book_id)
+            return {
+                "ocr_pending": b.ocr_pending,
+                "ocr_pages_done": b.ocr_pages_done,
+                "ocr_dpi": b.ocr_dpi,
+                "indexed": b.indexed,
+                "index_error": b.index_error,
+            }
+        finally:
+            db.close()
+
+    def test_requeues_and_clears_index(self, client, admin_headers, sys):
+        from unittest.mock import patch as _patch
+
+        book, fpath = self._make_ocr_book(sys.id)
+        try:
+            with _patch(
+                "backend.routers.library._helpers.trigger_ocr_queue"
+            ) as m:
+                resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.json() == {"status": "reindex_queued", "ocr_dpi": None}
+            assert m.called  # background drain was scheduled
+            assert self._search_count(book.id) == 0  # old index cleared
+            row = self._book_row(book.id)
+            assert row["ocr_pending"] is True
+            assert row["ocr_pages_done"] == 0
+            assert row["ocr_dpi"] is None
+            assert row["indexed"] is False
+            assert row["index_error"] == ""
+        finally:
+            os.unlink(fpath)
+
+    def test_dpi_override_stored(self, client, admin_headers, sys):
+        from unittest.mock import patch as _patch
+
+        book, fpath = self._make_ocr_book(sys.id)
+        try:
+            with _patch("backend.routers.library._helpers.trigger_ocr_queue"):
+                resp = client.post(
+                    f"/api/books/{book.id}/reindex?ocr_dpi=300", headers=admin_headers
+                )
+            assert resp.status_code == 200
+            assert resp.json()["ocr_dpi"] == 300
+            assert self._book_row(book.id)["ocr_dpi"] == 300
+        finally:
+            os.unlink(fpath)
+
+    def test_dpi_out_of_range_rejected(self, client, admin_headers, sys):
+        from unittest.mock import patch as _patch
+
+        book, fpath = self._make_ocr_book(sys.id)
+        try:
+            with _patch("backend.routers.library._helpers.trigger_ocr_queue"):
+                too_high = client.post(
+                    f"/api/books/{book.id}/reindex?ocr_dpi=9000", headers=admin_headers
+                )
+                too_low = client.post(
+                    f"/api/books/{book.id}/reindex?ocr_dpi=10", headers=admin_headers
+                )
+            assert too_high.status_code == 422
+            assert too_low.status_code == 422
+        finally:
+            os.unlink(fpath)
+
+    def test_text_layer_book_rejected(self, client, admin_headers, sys):
+        # A natively-indexed book (index_error == "") has no OCR to redo.
+        book, fpath = self._make_ocr_book(sys.id, index_error="")
+        try:
+            resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
+            assert resp.status_code == 400
+        finally:
+            os.unlink(fpath)
+
+    def test_player_cannot_reindex(self, client, player_headers, sys):
+        book, fpath = self._make_ocr_book(sys.id)
+        try:
+            resp = client.post(f"/api/books/{book.id}/reindex", headers=player_headers)
+            assert resp.status_code == 403
+        finally:
+            os.unlink(fpath)
+
+    def test_nonexistent_book(self, client, admin_headers):
+        resp = client.post("/api/books/ghost/reindex", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_missing_file_rejected(self, client, admin_headers, sys):
+        book, fpath = self._make_ocr_book(sys.id)
+        os.unlink(fpath)  # remove the file before the call
+        resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
+        assert resp.status_code == 404
+
+
 class TestImageBookPage:
     IMAGE_TYPES = [
         ("png", "image/png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 8),

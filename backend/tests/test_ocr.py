@@ -46,7 +46,8 @@ class TestAvailability:
     def test_available_when_pytesseract_present(self):
         ocr.reset_availability_cache()
         with patch.dict(sys.modules, {"pytesseract": _fake_pytesseract()}):
-            with patch.object(config, "OCR_ENABLED", True):
+            with patch.object(config, "OCR_ENABLED", True), \
+                 patch.object(config, "OCR_CONCURRENCY", 1):
                 assert ocr.ocr_available() is True
 
     def test_disabled_by_config_even_when_present(self):
@@ -54,6 +55,14 @@ class TestAvailability:
         ocr.reset_availability_cache()
         with patch.dict(sys.modules, {"pytesseract": _fake_pytesseract()}):
             with patch.object(config, "OCR_ENABLED", False):
+                assert ocr.ocr_available() is False
+
+    def test_disabled_when_concurrency_zero(self):
+        """OCR_CONCURRENCY=0 is a runtime off switch, same as OCR_ENABLED=false."""
+        ocr.reset_availability_cache()
+        with patch.dict(sys.modules, {"pytesseract": _fake_pytesseract()}):
+            with patch.object(config, "OCR_ENABLED", True), \
+                 patch.object(config, "OCR_CONCURRENCY", 0):
                 assert ocr.ocr_available() is False
 
 
@@ -217,6 +226,9 @@ class TestRequeue:
             refreshed = db.query(Book).filter_by(id=book_id).first()
             assert refreshed.indexed is False
             assert refreshed.index_error == ""
+            # Now moved into the deferred-OCR queue rather than re-indexed inline.
+            assert refreshed.ocr_pending is True
+            assert refreshed.ocr_pages_done == 0
         finally:
             db.close()
 
@@ -247,3 +259,51 @@ class TestRequeue:
             assert refreshed.index_error == "image-only"
         finally:
             db.close()
+
+
+class TestEffectiveLanguages:
+    def test_mirrors_config(self):
+        with patch.object(config, "OCR_LANGUAGES", "eng+deu"):
+            assert ocr.effective_languages() == "eng+deu"
+
+
+class TestOcrConcurrencyConfig:
+    def test_defaults_to_one(self, monkeypatch):
+        monkeypatch.delenv("OCR_CONCURRENCY", raising=False)
+        assert config._read_ocr_concurrency() == 1
+
+    def test_reads_env(self, monkeypatch):
+        monkeypatch.setenv("OCR_CONCURRENCY", "4")
+        assert config._read_ocr_concurrency() == 4
+
+    def test_invalid_falls_back_to_one(self, monkeypatch):
+        monkeypatch.setenv("OCR_CONCURRENCY", "not-a-number")
+        assert config._read_ocr_concurrency() == 1
+
+    def test_zero_means_disabled(self, monkeypatch):
+        monkeypatch.setenv("OCR_CONCURRENCY", "0")
+        assert config._read_ocr_concurrency() == 0
+
+    def test_negative_clamps_to_zero(self, monkeypatch):
+        monkeypatch.setenv("OCR_CONCURRENCY", "-5")
+        assert config._read_ocr_concurrency() == 0
+
+
+class TestOcrDpiConfig:
+    def test_defaults_to_150(self, monkeypatch):
+        monkeypatch.delenv("OCR_DPI", raising=False)
+        assert config._read_ocr_dpi() == 150.0
+
+    def test_reads_env(self, monkeypatch):
+        monkeypatch.setenv("OCR_DPI", "300")
+        assert config._read_ocr_dpi() == 300.0
+
+    def test_clamps_range(self, monkeypatch):
+        monkeypatch.setenv("OCR_DPI", "5000")
+        assert config._read_ocr_dpi() == 600.0
+        monkeypatch.setenv("OCR_DPI", "10")
+        assert config._read_ocr_dpi() == 72.0
+
+    def test_invalid_falls_back(self, monkeypatch):
+        monkeypatch.setenv("OCR_DPI", "nope")
+        assert config._read_ocr_dpi() == 150.0

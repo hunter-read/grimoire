@@ -1,7 +1,7 @@
 <div align="center">
   <img src="frontend/static/grimoire-logo.svg" alt="Grimoire" width="144">
 
-  # Grimoire — Self-Hosted TTRPG Library Manager
+  # Grimoire - Self-Hosted TTRPG Library Manager
 
   [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/9Sd4CGZC63)
   [![CI](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
@@ -20,22 +20,22 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 
 ## Features
 
-- **Library Browser** — Organizes your collection by game system with automatic folder detection
-- **Full-Text Search** — Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps, tokens, and audio by filename, folder, or tag
-- **Page-by-Page Viewer** — PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
-- **Map Gallery** — Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download
-- **Token Browser** — Browse and tag character tokens and portrait assets
-- **Audio Library** — Browse ambient tracks, soundscapes, music, and sound effects by directory structure with tag filtering and in-browser playback (MP3, OGG, Opus, FLAC, WAV, M4A, AAC). Reads embedded duration and title/artist/album tags, and uses folder `cover`/`folder` images or embedded album art for artwork
-- **Global Audio Player** — A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
-- **Bookmarks** — Per-user page and text-selection bookmarks with inline highlights
-- **Favorites** — Save systems, books, maps, tokens, and audio for quick access
-- **View Modes** — Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
-- **Metadata Editor** — Add descriptions, tags, genre, publisher links, and character builder URLs
-- **Bulk Actions** — Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel
-- **Campaigns** — Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
-- **OPDS Catalog** — Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
-- **Docker Ready** — One command to run, mount your library directory, done
-- **Responsive** — Works on desktop, tablet, and phone with mobile navigation
+- **Library Browser** - Organizes your collection by game system with automatic folder detection
+- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps, tokens, and audio by filename, folder, or tag
+- **Page-by-Page Viewer** - PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
+- **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download
+- **Token Browser** - Browse and tag character tokens and portrait assets
+- **Audio Library** - Browse ambient tracks, soundscapes, music, and sound effects by directory structure with tag filtering and in-browser playback (MP3, OGG, Opus, FLAC, WAV, M4A, AAC). Reads embedded duration and title/artist/album tags, and uses folder `cover`/`folder` images or embedded album art for artwork
+- **Global Audio Player** - A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
+- **Bookmarks** - Per-user page and text-selection bookmarks with inline highlights
+- **Favorites** - Save systems, books, maps, tokens, and audio for quick access
+- **View Modes** - Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
+- **Metadata Editor** - Add descriptions, tags, genre, publisher links, and character builder URLs
+- **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel
+- **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
+- **OPDS Catalog** - Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
+- **Docker Ready** - One command to run, mount your library directory, done
+- **Responsive** - Works on desktop, tablet, and phone with mobile navigation
 
 ## Quick Start
 
@@ -114,12 +114,12 @@ services:
   grimoire:
     image: hunterreadca/grimoire:latest
     ports:
-      - "9481:9481"
+ - "9481:9481"
     environment:
       SECRET_KEY: "generate-with-openssl-rand-hex-32"
     volumes:
-      - /path/to/your/library:/app/library:ro   # read-only — use Filebrowser or Calibre to manage files
-      - /path/to/grimoire/data:/app/data
+ - /path/to/your/library:/app/library:ro   # read-only - use Filebrowser or Calibre to manage files
+ - /path/to/grimoire/data:/app/data
 ```
 
 ### 5. Example compose files
@@ -163,7 +163,7 @@ The database, search index, and rendered thumbnails are all stored under `DATA_P
 
 ## Upgrading
 
-Pull the new image and restart (`docker compose pull && docker compose up -d`). Database schema changes are applied automatically on startup via [Alembic](https://alembic.sqlalchemy.org/) — **no manual action is required** when upgrading, including from versions that predate Alembic. On first run under the new system, an existing database is detected and stamped at the correct baseline, so only genuinely new migrations run thereafter. Back up `DATA_PATH` before upgrading, as always.
+Pull the new image and restart (`docker compose pull && docker compose up -d`). Database schema changes are applied automatically on startup via [Alembic](https://alembic.sqlalchemy.org/) - **no manual action is required** when upgrading, including from versions that predate Alembic. On first run under the new system, an existing database is detected and stamped at the correct baseline, so only genuinely new migrations run thereafter. Back up `DATA_PATH` before upgrading, as always.
 
 ## Running from source
 
@@ -173,11 +173,11 @@ Prefer to build the image yourself or run Grimoire directly on the host (Python 
 
 ## Library Structure
 
-### Books — one folder per game system
+### Books - one folder per game system
 
 Each top-level folder under `books/` becomes a **game system**. Subfolders are auto-detected as categories based on their name.
 
-Folder name matching is **case-insensitive**, and hyphens, underscores, and spaces are interchangeable — `Character-Sheets`, `character_sheets`, and `Character Sheets` all map to the same category.
+Folder name matching is **case-insensitive**, and hyphens, underscores, and spaces are interchangeable - `Character-Sheets`, `character_sheets`, and `Character Sheets` all map to the same category.
 
 | Category | Recognized folder names | What goes here |
 |---|---|---|
@@ -197,7 +197,7 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 
 #### Subfolders within a category
 
-Any category folder can contain named subfolders to group related books together. Grimoire detects these automatically and displays them as collapsible folder groups within the category section — no configuration needed.
+Any category folder can contain named subfolders to group related books together. Grimoire detects these automatically and displays them as collapsible folder groups within the category section - no configuration needed.
 
 ```
 books/
@@ -222,7 +222,7 @@ Books without a subfolder are shown ungrouped at the top of their category secti
 
 #### Archive files
 
-Archive files placed anywhere under `books/` are shown alongside your books in their category — handy for bundling a set of related files (a maps pack, a COMP/CON export, loose handouts) next to the book they belong to. Recognized extensions:
+Archive files placed anywhere under `books/` are shown alongside your books in their category - handy for bundling a set of related files (a maps pack, a COMP/CON export, loose handouts) next to the book they belong to. Recognized extensions:
 
 | Type | Extensions |
 |---|---|
@@ -231,11 +231,11 @@ Archive files placed anywhere under `books/` are shown alongside your books in t
 | 7-Zip | `.7z`, `.cb7` |
 | Tar | `.tar`, `.cbt`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2` |
 
-Archives are treated as opaque downloads — Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive. Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) additionally get a cover thumbnail generated from the first image inside them.
+Archives are treated as opaque downloads - Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive. Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) additionally get a cover thumbnail generated from the first image inside them.
 
 #### System-agnostic collections
 
-Some books don't belong to a single game system — reference material, zines, art books, or rulesets like Ironsworn or Mothership that span multiple systems. Create a folder whose name is one of the recognized system-agnostic names and Grimoire will display its contents in a separate **System-Agnostic** section on the library page, outside the normal game-system grid.
+Some books don't belong to a single game system - reference material, zines, art books, or rulesets like Ironsworn or Mothership that span multiple systems. Create a folder whose name is one of the recognized system-agnostic names and Grimoire will display its contents in a separate **System-Agnostic** section on the library page, outside the normal game-system grid.
 
 **Recognized folder names** (case-insensitive):
 
@@ -245,7 +245,7 @@ Some books don't belong to a single game system — reference material, zines, a
 | `Generic` | `books/Generic/` |
 | `Any` | `books/Any/` |
 
-Subfolders directly under the agnostic root become **custom category headings** — whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
+Subfolders directly under the agnostic root become **custom category headings** - whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
 
 ```
 books/
@@ -296,8 +296,8 @@ Grimoire reads [OPF](https://idpf.org/epub/20/spec/OPF_2.0.1_draft.htm) sidecar 
 
 The scanner checks two locations for each book file, in priority order:
 
-1. **`<bookname>.opf`** — a sidecar file with the same stem as the PDF, in the same directory. Suits hand-crafted or single-file layouts.
-2. **`metadata.opf`** — a file named `metadata.opf` in the same directory. This is the format Calibre uses when it exports each book into its own subfolder.
+1. **`<bookname>.opf`** - a sidecar file with the same stem as the PDF, in the same directory. Suits hand-crafted or single-file layouts.
+2. **`metadata.opf`** - a file named `metadata.opf` in the same directory. This is the format Calibre uses when it exports each book into its own subfolder.
 
 A typical Calibre export looks like this and is fully supported:
 
@@ -317,11 +317,11 @@ books/
 
 OPF metadata is only applied when a book is **first indexed**, and ordinary rescans leave existing books alone, so edits made via the web UI are not overwritten. To pick up an OPF or `tags.json` you added or corrected after the initial scan, choose a metadata-refresh mode in the rescan dialog (available on the global Rescan button and every per-folder rescan button):
 
-- **Find new files** — the default: add new files, flag missing ones, leave existing records untouched.
-- **Update missing metadata** — additionally fill **empty** book fields from sidecar files, without touching anything you've already set (non-destructive).
-- **Replace all metadata** — overwrite fields with whatever the sidecar files provide (this discards UI edits the sidecar covers).
+- **Find new files** - the default: add new files, flag missing ones, leave existing records untouched.
+- **Update missing metadata** - additionally fill **empty** book fields from sidecar files, without touching anything you've already set (non-destructive).
+- **Replace all metadata** - overwrite fields with whatever the sidecar files provide (this discards UI edits the sidecar covers).
 
-### Maps — organize by creator or collection
+### Maps - organize by creator or collection
 
 ```
 maps/
@@ -331,7 +331,7 @@ maps/
 
 The folder name is shown as a group header in the map gallery.
 
-### Tokens — organize by type
+### Tokens - organize by type
 
 ```
 tokens/
@@ -339,7 +339,7 @@ tokens/
     └── token-file.png
 ```
 
-### Audio — organize by category or creator
+### Audio - organize by category or creator
 
 ```
 audio/
@@ -386,8 +386,8 @@ Grimoire mounts your library folder **read-only** and never modifies your files.
 
 Two tools integrate especially well:
 
-- **[Filebrowser Quantum](docs/file-management.md#filebrowser-quantum)** — drag-and-drop file uploads from any browser, no desktop app needed
-- **[Calibre](docs/file-management.md#calibre)** — full book management with metadata editing; Grimoire reads the `.opf` sidecar files Calibre writes ([see OPF support](#book-metadata-from-opf-files))
+- **[Filebrowser Quantum](docs/file-management.md#filebrowser-quantum)** - drag-and-drop file uploads from any browser, no desktop app needed
+- **[Calibre](docs/file-management.md#calibre)** - full book management with metadata editing; Grimoire reads the `.opf` sidecar files Calibre writes ([see OPF support](#book-metadata-from-opf-files))
 
 See [docs/file-management.md](docs/file-management.md) for Docker Compose examples for each tool.
 
@@ -401,19 +401,21 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 
 | Variable | Default | Description |
 |---|---|---|
-| `SECRET_KEY` | — | **Required.** JWT signing secret. Generate: `openssl rand -hex 32` |
+| `SECRET_KEY` | - | **Required.** JWT signing secret. Generate: `openssl rand -hex 32` |
 | `WORKERS` | `2` | Number of uvicorn worker processes |
 | `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
-| `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy — used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
-| `VALKEY_URL` | — | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
+| `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy - used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
+| `VALKEY_URL` | - | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
 | `OCR_ENABLED` | `true` | Optional. Set to `false` to disable OCR of image-only PDFs even on the OCR-capable image. See [OCR](#ocr) below. |
 | `OCR_LANGUAGES` | `eng` | Optional. Tesseract language codes for OCR, e.g. `eng` or `eng+deu+fra`. Extra languages require their tessdata files to be present (see [OCR](#ocr)). |
+| `OCR_CONCURRENCY` | `1` | Optional. Number of scanned books OCR'd in parallel by the background OCR worker. Raise on multi-core hosts with spare CPU; keep at `1` on small boxes. Set to `0` to turn OCR off (same as `OCR_ENABLED=false`). See [OCR performance](#ocr-performance--resource-tuning). |
+| `OCR_DPI` | `150` | Optional. Resolution scanned pages are rasterized at before OCR (clamped 72–600). Higher = more accurate but slower and more memory per page. See [OCR performance](#ocr-performance--resource-tuning). |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
-| `ALLOW_PASSWORD_AUTHENTICATION` | — | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
-| `GUEST_ACCESS_ENABLED` | — | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
-| `OIDC_*` env vars | — | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
+| `ALLOW_PASSWORD_AUTHENTICATION` | - | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
+| `GUEST_ACCESS_ENABLED` | - | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
+| `OIDC_*` env vars | - | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
 | `AUTH_RATE_LIMIT` | `10/minute` | Per-IP throttle applied to the credential-checking endpoints (`/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats`). Exceeding it returns `429`. Uses a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string like `20/minute` or `100/hour`. See [Security hardening](#security-hardening) below. |
 | `RATE_LIMIT_ENABLED` | `true` | Optional. Set to `false` to disable auth rate limiting entirely. |
 | `TRUST_FORWARDED_FOR` | `true` | Optional. When `true`, the rate limiter keys on the left-most `X-Forwarded-For` address so each client gets its own bucket behind a reverse proxy. Set to `false` only if Grimoire is exposed directly (no trusted proxy), so a spoofed header can't sidestep the limit. |
@@ -422,11 +424,11 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 
 ```yaml
 volumes:
-  # Your library — read-only is fine, Grimoire never modifies your files
-  - /path/to/your/library:/app/library:ro
+  # Your library - read-only is fine, Grimoire never modifies your files
+ - /path/to/your/library:/app/library:ro
 
   # Persistent data (database, thumbnails, page cache)
-  - grimoire_data:/app/data
+ - grimoire_data:/app/data
 ```
 
 ---
@@ -443,12 +445,31 @@ Use the **Rescan** button in the sidebar to pick up newly added files, or config
 
 Some PDFs contain only scanned page images with no embedded text layer (common with older, scanned game books). These can't be full-text searched from their text layer alone and show an **Image Only** badge.
 
-The default Grimoire image bundles the [Tesseract](https://github.com/tesseract-ocr/tesseract) OCR engine (English), so on first scan these image-only PDFs are run through OCR and their recognised text is added to the search index. Books indexed this way show an **OCR** badge. OCR runs entirely in-process — no extra container or service is required.
+The default Grimoire image bundles the [Tesseract](https://github.com/tesseract-ocr/tesseract) OCR engine (English), so scanned image-only PDFs are run through OCR and their recognised text is added to the search index. Books indexed this way show an **OCR** badge. No extra container or service is required.
 
-- **Disable OCR:** set `OCR_ENABLED=false`. Image-only PDFs are then left unindexed (the pre-OCR behaviour), exactly as on the slim image.
-- **Slim image:** the `-slim` tags (e.g. `hunterreadca/grimoire:v1.5.0-slim`, `:slim`, `:edge-slim`) omit Tesseract for a smaller image. OCR is automatically disabled there and Grimoire degrades gracefully.
-- **Re-queue on upgrade:** when OCR becomes available (upgrading from a slim image, or enabling it), previously image-only books are automatically re-queued for OCR on the next startup scan.
-- **Additional languages:** set `OCR_LANGUAGES` to a `+`-joined list of Tesseract language codes (e.g. `eng+deu+fra`). The extra languages' tessdata files must be present in the image's tessdata directory — mount a directory of `.traineddata` files over it (or point `TESSDATA_PREFIX` at a mounted directory) to add languages without rebuilding.
+OCR runs quietly in the background, so it never holds up the rest of your library. A scan indexes all your regular (text-based) books, maps, tokens, and audio first - those are searchable right away - and then works through the scanned books afterward. Even if you add 100+ scanned books at once, the rest of your library stays available while they're being processed.
+
+Scanned books are also processed **page by page**, and progress is saved as it goes. If the server restarts (or you stop and start a scan), OCR simply picks up where it left off instead of starting the book over - so even a very large scanned book will finish, however long it takes.
+
+- **Progress:** the admin scan status shows an OCR phase with a progress bar and the book currently being processed.
+- **Disable OCR:** set `OCR_ENABLED=false`. Scanned image-only PDFs are then left unindexed, the same as on the slim image.
+- **Slim image:** the `-slim` tags (e.g. `hunterreadca/grimoire:v1.5.0-slim`, `:slim`, `:edge-slim`) omit Tesseract for a smaller image. OCR is automatically disabled there.
+- **Upgrading to OCR:** if you enable OCR later (or switch from a slim image), any books that were previously skipped as image-only are automatically queued for OCR on the next scan.
+- **Additional languages:** set `OCR_LANGUAGES` to a `+`-joined list of Tesseract language codes (e.g. `eng+deu+fra`). The extra languages' data files must be present in the image - mount a directory of `.traineddata` files (or point `TESSDATA_PREFIX` at one) to add languages without rebuilding.
+
+#### Speeding up OCR
+
+Scanning a large book takes a while, and it happens quietly in the background - you can browse and search the rest of your library the whole time, and OCR picks up where it left off if the server restarts. If you have a big collection of scanned books and want it to finish faster, two optional settings help:
+
+- **`OCR_CONCURRENCY`** - how many scanned books to work on at once. The default is `1`, which is gentle on small devices. If you're running on a machine with several CPU cores and plenty of memory to spare, raising this (e.g. `2`–`8`) processes books in parallel and gets through the queue faster. On a small device like a Raspberry Pi, leave it at `1`. Set it to `0` to turn OCR off entirely - handy if OCR keeps failing or running your machine out of memory and you just want it to stop, without switching to the slim image.
+  - Each parallel worker uses roughly 50–250 MB of RAM depending on the pdf page image size, so make sure you have that much to spare per unit, and don't set it higher than the number of CPU cores (virtual/hyper-threaded cores count) or the workers just compete for the same processors without going any faster.
+- **`OCR_DPI`** - how sharp the scanned pages are rendered before reading them (default `150`). Lowering it (e.g. `120`) makes OCR faster and lighter; raising it (e.g. `200`–`300`) can improve results on faint or low-quality scans at the cost of speed. Note: OCR scanned books can be individually rescaned at a higher DPI if needed from the application.
+
+A rough guide: a small always-on device (like a Pi) is happiest at the defaults; a typical NAS can handle `OCR_CONCURRENCY=2`; a powerful desktop or server can go higher. It's safe to start low and raise it later - the queue just continues faster.
+
+#### Re-OCR a single book at a higher DPI
+
+`OCR_DPI` sets the resolution for the whole library, and `150` is usually plenty. But the occasional faint or low-quality scan reads better at a higher resolution. Rather than raise the global default (and re-OCR everything), you can re-OCR just that one book: on an OCR-badged book row, click the **Re-OCR** button, optionally enter a DPI (e.g. `300`), and run it. The book is re-read in the background at that resolution while the rest of the library is untouched; leave the DPI blank to re-OCR at the global default. The button appears only for scanned/OCR'd books and requires GM or admin.
 
 ### Page rendering
 
@@ -464,15 +485,15 @@ Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an i
 
 ### Auth rate limiting
 
-The credential-checking endpoints — `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats` — are rate-limited per client IP to slow online password / invite-code brute-forcing. The default is **`10/minute`** per IP; exceeding it returns HTTP `429`. Tune it with `AUTH_RATE_LIMIT` (a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string such as `20/minute` or `100/hour`), or turn it off with `RATE_LIMIT_ENABLED=false`.
+The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats` - are rate-limited per client IP to slow online password / invite-code brute-forcing. The default is **`10/minute`** per IP; exceeding it returns HTTP `429`. Tune it with `AUTH_RATE_LIMIT` (a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string such as `20/minute` or `100/hour`), or turn it off with `RATE_LIMIT_ENABLED=false`.
 
-**Behind a reverse proxy:** keying is done on the left-most `X-Forwarded-For` address by default (`TRUST_FORWARDED_FOR=true`) so each real client — not the proxy — gets its own bucket. Make sure your proxy sets `X-Forwarded-For`. If Grimoire is exposed directly with no trusted proxy in front, set `TRUST_FORWARDED_FOR=false` so a spoofed header can't be used to sidestep the limit.
+**Behind a reverse proxy:** keying is done on the left-most `X-Forwarded-For` address by default (`TRUST_FORWARDED_FOR=true`) so each real client - not the proxy - gets its own bucket. Make sure your proxy sets `X-Forwarded-For`. If Grimoire is exposed directly with no trusted proxy in front, set `TRUST_FORWARDED_FOR=false` so a spoofed header can't be used to sidestep the limit.
 
 **Multiple replicas:** when `VALKEY_URL` is set the limit counters are shared through Valkey so the limit is enforced consistently across all workers/replicas; without it each process keeps its own in-memory counters (and the limiter falls back to in-memory automatically if Valkey becomes unreachable).
 
 ### Security headers
 
-Every response carries a `Content-Security-Policy` scoped to what the SPA actually loads (own scripts, inline styles used by React, Google Fonts, and `data:`/`blob:` images for rendered pages), plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` (matching the CSP `frame-ancestors 'none'`), and `Referrer-Policy: strict-origin-when-cross-origin`. `Strict-Transport-Security` is emitted **only when the request is HTTPS** — either directly or via an `X-Forwarded-Proto: https` header from your TLS-terminating proxy — so it is never sent over plain HTTP.
+Every response carries a `Content-Security-Policy` scoped to what the SPA actually loads (own scripts, inline styles used by React, Google Fonts, and `data:`/`blob:` images for rendered pages), plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` (matching the CSP `frame-ancestors 'none'`), and `Referrer-Policy: strict-origin-when-cross-origin`. `Strict-Transport-Security` is emitted **only when the request is HTTPS** - either directly or via an `X-Forwarded-Proto: https` header from your TLS-terminating proxy - so it is never sent over plain HTTP.
 
 ---
 
@@ -507,11 +528,11 @@ Drop a `users.json` file into your data directory before first start and Grimoir
 |---|---|---|
 | `username` | Yes | Login username |
 | `password` | Yes | Plaintext password **or** a pre-hashed `$bcrypt-sha256$` string |
-| `role` | No | `admin`, `gm`, or `player` — defaults to `player` if missing |
-| `denyExplicit` | No | `true` to restrict explicit content for this user — defaults to `false` |
+| `role` | No | `admin`, `gm`, or `player` - defaults to `player` if missing |
+| `denyExplicit` | No | `true` to restrict explicit content for this user - defaults to `false` |
 
 **Rules:**
-- At least one entry must have `"role": "admin"` — the file is rejected otherwise.
+- At least one entry must have `"role": "admin"` - the file is rejected otherwise.
 - Entries whose username already exists in the database are silently skipped.
 - On parse or validation errors the file is left untouched so you can fix and restart.
 
@@ -540,7 +561,7 @@ docker compose up -d
 
 | Role | What they can do |
 |---|---|
-| `admin` | Everything — user management, app settings, metadata editing, rescan |
+| `admin` | Everything - user management, app settings, metadata editing, rescan |
 | `gm` | Read everything, edit metadata, create GM campaigns |
 | `player` | Read-only access, personal campaigns, session notes |
 | `guest` | Code-only account scoped to a single campaign. No access to the library, maps, tokens, audio, or search. See [Guest invites](#guest-invites). |
@@ -553,18 +574,18 @@ Create additional accounts in **Settings → Users** after logging in as admin.
 
 Grimoire has a built-in campaign tracker with two modes:
 
-- **GM Campaigns** — Created by GMs or admins. Supports player invitations, a banner image, character art and character sheets per member (uploaded file or an external link), resource linking with per-resource visibility, a markdown wiki for notes, and scheduling.
-- **Personal Campaigns** — Private to a single user. No sharing.
+- **GM Campaigns** - Created by GMs or admins. Supports player invitations, a banner image, character art and character sheets per member (uploaded file or an external link), resource linking with per-resource visibility, a markdown wiki for notes, and scheduling.
+- **Personal Campaigns** - Private to a single user. No sharing.
 
-Campaign creation uses a short wizard: pick a system, then choose resources — the system's core books are suggested by default and anything can be added (with a search) or removed, each set to **Shared with players**, **GM only**, or **Private**. The campaign **description** supports markdown, and you can name a **custom game system** that isn't in your library (handy for keeping notes on a system you don't own).
+Campaign creation uses a short wizard: pick a system, then choose resources - the system's core books are suggested by default and anything can be added (with a search) or removed, each set to **Shared with players**, **GM only**, or **Private**. The campaign **description** supports markdown, and you can name a **custom game system** that isn't in your library (handy for keeping notes on a system you don't own).
 
 When a GM invites you to a campaign, an **invite banner** appears at the top of the app so you can **accept** (join the campaign) or **decline** it from anywhere. You can dismiss the banner for the current browser session; it reappears the next time you open the app while an invite is still pending.
 
-Campaign members can set a **character name** per campaign (editable by both the GM and the player), upload **character art** (shown as their avatar) and a **character sheet** (PDF or image). A player can also **create a sheet from a template** — duplicating a form-fillable PDF from the library's Character Sheets category (filtered to the campaign's system) or a campaign file — and **fill it in directly in the app**: the real PDF is rendered in the browser and the player types into the form fields on the page itself, then saves a filled copy. The same in-app editing works for any form-fillable PDF a player uploads, so sheets can be updated as characters advance. Sheets can be downloaded at any time, and re-uploading prompts a warning (with an option to download the current version first) before the previous one is replaced. Users can also set a **display name** in Account Settings that appears in place of their username across the app.
+Campaign members can set a **character name** per campaign (editable by both the GM and the player), upload **character art** (shown as their avatar) and a **character sheet** (PDF or image). A player can also **create a sheet from a template** - duplicating a form-fillable PDF from the library's Character Sheets category (filtered to the campaign's system) or a campaign file - and **fill it in directly in the app**: the real PDF is rendered in the browser and the player types into the form fields on the page itself, then saves a filled copy. The same in-app editing works for any form-fillable PDF a player uploads, so sheets can be updated as characters advance. Sheets can be downloaded at any time, and re-uploading prompts a warning (with an option to download the current version first) before the previous one is replaced. Users can also set a **display name** in Account Settings that appears in place of their username across the app.
 
 ### Per-user campaign access
 
-Each user has a **campaign access** toggle (admins manage it per user in **Settings → Users**; enabled by default). Disabling it does **not** delete any existing campaigns — it only:
+Each user has a **campaign access** toggle (admins manage it per user in **Settings → Users**; enabled by default). Disabling it does **not** delete any existing campaigns - it only:
 
 - Prevents the user from creating campaigns, being added to new ones, and editing/linking resources.
 - Keeps their read access to campaigns they already own or belong to; in member lists they are flagged as **Access disabled**.
@@ -574,30 +595,30 @@ When OIDC is configured, this flag can be driven by the provider's [permissions 
 
 ### Guest invites
 
-Guests let you share a single campaign with people who don't have full accounts — for example a player who's only joining one game. A guest is a code-only account: no password, no OIDC, and no access to the library, maps, tokens, audio, or search. They can only see the campaign they were invited to (and its shared resources, wiki, and schedule), and can edit only their **own** character name, character art, character sheet, session notes, and availability.
+Guests let you share a single campaign with people who don't have full accounts - for example a player who's only joining one game. A guest is a code-only account: no password, no OIDC, and no access to the library, maps, tokens, audio, or search. They can only see the campaign they were invited to (and its shared resources, wiki, and schedule), and can edit only their **own** character name, character art, character sheet, session notes, and availability.
 
 - **Enable it server-wide** in **Settings → Authentication → Guest Access**, or pin it with the `GUEST_ACCESS_ENABLED` environment variable. It's off by default.
-- **Invite from a GM campaign** — open the members roster and use **Guests** (admins and GMs only). Add a guest with a nickname; each guest gets a unique 10-character invite code. A campaign can have multiple guests.
+- **Invite from a GM campaign** - open the members roster and use **Guests** (admins and GMs only). Add a guest with a nickname; each guest gets a unique 10-character invite code. A campaign can have multiple guests.
 - **Share the code** with the built-in **Share** button: copy a ready-made message, copy a version for a Discord DM, or open a pre-filled email. The message includes a deep link (`/guest?code=…`) and the code itself.
-- **Manage codes** — regenerate a guest's code (invalidating the old one) or remove the guest entirely (which deletes their guest account and contributions).
+- **Manage codes** - regenerate a guest's code (invalidating the old one) or remove the guest entirely (which deletes their guest account and contributions).
 - **Guests log in** from the login screen via **Have an invite code?**, which works even on OIDC-only servers where password login is disabled. In the app a guest sees the nickname their GM gave them and a **GUEST** role.
-- **Admin overview** — **Settings → Users** lists every guest account (grouped separately from full users) with its nickname, the campaign it's attached to, and who invited it. From there an admin can **convert a guest to a permanent user**: give it a username (and a password when password auth is enabled) and it keeps its campaign membership and character.
+- **Admin overview** - **Settings → Users** lists every guest account (grouped separately from full users) with its nickname, the campaign it's attached to, and who invited it. From there an admin can **convert a guest to a permanent user**: give it a username (and a password when password auth is enabled) and it keeps its campaign membership and character.
 
 ### Notes wiki
 
-Each campaign has a full-page markdown **wiki** (opened from the campaign overview) for building out the world — a place for session recaps, lore, NPCs, and plans:
+Each campaign has a full-page markdown **wiki** (opened from the campaign overview) for building out the world - a place for session recaps, lore, NPCs, and plans:
 
 - **Markdown** with tables, images, and the usual formatting, edited side-by-side with a live preview.
-- **Visibility per page** — *GM only*, *Public* (all members), or *Private* (specific members — e.g. a secret shared with one player). Change it straight from the visibility badge on the page: the badge is a dropdown, and for *Private* pages it lists members so you can grant or revoke access without opening the editor.
-- **GM secrets inline** — wrap text in `||double pipes||` (or use the **GM secret** button) to hide just that span inside an otherwise shared page. The GM sees it highlighted; players never receive it — it's stripped on the server before the page is sent. (Personal campaigns keep everything, since only you can read them.)
-- **Nested pages** — organize the sidebar as a tree: any page can hold subpages, to any depth (a "category" is just a page with children). Drag pages to re-nest them, add a subpage from the parent row, and collapse/expand branches. Deleting a page lifts its subpages up to the parent rather than removing them.
-- **Page links** — write `[[Page Title]]` to link pages; missing targets are auto-created as stubs, and each page shows what links back to it.
-- **Grimoire embeds** — drop a book (optionally at a page), map, token, audio track (plays in the global player; a note with several can be played as a playlist via "Play all"), or campaign file straight into a page. The embed picker lists the campaign's **linked resources** (link new library content in the Resources panel first). You can also **upload an image** right from the picker — it's embedded inline and added to your linked resources, filed under an existing category or a new one you name on the spot (e.g. *NPC art*).
-- **Import & export** (GM only) — export the whole wiki as a Markdown `.zip` (one file per page with YAML frontmatter — an Obsidian-style vault) or a JSON bundle, and import pages from Markdown, a Grimoire JSON bundle, or a **LegendKeeper** export (`.json`, `.lk`, or `.zip` — both the per-page export and the current `{version, resources}` bundle). LegendKeeper HTML and ProseMirror page bodies are converted to Markdown and the page hierarchy is preserved; LegendKeeper-only block types (e.g. secrets, embeds) are dropped, matching LegendKeeper's own export caveats. Imports are non-destructive — pages are always added, never overwritten.
+- **Visibility per page** - *GM only*, *Public* (all members), or *Private* (specific members - e.g. a secret shared with one player). Change it straight from the visibility badge on the page: the badge is a dropdown, and for *Private* pages it lists members so you can grant or revoke access without opening the editor.
+- **GM secrets inline** - wrap text in `||double pipes||` (or use the **GM secret** button) to hide just that span inside an otherwise shared page. The GM sees it highlighted; players never receive it - it's stripped on the server before the page is sent. (Personal campaigns keep everything, since only you can read them.)
+- **Nested pages** - organize the sidebar as a tree: any page can hold subpages, to any depth (a "category" is just a page with children). Drag pages to re-nest them, add a subpage from the parent row, and collapse/expand branches. Deleting a page lifts its subpages up to the parent rather than removing them.
+- **Page links** - write `[[Page Title]]` to link pages; missing targets are auto-created as stubs, and each page shows what links back to it.
+- **Grimoire embeds** - drop a book (optionally at a page), map, token, audio track (plays in the global player; a note with several can be played as a playlist via "Play all"), or campaign file straight into a page. The embed picker lists the campaign's **linked resources** (link new library content in the Resources panel first). You can also **upload an image** right from the picker - it's embedded inline and added to your linked resources, filed under an existing category or a new one you name on the spot (e.g. *NPC art*).
+- **Import & export** (GM only) - export the whole wiki as a Markdown `.zip` (one file per page with YAML frontmatter - an Obsidian-style vault) or a JSON bundle, and import pages from Markdown, a Grimoire JSON bundle, or a **LegendKeeper** export (`.json`, `.lk`, or `.zip` - both the per-page export and the current `{version, resources}` bundle). LegendKeeper HTML and ProseMirror page bodies are converted to Markdown and the page hierarchy is preserved; LegendKeeper-only block types (e.g. secrets, embeds) are dropped, matching LegendKeeper's own export caveats. Imports are non-destructive - pages are always added, never overwritten.
 
 Existing session notes are automatically rolled into wiki pages (nested under a "Session Notes" page) the first time the new version starts; empty notes are discarded.
 
-**Resources** — link books, maps, tokens, and audio, or upload campaign files (handouts, images, etc.) the GM keeps with the campaign. Each resource has a visibility: **Public** (all players), **Private** (shared with specific players — e.g. a handout for 2 of 4), or **GM only**. Resources group under their type by default, but the GM can create custom categories (e.g. *Player Handouts*), drag items between categories and reorder them, and delete categories (keeping items uncategorized or unlinking them). Each group can be **collapsed or expanded** (remembered per campaign), and the GM can **reorder all the groups** — custom categories and the built-in Books / Maps / Tokens / Audio / Files groups together — from the category manager.
+**Resources** - link books, maps, tokens, and audio, or upload campaign files (handouts, images, etc.) the GM keeps with the campaign. Each resource has a visibility: **Public** (all players), **Private** (shared with specific players - e.g. a handout for 2 of 4), or **GM only**. Resources group under their type by default, but the GM can create custom categories (e.g. *Player Handouts*), drag items between categories and reorder them, and delete categories (keeping items uncategorized or unlinking them). Each group can be **collapsed or expanded** (remembered per campaign), and the GM can **reorder all the groups** - custom categories and the built-in Books / Maps / Tokens / Audio / Files groups together - from the category manager.
 
 Uploaded campaign files live in the data directory, separate from the library. Admins can disable these uploads app-wide or cap them by per-file and per-campaign size in **Settings → App** (admins themselves are exempt).
 
@@ -605,10 +626,10 @@ Uploaded campaign files live in the data directory, separate from the library. A
 
 GM campaigns support recurring session schedules:
 
-- **Weekly** — same day(s) every week
-- **Biweekly** — every other week (anchored to a reference date)
-- **Monthly** — nth weekday of the month (e.g. "first Friday")
-- **Custom** — explicit list of dates
+- **Weekly** - same day(s) every week
+- **Biweekly** - every other week (anchored to a reference date)
+- **Monthly** - nth weekday of the month (e.g. "first Friday")
+- **Custom** - explicit list of dates
 
 Session note stubs are auto-created the day before each scheduled session. Players can mark their availability for upcoming dates, and the GM can cancel individual dates.
 
@@ -622,20 +643,20 @@ Grimoire supports authentication via any OpenID Connect–compliant identity pro
 
 Open **Settings → Authentication** as an admin:
 
-1. Set the **Issuer URL** (e.g. `https://idp.example.com/realms/main`) and click **Autopopulate** — the server fetches the IdP's `.well-known/openid-configuration` and fills in the endpoint URLs. You can also paste the full discovery document URL directly (e.g. `https://idp.example.com/realms/main/.well-known/openid-configuration`).
+1. Set the **Issuer URL** (e.g. `https://idp.example.com/realms/main`) and click **Autopopulate** - the server fetches the IdP's `.well-known/openid-configuration` and fills in the endpoint URLs. You can also paste the full discovery document URL directly (e.g. `https://idp.example.com/realms/main/.well-known/openid-configuration`).
 2. Paste the **Client ID** and **Client Secret** issued by your IdP.
-3. Register the displayed **Redirect URI** with your IdP. The path is fixed — set `BASE_URL` so the host portion reflects your public origin:
+3. Register the displayed **Redirect URI** with your IdP. The path is fixed - set `BASE_URL` so the host portion reflects your public origin:
    ```
    https://<your.server.com>/api/auth/openid/callback
    ```
 4. Enable **OpenID Connect**.
 5. (Optional) Configure:
-   - **Token Issuer** — the exact `iss` value your IdP puts in tokens. Leave blank to auto-detect from the discovery document. Set this explicitly if auto-detection fails or if your IdP's issuer differs from the Issuer URL (e.g. Authentik application providers). Can also be set via `OIDC_TOKEN_ISSUER`.
-   - **Groups Claim** — name of the OIDC claim that contains the user's groups. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`. Highest level wins; users without any matching group are denied access.
-   - **Advanced Permissions Claim** — name of the OIDC claim containing a permissions object for non-admin users. Supports `{viewNSFW: bool, campaignAccess: bool}`. A missing `viewNSFW` key defaults to `false`; a missing `campaignAccess` key leaves [campaign access](#per-user-campaign-access) enabled. If the entire claim is missing, access is denied.
-   - **Match Existing Users By** — link an existing local account to the OIDC subject by email or username on first login. Subsequent logins always match by stable subject claim.
-   - **Auto-launch** — automatically redirect to the IdP when visiting `/login`. Append `?autoLaunch=0` to bypass.
-   - **Auto-register** — automatically create local accounts on first OIDC login.
+ - **Token Issuer** - the exact `iss` value your IdP puts in tokens. Leave blank to auto-detect from the discovery document. Set this explicitly if auto-detection fails or if your IdP's issuer differs from the Issuer URL (e.g. Authentik application providers). Can also be set via `OIDC_TOKEN_ISSUER`.
+ - **Groups Claim** - name of the OIDC claim that contains the user's groups. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`. Highest level wins; users without any matching group are denied access.
+ - **Advanced Permissions Claim** - name of the OIDC claim containing a permissions object for non-admin users. Supports `{viewNSFW: bool, campaignAccess: bool}`. A missing `viewNSFW` key defaults to `false`; a missing `campaignAccess` key leaves [campaign access](#per-user-campaign-access) enabled. If the entire claim is missing, access is denied.
+ - **Match Existing Users By** - link an existing local account to the OIDC subject by email or username on first login. Subsequent logins always match by stable subject claim.
+ - **Auto-launch** - automatically redirect to the IdP when visiting `/login`. Append `?autoLaunch=0` to bypass.
+ - **Auto-register** - automatically create local accounts on first OIDC login.
 
 Any field can also be pinned via an environment variable (see the table above). Pinned fields are shown read-only in the admin UI.
 
@@ -663,12 +684,12 @@ environment:
 
 ### Personal feed URLs
 
-OPDS access is per-user. Each user generates their own opaque feed URL in **Settings → Account → OPDS Feed**. The URL contains a long random token — no username or password is needed by the OPDS client.
+OPDS access is per-user. Each user generates their own opaque feed URL in **Settings → Account → OPDS Feed**. The URL contains a long random token - no username or password is needed by the OPDS client.
 
-- **Enable** — generates a unique feed URL
-- **Copy** — copies the URL to the clipboard
-- **Regenerate** — issues a new token; the old URL stops working immediately
-- **Disable** — revokes the token; the feed URL stops working immediately
+- **Enable** - generates a unique feed URL
+- **Copy** - copies the URL to the clipboard
+- **Regenerate** - issues a new token; the old URL stops working immediately
+- **Disable** - revokes the token; the feed URL stops working immediately
 
 ### Feed URL structure
 
@@ -691,11 +712,11 @@ The live API is self-documented via OpenAPI. With the server running:
 
 | URL | Description |
 |-----|-------------|
-| `http://localhost:9481/api/docs` | Swagger UI — interactive docs |
-| `http://localhost:9481/api/redoc` | ReDoc — readable reference |
+| `http://localhost:9481/api/docs` | Swagger UI - interactive docs |
+| `http://localhost:9481/api/redoc` | ReDoc - readable reference |
 | `http://localhost:9481/api/openapi.json` | Raw OpenAPI schema |
 
-For contributors, [docs/architecture.md](docs/architecture.md) is a developer-facing architecture reference — module map, request lifecycle, auth/OIDC flow, and startup migrations. For the database schema — an ER diagram and a table-by-table reference of the models and their foreign keys — see [docs/data-model.md](docs/data-model.md).
+For contributors, [docs/architecture.md](docs/architecture.md) is a developer-facing architecture reference - module map, request lifecycle, auth/OIDC flow, and startup migrations. For the database schema - an ER diagram and a table-by-table reference of the models and their foreign keys - see [docs/data-model.md](docs/data-model.md).
 
 ---
 
@@ -707,7 +728,7 @@ Common questions and troubleshooting tips are in [docs/faq.md](docs/faq.md).
 
 ## Contributing
 
-Grimoire is open source and contributions are welcome — bug reports, feature ideas, docs, and code.
+Grimoire is open source and contributions are welcome - bug reports, feature ideas, docs, and code.
 
 See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for full details on reporting issues, submitting pull requests, and setting up a local development environment.
 
@@ -717,4 +738,4 @@ To report a security vulnerability privately, see [SECURITY.md](.github/SECURITY
 
 ## License
 
-GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+GNU General Public License v3.0 - see [LICENSE](LICENSE) for details.

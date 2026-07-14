@@ -100,7 +100,11 @@
     "haveInviteCode": "Tem um código de convite?",
     "inviteCode": "Código de convite",
     "enterAsGuest": "Entrar como convidado",
-    "guestInvalidCode": "Código de convite inválido ou expirado."
+    "guestInvalidCode": "Código de convite inválido ou expirado.",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "showPassword": "Mostrar palavra-passe",
+    "hidePassword": "Ocultar palavra-passe"
   },
   "setup": {
     "title": "Configuração inicial",
@@ -575,6 +579,9 @@
       "scanning": "A analisar…",
       "scanningPercent": "A analisar… {{pct}}%",
       "indexing": "A indexar PDFs… {{indexed}} / {{total}}",
+      "ocr": "OCR… {{done}} / {{total}}",
+      "ocrProgress": "{{pct}}% — {{done}} de {{total}} livros digitalizados processados por OCR",
+      "ocrCurrent": "Atual: {{name}}",
       "stop": "Parar",
       "stopping": "A parar…",
       "complete": "Análise concluída",
@@ -1061,6 +1068,17 @@
     "failed": "Falha ao guardar.",
     "resetProgress": "Repor progresso de leitura",
     "progressReset": "Progresso reposto"
+  },
+  "reocr": {
+    "button": "Refazer OCR",
+    "title": "Refazer OCR com DPI maior",
+    "dpiPlaceholder": "ex.: 300",
+    "dpiLabel": "Resolução do OCR (DPI)",
+    "run": "Executar",
+    "working": "A processar…",
+    "queued": "Na fila",
+    "error": "Falha ao colocar o OCR na fila",
+    "hint": "Relê este livro digitalizado. Deixe o DPI em branco para o valor predefinido ou aumente-o (ex.: 300) para uma leitura mais nítida. É executado em segundo plano."
   },
   "bookRow": {
     "missingFile": "Em falta",

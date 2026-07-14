@@ -245,4 +245,24 @@ describe('MediaFolderGroup — audio', () => {
     const queued = playQueue.mock.calls[0][0].map((t) => t.id)
     expect(queued).toEqual(['a1', 'a2'])
   })
+
+  it('shows a per-subfolder Play button that queues only that subfolder', async () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.audio}
+        folder="Ambient"
+        subfolders={{
+          '': [{ id: 'a1', filename: 't1.mp3', is_missing: false }],
+          battle: [
+            { id: 'a2', filename: 't2.mp3', is_missing: false },
+            { id: 'a3', filename: 'gone.mp3', is_missing: true },
+          ],
+        }}
+        {...baseProps()}
+      />
+    )
+    await userEvent.click(screen.getByTitle(/play battle/i))
+    // Only the subfolder's non-missing tracks are queued.
+    expect(playQueue).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'a2' })])
+  })
 })

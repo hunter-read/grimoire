@@ -19,6 +19,20 @@ describe('LoginView', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
   })
 
+  it('toggles password visibility with the reveal button', async () => {
+    render(<LoginView onLogin={vi.fn()} />)
+    const input = screen.getByLabelText('Password')
+    expect(input).toHaveAttribute('type', 'password')
+
+    const toggle = screen.getByRole('button', { name: /show password/i })
+    fireEvent.click(toggle)
+    expect(input).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: /hide password/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /hide password/i }))
+    expect(input).toHaveAttribute('type', 'password')
+  })
+
   it('calls onLogin with token and user on successful login', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

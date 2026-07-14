@@ -41,12 +41,12 @@ Grimoire expects a specific folder structure inside your library volume mount. T
 
 If your PDFs live directly under the mounted folder (e.g. `RPGs/<GameSystem>/...` without a `books/` subfolder), the scanner will find nothing.
 
-**Fix** — mount your library folder as `/app/library/books` instead of `/app/library`:
+**Fix** - mount your library folder as `/app/library/books` instead of `/app/library`:
 
 ```yaml
 volumes:
-  - /path/to/your/rpgs:/app/library/books:ro
-  - ./grimoire/data:/app/data
+ - /path/to/your/rpgs:/app/library/books:ro
+ - ./grimoire/data:/app/data
 ```
 
 This lets you keep your existing file structure on the host without adding an extra `books/` folder. After updating the compose file, restart the stack and trigger a rescan from the admin panel.
@@ -77,7 +77,7 @@ Assign your users to the appropriate groups.
 Go to **Customization → Property Mappings** and create two **Scope Mappings**.
 
 **Name: `Grimoire Groups`**
-**Scope: `groups`** — maps Authentik groups to Grimoire roles:
+**Scope: `groups`** - maps Authentik groups to Grimoire roles:
 
 ```python
 groups = [group.name for group in user.ak_groups.all()]
@@ -94,7 +94,7 @@ return {"groups": grimoire_groups}
 ```
 
 **Name: `Grimoire Permissions`**
-**Scope: `permissions`** — controls explicit content access:
+**Scope: `permissions`** - controls explicit content access:
 
 ```python
 groups = [group.name for group in user.ak_groups.all()]

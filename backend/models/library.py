@@ -68,6 +68,20 @@ class Book(Base):
     index_error = Column(String(500), default="")
     scan_failed = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
+    # OCR is deferred to a separate background phase so scanned (image-only) PDFs
+    # don't block the fast text-layer indexing of the rest of the library. A book
+    # with no embedded text layer is marked ocr_pending here; a dedicated OCR
+    # worker drains the queue page-by-page, checkpointing ocr_pages_done so a long
+    # book resumes where it left off after a restart or crash instead of losing
+    # hours of work. See docs/architecture.md and backend/indexer.ocr_book_page.
+    ocr_pending = Column(Boolean, default=False, index=True)
+    ocr_pages_done = Column(Integer, default=0)
+    # Optional per-book OCR resolution override (DPI). NULL means "use the global
+    # OCR_DPI default". Set when a user re-OCRs a specific book at a higher DPI
+    # for a sharper read than the library-wide default gives; persisted so the
+    # override survives a restart mid-re-OCR. See indexer.ocr_book / the
+    # POST /api/books/{id}/reindex endpoint.
+    ocr_dpi = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)

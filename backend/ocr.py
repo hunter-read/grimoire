@@ -44,11 +44,13 @@ def _probe_tesseract() -> bool:
 def ocr_available() -> bool:
     """Whether OCR can run: enabled in config AND tesseract is usable.
 
-    The tesseract probe is cached after the first call; ``OCR_ENABLED`` is read
-    live so tests can toggle it without clearing the cache.
+    The tesseract probe is cached after the first call; ``OCR_ENABLED`` and
+    ``OCR_CONCURRENCY`` are read live so tests can toggle them without clearing
+    the cache. ``OCR_CONCURRENCY == 0`` is a runtime off switch, equivalent to
+    ``OCR_ENABLED=false``.
     """
     global _available
-    if not config.OCR_ENABLED:
+    if not config.OCR_ENABLED or config.OCR_CONCURRENCY == 0:
         return False
     if _available is None:
         _available = _probe_tesseract()
@@ -65,13 +67,20 @@ def reset_availability_cache() -> None:
     _available = None
 
 
+def effective_languages() -> str:
+    """The Tesseract language string to OCR with (mirrors ``config.OCR_LANGUAGES``)."""
+    return config.OCR_LANGUAGES
+
+
 def requeue_image_only_books(session) -> int:
-    """Reset books previously marked ``image-only`` so the next scan OCRs them.
+    """Queue books previously marked ``image-only`` for deferred OCR.
 
     Called on startup: when OCR has become available (e.g. after upgrading from
-    the slim image or enabling OCR), previously-skipped image-only PDFs are
-    re-queued by clearing ``indexed``. No-op — returning 0 — when OCR is
-    unavailable, so slim installs never churn. Returns the number re-queued.
+    the slim image or enabling OCR), previously-skipped image-only PDFs are moved
+    into the deferred-OCR queue (``ocr_pending=1``) with their page checkpoint
+    reset, rather than OCR'd inline during the next scan. No-op — returning 0 —
+    when OCR is unavailable, so slim installs never churn. Returns the number
+    queued.
     """
     if not ocr_available():
         return 0
@@ -80,14 +89,15 @@ def requeue_image_only_books(session) -> int:
 
     result = session.execute(
         _sql_text(
-            "UPDATE books SET indexed = 0, index_error = '' "
-            "WHERE index_error = 'image-only' AND indexed = 1"
+            "UPDATE books SET ocr_pending = 1, ocr_pages_done = 0, indexed = 0, "
+            "index_failed = 0, index_error = '' "
+            "WHERE index_error = 'image-only'"
         )
     )
     count = result.rowcount or 0
     if count:
         session.commit()
-        logger.info(f"OCR: re-queued {count} previously image-only book(s) for indexing")
+        logger.info(f"OCR: queued {count} previously image-only book(s) for deferred OCR")
     return count
 
 

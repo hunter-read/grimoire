@@ -2,7 +2,14 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
-from .core import list_books, get_book, update_book, serve_book_file, serve_book_thumbnail
+from .core import (
+    list_books,
+    get_book,
+    update_book,
+    reindex_book,
+    serve_book_file,
+    serve_book_thumbnail,
+)
 from .pages import get_book_toc, serve_book_page, get_page_text, get_page_words
 from ._helpers import _invalidate_book_cache  # re-exported for library.py
 
@@ -18,6 +25,12 @@ router.add_api_route(
 )
 router.add_api_route("/{book_id}", get_book, methods=["GET"], summary="Get a book")
 router.add_api_route("/{book_id}", update_book, methods=["PATCH"], summary="Update book metadata")
+router.add_api_route(
+    "/{book_id}/reindex",
+    reindex_book,
+    methods=["POST"],
+    summary="Re-run OCR on a book (optional DPI override)",
+)
 router.add_api_route(
     "/{book_id}/file", serve_book_file, methods=["GET"], summary="Download book file"
 )

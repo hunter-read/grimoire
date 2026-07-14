@@ -2,8 +2,8 @@
 
 Grimoire ships as a Docker image and that's the recommended way to run it (see the
 [README Quick Start](../README.md#quick-start)). If you'd rather build the image yourself
-or run the app directly on the host — for development, or on a platform where Docker isn't
-an option — this guide covers both.
+or run the app directly on the host - for development, or on a platform where Docker isn't
+an option - this guide covers both.
 
 For contributor setup (local dev environment, tests, coding standards) see
 [CONTRIBUTING.md](../.github/CONTRIBUTING.md).
@@ -66,7 +66,7 @@ uvicorn backend.main:app --host 0.0.0.0 --port 9481
 
 Open `http://localhost:9481`. On first launch you'll be prompted to create an admin account.
 
-Persistent data and upgrades work the same as under Docker — see
+Persistent data and upgrades work the same as under Docker - see
 [Persistent data](../README.md#persistent-data) and [Upgrading](../README.md#upgrading).
 
 ### Optional: Valkey/Redis page cache
