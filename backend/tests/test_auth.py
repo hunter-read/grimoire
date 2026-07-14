@@ -80,12 +80,26 @@ class TestAuthLogin:
         )
         assert resp.status_code == 401
 
-    def test_login_case_sensitive_username(self, client, admin_setup):
+    def test_login_case_insensitive_username(self, client, admin_setup):
+        """A differently-cased username still logs into the same account."""
+        for username in ("ADMIN", "Admin", "aDmIn"):
+            resp = client.post(
+                "/api/auth/login",
+                json={
+                    "username": username,
+                    "password": "adminpass123",
+                },
+            )
+            assert resp.status_code == 200, username
+            assert resp.json()["user"]["username"] == "admin"
+
+    def test_login_password_still_case_sensitive(self, client, admin_setup):
+        """Case-insensitive usernames must not leak into password matching."""
         resp = client.post(
             "/api/auth/login",
             json={
                 "username": "ADMIN",
-                "password": "adminpass123",
+                "password": "ADMINPASS123",
             },
         )
         assert resp.status_code == 401
