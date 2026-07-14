@@ -126,9 +126,10 @@ class TestNormalizeTags:
             raw = conn.execute(text("SELECT tags FROM audio WHERE id='a3'")).scalar()
         assert json.loads(raw) == ["already", "clean"]
 
-    def test_malformed_json_tags_are_skipped(self):
+    def test_malformed_json_tags_are_skipped(self, caplog):
         # A tags value that isn't valid JSON triggers the inner except branch,
-        # which swallows the error and leaves the row untouched.
+        # which now logs a warning and leaves the row untouched (rather than
+        # silently swallowing the error).
         path = _fresh_db()
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
@@ -139,9 +140,13 @@ class TestNormalizeTags:
                 )
             )
             conn.commit()
-            _normalize_tags_in_db(conn)  # must not raise
+            with caplog.at_level("WARNING", logger="grimoire.db"):
+                _normalize_tags_in_db(conn)  # must not raise
             raw = conn.execute(text("SELECT tags FROM audio WHERE id='a4'")).scalar()
         assert raw == "not-json{"
+        assert any(
+            "skipping tag normalization" in r.message.lower() for r in caplog.records
+        )
 
 
 class TestLegacyUserMigration:

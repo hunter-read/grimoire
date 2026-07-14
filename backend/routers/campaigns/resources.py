@@ -317,7 +317,7 @@ def remove_resource(
 def _delete_campaign_file(db, campaign_id: str, file_id: str) -> None:
     import os
 
-    from ...config import CAMPAIGN_UPLOAD_DIR
+    from ...config import CAMPAIGN_UPLOAD_DIR, logger
 
     f = db.query(CampaignFile).filter_by(id=file_id, campaign_id=campaign_id).first()
     if not f:
@@ -326,6 +326,8 @@ def _delete_campaign_file(db, campaign_id: str, file_id: str) -> None:
     try:
         if os.path.isfile(path):
             os.remove(path)
-    except OSError:
-        pass
+    except OSError as e:
+        # DB row is still deleted below; a leftover file on disk is not fatal but
+        # is logged so it can be cleaned up manually.
+        logger.warning("Failed to remove campaign file %s: %s", path, e)
     db.delete(f)

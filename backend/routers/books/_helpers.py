@@ -6,7 +6,7 @@ from typing import Optional
 
 import fitz  # type: ignore[import-untyped]
 
-from ...config import SessionLocal
+from ...config import SessionLocal, logger
 from ...models import Book, User
 
 
@@ -28,8 +28,10 @@ def _get_pdf_doc(filepath: str) -> fitz.Document:
             _, evicted = _pdf_cache.popitem(last=False)
             try:
                 evicted.close()
-            except Exception:
-                pass
+            except (RuntimeError, ValueError) as e:
+                # Best-effort: the evicted document may already be closed or
+                # broken. Log at debug so a leaked handle is diagnosable.
+                logger.debug("Failed to close evicted PDF document: %s", e)
         return doc
 
 

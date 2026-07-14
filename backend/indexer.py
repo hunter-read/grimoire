@@ -328,6 +328,8 @@ def _extract_7z_member(zf, name: str) -> Optional[bytes]:
             return bio.read()
         return None
     except ImportError:
+        # py7zr < 1.0 has no py7zr.io.BytesIOFactory; fall through to the
+        # 0.x read() API below. Any other error propagates.
         pass
 
     # py7zr 0.x: SevenZipFile.read() returns {name: BytesIO}.
@@ -561,8 +563,9 @@ def extract_text_isolated(
             proc.join()
         try:
             os.unlink(result_path)
-        except OSError:
-            pass
+        except OSError as e:
+            # Temp result file may already be gone; only worth a debug note.
+            logger.debug("Failed to remove temp result file %s: %s", result_path, e)
 
 
 def ocr_page_isolated(filepath: str, page_index: int, should_stop=None, dpi: int | None = None) -> str:
@@ -615,8 +618,9 @@ def ocr_page_isolated(filepath: str, page_index: int, should_stop=None, dpi: int
             proc.join()
         try:
             os.unlink(result_path)
-        except OSError:
-            pass
+        except OSError as e:
+            # Temp result file may already be gone; only worth a debug note.
+            logger.debug("Failed to remove temp result file %s: %s", result_path, e)
 
 
 def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> str:
@@ -823,6 +827,7 @@ def _find_folder_artwork(folder: str):
             if p.stem.lower() in _AUDIO_COVER_STEMS and p.suffix.lower() in IMAGE_EXTS:
                 return entry.path
     except OSError:
+        # Folder unreadable/missing → no artwork; genuinely expected, not an error.
         pass
     return None
 
@@ -885,6 +890,7 @@ def parse_opf_metadata(opf_path: str) -> dict:
             if year > 1000:  # Calibre uses 0101-01-01 as a "no date" sentinel
                 meta["year"] = year
         except (ValueError, IndexError):
+            # Non-numeric / malformed date string → leave year unset. Expected.
             pass
 
     subjects = [

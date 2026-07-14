@@ -245,6 +245,158 @@ class TestDiscovery:
             )
         assert resp.status_code == 502
 
+    def test_discovery_doc_logs_http_failure(self, caplog):
+        """A discovery fetch failure returns {} but is logged, not swallowed."""
+        from backend.routers.oidc import _helpers
+
+        with patch(
+            "backend.routers.oidc._helpers.httpx.get",
+            side_effect=httpx.ConnectError("nope"),
+        ):
+            with caplog.at_level("WARNING", logger="grimoire.oidc"):
+                assert _helpers._discovery_doc("https://idp.example.com") == {}
+        assert any("discovery fetch failed" in r.message.lower() for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Low-level helpers: PKCE, state store, JWKS, userinfo, endpoint discovery
+# ---------------------------------------------------------------------------
+
+
+class TestOIDCLowLevelHelpers:
+    def test_pkce_pair_is_url_safe_and_deterministic_challenge(self):
+        from backend.routers.oidc import _helpers
+
+        verifier, challenge = _helpers._pkce_pair()
+        assert verifier and challenge
+        # Challenge is the S256 of the verifier, base64url without padding.
+        import base64
+        import hashlib
+
+        expected = (
+            base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+            .rstrip(b"=")
+            .decode()
+        )
+        assert challenge == expected
+        assert "=" not in challenge
+
+    def test_state_store_put_pop_roundtrip(self):
+        from backend.routers.oidc import _helpers
+
+        store = _helpers._StateStore()
+        store.put("s1", {"nonce": "n"})
+        popped = store.pop("s1")
+        assert popped is not None
+        assert popped["nonce"] == "n"
+        assert "_ts" in popped  # put() stamps a timestamp
+        # Popped once → gone.
+        assert store.pop("s1") is None
+
+    def test_state_store_expires_old_entries(self):
+        from backend.routers.oidc import _helpers
+
+        store = _helpers._StateStore()
+        store.put("old", {"nonce": "n"})
+        # Force the entry's timestamp past the TTL so _gc drops it.
+        store._d["old"]["_ts"] = 0
+        assert store.pop("old") is None
+
+    def test_try_endpoint_and_discover_issuer_fall_back(self):
+        from backend.routers.oidc import _helpers
+
+        with patch.object(_helpers, "_discovery_doc", return_value={}):
+            assert _helpers._try_endpoint("https://idp", "token_endpoint") == ""
+            assert _helpers._discover_issuer("https://idp") == "https://idp"
+
+        with patch.object(
+            _helpers,
+            "_discovery_doc",
+            return_value={"issuer": "https://canonical", "token_endpoint": "https://t"},
+        ):
+            assert _helpers._try_endpoint("https://idp", "token_endpoint") == "https://t"
+            assert _helpers._discover_issuer("https://idp") == "https://canonical"
+
+    def test_get_jwks_fetches_and_caches(self):
+        from backend.routers.oidc import _helpers
+
+        _helpers._jwks_cache.clear()
+
+        class FakeResp:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"keys": [{"kid": "abc"}]}
+
+        with patch(
+            "backend.routers.oidc._helpers.httpx.get", return_value=FakeResp()
+        ) as mock_get:
+            keys = _helpers._get_jwks("https://idp/jwks")
+            assert keys == {"keys": [{"kid": "abc"}]}
+            # Second call within TTL is served from cache (no second fetch).
+            _helpers._get_jwks("https://idp/jwks")
+            assert mock_get.call_count == 1
+
+    def test_get_jwks_http_error_raises_oidc_error(self):
+        from backend.routers.oidc import _helpers
+
+        _helpers._jwks_cache.clear()
+        with patch(
+            "backend.routers.oidc._helpers.httpx.get",
+            side_effect=httpx.ConnectError("down"),
+        ):
+            with pytest.raises(_OIDCError):
+                _helpers._get_jwks("https://idp/jwks")
+
+    def test_validate_id_token_requires_jwks_uri(self):
+        from backend.routers.oidc import _helpers
+
+        with pytest.raises(_OIDCError):
+            _helpers._validate_id_token(
+                "tok",
+                issuer="https://idp",
+                client_id="c",
+                jwks_uri="",
+                expected_nonce="n",
+                allowed_alg="RS256",
+            )
+
+    def test_fetch_userinfo_returns_empty_without_url_or_token(self):
+        from backend.routers.oidc import _helpers
+
+        assert _helpers._fetch_userinfo(None, "tok") == {}
+        assert _helpers._fetch_userinfo("https://idp/userinfo", None) == {}
+
+    def test_fetch_userinfo_success(self):
+        from backend.routers.oidc import _helpers
+
+        class FakeResp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"sub": "abc", "email": "a@b.c"}
+
+        with patch(
+            "backend.routers.oidc._helpers.httpx.get", return_value=FakeResp()
+        ):
+            info = _helpers._fetch_userinfo("https://idp/userinfo", "tok")
+        assert info == {"sub": "abc", "email": "a@b.c"}
+
+    def test_fetch_userinfo_http_error_logs_and_returns_empty(self, caplog):
+        from backend.routers.oidc import _helpers
+
+        with patch(
+            "backend.routers.oidc._helpers.httpx.get",
+            side_effect=httpx.ConnectError("down"),
+        ):
+            with caplog.at_level("WARNING", logger="grimoire.oidc"):
+                assert _helpers._fetch_userinfo("https://idp/userinfo", "tok") == {}
+        assert any("userinfo fetch failed" in r.message.lower() for r in caplog.records)
+
 
 # ---------------------------------------------------------------------------
 # /api/auth/config exposes OIDC button when configured

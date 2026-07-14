@@ -12,6 +12,7 @@ import logging
 import os
 
 from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from .base import Base
@@ -59,8 +60,13 @@ def _normalize_tags_in_db(conn) -> None:
                         text(f"UPDATE {table} SET tags = :tags WHERE rowid = :rowid"),
                         {"tags": json.dumps(normalized), "rowid": rowid},
                     )
-            except Exception:
-                pass
+            except (ValueError, TypeError) as e:
+                # Row holds tags that aren't valid JSON / not a list-of-strings;
+                # skip it rather than aborting the whole normalization pass, but
+                # log it so a corrupt row is visible instead of silently ignored.
+                logger.warning(
+                    "Skipping tag normalization for %s rowid=%s: %s", table, rowid, e
+                )
     conn.commit()
 
 
@@ -120,8 +126,11 @@ def _apply_legacy_migrations(conn) -> None:
         try:
             conn.execute(text(migration))
             conn.commit()
-        except Exception:
-            pass  # Column already exists
+        except OperationalError:
+            # Expected on a partially-migrated DB: the column/index this
+            # statement adds already exists ("duplicate column name" / "index
+            # already exists"). Roll back the failed statement and move on.
+            conn.rollback()
 
     try:
         cols = conn.execute(text("PRAGMA table_info(users)")).fetchall()
@@ -181,8 +190,13 @@ def _apply_legacy_migrations(conn) -> None:
             )
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.commit()
-    except Exception:
-        pass
+    except OperationalError as e:
+        # The rebuild is guarded by the NOT NULL check above, so it only runs on
+        # a DB that still needs it. A schema error here (e.g. the old table was
+        # already partially rebuilt) is tolerated so the cutover can proceed, but
+        # is logged rather than swallowed silently.
+        conn.rollback()
+        logger.warning("Legacy users-table rebuild skipped: %s", e)
 
 
 def _alembic_config(connection):
@@ -258,8 +272,12 @@ def _post_migration_setup(engine) -> None:
                 )
             )
             conn.commit()
-        except Exception:
-            pass
+        except OperationalError as e:
+            # Tolerated on very old databases where the legacy shared/gm_only
+            # columns don't exist yet (the backfill has nothing to do); logged so
+            # an unexpected failure isn't hidden.
+            conn.rollback()
+            logger.warning("Resource visibility backfill skipped: %s", e)
 
         conn.execute(
             text(

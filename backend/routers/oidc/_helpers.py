@@ -77,8 +77,10 @@ def _discovery_doc(issuer: str) -> dict:
         resp = httpx.get(url, timeout=5.0, follow_redirects=True)
         if resp.status_code == 200:
             return resp.json() or {}
-    except httpx.HTTPError:
-        pass
+    except httpx.HTTPError as e:
+        # Discovery is best-effort (caller falls back to configured endpoints),
+        # but log so a misconfigured/unreachable issuer is diagnosable.
+        logger.warning("OIDC discovery fetch failed for %s: %s", url, e)
     return {}
 
 

@@ -8,6 +8,16 @@ from ...models import Book
 from ...indexer import scan_library, index_book_text, ocr_book
 from ..books import _invalidate_book_cache
 
+# Errors raised by the Valkey/Redis client for connection/protocol failures.
+# When a Valkey op fails this way, callers fall back to in-process state; any
+# other exception type is a real bug and should not be swallowed.
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _VALKEY_ERRORS: tuple = (_RedisError,)
+except ImportError:  # redis not installed → _valkey is always None, never used
+    _VALKEY_ERRORS = ()
+
 _SCAN_KEY = "grimoire:scan_status"
 _STOP_KEY = "grimoire:scan_stop"
 
@@ -47,8 +57,8 @@ def request_stop() -> None:
     if _valkey:
         try:
             _valkey.set(_STOP_KEY, "1", ex=3600)
-        except Exception:
-            pass
+        except _VALKEY_ERRORS as e:
+            logger.warning("Valkey set(stop) failed, using in-process flag: %s", e)
 
 
 def clear_stop() -> None:
@@ -57,16 +67,16 @@ def clear_stop() -> None:
     if _valkey:
         try:
             _valkey.delete(_STOP_KEY)
-        except Exception:
-            pass
+        except _VALKEY_ERRORS as e:
+            logger.warning("Valkey delete(stop) failed, using in-process flag: %s", e)
 
 
 def is_stop_requested() -> bool:
     if _valkey:
         try:
             return bool(_valkey.exists(_STOP_KEY))
-        except Exception:
-            pass
+        except _VALKEY_ERRORS as e:
+            logger.warning("Valkey exists(stop) failed, using in-process flag: %s", e)
     return _stop_requested
 
 
@@ -76,8 +86,9 @@ def _get_status() -> dict:
             raw = _valkey.get(_SCAN_KEY)
             if raw:
                 return json.loads(raw)
-        except Exception:
-            pass
+        except (*_VALKEY_ERRORS, ValueError) as e:
+            # ValueError covers a corrupt/non-JSON cached status blob.
+            logger.warning("Valkey get(status) failed, using in-process status: %s", e)
     return dict(_scan_status)
 
 
@@ -89,8 +100,8 @@ def _set_status(updates: dict) -> None:
             current.update(updates)
             _valkey.set(_SCAN_KEY, json.dumps(current), ex=86400)
             return
-        except Exception:
-            pass
+        except _VALKEY_ERRORS as e:
+            logger.warning("Valkey set(status) failed, using in-process status: %s", e)
     _scan_status.update(updates)
 
 
