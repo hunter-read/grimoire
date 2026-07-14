@@ -1,5 +1,6 @@
 """Authentication endpoint handlers."""
 from fastapi import Depends, HTTPException, Request
+from sqlalchemy import func
 
 from ...auth import (
     CurrentUser,
@@ -63,7 +64,13 @@ def auth_login(request: Request, data: LoginRequest):
     try:
         if not password_auth_effective(_get_raw(db)):
             raise HTTPException(403, "Password authentication is disabled")
-        user = db.query(User).filter_by(username=data.username).first()
+        # Usernames are matched case-insensitively so a user who registered as
+        # "Admin" can still log in as "admin"/"ADMIN". Passwords stay case-sensitive.
+        user = (
+            db.query(User)
+            .filter(func.lower(User.username) == data.username.strip().lower())
+            .first()
+        )
         if not user or not verify_password(data.password, user.hashed_password):
             raise HTTPException(401, "Invalid username or password")
         token = create_token(user.id, user.username, user.role)
