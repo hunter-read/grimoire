@@ -128,6 +128,8 @@ describe('AuthContext', () => {
         ok: true,
         json: () => Promise.resolve({ id: '1', username: 'alice', role: 'admin' }),
       })
+      // logout POSTs to /api/auth/logout to clear the server session cookie
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) })
 
     renderAuth()
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
@@ -136,6 +138,11 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('status').textContent).toBe('unauthenticated')
     expect(localStorage.getItem('grimoire_token')).toBeNull()
+    // The server-side cookie clear was requested.
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/auth/logout',
+      expect.objectContaining({ method: 'POST' })
+    )
   })
 
   it('becomes unauthenticated when fetch throws a network error', async () => {

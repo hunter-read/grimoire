@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { auth as authApi } from '../api'
 
 // status: 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
 const AuthContext = createContext(null)
@@ -53,6 +54,9 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
+    // Clear the server-side session cookie so media/download GETs can no longer
+    // authenticate. Best-effort — local state is cleared regardless.
+    authApi.logout().catch(() => {})
     localStorage.removeItem('grimoire_token')
     // One-shot: prevents the OIDC auto-launch from immediately redirecting
     // the user back to the IdP after they explicitly logged out.

@@ -15,19 +15,24 @@ The live API is self-documented via OpenAPI. With the server running:
 
 ## Authentication
 
-All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, and `/api/auth/config` require a JWT.
+All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, `/api/auth/logout`, and `/api/auth/config` require a JWT.
 
 **Header** (preferred for API clients):
 ```
 Authorization: Bearer <token>
 ```
 
-**Query parameter** (required for browser-embedded images and file downloads):
+**Session cookie** (used by browser-embedded images and file downloads):
+
+On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, or OIDC callback, the server also sets an `HttpOnly`, `SameSite=Lax` cookie named `grimoire_session` carrying the JWT (marked `Secure` when `BASE_URL` is `https://`). `<img>` and download requests — which can't set an `Authorization` header — authenticate via this cookie, so the token never appears in the URL. `POST /api/auth/logout` clears it.
+
+**Query parameter** (deprecated):
 ```
 ?token=<token>
 ```
+Still accepted so pre-existing links keep working, but the JWT in a URL leaks into proxy/access logs, `Referer` headers, and browser history (see [#156](https://github.com/hunter-read/grimoire/issues/156)). The frontend no longer generates `?token=` URLs — use the cookie instead. This fallback may be removed in a future release.
 
-Tokens are returned by `/api/auth/login` and expire after **30 days**.
+Tokens are returned by `/api/auth/login` and expire after **30 days**. The auth precedence for any request is: `Authorization` header → `grimoire_session` cookie → `?token=` query param.
 
 ### Rate limiting
 
@@ -57,12 +62,13 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 |----------|--------|------|-------------|
 | `/api/auth/status` | GET | - | Returns `{"initialized": bool}` - used by the frontend to decide whether to show first-run setup |
 | `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
-| `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}`. Fails with 400 if any users exist. |
-| `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`). Returns 403 if password authentication is disabled. |
-| `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
-| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}` |
+| `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}` and sets the `grimoire_session` cookie. Fails with 400 if any users exist. |
+| `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`) and sets the `grimoire_session` cookie. Returns 403 if password authentication is disabled. |
+| `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
+| `/api/auth/logout` | POST | - | Clears the `grimoire_session` cookie. Requires no auth (a client with an expired cookie can still log out). The JWT itself is stateless and not revoked; the client should also discard its stored token. |
+| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}`. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
 | `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
-| `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, and redirects to the frontend with `#oidc_token=<jwt>`. |
+| `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, sets the `grimoire_session` cookie, and redirects to the frontend with `#oidc_token=<jwt>`. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
 ### Users
@@ -352,7 +358,7 @@ Guests authenticate via [`/api/auth/guest-login`](#auth) and may write only thei
 
 #### Banner, character art & sheets
 
-Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints accept the `?token=` query param for use in `<img>`/download URLs.
+Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints authenticate via the `grimoire_session` cookie for use in `<img>`/download URLs (the deprecated `?token=` query param is still accepted — see [Authentication](#authentication)).
 
 The GET (serving) endpoints for banners, art, sheets, and campaign files (`/files/:file_id`) set `Cache-Control: private, max-age=300, must-revalidate` along with `ETag`/`Last-Modified` validators derived from the file's mtime + size. A conditional request (`If-None-Match`/`If-Modified-Since`) with a matching validator returns `304 Not Modified`; re-uploading a file changes its validator so clients refetch.
 

@@ -206,14 +206,19 @@ class TestOPDSTokenManagement:
         assert resp.json()["has_token"] is False
 
     def test_unauthenticated_cannot_get_status(self, opds_client):
+        # A prior login in this module-scoped client leaves a session cookie in
+        # the jar; clear it so this really is an unauthenticated request.
+        opds_client.cookies.clear()
         resp = opds_client.get("/api/users/me/opds")
         assert resp.status_code == 401
 
     def test_unauthenticated_cannot_generate(self, opds_client):
+        opds_client.cookies.clear()
         resp = opds_client.post("/api/users/me/opds/generate")
         assert resp.status_code == 401
 
     def test_unauthenticated_cannot_revoke(self, opds_client):
+        opds_client.cookies.clear()
         resp = opds_client.delete("/api/users/me/opds")
         assert resp.status_code == 401
 

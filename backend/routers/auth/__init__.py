@@ -1,7 +1,15 @@
 """Auth package — registers public (unauthenticated) and authenticated routes."""
 from fastapi import APIRouter
 
-from .core import auth_config, auth_login, auth_me, auth_setup, auth_status, guest_login
+from .core import (
+    auth_config,
+    auth_login,
+    auth_logout,
+    auth_me,
+    auth_setup,
+    auth_status,
+    guest_login,
+)
 
 public_router = APIRouter(prefix="/api/auth", tags=["auth"])
 public_router.add_api_route(
@@ -39,6 +47,16 @@ public_router.add_api_route(
     description=(
         "Exchanges a campaign guest invite code for a JWT scoped to a guest "
         "account. Available only when guest access is enabled."
+    ),
+)
+public_router.add_api_route(
+    "/logout",
+    auth_logout,
+    methods=["POST"],
+    summary="Log out",
+    description=(
+        "Clears the session cookie. The JWT itself is stateless and not "
+        "revoked; the client should also discard its stored token."
     ),
 )
 public_router.add_api_route(

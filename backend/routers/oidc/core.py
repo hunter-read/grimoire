@@ -15,7 +15,7 @@ import httpx
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 
-from ...auth import CurrentUser, create_token, require_admin
+from ...auth import CurrentUser, create_token, require_admin, set_auth_cookie
 from ...config import SessionLocal
 from ..settings._helpers import (
     _get_raw,
@@ -226,10 +226,13 @@ def oidc_callback(
 
         token = create_token(user.id, user.username, user.role)
         # Hand the token to the frontend via the URL fragment so it isn't
-        # logged by intermediate proxies.
+        # logged by intermediate proxies. Also set the session cookie so
+        # <img>/download GETs authenticate without the JWT in the URL.
         return_to = saved.get("return_to") or "/"
         if not return_to.startswith("/"):
             return_to = "/"
-        return RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
+        resp = RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
+        set_auth_cookie(resp, token)
+        return resp
     finally:
         db.close()

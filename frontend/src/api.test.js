@@ -139,21 +139,27 @@ describe('api', () => {
   // ---------------------------------------------------------------------------
 
   describe('mediaUrl', () => {
-    it('appends token as query param when logged in', () => {
+    // Media auth now rides the HttpOnly session cookie, so the JWT must never
+    // appear in the URL — even when one is stored (issue #156).
+    it('never puts the token in the URL, even when logged in', () => {
       localStorage.setItem('grimoire_token', 'my-token')
-      expect(mediaUrl('/books/1/thumbnail')).toBe('/api/books/1/thumbnail?token=my-token')
+      const url = mediaUrl('/books/1/thumbnail')
+      expect(url).toBe('/api/books/1/thumbnail')
+      expect(url).not.toContain('my-token')
+      expect(url).not.toContain('token=')
     })
 
     it('returns path without query string when not logged in', () => {
       expect(mediaUrl('/books/1/thumbnail')).toBe('/api/books/1/thumbnail')
     })
 
-    it('merges extra params alongside the token', () => {
+    it('includes extra params but no token', () => {
       localStorage.setItem('grimoire_token', 'tok')
       const url = mediaUrl('/books/1/page/3', { scale: '2' })
       const params = new URLSearchParams(url.split('?')[1])
       expect(params.get('scale')).toBe('2')
-      expect(params.get('token')).toBe('tok')
+      expect(params.get('token')).toBeNull()
+      expect(url).not.toContain('tok')
     })
   })
 
@@ -339,6 +345,7 @@ describe('api', () => {
       await Promise.all([
         auth.config(),
         auth.guestLogin('CODE'),
+        auth.logout(),
         opds.getStatus(),
         opds.generateToken(),
         opds.revokeToken(),

@@ -1,12 +1,15 @@
 """Authentication endpoint handlers."""
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import func
 
 from ...auth import (
+    AUTH_COOKIE_NAME,
     CurrentUser,
+    clear_auth_cookie,
     create_token,
     get_current_user,
     hash_password,
+    set_auth_cookie,
     verify_password,
 )
 from ...config import SessionLocal
@@ -31,7 +34,7 @@ def auth_status():
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
-def auth_setup(request: Request, data: SetupRequest):
+def auth_setup(request: Request, data: SetupRequest, response: Response):
     db = SessionLocal()
     try:
         if db.query(User).count() > 0:
@@ -45,6 +48,7 @@ def auth_setup(request: Request, data: SetupRequest):
         db.commit()
         db.refresh(user)
         token = create_token(user.id, user.username, user.role)
+        set_auth_cookie(response, token)
         return {
             "token": token,
             "user": {
@@ -59,7 +63,7 @@ def auth_setup(request: Request, data: SetupRequest):
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
-def auth_login(request: Request, data: LoginRequest):
+def auth_login(request: Request, data: LoginRequest, response: Response):
     db = SessionLocal()
     try:
         if not password_auth_effective(_get_raw(db)):
@@ -74,6 +78,7 @@ def auth_login(request: Request, data: LoginRequest):
         if not user or not verify_password(data.password, user.hashed_password):
             raise HTTPException(401, "Invalid username or password")
         token = create_token(user.id, user.username, user.role)
+        set_auth_cookie(response, token)
         return {
             "token": token,
             "user": {
@@ -88,7 +93,7 @@ def auth_login(request: Request, data: LoginRequest):
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
-def guest_login(request: Request, data: GuestLoginRequest):
+def guest_login(request: Request, data: GuestLoginRequest, response: Response):
     db = SessionLocal()
     try:
         if not guest_access_effective(_get_raw(db)):
@@ -109,6 +114,7 @@ def guest_login(request: Request, data: GuestLoginRequest):
             raise HTTPException(401, "Invalid invite code")
 
         token = create_token(user.id, user.username, user.role)
+        set_auth_cookie(response, token)
         return {
             "token": token,
             "user": {
@@ -121,6 +127,13 @@ def guest_login(request: Request, data: GuestLoginRequest):
         }
     finally:
         db.close()
+
+
+def auth_logout(response: Response):
+    """Clear the session cookie. Deliberately requires no auth so a client with
+    an already-expired or otherwise unusable cookie can still log out cleanly."""
+    clear_auth_cookie(response)
+    return {"ok": True}
 
 
 def auth_config():
@@ -145,7 +158,16 @@ def auth_config():
         db.close()
 
 
-def auth_me(user: CurrentUser = Depends(get_current_user)):
+def auth_me(request: Request, response: Response, user: CurrentUser = Depends(get_current_user)):
+    # Re-establish the session cookie for clients that authenticated with a
+    # Bearer header but have no cookie yet — chiefly users who were logged in
+    # before the cookie was introduced (issue #156). Reuse their existing token
+    # rather than minting a new one so the expiry isn't silently extended.
+    if AUTH_COOKIE_NAME not in request.cookies:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            set_auth_cookie(response, auth_header[len("Bearer ") :])
+
     db = SessionLocal()
     try:
         u = db.query(User).filter_by(id=user.id).first()
