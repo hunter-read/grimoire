@@ -196,16 +196,40 @@ class TestValkeyBranches:
             assert _helpers.is_stop_requested() is False
 
     def test_valkey_errors_fall_back_to_in_process(self):
+        from redis.exceptions import RedisError
+
         fake = MagicMock()
-        fake.get.side_effect = Exception("boom")
-        fake.set.side_effect = Exception("boom")
-        fake.exists.side_effect = Exception("boom")
-        fake.delete.side_effect = Exception("boom")
+        fake.get.side_effect = RedisError("boom")
+        fake.set.side_effect = RedisError("boom")
+        fake.exists.side_effect = RedisError("boom")
+        fake.delete.side_effect = RedisError("boom")
 
         with patch.object(_helpers, "_valkey", fake):
-            # None of these should raise despite the Valkey client failing.
+            # A Valkey connection failure is the expected case: swallow + log and
+            # fall back to in-process state without raising.
             _helpers._set_status({"running": False})
-            _helpers._get_status()
+            assert _helpers._get_status()["running"] is False
             _helpers.request_stop()
-            _helpers.is_stop_requested()
+            assert _helpers.is_stop_requested() is True
             _helpers.clear_stop()
+            assert _helpers.is_stop_requested() is False
+
+    def test_valkey_corrupt_status_falls_back(self):
+        """A non-JSON cached status blob is tolerated (ValueError path)."""
+        fake = MagicMock()
+        fake.get.return_value = b"not-json"
+
+        with patch.object(_helpers, "_valkey", fake):
+            # Falls back to the in-process default rather than raising.
+            assert isinstance(_helpers._get_status(), dict)
+
+    def test_unexpected_valkey_error_propagates(self):
+        """An unexpected error type is no longer silently swallowed."""
+        import pytest
+
+        fake = MagicMock()
+        fake.set.side_effect = RuntimeError("unexpected")
+
+        with patch.object(_helpers, "_valkey", fake):
+            with pytest.raises(RuntimeError):
+                _helpers.request_stop()

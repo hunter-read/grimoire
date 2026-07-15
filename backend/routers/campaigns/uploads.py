@@ -12,7 +12,7 @@ import uuid
 from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
 
 from ...auth import CurrentUser, get_current_user
-from ...config import CAMPAIGN_UPLOAD_DIR, SessionLocal
+from ...config import CAMPAIGN_UPLOAD_DIR, SessionLocal, logger
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
 from ._helpers import assert_can_manage, can_view, get_campaign_or_404
@@ -68,8 +68,10 @@ def _remove_existing(directory: str, stem: str) -> None:
         if name.rsplit(".", 1)[0] == stem:
             try:
                 os.remove(os.path.join(directory, name))
-            except OSError:
-                pass
+            except OSError as e:
+                # Best-effort cleanup of a prior upload; a stale file left behind
+                # is not fatal but is logged for visibility.
+                logger.warning("Failed to remove prior upload %s: %s", name, e)
 
 
 def _get_member_or_404(db, campaign_id: str, member_id: str) -> CampaignMember:
