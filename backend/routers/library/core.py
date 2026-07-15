@@ -87,7 +87,9 @@ def get_stats(
             if not stored_key or x_api_key != stored_key:
                 raise HTTPException(401, "Authentication required")
         return {
-            "game_systems": db.query(GameSystem).count(),
+            "game_systems": db.query(GameSystem)
+            .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
+            .count(),
             "books": db.query(Book).count(),
             "maps": db.query(GenericMap).count(),
             "tokens": db.query(Token).count(),
