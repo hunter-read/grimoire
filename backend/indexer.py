@@ -700,8 +700,10 @@ def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> st
 
 
 # Indirection so tests can stub the isolated call without spawning subprocesses.
-def ocr_book_page_isolated_wrapper(filepath: str, page_index: int, should_stop=None) -> str:
-    return ocr_page_isolated(filepath, page_index, should_stop=should_stop)
+def ocr_book_page_isolated_wrapper(
+    filepath: str, page_index: int, should_stop=None, dpi: int | None = None
+) -> str:
+    return ocr_page_isolated(filepath, page_index, should_stop=should_stop, dpi=dpi)
 
 
 def _book_page_count(filepath: str) -> int:

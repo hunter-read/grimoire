@@ -282,6 +282,27 @@ class TestOcrPageIsolated:
         assert args[-1] == 350  # dpi
 
 
+class TestOcrBookPageIsolatedWrapper:
+    """The real wrapper ocr_book calls — not the stub the queue tests patch in.
+
+    ocr_book always calls this with a dpi= keyword (dpi=None for a plain scan),
+    so the wrapper must accept and forward it. A missing dpi param here makes
+    every deferred-OCR page raise TypeError, leaving the book stuck ocr_pending
+    forever (never progressing, never failing).
+    """
+
+    def test_accepts_and_forwards_dpi(self):
+        with patch.object(indexer, "ocr_page_isolated", return_value="ok") as m:
+            out = indexer.ocr_book_page_isolated_wrapper("/tmp/x.pdf", 3, None, dpi=350)
+        assert out == "ok"
+        assert m.call_args.kwargs["dpi"] == 350
+
+    def test_default_dpi_is_none(self):
+        with patch.object(indexer, "ocr_page_isolated", return_value="ok") as m:
+            indexer.ocr_book_page_isolated_wrapper("/tmp/x.pdf", 0, None)
+        assert m.call_args.kwargs["dpi"] is None
+
+
 class TestRunOcrQueue:
     def test_drains_pending_books(self):
         _helpers.clear_stop()
@@ -322,3 +343,57 @@ class TestRunOcrQueue:
             m.assert_not_called()
         finally:
             _helpers.clear_stop()
+
+    def test_unexpected_error_flags_book_and_clears_queue(self):
+        """A book whose OCR raises is marked failed and dropped from the queue,
+        not left ocr_pending to re-crash on every future scan."""
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _clear_pending()
+        bid = _queued_book(page_count=1)
+
+        with patch.object(_helpers, "ocr_book", side_effect=TypeError("boom")):
+            completed = _helpers.run_ocr_queue()
+
+        assert completed == 0
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            assert book.ocr_pending is False  # cleared, so it won't re-queue
+            assert book.index_failed is True
+            assert "boom" in (book.index_error or "")
+        finally:
+            db.close()
+
+    def test_one_crashing_book_does_not_stall_the_rest(self):
+        """A raising book is contained so the drain still completes other books."""
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _clear_pending()
+        bad = _queued_book(page_count=1)
+        good = _queued_book(page_count=1)
+
+        real_ocr_book = _helpers.ocr_book
+
+        def _maybe_raise(book, session, **kw):
+            if book.id == bad:
+                raise RuntimeError("native crash")
+            return real_ocr_book(book, session, **kw)
+
+        with patch.object(indexer, "_book_page_count", return_value=1), \
+             patch.object(
+                 indexer, "ocr_book_page_isolated_wrapper",
+                 side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
+             ), \
+             patch.object(_helpers, "ocr_book", side_effect=_maybe_raise):
+            completed = _helpers.run_ocr_queue()
+
+        assert completed == 1  # the good book still finished
+        db = SessionLocal()
+        try:
+            assert db.get(Book, good).indexed is True
+            bad_book = db.get(Book, bad)
+            assert bad_book.index_failed is True
+            assert bad_book.ocr_pending is False
+        finally:
+            db.close()

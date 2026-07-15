@@ -161,6 +161,13 @@ def _ocr_one_book(book_id: str) -> str:
 
     Returns ocr_book's result ("done"/"stopped"/"error"). Each book gets a fresh
     session so concurrent OCR workers don't share a Session across threads.
+
+    An unexpected exception from ``ocr_book`` is contained here: the book is
+    marked ``index_failed`` and cleared from the queue rather than escaping to
+    stall the whole drain and leave the book ``ocr_pending`` forever (which would
+    re-queue and re-crash it on every subsequent scan). Returns "error" in that
+    case. ``ocr_book`` already handles the failures it anticipates; this is the
+    backstop for the ones it doesn't.
     """
     db = SessionLocal()
     try:
@@ -169,6 +176,20 @@ def _ocr_one_book(book_id: str) -> str:
             return "done"
         _set_status({"ocr_current": book.filename})
         return ocr_book(book, db, should_stop=is_stop_requested)
+    except Exception as e:
+        logger.exception(f"OCR: unexpected error draining book {book_id}: {e}")
+        try:
+            db.rollback()
+            book = db.get(Book, book_id)
+            if book:
+                book.ocr_pending = False
+                book.index_failed = True
+                book.index_error = f"ocr error: {e}"[:500]
+                db.commit()
+        except Exception as inner:  # don't let cleanup failure re-stall the queue
+            logger.error(f"OCR: could not flag failed book {book_id}: {inner}")
+            db.rollback()
+        return "error"
     finally:
         db.close()
 
