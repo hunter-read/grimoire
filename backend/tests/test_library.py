@@ -49,6 +49,18 @@ class TestLibraryStats:
         after = client.get("/api/stats", headers=admin_headers).json()
         assert after["books"] >= before_books + 1
 
+    def test_stats_excludes_system_agnostic_from_game_systems(self, client, admin_headers):
+        # The system-agnostic pseudo-system is a GameSystem row but is not a
+        # real game system; it renders separately in the library and must not
+        # inflate the game_systems stat (matches the library header count).
+        before = client.get("/api/stats", headers=admin_headers).json()["game_systems"]
+
+        make_game_system()  # normal system: counted
+        make_game_system(is_system_agnostic=True)  # agnostic: not counted
+
+        after = client.get("/api/stats", headers=admin_headers).json()["game_systems"]
+        assert after == before + 1
+
     def test_player_can_view_stats(self, client, player_headers):
         resp = client.get("/api/stats", headers=player_headers)
         assert resp.status_code == 200
