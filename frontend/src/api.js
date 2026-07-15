@@ -20,9 +20,12 @@ async function handleResponse(res) {
   return body
 }
 
+// Build a URL for an <img>/download/media endpoint. These requests can't send
+// an Authorization header, so they authenticate via the HttpOnly session cookie
+// set at login — the JWT is deliberately NOT put in the URL (query params leak
+// into proxy logs, Referer headers, and browser history; see issue #156).
 export const mediaUrl = (path, params = {}) => {
-  const token = getToken()
-  const qs = new URLSearchParams({ ...params, ...(token ? { token } : {}) }).toString()
+  const qs = new URLSearchParams(params).toString()
   return `/api${path}${qs ? `?${qs}` : ''}`
 }
 
@@ -165,6 +168,9 @@ export const campaigns = {
 export const auth = {
   config: () => api.get('/auth/config'),
   guestLogin: (code) => api.post('/auth/guest-login', { code }),
+  // Clears the server-side session cookie. Best-effort — the client also drops
+  // its stored token regardless of whether this succeeds.
+  logout: () => api.post('/auth/logout'),
 }
 
 export const opds = {

@@ -500,6 +500,128 @@ class TestOIDCLoginStart:
         )
 
 
+class TestOIDCCallback:
+    """The callback exchanges the code, resolves the user, and hands back a
+    token — via the URL fragment AND an HttpOnly session cookie (issue #156)."""
+
+    def _configure(self, client, admin_headers):
+        client.patch(
+            "/api/settings",
+            headers=admin_headers,
+            json={
+                "oidc_enabled": True,
+                "oidc_issuer_url": "https://idp.example.com/realm",
+                "oidc_authorization_endpoint": "https://idp.example.com/realm/auth",
+                "oidc_token_endpoint": "https://idp.example.com/realm/token",
+                "oidc_jwks_uri": "https://idp.example.com/realm/jwks",
+                "oidc_client_id": "grimoire",
+                "oidc_client_secret": "secret",
+                "oidc_auto_register": True,
+            },
+        )
+
+    def _cleanup(self, client, admin_headers):
+        client.patch(
+            "/api/settings",
+            headers=admin_headers,
+            json={
+                "oidc_enabled": False,
+                "oidc_issuer_url": "",
+                "oidc_authorization_endpoint": "",
+                "oidc_token_endpoint": "",
+                "oidc_jwks_uri": "",
+                "oidc_client_id": "",
+                "oidc_client_secret": "__CLEAR__",
+                "oidc_auto_register": False,
+            },
+        )
+
+    def test_callback_sets_session_cookie_on_success(self, client, admin_headers):
+        from backend.routers.oidc import core as oidc_core
+
+        self._configure(client, admin_headers)
+        try:
+            # Seed the state the login step would have stored.
+            oidc_core._state_store.put(
+                "state123",
+                {"code_verifier": "verifier", "nonce": "nonce123", "return_to": "/"},
+            )
+
+            token_resp = httpx.Response(
+                200,
+                json={"id_token": "id-tok", "access_token": "acc-tok"},
+                request=httpx.Request("POST", "https://idp.example.com/realm/token"),
+            )
+            with (
+                patch.object(oidc_core.httpx, "post", return_value=token_resp),
+                patch.object(oidc_core, "_discover_issuer", return_value="https://idp.example.com/realm"),
+                patch.object(
+                    oidc_core,
+                    "_validate_id_token",
+                    return_value={"sub": "oidc-sub-1", "email": "oidc@example.com"},
+                ),
+                patch.object(oidc_core, "_fetch_userinfo", return_value={}),
+            ):
+                resp = client.get(
+                    "/api/auth/openid/callback?code=abc&state=state123",
+                    follow_redirects=False,
+                )
+
+            assert resp.status_code == 302
+            # Token still handed to the SPA via the fragment...
+            assert "#oidc_token=" in resp.headers["location"]
+            # ...and the session cookie is set so media GETs authenticate.
+            set_cookie = "".join(
+                v for k, v in resp.headers.items() if k.lower() == "set-cookie"
+            )
+            assert "grimoire_session=" in set_cookie
+            assert "httponly" in set_cookie.lower()
+        finally:
+            self._cleanup(client, admin_headers)
+
+    def test_callback_idp_error_redirects_to_login(self, client):
+        resp = client.get(
+            "/api/auth/openid/callback?error=access_denied&error_description=nope",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        assert "oidc_error=nope" in resp.headers["location"]
+
+    def test_callback_missing_code_or_state(self, client):
+        resp = client.get("/api/auth/openid/callback?code=abc", follow_redirects=False)
+        assert resp.status_code == 302
+        assert "oidc_error=" in resp.headers["location"]
+
+    def test_callback_invalid_state(self, client):
+        resp = client.get(
+            "/api/auth/openid/callback?code=abc&state=never-issued",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        assert "invalid" in resp.headers["location"].lower()
+
+    def test_callback_token_exchange_failure(self, client, admin_headers):
+        from backend.routers.oidc import core as oidc_core
+
+        self._configure(client, admin_headers)
+        try:
+            oidc_core._state_store.put(
+                "state-fail",
+                {"code_verifier": "verifier", "nonce": "n", "return_to": "/"},
+            )
+            with patch.object(
+                oidc_core.httpx, "post", side_effect=httpx.HTTPError("boom")
+            ):
+                resp = client.get(
+                    "/api/auth/openid/callback?code=abc&state=state-fail",
+                    follow_redirects=False,
+                )
+            assert resp.status_code == 302
+            assert "token%20exchange%20failed" in resp.headers["location"]
+        finally:
+            self._cleanup(client, admin_headers)
+
+
 # ---------------------------------------------------------------------------
 # Pure-function helpers
 # ---------------------------------------------------------------------------

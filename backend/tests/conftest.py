@@ -40,6 +40,16 @@ def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def _reset_client_cookies(client):
+    """The session-scoped client shares a cookie jar across tests. Auth flows
+    now set a session cookie (issue #156), which would otherwise silently
+    authenticate later "unauthenticated" requests. Clear it before every test so
+    each starts with no ambient credentials."""
+    client.cookies.clear()
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Bootstrap admin (runs once per session via /api/auth/setup)
 # ---------------------------------------------------------------------------
