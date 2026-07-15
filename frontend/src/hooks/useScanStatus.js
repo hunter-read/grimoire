@@ -10,11 +10,14 @@ const EMPTY = {
   scanned_maps: 0,
   total_tokens: 0,
   scanned_tokens: 0,
+  total_audio: 0,
+  scanned_audio: 0,
   indexed: 0,
   to_index: 0,
   new_books: 0,
   new_maps: 0,
   new_tokens: 0,
+  new_audio: 0,
   updated_books: 0,
 }
 
@@ -39,7 +42,8 @@ export default function useScanStatus() {
           if (cancelled) return
           setStatus(s)
           if (!s.running) {
-            const total = s.new_books + s.new_maps + s.new_tokens + (s.updated_books || 0)
+            const total =
+              s.new_books + s.new_maps + s.new_tokens + (s.new_audio || 0) + (s.updated_books || 0)
             if (total > 0 || s.indexed > 0) setLastResult(s)
           }
         })

@@ -28,11 +28,14 @@ const idleStatus = {
   scanned_maps: 0,
   total_tokens: 0,
   scanned_tokens: 0,
+  total_audio: 0,
+  scanned_audio: 0,
   indexed: 0,
   to_index: 0,
   new_books: 0,
   new_maps: 0,
   new_tokens: 0,
+  new_audio: 0,
 }
 
 const scanningStatus = {
@@ -41,6 +44,8 @@ const scanningStatus = {
   phase: 'scanning',
   total_books: 10,
   scanned_books: 3,
+  total_audio: 8,
+  scanned_audio: 2,
 }
 
 const indexingStatus = {
@@ -118,6 +123,22 @@ describe('MaintenanceTab — RescanSection', () => {
     render(<MaintenanceTab />)
     await waitFor(() => {
       expect(screen.getByText(/scanning/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows audio progress in the per-category breakdown while scanning', async () => {
+    api.get.mockResolvedValue(scanningStatus)
+    render(<MaintenanceTab />)
+    await waitFor(() => {
+      expect(screen.getByText('2/8 audio')).toBeInTheDocument()
+    })
+  })
+
+  it('shows the new-audio count in the completion summary', async () => {
+    api.get.mockResolvedValue({ ...idleStatus, new_audio: 3 })
+    render(<MaintenanceTab />)
+    await waitFor(() => {
+      expect(screen.getByText('+3 audio tracks')).toBeInTheDocument()
     })
   })
 
