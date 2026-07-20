@@ -650,13 +650,15 @@ def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> st
 
     start = book.ocr_pages_done or 0
     dpi = book.ocr_dpi  # per-book override; None => global OCR_DPI default
-    logger.info(
+    _where = f" (from page {start + 1})" if start else ""
+    logger.info(f"Reading text from '{book.title or book.filename}' — {page_count} page(s){_where}…")
+    logger.debug(
         f"OCR: '{book.filename}' — {page_count} page(s), resuming at page {start + 1}"
         + (f" (dpi={dpi})" if dpi else "")
     )
     for i in range(start, page_count):
         if should_stop and should_stop():
-            logger.info(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
+            logger.debug(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
             return "stopped"
 
         text_out = ocr_book_page_isolated_wrapper(book.filepath, i, should_stop, dpi=dpi)
@@ -666,7 +668,7 @@ def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> st
         # here (not just at the top) because the OCR call can take up to the
         # per-page timeout, during which a stop may have been requested.
         if should_stop and should_stop():
-            logger.info(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
+            logger.debug(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
             return "stopped"
 
         if text_out:
@@ -695,7 +697,7 @@ def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> st
     book.index_failed = False
     book.index_error = "ocr"
     _commit(session, f"ocr done '{book.filepath}'")
-    logger.info(f"OCR: completed '{book.filename}' ({page_count} pages)")
+    logger.info(f"Finished reading '{book.title or book.filename}' — it's now searchable.")
     return "done"
 
 
@@ -1022,7 +1024,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     scope_dir: Path | None = None
     if scope_path:
         scope_section, scope_dir = resolve_scope(library_path, scope_path)
-        logger.info(f"Scoped scan: section={scope_section}, dir={scope_dir}, mode={metadata_mode}")
+        logger.debug(f"Scoped scan: section={scope_section}, dir={scope_dir}, mode={metadata_mode}")
 
     scan_books = scope_section in (None, "books")
     scan_maps = scope_section in (None, "maps")
@@ -1103,7 +1105,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     stats["errors"] += 1
                     continue
                 stats["new_systems"] += 1
-                logger.info(f"New game system: {system_name}" + (" [explicit]" if is_nsfw else ""))
+                logger.info(f"Found a new game system: {system_name}" + (" (mature)" if is_nsfw else ""))
             elif is_nsfw and not system.is_explicit:
                 system.is_explicit = True
             if is_agnostic and not system.is_system_agnostic:
@@ -1154,12 +1156,12 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             total_audio,
                         )
                     if should_stop and should_stop():
-                        logger.info("scan_library: stop requested during books scan.")
+                        logger.debug("scan_library: stop requested during books scan.")
                         return stats
 
                     relative_path = os.path.relpath(filepath, library_path)
 
-                    logger.info(f"Scanning book ({scanned_books}/{total_books}): {filepath}")
+                    logger.debug(f"Scanning book ({scanned_books}/{total_books}): {filepath}")
                     logger.debug(f"DB: querying existing book '{filepath}'")
                     try:
                         existing = _run_with_timeout(
@@ -1176,7 +1178,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         if metadata_mode in ("missing", "replace"):
                             opf_meta = _find_opf_meta(root, filename)
                             if _apply_opf_to_book(existing, opf_meta, metadata_mode):
-                                logger.info(f"Refreshing metadata for '{filename}' (mode={metadata_mode})")
+                                logger.debug(f"Refreshing metadata for '{filename}' (mode={metadata_mode})")
                                 try:
                                     _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit metadata refresh '{filepath}'")
                                     stats["updated_books"] += 1
@@ -1211,7 +1213,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         # Check sibling <stem>.opf first, then Calibre's metadata.opf in the same dir.
                         opf_meta = _find_opf_meta(root, filename)
                         if opf_meta:
-                            logger.info(f"Applying OPF metadata to '{filename}'")
+                            logger.debug(f"Applying OPF metadata to '{filename}'")
 
                         book = Book(
                             game_system_id=system.id,
@@ -1241,7 +1243,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         try:
                             _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
                             stats["new_books"] += 1
-                            logger.info(f"New book saved: {title} ({category}) in {system_name}")
+                            logger.info(f"Added book: {title} ({category}) in {system_name}")
                         except TimeoutError as e:
                             logger.error(f"DB hang: {e} — rolling back '{filename}'")
                             session.rollback()
@@ -1276,7 +1278,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         except (TimeoutError, IntegrityError) as e:
                             logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
                             session.rollback()
-                        logger.info(f"Generating thumbnail: {filepath}")
+                        logger.debug(f"Generating thumbnail: {filepath}")
                         if generate_thumbnail(filepath, thumb_path, should_stop=should_stop):
                             book.has_thumbnail = True
                         if should_stop and should_stop():
@@ -1296,7 +1298,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             except (TimeoutError, IntegrityError) as e:
                                 logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
                                 session.rollback()
-                        logger.info(f"Opening PDF for page count: {filepath}")
+                        logger.debug(f"Opening PDF for page count: {filepath}")
                         try:
                             doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
                             book.page_count = len(doc)
@@ -1345,12 +1347,12 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_audio,
                     )
                 if should_stop and should_stop():
-                    logger.info("scan_library: stop requested during maps scan.")
+                    logger.debug("scan_library: stop requested during maps scan.")
                     return stats
 
                 relative_path = os.path.relpath(filepath, library_path)
 
-                logger.info(f"Scanning map ({scanned_maps}/{total_maps}): {filepath}")
+                logger.debug(f"Scanning map ({scanned_maps}/{total_maps}): {filepath}")
                 logger.debug(f"DB: querying existing map '{filepath}'")
                 try:
                     existing = _run_with_timeout(
@@ -1385,7 +1387,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     "maps",
                     f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                 )
-                logger.info(f"Generating thumbnail: {filepath}")
+                logger.debug(f"Generating thumbnail: {filepath}")
                 if generate_thumbnail(filepath, thumb_path, should_stop=should_stop):
                     gmap.has_thumbnail = True
 
@@ -1394,7 +1396,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 try:
                     _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit map '{filepath}'")
                     stats["new_maps"] += 1
-                    logger.info(f"New map saved: {title}")
+                    logger.info(f"Added map: {title}")
                 except TimeoutError as e:
                     logger.error(f"DB hang: {e} — rolling back '{filename}'")
                     session.rollback()
@@ -1430,12 +1432,12 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_audio,
                     )
                 if should_stop and should_stop():
-                    logger.info("scan_library: stop requested during tokens scan.")
+                    logger.debug("scan_library: stop requested during tokens scan.")
                     return stats
 
                 relative_path = os.path.relpath(filepath, library_path)
 
-                logger.info(f"Scanning token ({scanned_tokens}/{total_tokens}): {filepath}")
+                logger.debug(f"Scanning token ({scanned_tokens}/{total_tokens}): {filepath}")
                 logger.debug(f"DB: querying existing token '{filepath}'")
                 try:
                     existing = _run_with_timeout(
@@ -1470,7 +1472,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     "tokens",
                     f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                 )
-                logger.info(f"Generating thumbnail: {filepath}")
+                logger.debug(f"Generating thumbnail: {filepath}")
                 if generate_thumbnail(filepath, thumb_path, size=(200, 200), should_stop=should_stop):
                     token.has_thumbnail = True
 
@@ -1479,7 +1481,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 try:
                     _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit token '{filepath}'")
                     stats["new_tokens"] += 1
-                    logger.info(f"New token saved: {title}")
+                    logger.info(f"Added token: {title}")
                 except TimeoutError as e:
                     logger.error(f"DB hang: {e} — rolling back '{filename}'")
                     session.rollback()
@@ -1515,12 +1517,12 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         total_audio,
                     )
                 if should_stop and should_stop():
-                    logger.info("scan_library: stop requested during audio scan.")
+                    logger.debug("scan_library: stop requested during audio scan.")
                     return stats
 
                 relative_path = os.path.relpath(filepath, library_path)
 
-                logger.info(f"Scanning audio ({scanned_audio}/{total_audio}): {filepath}")
+                logger.debug(f"Scanning audio ({scanned_audio}/{total_audio}): {filepath}")
                 logger.debug(f"DB: querying existing audio '{filepath}'")
                 try:
                     existing = _run_with_timeout(
@@ -1561,7 +1563,7 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 try:
                     _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
                     stats["new_audio"] += 1
-                    logger.info(f"New audio saved: {meta['title'] or filename}")
+                    logger.info(f"Added audio: {meta['title'] or filename}")
                 except TimeoutError as e:
                     logger.error(f"DB hang: {e} — rolling back '{filename}'")
                     session.rollback()
@@ -1619,9 +1621,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     missing_audio += 1
                     logger.warning(f"Missing audio: '{a.filename}' ({a.filepath})")
     if missing_books or missing_maps or missing_tokens or missing_audio:
-        logger.info(
-            f"Missing files: {missing_books} book(s), {missing_maps} map(s), "
-            f"{missing_tokens} token(s), {missing_audio} audio"
+        logger.warning(
+            f"Some files are no longer on disk: {missing_books} book(s), {missing_maps} map(s), "
+            f"{missing_tokens} token(s), {missing_audio} audio file(s)."
         )
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, "commit missing flags")
@@ -1796,7 +1798,7 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         logger.error(f"DB hang marking index attempt for '{book.filename}': {e}")
         session.rollback()
 
-    logger.info(f"Indexing: extracting text from '{book.filepath}'")
+    logger.debug(f"Indexing: extracting text from '{book.filepath}'")
     try:
         # text_only: never OCR inline. Image-only books come back with no pages
         # and are queued for the deferred-OCR worker below, so a large scanned
@@ -1830,7 +1832,10 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
             # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
             # worker (and startup recovery) picks it up; index_failed cleared so
             # it isn't mistaken for a hard failure.
-            logger.info(f"No text layer in '{book.filename}' — queuing for deferred OCR")
+            logger.info(
+                f"'{book.title or book.filename}' is a scanned book with no text — "
+                f"queued to read text from later."
+            )
             book.ocr_pending = True
             book.ocr_pages_done = 0
             book.indexed = False
@@ -1840,7 +1845,10 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
             return False
         # OCR unavailable (slim image): keep the pre-OCR behaviour — mark
         # image-only and indexed so it isn't retried every scan.
-        logger.info(f"No text extracted from '{book.filename}' — image-only PDF, marking as indexed")
+        logger.info(
+            f"'{book.title or book.filename}' is a scanned book with no text — "
+            f"it won't be searchable (text recognition is off)."
+        )
         book.index_error = "image-only"
         book.indexed = True
         book.index_failed = False
@@ -1852,7 +1860,7 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
             session.rollback()
         return True
 
-    logger.info(f"Indexing: inserting {len(pages)} pages for '{book.filename}' into search index")
+    logger.debug(f"Indexing: inserting {len(pages)} pages for '{book.filename}' into search index")
     for page_data in pages:
         session.execute(
             text(
@@ -1873,5 +1881,5 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         logger.error(f"DB hang: {e} — rolling back index for '{book.filename}'")
         session.rollback()
         return False
-    logger.info(f"Indexed {len(pages)} pages for: {book.filename} ('{book.title}')")
+    logger.info(f"'{book.title or book.filename}' is now searchable ({len(pages)} page(s)).")
     return True

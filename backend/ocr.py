@@ -55,9 +55,9 @@ def ocr_available() -> bool:
     if _available is None:
         _available = _probe_tesseract()
         if _available:
-            logger.info(f"OCR enabled (languages: {config.OCR_LANGUAGES})")
+            logger.info(f"Text recognition for scanned books is on (languages: {config.OCR_LANGUAGES}).")
         else:
-            logger.info("OCR disabled — tesseract binary not found")
+            logger.info("Text recognition for scanned books is off — Tesseract isn't installed.")
     return _available
 
 
@@ -97,7 +97,7 @@ def requeue_image_only_books(session) -> int:
     count = result.rowcount or 0
     if count:
         session.commit()
-        logger.info(f"OCR: queued {count} previously image-only book(s) for deferred OCR")
+        logger.info(f"Queued {count} scanned book(s) to read text from on the next scan.")
     return count
 
 
@@ -127,13 +127,13 @@ def ocr_image(image: Image.Image, should_stop=None) -> str:
         t.join(poll_interval)
         elapsed += poll_interval
         if should_stop and should_stop():
-            logger.warning("OCR aborted by stop request")
+            logger.debug("OCR aborted by stop request")
             return ""
     if t.is_alive():
-        logger.error(f"OCR timed out after {_OCR_TIMEOUT}s")
+        logger.warning(f"Gave up reading a page after {_OCR_TIMEOUT}s — skipping it.")
         return ""
     if exc[0] is not None:
-        logger.error(f"OCR failed: {exc[0]}")
+        logger.warning(f"Couldn't read text from a page: {exc[0]}")
         return ""
     return (result[0] or "").strip()
 

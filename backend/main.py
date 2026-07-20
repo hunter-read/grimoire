@@ -114,11 +114,12 @@ async def lifespan(app: FastAPI):
             try:
                 ocr.requeue_image_only_books(db)
             except Exception as e:
-                logger.error(f"OCR re-queue error: {e}")
+                logger.error(f"Couldn't queue scanned books for text recognition: {e}")
             finally:
                 db.close()
 
-            logger.info(f"Scanning library at {LIBRARY_PATH}...")
+            logger.info("Scanning your library…")
+            logger.debug(f"Library path: {LIBRARY_PATH}")
             run_rescan_sync()
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
