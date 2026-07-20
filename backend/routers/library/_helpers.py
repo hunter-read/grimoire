@@ -113,7 +113,7 @@ def background_indexer():
         if not unindexed:
             logger.debug("Background indexer: no unindexed books found, exiting.")
             return
-        logger.info(f"Background indexer: starting — {len(unindexed)} book(s) to index")
+        logger.info(f"Making {len(unindexed)} book(s) searchable…")
         if not _get_status()["running"]:
             _set_status(
                 {
@@ -126,7 +126,7 @@ def background_indexer():
         indexed_count = 0
         for book in unindexed:
             if is_stop_requested():
-                logger.info("Background indexer: stop requested, halting.")
+                logger.info("Stopping — leaving the rest for next time.")
                 break
             logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
             try:
@@ -137,12 +137,12 @@ def background_indexer():
                 else:
                     logger.debug(f"Index end: '{book.filename}' — skipped or no text extracted")
             except Exception as e:
-                logger.error(f"Indexing error for '{book.filename}': {e}")
+                logger.error(f"Couldn't read text from '{book.title or book.filename}': {e}")
                 book.index_error = str(e)[:500]
                 book.index_failed = True
                 db.commit()
             _set_status({"indexed": _get_status()["indexed"] + 1})
-        logger.info(f"Background indexer: complete — {indexed_count}/{len(unindexed)} book(s) indexed")
+        logger.info(f"Finished — {indexed_count} of {len(unindexed)} book(s) are now searchable.")
     finally:
         db.close()
         if _get_status()["phase"] == "indexing":
@@ -210,7 +210,7 @@ def run_ocr_queue() -> int:
     """
     concurrency = config.OCR_CONCURRENCY
     if concurrency == 0:
-        logger.info("OCR queue: OCR disabled (OCR_CONCURRENCY=0), skipping.")
+        logger.debug("OCR queue: OCR disabled (OCR_CONCURRENCY=0), skipping.")
         return 0
 
     db = SessionLocal()
@@ -232,15 +232,15 @@ def run_ocr_queue() -> int:
         {"running": True, "phase": "ocr", "total_ocr": len(pending_ids), "ocr_done": 0}
     )
     logger.info(
-        f"OCR queue: {len(pending_ids)} book(s) to OCR "
-        f"(concurrency={concurrency})"
+        f"Reading text from {len(pending_ids)} scanned book(s) — this can take a while."
     )
+    logger.debug(f"OCR queue: {len(pending_ids)} book(s) to OCR (concurrency={concurrency})")
     completed = 0
     try:
         if concurrency <= 1:
             for book_id in pending_ids:
                 if is_stop_requested():
-                    logger.info("OCR queue: stop requested, halting.")
+                    logger.info("Stopping — leaving the rest for next time.")
                     break
                 if _ocr_one_book(book_id) == "done":
                     completed += 1
@@ -253,7 +253,7 @@ def run_ocr_queue() -> int:
                     if result == "done":
                         completed += 1
                     _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
-        logger.info(f"OCR queue: complete — {completed}/{len(pending_ids)} book(s) OCR'd")
+        logger.info(f"Finished reading text from {completed} of {len(pending_ids)} scanned book(s).")
     finally:
         _set_status({"ocr_current": None})
     return completed
@@ -300,7 +300,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     metadata_mode ("new"|"missing"|"replace") controls sidecar metadata re-application.
     """
     if _get_status()["running"]:
-        logger.info("Rescan already running, skipping.")
+        logger.info("A library scan is already running — ignoring this request.")
         return
 
     clear_stop()
@@ -310,7 +310,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         db = SessionLocal()
         try:
             # --- Phase 1: file scan ---
-            logger.info("File scan start")
+            logger.info("Scanning your library for new and changed files…")
 
             def on_progress(sb, tb, sm, tm, st, tt, sa, ta):
                 _set_status(
@@ -335,12 +335,28 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 on_progress=on_progress, should_stop=is_stop_requested,
                 scope_path=scope_path, metadata_mode=metadata_mode,
             )
-            logger.info(
+            new_total = (
+                stats.get("new_books", 0)
+                + stats.get("new_maps", 0)
+                + stats.get("new_tokens", 0)
+                + stats.get("new_audio", 0)
+            )
+            _errors = stats.get("errors", 0)
+            _msg = (
+                f"Scan finished — found {new_total} new item(s)"
+                f", updated {stats.get('updated_books', 0)} book(s)"
+            )
+            if _errors:
+                _msg += f". {_errors} item(s) couldn't be read."
+                logger.warning(_msg)
+            else:
+                logger.info(_msg + ".")
+            logger.debug(
                 f"File scan end: new_books={stats.get('new_books', 0)}, "
                 f"new_maps={stats.get('new_maps', 0)}, new_tokens={stats.get('new_tokens', 0)}, "
                 f"new_audio={stats.get('new_audio', 0)}, "
                 f"updated_books={stats.get('updated_books', 0)}, "
-                f"errors={stats.get('errors', 0)}"
+                f"errors={_errors}"
             )
             _set_status(
                 {
@@ -353,17 +369,17 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             )
 
             if is_stop_requested():
-                logger.info("Rescan: stop requested after file scan, skipping indexing.")
+                logger.info("Stopped after scanning files — skipping the rest.")
                 return
 
             # --- Phase 2: PDF indexing ---
             to_index = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
             _set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
-            logger.info(f"Index scan start: {len(to_index)} PDF(s) to index")
+            logger.info(f"Making {len(to_index)} book(s) searchable…")
             indexed_count = 0
             for book in to_index:
                 if is_stop_requested():
-                    logger.info("Rescan: stop requested during indexing.")
+                    logger.info("Stopping — leaving the rest for next time.")
                     break
                 logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
                 try:
@@ -374,12 +390,12 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                     else:
                         logger.debug(f"Index end: '{book.filename}' — skipped or no text extracted")
                 except Exception as e:
-                    logger.error(f"Indexing error for '{book.filename}': {e}")
+                    logger.error(f"Couldn't read text from '{book.title or book.filename}': {e}")
                     book.index_error = str(e)[:500]
                     book.index_failed = True
                     db.commit()
                 _set_status({"indexed": _get_status()["indexed"] + 1})
-            logger.info(f"Index scan end: {indexed_count}/{len(to_index)} PDF(s) indexed")
+            logger.info(f"Finished — {indexed_count} of {len(to_index)} book(s) are now searchable.")
         finally:
             db.close()
 
