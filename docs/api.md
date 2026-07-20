@@ -592,7 +592,9 @@ GET responses also include a sibling `<key>_env_locked: bool` for each individua
   "removed": {
     "books": 2,
     "maps": 0,
-    "tokens": 1
+    "tokens": 1,
+    "audio": 0,
+    "systems": 0
   }
 }
 ```

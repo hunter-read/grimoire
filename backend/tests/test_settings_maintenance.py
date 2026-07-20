@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 
 from backend.tests.conftest import (
+    make_audio,
     make_book,
     make_campaign,
     make_game_system,
@@ -234,6 +235,7 @@ class TestCleanupMissingShape:
         assert "books" in data["removed"]
         assert "maps" in data["removed"]
         assert "tokens" in data["removed"]
+        assert "audio" in data["removed"]
         assert "systems" in data["removed"]
 
     def test_removed_counts_are_ints(self, client, admin_headers):
@@ -241,6 +243,7 @@ class TestCleanupMissingShape:
         assert isinstance(data["removed"]["books"], int)
         assert isinstance(data["removed"]["maps"], int)
         assert isinstance(data["removed"]["tokens"], int)
+        assert isinstance(data["removed"]["audio"], int)
         assert isinstance(data["removed"]["systems"], int)
 
 
@@ -288,6 +291,23 @@ class TestCleanupMissingBehavior:
         resp = client.get(f"/api/tokens/{token_id}", headers=admin_headers)
         assert resp.status_code == 404
 
+    def test_removes_audio_with_missing_file(self, client, admin_headers):
+        a = make_audio(filepath="/tmp/nonexistent-audio-" + uuid.uuid4().hex + ".mp3")
+        audio_id = a.id
+        data = client.post("/api/maintenance/cleanup-missing", headers=admin_headers).json()
+        assert data["removed"]["audio"] >= 1
+        resp = client.get(f"/api/audio/{audio_id}", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_keeps_audio_with_existing_file(self, client, admin_headers, tmp_path):
+        mp3 = tmp_path / "real.mp3"
+        mp3.write_bytes(b"ID3")
+        a = make_audio(filepath=str(mp3))
+        audio_id = a.id
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+        resp = client.get(f"/api/audio/{audio_id}", headers=admin_headers)
+        assert resp.status_code == 200
+
     def test_nothing_removed_when_all_present(self, client, admin_headers, tmp_path):
         pdf = tmp_path / "exists.pdf"
         pdf.write_bytes(b"%PDF-1.4")
@@ -297,6 +317,7 @@ class TestCleanupMissingBehavior:
         assert data["removed"]["books"] == 0
         assert data["removed"]["maps"] == 0
         assert data["removed"]["tokens"] == 0
+        assert data["removed"]["audio"] == 0
 
     def test_removes_bookmarks_with_missing_book(self, client, admin_headers, admin_id):
         sys = make_game_system()

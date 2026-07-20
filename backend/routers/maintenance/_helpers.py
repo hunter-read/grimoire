@@ -5,7 +5,7 @@ import threading
 from sqlalchemy import text
 
 from ...config import logger
-from ...models import Book, Bookmark, Campaign, GameSystem, GenericMap, Token
+from ...models import Audio, Book, Bookmark, Campaign, GameSystem, GenericMap, Token
 
 _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
 
@@ -36,7 +36,7 @@ def _do_cleanup(db) -> dict:
     Commits after each deleted record so the write lock is released between
     rows and doesn't block concurrent scanner sessions.
     """
-    removed = {"books": 0, "maps": 0, "tokens": 0, "systems": 0}
+    removed = {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "systems": 0}
 
     books = db.query(Book).all()
     logger.debug(f"Cleanup: checking {len(books)} book(s)")
@@ -104,6 +104,19 @@ def _do_cleanup(db) -> dict:
             removed["tokens"] += 1
         else:
             logger.debug(f"Cleanup: token '{t.filename}' present — skipping")
+
+    audio = db.query(Audio).all()
+    logger.debug(f"Cleanup: checking {len(audio)} audio track(s)")
+    for a in audio:
+        logger.debug(f"Cleanup: checking audio '{a.filename}' ({a.filepath})")
+        if not _path_exists(a.filepath):
+            logger.info(f"Cleanup: removing missing audio '{a.filename}' ({a.filepath})")
+            db.delete(a)
+            db.commit()
+            logger.debug(f"Cleanup: committed removal of audio id={a.id}")
+            removed["audio"] += 1
+        else:
+            logger.debug(f"Cleanup: audio '{a.filename}' present — skipping")
 
     return removed
 
