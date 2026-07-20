@@ -9,8 +9,9 @@ from fastapi.responses import FileResponse
 
 from ...config import SessionLocal, THUMB_DIR
 from ...models import GenericMap, MapFolder
-from ...auth import require_gm_or_admin, CurrentUser
+from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
+from .._media_access import assert_media_access
 from ._helpers import _map_image_info
 from ._schemas import FolderTagsUpdate, MapUpdate
 
@@ -87,12 +88,13 @@ def update_map_folder(data: FolderTagsUpdate, _: CurrentUser = Depends(require_g
         db.close()
 
 
-def get_map(map_id: str):
+def get_map(map_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         m = db.query(GenericMap).filter_by(id=map_id).first()
         if not m:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "map", m.id)
         img_info = _map_image_info(m.filepath, m.relative_path)
         folder_path = _folder_path(m.relative_path)
         folder = db.query(MapFolder).filter_by(path=folder_path).first()
@@ -115,12 +117,13 @@ def get_map(map_id: str):
         db.close()
 
 
-def serve_map_file(map_id: str):
+def serve_map_file(map_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         m = db.query(GenericMap).filter_by(id=map_id).first()
         if not m:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "map", m.id)
         if not os.path.exists(m.filepath):
             if not m.is_missing:
                 m.is_missing = True
@@ -133,12 +136,13 @@ def serve_map_file(map_id: str):
         db.close()
 
 
-def serve_map_thumbnail(map_id: str):
+def serve_map_thumbnail(map_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         m = db.query(GenericMap).filter_by(id=map_id).first()
         if not m:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "map", m.id)
         title = Path(m.filename).stem.replace("_", " ").replace("-", " ")
         slug = slugify(title)
         fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]

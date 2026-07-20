@@ -14,8 +14,10 @@ from .core import (
 
 router = APIRouter(tags=["maps"])
 
-# Browsing the whole map library is blocked for guests; serving an individual
-# map/thumbnail by id is not, so shared campaign resources still render.
+# Browsing the whole map library is blocked for guests. Serving an individual
+# map/thumbnail by id is allowed, but the get/file/thumbnail handlers enforce
+# access themselves (via assert_media_access): guests are limited to maps shared
+# into their campaign.
 router.add_api_route(
     "/maps",
     list_maps,

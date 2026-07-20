@@ -690,6 +690,8 @@ environment:
 
 OPDS access is per-user. Each user generates their own opaque feed URL in **Settings → Account → OPDS Feed**. The URL contains a long random token - no username or password is needed by the OPDS client.
 
+Guest accounts are campaign-scoped and do not get an OPDS feed: OPDS reports as unavailable for them, they cannot generate a token, and the feed rejects any token belonging to a guest.
+
 - **Enable** - generates a unique feed URL
 - **Copy** - copies the URL to the clipboard
 - **Regenerate** - issues a new token; the old URL stops working immediately

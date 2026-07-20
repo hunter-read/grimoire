@@ -12,6 +12,7 @@ from ...config import SessionLocal, THUMB_DIR
 from ...models import Token, TokenFolder
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
+from .._media_access import assert_media_access
 from ._helpers import _allow_explicit
 from ._schemas import FolderTagsUpdate, TokenUpdate
 
@@ -81,8 +82,7 @@ def get_token(token_id: str, current_user: CurrentUser = Depends(get_current_use
         t = db.query(Token).filter_by(id=token_id).first()
         if not t:
             raise HTTPException(404)
-        if t.is_explicit and not _allow_explicit(db, current_user.id):
-            raise HTTPException(403, "Explicit content is disabled for your account")
+        assert_media_access(db, current_user, "token", t.id, is_explicit=bool(t.is_explicit))
         folder_path = "/".join(Path(t.relative_path).parts[1:-1])
         folder = db.query(TokenFolder).filter_by(path=folder_path).first()
 
@@ -112,12 +112,13 @@ def get_token(token_id: str, current_user: CurrentUser = Depends(get_current_use
         db.close()
 
 
-def serve_token_file(token_id: str):
+def serve_token_file(token_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         t = db.query(Token).filter_by(id=token_id).first()
         if not t:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "token", t.id, is_explicit=bool(t.is_explicit))
         if not os.path.exists(t.filepath):
             if not t.is_missing:
                 t.is_missing = True
@@ -130,12 +131,13 @@ def serve_token_file(token_id: str):
         db.close()
 
 
-def serve_token_thumbnail(token_id: str):
+def serve_token_thumbnail(token_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         t = db.query(Token).filter_by(id=token_id).first()
         if not t:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "token", t.id, is_explicit=bool(t.is_explicit))
         title = Path(t.filename).stem.replace("_", " ").replace("-", " ")
         slug = slugify(title)
         fhash = hashlib.md5(t.filepath.encode()).hexdigest()[:8]

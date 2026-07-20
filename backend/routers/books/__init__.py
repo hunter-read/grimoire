@@ -17,8 +17,10 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 __all__ = ["router", "_invalidate_book_cache"]
 
-# Browsing the whole book library is blocked for guests; reading an individual
-# book shared into their campaign (by id) is not.
+# Browsing the whole book library is blocked for guests. Reading an individual
+# book by id is allowed, but the file/thumbnail/page/toc/text/words handlers each
+# enforce access themselves (via _assert_book_access): guests are limited to books
+# shared into their campaign, and explicit books are gated on allow_explicit.
 router.add_api_route(
     "", list_books, methods=["GET"], summary="List books",
     dependencies=[Depends(require_not_guest)],

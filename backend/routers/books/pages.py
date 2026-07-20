@@ -4,24 +4,43 @@ import io
 import os
 from pathlib import Path
 
-from fastapi import HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import text as sql_text
 
 import fitz  # type: ignore[import-untyped]
 from PIL import Image  # type: ignore[import-untyped]
 
+from ...auth import CurrentUser, get_current_user
 from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, SessionLocal, _valkey, logger
 from ...models import Book
-from ._helpers import _cached_book_info, _get_pdf_doc
+from ._helpers import _assert_book_access, _cached_book_info, _get_pdf_doc
 
 
-def get_book_toc(book_id: str):
+def _authorize_book(book_id: str, user) -> None:
+    """Look the book up and enforce read access before serving its content.
+
+    Shared by the page/TOC/text/words routes, which otherwise serve content by
+    bare id with no per-book authorisation. 404s a missing book so we don't leak
+    which ids exist to a caller that couldn't read them anyway.
+    """
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter_by(id=book_id).first()
+        if not book:
+            raise HTTPException(404, "Book not found")
+        _assert_book_access(db, book, user)
+    finally:
+        db.close()
+
+
+def get_book_toc(book_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         book = db.query(Book).filter_by(id=book_id).first()
         if not book or book.mime_type != "application/pdf":
             raise HTTPException(404)
+        _assert_book_access(db, book, current_user)
         doc = fitz.open(book.filepath)
         raw = doc.get_toc(simple=True)
         doc.close()
@@ -51,7 +70,13 @@ def get_book_toc(book_id: str):
         db.close()
 
 
-def serve_book_page(book_id: str, page_num: int, width: int = Query(1200, le=3000)):
+def serve_book_page(
+    book_id: str,
+    page_num: int,
+    width: int = Query(1200, le=3000),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    _authorize_book(book_id, current_user)
     book_info = _cached_book_info(book_id)
     if not book_info:
         raise HTTPException(404)
@@ -140,7 +165,10 @@ def serve_book_page(book_id: str, page_num: int, width: int = Query(1200, le=300
     )
 
 
-def get_page_text(book_id: str, page_num: int):
+def get_page_text(
+    book_id: str, page_num: int, current_user: CurrentUser = Depends(get_current_user)
+):
+    _authorize_book(book_id, current_user)
     book_info = _cached_book_info(book_id)
     if not book_info or not book_info[1].startswith("application/"):
         raise HTTPException(404)
@@ -167,7 +195,10 @@ def get_page_text(book_id: str, page_num: int):
     return {"text": doc[page_num - 1].get_text("text").strip()}
 
 
-def get_page_words(book_id: str, page_num: int):
+def get_page_words(
+    book_id: str, page_num: int, current_user: CurrentUser = Depends(get_current_user)
+):
+    _authorize_book(book_id, current_user)
     book_info = _cached_book_info(book_id)
     if not book_info or not book_info[1].startswith("application/"):
         return {"width": 0, "height": 0, "words": []}

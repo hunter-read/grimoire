@@ -13,7 +13,7 @@ from ...config import _PAGE_CACHE_HEADERS, SessionLocal, THUMB_DIR
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...models import Book, GameSystem
-from ._helpers import _allow_explicit, _invalidate_book_cache
+from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
 from ._schemas import BookUpdate
 
 # OCR DPI bounds, mirroring backend.config._read_ocr_dpi clamping.
@@ -180,12 +180,13 @@ def reindex_book(
     return {"status": "reindex_queued", "ocr_dpi": ocr_dpi}
 
 
-def serve_book_file(book_id: str):
+def serve_book_file(book_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         book = db.query(Book).filter_by(id=book_id).first()
         if not book:
             raise HTTPException(404, "Book not found")
+        _assert_book_access(db, book, current_user)
         if not os.path.exists(book.filepath):
             if not book.is_missing:
                 book.is_missing = True
@@ -207,12 +208,13 @@ def serve_book_file(book_id: str):
         db.close()
 
 
-def serve_book_thumbnail(book_id: str):
+def serve_book_thumbnail(book_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         book = db.query(Book).filter_by(id=book_id).first()
         if not book:
             raise HTTPException(404)
+        _assert_book_access(db, book, current_user)
         fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
         matches = glob.glob(os.path.join(THUMB_DIR, "books", f"*_{fhash}.webp"))
         if matches:

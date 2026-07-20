@@ -14,8 +14,10 @@ from .core import (
 
 router = APIRouter(tags=["audio"])
 
-# Browsing the whole audio library is blocked for guests; serving an individual
-# track/artwork by id is not, so shared campaign resources still play.
+# Browsing the whole audio library is blocked for guests. Serving an individual
+# track/artwork by id is allowed, but the get/file/artwork handlers enforce access
+# themselves (via assert_media_access): guests are limited to tracks shared into
+# their campaign.
 router.add_api_route(
     "/audio",
     list_audio,

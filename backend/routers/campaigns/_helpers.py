@@ -96,6 +96,64 @@ def can_view(campaign: Campaign, user: CurrentUser, db) -> bool:
     return is_member(db, campaign.id, user.id)
 
 
+def can_see_resource(r, is_owner: bool, user_id: str, share_map) -> bool:
+    """Per-resource visibility check for a campaign member.
+
+    public → any member; private → only users in the resource's share set;
+    gm → owner only. `share_map` maps resource.id → set(user_id) of its shares.
+    """
+    if is_owner:
+        return True
+    if r.visibility == "public":
+        return True
+    if r.visibility == "private":
+        return user_id in share_map.get(r.id, set())
+    return False  # gm
+
+
+def user_can_access_resource(db, user_id: str, resource_type: str, resource_id: str) -> bool:
+    """Whether a user may access a library/media resource through a campaign share.
+
+    True when the resource is linked (as a CampaignResource of the given type/id)
+    into any campaign the user owns or is an accepted member of, AND the resource's
+    visibility permits this user to see it (public → any member; private → only the
+    users it's shared with; gm → owner only). Mirrors the per-resource visibility
+    rule enforced by the resource-listing endpoint (`_can_see_resource`).
+
+    This is the campaign-scoped gate for guests (and any share-limited user) on
+    the file/page/download routes, which serve content by bare resource id.
+    """
+    from ...models import CampaignResource, CampaignResourceShare
+
+    links = (
+        db.query(CampaignResource)
+        .filter_by(resource_type=resource_type, resource_id=resource_id)
+        .all()
+    )
+    if not links:
+        return False
+
+    for r in links:
+        campaign = db.query(Campaign).filter_by(id=r.campaign_id).first()
+        if not campaign:
+            continue
+        is_owner = campaign.owner_id == user_id
+        if not is_owner and not is_member(db, campaign.id, user_id):
+            continue
+        if is_owner or r.visibility == "public":
+            return True
+        if r.visibility == "private":
+            shared = (
+                db.query(CampaignResourceShare)
+                .filter_by(resource_id=r.id, user_id=user_id)
+                .first()
+            )
+            if shared is not None:
+                return True
+        # visibility == "gm": only the owner (handled above) may see it.
+    return False
+
+
 def build_members(c: Campaign, db) -> list:
     """Full member list for a campaign: the GM owner row first, then players."""
     from ...models import User

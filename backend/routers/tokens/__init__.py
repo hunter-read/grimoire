@@ -14,8 +14,10 @@ from .core import (
 
 router = APIRouter(tags=["tokens"])
 
-# Browsing the whole token library is blocked for guests; serving an individual
-# token/thumbnail by id is not, so shared campaign resources still render.
+# Browsing the whole token library is blocked for guests. Serving an individual
+# token/thumbnail by id is allowed, but the get/file/thumbnail handlers enforce
+# access themselves (via assert_media_access): guests are limited to tokens shared
+# into their campaign, and explicit tokens are gated on allow_explicit.
 router.add_api_route(
     "/tokens",
     list_tokens,

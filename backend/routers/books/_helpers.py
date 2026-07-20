@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Optional
 
 import fitz  # type: ignore[import-untyped]
+from fastapi import HTTPException
 
 from ...config import SessionLocal, logger
 from ...models import Book, User
@@ -56,3 +57,30 @@ def _invalidate_book_cache():
 def _allow_explicit(db, user_id: str) -> bool:
     u = db.query(User).filter_by(id=user_id).first()
     return bool(u.allow_explicit) if u and u.allow_explicit is not None else True
+
+
+def _assert_book_access(db, book: Book, user) -> None:
+    """Authorise a user to read a specific book's content (file, page, TOC, text).
+
+    The by-id content routes are reachable by guests, so they can't rely on the
+    library-browse guard the list route has. This enforces the same model those
+    metadata reads (`get_book`) enforce, plus campaign scoping for guests:
+
+      * Guests may only read a book shared into a campaign they belong to
+        (via `user_can_access_resource`). NSFW isn't filtered for guests — a book
+        deliberately shared into their campaign is allowed regardless, since a
+        guest has no explicit-content preference of their own.
+      * Non-guests keep library-wide read access, but a book flagged explicit is
+        denied when the user has disabled explicit content (allow_explicit=false).
+
+    Raises HTTPException(403) when access is not permitted.
+    """
+    if getattr(user, "role", None) == "guest":
+        from ..campaigns._helpers import user_can_access_resource
+
+        if not user_can_access_resource(db, user.id, "book", book.id):
+            raise HTTPException(403, "This book is not shared with you")
+        return
+
+    if book.is_explicit and not _allow_explicit(db, user.id):
+        raise HTTPException(403, "Explicit content is disabled for your account")

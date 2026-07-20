@@ -358,3 +358,83 @@ class TestOPDSExplicitFiltering:
         token = _generate_token(opds_client, opds_player_headers)
         resp = opds_client.get(f"/opds/{token}/download/{explicit_book}")
         assert resp.status_code == 403
+
+
+# ===========================================================================
+# Guests are denied OPDS entirely (campaign-scoped users get no library feed)
+# ===========================================================================
+
+
+class TestOPDSGuestDenied:
+    @pytest.fixture
+    def guest_headers(self, opds_client, opds_admin_headers):
+        """A logged-in guest account and its auth headers.
+
+        Created via the guest-invite flow so the account is a genuine guest
+        (role='guest', is_guest=True) attached to a real campaign.
+        """
+        # A GM campaign is needed to host a guest invite.
+        gm = opds_client.post(
+            "/api/users",
+            json={"username": "opds_guest_gm", "password": "gmpass123456", "role": "gm"},
+            headers=opds_admin_headers,
+        )
+        assert gm.status_code in (200, 201, 400), gm.text
+        gm_login = opds_client.post(
+            "/api/auth/login",
+            json={"username": "opds_guest_gm", "password": "gmpass123456"},
+        )
+        gm_headers = {"Authorization": f"Bearer {gm_login.json()['token']}"}
+
+        opds_client.patch(
+            "/api/settings",
+            json={"guest_access_enabled": True},
+            headers=opds_admin_headers,
+        )
+        campaign = opds_client.post(
+            "/api/campaigns",
+            json={"name": "OPDS Guest Campaign", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        created = opds_client.post(
+            f"/api/campaigns/{campaign['id']}/guests",
+            json={"nickname": "OpdsGuest"},
+            headers=gm_headers,
+        ).json()
+        login = opds_client.post(
+            "/api/auth/guest-login", json={"code": created["guest_code"]}
+        )
+        assert login.status_code == 200, login.text
+        assert login.json()["user"]["role"] == "guest"
+        return {"Authorization": f"Bearer {login.json()['token']}"}
+
+    def test_guest_cannot_generate_token(self, opds_client, guest_headers):
+        resp = opds_client.post("/api/users/me/opds/generate", headers=guest_headers)
+        assert resp.status_code == 403
+
+    def test_guest_status_reports_unavailable(self, opds_client, guest_headers):
+        resp = opds_client.get("/api/users/me/opds", headers=guest_headers)
+        assert resp.status_code == 200
+        assert resp.json()["opds_enabled"] is False
+
+    def test_guest_token_in_db_is_rejected_by_feed(self, opds_client, guest_headers, sample_book):
+        # Defense-in-depth: even if a guest somehow holds an opds_token (e.g. a
+        # role change after minting), the feed and download routes must deny it.
+        db = SessionLocal()
+        guest = (
+            db.query(User)
+            .filter(User.role == "guest", User.is_guest == True)  # noqa: E712
+            .first()
+        )
+        guest.opds_token = "planted-guest-opds-token"
+        db.commit()
+        db.close()
+
+        assert opds_client.get("/opds/planted-guest-opds-token").status_code == 404
+        assert opds_client.get("/opds/planted-guest-opds-token/all").status_code == 404
+        assert (
+            opds_client.get(
+                f"/opds/planted-guest-opds-token/download/{sample_book}"
+            ).status_code
+            == 404
+        )

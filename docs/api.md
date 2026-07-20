@@ -234,6 +234,8 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 
 **Book list response:** `{"total": int, "books": [...]}`
 
+**Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled — the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
+
 **Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
 
 ### Maps
@@ -273,6 +275,8 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/audio/:id/artwork` | GET | any | Folder cover art or embedded album art. 404 if none |
 | `/api/audio-folders` | GET | any | List folder tag assignments |
 | `/api/audio-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
+
+**Access control on media by-id routes:** As with books, the library-browse list routes (`GET /api/maps`, `/api/tokens`, `/api/audio` and their `*-folders`) are blocked for guests, but the by-id routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/artwork`) are reachable by any authenticated user and enforce access themselves. A guest may only read a map/token/audio item **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); otherwise the route returns 403. An explicit token returns 403 for a non-guest who has `allow_explicit` disabled, on the file/thumbnail routes as well as `GET /api/tokens/:id`. An item deliberately shared into a guest's campaign is served regardless of its explicit flag.
 
 ### Favorites
 
@@ -325,7 +329,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 |----------|--------|------|-------------|
 | `/api/campaigns` | GET | any | List own + invited campaigns (admins see only their own here). Each item includes `has_banner`, `next_session` (next scheduled date or null), and `last_accessed_at`. |
 | `/api/campaigns` | POST | any (gm/admin for `is_gm_campaign: true`) | Create campaign. Body: `{name, description?, is_gm_campaign?, gm_title?, system_id?, system_name?, parent_campaign_id?, resources?}`. `description` accepts markdown. `system_name` is free text for a system not in the library (ignored when `system_id` is set). `resources` is an explicit list of `{resource_type, resource_id, visibility?, shared_user_ids?}` to link - omit it (or send `[]`) to link nothing. No resources are auto-added. Returns 403 if the user's `campaign_access` is disabled. |
-| `/api/campaigns/:id` | GET | owner or member | Campaign detail with members and resources. Includes `has_banner` and `locked` (`true` when the owner's `campaign_access` is disabled - the campaign is then read-only for everyone, owner-management endpoints return 403, members keep read access) plus `owner_has_campaign_access`. Each member includes `id`, `has_art`, `has_sheet`, `character_sheet_filename`, and `campaign_access` (false → flagged as a disabled user). Opening this endpoint records `last_accessed_at` (drives recently-accessed sorting on the campaigns list). |
+| `/api/campaigns/:id` | GET | owner or member | Campaign detail with members and resources. The `resources` array is filtered by the caller's visibility (same rule as `GET /api/campaigns/:id/resources`): members never receive `gm`-only or unshared-`private` resource ids. Includes `has_banner` and `locked` (`true` when the owner's `campaign_access` is disabled - the campaign is then read-only for everyone, owner-management endpoints return 403, members keep read access) plus `owner_has_campaign_access`. Each member includes `id`, `has_art`, `has_sheet`, `character_sheet_filename`, and `campaign_access` (false → flagged as a disabled user). Opening this endpoint records `last_accessed_at` (drives recently-accessed sorting on the campaigns list). |
 | `/api/campaigns/:id` | PATCH | owner | Update `name`, `description` (markdown), `gm_title`, `system_id`, `system_name`, `parent_campaign_id`. Setting `system_id` clears `system_name` and vice-versa (`system_name: ""` clears it). |
 | `/api/campaigns/:id` | DELETE | owner | Delete campaign and all related data. Admins delete via the database directly. |
 | `/api/campaigns/admin/by-user/:user_id` | GET | admin | Read-only minimal list of a user's campaigns (`id`, `name`, `description`, `is_gm_campaign`, `system_id`, `system_name`) for the user-management page |

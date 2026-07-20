@@ -7,8 +7,9 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import SessionLocal
 from ...models import Audio, AudioFolder
-from ...auth import require_gm_or_admin, CurrentUser
+from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import _extract_embedded_art, _find_folder_artwork
+from .._media_access import assert_media_access
 from ._schemas import AudioUpdate, FolderTagsUpdate
 
 # Map audio extensions to the mimetype the browser <audio> element expects.
@@ -74,12 +75,13 @@ def update_audio_folder(data: FolderTagsUpdate, _: CurrentUser = Depends(require
         db.close()
 
 
-def get_audio(audio_id: str):
+def get_audio(audio_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         a = db.query(Audio).filter_by(id=audio_id).first()
         if not a:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "audio", a.id)
         folder_path = "/".join(Path(a.relative_path).parts[1:-1])
         folder = db.query(AudioFolder).filter_by(path=folder_path).first()
         return {
@@ -91,12 +93,13 @@ def get_audio(audio_id: str):
         db.close()
 
 
-def serve_audio_file(audio_id: str):
+def serve_audio_file(audio_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         a = db.query(Audio).filter_by(id=audio_id).first()
         if not a:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "audio", a.id)
         if not os.path.exists(a.filepath):
             if not a.is_missing:
                 a.is_missing = True
@@ -110,12 +113,13 @@ def serve_audio_file(audio_id: str):
         db.close()
 
 
-def serve_audio_artwork(audio_id: str):
+def serve_audio_artwork(audio_id: str, current_user: CurrentUser = Depends(get_current_user)):
     db = SessionLocal()
     try:
         a = db.query(Audio).filter_by(id=audio_id).first()
         if not a:
             raise HTTPException(404)
+        assert_media_access(db, current_user, "audio", a.id)
         # Prefer a folder cover image, then fall back to embedded album art.
         cover = _find_folder_artwork(os.path.dirname(a.filepath))
         if cover and os.path.exists(cover):

@@ -12,6 +12,7 @@ from ...models import (
     Campaign,
     CampaignMember,
     CampaignResource,
+    CampaignResourceShare,
     GenericMap,
     Token,
     User,
@@ -19,6 +20,7 @@ from ...models import (
 from ._helpers import (
     assert_can_manage,
     build_members,
+    can_see_resource,
     can_view,
     delete_guest_user,
     get_campaign_or_404,
@@ -215,6 +217,19 @@ def get_campaign(campaign_id: str, current_user: CurrentUser = Depends(get_curre
 
         members = build_members(c, db)
 
+        # Only expose resources this member is allowed to see. Leaking gm-only or
+        # unshared-private rows here would hand out resource_ids that become
+        # download handles on the by-id media/file routes.
+        is_owner = c.owner_id == current_user.id
+        all_resources = db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
+        share_map = {}
+        for s in (
+            db.query(CampaignResourceShare)
+            .filter(CampaignResourceShare.resource_id.in_([r.id for r in all_resources] or [""]))
+            .all()
+        ):
+            share_map.setdefault(s.resource_id, set()).add(s.user_id)
+
         resources = [
             {
                 "id": r.id,
@@ -223,7 +238,8 @@ def get_campaign(campaign_id: str, current_user: CurrentUser = Depends(get_curre
                 "visibility": r.visibility,
                 "category_id": r.category_id,
             }
-            for r in db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
+            for r in all_resources
+            if can_see_resource(r, is_owner, current_user.id, share_map)
         ]
 
         result = serialize_campaign(c, members, db)

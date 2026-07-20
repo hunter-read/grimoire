@@ -84,7 +84,9 @@ def delete_own_account(current_user: CurrentUser = Depends(get_current_user)):
 
 def get_opds_status(current_user: CurrentUser = Depends(get_current_user)):
     """Return OPDS availability and the user's current feed URL (if enabled)."""
-    if not OPDS_ENABLED:
+    # OPDS is a full-library-browse feature; guests are campaign-scoped and get no
+    # library feed. Report it as unavailable to them.
+    if not OPDS_ENABLED or current_user.role == "guest":
         return {"opds_enabled": False, "feed_url": None}
     db = SessionLocal()
     try:
@@ -101,6 +103,9 @@ def generate_opds_token(current_user: CurrentUser = Depends(get_current_user)):
     """Generate (or regenerate) the user's OPDS token. Old token is immediately revoked."""
     if not OPDS_ENABLED:
         raise HTTPException(403, "OPDS is not enabled on this server")
+    # Guests are campaign-scoped and must not get a full-library OPDS feed.
+    if current_user.role == "guest":
+        raise HTTPException(403, "Guests cannot use OPDS")
     token = secrets.token_urlsafe(48)
     db = SessionLocal()
     try:

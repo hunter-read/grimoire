@@ -32,9 +32,14 @@ def _now_iso() -> str:
 
 
 def _resolve_user(db, token: str) -> User:
-    """Look up a user by their OPDS token. Raises 404 if not found/revoked."""
+    """Look up a user by their OPDS token. Raises 404 if not found/revoked.
+
+    Guests are campaign-scoped and never entitled to the full-library OPDS feed;
+    a guest token (e.g. left over from before a role change) is rejected here so
+    the feed and download routes can't be used to bypass campaign scoping.
+    """
     user = db.query(User).filter_by(opds_token=token).first()
-    if not user:
+    if not user or user.role == "guest":
         raise HTTPException(404, "Not found")
     return user
 

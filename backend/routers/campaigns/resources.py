@@ -21,7 +21,12 @@ from ...models import (
     GenericMap,
     Token,
 )
-from ._helpers import assert_can_manage, can_view, get_campaign_or_404
+from ._helpers import (
+    assert_can_manage,
+    can_see_resource as _can_see_resource,
+    can_view,
+    get_campaign_or_404,
+)
 from ._schemas import ResourceAdd, ResourceBulkAdd, ResourceReorder, ResourceUpdate
 
 _VISIBILITIES = ("public", "private", "gm")
@@ -68,16 +73,6 @@ def _resolve_category(db, campaign_id: str, category_id):
     if not cat:
         raise HTTPException(400, "Invalid category")
     return cat.id
-
-
-def _can_see_resource(r: CampaignResource, is_owner: bool, user_id: str, share_map) -> bool:
-    if is_owner:
-        return True
-    if r.visibility == "public":
-        return True
-    if r.visibility == "private":
-        return user_id in share_map.get(r.id, set())
-    return False  # gm
 
 
 def _serialize(db, r: CampaignResource, share_map=None, include_shares=False) -> dict:
