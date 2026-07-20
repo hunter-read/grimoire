@@ -25,13 +25,15 @@ export default function RescanSection() {
     scanned_maps,
     total_tokens,
     scanned_tokens,
+    total_audio,
+    scanned_audio,
     total_ocr,
     ocr_done,
     ocr_current,
   } = status
 
-  const totalScan = total_books + total_maps + total_tokens
-  const scannedScan = scanned_books + scanned_maps + scanned_tokens
+  const totalScan = total_books + total_maps + total_tokens + total_audio
+  const scannedScan = scanned_books + scanned_maps + scanned_tokens + scanned_audio
   const scanPct = totalScan > 0 ? Math.round((scannedScan / totalScan) * 100) : null
   const indexPct = to_index > 0 ? Math.round((indexed / to_index) * 100) : 0
   const ocrPct = total_ocr > 0 ? Math.round((ocr_done / total_ocr) * 100) : 0
@@ -162,6 +164,12 @@ export default function RescanSection() {
                   total: total_tokens,
                 })}
               </span>
+              <span>
+                {t('maintenance.rescan.audioProgress', {
+                  scanned: scanned_audio,
+                  total: total_audio,
+                })}
+              </span>
             </div>
           )}
           <style>{`
@@ -273,6 +281,9 @@ export default function RescanSection() {
               {lastResult.new_tokens > 0 && (
                 <span>{t('maintenance.rescan.tokens', { count: lastResult.new_tokens })}</span>
               )}
+              {lastResult.new_audio > 0 && (
+                <span>{t('maintenance.rescan.audio', { count: lastResult.new_audio })}</span>
+              )}
               {lastResult.indexed > 0 && (
                 <span>{t('maintenance.rescan.indexed', { count: lastResult.indexed })}</span>
               )}
@@ -282,6 +293,7 @@ export default function RescanSection() {
               {lastResult.new_books +
                 lastResult.new_maps +
                 lastResult.new_tokens +
+                (lastResult.new_audio || 0) +
                 lastResult.indexed +
                 (lastResult.updated_books || 0) ===
                 0 && <span>{t('maintenance.rescan.noNewFiles')}</span>}
