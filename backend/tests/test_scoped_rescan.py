@@ -9,6 +9,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend.indexer import (
+    resolve_collection_dir,
     resolve_scope,
     scan_library,
     _apply_opf_to_book,
@@ -88,6 +89,61 @@ class TestResolveScope:
     def test_absolute_path_rejected(self):
         with pytest.raises(ValueError):
             resolve_scope(str(self.lib), "/etc/passwd")
+
+
+# ---------------------------------------------------------------------------
+# resolve_collection_dir / resolve_scope — case-insensitive top-level folders
+# (issue #227)
+# ---------------------------------------------------------------------------
+
+class TestCaseInsensitiveTopLevel:
+    def setup_method(self):
+        self.tmp, self.lib = _mk_lib()
+
+    def test_resolves_capitalized_folder(self):
+        (self.lib / "Books").mkdir()
+        assert resolve_collection_dir(self.lib, "books") == self.lib / "Books"
+
+    def test_resolves_mixed_case_folder(self):
+        (self.lib / "AuDiO").mkdir()
+        assert resolve_collection_dir(self.lib, "audio") == self.lib / "AuDiO"
+
+    def test_falls_back_to_lowercase_when_absent(self):
+        # No collection folder on disk → canonical lowercase path is returned.
+        assert resolve_collection_dir(self.lib, "maps") == self.lib / "maps"
+
+    def test_ignores_case_insensitive_file_match(self):
+        # A same-named *file* must not be treated as the collection folder.
+        (self.lib / "Tokens").write_bytes(b"not a dir")
+        assert resolve_collection_dir(self.lib, "tokens") == self.lib / "tokens"
+
+    def test_missing_library_root_falls_back(self):
+        missing = self.lib / "does-not-exist"
+        assert resolve_collection_dir(missing, "books") == missing / "books"
+
+    def test_scope_resolves_capitalized_section(self):
+        (self.lib / "Books").mkdir()
+        section, target = resolve_scope(str(self.lib), "books/D&D 5e/adventure")
+        assert section == "books"
+        assert target == self.lib / "Books" / "D&D 5e" / "adventure"
+
+    def test_scope_accepts_capitalized_scope_input(self):
+        (self.lib / "Maps").mkdir()
+        section, target = resolve_scope(str(self.lib), "Maps/Forests")
+        assert section == "maps"
+        assert target == self.lib / "Maps" / "Forests"
+
+    def test_scan_indexes_capitalized_books_folder(self):
+        folder = self.lib / "Books" / "SysCap" / "core"
+        folder.mkdir(parents=True)
+        (folder / "capitalized.pdf").write_bytes(b"%PDF-1.4")
+
+        _scan(self.lib, self.tmp)
+
+        book = _get_book("capitalized.pdf")
+        assert book is not None
+        # relative_path preserves the on-disk (capitalized) collection segment.
+        assert book.relative_path.replace("\\", "/").startswith("Books/SysCap/")
 
 
 # ---------------------------------------------------------------------------

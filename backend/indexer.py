@@ -921,6 +921,24 @@ METADATA_MODES = ("new", "missing", "replace")
 _OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year", "tags")
 
 
+def resolve_collection_dir(library: Path, section: str) -> Path:
+    """Resolve a top-level collection folder (``books``/``maps``/etc.) case-insensitively.
+
+    On case-sensitive filesystems the library root may hold ``Books``/``Audio``
+    rather than the canonical lowercase names.  Return the first existing child of
+    ``library`` whose name matches ``section`` ignoring case, falling back to
+    ``library / section`` when none exists (so callers that create or probe the
+    path still get a stable, canonical location).
+    """
+    try:
+        for child in library.iterdir():
+            if child.name.lower() == section and child.is_dir():
+                return child
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    return library / section
+
+
 def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
     """Resolve a user-supplied scope path against the library root.
 
@@ -934,7 +952,8 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
     if not cleaned:
         raise ValueError("scope path is empty")
 
-    section = cleaned.split("/", 1)[0]
+    head, _, rest = cleaned.partition("/")
+    section = head.lower()
     if section not in ("books", "maps", "tokens", "audio"):
         raise ValueError(
             f"scope must start with books/, maps/, tokens/, or audio/: {scope_path!r}"
@@ -942,7 +961,10 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
 
     # Build the target without resolving symlinks so the walked paths match the
     # filepaths stored by an unscoped scan (which uses library_path verbatim).
-    target = library / cleaned
+    # Resolve the top-level collection folder case-insensitively so a scope that
+    # names "books" still lands on a "Books" folder on a case-sensitive FS.
+    collection_dir = resolve_collection_dir(library, section)
+    target = collection_dir / rest if rest else collection_dir
     # Guard against path traversal using fully-resolved paths.
     resolved_lib = str(library.resolve())
     if os.path.commonpath([resolved_lib, str(target.resolve())]) != resolved_lib:
@@ -1003,10 +1025,10 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
     OPF sidecars, "replace" overwrites fields wherever the sidecar provides a value.
     """
     library = Path(library_path)
-    books_dir = library / "books"
-    maps_dir = library / "maps"
-    tokens_dir = library / "tokens"
-    audio_dir = library / "audio"
+    books_dir = resolve_collection_dir(library, "books")
+    maps_dir = resolve_collection_dir(library, "maps")
+    tokens_dir = resolve_collection_dir(library, "tokens")
+    audio_dir = resolve_collection_dir(library, "audio")
     thumb_dir = Path(data_path) / "thumbnails"
     stats = {
         "new_systems": 0,
@@ -1693,7 +1715,7 @@ def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Pat
         "audio": (AudioFolder, Audio),
     }
     for section in ("maps", "tokens", "audio"):
-        section_dir = library / section
+        section_dir = resolve_collection_dir(library, section)
         if not section_dir.exists():
             continue
         # Skip sections the scope doesn't touch (scope under section, or == section).
@@ -1749,7 +1771,7 @@ def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Pat
                             logger.debug(f"tags.json: no record found for {file_rel}")
 
     # --- books/ section (system-level tags only) ---
-    books_dir = library / "books"
+    books_dir = resolve_collection_dir(library, "books")
     if books_dir.exists() and (scope_dir is None or _within_scope(scope_dir, books_dir)):
         for system_dir in sorted(books_dir.iterdir()):
             if not system_dir.is_dir() or system_dir.name.startswith("."):
