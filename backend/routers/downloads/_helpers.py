@@ -220,7 +220,7 @@ def _files_for_map_folder(db, folder: str) -> tuple[list, str]:
     files = [
         (safe, _arcname(m))
         for m in maps
-        if m.relative_path.replace("\\", "/").lstrip("/").startswith("maps/" + prefix)
+        if m.relative_path.replace("\\", "/").lstrip("/").lower().startswith("maps/" + prefix.lower())
         and (safe := _safe_filepath(m.filepath))
     ]
     return files, f"maps_{_safe_name(folder)}"
@@ -241,7 +241,7 @@ def _files_for_token_folder(db, folder: str, see_explicit: bool) -> tuple[list, 
     files = [
         (safe, _arcname(t))
         for t in q.all()
-        if t.relative_path.replace("\\", "/").lstrip("/").startswith("tokens/" + prefix)
+        if t.relative_path.replace("\\", "/").lstrip("/").lower().startswith("tokens/" + prefix.lower())
         and (safe := _safe_filepath(t.filepath))
     ]
     return files, f"tokens_{_safe_name(folder)}"
@@ -260,7 +260,7 @@ def _files_for_audio_folder(db, folder: str) -> tuple[list, str]:
     files = [
         (safe, _arcname(a))
         for a in tracks
-        if a.relative_path.replace("\\", "/").lstrip("/").startswith("audio/" + prefix)
+        if a.relative_path.replace("\\", "/").lstrip("/").lower().startswith("audio/" + prefix.lower())
         and (safe := _safe_filepath(a.filepath))
     ]
     return files, f"audio_{_safe_name(folder)}"

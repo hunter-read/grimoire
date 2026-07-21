@@ -616,6 +616,26 @@ class TestDownloadMapFolderZip:
         )
         assert resp.status_code == 404
 
+    def test_capitalized_maps_prefix_matched(self):
+        """A map indexed under a capitalized "Maps/" collection folder (issue #227)
+        is still selected by its folder download."""
+        from backend.config import SessionLocal
+        from backend.routers.downloads._helpers import _files_for_map_folder
+
+        uid = uuid.uuid4().hex[:6]
+        path = _real_file(f"caproom_{uid}.png", b"\x89PNG\r\n")
+        make_map(
+            filename=os.path.basename(path),
+            filepath=path,
+            relative_path=f"Maps/Dungeons/{os.path.basename(path)}",
+        )
+        db = SessionLocal()
+        try:
+            files, _ = _files_for_map_folder(db, "Dungeons")
+        finally:
+            db.close()
+        assert any(os.path.basename(path) == os.path.basename(fp) for fp, _ in files)
+
 
 # ---------------------------------------------------------------------------
 # ZIP — token_folder scope
