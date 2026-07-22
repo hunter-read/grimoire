@@ -26,7 +26,7 @@ from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder,
 
 logger = logging.getLogger("grimoire.indexer")
 
-_FITZ_TIMEOUT = 30   # seconds — files that can't be opened in 30s are unreadable
+_FITZ_TIMEOUT = 30  # seconds — files that can't be opened in 30s are unreadable
 _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
 
 # Wall-clock budget for extracting text from a single PDF in the isolated
@@ -110,6 +110,7 @@ def _fitz_open_with_timeout(filepath: str, timeout: int = _FITZ_TIMEOUT, should_
         raise exc[0]
     return result[0]
 
+
 CATEGORY_MAP = {
     "core": ["core", "rulebook", "rules", "phb", "dmg", "mm", "basic"],
     "supplement": ["supplement", "expansion", "sourcebook", "guide", "companion"],
@@ -124,16 +125,19 @@ CATEGORY_MAP = {
 # Normalized folder names (after slugify) that are treated as the system-agnostic
 # collection. Books placed in any of these folders use their immediate subfolder
 # name as the category label instead of going through the normal CATEGORY_MAP.
-_SYSTEM_AGNOSTIC_SLUGS = frozenset({
-    "system-agnostic",
-    "generic",
-    "any",
-})
+_SYSTEM_AGNOSTIC_SLUGS = frozenset(
+    {
+        "system-agnostic",
+        "generic",
+        "any",
+    }
+)
 
 
 def is_system_agnostic_folder(folder_name: str) -> bool:
     """Return True if this top-level books folder should be treated as system-agnostic."""
     return slugify(folder_name) in _SYSTEM_AGNOSTIC_SLUGS
+
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"}
 PDF_EXTS = {".pdf"}
@@ -146,10 +150,18 @@ AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
 # generate_thumbnail.  Multi-suffix names (.tar.gz/.tar.bz2) are matched by
 # archive_ext() rather than Path.suffix.
 ARCHIVE_EXTS = {
-    ".zip", ".cbz",
-    ".rar", ".cbr",
-    ".7z", ".cb7",
-    ".tar", ".cbt", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2",
+    ".zip",
+    ".cbz",
+    ".rar",
+    ".cbr",
+    ".7z",
+    ".cb7",
+    ".tar",
+    ".cbt",
+    ".tar.gz",
+    ".tgz",
+    ".tar.bz2",
+    ".tbz2",
 }
 # Comic-book archives whose first image is used as a cover thumbnail.
 _COMIC_ARCHIVE_EXTS = {".cbz", ".cbr", ".cb7", ".cbt"}
@@ -427,7 +439,9 @@ def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, resul
         exc[0] = e
 
 
-def generate_thumbnail(filepath: str, output_path: str, size: tuple = (300, 400), should_stop=None) -> bool:
+def generate_thumbnail(
+    filepath: str, output_path: str, size: tuple = (300, 400), should_stop=None
+) -> bool:
     """Generate a thumbnail from the first page of a PDF or from an image.
 
     Runs in a daemon thread with a timeout so a corrupt or pathologically large
@@ -523,9 +537,7 @@ def extract_text_isolated(
 
     fd, result_path = tempfile.mkstemp(prefix="grimoire_extract_", suffix=".pkl")
     os.close(fd)
-    proc = _MP_CONTEXT.Process(
-        target=pdf_worker.main, args=(filepath, result_path, text_only)
-    )
+    proc = _MP_CONTEXT.Process(target=pdf_worker.main, args=(filepath, result_path, text_only))
     try:
         proc.start()
         poll_interval = 0.5
@@ -549,7 +561,8 @@ def extract_text_isolated(
         if os.path.getsize(result_path) == 0:
             code = proc.exitcode
             reason = (
-                f"killed by signal {-code}" if code is not None and code < 0
+                f"killed by signal {-code}"
+                if code is not None and code < 0
                 else f"exited with code {code}"
             )
             logger.error(f"Text extraction worker crashed ({reason}) for {filepath}")
@@ -568,7 +581,9 @@ def extract_text_isolated(
             logger.debug("Failed to remove temp result file %s: %s", result_path, e)
 
 
-def ocr_page_isolated(filepath: str, page_index: int, should_stop=None, dpi: int | None = None) -> str:
+def ocr_page_isolated(
+    filepath: str, page_index: int, should_stop=None, dpi: int | None = None
+) -> str:
     """OCR a single page in a spawned child, bounded by ``_OCR_PAGE_TIMEOUT``.
 
     Returns the recognised text ("" on timeout, crash, cancel, or empty result —
@@ -651,7 +666,9 @@ def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> st
     start = book.ocr_pages_done or 0
     dpi = book.ocr_dpi  # per-book override; None => global OCR_DPI default
     _where = f" (from page {start + 1})" if start else ""
-    logger.info(f"Reading text from '{book.title or book.filename}' — {page_count} page(s){_where}…")
+    logger.info(
+        f"Reading text from '{book.title or book.filename}' — {page_count} page(s){_where}…"
+    )
     logger.debug(
         f"OCR: '{book.filename}' — {page_count} page(s), resuming at page {start + 1}"
         + (f" (dpi={dpi})" if dpi else "")
@@ -955,9 +972,7 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
     head, _, rest = cleaned.partition("/")
     section = head.lower()
     if section not in ("books", "maps", "tokens", "audio"):
-        raise ValueError(
-            f"scope must start with books/, maps/, tokens/, or audio/: {scope_path!r}"
-        )
+        raise ValueError(f"scope must start with books/, maps/, tokens/, or audio/: {scope_path!r}")
 
     # Build the target without resolving symlinks so the walked paths match the
     # filepaths stored by an unscoped scan (which uses library_path verbatim).
@@ -1007,8 +1022,15 @@ def _apply_opf_to_book(book: Book, opf_meta: dict, mode: str) -> bool:
     return changed
 
 
-def scan_library(library_path: str, data_path: str, session: Session, on_progress=None,
-                 should_stop=None, scope_path: str | None = None, metadata_mode: str = "new"):
+def scan_library(
+    library_path: str,
+    data_path: str,
+    session: Session,
+    on_progress=None,
+    should_stop=None,
+    scope_path: str | None = None,
+    metadata_mode: str = "new",
+):
     """Scan the library directory and register all files in the database.
 
     on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens,
@@ -1061,19 +1083,23 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
     total_books = (
         _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS)
-        if scan_books and books_walk_dir.exists() else 0
+        if scan_books and books_walk_dir.exists()
+        else 0
     )
     total_maps = (
         _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS)
-        if scan_maps and maps_walk_dir.exists() else 0
+        if scan_maps and maps_walk_dir.exists()
+        else 0
     )
     total_tokens = (
         _count_eligible_files(tokens_walk_dir, IMAGE_EXTS)
-        if scan_tokens and tokens_walk_dir.exists() else 0
+        if scan_tokens and tokens_walk_dir.exists()
+        else 0
     )
     total_audio = (
         _count_eligible_files(audio_walk_dir, AUDIO_EXTS)
-        if scan_audio and audio_walk_dir.exists() else 0
+        if scan_audio and audio_walk_dir.exists()
+        else 0
     )
     scanned_books = scanned_maps = scanned_tokens = scanned_audio = 0
 
@@ -1103,7 +1129,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
             try:
                 system = _run_with_timeout(
                     lambda slug=system_slug: session.query(GameSystem).filter_by(slug=slug).first(),
-                    _DB_TIMEOUT, f"query system '{system_slug}'"
+                    _DB_TIMEOUT,
+                    f"query system '{system_slug}'",
                 )
             except TimeoutError as e:
                 logger.error(f"DB hang: {e} — skipping system '{system_name}'")
@@ -1127,7 +1154,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     stats["errors"] += 1
                     continue
                 stats["new_systems"] += 1
-                logger.info(f"Found a new game system: {system_name}" + (" (mature)" if is_nsfw else ""))
+                logger.info(
+                    f"Found a new game system: {system_name}" + (" (mature)" if is_nsfw else "")
+                )
             elif is_nsfw and not system.is_explicit:
                 system.is_explicit = True
             if is_agnostic and not system.is_system_agnostic:
@@ -1135,7 +1164,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
 
             # When scoped to a path deeper than the system dir, walk only that
             # subtree; otherwise walk the whole system.
-            walk_root = scope_dir if (scope_section == "books" and len(scope_parts) > 1) else system_dir
+            walk_root = (
+                scope_dir if (scope_section == "books" and len(scope_parts) > 1) else system_dir
+            )
             for root, dirs, files in os.walk(walk_root):
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
 
@@ -1188,7 +1219,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     try:
                         existing = _run_with_timeout(
                             lambda fp=filepath: session.query(Book).filter_by(filepath=fp).first(),
-                            _DB_TIMEOUT, f"query book '{filepath}'"
+                            _DB_TIMEOUT,
+                            f"query book '{filepath}'",
                         )
                     except TimeoutError as e:
                         logger.error(f"DB hang: {e} — skipping '{filename}'")
@@ -1200,21 +1232,33 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         if metadata_mode in ("missing", "replace"):
                             opf_meta = _find_opf_meta(root, filename)
                             if _apply_opf_to_book(existing, opf_meta, metadata_mode):
-                                logger.debug(f"Refreshing metadata for '{filename}' (mode={metadata_mode})")
+                                logger.debug(
+                                    f"Refreshing metadata for '{filename}' (mode={metadata_mode})"
+                                )
                                 try:
-                                    _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit metadata refresh '{filepath}'")
+                                    _run_with_timeout(
+                                        session.commit,
+                                        _DB_TIMEOUT,
+                                        f"commit metadata refresh '{filepath}'",
+                                    )
                                     stats["updated_books"] += 1
                                 except (TimeoutError, IntegrityError) as e:
-                                    logger.error(f"DB hang refreshing metadata for '{filename}': {e}")
+                                    logger.error(
+                                        f"DB hang refreshing metadata for '{filename}': {e}"
+                                    )
                                     session.rollback()
                         if existing.scan_failed:
                             logger.debug(f"Already registered, skipping: {filename}")
                             continue
                         # Archives are opaque: only comic-book variants get a
                         # cover thumbnail, and none carry a page count.
-                        thumbnailable = ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+                        thumbnailable = (
+                            ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+                        )
                         needs_thumbnail = thumbnailable and not existing.has_thumbnail
-                        needs_page_count = ext == ".pdf" and existing.page_count == 0 and not existing.index_error
+                        needs_page_count = (
+                            ext == ".pdf" and existing.page_count == 0 and not existing.index_error
+                        )
                         if ext in IMAGE_EXTS and existing.page_count == 0:
                             existing.page_count = 1
                         if not needs_thumbnail and not needs_page_count:
@@ -1223,7 +1267,11 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         logger.debug(f"Resuming incomplete scan for: {filename}")
                         book = existing
                     else:
-                        category = agnostic_category(relative_path) if is_agnostic else guess_category(relative_path)
+                        category = (
+                            agnostic_category(relative_path)
+                            if is_agnostic
+                            else guess_category(relative_path)
+                        )
                         title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
                         try:
@@ -1246,8 +1294,10 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             category=category,
                             file_size=file_size,
                             mime_type=(
-                                "application/pdf" if ext == ".pdf"
-                                else archive_mime(arc_ext) if arc_ext
+                                "application/pdf"
+                                if ext == ".pdf"
+                                else archive_mime(arc_ext)
+                                if arc_ext
                                 else f"image/{ext[1:]}"
                             ),
                             authors=opf_meta.get("authors"),
@@ -1263,7 +1313,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         session.add(book)
                         logger.debug(f"DB: committing new book '{filename}'")
                         try:
-                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
+                            _run_with_timeout(
+                                session.commit, _DB_TIMEOUT, f"commit book '{filepath}'"
+                            )
                             stats["new_books"] += 1
                             logger.info(f"Added book: {title} ({category}) in {system_name}")
                         except TimeoutError as e:
@@ -1296,7 +1348,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         # clears it below so the file is resumed normally next time.
                         book.scan_failed = True
                         try:
-                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
+                            _run_with_timeout(
+                                session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'"
+                            )
                         except (TimeoutError, IntegrityError) as e:
                             logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
                             session.rollback()
@@ -1307,7 +1361,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             # Cancelled — clear the flag so the file is resumed next scan.
                             book.scan_failed = False
                         try:
-                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit thumbnail '{filepath}'")
+                            _run_with_timeout(
+                                session.commit, _DB_TIMEOUT, f"commit thumbnail '{filepath}'"
+                            )
                         except (TimeoutError, IntegrityError) as e:
                             logger.error(f"DB hang saving thumbnail for '{filename}': {e}")
                             session.rollback()
@@ -1316,7 +1372,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                         if not book.scan_failed:
                             book.scan_failed = True
                             try:
-                                _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
+                                _run_with_timeout(
+                                    session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'"
+                                )
                             except (TimeoutError, IntegrityError) as e:
                                 logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
                                 session.rollback()
@@ -1327,7 +1385,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                             doc.close()
                             logger.debug(f"Page count: {book.page_count} pages in '{filename}'")
                             book.scan_failed = False
-                            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit page_count '{filepath}'")
+                            _run_with_timeout(
+                                session.commit, _DB_TIMEOUT, f"commit page_count '{filepath}'"
+                            )
                         except Exception as e:
                             if should_stop and should_stop():
                                 # Cancelled — clear the flag so the file is resumed next scan.
@@ -1337,7 +1397,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                                 book.index_error = str(e)[:500]
                                 stats["errors"] += 1
                             try:
-                                _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
+                                _run_with_timeout(
+                                    session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'"
+                                )
                             except (TimeoutError, IntegrityError) as e2:
                                 logger.error(f"DB hang saving index_error for '{filename}': {e2}")
                                 session.rollback()
@@ -1378,8 +1440,11 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 logger.debug(f"DB: querying existing map '{filepath}'")
                 try:
                     existing = _run_with_timeout(
-                        lambda fp=filepath: session.query(GenericMap).filter_by(filepath=fp).first(),
-                        _DB_TIMEOUT, f"query map '{filepath}'"
+                        lambda fp=filepath: (
+                            session.query(GenericMap).filter_by(filepath=fp).first()
+                        ),
+                        _DB_TIMEOUT,
+                        f"query map '{filepath}'",
                     )
                 except TimeoutError as e:
                     logger.error(f"DB hang: {e} — skipping '{filename}'")
@@ -1464,7 +1529,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 try:
                     existing = _run_with_timeout(
                         lambda fp=filepath: session.query(Token).filter_by(filepath=fp).first(),
-                        _DB_TIMEOUT, f"query token '{filepath}'"
+                        _DB_TIMEOUT,
+                        f"query token '{filepath}'",
                     )
                 except TimeoutError as e:
                     logger.error(f"DB hang: {e} — skipping '{filename}'")
@@ -1495,7 +1561,9 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                     f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
                 )
                 logger.debug(f"Generating thumbnail: {filepath}")
-                if generate_thumbnail(filepath, thumb_path, size=(200, 200), should_stop=should_stop):
+                if generate_thumbnail(
+                    filepath, thumb_path, size=(200, 200), should_stop=should_stop
+                ):
                     token.has_thumbnail = True
 
                 session.add(token)
@@ -1549,7 +1617,8 @@ def scan_library(library_path: str, data_path: str, session: Session, on_progres
                 try:
                     existing = _run_with_timeout(
                         lambda fp=filepath: session.query(Audio).filter_by(filepath=fp).first(),
-                        _DB_TIMEOUT, f"query audio '{filepath}'"
+                        _DB_TIMEOUT,
+                        f"query audio '{filepath}'",
                     )
                 except TimeoutError as e:
                     logger.error(f"DB hang: {e} — skipping '{filename}'")
@@ -1702,7 +1771,9 @@ def _within_scope(path: Path, scope_dir: Path | None) -> bool:
         return False
 
 
-def _apply_tags_from_library(library_path: str, session: Session, scope_dir: Path | None = None) -> None:
+def _apply_tags_from_library(
+    library_path: str, session: Session, scope_dir: Path | None = None
+) -> None:
     """Apply tags declared in tags.json files throughout the library tree.
 
     When `scope_dir` is given, only tags.json files within that subtree are applied.
@@ -1876,7 +1947,9 @@ def index_book_text(book: Book, data_path: str, session: Session, should_stop=No
         book.index_failed = False
         logger.debug(f"DB: committing image-only indexed for '{book.filename}'")
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit image-only indexed '{book.filepath}'")
+            _run_with_timeout(
+                session.commit, _DB_TIMEOUT, f"commit image-only indexed '{book.filepath}'"
+            )
         except TimeoutError as e:
             logger.error(f"DB hang: {e} — rolling back image-only indexed for '{book.filename}'")
             session.rollback()

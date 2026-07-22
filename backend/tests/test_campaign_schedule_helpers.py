@@ -8,6 +8,7 @@ import datetime
 
 from backend.routers.campaigns._helpers import (
     compute_next_sessions,
+    merge_gm_secrets,
     nth_weekday_of_month,
     extract_snippet,
     strip_gm_secrets,
@@ -130,3 +131,100 @@ class TestStripGmSecrets:
 
     def test_none_body_returns_empty(self):
         assert strip_gm_secrets(None) == ""
+
+
+class TestMergeGmSecrets:
+    """merge_gm_secrets re-weaves stored ||secrets|| into a body the player edited.
+
+    A non-owner edits ``strip_gm_secrets(stored)`` — a fully clean body with no
+    secret text and no marker of any kind. So every ``new`` here is built by
+    editing that stripped view, mirroring what the player actually sends back.
+    """
+
+    def _seen(self, stored):
+        """The clean body the player was shown (what they edit)."""
+        return strip_gm_secrets(stored)
+
+    def test_no_stored_secrets_returns_new_body_verbatim(self):
+        assert merge_gm_secrets("plain stored", "player edit") == "player edit"
+
+    def test_unedited_clean_body_restores_secret_in_place(self):
+        stored = "Para A. ||secret|| Para B."
+        # Player saved without touching anything.
+        assert merge_gm_secrets(stored, self._seen(stored)) == stored
+
+    def test_edit_above_secret_keeps_it_in_place(self):
+        stored = "Para A. ||secret|| Para B."
+        new = self._seen(stored).replace("Para A.", "Para A edited.")
+        assert merge_gm_secrets(stored, new) == "Para A edited. ||secret|| Para B."
+
+    def test_edit_below_secret_keeps_it_in_place(self):
+        stored = "Para A. ||secret|| Para B."
+        new = self._seen(stored).replace("Para B.", "Para B edited.")
+        assert merge_gm_secrets(stored, new) == "Para A. ||secret|| Para B edited."
+
+    def test_edit_both_sides_keeps_secret_between_them(self):
+        # The reporter's 3-paragraph case: the secret must NOT drift below the
+        # second block when the text above AND below it is edited.
+        stored = "Para A.\n\n||secret||\n\nPara B."
+        new = self._seen(stored).replace("Para A.", "A2.").replace("Para B.", "B2.")
+        assert merge_gm_secrets(stored, new) == "A2.\n\n||secret||\n\nB2."
+
+    def test_secret_does_not_move_below_following_paragraph(self):
+        stored = "First paragraph here. ||twist|| Second paragraph here."
+        # Player rewrote the first paragraph but left the second intact.
+        new = self._seen(stored).replace(
+            "First paragraph here.", "A different first paragraph."
+        )
+        merged = merge_gm_secrets(stored, new)
+        assert merged.index("||twist||") < merged.index("Second paragraph")
+
+    def test_rewriting_both_sides_appends_secret_so_it_survives(self):
+        # When the anchor text on both sides of the secret is gone, the position
+        # can't be recovered — the secret is appended rather than lost.
+        stored = "Original A. ||the twist|| Original B."
+        new = "Completely different content with nothing in common."
+        merged = merge_gm_secrets(stored, new)
+        assert merged.startswith("Completely different content")
+        assert "||the twist||" in merged
+
+    def test_multiple_secrets_all_kept_in_order(self):
+        stored = "aaaa ||one|| bbbb ||two|| cccc"
+        assert merge_gm_secrets(stored, self._seen(stored)) == stored
+
+    def test_multiple_secrets_survive_edits_around_each(self):
+        stored = "A ||one|| B ||two|| C"
+        new = self._seen(stored).replace("A ", "A! ").replace(" C", " C?")
+        merged = merge_gm_secrets(stored, new)
+        assert "||one||" in merged and "||two||" in merged
+        assert merged.index("one") < merged.index("two")
+
+    def test_adjacent_secrets_kept_in_document_order(self):
+        stored = "x ||one||||two|| y"
+        assert merge_gm_secrets(stored, self._seen(stored)) == stored
+
+    def test_multiline_secret_restored_intact(self):
+        stored = "Intro.\n||line one\nline two||\nOutro."
+        assert merge_gm_secrets(stored, self._seen(stored)) == stored
+
+    def test_secret_at_start_of_body(self):
+        stored = "||opening|| then visible."
+        new = self._seen(stored).replace("visible", "visible text")
+        assert merge_gm_secrets(stored, new) == "||opening|| then visible text."
+
+    def test_secret_at_end_of_body(self):
+        stored = "Visible lead-in. ||closing||"
+        new = self._seen(stored).replace("Visible", "The visible")
+        assert merge_gm_secrets(stored, new) == "The visible lead-in. ||closing||"
+
+    def test_none_new_body_still_preserves_secret(self):
+        merged = merge_gm_secrets("x ||secret||", None)
+        assert "||secret||" in merged
+
+    def test_no_marker_or_secret_text_ever_shown_to_player(self):
+        # The player's copy leaks nothing: not the text, not a placeholder token.
+        stored = "Visible ||the duke is a doppelganger|| more"
+        seen = self._seen(stored)
+        assert "doppelganger" not in seen
+        assert "||" not in seen
+        assert "⟦" not in seen and "GM·" not in seen

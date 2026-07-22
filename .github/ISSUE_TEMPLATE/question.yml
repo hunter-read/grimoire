@@ -1,6 +1,6 @@
 name: Question / Help
 description: Not sure how something works, or need help getting set up?
-labels: ["question"]
+labels: ["question", "needs triage"]
 body:
   - type: markdown
     attributes:

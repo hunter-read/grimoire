@@ -44,10 +44,95 @@ _GM_SECRET_RE = re.compile(r"\|\|.*?\|\|", re.DOTALL)
 def strip_gm_secrets(body: str) -> str:
     """Remove every ||...|| GM-only span (markers and enclosed text) from a body.
 
-    Used before sending a wiki page to a non-owner so the GM's hidden notes never
-    leave the server. An unterminated trailing `||` (no closing pair) is left as-is.
+    This is what a non-owner receives: the hidden text is gone without a trace —
+    no placeholder, no marker — so a player never learns a secret exists or where
+    it sits, whether in the rendered page, the raw editor body, or a search
+    snippet. An unterminated trailing ``||`` (no closing pair) is left as-is.
+
+    A non-owner edits this stripped body; on save ``merge_gm_secrets`` re-weaves
+    the stored secrets back in by matching the surrounding text. See
+    [[merge_gm_secrets]].
     """
     return _GM_SECRET_RE.sub("", body or "")
+
+
+def _secret_positions(stored: str):
+    """Return [(secret_text, offset_in_stripped)] for each ||...|| in ``stored``.
+
+    ``offset_in_stripped`` is where the secret sat within
+    ``strip_gm_secrets(stored)`` — the boundary in the visible text the player last
+    saw. It is the secret's start minus the length of all secrets before it (those
+    chars aren't in the stripped text). Adjacent secrets legitimately share one
+    boundary; both are re-inserted there in document order.
+    """
+    out = []
+    removed = 0  # total chars of earlier secrets, absent from the stripped text
+    for m in _GM_SECRET_RE.finditer(stored):
+        out.append((m.group(0), m.start() - removed))
+        removed += m.end() - m.start()
+    return out
+
+
+def merge_gm_secrets(stored_body: str, new_body: str) -> str:
+    """Re-weave the stored body's ||...|| GM secrets into a non-owner's saved edit.
+
+    A non-owner never receives the secrets: they edit ``strip_gm_secrets(stored)``,
+    a body with no marker or trace of the hidden text. So ``new_body`` has none,
+    and storing it verbatim would delete every secret. This restores them by
+    position:
+
+    * ``old_visible`` — the exact stripped text the player was shown — is aligned
+      against ``new_body`` (a character diff). Each secret sat at a known boundary
+      in ``old_visible``; that boundary is mapped forward through the diff to the
+      corresponding spot in ``new_body``, and the secret is re-inserted there.
+    * This holds the secret in place when the player edits the text above and/or
+      below it — the secret does not drift past later paragraphs.
+    * If the text on *both* sides of a secret's boundary was rewritten (the anchor
+      is gone), the secret is appended at the end so it is preserved, never lost.
+
+    ``new_body`` is returned unchanged when the stored body had no secrets.
+    """
+    from difflib import SequenceMatcher
+
+    stored = stored_body or ""
+    positioned = _secret_positions(stored)
+    if not positioned:
+        return new_body
+
+    new = new_body if new_body is not None else ""
+    old_visible = strip_gm_secrets(stored)
+
+    # Map each offset in old_visible to an offset in new via the diff's matching
+    # blocks. A boundary that falls inside an unchanged run maps exactly; one that
+    # falls in a replaced/deleted region has no stable image → treat as lost.
+    sm = SequenceMatcher(None, old_visible, new, autojunk=False)
+    blocks = sm.get_matching_blocks()  # includes the terminating (len, len, 0)
+
+    def map_offset(old_off):
+        for b in blocks:
+            if b.a <= old_off <= b.a + b.size:
+                return b.b + (old_off - b.a)
+        return None
+
+    # Insert secrets from last to first so earlier insertions don't shift the
+    # offsets of later ones. Ties (adjacent secrets at one boundary) are broken by
+    # document index so their original order is preserved after insertion.
+    indexed = [(off, i, secret) for i, (secret, off) in enumerate(positioned)]
+    result = new
+    orphans = []
+    for old_off, i, secret in sorted(indexed, reverse=True):
+        pos = map_offset(old_off)
+        if pos is None:
+            orphans.append((i, secret))
+        else:
+            result = result[:pos] + secret + result[pos:]
+
+    if orphans:
+        # Restore document order for the appended, position-lost secrets.
+        orphans.sort()
+        sep = "" if not result or result.endswith("\n") else "\n"
+        result = result + sep + "\n".join(s for _, s in orphans)
+    return result
 
 
 def is_gm_or_admin(user: CurrentUser) -> bool:

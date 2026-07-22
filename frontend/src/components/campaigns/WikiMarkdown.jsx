@@ -17,9 +17,9 @@ const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
 const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'file:', 'image:']
 
 // ||GM-only text||. Only the owner ever receives a body still containing these
-// (the backend strips them for everyone else), so rendering them as a tinted
-// "GM only" span just helps the owner see what players won't. The match spans
-// newlines so a secret can wrap several lines/paragraphs.
+// (the backend strips them entirely for everyone else — no text, no marker), so
+// rendering them as a tinted "GM only" span just helps the owner see what players
+// won't. The match spans newlines so a secret can wrap several lines/paragraphs.
 const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
 
 function slugify(title) {

@@ -20,6 +20,7 @@ from ._helpers import (
     can_view,
     extract_snippet,
     get_campaign_or_404,
+    merge_gm_secrets,
     strip_gm_secrets,
 )
 from ._schemas import WikiPageCreate, WikiPageUpdate, WikiReorder
@@ -252,9 +253,12 @@ def get_page(
             "campaign_id": campaign_id,
             "title": page.title,
             "slug": page.slug,
-            # ||...|| spans are GM-only: strip them for everyone but the owner.
-            # (Personal campaigns only ever have the owner as a viewer, so their
-            # bodies are never stripped.)
+            # ||...|| spans are GM-only. The owner gets the raw body; everyone else
+            # gets it fully stripped — no secret text and no marker, so a player
+            # never learns a secret exists or where. A later save re-weaves the
+            # stored secrets back by position (merge_gm_secrets). (Personal
+            # campaigns only ever have the owner as a viewer, so nothing is
+            # stripped.)
             "body": page.body if is_owner else strip_gm_secrets(page.body),
             "visibility": page.visibility,
             "page_type": page.page_type,
@@ -355,7 +359,12 @@ def update_page(
                 page.title = new_title
                 page.slug = _ensure_unique_slug(db, campaign_id, slugify(new_title), exclude_id=page.id)
         if data.body is not None:
-            page.body = data.body
+            # A non-owner never received the ||...|| GM secrets (they're stripped
+            # on read), so their submitted body has none — storing it verbatim
+            # would delete the GM's hidden notes. Re-inject the stored secrets so
+            # they outlive a player's edit. The owner submits the full body, secrets
+            # and all, so nothing is merged for them.
+            page.body = data.body if is_owner else merge_gm_secrets(page.body, data.body)
         if data.visibility is not None:
             if data.visibility not in ("gm", "group", "members"):
                 raise HTTPException(400, "Invalid visibility")
