@@ -4,6 +4,7 @@ import { LuLibrary, LuCheck } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
+import LazyImg from '../LazyImg'
 
 /**
  * Game-system card for the library grid. Renders one of three layouts —
@@ -96,7 +97,7 @@ export default function SystemCard({
           }}
         >
           {system.cover_book_id ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/books/${system.cover_book_id}/thumbnail`)}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -183,7 +184,7 @@ export default function SystemCard({
           }}
         >
           {system.cover_book_id ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/books/${system.cover_book_id}/thumbnail`)}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -244,7 +245,7 @@ export default function SystemCard({
             justifyContent: 'center',
           }}
         >
-          <img
+          <LazyImg
             src={mediaUrl(`/books/${system.cover_book_id}/thumbnail`)}
             alt=""
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}

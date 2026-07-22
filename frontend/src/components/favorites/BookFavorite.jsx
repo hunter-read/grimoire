@@ -11,6 +11,7 @@ import {
   hoverOut,
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
+import LazyImg from '../LazyImg'
 
 export default function BookFavorite({ item, grid }) {
   const { t } = useTranslation()
@@ -33,10 +34,9 @@ export default function BookFavorite({ item, grid }) {
           }}
         >
           {item.has_thumbnail ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/books/${item.item_id}/thumbnail`)}
               alt=""
-              loading="lazy"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -80,7 +80,7 @@ export default function BookFavorite({ item, grid }) {
         }}
       >
         {item.has_thumbnail ? (
-          <img
+          <LazyImg
             src={mediaUrl(`/books/${item.item_id}/thumbnail`)}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

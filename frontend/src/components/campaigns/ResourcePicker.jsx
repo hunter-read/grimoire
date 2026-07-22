@@ -4,6 +4,7 @@ import { LuBookOpen, LuSearch, LuX } from 'react-icons/lu'
 import { campaigns, mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { TYPE_ICONS } from './resourcesShared'
+import LazyImg from '../LazyImg'
 
 /** Search-and-link picker for adding library resources to a campaign. */
 export default function ResourcePicker({ campaignId, linkedIds, onAdd, onClose }) {
@@ -220,7 +221,7 @@ export default function ResourcePicker({ campaignId, linkedIds, onAdd, onClose }
                   }}
                 >
                   {item.has_thumbnail ? (
-                    <img
+                    <LazyImg
                       src={mediaUrl(
                         `/${item.resource_type === 'book' ? 'books' : item.resource_type + 's'}/${item.resource_id}/thumbnail`
                       )}

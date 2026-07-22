@@ -12,6 +12,7 @@ from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, SessionLocal, THUMB_DIR
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
+from ...indexer import slugify
 from ...models import Book, GameSystem
 from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
 from ._schemas import BookUpdate
@@ -215,8 +216,18 @@ def serve_book_thumbnail(book_id: str, current_user: CurrentUser = Depends(get_c
         if not book:
             raise HTTPException(404)
         _assert_book_access(db, book, current_user)
+        # Thumbnails are written at index time as "{slugify(title)}_{fhash}.webp"
+        # (see indexer.generate_thumbnail call sites). On a large library the
+        # per-request glob over tens of thousands of files is costly and this
+        # endpoint is hit once per visible cover, so reconstruct the expected
+        # filename and serve it directly. Fall back to the glob only when the
+        # title has drifted from what it was at index time (renamed book).
         fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
-        matches = glob.glob(os.path.join(THUMB_DIR, "books", f"*_{fhash}.webp"))
+        thumb_dir = os.path.join(THUMB_DIR, "books")
+        expected = os.path.join(thumb_dir, f"{slugify(book.title)}_{fhash}.webp")
+        if os.path.isfile(expected):
+            return FileResponse(expected, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
+        matches = glob.glob(os.path.join(thumb_dir, f"*_{fhash}.webp"))
         if matches:
             return FileResponse(matches[0], media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
         raise HTTPException(404, "No thumbnail available")

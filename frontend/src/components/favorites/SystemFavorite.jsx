@@ -9,6 +9,7 @@ import {
   hoverOut,
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
+import LazyImg from '../LazyImg'
 
 export default function SystemFavorite({ item, grid }) {
   const navigate = useNavigate()
@@ -29,10 +30,9 @@ export default function SystemFavorite({ item, grid }) {
           }}
         >
           {item.cover_book_id ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/books/${item.cover_book_id}/thumbnail`)}
               alt=""
-              loading="lazy"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -87,7 +87,7 @@ export default function SystemFavorite({ item, grid }) {
         }}
       >
         {item.cover_book_id ? (
-          <img
+          <LazyImg
             src={mediaUrl(`/books/${item.cover_book_id}/thumbnail`)}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

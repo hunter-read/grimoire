@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LuFileQuestion } from 'react-icons/lu'
 import EmbedCard from './EmbedCard'
+import LazyImg from '../LazyImg'
 
 // We avoid a custom remark tokenizer by rewriting [[...]] tokens into ordinary
 // markdown links with a private href scheme, then interpreting that scheme in a
@@ -169,7 +170,7 @@ export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenS
       },
       img({ src, alt }) {
         return (
-          <img
+          <LazyImg
             src={src}
             alt={alt || ''}
             style={{ maxWidth: '100%', borderRadius: 8, display: 'block', margin: '8px 0' }}

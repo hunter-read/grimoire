@@ -16,6 +16,7 @@ import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
 import ReocrButton from '../ReocrButton'
+import LazyImg from '../LazyImg'
 
 /**
  * A single book entry. Renders as a list row by default; pass `card` or
@@ -204,10 +205,9 @@ export default function BookRow({
           }}
         >
           {book.has_thumbnail ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/books/${book.id}/thumbnail`)}
               alt=""
-              loading="lazy"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -372,7 +372,7 @@ export default function BookRow({
         }}
       >
         {book.has_thumbnail ? (
-          <img
+          <LazyImg
             src={mediaUrl(`/books/${book.id}/thumbnail`)}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

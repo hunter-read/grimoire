@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
+import LazyImg from '../LazyImg'
 
 const embedCardStyle = {
   display: 'inline-flex',
@@ -64,7 +65,7 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
   if (type === 'image') {
     if (!campaignId) return null
     return (
-      <img
+      <LazyImg
         src={campaigns.fileUrl(campaignId, id)}
         alt=""
         style={{ maxWidth: '100%', borderRadius: 8, display: 'block', margin: '8px 0' }}
