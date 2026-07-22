@@ -168,26 +168,41 @@ class TestWikiVisibility:
 
 class TestWikiGmSecrets:
     BODY = "Public intro. ||The duke is a doppelganger|| The rest is shared."
-    STRIPPED = "Public intro.  The rest is shared."
+
+    def _get(self, client, cid, pid, headers):
+        return client.get(f"/api/campaigns/{cid}/wiki/{pid}", headers=headers).json()
+
+    def _patch(self, client, cid, pid, body, headers):
+        return client.patch(
+            f"/api/campaigns/{cid}/wiki/{pid}", json={"body": body}, headers=headers
+        )
 
     def test_owner_sees_secret_spans(self, client, gm_headers, player_headers, campaign_with_member):
         cid = campaign_with_member
         page = _create(client, gm_headers, cid, title="Lore", body=self.BODY, visibility="group").json()
-        got = client.get(f"/api/campaigns/{cid}/wiki/{page['id']}", headers=gm_headers).json()
+        got = self._get(client, cid, page["id"], gm_headers)
         assert got["body"] == self.BODY
 
-    def test_player_gets_secret_stripped(self, client, gm_headers, player_headers, campaign_with_member):
+    def test_player_gets_secret_fully_stripped_no_trace(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
         cid = campaign_with_member
         page = _create(client, gm_headers, cid, title="Lore", body=self.BODY, visibility="group").json()
-        got = client.get(f"/api/campaigns/{cid}/wiki/{page['id']}", headers=player_headers).json()
-        assert got["body"] == self.STRIPPED
+        got = self._get(client, cid, page["id"], player_headers)
+        # The player's body leaks nothing: no hidden text, no pipe markers, and no
+        # placeholder token hinting a secret exists or where.
         assert "doppelganger" not in got["body"]
+        assert "||" not in got["body"]
+        assert "⟦" not in got["body"] and "GM·" not in got["body"]
+        assert got["body"] == "Public intro.  The rest is shared."
 
-    def test_multiline_secret_stripped(self, client, gm_headers, player_headers, campaign_with_member):
+    def test_multiline_secret_fully_stripped(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
         cid = campaign_with_member
         body = "Before.\n||line one\nline two||\nAfter."
         page = _create(client, gm_headers, cid, title="Multi", body=body, visibility="group").json()
-        got = client.get(f"/api/campaigns/{cid}/wiki/{page['id']}", headers=player_headers).json()
+        got = self._get(client, cid, page["id"], player_headers)
         assert "line one" not in got["body"]
         assert "line two" not in got["body"]
         assert got["body"] == "Before.\n\nAfter."
@@ -199,7 +214,7 @@ class TestWikiGmSecrets:
             "/api/campaigns", json={"name": f"Personal {uid()}"}, headers=player_headers
         ).json()
         page = _create(client, player_headers, c["id"], title="Mine", body=self.BODY).json()
-        got = client.get(f"/api/campaigns/{c['id']}/wiki/{page['id']}", headers=player_headers).json()
+        got = self._get(client, c["id"], page["id"], player_headers)
         assert got["body"] == self.BODY
 
     def test_search_snippet_hides_secret_from_player(
@@ -218,10 +233,114 @@ class TestWikiGmSecrets:
         resp = client.get(f"/api/campaigns/{cid}/wiki/search?q=treasure", headers=player_headers)
         assert resp.status_code == 200
         assert resp.json()["results"] == []
-        # ...but a visible word still matches, with the secret stripped from the snippet.
+        # ...but a visible word still matches; the snippet carries no secret text.
         resp2 = client.get(f"/api/campaigns/{cid}/wiki/search?q=visible", headers=player_headers)
         hit = next(r for r in resp2.json()["results"] if r["title"] == "Findable")
         assert "treasure" not in hit["snippet"]
+
+    def _authored_page_with_secret(self, client, gm_headers, player_headers, cid, body):
+        """Player authors a group page; the GM edits it to a body with ||secret||s.
+        Returns (page_id, player's clean stripped view of the body)."""
+        page = _create(
+            client, player_headers, cid, title=f"Log {uid()}", body="placeholder",
+            visibility="group",
+        ).json()
+        pid = page["id"]
+        assert self._patch(client, cid, pid, body, gm_headers).status_code == 200
+        seen = self._get(client, cid, pid, player_headers)["body"]
+        # Sanity: the player's copy never contains the secret or a marker.
+        assert "||" not in seen and "⟦" not in seen
+        return pid, seen
+
+    def test_player_edit_above_secret_keeps_it_in_place(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        pid, seen = self._authored_page_with_secret(
+            client, gm_headers, player_headers, cid,
+            "We met the duke. ||He is a doppelganger.|| The feast ended.",
+        )
+        # Player edits the text BEFORE the (invisible) secret and re-saves.
+        new = seen.replace("We met the duke.", "We met the duke at dusk.")
+        assert self._patch(client, cid, pid, new, player_headers).status_code == 200
+
+        gm_body = self._get(client, cid, pid, gm_headers)["body"]
+        assert gm_body == (
+            "We met the duke at dusk. ||He is a doppelganger.|| The feast ended."
+        )
+        assert "doppelganger" not in self._get(client, cid, pid, player_headers)["body"]
+
+    def test_player_edit_below_secret_keeps_it_in_place(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        pid, seen = self._authored_page_with_secret(
+            client, gm_headers, player_headers, cid,
+            "We met the duke. ||He is a doppelganger.|| The feast ended.",
+        )
+        new = seen.replace("The feast ended.", "The feast ended in a brawl.")
+        assert self._patch(client, cid, pid, new, player_headers).status_code == 200
+        gm_body = self._get(client, cid, pid, gm_headers)["body"]
+        assert gm_body == (
+            "We met the duke. ||He is a doppelganger.|| The feast ended in a brawl."
+        )
+
+    def test_player_edit_both_sides_does_not_move_secret_below(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        # The reporter's 3-paragraph case: editing the public blocks above AND below
+        # a secret must keep the secret between them, never dropped to the bottom.
+        cid = campaign_with_member
+        pid, seen = self._authored_page_with_secret(
+            client, gm_headers, player_headers, cid,
+            "Para A.\n\n||the hidden twist||\n\nPara B.",
+        )
+        new = seen.replace("Para A.", "Para A edited.").replace("Para B.", "Para B edited.")
+        assert self._patch(client, cid, pid, new, player_headers).status_code == 200
+        gm_body = self._get(client, cid, pid, gm_headers)["body"]
+        assert gm_body == "Para A edited.\n\n||the hidden twist||\n\nPara B edited."
+
+    def test_player_rewriting_around_secret_preserves_it_at_bottom(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        # When the text on both sides of the secret is rewritten past recognition,
+        # the position can't be recovered — the secret survives, appended at the end.
+        cid = campaign_with_member
+        pid, _seen = self._authored_page_with_secret(
+            client, gm_headers, player_headers, cid,
+            "Original intro line. ||dont lose me|| Original outro line.",
+        )
+        new = "A totally rewritten note with nothing in common."
+        assert self._patch(client, cid, pid, new, player_headers).status_code == 200
+        gm_body = self._get(client, cid, pid, gm_headers)["body"]
+        assert "||dont lose me||" in gm_body  # survived
+        assert gm_body.startswith("A totally rewritten note")
+
+    def test_player_edit_preserves_multiple_secrets(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        pid, seen = self._authored_page_with_secret(
+            client, gm_headers, player_headers, cid,
+            "A ||first secret|| B ||second secret|| C",
+        )
+        new = seen.replace("A ", "A (edited) ").replace(" C", " C!")
+        assert self._patch(client, cid, pid, new, player_headers).status_code == 200
+        gm_body = self._get(client, cid, pid, gm_headers)["body"]
+        assert "||first secret||" in gm_body
+        assert "||second secret||" in gm_body
+        assert gm_body.index("first secret") < gm_body.index("second secret")
+
+    def test_owner_edit_stores_body_verbatim(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        # The owner submits raw ||...||, which is stored as-is (no merge for them).
+        cid = campaign_with_member
+        page = _create(client, gm_headers, cid, title="Owned", body="x", visibility="group").json()
+        pid = page["id"]
+        body = "Alpha ||owner secret|| Omega"
+        assert self._patch(client, cid, pid, body, gm_headers).status_code == 200
+        assert self._get(client, cid, pid, gm_headers)["body"] == body
 
 
 class TestWikiLinks:
