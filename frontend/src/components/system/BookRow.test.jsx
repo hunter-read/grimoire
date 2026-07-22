@@ -189,27 +189,32 @@ describe('BookRow', () => {
     expect(screen.queryByText('18+')).not.toBeInTheDocument()
   })
 
-  // --- download button ---
+  // --- actions menu: download ---
 
-  it('renders a download link pointing at the book file', () => {
+  it('exposes a download link (in the actions menu) pointing at the book file', () => {
     render(<BookRow book={makeBook({ id: 'book-42' })} onOpen={() => {}} />)
-    const link = screen.getByRole('link', { name: /download/i })
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }))
+    const link = screen.getByRole('menuitem', { name: /download/i })
     expect(link).toHaveAttribute('href', 'http://localhost/books/book-42/file')
     expect(link).toHaveAttribute('download')
   })
 
-  it('does not render the download link in bulk mode', () => {
+  it('does not render the actions menu in bulk mode', () => {
     render(<BookRow book={makeBook()} onOpen={() => {}} bulkMode onToggle={() => {}} />)
-    expect(screen.queryByRole('link', { name: /download/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument()
   })
 
   // --- card variant ---
 
-  it('renders the edit button in the card body when card view is active', () => {
+  it('renders the actions menu and favorite in the card body when card view is active', () => {
     render(<BookRow book={makeBook()} onOpen={() => {}} onEdit={() => {}} card />)
-    expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument()
-    // The download + favorite actions are overlaid on the thumbnail (like maps/tokens).
-    expect(screen.getByRole('link', { name: /download/i })).toBeInTheDocument()
+    // Edit + download now live in the kebab actions menu.
+    const menuBtn = screen.getByRole('button', { name: /more actions/i })
+    expect(menuBtn).toBeInTheDocument()
+    fireEvent.click(menuBtn)
+    expect(screen.getByRole('menuitem', { name: /edit/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /download/i })).toBeInTheDocument()
+    // The favorite action stays overlaid on the thumbnail (like maps/tokens).
     expect(
       screen.getByRole('button', { name: /add to favorites|remove from favorites/i })
     ).toBeInTheDocument()
@@ -358,27 +363,30 @@ describe('BookRow', () => {
     expect(onOpen).not.toHaveBeenCalled()
   })
 
-  it('clicking the download link does not open the book', () => {
+  it('clicking the download menu item does not open the book', () => {
     const onOpen = vi.fn()
     render(<BookRow book={makeBook()} onOpen={onOpen} />)
-    fireEvent.click(screen.getByRole('link', { name: /download/i }))
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /download/i }))
     expect(onOpen).not.toHaveBeenCalled()
   })
 
-  it('clicking edit in the list layout calls onEdit and not onOpen', () => {
+  it('clicking edit in the list actions menu calls onEdit and not onOpen', () => {
     const onEdit = vi.fn()
     const onOpen = vi.fn()
     render(<BookRow book={makeBook()} onOpen={onOpen} onEdit={onEdit} />)
-    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit/i }))
     expect(onEdit).toHaveBeenCalledTimes(1)
     expect(onOpen).not.toHaveBeenCalled()
   })
 
-  it('clicking edit in card view calls onEdit and not onOpen', () => {
+  it('clicking edit in the card actions menu calls onEdit and not onOpen', () => {
     const onEdit = vi.fn()
     const onOpen = vi.fn()
     render(<BookRow book={makeBook()} onOpen={onOpen} onEdit={onEdit} card />)
-    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit/i }))
     expect(onEdit).toHaveBeenCalledTimes(1)
     expect(onOpen).not.toHaveBeenCalled()
   })

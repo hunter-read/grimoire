@@ -5,7 +5,7 @@ import time
 from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey
 from ...models import Book
-from ...indexer import scan_library, index_book_text, ocr_book
+from ...indexer import scan_library, index_book_text, ocr_book, reindex_single_book
 from ..books import _invalidate_book_cache
 
 # Errors raised by the Valkey/Redis client for connection/protocol failures.
@@ -286,6 +286,52 @@ def trigger_ocr_queue():
     finally:
         if _get_status()["phase"] == "ocr":
             _set_status({"running": False, "phase": None})
+
+
+def rescan_single_book(book_id: str) -> None:
+    """Re-read one book from disk and rebuild its index (background task).
+
+    The per-book counterpart to run_rescan_sync: refreshes page count/thumbnail,
+    rebuilds the FTS index for a text-layer PDF, or re-queues an image-only PDF
+    for OCR. Guards against a concurrent library scan: if one is already running
+    this no-ops rather than fighting it for the DB/scan-status (that scan will
+    re-read changed files on its own; the user can also re-trigger once it
+    finishes). Progress is observable via GET /scan-status.
+    """
+    if _get_status()["running"]:
+        logger.info("A library scan is already running — skipping this single-book re-index.")
+        return
+
+    clear_stop()
+    _set_status({**_DEFAULT_STATUS, "running": True, "phase": "indexing", "to_index": 1, "indexed": 0})
+    try:
+        _invalidate_book_cache()
+        db = SessionLocal()
+        try:
+            book = db.get(Book, book_id)
+            if not book:
+                logger.warning(f"Re-index: book {book_id} no longer exists — skipping.")
+                return
+            logger.info(f"Re-reading '{book.title or book.filename}' from disk…")
+            try:
+                reindex_single_book(book, DATA_PATH, db, should_stop=is_stop_requested)
+            except Exception as e:
+                logger.error(f"Re-index failed for '{book.title or book.filename}': {e}")
+                db.rollback()
+                book = db.get(Book, book_id)
+                if book:
+                    book.index_error = str(e)[:500]
+                    book.index_failed = True
+                    db.commit()
+            _set_status({"indexed": 1})
+        finally:
+            db.close()
+
+        # An image-only PDF was left ocr_pending by reindex_single_book — drain it.
+        if not is_stop_requested():
+            run_ocr_queue()
+    finally:
+        _set_status({"running": False, "phase": None})
 
 
 def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:

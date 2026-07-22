@@ -225,6 +225,7 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 | `/api/books/:id` | GET | any | Book detail with game system |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `publisher`, `publisher_url`, `year`, `is_explicit` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background — poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
+| `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any PDF: a text-layer book is re-extracted and its FTS rows rebuilt; an image-only book is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed. Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for non-PDFs, 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
 | `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail |
 | `/api/books/:id/toc` | GET | any | PDF table of contents as `{title, page, level, children}[]` |

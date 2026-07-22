@@ -1083,6 +1083,15 @@
     "error": "Re-OCR konnte nicht eingereiht werden",
     "hint": "Liest dieses gescannte Buch neu ein. DPI leer lassen für den Standard oder erhöhen (z. B. 300) für ein schärferes Ergebnis. Läuft im Hintergrund."
   },
+  "bookActions": {
+    "menu": "More actions",
+    "edit": "Edit metadata",
+    "download": "Download",
+    "reocr": "Re-OCR…",
+    "rescan": "Re-scan & re-index",
+    "rescanQueued": "Re-scan queued",
+    "rescanError": "Failed to queue re-scan"
+  },
   "bookRow": {
     "missingFile": "Fehlend",
     "missingTitle": "Datei nicht auf Datenträger gefunden",

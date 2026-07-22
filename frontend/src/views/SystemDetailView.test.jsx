@@ -508,8 +508,9 @@ describe('SystemDetailView — book editor categories', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-    // Open the editor for the first book via its edit affordance.
-    fireEvent.click(screen.getAllByRole('button', { name: /edit metadata/i })[0])
+    // Open the editor for the first book via its actions menu → Edit metadata.
+    fireEvent.click(screen.getAllByRole('button', { name: /more actions/i })[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit metadata/i }))
     await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
 
     const props = bookEditorProps.mock.calls.at(-1)[0]

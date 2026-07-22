@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BookFolderGroup from './BookFolderGroup'
 import * as FavCtx from '../../context/FavoritesContext'
@@ -162,20 +162,25 @@ describe('BookFolderGroup', () => {
 
   // --- Edit button ---
 
-  it('does not show edit button when isEditor is false', () => {
+  it('does not show the edit action when isEditor is false', () => {
     render(<BookFolderGroup {...makeProps({ isEditor: false })} />)
-    expect(screen.queryByLabelText(/edit metadata/i)).not.toBeInTheDocument()
+    // Open the actions menu (non-editors still get one, for download).
+    const menuBtn = screen.queryByLabelText(/more actions/i)
+    if (menuBtn) fireEvent.click(menuBtn)
+    expect(screen.queryByRole('menuitem', { name: /edit metadata/i })).not.toBeInTheDocument()
   })
 
-  it('shows edit button when isEditor is true', () => {
+  it('shows the edit action in the menu when isEditor is true', () => {
     render(<BookFolderGroup {...makeProps({ isEditor: true })} />)
-    expect(screen.getByLabelText(/edit metadata/i)).toBeInTheDocument()
+    fireEvent.click(screen.getAllByLabelText(/more actions/i)[0])
+    expect(screen.getByRole('menuitem', { name: /edit metadata/i })).toBeInTheDocument()
   })
 
-  it('calls setEditingBookId when edit button is clicked', async () => {
+  it('calls setEditingBookId when the edit action is clicked', async () => {
     const setEditingBookId = vi.fn()
     render(<BookFolderGroup {...makeProps({ isEditor: true, setEditingBookId })} />)
-    await userEvent.click(screen.getByLabelText(/edit metadata/i))
+    await userEvent.click(screen.getAllByLabelText(/more actions/i)[0])
+    await userEvent.click(screen.getByRole('menuitem', { name: /edit metadata/i }))
     expect(setEditingBookId).toHaveBeenCalled()
   })
 

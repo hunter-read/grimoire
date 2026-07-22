@@ -1083,6 +1083,15 @@
     "error": "Falha ao enfileirar o OCR",
     "hint": "Relê este livro digitalizado. Deixe o DPI em branco para o padrão ou aumente-o (ex.: 300) para uma leitura mais nítida. É executado em segundo plano."
   },
+  "bookActions": {
+    "menu": "More actions",
+    "edit": "Edit metadata",
+    "download": "Download",
+    "reocr": "Re-OCR…",
+    "rescan": "Re-scan & re-index",
+    "rescanQueued": "Re-scan queued",
+    "rescanError": "Failed to queue re-scan"
+  },
   "bookRow": {
     "missingFile": "Ausente",
     "missingTitle": "Arquivo não encontrado no disco",

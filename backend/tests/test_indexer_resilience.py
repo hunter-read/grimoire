@@ -974,3 +974,110 @@ class TestIndexBookTextCrashLoop:
             assert book.indexed is False
         finally:
             db.close()
+
+
+class TestReindexSingleBook:
+    """indexer.reindex_single_book — per-book re-read & re-index."""
+
+    def _seed_book(self, **kwargs) -> Book:
+        defaults = dict(indexed=True, index_error="", page_count=3, has_thumbnail=False)
+        defaults.update(kwargs)
+        book = _make_book_record(**defaults)
+        db = SessionLocal()
+        try:
+            db.execute(
+                indexer.text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:b, 1, 'stale text')"
+                ),
+                {"b": book.id},
+            )
+            db.commit()
+        finally:
+            db.close()
+        return book
+
+    def _search_count(self, book_id: str) -> int:
+        db = SessionLocal()
+        try:
+            return db.execute(
+                indexer.text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"),
+                {"b": book_id},
+            ).scalar()
+        finally:
+            db.close()
+
+    def test_text_layer_book_rebuilt(self):
+        """A text-layer PDF has its stale rows cleared and text re-extracted."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            with patch.object(indexer, "_book_page_count", return_value=5), patch.object(
+                indexer, "generate_thumbnail", return_value=True
+            ), patch.object(
+                indexer,
+                "extract_text_isolated",
+                return_value=([{"page": 1, "content": "fresh text"}], False),
+            ):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.page_count == 5  # refreshed
+            assert book.has_thumbnail is True  # regenerated
+            assert book.indexed is True
+            assert book.index_error == ""  # native text layer
+        finally:
+            db.close()
+        # only the fresh row remains; the stale one was deleted
+        assert self._search_count(book.id) == 1
+
+    def test_image_only_book_requeued_for_ocr(self):
+        """A PDF that extracts no text is left ocr_pending for the OCR queue."""
+        book = self._seed_book(index_error="ocr")
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            with patch.object(indexer, "_book_page_count", return_value=3), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer, "extract_text_isolated", return_value=([], False)
+            ), patch.object(indexer.ocr, "ocr_available", return_value=True):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.ocr_pending is True
+            assert book.indexed is False
+        finally:
+            db.close()
+        assert self._search_count(book.id) == 0  # stale rows cleared
+
+    def test_non_pdf_is_noop(self):
+        book = self._seed_book(mime_type="image/png")
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            with patch.object(indexer, "extract_text_isolated") as extract:
+                indexer.reindex_single_book(book, "/tmp", db)
+            assert not extract.called
+        finally:
+            db.close()
+        # untouched: the stale row is still there
+        assert self._search_count(book.id) == 1
+
+    def test_unreadable_page_count_does_not_abort(self):
+        """A page-count read error is logged but re-indexing still proceeds."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            with patch.object(
+                indexer, "_book_page_count", side_effect=RuntimeError("bad pdf")
+            ), patch.object(indexer, "generate_thumbnail", return_value=False), patch.object(
+                indexer,
+                "extract_text_isolated",
+                return_value=([{"page": 1, "content": "ok"}], False),
+            ):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.indexed is True
+        finally:
+            db.close()

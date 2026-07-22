@@ -1083,6 +1083,15 @@
     "error": "Échec de la mise en file de l'OCR",
     "hint": "Relit ce livre numérisé. Laissez le DPI vide pour la valeur par défaut, ou augmentez-le (p. ex. 300) pour une lecture plus nette. S'exécute en arrière-plan."
   },
+  "bookActions": {
+    "menu": "More actions",
+    "edit": "Edit metadata",
+    "download": "Download",
+    "reocr": "Re-OCR…",
+    "rescan": "Re-scan & re-index",
+    "rescanQueued": "Re-scan queued",
+    "rescanError": "Failed to queue re-scan"
+  },
   "bookRow": {
     "missingFile": "Manquant",
     "missingTitle": "Fichier introuvable sur le disque",
