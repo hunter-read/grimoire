@@ -4,7 +4,10 @@ import logging
 import collections
 import threading
 import datetime
-from typing import Optional
+from typing import Iterator, Optional
+
+from sqlalchemy.orm import Session
+
 from .models import init_db
 
 VERSION = os.environ.get("APP_VERSION", "1.0.0")
@@ -253,7 +256,7 @@ os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "files"), exist_ok=True)
 engine, SessionLocal = init_db(DB_PATH)
 
 
-def get_db():
+def get_db() -> Iterator[Session]:
     db = SessionLocal()
     try:
         yield db

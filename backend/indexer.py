@@ -13,7 +13,7 @@ import threading
 import multiprocessing
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional, Tuple
 from xml.etree import ElementTree
 import fitz  # PyMuPDF
 from PIL import Image
@@ -57,13 +57,13 @@ class PdfExtractionCrashError(Exception):
     """
 
 
-def _run_with_timeout(fn, timeout: int, label: str):
+def _run_with_timeout(fn: Callable[[], Any], timeout: int, label: str) -> Any:
     """Run fn() in a daemon thread.  Returns its result, or raises TimeoutError if it
     does not complete within `timeout` seconds.  `label` is used in log/error messages."""
     result = [None]
     exc = [None]
 
-    def _worker():
+    def _worker() -> None:
         try:
             result[0] = fn()
         except Exception as e:
@@ -79,7 +79,11 @@ def _run_with_timeout(fn, timeout: int, label: str):
     return result[0]
 
 
-def _fitz_open_with_timeout(filepath: str, timeout: int = _FITZ_TIMEOUT, should_stop=None):
+def _fitz_open_with_timeout(
+    filepath: str,
+    timeout: int = _FITZ_TIMEOUT,
+    should_stop: Optional[Callable[[], bool]] = None,
+) -> "fitz.Document":
     """Open a PDF with fitz, raising TimeoutError if it hangs beyond `timeout` seconds.
 
     If `should_stop` callable is provided, the wait is interrupted early when it
@@ -88,7 +92,7 @@ def _fitz_open_with_timeout(filepath: str, timeout: int = _FITZ_TIMEOUT, should_
     result = [None]
     exc = [None]
 
-    def _open():
+    def _open() -> None:
         try:
             result[0] = fitz.open(filepath)
         except Exception as e:
@@ -320,7 +324,7 @@ _ARCHIVE_LIST_CAP = 5000
 _ARCHIVE_MEMBER_SIZE_CAP = 256 * 1024 * 1024
 
 
-def _extract_7z_member(zf, name: str) -> Optional[bytes]:
+def _extract_7z_member(zf: Any, name: str) -> Optional[bytes]:
     """Read a single member out of an open py7zr archive as bytes.
 
     Tolerant of the py7zr 0.x/1.x API split: 1.x removed ``SevenZipFile.read()``
@@ -400,7 +404,9 @@ def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
     return None
 
 
-def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, result: list, exc: list):
+def _generate_thumbnail_task(
+    filepath: str, output_path: str, size: tuple, result: list, exc: list
+) -> None:
     """Worker executed in a daemon thread by generate_thumbnail."""
     try:
         ext = Path(filepath).suffix.lower()
@@ -440,7 +446,10 @@ def _generate_thumbnail_task(filepath: str, output_path: str, size: tuple, resul
 
 
 def generate_thumbnail(
-    filepath: str, output_path: str, size: tuple = (300, 400), should_stop=None
+    filepath: str,
+    output_path: str,
+    size: tuple = (300, 400),
+    should_stop: Optional[Callable[[], bool]] = None,
 ) -> bool:
     """Generate a thumbnail from the first page of a PDF or from an image.
 
@@ -474,7 +483,9 @@ def generate_thumbnail(
 
 
 def extract_text_from_pdf(
-    filepath: str, should_stop=None, text_only: bool = False
+    filepath: str,
+    should_stop: Optional[Callable[[], bool]] = None,
+    text_only: bool = False,
 ) -> tuple[list[dict], bool]:
     """Extract text from all pages of a PDF.
 
@@ -516,7 +527,9 @@ def extract_text_from_pdf(
 
 
 def extract_text_isolated(
-    filepath: str, should_stop=None, text_only: bool = False
+    filepath: str,
+    should_stop: Optional[Callable[[], bool]] = None,
+    text_only: bool = False,
 ) -> tuple[list[dict], bool]:
     """Extract text from a PDF in a separate process, isolating native crashes.
 
@@ -582,7 +595,10 @@ def extract_text_isolated(
 
 
 def ocr_page_isolated(
-    filepath: str, page_index: int, should_stop=None, dpi: int | None = None
+    filepath: str,
+    page_index: int,
+    should_stop: Optional[Callable[[], bool]] = None,
+    dpi: int | None = None,
 ) -> str:
     """OCR a single page in a spawned child, bounded by ``_OCR_PAGE_TIMEOUT``.
 
@@ -638,7 +654,12 @@ def ocr_page_isolated(
             logger.debug("Failed to remove temp result file %s: %s", result_path, e)
 
 
-def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> str:
+def ocr_book(
+    book: Book,
+    session: Session,
+    should_stop: Optional[Callable[[], bool]] = None,
+    on_page: Optional[Callable[..., None]] = None,
+) -> str:
     """OCR one queued book page-by-page, checkpointing progress as it goes.
 
     Resumes from ``book.ocr_pages_done``: pages at or below that index were
@@ -720,7 +741,10 @@ def ocr_book(book: Book, session: Session, should_stop=None, on_page=None) -> st
 
 # Indirection so tests can stub the isolated call without spawning subprocesses.
 def ocr_book_page_isolated_wrapper(
-    filepath: str, page_index: int, should_stop=None, dpi: int | None = None
+    filepath: str,
+    page_index: int,
+    should_stop: Optional[Callable[[], bool]] = None,
+    dpi: int | None = None,
 ) -> str:
     return ocr_page_isolated(filepath, page_index, should_stop=should_stop, dpi=dpi)
 
@@ -797,7 +821,7 @@ def _has_embedded_art(filepath: str) -> bool:
         return False
 
 
-def _extract_embedded_art(filepath: str):
+def _extract_embedded_art(filepath: str) -> Optional[Tuple[bytes, str]]:
     """Return ``(image_bytes, mime)`` for embedded cover art, or None.
 
     Handles ID3 APIC (MP3), FLAC/Opus PICTURE blocks, and MP4/M4A ``covr`` atoms.
@@ -838,7 +862,7 @@ def _extract_embedded_art(filepath: str):
     return None
 
 
-def _find_folder_artwork(folder: str):
+def _find_folder_artwork(folder: str) -> Optional[str]:
     """Return the path of a ``cover.*`` / ``folder.*`` image in ``folder``, or None."""
     try:
         for entry in os.scandir(folder):
@@ -1026,11 +1050,11 @@ def scan_library(
     library_path: str,
     data_path: str,
     session: Session,
-    on_progress=None,
-    should_stop=None,
+    on_progress: Optional[Callable[..., None]] = None,
+    should_stop: Optional[Callable[[], bool]] = None,
     scope_path: str | None = None,
     metadata_mode: str = "new",
-):
+) -> dict:
     """Scan the library directory and register all files in the database.
 
     on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens,
@@ -1673,7 +1697,7 @@ def scan_library(
     if should_stop and should_stop():
         return stats
 
-    def _scoped(query, model):
+    def _scoped(query: Any, model: Any) -> Any:
         if scope_dir is not None:
             return query.filter(model.filepath.like(f"{scope_dir}{os.sep}%"))
         return query
@@ -1868,7 +1892,12 @@ def _apply_tags_from_library(
     session.commit()
 
 
-def index_book_text(book: Book, data_path: str, session: Session, should_stop=None):
+def index_book_text(
+    book: Book,
+    data_path: str,
+    session: Session,
+    should_stop: Optional[Callable[[], bool]] = None,
+) -> bool:
     """Extract and index text from a PDF for full-text search.
 
     Text extraction runs in an isolated worker process (see

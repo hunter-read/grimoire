@@ -9,7 +9,10 @@ the server was started or restarted.
 
 import threading
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional
+
+from sqlalchemy.orm import Session
+
 from .config import logger
 
 _thread: Optional[threading.Thread] = None
@@ -40,8 +43,8 @@ def _run(
     hour: int,
     minute: int,
     weekday: Optional[int],
-    rescan_fn,
-    cleanup_fn=None,
+    rescan_fn: Callable[[], None],
+    cleanup_fn: Optional[Callable[[], None]] = None,
 ) -> None:
     while True:
         if interval == "hourly":
@@ -66,7 +69,14 @@ def _run(
                 logger.error(f"Scheduled database cleanup error: {e}")
 
 
-def start(interval: str, hour: int, minute: int, weekday: int, rescan_fn, cleanup_fn=None) -> None:
+def start(
+    interval: str,
+    hour: int,
+    minute: int,
+    weekday: int,
+    rescan_fn: Callable[[], None],
+    cleanup_fn: Optional[Callable[[], None]] = None,
+) -> None:
     """Start (or restart) the background rescan thread."""
     global _thread
     stop()
@@ -100,7 +110,7 @@ def stop() -> None:
     _stop_event.clear()
 
 
-def apply(db) -> None:
+def apply(db: Session) -> None:
     """Read schedule settings from the DB and start/stop the scheduler.
 
     Called on app startup and after settings are updated.

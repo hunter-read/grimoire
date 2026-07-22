@@ -10,10 +10,12 @@ import contextlib
 import json
 import logging
 import os
+from typing import Any, Iterator, Tuple
 
 from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from .base import Base
 
@@ -26,7 +28,7 @@ _ALEMBIC_INI = os.path.join(
 )
 
 
-def _normalize_tags_in_db(conn) -> None:
+def _normalize_tags_in_db(conn: Connection) -> None:
     """Lower-case and deduplicate tags in all tag-bearing tables."""
     tables = [
         "game_systems",
@@ -70,7 +72,7 @@ def _normalize_tags_in_db(conn) -> None:
     conn.commit()
 
 
-def _apply_legacy_migrations(conn) -> None:
+def _apply_legacy_migrations(conn: Connection) -> None:
     """The pre-Alembic imperative migration replay.
 
     Runs once, only when cutting an existing pre-Alembic database over to
@@ -199,7 +201,7 @@ def _apply_legacy_migrations(conn) -> None:
         logger.warning("Legacy users-table rebuild skipped: %s", e)
 
 
-def _alembic_config(connection):
+def _alembic_config(connection: Connection) -> Any:
     """Build an Alembic Config bound to a live connection for in-process runs."""
     from alembic.config import Config
 
@@ -213,7 +215,7 @@ def _alembic_config(connection):
     return cfg
 
 
-def _apply_migrations(engine) -> None:
+def _apply_migrations(engine: Engine) -> None:
     """Apply schema migrations via Alembic, handling the pre-Alembic cutover.
 
     - No ``alembic_version`` table but real app tables exist → a database created
@@ -253,7 +255,7 @@ def _apply_migrations(engine) -> None:
             command.upgrade(cfg, "head")
 
 
-def _post_migration_setup(engine) -> None:
+def _post_migration_setup(engine: Engine) -> None:
     """One-time data fixups and FTS5 setup that run on every startup.
 
     Idempotent and independent of the migration path.
@@ -296,7 +298,7 @@ def _post_migration_setup(engine) -> None:
 
 
 @contextlib.contextmanager
-def _migration_lock(db_path: str):
+def _migration_lock(db_path: str) -> Iterator[None]:
     """Blocking cross-process lock so only one worker migrates at a time.
 
     Keyed on a sidecar ``<db>.migrate.lock`` file next to the database. A no-op
@@ -328,7 +330,7 @@ def _migration_lock(db_path: str):
             lock_file.close()
 
 
-def init_db(db_path: str):
+def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
     """Initialize database and return engine + session factory.
 
     Applies Alembic migrations (with the pre-Alembic cutover handled by
@@ -341,7 +343,7 @@ def init_db(db_path: str):
     )
 
     @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
+    def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")

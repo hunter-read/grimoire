@@ -16,6 +16,7 @@ cached copy.
 
 import os
 from email.utils import formatdate, parsedate
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import FileResponse, Response
@@ -55,7 +56,7 @@ def _not_modified(request: Request, etag: str, last_modified: str) -> bool:
     return False
 
 
-def cached_file_response(request: Request, path: str, **kwargs) -> Response:
+def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response:
     """Serve ``path`` with cache validators, returning 304 when the client is fresh.
 
     Accepts the same keyword arguments as ``FileResponse`` (``filename``,

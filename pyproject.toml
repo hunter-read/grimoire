@@ -13,3 +13,51 @@ ignore = [
     # `not column` rewrite ruff suggests changes the generated SQL and is wrong.
     "E712",
 ]
+
+[tool.mypy]
+# Static type checking for the backend. Introduced gradually (see issue #164):
+# the base config is deliberately lenient so it passes on the current tree, and
+# per-module overrides below ratchet up strictness on the pure-logic modules.
+python_version = "3.12"
+ignore_missing_imports = true
+exclude = '(backend/tests/|backend/migrations/)'
+# The ORM models use the legacy `Column(...)` attribute style (not
+# `Mapped[...]`), so mypy infers every ORM attribute access as `Column[...]`.
+# That produces a large volume of false positives on these codes at query and
+# assignment sites throughout the app. Disable them globally until the models
+# are migrated to the typed `Mapped[...]` style, at which point they can be
+# re-enabled per module.
+disable_error_code = [
+    "arg-type",
+    "assignment",
+    "union-attr",
+    "type-var",
+    "attr-defined",
+    "index",
+    "call-overload",
+    "return-value",
+    "var-annotated",
+    "dict-item",
+    # Default-arg capture lambdas passed to the timeout helpers (e.g.
+    # `lambda slug=slug: session.query(...)`) defeat mypy's lambda inference;
+    # not a real type error.
+    "misc",
+]
+
+# Non-handler "core logic" modules (helpers, models, indexer, config, services):
+# require full function annotations so return-type-hint coverage can't regress.
+# Router handler modules are intentionally excluded for now — FastAPI infers a
+# lot from signatures/response models — and can be ratcheted in later.
+[[tool.mypy.overrides]]
+module = [
+    "backend.config",
+    "backend.auth",
+    "backend.security",
+    "backend.file_cache",
+    "backend.ocr",
+    "backend.scheduler",
+    "backend.pdf_worker",
+    "backend.indexer",
+    "backend.models.*",
+]
+disallow_untyped_defs = true
