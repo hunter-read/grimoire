@@ -9,6 +9,7 @@ import {
   hoverOut,
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
+import LazyImg from '../LazyImg'
 
 export default function AudioFavorite({ item, grid }) {
   const navigate = useNavigate()
@@ -32,7 +33,7 @@ export default function AudioFavorite({ item, grid }) {
           }}
         >
           {item.has_artwork ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/audio/${item.item_id}/artwork`)}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -71,10 +72,9 @@ export default function AudioFavorite({ item, grid }) {
         }}
       >
         {item.has_artwork ? (
-          <img
+          <LazyImg
             src={mediaUrl(`/audio/${item.item_id}/artwork`)}
             alt=""
-            loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (

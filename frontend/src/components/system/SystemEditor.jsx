@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImage, LuX, LuPlus } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
+import LazyImg from '../LazyImg'
 
 export default function SystemEditor({ system, onSave }) {
   const { t } = useTranslation()
@@ -317,7 +318,7 @@ export default function SystemEditor({ system, onSave }) {
                   boxShadow: form.cover_book_id === b.id ? '0 0 0 2px var(--gold-dim)' : 'none',
                 }}
               >
-                <img
+                <LazyImg
                   src={mediaUrl(`/books/${b.id}/thumbnail`)}
                   alt={b.title}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

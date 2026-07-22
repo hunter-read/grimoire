@@ -6,6 +6,7 @@ import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
 import AudioPlayer from '../audio/AudioPlayer'
+import LazyImg from '../LazyImg'
 
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
@@ -103,10 +104,9 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           }}
         >
           {hasThumbnail ? (
-            <img
+            <LazyImg
               src={mediaUrl(config.thumbnailUrl(item.id))}
               alt=""
-              loading="lazy"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -228,10 +228,9 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
         }}
       >
         {hasThumbnail ? (
-          <img
+          <LazyImg
             src={mediaUrl(config.thumbnailUrl(item.id))}
             alt=""
-            loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (

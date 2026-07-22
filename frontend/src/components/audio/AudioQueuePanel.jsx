@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuX, LuMusic, LuVolume2, LuGripVertical } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import LazyImg from '../LazyImg'
 
 /**
  * The expandable "upcoming tracks" list shown above the global player bar.
@@ -134,7 +135,7 @@ export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
                   }}
                 >
                   {track.artwork ? (
-                    <img
+                    <LazyImg
                       src={mediaUrl(`/audio/${track.id}/artwork`)}
                       alt=""
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}

@@ -19,6 +19,7 @@ import { campaigns } from '../../api'
 import SheetTemplatePicker from './SheetTemplatePicker'
 import ReplaceSheetDialog from './ReplaceSheetDialog'
 import { STATUS_COLORS, sheetActionBtn, smallBtn } from './memberStyles'
+import LazyImg from '../LazyImg'
 
 // Lazy so pdf.js (a large dependency) is only fetched when a sheet is edited.
 const PdfSheetEditor = lazy(() => import('./PdfSheetEditor'))
@@ -164,7 +165,7 @@ export default function MemberRow({
         }}
       >
         {member.has_art && member.id ? (
-          <img
+          <LazyImg
             src={campaigns.memberArtUrl(campaignId, member.id)}
             alt={member.character_name || displayLabel}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

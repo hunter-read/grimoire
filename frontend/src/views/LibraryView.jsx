@@ -17,6 +17,7 @@ import FavToggle from '../components/library/FavToggle'
 import TagFilterBar from '../components/media/TagFilterBar'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkEditModal from '../components/BulkEditModal'
+import LazyImg from '../components/LazyImg'
 
 export default function LibraryView() {
   const { t } = useTranslation()
@@ -211,7 +212,7 @@ export default function LibraryView() {
                     }}
                   >
                     {book.has_thumbnail ? (
-                      <img
+                      <LazyImg
                         src={mediaUrl(`/books/${book.id}/thumbnail`)}
                         alt=""
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}

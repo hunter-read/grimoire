@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImage, LuX, LuPlus } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
+import LazyImg from '../LazyImg'
 
 // Rich editor body for one system inside the bulk-edit carousel. Mirrors the
 // single-system SystemEditor: description, tag chips, publisher rows, character
@@ -219,7 +220,7 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
                   flexShrink: 0,
                 }}
               >
-                <img
+                <LazyImg
                   src={mediaUrl(`/books/${b.id}/thumbnail`)}
                   alt={b.title}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

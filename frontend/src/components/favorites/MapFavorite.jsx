@@ -9,6 +9,7 @@ import {
   hoverOut,
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
+import LazyImg from '../LazyImg'
 
 export default function MapFavorite({ item, grid }) {
   const navigate = useNavigate()
@@ -31,7 +32,7 @@ export default function MapFavorite({ item, grid }) {
           }}
         >
           {item.has_thumbnail ? (
-            <img
+            <LazyImg
               src={mediaUrl(`/maps/${item.item_id}/thumbnail`)}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -70,10 +71,9 @@ export default function MapFavorite({ item, grid }) {
         }}
       >
         {item.has_thumbnail ? (
-          <img
+          <LazyImg
             src={mediaUrl(`/maps/${item.item_id}/thumbnail`)}
             alt=""
-            loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (

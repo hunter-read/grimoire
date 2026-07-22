@@ -4,6 +4,7 @@ import { LuScroll, LuUsers, LuUser, LuLink, LuCalendar, LuNotebook } from 'react
 import { campaigns } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import CampaignRoleBadge from './CampaignRoleBadge'
+import LazyImg from '../LazyImg'
 
 function formatSessionDate(dateStr) {
   if (!dateStr) return ''
@@ -71,7 +72,7 @@ export default function CampaignCard({
         }}
       >
         {bannerSrc ? (
-          <img
+          <LazyImg
             src={bannerSrc}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}

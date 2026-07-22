@@ -5,6 +5,7 @@ import { LuBookOpen, LuTrash2, LuChevronRight } from 'react-icons/lu'
 import { campaigns, mediaUrl } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
+import LazyImg from '../LazyImg'
 
 /** A single linked campaign resource with owner controls (visibility, category, share). */
 export default function ResourceRow({
@@ -86,7 +87,7 @@ export default function ResourceRow({
         }}
       >
         {thumbUrl ? (
-          <img
+          <LazyImg
             src={thumbUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

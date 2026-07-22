@@ -500,6 +500,36 @@ class TestServeBookThumbnail:
         finally:
             os.unlink(thumb_path)
 
+    def test_thumbnail_served_via_reconstructed_filename(self, client, admin_headers, sys):
+        # Fast path: when the on-disk file matches "{slugify(title)}_{fhash}.webp"
+        # it is served directly without a directory glob.
+        import hashlib
+
+        from backend.config import THUMB_DIR
+
+        fpath = "/tmp/thumb-fastpath-unique-xyz.cbz"
+        book = make_book(
+            system_id=sys.id,
+            title="Fast Path Cover",
+            filename="fastpath.cbz",
+            filepath=fpath,
+            mime_type="application/vnd.comicbook+zip",
+            has_thumbnail=True,
+        )
+        fhash = hashlib.md5(fpath.encode()).hexdigest()[:8]
+        thumb_dir = os.path.join(THUMB_DIR, "books")
+        os.makedirs(thumb_dir, exist_ok=True)
+        # slugify("Fast Path Cover") == "fast-path-cover"
+        thumb_path = os.path.join(thumb_dir, f"fast-path-cover_{fhash}.webp")
+        with open(thumb_path, "wb") as f:
+            f.write(b"RIFF\x00\x00\x00\x00WEBP")
+        try:
+            resp = client.get(f"/api/books/{book.id}/thumbnail", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/webp"
+        finally:
+            os.unlink(thumb_path)
+
     def test_thumbnail_nonexistent_book_returns_404(self, client, admin_headers):
         resp = client.get("/api/books/no-such-book/thumbnail", headers=admin_headers)
         assert resp.status_code == 404

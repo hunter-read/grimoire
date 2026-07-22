@@ -16,6 +16,7 @@ import { campaigns, mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import ImageUploadPanel from './ImageUploadPanel'
 import { miniBtn, miniBtnGhost } from './embedPickerStyles'
+import LazyImg from '../LazyImg'
 
 const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser, audio: LuMusic, file: LuFile }
 
@@ -196,7 +197,7 @@ export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
                         }}
                       >
                         {thumbUrl ? (
-                          <img
+                          <LazyImg
                             src={thumbUrl}
                             alt=""
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
