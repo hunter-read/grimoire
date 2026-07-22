@@ -1083,6 +1083,15 @@
     "error": "No se pudo poner en cola el OCR",
     "hint": "Vuelve a leer este libro escaneado. Deja el DPI en blanco para el valor predeterminado o súbelo (p. ej. 300) para una lectura más nítida. Se ejecuta en segundo plano."
   },
+  "bookActions": {
+    "menu": "More actions",
+    "edit": "Edit metadata",
+    "download": "Download",
+    "reocr": "Re-OCR…",
+    "rescan": "Re-scan & re-index",
+    "rescanQueued": "Re-scan queued",
+    "rescanError": "Failed to queue re-scan"
+  },
   "bookRow": {
     "missingFile": "Ausente",
     "missingTitle": "Archivo no encontrado en el disco",

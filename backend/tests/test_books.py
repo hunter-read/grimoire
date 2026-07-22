@@ -307,6 +307,156 @@ class TestReindexBook:
         assert resp.status_code == 404
 
 
+class TestRescanBook:
+    """POST /api/books/{id}/rescan — general per-book re-read & re-index."""
+
+    def _make_pdf_book(self, system_id, index_error=""):
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            f.write(b"%PDF-1.4\n%stub\n")
+            fpath = f.name
+        book = make_book(
+            system_id=system_id,
+            title="Edited Book",
+            filename="edited.pdf",
+            filepath=fpath,
+            mime_type="application/pdf",
+            page_count=3,
+            indexed=True,
+            index_error=index_error,
+        )
+        return book, fpath
+
+    @pytest.fixture(scope="module")
+    def sys(self):
+        return make_game_system()
+
+    def test_queues_rescan_for_text_layer_book(self, client, admin_headers, sys):
+        from unittest.mock import patch as _patch
+
+        book, fpath = self._make_pdf_book(sys.id, index_error="")
+        try:
+            with _patch(
+                "backend.routers.library._helpers.rescan_single_book"
+            ) as m:
+                resp = client.post(f"/api/books/{book.id}/rescan", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.json() == {"status": "rescan_queued"}
+            m.assert_called_once_with(book.id)
+        finally:
+            os.unlink(fpath)
+
+    def test_queues_rescan_for_ocr_book(self, client, admin_headers, sys):
+        # Unlike /reindex, /rescan accepts OCR/image-only books too.
+        from unittest.mock import patch as _patch
+
+        book, fpath = self._make_pdf_book(sys.id, index_error="ocr")
+        try:
+            with _patch("backend.routers.library._helpers.rescan_single_book") as m:
+                resp = client.post(f"/api/books/{book.id}/rescan", headers=admin_headers)
+            assert resp.status_code == 200
+            assert m.called
+        finally:
+            os.unlink(fpath)
+
+    def test_non_pdf_rejected(self, client, admin_headers, sys):
+        book = make_book(
+            system_id=sys.id,
+            title="A Map Archive",
+            filename="art.png",
+            mime_type="image/png",
+        )
+        resp = client.post(f"/api/books/{book.id}/rescan", headers=admin_headers)
+        assert resp.status_code == 400
+
+    def test_player_cannot_rescan(self, client, player_headers, sys):
+        book, fpath = self._make_pdf_book(sys.id)
+        try:
+            resp = client.post(f"/api/books/{book.id}/rescan", headers=player_headers)
+            assert resp.status_code == 403
+        finally:
+            os.unlink(fpath)
+
+    def test_nonexistent_book(self, client, admin_headers):
+        resp = client.post("/api/books/ghost/rescan", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_missing_file_rejected(self, client, admin_headers, sys):
+        book, fpath = self._make_pdf_book(sys.id)
+        os.unlink(fpath)
+        resp = client.post(f"/api/books/{book.id}/rescan", headers=admin_headers)
+        assert resp.status_code == 404
+
+
+class TestRescanSingleBookHelper:
+    """The background helper backend.routers.library._helpers.rescan_single_book."""
+
+    def _make_pdf_book(self, system_id, index_error=""):
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            f.write(b"%PDF-1.4\n%stub\n")
+            fpath = f.name
+        book = make_book(
+            system_id=system_id,
+            title="Helper Book",
+            filename="helper.pdf",
+            filepath=fpath,
+            mime_type="application/pdf",
+            page_count=3,
+            indexed=True,
+            index_error=index_error,
+        )
+        return book, fpath
+
+    @pytest.fixture(scope="module")
+    def sys(self):
+        return make_game_system()
+
+    def test_rebuilds_index_via_reindex_single_book(self, sys):
+        from unittest.mock import patch as _patch
+        from backend.routers.library import _helpers
+
+        book, fpath = self._make_pdf_book(sys.id)
+        try:
+            with _patch.object(_helpers, "reindex_single_book") as reidx, _patch.object(
+                _helpers, "run_ocr_queue"
+            ) as drain:
+                _helpers.rescan_single_book(book.id)
+            assert reidx.called
+            # its first positional arg is the freshly-loaded Book
+            assert reidx.call_args.args[0].id == book.id
+            assert drain.called  # OCR queue drained afterwards
+            # status is reset to idle when done
+            assert _helpers._get_status()["running"] is False
+        finally:
+            os.unlink(fpath)
+
+    def test_skips_when_scan_running(self, sys):
+        from unittest.mock import patch as _patch
+        from backend.routers.library import _helpers
+
+        book, fpath = self._make_pdf_book(sys.id)
+        try:
+            _helpers._set_status({"running": True})
+            try:
+                with _patch.object(_helpers, "reindex_single_book") as reidx:
+                    _helpers.rescan_single_book(book.id)
+                assert not reidx.called  # left for the running scan
+            finally:
+                _helpers._set_status({"running": False, "phase": None})
+        finally:
+            os.unlink(fpath)
+
+    def test_missing_book_no_crash(self):
+        from unittest.mock import patch as _patch
+        from backend.routers.library import _helpers
+
+        with _patch.object(_helpers, "reindex_single_book") as reidx, _patch.object(
+            _helpers, "run_ocr_queue"
+        ):
+            _helpers.rescan_single_book("does-not-exist")
+        assert not reidx.called
+        assert _helpers._get_status()["running"] is False
+
+
 class TestImageBookPage:
     IMAGE_TYPES = [
         ("png", "image/png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 8),

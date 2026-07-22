@@ -2007,3 +2007,55 @@ def index_book_text(
         return False
     logger.info(f"'{book.title or book.filename}' is now searchable ({len(pages)} page(s)).")
     return True
+
+
+def reindex_single_book(
+    book: Book,
+    data_path: str,
+    session: Session,
+    should_stop: Optional[Callable[[], bool]] = None,
+) -> None:
+    """Re-read one book from disk and rebuild its search index in place.
+
+    Unlike a re-OCR (which only applies to image-only PDFs), this handles any
+    PDF the user has edited externally: it refreshes the page count and cover
+    thumbnail if the file's structure changed, clears the old FTS rows, and
+    re-extracts text.  A text-layer PDF is re-indexed from its text layer; a
+    file that has become image-only is handed to the deferred-OCR queue by
+    ``index_book_text`` just as a fresh scan would.
+
+    Caller is responsible for triggering the OCR-queue drain afterwards (the
+    book may be left ``ocr_pending``).  Only PDFs are re-indexable; other types
+    return without change.
+    """
+    if book.mime_type != "application/pdf":
+        return
+
+    # Refresh page count — the file may have gained or lost pages since last scan.
+    try:
+        book.page_count = _book_page_count(book.filepath)
+    except Exception as e:
+        logger.warning(f"Re-index: could not read page count for '{book.filename}': {e}")
+
+    # Regenerate the cover thumbnail from the (possibly changed) first page.
+    thumb_path = os.path.join(
+        data_path,
+        "thumbnails",
+        "books",
+        f"{slugify(book.title)}_{hashlib.md5(book.filepath.encode()).hexdigest()[:8]}.webp",
+    )
+    if generate_thumbnail(book.filepath, thumb_path, should_stop=should_stop):
+        book.has_thumbnail = True
+
+    # Drop the old search rows so the re-index starts from a clean slate, and
+    # reset the index flags so index_book_text re-processes the book (it early-
+    # returns on already-indexed books).
+    session.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book.id})
+    book.indexed = False
+    book.index_failed = False
+    book.index_error = ""
+    book.ocr_pending = False
+    book.ocr_pages_done = 0
+    _commit(session, f"reset index for '{book.filepath}'")
+
+    index_book_text(book, data_path, session, should_stop=should_stop)

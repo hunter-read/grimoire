@@ -1,22 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  LuChevronRight,
-  LuFileArchive,
-  LuFileText,
-  LuHeart,
-  LuPencil,
-  LuCheck,
-  LuDownload,
-} from 'react-icons/lu'
+import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { CATEGORY_ICONS, isArchiveBook } from '../../constants'
 import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
-import DownloadButton from '../DownloadButton'
-import ReocrButton from '../ReocrButton'
 import LazyImg from '../LazyImg'
+import BookActionsMenu from './BookActionsMenu'
 
 /**
  * A single book entry. Renders as a list row by default; pass `card` or
@@ -44,10 +35,6 @@ export default function BookRow({
   const lastPage = getBookPrefs(book.id).page || 0
   const progress = book.page_count > 0 && lastPage > 1 ? Math.min(lastPage / book.page_count, 1) : 0
   const fav = isFavorite('book', book.id)
-  // Re-OCR is offered only for scanned/OCR'd books and only to editors (onEdit
-  // is passed only for gm/admin). A book with an embedded text layer has nothing
-  // to re-OCR.
-  const isOcrBook = book.index_error === 'ocr' || book.index_error === 'image-only'
 
   const handleClick = (e) => {
     if (bulkMode) {
@@ -99,65 +86,35 @@ export default function BookRow({
     </div>
   )
 
-  // Favorite + download actions used in the card body / list end. Shown on
-  // hover for the grid layouts (matching the favorite-button behaviour) and
-  // always in the list layout.
-  const actions = (alwaysVisible) => {
-    const visible = alwaysVisible || fav || hovered
-    return (
-      <div
+  // List-layout end actions: the always-visible favorite heart, followed by the
+  // consolidated actions menu (edit / download / re-scan · re-OCR). The favorite
+  // is deliberately prominent; the rest live in the kebab menu (issue #217).
+  const listActions = () => (
+    <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexShrink: 0 }}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleFavorite('book', book.id)
+        }}
+        aria-label={fav ? t('common.removeFromFavorites') : t('common.addToFavorites')}
         style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
           display: 'flex',
-          gap: 2,
-          alignItems: 'center',
-          flexShrink: 0,
-          opacity: visible ? 1 : 0,
-          transition: 'opacity 0.15s',
-          pointerEvents: visible ? 'auto' : 'none',
+          padding: '6px',
         }}
       >
-        {onEdit && isOcrBook && <ReocrButton book={book} />}
-        <a
-          href={mediaUrl(`/books/${book.id}/file`)}
-          download
-          onClick={(e) => e.stopPropagation()}
-          aria-label={t('common.download')}
-          title={t('common.download')}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            padding: '6px',
-            color: 'var(--text-muted)',
-          }}
-        >
-          <LuDownload size={15} aria-hidden="true" />
-        </a>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleFavorite('book', book.id)
-          }}
-          aria-label={fav ? t('common.removeFromFavorites') : t('common.addToFavorites')}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            padding: '6px',
-          }}
-        >
-          <LuHeart
-            size={16}
-            aria-hidden="true"
-            color={fav ? 'var(--gold)' : 'var(--text-muted)'}
-            fill={fav ? 'var(--gold)' : 'none'}
-          />
-        </button>
-      </div>
-    )
-  }
+        <LuHeart
+          size={16}
+          aria-hidden="true"
+          color={fav ? 'var(--gold)' : 'var(--text-muted)'}
+          fill={fav ? 'var(--gold)' : 'none'}
+        />
+      </button>
+      <BookActionsMenu book={book} onEdit={onEdit} editing={editing} />
+    </div>
+  )
 
   // ----- Grid layouts (card / compact) -----
   if (card || compact) {
@@ -191,7 +148,6 @@ export default function BookRow({
         }}
       >
         {overlayCheckbox}
-        {!bulkMode && <DownloadButton type="books" id={book.id} cardHovered={hovered} />}
         {!bulkMode && <FavoriteButton type="book" id={book.id} cardHovered={hovered} />}
         <div
           style={{
@@ -266,26 +222,7 @@ export default function BookRow({
             >
               {book.page_count > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
             </span>
-            {!bulkMode && onEdit && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEdit()
-                }}
-                aria-label={t('bookRow.editBook')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  padding: '4px',
-                  flexShrink: 0,
-                  color: editing ? 'var(--gold)' : 'var(--text-muted)',
-                }}
-              >
-                <LuPencil size={14} aria-hidden="true" />
-              </button>
-            )}
+            {!bulkMode && <BookActionsMenu book={book} onEdit={onEdit} editing={editing} />}
           </div>
         </div>
       </div>
@@ -524,27 +461,7 @@ export default function BookRow({
       </div>
 
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-        {!bulkMode && onEdit && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onEdit()
-            }}
-            aria-label={t('bookRow.editBook')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              padding: '8px 4px',
-              margin: '-8px 0',
-              color: editing ? 'var(--gold)' : 'var(--text-muted)',
-            }}
-          >
-            <LuPencil size={14} aria-hidden="true" />
-          </button>
-        )}
-        {!bulkMode && actions(true)}
+        {!bulkMode && listActions()}
         {!bulkMode && <LuChevronRight size={16} color="var(--text-muted)" aria-hidden="true" />}
       </div>
     </div>

@@ -1083,6 +1083,15 @@
     "error": "OCR in wachtrij zetten mislukt",
     "hint": "Leest dit gescande boek opnieuw in. Laat DPI leeg voor de standaard, of verhoog het (bijv. 300) voor een scherpere lezing. Draait op de achtergrond."
   },
+  "bookActions": {
+    "menu": "More actions",
+    "edit": "Edit metadata",
+    "download": "Download",
+    "reocr": "Re-OCR…",
+    "rescan": "Re-scan & re-index",
+    "rescanQueued": "Re-scan queued",
+    "rescanError": "Failed to queue re-scan"
+  },
   "bookRow": {
     "missingFile": "Ontbreekt",
     "missingTitle": "Bestand niet op schijf gevonden",

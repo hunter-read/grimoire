@@ -1083,6 +1083,15 @@
     "error": "Failed to queue re-OCR",
     "hint": "Re-reads this scanned book. Leave DPI blank for the default, or raise it (e.g. 300) for a sharper read. Runs in the background."
   },
+  "bookActions": {
+    "menu": "More actions",
+    "edit": "Edit metadata",
+    "download": "Download",
+    "reocr": "Re-OCR…",
+    "rescan": "Re-scan & re-index",
+    "rescanQueued": "Re-scan queued",
+    "rescanError": "Failed to queue re-scan"
+  },
   "bookRow": {
     "missingFile": "Missing",
     "missingTitle": "File not found on disk",

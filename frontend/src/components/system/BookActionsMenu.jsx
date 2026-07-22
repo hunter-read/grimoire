@@ -1,0 +1,271 @@
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
+import { LuEllipsisVertical, LuPencil, LuDownload, LuScanText, LuRefreshCw } from 'react-icons/lu'
+import api, { mediaUrl } from '../../api'
+
+const MENU_WIDTH = 220
+
+/**
+ * Consolidated per-book actions dropdown (kebab): Edit, Download, and a
+ * context-aware re-index item. Favorite is deliberately left out — it stays a
+ * standalone always-visible control on the row.
+ *
+ * The re-index item adapts to the book:
+ *   - image-only / OCR PDF → "Re-OCR…" which reveals an inline DPI field, then
+ *     POSTs /books/:id/reindex (optionally ?ocr_dpi=N).
+ *   - text-layer PDF (or anything else) → "Re-scan & re-index" which POSTs
+ *     /books/:id/rescan to re-read the file and rebuild its index.
+ * Re-index items are shown only when `onEdit` is passed (gm/admin) and the book
+ * is a PDF.
+ *
+ * The menu is portalled to document.body at fixed coordinates so it isn't
+ * clipped by the book row's `overflow: hidden`.
+ */
+export default function BookActionsMenu({ book, onEdit, editing }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
+  const [showDpi, setShowDpi] = useState(false)
+  const [dpi, setDpi] = useState(book.ocr_dpi ? String(book.ocr_dpi) : '')
+  const [state, setState] = useState('idle') // idle | working | done | error
+  const triggerRef = useRef(null)
+  const menuRef = useRef(null)
+
+  const isPdf = book.mime_type === 'application/pdf'
+  const isOcrBook = book.index_error === 'ocr' || book.index_error === 'image-only'
+  const canReindex = Boolean(onEdit) && isPdf
+
+  const place = useCallback(() => {
+    const el = triggerRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const margin = 8
+    let left = r.right - MENU_WIDTH
+    left = Math.max(margin, Math.min(left, window.innerWidth - margin - MENU_WIDTH))
+    setCoords({ top: r.bottom + 4, left })
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    place()
+    const onDoc = (e) => {
+      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    const onReposition = () => place()
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+  }, [open, place])
+
+  const close = () => {
+    setOpen(false)
+    setShowDpi(false)
+    setState('idle')
+  }
+
+  const runReocr = (e) => {
+    e.stopPropagation()
+    setState('working')
+    const value = dpi.trim() ? parseInt(dpi, 10) : null
+    const qs = value ? `?ocr_dpi=${value}` : ''
+    api
+      .post(`/books/${book.id}/reindex${qs}`)
+      .then(() => {
+        setState('done')
+        setTimeout(close, 1200)
+      })
+      .catch(() => setState('error'))
+  }
+
+  const runRescan = (e) => {
+    e.stopPropagation()
+    setState('working')
+    api
+      .post(`/books/${book.id}/rescan`)
+      .then(() => {
+        setState('done')
+        setTimeout(close, 1200)
+      })
+      .catch(() => setState('error'))
+  }
+
+  const itemStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    padding: '9px 12px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 13,
+    color: 'var(--text)',
+    textAlign: 'left',
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((o) => !o)
+          setShowDpi(false)
+          setState('idle')
+        }}
+        aria-label={t('bookActions.menu')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={t('bookActions.menu')}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          padding: '6px',
+          color: open || editing ? 'var(--gold)' : 'var(--text-muted)',
+        }}
+      >
+        <LuEllipsisVertical size={16} aria-hidden="true" />
+      </button>
+
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: coords.top,
+              left: coords.left,
+              zIndex: 2000,
+              width: MENU_WIDTH,
+              padding: '4px 0',
+              borderRadius: 8,
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              overflow: 'hidden',
+            }}
+          >
+            {onEdit && (
+              <button
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                  onEdit()
+                }}
+                style={itemStyle}
+              >
+                <LuPencil size={15} aria-hidden="true" />
+                {t('bookActions.edit')}
+              </button>
+            )}
+
+            <a
+              role="menuitem"
+              href={mediaUrl(`/books/${book.id}/file`)}
+              download
+              onClick={(e) => {
+                e.stopPropagation()
+                close()
+              }}
+              style={{ ...itemStyle, textDecoration: 'none' }}
+            >
+              <LuDownload size={15} aria-hidden="true" />
+              {t('bookActions.download')}
+            </a>
+
+            {canReindex && isOcrBook && (
+              <button
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowDpi((s) => !s)
+                }}
+                aria-expanded={showDpi}
+                style={{ ...itemStyle, color: showDpi ? 'var(--gold)' : 'var(--text)' }}
+              >
+                <LuScanText size={15} aria-hidden="true" />
+                {t('bookActions.reocr')}
+              </button>
+            )}
+
+            {canReindex && isOcrBook && showDpi && (
+              <div
+                style={{ padding: '4px 12px 10px', display: 'flex', gap: 6, alignItems: 'center' }}
+              >
+                <input
+                  type="number"
+                  min="72"
+                  max="600"
+                  step="10"
+                  value={dpi}
+                  onChange={(e) => setDpi(e.target.value)}
+                  placeholder={t('reocr.dpiPlaceholder')}
+                  aria-label={t('reocr.dpiLabel')}
+                  style={{ width: 80, fontSize: 13 }}
+                />
+                <button
+                  onClick={runReocr}
+                  disabled={state === 'working' || state === 'done'}
+                  style={{
+                    flex: 1,
+                    padding: '5px 8px',
+                    borderRadius: 5,
+                    background: 'var(--gold-dim)',
+                    border: 'none',
+                    color: 'var(--bg-deep)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: state === 'working' || state === 'done' ? 'default' : 'pointer',
+                  }}
+                >
+                  {state === 'working'
+                    ? t('reocr.working')
+                    : state === 'done'
+                      ? `✓ ${t('reocr.queued')}`
+                      : t('reocr.run')}
+                </button>
+              </div>
+            )}
+
+            {canReindex && !isOcrBook && (
+              <button
+                role="menuitem"
+                onClick={runRescan}
+                disabled={state === 'working' || state === 'done'}
+                style={{
+                  ...itemStyle,
+                  cursor: state === 'working' || state === 'done' ? 'default' : 'pointer',
+                }}
+              >
+                <LuRefreshCw size={15} aria-hidden="true" />
+                {state === 'working'
+                  ? t('reocr.working')
+                  : state === 'done'
+                    ? `✓ ${t('bookActions.rescanQueued')}`
+                    : t('bookActions.rescan')}
+              </button>
+            )}
+
+            {state === 'error' && (
+              <div style={{ fontSize: 11, color: '#e07070', padding: '2px 12px 8px' }}>
+                {isOcrBook ? t('reocr.error') : t('bookActions.rescanError')}
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  )
+}

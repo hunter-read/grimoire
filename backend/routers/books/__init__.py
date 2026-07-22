@@ -7,6 +7,7 @@ from .core import (
     get_book,
     update_book,
     reindex_book,
+    rescan_book,
     serve_book_file,
     serve_book_thumbnail,
 )
@@ -32,6 +33,12 @@ router.add_api_route(
     reindex_book,
     methods=["POST"],
     summary="Re-run OCR on a book (optional DPI override)",
+)
+router.add_api_route(
+    "/{book_id}/rescan",
+    rescan_book,
+    methods=["POST"],
+    summary="Re-read a book from disk and rebuild its search index",
 )
 router.add_api_route(
     "/{book_id}/file", serve_book_file, methods=["GET"], summary="Download book file"
