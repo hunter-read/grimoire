@@ -121,7 +121,7 @@ def _ocr_scale(dpi: int | None = None) -> float:
     return value / 72.0
 
 
-def _ocr_page(page, languages: str, dpi: int | None = None) -> str:
+def _ocr_page(page: "fitz.Page", languages: str, dpi: int | None = None) -> str:
     """Render a page to an image and OCR it, returning stripped text ("" on failure)."""
     try:
         from PIL import Image

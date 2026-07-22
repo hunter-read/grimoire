@@ -121,6 +121,9 @@ jobs:
       - name: Check imports
         run: python -c "import backend.main"
 
+      - name: Type check
+        run: mypy backend/
+
       - name: Run tests with coverage
         run: pytest backend/tests/ -v --cov=backend --cov-report=json --cov-report=term
 

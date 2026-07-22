@@ -14,8 +14,11 @@ timeout, mirroring the rest of the indexer.
 
 import logging
 import threading
+from typing import Callable, Optional
 
+import fitz
 from PIL import Image
+from sqlalchemy.orm import Session
 
 from . import config
 
@@ -72,7 +75,7 @@ def effective_languages() -> str:
     return config.OCR_LANGUAGES
 
 
-def requeue_image_only_books(session) -> int:
+def requeue_image_only_books(session: Session) -> int:
     """Queue books previously marked ``image-only`` for deferred OCR.
 
     Called on startup: when OCR has become available (e.g. after upgrading from
@@ -111,7 +114,7 @@ def _ocr_task(image: Image.Image, result: list, exc: list) -> None:
         exc[0] = e
 
 
-def ocr_image(image: Image.Image, should_stop=None) -> str:
+def ocr_image(image: Image.Image, should_stop: Optional[Callable[[], bool]] = None) -> str:
     """Run OCR on a PIL image, returning the recognised text (stripped).
 
     Runs in a daemon thread with a timeout so a wedged OCR call can't hang the
@@ -138,7 +141,7 @@ def ocr_image(image: Image.Image, should_stop=None) -> str:
     return (result[0] or "").strip()
 
 
-def ocr_pixmap(pixmap, should_stop=None) -> str:
+def ocr_pixmap(pixmap: "fitz.Pixmap", should_stop: Optional[Callable[[], bool]] = None) -> str:
     """Run OCR on a PyMuPDF pixmap by converting it to a PIL image first."""
     try:
         image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
