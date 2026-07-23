@@ -629,6 +629,13 @@
         "sun": "Dim"
       }
     },
+    "folderCategory": {
+      "title": "Déduction de catégorie par dossier",
+      "description": "Par défaut, la catégorie d'un livre est déduite du nom de son dossier (par ex. un livre dans un dossier \"Core\" devient la catégorie Core). Désactivez cette option pour laisser les livres sans catégorie.",
+      "disable": "Désactiver la déduction de catégorie à partir du nom de dossier",
+      "perSystemHint": "Pour désactiver la déduction pour un seul système, placez un fichier vide nommé .no-auto-category à la racine du dossier de ce système.",
+      "envLocked": "Ce paramètre est verrouillé par la variable d'environnement DISABLE_FOLDER_CATEGORY_INFERENCE (actuellement {{value}}) et ne peut pas être modifié ici."
+    },
     "tagExport": {
       "title": "Exporter les étiquettes",
       "description": "Télécharger toutes les étiquettes attribuées aux livres, cartes, pions, systèmes et dossiers dans un fichier JSON.",

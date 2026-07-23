@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ...config import (
     SessionLocal,
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
+    DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
     GUEST_ACCESS_ENABLED_ENV,
     OIDC_ENV,
 )
@@ -101,6 +102,18 @@ def update_settings(data: SettingsPatch, _: CurrentUser = Depends(require_admin)
                     "Guest access is locked by the GUEST_ACCESS_ENABLED environment variable",
                 )
             _set(db, "guest_access_enabled", "true" if data.guest_access_enabled else "false")
+        if data.disable_folder_category_inference is not None:
+            if DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None:
+                raise HTTPException(
+                    400,
+                    "Folder category inference is locked by the "
+                    "DISABLE_FOLDER_CATEGORY_INFERENCE environment variable",
+                )
+            _set(
+                db,
+                "disable_folder_category_inference",
+                "true" if data.disable_folder_category_inference else "false",
+            )
         if data.custom_login_message_enabled is not None:
             _set(
                 db,

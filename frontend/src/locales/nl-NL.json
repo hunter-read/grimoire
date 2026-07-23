@@ -629,6 +629,13 @@
         "sun": "Zo"
       }
     },
+    "folderCategory": {
+      "title": "Categorie afleiden uit map",
+      "description": "Standaard wordt de categorie van een boek afgeleid uit de mapnaam (bijv. een boek in een \"Core\"-map krijgt de categorie Core). Schakel dit uit om boeken in plaats daarvan zonder categorie te laten.",
+      "disable": "Categorie afleiden uit mapnaam uitschakelen",
+      "perSystemHint": "Om afleiden alleen voor één systeem uit te schakelen, plaats je een leeg bestand met de naam .no-auto-category in de hoofdmap van dat systeem.",
+      "envLocked": "Deze instelling is vergrendeld door de omgevingsvariabele DISABLE_FOLDER_CATEGORY_INFERENCE (momenteel {{value}}) en kan hier niet worden gewijzigd."
+    },
     "tagExport": {
       "title": "Labels exporteren",
       "description": "Download alle labels die aan boeken, kaarten, tokens, systemen en mappen zijn toegewezen als een JSON-bestand.",
