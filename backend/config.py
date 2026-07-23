@@ -5,6 +5,7 @@ import collections
 import threading
 import datetime
 from typing import Iterator, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
@@ -117,14 +118,49 @@ OIDC_ENV: dict = {
     "oidc_auto_register": _bool_env("OIDC_AUTO_REGISTER"),
 }
 
+# Timezone for all log timestamps (console output and the in-app log viewer).
+# Set the standard TZ env var to an IANA zone name such as "America/Toronto"
+# or "Europe/Berlin". Defaults to UTC. An unknown or unavailable zone name
+# falls back to UTC with a warning rather than crashing.
+_BAD_TIMEZONES: list[str] = []
+
+
+def _resolve_log_timezone() -> datetime.tzinfo:
+    name = (os.environ.get("TZ") or "").strip()
+    if not name or name.upper() == "UTC":
+        return datetime.timezone.utc
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        # Deferred: logging isn't configured yet, so stash the bad value and
+        # emit the warning once the logger is up (see below).
+        _BAD_TIMEZONES.append(name)
+        return datetime.timezone.utc
+
+
+LOG_TIMEZONE = _resolve_log_timezone()
+
 # Console log level is controlled by the LOG_LEVEL env var (default: info).
 # In-memory ring buffer always captures DEBUG+ so the /api/logs endpoint can
 # serve debug logs regardless of the console level.
 _LOG_LEVEL_NAME = os.environ.get("LOG_LEVEL", "info").upper()
 _CONSOLE_LEVEL = getattr(logging, _LOG_LEVEL_NAME, logging.INFO)
 
+
+class _TZFormatter(logging.Formatter):
+    """Formatter whose asctime is rendered in LOG_TIMEZONE."""
+
+    def formatTime(self, record: logging.LogRecord, datefmt: Optional[str] = None) -> str:
+        dt = datetime.datetime.fromtimestamp(record.created, tz=LOG_TIMEZONE)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat(sep=" ", timespec="milliseconds")
+
+
 _LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=_LOG_FORMAT)
+for _h in logging.root.handlers:
+    _h.setFormatter(_TZFormatter(_LOG_FORMAT))
 
 for _noisy in (
     "uvicorn",
@@ -144,6 +180,13 @@ for _h in logging.root.handlers:
 
 logger = logging.getLogger("grimoire")
 logger.setLevel(logging.DEBUG)
+
+for _bad_tz in _BAD_TIMEZONES:
+    logger.warning(
+        "Unknown timezone %r (from TZ); logging in UTC instead. "
+        "Use an IANA zone name like 'America/Toronto'.",
+        _bad_tz,
+    )
 
 _LOG_BUFFER_MAX = 20000
 
@@ -182,9 +225,13 @@ class _MemoryLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         global _seq_counter
         try:
-            ts = datetime.datetime.fromtimestamp(
-                record.created, tz=datetime.timezone.utc
-            ).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+            # Rendered in LOG_TIMEZONE. Keep the fixed-width
+            # YYYY-MM-DDTHH:MM:SS.mmm layout the log viewer slices by offset,
+            # and append the actual UTC offset (e.g. "+02:00", or "Z" for UTC).
+            local = datetime.datetime.fromtimestamp(record.created, tz=LOG_TIMEZONE)
+            ts = local.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+            offset = local.strftime("%z")
+            ts += "Z" if offset in ("", "+0000") else f"{offset[:3]}:{offset[3:]}"
             with self._lock:
                 _seq_counter += 1
                 entry = _LogEntry(
