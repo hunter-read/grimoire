@@ -301,6 +301,33 @@ def _resource_folder(relative_path: str) -> str:
     return "/".join(parts[1:-1])
 
 
+def _book_folder(relative_path: str) -> str:
+    """Nested folder path of a book *inside* its game system, as
+    category/subcategory/sub-subcategory (arbitrary depth), dropping the leading
+    ``books/<system>`` segments and the filename.
+
+    A book sitting directly in the system dir has no folder and returns "".
+    Path shape: books/<system>/<category>/.../<file> (see indexer.agnostic_category).
+    """
+    parts = (relative_path or "").replace("\\", "/").split("/")
+    # parts[0]=books, parts[1]=system dir, parts[2:-1]=category/subcategory chain.
+    return "/".join(parts[2:-1])
+
+
+def _book_subtitle(system_name: str, relative_path: str, category: str) -> str:
+    """Folder-tree path for a book: ``<System>/<category>/<subcategory>/…``.
+
+    The game system is the top level so the picker groups books by system, then
+    by their nested category folders. Falls back to the flat category when the
+    book has no nested folders, and drops the system segment when unknown.
+    """
+    folder = _book_folder(relative_path) or (category or "")
+    system = (system_name or "").strip()
+    if system and folder:
+        return f"{system}/{folder}"
+    return system or folder
+
+
 def search_resources_global(
     q: str = "",
     resource_type: str = None,
@@ -323,20 +350,35 @@ def search_resources_global(
         q_lower = q.lower()
 
         if not resource_type or resource_type == "book":
+            from ...models import GameSystem
+
+            # Map system id → name in one pass so each book's tree path can lead
+            # with its system without a per-book relationship lookup.
+            system_names = {s.id: s.name for s in db.query(GameSystem).all()}
             query = db.query(Book)
             if system_id:
                 query = query.filter(Book.game_system_id == system_id)
+            book_folder_hits, book_name_hits = [], []
             for b in query.order_by(Book.title).limit(500).all():
-                if not q or q_lower in (b.title or "").lower():
-                    results.append(
-                        {
-                            "resource_type": "book",
-                            "resource_id": b.id,
-                            "name": b.title,
-                            "subtitle": b.category,
-                            "has_thumbnail": b.has_thumbnail,
-                        }
-                    )
+                # Tree path: <System>/<category>/<subcategory>/... so the picker
+                # groups books by system first, then by their nested folders.
+                folder = _book_subtitle(
+                    system_names.get(b.game_system_id, ""), b.relative_path, b.category
+                )
+                row = {
+                    "resource_type": "book",
+                    "resource_id": b.id,
+                    "name": b.title,
+                    "subtitle": folder,
+                    "has_thumbnail": b.has_thumbnail,
+                }
+                if not q:
+                    book_name_hits.append(row)
+                elif q_lower in folder.lower():
+                    book_folder_hits.append(row)
+                elif q_lower in (b.title or "").lower():
+                    book_name_hits.append(row)
+            results.extend(book_folder_hits + book_name_hits)
 
         # Maps/tokens/audio: prefer folder-path matches, then filename matches.
         def _media_results(rtype, model):

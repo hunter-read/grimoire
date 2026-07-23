@@ -18,7 +18,7 @@ import Spinner from '../Spinner'
 import CategoryManager from './CategoryManager'
 import { CampaignIcon } from './campaignIcons'
 import ResourceRow from './ResourceRow'
-import ResourcePicker from './ResourcePicker'
+import ResourcePickerModal from './ResourcePickerModal'
 import { TYPE_ICONS } from './resourcesShared'
 
 export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
@@ -245,7 +245,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
                 {uploading ? t('resources.uploading') : t('resources.uploadFile')}
               </button>
             )}
-            <button onClick={() => setAdding(!adding)} style={panelHeaderBtn}>
+            <button onClick={() => setAdding(true)} style={panelHeaderBtn}>
               <LuPlus size={14} /> {t('resources.linkResource')}
             </button>
             <input
@@ -259,15 +259,19 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
       </div>
 
       {adding && isOwner && (
-        <ResourcePicker
+        <ResourcePickerModal
           campaignId={campaign.id}
-          linkedIds={linkedIds}
-          onAdd={() => load()}
+          pinSystem={campaign.system_display_name}
+          linkedKeys={linkedIds}
           onClose={() => setAdding(false)}
+          onAdded={() => {
+            setAdding(false)
+            load()
+          }}
         />
       )}
 
-      {resources.length === 0 && !adding ? (
+      {resources.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
           <LuBookOpen size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
           <div style={{ fontSize: 14 }}>{t('resources.noResources')}</div>

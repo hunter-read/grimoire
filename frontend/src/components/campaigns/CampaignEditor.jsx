@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuX, LuTrash2, LuChevronLeft, LuImagePlus } from 'react-icons/lu'
 import api, { campaigns } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
-import ResourcePickerStep from './ResourcePickerStep'
+import ResourcePicker from './ResourcePicker'
 import ScheduleSetup from './ScheduleSetup'
 import { labelStyle, inputStyle, cancelBtn, submitBtn, deleteBtn } from './campaignEditorShared'
 
@@ -410,10 +410,12 @@ export default function CampaignEditor({
           </form>
         ) : (
           <div>
-            <ResourcePickerStep
+            <ResourcePicker
               systemId={form.system_id}
               selected={selectedResources}
               setSelected={setSelectedResources}
+              preselectCore
+              pinSystem={systems.find((s) => s.id === form.system_id)?.name || ''}
             />
             {error && (
               <div style={{ color: 'var(--danger)', fontSize: 13, margin: '12px 0' }}>{error}</div>

@@ -834,6 +834,70 @@ class TestResourceSearchAccess:
     def test_unauthenticated_denied(self, client):
         assert client.get("/api/campaigns/resources/search?q=test").status_code == 401
 
+    def test_book_subtitle_is_system_then_nested_folder_path(self, client, gm_headers):
+        # A book nested under category/subcategory exposes System/category/... as
+        # its subtitle so the picker builds a system → folder tree (any depth).
+        sys = make_game_system(name="Nested Sys")
+        make_book(
+            system_id=sys.id,
+            title="Ravenloft Act One",
+            relative_path="books/Nested Sys/adventures/ravenloft/act1.pdf",
+        )
+        resp = client.get(
+            "/api/campaigns/resources/search?q=Ravenloft+Act&resource_type=book",
+            headers=gm_headers,
+        )
+        results = resp.json()
+        row = next(r for r in results if r["name"] == "Ravenloft Act One")
+        assert row["subtitle"] == "Nested Sys/adventures/ravenloft"
+
+    def test_book_search_matches_folder_path(self, client, gm_headers):
+        # Searching a folder-path segment surfaces books inside it, even when the
+        # term is absent from the title.
+        sys = make_game_system(name="Folder Sys")
+        make_book(
+            system_id=sys.id,
+            title="Untitled One",
+            relative_path="books/Folder Sys/adventures/dragonheist/ch1.pdf",
+        )
+        resp = client.get(
+            "/api/campaigns/resources/search?q=dragonheist&resource_type=book",
+            headers=gm_headers,
+        )
+        names = [r["name"] for r in resp.json()]
+        assert "Untitled One" in names
+
+    def test_book_without_folder_falls_back_to_system_and_category(self, client, gm_headers):
+        # A book sitting directly in its system dir has no nested folder; the
+        # subtitle is System/<category>.
+        sys = make_game_system(name="Flat Sys")
+        make_book(
+            system_id=sys.id,
+            title="Loose Core Book",
+            category="core",
+            relative_path="books/Flat Sys/loose.pdf",
+        )
+        resp = client.get(
+            "/api/campaigns/resources/search?q=Loose+Core&resource_type=book",
+            headers=gm_headers,
+        )
+        row = next(r for r in resp.json() if r["name"] == "Loose Core Book")
+        assert row["subtitle"] == "Flat Sys/core"
+
+    def test_book_search_matches_system_name(self, client, gm_headers):
+        # The system name leads the subtitle, so searching it surfaces its books.
+        sys = make_game_system(name="Zzyzx System")
+        make_book(
+            system_id=sys.id,
+            title="Some Sourcebook",
+            relative_path="books/Zzyzx System/core/rules.pdf",
+        )
+        resp = client.get(
+            "/api/campaigns/resources/search?q=Zzyzx&resource_type=book",
+            headers=gm_headers,
+        )
+        assert "Some Sourcebook" in [r["name"] for r in resp.json()]
+
 
 # ---------------------------------------------------------------------------
 # Eligible members

@@ -1,13 +1,3 @@
-import { LuBookOpen, LuMap, LuUser } from 'react-icons/lu'
-
-export const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser }
-
-export function resourceKey(r) {
-  return `${r.resource_type}:${r.resource_id}`
-}
-
-export const RESOURCE_TYPES = ['', 'book', 'map', 'token']
-
 export const labelStyle = {
   fontSize: 13,
   color: 'var(--text-muted)',

@@ -285,12 +285,21 @@ def build_members(c: Campaign, db) -> list:
 
 
 def serialize_campaign(c: Campaign, members: list, db) -> dict:
-    from ...models import User, CampaignSchedule
+    from ...models import GameSystem, User, CampaignSchedule
 
     owner = db.query(User).filter_by(id=c.owner_id).first()
     owner_display = owner.display_name or owner.username if owner else ""
     owner_has_access = owner is None or owner.campaign_access is None or bool(owner.campaign_access)
     schedule = db.query(CampaignSchedule).filter_by(campaign_id=c.id).first()
+
+    # Human-readable system name: the linked game system's name when set, else
+    # the free-text system_name. Lets the UI pin the campaign's system without a
+    # separate systems lookup.
+    system_display = c.system_name or ""
+    if c.system_id:
+        sys_obj = db.query(GameSystem).filter_by(id=c.system_id).first()
+        if sys_obj:
+            system_display = sys_obj.name
 
     # Next upcoming scheduled session date (YYYY-MM-DD), if an enabled schedule exists.
     next_session = None
@@ -309,6 +318,7 @@ def serialize_campaign(c: Campaign, members: list, db) -> dict:
         "parent_campaign_id": c.parent_campaign_id,
         "system_id": c.system_id,
         "system_name": c.system_name,
+        "system_display_name": system_display,
         "has_schedule": schedule is not None,
         "next_session": next_session,
         "has_banner": bool(c.banner_path),

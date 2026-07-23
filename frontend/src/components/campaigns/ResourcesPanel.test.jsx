@@ -48,10 +48,10 @@ vi.mock('./CategoryManager', () => ({
     </div>
   ),
 }))
-vi.mock('./ResourcePicker', () => ({
-  default: ({ onAdd, onClose }) => (
+vi.mock('./ResourcePickerModal', () => ({
+  default: ({ onAdded, onClose }) => (
     <div data-testid="resource-picker">
-      <button onClick={onAdd}>picker-added</button>
+      <button onClick={onAdded}>picker-added</button>
       <button onClick={onClose}>close-picker</button>
     </div>
   ),
