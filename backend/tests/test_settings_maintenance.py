@@ -546,3 +546,50 @@ class TestStatsApiKey:
             client.post("/api/settings/api-key/generate", headers=player_headers).status_code
             == 403
         )
+
+
+# ---------------------------------------------------------------------------
+# disable_folder_category_inference (issue #190)
+# ---------------------------------------------------------------------------
+
+
+class TestDisableFolderCategoryInference:
+    def test_default_false(self, client, admin_headers):
+        data = client.get("/api/settings", headers=admin_headers).json()
+        assert data["disable_folder_category_inference"] is False
+        assert data["disable_folder_category_inference_env_locked"] is False
+
+    def test_patch_enables_and_persists(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings",
+            json={"disable_folder_category_inference": True},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["disable_folder_category_inference"] is True
+        assert _get_setting("disable_folder_category_inference") == "true"
+        # Reset so we don't bleed state into other tests.
+        client.patch(
+            "/api/settings",
+            json={"disable_folder_category_inference": False},
+            headers=admin_headers,
+        )
+
+    def test_env_lock_blocks_patch_and_reports_locked(self, client, admin_headers, monkeypatch):
+        import backend.routers.settings.core as core
+        import backend.routers.settings._helpers as helpers
+
+        monkeypatch.setattr(core, "DISABLE_FOLDER_CATEGORY_INFERENCE_ENV", True)
+        monkeypatch.setattr(helpers, "DISABLE_FOLDER_CATEGORY_INFERENCE_ENV", True)
+
+        resp = client.patch(
+            "/api/settings",
+            json={"disable_folder_category_inference": False},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "DISABLE_FOLDER_CATEGORY_INFERENCE" in resp.json()["detail"]
+
+        body = client.get("/api/settings", headers=admin_headers).json()
+        assert body["disable_folder_category_inference_env_locked"] is True
+        assert body["disable_folder_category_inference"] is True

@@ -95,6 +95,14 @@ def _bool_env(name: str) -> Optional[bool]:
 GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 
 
+# Optional override for folder-name category inference. When set, it pins the
+# value and the admin UI shows a read-only state. When unset, the DB setting
+# (disable_folder_category_inference) is used. true = inference disabled.
+DISABLE_FOLDER_CATEGORY_INFERENCE_ENV: Optional[bool] = _bool_env(
+    "DISABLE_FOLDER_CATEGORY_INFERENCE"
+)
+
+
 # OIDC env-var pins. When set, each individual field is locked and the UI
 # renders it read-only. Each env var is independent — pinning the issuer URL
 # does not require pinning the client secret, etc.

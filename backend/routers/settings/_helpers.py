@@ -3,6 +3,7 @@ import re
 
 from ...config import (
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
+    DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
     GUEST_ACCESS_ENABLED_ENV,
     OIDC_ENV,
     BASE_URL,
@@ -35,6 +36,9 @@ _DEFAULTS = {
     "password_auth_enabled": "true",
     # Whether GMs/admins may create guest invite codes for their campaigns.
     "guest_access_enabled": "false",
+    # When true, the indexer does not infer a book's category from its folder
+    # names (books fall back to the neutral "uncategorized" category).
+    "disable_folder_category_inference": "false",
     "custom_login_message_enabled": "false",
     "custom_login_message": "",
     # OIDC — all stored as strings; "" means unset
@@ -120,6 +124,10 @@ def _to_typed(raw: dict) -> dict:
         "password_auth_env_locked": ALLOW_PASSWORD_AUTHENTICATION_ENV is not None,
         "guest_access_enabled": guest_access_effective(raw),
         "guest_access_env_locked": GUEST_ACCESS_ENABLED_ENV is not None,
+        "disable_folder_category_inference": disable_folder_category_inference_effective(raw),
+        "disable_folder_category_inference_env_locked": (
+            DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None
+        ),
         "custom_login_message_enabled": raw.get("custom_login_message_enabled", "false") == "true",
         "custom_login_message": raw.get("custom_login_message", ""),
         # OIDC
@@ -158,6 +166,17 @@ def guest_access_effective(raw: dict) -> bool:
     if GUEST_ACCESS_ENABLED_ENV is not None:
         return GUEST_ACCESS_ENABLED_ENV
     return raw.get("guest_access_enabled", "false") == "true"
+
+
+def disable_folder_category_inference_effective(raw: dict) -> bool:
+    """Return the effective folder-category-inference setting (True = disabled).
+
+    Honors the DISABLE_FOLDER_CATEGORY_INFERENCE env override, falling back to
+    the DB setting when the env var is unset.
+    """
+    if DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None:
+        return DISABLE_FOLDER_CATEGORY_INFERENCE_ENV
+    return raw.get("disable_folder_category_inference", "false") == "true"
 
 
 def oidc_effective(raw: dict) -> dict:

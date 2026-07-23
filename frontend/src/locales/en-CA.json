@@ -629,6 +629,13 @@
         "sun": "Sun"
       }
     },
+    "folderCategory": {
+      "title": "Folder Category Inference",
+      "description": "By default, a book's category is inferred from its folder name (e.g. a book under a \"Core\" folder becomes the Core category). Disable this to leave books uncategorized instead.",
+      "disable": "Disable folder-name category inference",
+      "perSystemHint": "To disable inference for a single system only, place an empty file named .no-auto-category at that system's folder root.",
+      "envLocked": "This setting is locked by the DISABLE_FOLDER_CATEGORY_INFERENCE environment variable (currently {{value}}) and cannot be changed here."
+    },
     "tagExport": {
       "title": "Export Tags",
       "description": "Download all tags assigned to books, maps, tokens, audio, systems, and folders as a JSON file.",

@@ -22,7 +22,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import config, ocr
-from .models import GameSystem, Book, GenericMap, MapFolder, Token, TokenFolder, Audio, AudioFolder
+from .models import (
+    GameSystem,
+    Book,
+    GenericMap,
+    MapFolder,
+    Token,
+    TokenFolder,
+    Audio,
+    AudioFolder,
+    AppSetting,
+)
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -114,6 +124,14 @@ def _fitz_open_with_timeout(
         raise exc[0]
     return result[0]
 
+
+# Neutral category assigned when folder-name inference is turned off (globally
+# or per-system). Matches the fallback already used by ``agnostic_category``.
+UNCATEGORIZED = "uncategorized"
+
+# Marker file placed at a system root (``books/<system>/.no-auto-category``) to
+# disable folder-name category inference for just that system.
+NO_AUTO_CATEGORY_MARKER = ".no-auto-category"
 
 CATEGORY_MAP = {
     "core": ["core", "rulebook", "rules", "phb", "dmg", "mm", "basic"],
@@ -265,6 +283,24 @@ def _match_category(segment: str) -> str | None:
     return None
 
 
+def folder_category_inference_disabled(session: Session) -> bool:
+    """Return True when folder-name category inference is globally disabled.
+
+    The DISABLE_FOLDER_CATEGORY_INFERENCE env var, when set, pins the value and
+    overrides the DB setting (mirroring config's other env-over-DB overrides).
+    Otherwise the ``disable_folder_category_inference`` AppSetting is consulted,
+    defaulting to enabled (inference on).
+    """
+    if config.DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None:
+        return config.DISABLE_FOLDER_CATEGORY_INFERENCE_ENV
+    row = (
+        session.query(AppSetting)
+        .filter_by(key="disable_folder_category_inference")
+        .first()
+    )
+    return bool(row) and row.value == "true"
+
+
 def guess_category(filepath: str) -> str:
     """Infer book category from path segments.
 
@@ -309,7 +345,7 @@ def agnostic_category(relative_path: str) -> str:
     # parts[0]=books, parts[1]=system dir, parts[2]=category dir or filename
     if len(parts) > 3:
         return slugify(parts[2])
-    return "uncategorized"
+    return UNCATEGORIZED
 
 
 _THUMBNAIL_TIMEOUT = 30  # seconds
@@ -1132,6 +1168,9 @@ def scan_library(
 
     # --- Scan /books ---
     if scan_books and books_dir.exists():
+        # Global kill-switch for folder-name category inference (env-over-DB).
+        # When on, every book falls back to the neutral UNCATEGORIZED category.
+        category_inference_off = folder_category_inference_disabled(session)
         # When scoped, the owning system is the first path segment under books/;
         # otherwise iterate every top-level system folder.
         scope_parts = Path(scope_path.replace("\\", "/").strip("/")).parts if scope_path else ()
@@ -1161,6 +1200,11 @@ def scan_library(
                 stats["errors"] += 1
                 continue
             is_agnostic = is_system_agnostic_folder(system_name)
+            # Per-system opt-out: a marker file at the system root disables
+            # folder-name category inference for just this system.
+            system_category_off = category_inference_off or (
+                system_dir / NO_AUTO_CATEGORY_MARKER
+            ).exists()
             if not system:
                 system = GameSystem(
                     name=system_name,
@@ -1291,11 +1335,12 @@ def scan_library(
                         logger.debug(f"Resuming incomplete scan for: {filename}")
                         book = existing
                     else:
-                        category = (
-                            agnostic_category(relative_path)
-                            if is_agnostic
-                            else guess_category(relative_path)
-                        )
+                        if system_category_off:
+                            category = UNCATEGORIZED
+                        elif is_agnostic:
+                            category = agnostic_category(relative_path)
+                        else:
+                            category = guess_category(relative_path)
                         title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
                         try:

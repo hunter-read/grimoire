@@ -629,6 +629,13 @@
         "sun": "Dom"
       }
     },
+    "folderCategory": {
+      "title": "Inferência de categoria por pasta",
+      "description": "Por padrão, a categoria de um livro é inferida a partir do nome da pasta (por exemplo, um livro em uma pasta \"Core\" recebe a categoria Core). Desative para deixar os livros sem categoria.",
+      "disable": "Desativar inferência de categoria pelo nome da pasta",
+      "perSystemHint": "Para desativar a inferência apenas em um sistema, coloque um arquivo vazio chamado .no-auto-category na raiz da pasta desse sistema.",
+      "envLocked": "Esta configuração está bloqueada pela variável de ambiente DISABLE_FOLDER_CATEGORY_INFERENCE (atualmente {{value}}) e não pode ser alterada aqui."
+    },
     "tagExport": {
       "title": "Exportar tags",
       "description": "Baixar todas as tags atribuídas a livros, mapas, tokens, sistemas e pastas como um arquivo JSON.",

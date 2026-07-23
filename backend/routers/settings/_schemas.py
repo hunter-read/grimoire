@@ -27,6 +27,7 @@ class SettingsPatch(BaseModel):
     campaign_upload_max_total_mb: Optional[int] = None
     password_auth_enabled: Optional[bool] = None
     guest_access_enabled: Optional[bool] = None
+    disable_folder_category_inference: Optional[bool] = None
     custom_login_message_enabled: Optional[bool] = None
     custom_login_message: Optional[str] = None  # HTML (sanitized on save)
     # OIDC config

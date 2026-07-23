@@ -629,6 +629,13 @@
         "sun": "So"
       }
     },
+    "folderCategory": {
+      "title": "Kategorie-Erkennung aus Ordnern",
+      "description": "Standardmäßig wird die Kategorie eines Buchs aus seinem Ordnernamen abgeleitet (z. B. wird ein Buch in einem \"Core\"-Ordner der Kategorie Core zugeordnet). Deaktivieren Sie dies, um Bücher stattdessen nicht kategorisiert zu lassen.",
+      "disable": "Kategorie-Erkennung aus Ordnernamen deaktivieren",
+      "perSystemHint": "Um die Erkennung nur für ein einzelnes System zu deaktivieren, legen Sie eine leere Datei namens .no-auto-category im Stammordner dieses Systems ab.",
+      "envLocked": "Diese Einstellung ist durch die Umgebungsvariable DISABLE_FOLDER_CATEGORY_INFERENCE festgelegt (derzeit {{value}}) und kann hier nicht geändert werden."
+    },
     "tagExport": {
       "title": "Tags exportieren",
       "description": "Lade alle Tags, die Büchern, Karten, Tokens, Systemen und Ordnern zugewiesen sind, als JSON-Datei herunter.",

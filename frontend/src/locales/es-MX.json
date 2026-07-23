@@ -629,6 +629,13 @@
         "sun": "Dom"
       }
     },
+    "folderCategory": {
+      "title": "Inferencia de categoría por carpeta",
+      "description": "De forma predeterminada, la categoría de un libro se infiere del nombre de su carpeta (p. ej., un libro en una carpeta \"Core\" pasa a la categoría Core). Desactívalo para dejar los libros sin categorizar.",
+      "disable": "Desactivar la inferencia de categoría por nombre de carpeta",
+      "perSystemHint": "Para desactivar la inferencia solo en un sistema, coloca un archivo vacío llamado .no-auto-category en la raíz de la carpeta de ese sistema.",
+      "envLocked": "Este ajuste está bloqueado por la variable de entorno DISABLE_FOLDER_CATEGORY_INFERENCE (actualmente {{value}}) y no se puede cambiar aquí."
+    },
     "tagExport": {
       "title": "Exportar etiquetas",
       "description": "Descarga todas las etiquetas asignadas a libros, mapas, fichas, sistemas y carpetas como un archivo JSON.",
