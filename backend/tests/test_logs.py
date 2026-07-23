@@ -1,5 +1,11 @@
 """Tests for the /api/logs endpoint."""
+import datetime
 import logging
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from backend import config
 
 
 class TestLogsAccess:
@@ -93,9 +99,78 @@ class TestLogsResponseShape:
         entries = resp.json()["entries"]
         assert len(entries) > 0
         ts = entries[-1]["timestamp"]
-        # Should end with Z and contain T separator
+        # Default (UTC) timestamps end with Z; non-UTC zones append the offset.
         assert ts.endswith("Z")
         assert "T" in ts
+
+
+# Fixed epoch: 2024-07-22T16:00:00.123Z, chosen because it is DST for both
+# northern-hemisphere zones exercised below.
+_FIXED_EPOCH = 1721664000.123
+
+
+def _make_record() -> logging.LogRecord:
+    rec = logging.LogRecord("grimoire", logging.INFO, "f.py", 1, "probe", None, None)
+    rec.created = _FIXED_EPOCH
+    return rec
+
+
+class TestLogTimezone:
+    """The TZ env var controls how log timestamps are rendered."""
+
+    def test_resolve_defaults_to_utc(self, monkeypatch):
+        monkeypatch.delenv("TZ", raising=False)
+        assert config._resolve_log_timezone() is datetime.timezone.utc
+
+    def test_resolve_utc_name_is_utc(self, monkeypatch):
+        monkeypatch.setenv("TZ", "UTC")
+        assert config._resolve_log_timezone() is datetime.timezone.utc
+
+    def test_resolve_named_zone(self, monkeypatch):
+        monkeypatch.setenv("TZ", "America/Toronto")
+        assert config._resolve_log_timezone() == ZoneInfo("America/Toronto")
+
+    def test_resolve_berlin_zone(self, monkeypatch):
+        monkeypatch.setenv("TZ", "Europe/Berlin")
+        assert config._resolve_log_timezone() == ZoneInfo("Europe/Berlin")
+
+    def test_unknown_zone_falls_back_to_utc(self, monkeypatch):
+        monkeypatch.setenv("TZ", "Not/AZone")
+        config._BAD_TIMEZONES.clear()
+        assert config._resolve_log_timezone() is datetime.timezone.utc
+        assert "Not/AZone" in config._BAD_TIMEZONES
+
+    @pytest.mark.parametrize(
+        "tz, expected_hhmmss, expected_suffix",
+        [
+            (datetime.timezone.utc, "16:00:00.123", "Z"),
+            (ZoneInfo("America/Toronto"), "12:00:00.123", "-04:00"),
+            (ZoneInfo("Europe/Berlin"), "18:00:00.123", "+02:00"),
+        ],
+    )
+    def test_memory_buffer_timestamp_uses_configured_zone(
+        self, monkeypatch, tz, expected_hhmmss, expected_suffix
+    ):
+        monkeypatch.setattr(config, "LOG_TIMEZONE", tz)
+        handler = config._MemoryLogHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler.emit(_make_record())
+        ts = handler.get_entries(limit=1)[0][0]["timestamp"]
+        # The log viewer slices chars [11:23] for the HH:MM:SS.mmm display.
+        assert ts[11:23] == expected_hhmmss
+        assert ts.endswith(expected_suffix)
+
+    @pytest.mark.parametrize(
+        "tz, expected",
+        [
+            (datetime.timezone.utc, "2024-07-22 16:00:00.123+00:00"),
+            (ZoneInfo("America/Toronto"), "2024-07-22 12:00:00.123-04:00"),
+        ],
+    )
+    def test_console_formatter_uses_configured_zone(self, monkeypatch, tz, expected):
+        monkeypatch.setattr(config, "LOG_TIMEZONE", tz)
+        fmt = config._TZFormatter("%(asctime)s %(message)s")
+        assert fmt.formatTime(_make_record()) == expected
 
 
 class TestLogsLevelFilter:

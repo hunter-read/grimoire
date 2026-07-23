@@ -20,3 +20,4 @@ mutagen==1.47.0
 rarfile==4.2
 py7zr==1.1.3
 pytesseract==0.3.13
+tzdata==2025.2
