@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import config, ocr
+from .library_ignore import IgnoreMatcher
 from .models import (
     GameSystem,
     Book,
@@ -802,13 +803,37 @@ def _commit(session: Session, label: str) -> None:
         session.rollback()
 
 
-def _count_eligible_files(directory: Path, extensions: set) -> int:
-    """Count non-hidden files with matching extensions under directory."""
+def _prune_dirs(root: str, dirs: list[str], ignore: Optional[IgnoreMatcher]) -> list[str]:
+    """Return the walk subdirectories to descend into.
+
+    Drops hidden dirs (``.``-prefixed) and, when an ``ignore`` matcher is given,
+    any directory excluded by a ``.grimoireignore`` rule — pruning the whole
+    subtree so ignored folders are never walked.
+    """
+    return [
+        d
+        for d in dirs
+        if not d.startswith(".")
+        and not (ignore and ignore.is_ignored(os.path.join(root, d), is_dir=True))
+    ]
+
+
+def _count_eligible_files(
+    directory: Path, extensions: set, ignore: Optional[IgnoreMatcher] = None
+) -> int:
+    """Count non-hidden files with matching extensions under directory.
+
+    When an ``ignore`` matcher is supplied, directories and files excluded by a
+    ``.grimoireignore`` rule are skipped so the count matches what the scan will
+    actually process (keeping progress totals accurate).
+    """
     count = 0
     for root, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        dirs[:] = _prune_dirs(root, dirs, ignore)
         for f in files:
             if f.startswith("."):
+                continue
+            if ignore and ignore.is_ignored(os.path.join(root, f), is_dir=False):
                 continue
             if Path(f).suffix.lower() in extensions or archive_ext(f) in extensions:
                 count += 1
@@ -1130,6 +1155,10 @@ def scan_library(
         scope_section, scope_dir = resolve_scope(library_path, scope_path)
         logger.debug(f"Scoped scan: section={scope_section}, dir={scope_dir}, mode={metadata_mode}")
 
+    # Matcher for .grimoireignore rules across the whole library tree (issue
+    # #224).  Built once from the library root; queried per path in each walk.
+    ignore = IgnoreMatcher(library_path)
+
     scan_books = scope_section in (None, "books")
     scan_maps = scope_section in (None, "maps")
     scan_tokens = scope_section in (None, "tokens")
@@ -1142,22 +1171,22 @@ def scan_library(
     audio_walk_dir = scope_dir if scope_section == "audio" else audio_dir
 
     total_books = (
-        _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS)
+        _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS, ignore)
         if scan_books and books_walk_dir.exists()
         else 0
     )
     total_maps = (
-        _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS)
+        _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS, ignore)
         if scan_maps and maps_walk_dir.exists()
         else 0
     )
     total_tokens = (
-        _count_eligible_files(tokens_walk_dir, IMAGE_EXTS)
+        _count_eligible_files(tokens_walk_dir, IMAGE_EXTS, ignore)
         if scan_tokens and tokens_walk_dir.exists()
         else 0
     )
     total_audio = (
-        _count_eligible_files(audio_walk_dir, AUDIO_EXTS)
+        _count_eligible_files(audio_walk_dir, AUDIO_EXTS, ignore)
         if scan_audio and audio_walk_dir.exists()
         else 0
     )
@@ -1236,7 +1265,7 @@ def scan_library(
                 scope_dir if (scope_section == "books" and len(scope_parts) > 1) else system_dir
             )
             for root, dirs, files in os.walk(walk_root):
-                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                dirs[:] = _prune_dirs(root, dirs, ignore)
 
                 # Collect cover image filenames declared in any OPF files in this
                 # directory so we can skip them — Calibre exports a cover JPG that
@@ -1258,6 +1287,10 @@ def scan_library(
                     arc_ext = archive_ext(filename)
 
                     if ext not in DOC_EXTS and ext not in IMAGE_EXTS and not arc_ext:
+                        continue
+
+                    if ignore.is_ignored(filepath, is_dir=False):
+                        logger.debug(f"Ignored by .grimoireignore: {filepath}")
                         continue
 
                     if filename in opf_cover_filenames:
@@ -1475,7 +1508,7 @@ def scan_library(
 
     if scan_maps and maps_walk_dir.exists():
         for root, dirs, files in os.walk(maps_walk_dir):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            dirs[:] = _prune_dirs(root, dirs, ignore)
 
             for filename in sorted(files):
                 if filename.startswith("."):
@@ -1485,6 +1518,10 @@ def scan_library(
                 ext = Path(filename).suffix.lower()
 
                 if ext not in MAP_IMAGE_EXTS:
+                    continue
+
+                if ignore.is_ignored(filepath, is_dir=False):
+                    logger.debug(f"Ignored by .grimoireignore: {filepath}")
                     continue
 
                 scanned_maps += 1
@@ -1563,7 +1600,7 @@ def scan_library(
 
     if scan_tokens and tokens_walk_dir.exists():
         for root, dirs, files in os.walk(tokens_walk_dir):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            dirs[:] = _prune_dirs(root, dirs, ignore)
 
             for filename in sorted(files):
                 if filename.startswith("."):
@@ -1573,6 +1610,10 @@ def scan_library(
                 ext = Path(filename).suffix.lower()
 
                 if ext not in IMAGE_EXTS:
+                    continue
+
+                if ignore.is_ignored(filepath, is_dir=False):
+                    logger.debug(f"Ignored by .grimoireignore: {filepath}")
                     continue
 
                 scanned_tokens += 1
@@ -1651,7 +1692,7 @@ def scan_library(
 
     if scan_audio and audio_walk_dir.exists():
         for root, dirs, files in os.walk(audio_walk_dir):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            dirs[:] = _prune_dirs(root, dirs, ignore)
 
             for filename in sorted(files):
                 if filename.startswith("."):
@@ -1661,6 +1702,10 @@ def scan_library(
                 ext = Path(filename).suffix.lower()
 
                 if ext not in AUDIO_EXTS:
+                    continue
+
+                if ignore.is_ignored(filepath, is_dir=False):
+                    logger.debug(f"Ignored by .grimoireignore: {filepath}")
                     continue
 
                 scanned_audio += 1
@@ -1737,8 +1782,10 @@ def scan_library(
     # --- Mark / unmark missing files ---
     # After walking the filesystem, any DB record whose file is gone gets
     # is_missing=True; records that exist on disk have is_missing cleared.
-    # When scoped, only reconcile records under the scope subtree so unrelated
-    # corners of the library are left untouched.
+    # A file newly matched by a ``.grimoireignore`` rule (still on disk but now
+    # excluded) is treated as gone too, so it disappears from the UI; clearing
+    # the rule brings it back on the next scan. When scoped, only reconcile
+    # records under the scope subtree so unrelated corners are left untouched.
     if should_stop and should_stop():
         return stats
 
@@ -1747,10 +1794,13 @@ def scan_library(
             return query.filter(model.filepath.like(f"{scope_dir}{os.sep}%"))
         return query
 
+    def _gone(filepath: str) -> bool:
+        return not os.path.exists(filepath) or ignore.is_ignored(filepath, is_dir=False)
+
     missing_books = missing_maps = missing_tokens = missing_audio = 0
     if scan_books:
         for book in _scoped(session.query(Book), Book).all():
-            gone = not os.path.exists(book.filepath)
+            gone = _gone(book.filepath)
             if gone != bool(book.is_missing):
                 book.is_missing = gone
                 if gone:
@@ -1758,7 +1808,7 @@ def scan_library(
                     logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
     if scan_maps:
         for m in _scoped(session.query(GenericMap), GenericMap).all():
-            gone = not os.path.exists(m.filepath)
+            gone = _gone(m.filepath)
             if gone != bool(m.is_missing):
                 m.is_missing = gone
                 if gone:
@@ -1766,7 +1816,7 @@ def scan_library(
                     logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
     if scan_tokens:
         for t in _scoped(session.query(Token), Token).all():
-            gone = not os.path.exists(t.filepath)
+            gone = _gone(t.filepath)
             if gone != bool(t.is_missing):
                 t.is_missing = gone
                 if gone:
@@ -1774,7 +1824,7 @@ def scan_library(
                     logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
     if scan_audio:
         for a in _scoped(session.query(Audio), Audio).all():
-            gone = not os.path.exists(a.filepath)
+            gone = _gone(a.filepath)
             if gone != bool(a.is_missing):
                 a.is_missing = gone
                 if gone:

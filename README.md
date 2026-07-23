@@ -382,6 +382,34 @@ Tags are applied (or updated) every time the library is rescanned. Tags set via 
 
 ---
 
+## Ignoring Files with .grimoireignore
+
+Add a `.grimoireignore` file to keep files on disk but out of Grimoire. It uses the same syntax as `.gitignore` / `.dockerignore`, so anything matched by a rule is skipped during scanning and never appears in the UI — useful when a book ships extra print variants (black-and-white single pages, zine-sized layouts) you want kept next to the book but hidden.
+
+Place it at your **library root** to apply everywhere, or in any subfolder to add rules for just that subtree. Rules are cumulative and nested, like git.
+
+```
+library/
+├── .grimoireignore              ← applies to the whole library
+└── books/
+    └── Example TTRPG/
+        ├── core/
+        │   └── Players Handbook.pdf
+        └── ignore/               ← whole folder skipped
+            └── Players Handbook BW Single Pages.pdf
+```
+
+```
+# .grimoireignore
+ignore/                 # skip an entire folder
+*BW Single Pages*.pdf   # skip print variants anywhere
+!keep-this.pdf          # re-include a file an earlier rule excluded
+```
+
+The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth, anchoring with `/`), and rules apply to every collection: `books/`, `maps/`, `tokens/`, and `audio/`. Changes take effect on the next scan. Adding a rule that matches an already-indexed file hides it (marked missing) on the next rescan; remove the rule and rescan to bring it back.
+
+---
+
 ## Adding Files to Your Library
 
 Grimoire mounts your library folder **read-only** and never modifies your files. To upload, organize, or remove content, use a companion tool that mounts the same library folder with write access.
