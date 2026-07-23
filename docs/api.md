@@ -385,7 +385,7 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Books match on title (filter with `system_id?`); maps/tokens/audio match on folder path first then filename, with the folder in `subtitle`. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 30) |
+| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Books match on folder path first then title (filter with `system_id?`); maps/tokens/audio match on folder path first then filename. Each result's `subtitle` is its folder-tree path, letting the picker build a nested tree: for books this is `<System>/<category>/<subcategory>/…` (the game system leads; falls back to `<System>/<category>` when the book sits directly in the system dir); for media it is the folder path under the top-level media dir. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 30) |
 | `/api/campaigns/resources/suggested/:system_id` | GET | any | Books in a game system for the create wizard. Core-category books are flagged `suggested` and ordered first. |
 | `/api/campaigns/:id/resources` | GET | member or owner | List linked resources (each with `visibility`, `category_id`, `sort_order`, `has_thumbnail`; owner items also include `shared_user_ids`). Ordered public → private → gm, then by `sort_order`. Players see only what their visibility allows. |
 | `/api/campaigns/:id/resources` | POST | owner | Link a resource. Body: `{resource_type, resource_id, visibility?, shared_user_ids?, category_id?}` |

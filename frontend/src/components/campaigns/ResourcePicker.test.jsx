@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -5,87 +6,122 @@ import ResourcePicker from './ResourcePicker'
 import { campaigns } from '../../api'
 
 vi.mock('../../api', () => ({
-  mediaUrl: (p) => `http://localhost${p}`,
-  campaigns: {
-    searchResources: vi.fn(),
-    addResource: vi.fn(),
-  },
+  campaigns: { searchResources: vi.fn() },
 }))
 
-const results = [
-  { resource_type: 'book', resource_id: 'b1', name: "Player's Handbook", has_thumbnail: true },
-  { resource_type: 'map', resource_id: 'm1', name: 'Tavern Map', has_thumbnail: false },
-]
+// searchResources is called once per type (book, map, token, audio). Resolve
+// each call from a per-type fixture so the folder tree has real structure.
+// Book subtitles lead with the game system, then nested category folders.
+const byType = {
+  book: [
+    {
+      resource_type: 'book',
+      resource_id: 'b1',
+      name: "Player's Handbook",
+      subtitle: 'D&D 5e/core',
+    },
+    {
+      resource_type: 'book',
+      resource_id: 'b2',
+      name: 'Curse of Strahd',
+      subtitle: 'D&D 5e/adventures/ravenloft',
+    },
+    {
+      resource_type: 'book',
+      resource_id: 'b3',
+      name: 'Pathfinder Core',
+      subtitle: 'Pathfinder/core',
+    },
+  ],
+  map: [{ resource_type: 'map', resource_id: 'm1', name: 'Tavern', subtitle: 'dungeons' }],
+  token: [],
+  audio: [{ resource_type: 'audio', resource_id: 'a1', name: 'Battle Theme', subtitle: '' }],
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.searchResources.mockResolvedValue(results)
-  campaigns.addResource.mockResolvedValue({})
+  campaigns.searchResources.mockImplementation((_q, type) => Promise.resolve(byType[type] || []))
 })
 
+// Controlled wrapper so tests can drive and inspect the selection state.
+function Harness(props) {
+  const [selected, setSelected] = useState(props.initial || [])
+  return <ResourcePicker selected={selected} setSelected={setSelected} {...props} />
+}
+
 describe('ResourcePicker', () => {
-  it('searches on mount and lists the results', async () => {
-    render(
-      <ResourcePicker campaignId="c1" linkedIds={new Set()} onAdd={vi.fn()} onClose={vi.fn()} />
-    )
-    expect(campaigns.searchResources).toHaveBeenCalledWith('', '')
-    expect(await screen.findByText("Player's Handbook")).toBeInTheDocument()
-    expect(screen.getByText('Tavern Map')).toBeInTheDocument()
-  })
-
-  it('renders a lazy thumbnail for a result that has one', async () => {
-    const { container } = render(
-      <ResourcePicker campaignId="c1" linkedIds={new Set()} onAdd={vi.fn()} onClose={vi.fn()} />
-    )
-    await screen.findByText("Player's Handbook")
-    const img = container.querySelector('img')
-    expect(img.getAttribute('src')).toContain('/books/b1/thumbnail')
-    expect(img).toHaveAttribute('loading', 'lazy')
-  })
-
-  it('adds a resource and calls onAdd', async () => {
-    const onAdd = vi.fn()
-    render(<ResourcePicker campaignId="c1" linkedIds={new Set()} onAdd={onAdd} onClose={vi.fn()} />)
-    await screen.findByText("Player's Handbook")
-    const addButtons = screen.getAllByRole('button', { name: /add/i })
-    await userEvent.click(addButtons[0])
+  it('loads all four resource types on mount', async () => {
+    render(<Harness />)
     await waitFor(() =>
-      expect(campaigns.addResource).toHaveBeenCalledWith('c1', {
-        resource_type: 'book',
-        resource_id: 'b1',
-        visibility: 'public',
-      })
+      expect(campaigns.searchResources).toHaveBeenCalledWith('', 'book', '', 1000)
     )
-    expect(onAdd).toHaveBeenCalled()
+    for (const type of ['book', 'map', 'token', 'audio']) {
+      expect(campaigns.searchResources).toHaveBeenCalledWith('', type, '', 1000)
+    }
   })
 
-  it('disables the button and skips adding for an already-linked resource', async () => {
-    render(
-      <ResourcePicker
-        campaignId="c1"
-        linkedIds={new Set(['book:b1'])}
-        onAdd={vi.fn()}
-        onClose={vi.fn()}
-      />
-    )
-    expect(await screen.findByText('Linked')).toBeInTheDocument()
+  it('offers book/map/token/audio tabs and no "all" tab', async () => {
+    render(<Harness />)
+    await screen.findByRole('button', { name: 'Books' })
+    expect(screen.getByRole('button', { name: 'Maps' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tokens' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Audio' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'All' })).not.toBeInTheDocument()
   })
 
-  it('re-searches when a type tab is selected', async () => {
-    render(
-      <ResourcePicker campaignId="c1" linkedIds={new Set()} onAdd={vi.fn()} onClose={vi.fn()} />
-    )
-    await screen.findByText("Player's Handbook")
-    await userEvent.click(screen.getByRole('button', { name: 'Maps' }))
-    expect(campaigns.searchResources).toHaveBeenCalledWith('', 'map')
+  it('groups books by system then nested folders, revealing items on expand', async () => {
+    render(<Harness />)
+    // Top level is the game systems, collapsed by default.
+    const system = await screen.findByText('D&D 5e')
+    expect(screen.getByText('Pathfinder')).toBeInTheDocument()
+    // Nested folders and items are hidden until expanded.
+    expect(screen.queryByText('adventures')).not.toBeInTheDocument()
+    await userEvent.click(system)
+    await userEvent.click(screen.getByText('adventures'))
+    await userEvent.click(screen.getByText('ravenloft'))
+    expect(screen.getByText('Curse of Strahd')).toBeInTheDocument()
   })
 
-  it('closes when the close button is clicked', async () => {
-    const onClose = vi.fn()
-    render(
-      <ResourcePicker campaignId="c1" linkedIds={new Set()} onAdd={vi.fn()} onClose={onClose} />
-    )
-    await userEvent.click(screen.getByRole('button', { name: /close/i }))
-    expect(onClose).toHaveBeenCalled()
+  it('selecting a row adds it to the controlled selection', async () => {
+    render(<Harness />)
+    await userEvent.click(await screen.findByText('D&D 5e'))
+    await userEvent.click(screen.getByText('core'))
+    await userEvent.click(screen.getByText("Player's Handbook"))
+    // Appears in the selected summary with a visibility select.
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
+
+  it('pins the campaign system to the top of the book tree', async () => {
+    render(<Harness pinSystem="Pathfinder" />)
+    await screen.findByText('Pathfinder')
+    // The pinned system's folder header comes before the other system's.
+    const headers = screen.getAllByText(/D&D 5e|Pathfinder/)
+    expect(headers[0]).toHaveTextContent('Pathfinder')
+  })
+
+  it('switches to the audio tab and groups ungrouped items under "Other"', async () => {
+    render(<Harness />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Audio' }))
+    // Audio item has an empty subtitle → bucketed under the ungrouped label.
+    const other = await screen.findByText('Other')
+    await userEvent.click(other)
+    expect(screen.getByText('Battle Theme')).toBeInTheDocument()
+  })
+
+  it('pre-selects core books when preselectCore and a system are set', async () => {
+    render(<Harness systemId="sys1" preselectCore />)
+    // Both core books (subtitle ends in "/core") land in the selection summary,
+    // each with its own visibility select.
+    await waitFor(() => expect(screen.getAllByRole('combobox')).toHaveLength(2))
+  })
+
+  it('excludes already-linked resources from the browser', async () => {
+    render(<Harness excludeKeys={new Set(['book:b1'])} />)
+    // b1 was the only book under D&D 5e/core, so that leaf folder drops out; the
+    // adventures folder under the same system remains.
+    await userEvent.click(await screen.findByText('D&D 5e'))
+    expect(screen.getByText('adventures')).toBeInTheDocument()
+    expect(screen.queryByText('core')).not.toBeInTheDocument()
+    expect(screen.queryByText("Player's Handbook")).not.toBeInTheDocument()
   })
 })
