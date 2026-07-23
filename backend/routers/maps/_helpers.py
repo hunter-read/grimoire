@@ -1,9 +1,75 @@
 """Image metadata helpers for map endpoints."""
+import hashlib
+import io
+import os
 import re
 from pathlib import Path
 from typing import Optional
 
+import fitz  # type: ignore[import-untyped]
 from PIL import Image as PILImage  # type: ignore[import-untyped]
+
+from ...config import PAGE_CACHE_DIR, _valkey, logger
+from ..books._helpers import _get_pdf_doc
+
+
+def _is_pdf(filepath: str) -> bool:
+    return Path(filepath).suffix.lower() == ".pdf"
+
+
+def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
+    """Render one PDF map page to WebP bytes, caching to Valkey/disk like books.
+
+    Mirrors ``books.pages.serve_book_page`` rendering (PyMuPDF → WebP) but without
+    the book-specific text/word extraction. ``page_num`` is 1-based.
+    """
+    valkey_key = f"mappage:{filepath}:{page_num}:{width}"
+    if _valkey is not None:
+        try:
+            cached = _valkey.get(valkey_key)
+            if cached:
+                return cached
+        except Exception as e:
+            logger.warning(f"Valkey get error: {e}")
+
+    # Derive cache filename from the DB-sourced filepath (never user input) so no
+    # tainted data touches the filesystem path.
+    file_hash = hashlib.sha1(filepath.encode()).hexdigest()[:16]
+    cache_path = os.path.join(PAGE_CACHE_DIR, f"map_{file_hash}_{page_num}_{width}.webp")
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            data = f.read()
+        if _valkey is not None:
+            try:
+                _valkey.set(valkey_key, data)
+            except Exception as e:
+                logger.warning(f"Valkey set error: {e}")
+        return data
+
+    doc = _get_pdf_doc(filepath)
+    if page_num < 1 or page_num > len(doc):
+        raise ValueError(f"Page must be between 1 and {len(doc)}")
+    page = doc[page_num - 1]
+    zoom = width / page.rect.width
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+    buf = io.BytesIO()
+    PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
+        buf, format="webp", quality=85, method=0
+    )
+    img_bytes = buf.getvalue()
+
+    if _valkey is not None:
+        try:
+            _valkey.set(valkey_key, img_bytes)
+        except Exception as e:
+            logger.warning(f"Valkey set error: {e}")
+            with open(cache_path, "wb") as f:
+                f.write(img_bytes)
+    else:
+        with open(cache_path, "wb") as f:
+            f.write(img_bytes)
+
+    return img_bytes
 
 
 # Matches: (20x25), [30 by 40], 20x25, 20 X 25, 20×25, 20 by 25, 20-by-25
@@ -39,18 +105,42 @@ def _estimate_grid(
 
 
 def _map_image_info(filepath: str, relative_path: str) -> dict:
-    info: dict = {"pixel_width": None, "pixel_height": None, "dpi": None, "grid": None}
-    try:
-        img = PILImage.open(filepath)
-        info["pixel_width"], info["pixel_height"] = img.size
-        raw_dpi = img.info.get("dpi")
-        if raw_dpi:
-            dpi_val = float(raw_dpi[0]) if isinstance(raw_dpi, (tuple, list)) else float(raw_dpi)
-            if 10 < dpi_val < 2000:
-                info["dpi"] = round(dpi_val)
-        img.close()
-    except Exception:
-        return info
+    info: dict = {
+        "pixel_width": None,
+        "pixel_height": None,
+        "dpi": None,
+        "grid": None,
+        "is_pdf": False,
+        "page_count": None,
+    }
+    if _is_pdf(filepath):
+        info["is_pdf"] = True
+        try:
+            doc = _get_pdf_doc(filepath)
+            info["page_count"] = len(doc)
+            if len(doc):
+                rect = doc[0].rect
+                # PDF user-space units are 1/72". Report page-1 pixel size at 72
+                # DPI (i.e. the point dimensions) so grid detection can run.
+                info["pixel_width"] = round(rect.width)
+                info["pixel_height"] = round(rect.height)
+                info["dpi"] = 72
+        except Exception:
+            return info
+    else:
+        try:
+            img = PILImage.open(filepath)
+            info["pixel_width"], info["pixel_height"] = img.size
+            raw_dpi = img.info.get("dpi")
+            if raw_dpi:
+                dpi_val = (
+                    float(raw_dpi[0]) if isinstance(raw_dpi, (tuple, list)) else float(raw_dpi)
+                )
+                if 10 < dpi_val < 2000:
+                    info["dpi"] = round(dpi_val)
+            img.close()
+        except Exception:
+            return info
 
     pw, ph = info["pixel_width"], info["pixel_height"]
 
@@ -70,8 +160,9 @@ def _map_image_info(filepath: str, relative_path: str) -> dict:
             if 2 <= gw <= 300 and 2 <= gh <= 300 and err < 0.05:
                 info["grid"] = {"width": gw, "height": gh, "cell_px": info["dpi"], "source": "dpi"}
 
-        # 3. Estimate from common pixel-per-cell sizes
-        if not info["grid"]:
+        # 3. Estimate from common pixel-per-cell sizes (raster maps only — the
+        #    candidate cell sizes are meaningless against PDF point dimensions).
+        if not info["grid"] and not info["is_pdf"]:
             est = _estimate_grid(pw, ph, info["dpi"])
             if est:
                 info["grid"] = {
@@ -80,5 +171,14 @@ def _map_image_info(filepath: str, relative_path: str) -> dict:
                     "cell_px": est[2],
                     "source": "computed",
                 }
+
+    if info["is_pdf"]:
+        # The point-based dimensions and the synthetic 72 DPI were only useful for
+        # grid inference; they don't describe a real raster, so don't surface them.
+        info["pixel_width"] = None
+        info["pixel_height"] = None
+        info["dpi"] = None
+        if info["grid"] and "cell_px" in info["grid"]:
+            info["grid"].pop("cell_px")
 
     return info

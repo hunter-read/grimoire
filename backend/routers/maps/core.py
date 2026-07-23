@@ -1,18 +1,19 @@
 """Map CRUD, file-serving, and folder-tagging endpoints."""
 import hashlib
+import io
 import os
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-from ...config import SessionLocal, THUMB_DIR
+from ...config import _PAGE_CACHE_HEADERS, SessionLocal, THUMB_DIR
 from ...models import GenericMap, MapFolder
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
 from .._media_access import assert_media_access
-from ._helpers import _map_image_info
+from ._helpers import _is_pdf, _map_image_info, render_map_pdf_page
 from ._schemas import FolderTagsUpdate, MapUpdate
 
 router = APIRouter()
@@ -134,6 +135,51 @@ def serve_map_file(map_id: str, current_user: CurrentUser = Depends(get_current_
         return FileResponse(m.filepath, media_type=media, filename=m.filename)
     finally:
         db.close()
+
+
+def serve_map_page(
+    map_id: str,
+    page_num: int,
+    width: int = Query(1600, le=3000),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Render a single page of a PDF map to WebP.
+
+    Image maps have exactly one page and are streamed as-is (page_num must be 1).
+    PDF maps are rendered server-side with PyMuPDF and cached, mirroring the book
+    page reader but without text extraction.
+    """
+    db = SessionLocal()
+    try:
+        m = db.query(GenericMap).filter_by(id=map_id).first()
+        if not m:
+            raise HTTPException(404)
+        assert_media_access(db, current_user, "map", m.id)
+        if not os.path.exists(m.filepath):
+            if not m.is_missing:
+                m.is_missing = True
+                db.commit()
+            raise HTTPException(404, "File not found on disk")
+        filepath = m.filepath
+    finally:
+        db.close()
+
+    if not _is_pdf(filepath):
+        if page_num != 1:
+            raise HTTPException(400, "Image maps have only one page")
+        ext = Path(filepath).suffix.lower().lstrip(".")
+        media_type = "image/jpeg" if ext == "jpg" else f"image/{ext}"
+        return FileResponse(filepath, media_type=media_type, headers=_PAGE_CACHE_HEADERS)
+
+    try:
+        img_bytes = render_map_pdf_page(filepath, page_num, width)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:
+        raise HTTPException(500, "Failed to render page") from None
+    return StreamingResponse(
+        io.BytesIO(img_bytes), media_type="image/webp", headers=_PAGE_CACHE_HEADERS
+    )
 
 
 def serve_map_thumbnail(map_id: str, current_user: CurrentUser = Depends(get_current_user)):

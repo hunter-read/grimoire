@@ -244,9 +244,10 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/maps` | GET | any | Paginated map list. Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level) |
-| `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail` |
+| `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size` |
-| `/api/maps/:id/file` | GET | any | Download/stream the map image |
+| `/api/maps/:id/file` | GET | any | Download/stream the original map image or PDF |
+| `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1 |
 | `/api/maps/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/map-folders` | GET | any | List folder tag assignments |
 | `/api/map-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |

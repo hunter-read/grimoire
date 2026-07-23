@@ -2,7 +2,13 @@ import { mediaUrl } from '../../api'
 import TextOverlay from './TextOverlay'
 import { SPREAD_WIDTH, animStyle } from './pageRender'
 
-/** Two-page spread view for the reader. */
+/**
+ * Two-page spread view for the reader and PDF-map viewer.
+ *
+ * Pass `pageUrl(page, width)` to override where page images come from (defaults
+ * to the book page endpoint). When `wordsCacheRef` is omitted the selectable
+ * text overlay is skipped — used by maps, which render pages without text.
+ */
 export default function SpreadPage({
   bookId,
   currentPage,
@@ -16,7 +22,9 @@ export default function SpreadPage({
   directionRef,
   activeSearchQuery,
   activeHighlight,
+  pageUrl,
 }) {
+  const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   return (
     <div
       key={currentPage}
@@ -33,7 +41,7 @@ export default function SpreadPage({
       }}
     >
       {[currentPage, hasRight ? rightPage : null].filter(Boolean).map((p) => {
-        const wd = wordsCacheRef.current[p]
+        const wd = wordsCacheRef?.current[p]
         return wd ? (
           <div
             key={p}
@@ -46,7 +54,7 @@ export default function SpreadPage({
             }}
           >
             <img
-              src={mediaUrl(`/books/${bookId}/page/${p}`, { width: SPREAD_WIDTH })}
+              src={urlFor(p, SPREAD_WIDTH)}
               alt={getAlt(p)}
               draggable={false}
               style={{
@@ -69,7 +77,7 @@ export default function SpreadPage({
         ) : (
           <img
             key={p}
-            src={mediaUrl(`/books/${bookId}/page/${p}`, { width: SPREAD_WIDTH })}
+            src={urlFor(p, SPREAD_WIDTH)}
             alt={getAlt(p)}
             style={{
               maxHeight: '100%',
