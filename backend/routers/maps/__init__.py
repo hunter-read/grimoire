@@ -8,6 +8,7 @@ from .core import (
     update_map_folder,
     get_map,
     serve_map_file,
+    serve_map_page,
     serve_map_thumbnail,
     update_map,
 )
@@ -54,6 +55,13 @@ router.add_api_route(
     methods=["GET"],
     summary="Download map file",
     description="Streams the original map image or PDF. Accepts `?token=` for browser-embedded images.",
+)
+router.add_api_route(
+    "/maps/{map_id}/page/{page_num}",
+    serve_map_page,
+    methods=["GET"],
+    summary="Render a map page",
+    description="Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1. Accepts `?token=` for browser-embedded images.",
 )
 router.add_api_route(
     "/maps/{map_id}/thumbnail",

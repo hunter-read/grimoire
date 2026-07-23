@@ -23,7 +23,7 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **Library Browser** - Organizes your collection by game system with automatic folder detection
 - **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps, tokens, and audio by filename, folder, or tag
 - **Page-by-Page Viewer** - PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
-- **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download
+- **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download. Image and PDF maps both display in-app; multi-page PDF maps open in a viewer with single-page, two-page spread, and raw-PDF modes
 - **Token Browser** - Browse and tag character tokens and portrait assets
 - **Audio Library** - Browse ambient tracks, soundscapes, music, and sound effects by directory structure with tag filtering and in-browser playback (MP3, OGG, Opus, FLAC, WAV, M4A, AAC). Reads embedded duration and title/artist/album tags, and uses folder `cover`/`folder` images or embedded album art for artwork
 - **Global Audio Player** - A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
@@ -329,7 +329,7 @@ maps/
     └── map-file.png
 ```
 
-The folder name is shown as a group header in the map gallery.
+The folder name is shown as a group header in the map gallery. Both image maps and PDF maps (including multi-page PDFs) are supported and viewable in-app.
 
 ### Tokens - organize by type
 

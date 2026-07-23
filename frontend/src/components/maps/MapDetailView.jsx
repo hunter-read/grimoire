@@ -15,6 +15,7 @@ import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from './InlineTagEditor'
+import MapPdfViewer from './MapPdfViewer'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
@@ -110,6 +111,7 @@ export default function MapDetailView() {
   })()
 
   const currentFolderTags = map.folder_tags ?? []
+  const isPdf = !!map.is_pdf
 
   const saveMapTags = async (tags) => {
     await api.patch(`/maps/${mapId}`, { tags })
@@ -242,53 +244,64 @@ export default function MapDetailView() {
           flexDirection: isMobilePhone ? 'column' : 'row',
         }}
       >
-        {/* Image pane */}
-        <div
-          ref={imagePane}
-          style={{
-            position: 'relative',
-            flex: 1,
-            overflow: 'auto',
-            background: 'var(--bg-deep)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 24,
-          }}
-        >
-          <img
-            src={mediaUrl(`/maps/${mapId}/file`)}
-            alt={map.filename}
+        {/* Image / PDF pane */}
+        {isPdf ? (
+          <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
+            <MapPdfViewer
+              mapId={mapId}
+              filename={map.filename}
+              totalPages={map.page_count || 1}
+              isMobilePhone={isMobilePhone}
+            />
+          </div>
+        ) : (
+          <div
+            ref={imagePane}
             style={{
-              maxWidth: '100%',
-              maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',
-              borderRadius: 4,
-              boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
-              ...imageStyle,
+              position: 'relative',
+              flex: 1,
+              overflow: 'auto',
+              background: 'var(--bg-deep)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
             }}
-            draggable={false}
-          />
-          {hasPrev && (
-            <button
-              onClick={onPrev}
-              aria-label={t('maps.detail.previous')}
-              title={t('maps.detail.previous')}
-              style={{ ...navButtonStyle, left: 12 }}
-            >
-              <LuChevronLeft size={26} />
-            </button>
-          )}
-          {hasNext && (
-            <button
-              onClick={onNext}
-              aria-label={t('maps.detail.next')}
-              title={t('maps.detail.next')}
-              style={{ ...navButtonStyle, right: 12 }}
-            >
-              <LuChevronRight size={26} />
-            </button>
-          )}
-        </div>
+          >
+            <img
+              src={mediaUrl(`/maps/${mapId}/file`)}
+              alt={map.filename}
+              style={{
+                maxWidth: '100%',
+                maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',
+                borderRadius: 4,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                ...imageStyle,
+              }}
+              draggable={false}
+            />
+            {hasPrev && (
+              <button
+                onClick={onPrev}
+                aria-label={t('maps.detail.previous')}
+                title={t('maps.detail.previous')}
+                style={{ ...navButtonStyle, left: 12 }}
+              >
+                <LuChevronLeft size={26} />
+              </button>
+            )}
+            {hasNext && (
+              <button
+                onClick={onNext}
+                aria-label={t('maps.detail.next')}
+                title={t('maps.detail.next')}
+                style={{ ...navButtonStyle, right: 12 }}
+              >
+                <LuChevronRight size={26} />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Metadata sidebar — always visible on desktop, toggle-controlled on mobile */}
         <div

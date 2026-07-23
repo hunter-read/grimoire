@@ -104,6 +104,25 @@ class TestGetMap:
         resp = client.get("/api/maps/does-not-exist", headers=admin_headers)
         assert resp.status_code == 404
 
+    def test_raster_map_reports_not_pdf(self, client, admin_headers, map_entry):
+        resp = client.get(f"/api/maps/{map_entry.id}", headers=admin_headers)
+        body = resp.json()
+        assert body["is_pdf"] is False
+        assert body["page_count"] is None
+
+    def test_pdf_map_reports_page_count(self, client, admin_headers, tmp_path):
+        f = tmp_path / "dungeon.pdf"
+        _write_pdf(f, pages=4)
+        m = make_map(filename="dungeon.pdf", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}", headers=admin_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["is_pdf"] is True
+        assert body["page_count"] == 4
+        # PDF point dimensions/DPI aren't surfaced as raster info.
+        assert body["pixel_width"] is None
+        assert body["dpi"] is None
+
 
 class TestUpdateMap:
     def test_gm_can_update_map(self, client, gm_headers, map_entry):
@@ -245,6 +264,69 @@ class TestServeMapFile:
         gone = tmp_path / "gone.png"
         m = make_map(filename="gone.png", filepath=str(gone))
         resp = client.get(f"/api/maps/{m.id}/file", headers=admin_headers)
+        assert resp.status_code == 404
+        db = SessionLocal()
+        try:
+            from backend.models import GenericMap
+
+            assert db.query(GenericMap).filter_by(id=m.id).first().is_missing
+        finally:
+            db.close()
+
+
+def _write_pdf(path, pages=1):
+    """Create a real multi-page PDF on disk so PyMuPDF can render it."""
+    import fitz
+
+    doc = fitz.open()
+    for i in range(pages):
+        page = doc.new_page(width=612, height=792)
+        page.insert_text((72, 72), f"Map page {i + 1}")
+    doc.save(str(path))
+    doc.close()
+
+
+class TestServeMapPage:
+    def test_image_map_page1_returns_file(self, client, admin_headers, tmp_path):
+        f = tmp_path / "battle.png"
+        f.write_bytes(b"fake-png-bytes")
+        m = make_map(filename="battle.png", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/page/1", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
+        assert resp.content == b"fake-png-bytes"
+
+    def test_image_map_page_beyond_1_is_400(self, client, admin_headers, tmp_path):
+        f = tmp_path / "battle.png"
+        f.write_bytes(b"fake-png-bytes")
+        m = make_map(filename="battle.png", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/page/2", headers=admin_headers)
+        assert resp.status_code == 400
+
+    def test_pdf_map_page_rendered_as_webp(self, client, admin_headers, tmp_path):
+        f = tmp_path / "atlas.pdf"
+        _write_pdf(f, pages=3)
+        m = make_map(filename="atlas.pdf", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/page/2", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/webp"
+        assert resp.content[:4] == b"RIFF"  # WebP container magic
+
+    def test_pdf_map_page_out_of_range_is_400(self, client, admin_headers, tmp_path):
+        f = tmp_path / "atlas.pdf"
+        _write_pdf(f, pages=1)
+        m = make_map(filename="atlas.pdf", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/page/5", headers=admin_headers)
+        assert resp.status_code == 400
+
+    def test_missing_map_returns_404(self, client, admin_headers):
+        resp = client.get("/api/maps/nope/page/1", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_file_absent_from_disk_marks_missing(self, client, admin_headers, tmp_path):
+        gone = tmp_path / "gone.pdf"
+        m = make_map(filename="gone.pdf", filepath=str(gone))
+        resp = client.get(f"/api/maps/{m.id}/page/1", headers=admin_headers)
         assert resp.status_code == 404
         db = SessionLocal()
         try:

@@ -27,6 +27,11 @@ vi.mock('./InlineTagEditor', () => ({
 vi.mock('../TagSection', () => ({
   default: ({ label, onEdit }) => <button onClick={onEdit}>{`edit-${label}`}</button>,
 }))
+vi.mock('./MapPdfViewer', () => ({
+  default: ({ mapId, totalPages }) => (
+    <div data-testid="pdf-viewer">{`pdf:${mapId}:${totalPages}`}</div>
+  ),
+}))
 
 // Three maps in the same folder, sorted by filename: m1, m2, m3.
 const SIBLINGS = [
@@ -127,6 +132,22 @@ describe('MapDetailView', () => {
     expect(navigate).toHaveBeenCalledWith('/maps/m3')
     await userEvent.keyboard('{ArrowLeft}')
     expect(navigate).toHaveBeenCalledWith('/maps/m1')
+  })
+
+  it('renders the PDF viewer for a PDF map instead of an <img>', async () => {
+    mockApi('m2', { filename: 'm2.pdf', is_pdf: true, page_count: 4 })
+    render(<MapDetailView />)
+    const viewer = await screen.findByTestId('pdf-viewer')
+    expect(viewer).toHaveTextContent('pdf:m2:4')
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  it('renders an <img> (not the PDF viewer) for a raster map', async () => {
+    mockApi('m2')
+    render(<MapDetailView />)
+    await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
+    expect(screen.queryByTestId('pdf-viewer')).toBeNull()
+    expect(document.querySelector('img')).toBeInTheDocument()
   })
 
   it('saves edited map tags', async () => {

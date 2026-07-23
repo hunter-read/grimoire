@@ -2,7 +2,13 @@ import { mediaUrl } from '../../api'
 import TextOverlay from './TextOverlay'
 import { PAGE_WIDTH, animStyle } from './pageRender'
 
-/** Single-page view for the reader. */
+/**
+ * Single-page view for the reader and PDF-map viewer.
+ *
+ * Pass `pageUrl(page, width)` to override where page images come from (defaults
+ * to the book page endpoint). When `wordsCacheRef` is omitted the selectable
+ * text overlay is skipped — used by maps, which render pages without text.
+ */
 export default function SinglePage({
   bookId,
   currentPage,
@@ -14,8 +20,10 @@ export default function SinglePage({
   directionRef,
   activeSearchQuery,
   activeHighlight,
+  pageUrl,
 }) {
-  const wd = wordsCacheRef.current[currentPage]
+  const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
+  const wd = wordsCacheRef?.current[currentPage]
   return (
     <div
       key={currentPage}
@@ -41,7 +49,7 @@ export default function SinglePage({
           }}
         >
           <img
-            src={mediaUrl(`/books/${bookId}/page/${currentPage}`, { width: PAGE_WIDTH })}
+            src={urlFor(currentPage, PAGE_WIDTH)}
             alt={getAlt(currentPage)}
             draggable={false}
             style={{
@@ -63,7 +71,7 @@ export default function SinglePage({
         </div>
       ) : (
         <img
-          src={mediaUrl(`/books/${bookId}/page/${currentPage}`, { width: PAGE_WIDTH })}
+          src={urlFor(currentPage, PAGE_WIDTH)}
           alt={getAlt(currentPage)}
           style={{
             maxHeight: '100%',
