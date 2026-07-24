@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from fastapi import Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import text as sql_text
 
@@ -12,62 +13,58 @@ import fitz  # type: ignore[import-untyped]
 from PIL import Image  # type: ignore[import-untyped]
 
 from ...auth import CurrentUser, get_current_user
-from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, SessionLocal, _valkey, logger
+from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, _valkey, logger, get_db
 from ...models import Book
 from ._helpers import _assert_book_access, _cached_book_info, _get_pdf_doc
 
 
-def _authorize_book(book_id: str, user) -> None:
+def _authorize_book(db: Session, book_id: str, user) -> None:
     """Look the book up and enforce read access before serving its content.
 
     Shared by the page/TOC/text/words routes, which otherwise serve content by
     bare id with no per-book authorisation. 404s a missing book so we don't leak
     which ids exist to a caller that couldn't read them anyway.
     """
-    db = SessionLocal()
-    try:
-        book = db.query(Book).filter_by(id=book_id).first()
-        if not book:
-            raise HTTPException(404, "Book not found")
-        _assert_book_access(db, book, user)
-    finally:
-        db.close()
+    book = db.query(Book).filter_by(id=book_id).first()
+    if not book:
+        raise HTTPException(404, "Book not found")
+    _assert_book_access(db, book, user)
 
 
-def get_book_toc(book_id: str, current_user: CurrentUser = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        book = db.query(Book).filter_by(id=book_id).first()
-        if not book or book.mime_type != "application/pdf":
-            raise HTTPException(404)
-        _assert_book_access(db, book, current_user)
-        doc = fitz.open(book.filepath)
-        raw = doc.get_toc(simple=True)
-        doc.close()
+def get_book_toc(
+    book_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    book = db.query(Book).filter_by(id=book_id).first()
+    if not book or book.mime_type != "application/pdf":
+        raise HTTPException(404)
+    _assert_book_access(db, book, current_user)
+    doc = fitz.open(book.filepath)
+    raw = doc.get_toc(simple=True)
+    doc.close()
 
-        def build_tree(items, min_level):
-            result = []
-            i = 0
-            while i < len(items):
-                level, title, page = items[i]
-                if level < min_level:
-                    break
-                if level == min_level:
-                    node = {"title": title, "page": page, "level": level, "children": []}
-                    j = i + 1
-                    while j < len(items) and items[j][0] > min_level:
-                        j += 1
-                    node["children"] = build_tree(items[i + 1 : j], min_level + 1)
-                    result.append(node)
-                    i = j
-                else:
-                    i += 1
-            return result
+    def build_tree(items, min_level):
+        result = []
+        i = 0
+        while i < len(items):
+            level, title, page = items[i]
+            if level < min_level:
+                break
+            if level == min_level:
+                node = {"title": title, "page": page, "level": level, "children": []}
+                j = i + 1
+                while j < len(items) and items[j][0] > min_level:
+                    j += 1
+                node["children"] = build_tree(items[i + 1 : j], min_level + 1)
+                result.append(node)
+                i = j
+            else:
+                i += 1
+        return result
 
-        min_lvl = min((r[0] for r in raw), default=1)
-        return {"toc": build_tree(raw, min_lvl)}
-    finally:
-        db.close()
+    min_lvl = min((r[0] for r in raw), default=1)
+    return {"toc": build_tree(raw, min_lvl)}
 
 
 def serve_book_page(
@@ -75,8 +72,9 @@ def serve_book_page(
     page_num: int,
     width: int = Query(1200, le=3000),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    _authorize_book(book_id, current_user)
+    _authorize_book(db, book_id, current_user)
     book_info = _cached_book_info(book_id)
     if not book_info:
         raise HTTPException(404)
@@ -86,14 +84,10 @@ def serve_book_page(
         if page_num != 1:
             raise HTTPException(400, "Image files have only one page")
         if not os.path.exists(filepath):
-            db = SessionLocal()
-            try:
-                book = db.query(Book).filter_by(id=book_id).first()
-                if book and not book.is_missing:
-                    book.is_missing = True
-                    db.commit()
-            finally:
-                db.close()
+            book = db.query(Book).filter_by(id=book_id).first()
+            if book and not book.is_missing:
+                book.is_missing = True
+                db.commit()
             raise HTTPException(404, "File not found on disk")
         ext = Path(filepath).suffix.lower().lstrip(".")
         media_type = f"image/{ext}" if ext not in ("jpg",) else "image/jpeg"
@@ -128,14 +122,10 @@ def serve_book_page(
         return FileResponse(cache_path, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
 
     if not os.path.exists(filepath):
-        db = SessionLocal()
-        try:
-            book = db.query(Book).filter_by(id=book_id).first()
-            if book and not book.is_missing:
-                book.is_missing = True
-                db.commit()
-        finally:
-            db.close()
+        book = db.query(Book).filter_by(id=book_id).first()
+        if book and not book.is_missing:
+            book.is_missing = True
+            db.commit()
         raise HTTPException(404, "File not found on disk")
     doc = _get_pdf_doc(filepath)
     if page_num < 1 or page_num > len(doc):
@@ -166,23 +156,22 @@ def serve_book_page(
 
 
 def get_page_text(
-    book_id: str, page_num: int, current_user: CurrentUser = Depends(get_current_user)
+    book_id: str,
+    page_num: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    _authorize_book(book_id, current_user)
+    _authorize_book(db, book_id, current_user)
     book_info = _cached_book_info(book_id)
     if not book_info or not book_info[1].startswith("application/"):
         raise HTTPException(404)
 
-    db = SessionLocal()
-    try:
-        row = db.execute(
-            sql_text(
-                "SELECT content FROM book_search WHERE book_id = :bid AND page_number = :pnum LIMIT 1"
-            ),
-            {"bid": book_id, "pnum": page_num},
-        ).fetchone()
-    finally:
-        db.close()
+    row = db.execute(
+        sql_text(
+            "SELECT content FROM book_search WHERE book_id = :bid AND page_number = :pnum LIMIT 1"
+        ),
+        {"bid": book_id, "pnum": page_num},
+    ).fetchone()
     if row is not None:
         return {"text": row[0] or ""}
 
@@ -196,9 +185,12 @@ def get_page_text(
 
 
 def get_page_words(
-    book_id: str, page_num: int, current_user: CurrentUser = Depends(get_current_user)
+    book_id: str,
+    page_num: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    _authorize_book(book_id, current_user)
+    _authorize_book(db, book_id, current_user)
     book_info = _cached_book_info(book_id)
     if not book_info or not book_info[1].startswith("application/"):
         return {"width": 0, "height": 0, "words": []}

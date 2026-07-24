@@ -8,14 +8,18 @@ from .core import (
     get_campaign,
     update_campaign,
     delete_campaign,
-    search_resources_global,
+    list_invites,
+    admin_list_user_campaigns,
+)
+from .members import (
     invite_member,
     update_member_status,
     remove_member,
-    list_invites,
-    suggested_resources,
     eligible_members,
-    admin_list_user_campaigns,
+)
+from .resource_search import (
+    search_resources_global,
+    suggested_resources,
 )
 from .resources import (
     list_resources,

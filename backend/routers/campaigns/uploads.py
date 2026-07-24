@@ -11,9 +11,10 @@ import uuid
 from typing import Optional
 
 from fastapi import Depends, File, Form, HTTPException, Query, Request, UploadFile
+from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
-from ...config import CAMPAIGN_UPLOAD_DIR, SessionLocal, logger
+from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
 from ._helpers import assert_can_manage, can_view, get_campaign_or_404
@@ -124,37 +125,34 @@ def upload_banner(
     campaign_id: str,
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
-        _validate_image(data)
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    _validate_image(data)
 
-        ext = _IMAGE_TYPES[file.content_type]
-        _remove_existing(_BANNER_DIR, campaign_id)
-        filename = f"{campaign_id}{ext}"
-        os.makedirs(_BANNER_DIR, exist_ok=True)
-        with open(os.path.join(_BANNER_DIR, filename), "wb") as f:
-            f.write(data)
+    ext = _IMAGE_TYPES[file.content_type]
+    _remove_existing(_BANNER_DIR, campaign_id)
+    filename = f"{campaign_id}{ext}"
+    os.makedirs(_BANNER_DIR, exist_ok=True)
+    with open(os.path.join(_BANNER_DIR, filename), "wb") as f:
+        f.write(data)
 
-        # Store a downscaled copy served by default; failure is non-fatal — the
-        # get handler falls back to the original.
-        thumb = _make_banner_thumb(data)
-        thumb_path = _banner_thumb_path(campaign_id)
-        if thumb is not None:
-            with open(thumb_path, "wb") as f:
-                f.write(thumb)
-        elif os.path.isfile(thumb_path):
-            # A prior, now-stale thumbnail must not outlive this replacement.
-            os.remove(thumb_path)
+    # Store a downscaled copy served by default; failure is non-fatal — the
+    # get handler falls back to the original.
+    thumb = _make_banner_thumb(data)
+    thumb_path = _banner_thumb_path(campaign_id)
+    if thumb is not None:
+        with open(thumb_path, "wb") as f:
+            f.write(thumb)
+    elif os.path.isfile(thumb_path):
+        # A prior, now-stale thumbnail must not outlive this replacement.
+        os.remove(thumb_path)
 
-        c.banner_path = filename
-        db.commit()
-        return {"banner_path": filename}
-    finally:
-        db.close()
+    c.banner_path = filename
+    db.commit()
+    return {"banner_path": filename}
 
 
 def get_banner(
@@ -162,51 +160,48 @@ def get_banner(
     request: Request,
     size: str = Query("small"),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Serve the campaign banner. Defaults to a <=1000px-wide WebP; `size=full`
     serves the original upload. The small copy is generated on first access for
     banners uploaded before downscaling existed."""
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        if not can_view(c, current_user, db):
-            raise HTTPException(403, "Not a member of this campaign")
-        if not c.banner_path:
-            raise HTTPException(404, "No banner")
-        path = os.path.join(_BANNER_DIR, c.banner_path)
-        if not os.path.isfile(path):
-            raise HTTPException(404, "No banner")
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    if not c.banner_path:
+        raise HTTPException(404, "No banner")
+    path = os.path.join(_BANNER_DIR, c.banner_path)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "No banner")
 
-        if size != "full":
-            thumb_path = _banner_thumb_path(campaign_id)
-            if not os.path.isfile(thumb_path):
-                # Backfill for banners uploaded before downscaling.
-                with open(path, "rb") as f:
-                    thumb = _make_banner_thumb(f.read())
-                if thumb is not None:
-                    with open(thumb_path, "wb") as f:
-                        f.write(thumb)
-            if os.path.isfile(thumb_path):
-                path = thumb_path
-
-        return cached_file_response(request, path)
-    finally:
-        db.close()
-
-
-def delete_banner(campaign_id: str, current_user: CurrentUser = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        _remove_existing(_BANNER_DIR, campaign_id)
+    if size != "full":
         thumb_path = _banner_thumb_path(campaign_id)
+        if not os.path.isfile(thumb_path):
+            # Backfill for banners uploaded before downscaling.
+            with open(path, "rb") as f:
+                thumb = _make_banner_thumb(f.read())
+            if thumb is not None:
+                with open(thumb_path, "wb") as f:
+                    f.write(thumb)
         if os.path.isfile(thumb_path):
-            os.remove(thumb_path)
-        c.banner_path = None
-        db.commit()
-    finally:
-        db.close()
+            path = thumb_path
+
+    return cached_file_response(request, path)
+
+
+def delete_banner(
+    campaign_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    _remove_existing(_BANNER_DIR, campaign_id)
+    thumb_path = _banner_thumb_path(campaign_id)
+    if os.path.isfile(thumb_path):
+        os.remove(thumb_path)
+    c.banner_path = None
+    db.commit()
 
 
 # --- Character art ----------------------------------------------------------
@@ -217,26 +212,23 @@ def upload_member_art(
     member_id: str,
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        member = _get_member_or_404(db, campaign_id, member_id)
-        _assert_can_edit_member(c, member, current_user)
-        data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
-        _validate_image(data)
+    c = get_campaign_or_404(db, campaign_id)
+    member = _get_member_or_404(db, campaign_id, member_id)
+    _assert_can_edit_member(c, member, current_user)
+    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    _validate_image(data)
 
-        ext = _IMAGE_TYPES[file.content_type]
-        _remove_existing(_ART_DIR, member_id)
-        filename = f"{member_id}{ext}"
-        with open(os.path.join(_ART_DIR, filename), "wb") as f:
-            f.write(data)
+    ext = _IMAGE_TYPES[file.content_type]
+    _remove_existing(_ART_DIR, member_id)
+    filename = f"{member_id}{ext}"
+    with open(os.path.join(_ART_DIR, filename), "wb") as f:
+        f.write(data)
 
-        member.character_art_path = filename
-        db.commit()
-        return {"character_art_path": filename}
-    finally:
-        db.close()
+    member.character_art_path = filename
+    db.commit()
+    return {"character_art_path": filename}
 
 
 def get_member_art(
@@ -244,36 +236,30 @@ def get_member_art(
     member_id: str,
     request: Request,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        if not can_view(c, current_user, db):
-            raise HTTPException(403, "Not a member of this campaign")
-        member = _get_member_or_404(db, campaign_id, member_id)
-        if not member.character_art_path:
-            raise HTTPException(404, "No art")
-        path = os.path.join(_ART_DIR, member.character_art_path)
-        if not os.path.isfile(path):
-            raise HTTPException(404, "No art")
-        return cached_file_response(request, path)
-    finally:
-        db.close()
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    member = _get_member_or_404(db, campaign_id, member_id)
+    if not member.character_art_path:
+        raise HTTPException(404, "No art")
+    path = os.path.join(_ART_DIR, member.character_art_path)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "No art")
+    return cached_file_response(request, path)
 
 
 def delete_member_art(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        member = _get_member_or_404(db, campaign_id, member_id)
-        _assert_can_edit_member(c, member, current_user)
-        _remove_existing(_ART_DIR, member_id)
-        member.character_art_path = None
-        db.commit()
-    finally:
-        db.close()
+    c = get_campaign_or_404(db, campaign_id)
+    member = _get_member_or_404(db, campaign_id, member_id)
+    _assert_can_edit_member(c, member, current_user)
+    _remove_existing(_ART_DIR, member_id)
+    member.character_art_path = None
+    db.commit()
 
 
 # --- Character sheet --------------------------------------------------------
@@ -284,32 +270,29 @@ def upload_member_sheet(
     member_id: str,
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        member = _get_member_or_404(db, campaign_id, member_id)
-        _assert_can_edit_member(c, member, current_user)
-        data = _read_upload(file, _SHEET_TYPES, _MAX_SHEET_BYTES)
-        if file.content_type in _IMAGE_TYPES:
-            _validate_image(data)
+    c = get_campaign_or_404(db, campaign_id)
+    member = _get_member_or_404(db, campaign_id, member_id)
+    _assert_can_edit_member(c, member, current_user)
+    data = _read_upload(file, _SHEET_TYPES, _MAX_SHEET_BYTES)
+    if file.content_type in _IMAGE_TYPES:
+        _validate_image(data)
 
-        ext = _SHEET_TYPES[file.content_type]
-        _remove_existing(_SHEET_DIR, member_id)
-        filename = f"{member_id}{ext}"
-        with open(os.path.join(_SHEET_DIR, filename), "wb") as f:
-            f.write(data)
+    ext = _SHEET_TYPES[file.content_type]
+    _remove_existing(_SHEET_DIR, member_id)
+    filename = f"{member_id}{ext}"
+    with open(os.path.join(_SHEET_DIR, filename), "wb") as f:
+        f.write(data)
 
-        member.character_sheet_path = filename
-        member.character_sheet_filename = os.path.basename(file.filename or f"sheet{ext}")
-        member.character_sheet_url = None  # an uploaded sheet replaces any URL
-        db.commit()
-        return {
-            "character_sheet_path": filename,
-            "character_sheet_filename": member.character_sheet_filename,
-        }
-    finally:
-        db.close()
+    member.character_sheet_path = filename
+    member.character_sheet_filename = os.path.basename(file.filename or f"sheet{ext}")
+    member.character_sheet_url = None  # an uploaded sheet replaces any URL
+    db.commit()
+    return {
+        "character_sheet_path": filename,
+        "character_sheet_filename": member.character_sheet_filename,
+    }
 
 
 def get_member_sheet(
@@ -317,41 +300,35 @@ def get_member_sheet(
     member_id: str,
     request: Request,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        if not can_view(c, current_user, db):
-            raise HTTPException(403, "Not a member of this campaign")
-        member = _get_member_or_404(db, campaign_id, member_id)
-        if not member.character_sheet_path:
-            raise HTTPException(404, "No sheet")
-        path = os.path.join(_SHEET_DIR, member.character_sheet_path)
-        if not os.path.isfile(path):
-            raise HTTPException(404, "No sheet")
-        return cached_file_response(
-            request,
-            path,
-            filename=member.character_sheet_filename or member.character_sheet_path,
-        )
-    finally:
-        db.close()
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    member = _get_member_or_404(db, campaign_id, member_id)
+    if not member.character_sheet_path:
+        raise HTTPException(404, "No sheet")
+    path = os.path.join(_SHEET_DIR, member.character_sheet_path)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "No sheet")
+    return cached_file_response(
+        request,
+        path,
+        filename=member.character_sheet_filename or member.character_sheet_path,
+    )
 
 
 def delete_member_sheet(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        member = _get_member_or_404(db, campaign_id, member_id)
-        _assert_can_edit_member(c, member, current_user)
-        _remove_existing(_SHEET_DIR, member_id)
-        member.character_sheet_path = None
-        member.character_sheet_filename = None
-        db.commit()
-    finally:
-        db.close()
+    c = get_campaign_or_404(db, campaign_id)
+    member = _get_member_or_404(db, campaign_id, member_id)
+    _assert_can_edit_member(c, member, current_user)
+    _remove_existing(_SHEET_DIR, member_id)
+    member.character_sheet_path = None
+    member.character_sheet_filename = None
+    db.commit()
 
 
 # --- Campaign file uploads (linked as resource_type='file') -----------------
@@ -372,77 +349,74 @@ def upload_campaign_file(
     campaign_id: str,
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """GM uploads a file that becomes a linked 'file' resource. Admins bypass limits."""
     from ...models import CampaignFile, CampaignResource
 
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
 
-        is_admin = current_user.role == "admin"
-        disabled, max_file, max_total = _upload_limits(db)
-        if disabled and not is_admin:
-            raise HTTPException(403, "Campaign file uploads are disabled by the administrator")
+    is_admin = current_user.role == "admin"
+    disabled, max_file, max_total = _upload_limits(db)
+    if disabled and not is_admin:
+        raise HTTPException(403, "Campaign file uploads are disabled by the administrator")
 
-        data = file.file.read(_MAX_FILE_BYTES + 1)
-        if not data:
-            raise HTTPException(400, "Empty file")
-        if len(data) > _MAX_FILE_BYTES:
-            raise HTTPException(413, "File is too large")
-        if not is_admin and max_file and len(data) > max_file:
-            raise HTTPException(413, "File exceeds the per-file size limit")
+    data = file.file.read(_MAX_FILE_BYTES + 1)
+    if not data:
+        raise HTTPException(400, "Empty file")
+    if len(data) > _MAX_FILE_BYTES:
+        raise HTTPException(413, "File is too large")
+    if not is_admin and max_file and len(data) > max_file:
+        raise HTTPException(413, "File exceeds the per-file size limit")
 
-        if not is_admin and max_total:
-            used = sum(
-                f.size_bytes or 0
-                for f in db.query(CampaignFile).filter_by(campaign_id=campaign_id).all()
-            )
-            if used + len(data) > max_total:
-                raise HTTPException(413, "Campaign upload storage limit reached")
-
-        ext = os.path.splitext(file.filename or "")[1][:16]
-        stored = f"{uuid.uuid4().hex}{ext}"
-        with open(os.path.join(_FILES_DIR, stored), "wb") as f:
-            f.write(data)
-
-        cf = CampaignFile(
-            campaign_id=campaign_id,
-            stored_path=stored,
-            filename=os.path.basename(file.filename or stored),
-            mime_type=file.content_type or "application/octet-stream",
-            size_bytes=len(data),
-            is_image=(file.content_type in _IMAGE_TYPES),
-            uploaded_by_id=current_user.id,
+    if not is_admin and max_total:
+        used = sum(
+            f.size_bytes or 0
+            for f in db.query(CampaignFile).filter_by(campaign_id=campaign_id).all()
         )
-        db.add(cf)
-        db.flush()
+        if used + len(data) > max_total:
+            raise HTTPException(413, "Campaign upload storage limit reached")
 
-        # Link it as a resource so it shows alongside books/maps/tokens.
-        max_order = db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
-        res = CampaignResource(
-            campaign_id=campaign_id,
-            resource_type="file",
-            resource_id=cf.id,
-            visibility="gm",
-            sort_order=max_order,
-        )
-        db.add(res)
-        db.commit()
-        db.refresh(res)
-        return {
-            "id": res.id,
-            "resource_type": "file",
-            "resource_id": cf.id,
-            "name": cf.filename,
-            "is_image": cf.is_image,
-            "visibility": res.visibility,
-            "category_id": res.category_id,
-            "sort_order": res.sort_order,
-        }
-    finally:
-        db.close()
+    ext = os.path.splitext(file.filename or "")[1][:16]
+    stored = f"{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(_FILES_DIR, stored), "wb") as f:
+        f.write(data)
+
+    cf = CampaignFile(
+        campaign_id=campaign_id,
+        stored_path=stored,
+        filename=os.path.basename(file.filename or stored),
+        mime_type=file.content_type or "application/octet-stream",
+        size_bytes=len(data),
+        is_image=(file.content_type in _IMAGE_TYPES),
+        uploaded_by_id=current_user.id,
+    )
+    db.add(cf)
+    db.flush()
+
+    # Link it as a resource so it shows alongside books/maps/tokens.
+    max_order = db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
+    res = CampaignResource(
+        campaign_id=campaign_id,
+        resource_type="file",
+        resource_id=cf.id,
+        visibility="gm",
+        sort_order=max_order,
+    )
+    db.add(res)
+    db.commit()
+    db.refresh(res)
+    return {
+        "id": res.id,
+        "resource_type": "file",
+        "resource_id": cf.id,
+        "name": cf.filename,
+        "is_image": cf.is_image,
+        "visibility": res.visibility,
+        "category_id": res.category_id,
+        "sort_order": res.sort_order,
+    }
 
 
 def upload_campaign_image(
@@ -451,6 +425,7 @@ def upload_campaign_image(
     category_id: str = Form(""),
     new_category_name: str = Form(""),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Upload an image to embed in a wiki note.
 
@@ -460,90 +435,86 @@ def upload_campaign_image(
     """
     from ...models import CampaignCategory, CampaignFile, CampaignResource
 
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
 
-        is_admin = current_user.role == "admin"
-        disabled, max_file, _max_total = _upload_limits(db)
-        if disabled and not is_admin:
-            raise HTTPException(403, "Campaign file uploads are disabled by the administrator")
+    is_admin = current_user.role == "admin"
+    disabled, max_file, _max_total = _upload_limits(db)
+    if disabled and not is_admin:
+        raise HTTPException(403, "Campaign file uploads are disabled by the administrator")
 
-        data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
-        _validate_image(data)
-        if not is_admin and max_file and len(data) > max_file:
-            raise HTTPException(413, "File exceeds the per-file size limit")
+    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    _validate_image(data)
+    if not is_admin and max_file and len(data) > max_file:
+        raise HTTPException(413, "File exceeds the per-file size limit")
 
-        # Resolve the category: an existing resource category, or create a new one.
-        resolved_category_id = None
-        new_name = (new_category_name or "").strip()
-        if new_name:
-            max_order = (
-                db.query(CampaignCategory)
-                .filter_by(campaign_id=campaign_id, kind="resource")
-                .count()
-            )
-            cat = CampaignCategory(
-                campaign_id=campaign_id,
-                kind="resource",
-                name=new_name,
-                sort_order=max_order,
-            )
-            db.add(cat)
-            db.flush()
-            resolved_category_id = cat.id
-        elif category_id:
-            cat = (
-                db.query(CampaignCategory)
-                .filter_by(id=category_id, campaign_id=campaign_id, kind="resource")
-                .first()
-            )
-            if not cat:
-                raise HTTPException(400, "Invalid category")
-            resolved_category_id = cat.id
-
-        ext = _IMAGE_TYPES[file.content_type]
-        stored = f"{uuid.uuid4().hex}{ext}"
-        with open(os.path.join(_FILES_DIR, stored), "wb") as f:
-            f.write(data)
-
-        cf = CampaignFile(
-            campaign_id=campaign_id,
-            stored_path=stored,
-            filename=os.path.basename(file.filename or stored),
-            mime_type=file.content_type,
-            size_bytes=len(data),
-            is_image=True,
-            uploaded_by_id=current_user.id,
+    # Resolve the category: an existing resource category, or create a new one.
+    resolved_category_id = None
+    new_name = (new_category_name or "").strip()
+    if new_name:
+        max_order = (
+            db.query(CampaignCategory)
+            .filter_by(campaign_id=campaign_id, kind="resource")
+            .count()
         )
-        db.add(cf)
-        db.flush()
-
-        max_order = db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
-        res = CampaignResource(
+        cat = CampaignCategory(
             campaign_id=campaign_id,
-            resource_type="file",
-            resource_id=cf.id,
-            visibility="gm",
-            category_id=resolved_category_id,
+            kind="resource",
+            name=new_name,
             sort_order=max_order,
         )
-        db.add(res)
-        db.commit()
-        db.refresh(res)
-        return {
-            "id": res.id,
-            "resource_type": "file",
-            "resource_id": cf.id,
-            "name": cf.filename,
-            "is_image": True,
-            "visibility": res.visibility,
-            "category_id": res.category_id,
-            "sort_order": res.sort_order,
-        }
-    finally:
-        db.close()
+        db.add(cat)
+        db.flush()
+        resolved_category_id = cat.id
+    elif category_id:
+        cat = (
+            db.query(CampaignCategory)
+            .filter_by(id=category_id, campaign_id=campaign_id, kind="resource")
+            .first()
+        )
+        if not cat:
+            raise HTTPException(400, "Invalid category")
+        resolved_category_id = cat.id
+
+    ext = _IMAGE_TYPES[file.content_type]
+    stored = f"{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(_FILES_DIR, stored), "wb") as f:
+        f.write(data)
+
+    cf = CampaignFile(
+        campaign_id=campaign_id,
+        stored_path=stored,
+        filename=os.path.basename(file.filename or stored),
+        mime_type=file.content_type,
+        size_bytes=len(data),
+        is_image=True,
+        uploaded_by_id=current_user.id,
+    )
+    db.add(cf)
+    db.flush()
+
+    max_order = db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
+    res = CampaignResource(
+        campaign_id=campaign_id,
+        resource_type="file",
+        resource_id=cf.id,
+        visibility="gm",
+        category_id=resolved_category_id,
+        sort_order=max_order,
+    )
+    db.add(res)
+    db.commit()
+    db.refresh(res)
+    return {
+        "id": res.id,
+        "resource_type": "file",
+        "resource_id": cf.id,
+        "name": cf.filename,
+        "is_image": True,
+        "visibility": res.visibility,
+        "category_id": res.category_id,
+        "sort_order": res.sort_order,
+    }
 
 
 def get_campaign_file(
@@ -551,39 +522,36 @@ def get_campaign_file(
     file_id: str,
     request: Request,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     from ...models import CampaignFile, CampaignResource, CampaignResourceShare
 
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        if not can_view(c, current_user, db):
-            raise HTTPException(403, "Not a member of this campaign")
-        cf = db.query(CampaignFile).filter_by(id=file_id, campaign_id=campaign_id).first()
-        if not cf:
-            raise HTTPException(404, "File not found")
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    cf = db.query(CampaignFile).filter_by(id=file_id, campaign_id=campaign_id).first()
+    if not cf:
+        raise HTTPException(404, "File not found")
 
-        # Honour the linking resource's visibility for non-owners.
-        if c.owner_id != current_user.id:
-            res = (
-                db.query(CampaignResource)
-                .filter_by(campaign_id=campaign_id, resource_type="file", resource_id=file_id)
+    # Honour the linking resource's visibility for non-owners.
+    if c.owner_id != current_user.id:
+        res = (
+            db.query(CampaignResource)
+            .filter_by(campaign_id=campaign_id, resource_type="file", resource_id=file_id)
+            .first()
+        )
+        if not res or res.visibility == "gm":
+            raise HTTPException(403, "Not authorised")
+        if res.visibility == "private":
+            shared = (
+                db.query(CampaignResourceShare)
+                .filter_by(resource_id=res.id, user_id=current_user.id)
                 .first()
             )
-            if not res or res.visibility == "gm":
+            if not shared:
                 raise HTTPException(403, "Not authorised")
-            if res.visibility == "private":
-                shared = (
-                    db.query(CampaignResourceShare)
-                    .filter_by(resource_id=res.id, user_id=current_user.id)
-                    .first()
-                )
-                if not shared:
-                    raise HTTPException(403, "Not authorised")
 
-        path = os.path.join(_FILES_DIR, cf.stored_path)
-        if not os.path.isfile(path):
-            raise HTTPException(404, "File not found")
-        return cached_file_response(request, path, filename=cf.filename, media_type=cf.mime_type)
-    finally:
-        db.close()
+    path = os.path.join(_FILES_DIR, cf.stored_path)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "File not found")
+    return cached_file_response(request, path, filename=cf.filename, media_type=cf.mime_type)

@@ -3,9 +3,10 @@ import sys
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Request
+from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from ...config import SessionLocal, LIBRARY_PATH, VERSION, COMMIT_HASH
+from ...config import LIBRARY_PATH, VERSION, COMMIT_HASH, get_db
 from ...models import GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
 from ...indexer import resolve_scope
@@ -79,27 +80,24 @@ def get_stats(
     request: Request,
     x_api_key: Optional[str] = Header(default=None),
     user=Depends(optional_get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        if user is None:
-            stored_key = get_stats_api_key(db)
-            if not stored_key or x_api_key != stored_key:
-                raise HTTPException(401, "Authentication required")
-        return {
-            "game_systems": db.query(GameSystem)
-            .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
-            .count(),
-            "books": db.query(Book).count(),
-            "maps": db.query(GenericMap).count(),
-            "tokens": db.query(Token).count(),
-            "audio": db.query(Audio).count(),
-            "indexed_books": db.query(Book).filter_by(indexed=True).count(),
-            "total_pages": db.query(func.sum(Book.page_count)).scalar() or 0,
-            "total_size_mb": round((db.query(func.sum(Book.file_size)).scalar() or 0) / 1048576, 1),
-        }
-    finally:
-        db.close()
+    if user is None:
+        stored_key = get_stats_api_key(db)
+        if not stored_key or x_api_key != stored_key:
+            raise HTTPException(401, "Authentication required")
+    return {
+        "game_systems": db.query(GameSystem)
+        .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
+        .count(),
+        "books": db.query(Book).count(),
+        "maps": db.query(GenericMap).count(),
+        "tokens": db.query(Token).count(),
+        "audio": db.query(Audio).count(),
+        "indexed_books": db.query(Book).filter_by(indexed=True).count(),
+        "total_pages": db.query(func.sum(Book.page_count)).scalar() or 0,
+        "total_size_mb": round((db.query(func.sum(Book.file_size)).scalar() or 0) / 1048576, 1),
+    }
 
 
 @router.get(

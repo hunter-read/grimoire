@@ -6,12 +6,9 @@ import {
   LuArrowLeft,
   LuPencil,
   LuClipboard,
-  LuFileText,
   LuFolderOpen,
   LuSearch,
   LuX,
-  LuChevronDown,
-  LuChevronRight,
   LuDownload,
   LuHeart,
   LuListChecks,
@@ -27,25 +24,15 @@ import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
-import BookRow from '../components/system/BookRow'
-import BookEditor from '../components/system/BookEditor'
 import SystemEditor from '../components/system/SystemEditor'
-import BookFolderGroup from '../components/system/BookFolderGroup'
+import SystemSearchResults from '../components/system/SystemSearchResults'
+import SystemCategorySection from '../components/system/SystemCategorySection'
 import RescanButton from '../components/RescanButton'
 import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
-import { CATEGORY_ICONS, CATEGORY_ORDER } from '../constants'
+import { CATEGORY_ORDER } from '../constants'
 import matchBooks from '../utils/matchBooks'
-
-/** Extract the subfolder name from a book's relative_path.
- *  Path structure: books/{SystemName}/{categoryDir}/{SubFolder}/book.pdf
- *  Returns the subfolder name, or null if the book sits directly in the category dir. */
-function getBookSubfolder(book) {
-  const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
-  // parts[0]=books, parts[1]=SystemName, parts[2]=category dir, parts[3]=subfolder or filename
-  return parts.length > 4 ? parts[3] : null
-}
 
 /** The library-root-relative folder a book lives in (its relative_path minus the
  *  filename), e.g. "books/D&D 5e/adventure/Curse of Strahd". Used as the rescan scope. */
@@ -243,6 +230,23 @@ export default function SystemDetailView() {
       ...s,
       books: s.books.map((b) => (edited[b.id] ? { ...b, ...edited[b.id] } : b)),
     }))
+
+  // Shared handlers passed down to the category sections.
+  const openBook = (book) =>
+    navigate(`/library/book/${book.id}`, { state: { from: window.location.pathname } })
+
+  const saveBook = (bookId, updated) =>
+    setSystem((s) => ({
+      ...s,
+      books: s.books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)),
+    }))
+
+  const toggleSubfolder = (key) =>
+    setCollapsedSubfolders((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
 
   const SORT_OPTIONS = [
     ['title', t('common.sortAZ')],
@@ -702,362 +706,62 @@ export default function SystemDetailView() {
           </div>
         )}
 
-        {/* Matching books (title / metadata) — shown above the page hits so a
-            search finds the book itself, not just the pages inside it. */}
-        {searchResults && matchedBooks.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-              {t('systemDetail.matchingBooks', { count: matchedBooks.length })}
-            </div>
-            <div style={booksContainerStyle}>
-              {matchedBooks.map((book) => (
-                <BookRow
-                  key={book.id}
-                  book={book}
-                  card={card}
-                  compact={compact}
-                  onOpen={() =>
-                    navigate(`/library/book/${book.id}`, {
-                      state: { from: window.location.pathname },
-                    })
-                  }
-                  onEdit={null}
-                  editing={false}
-                  bulkMode={false}
-                  selected={false}
-                  onToggle={() => {}}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Nothing matched — neither a book nor a page. */}
-        {searchResults && matchedBooks.length === 0 && searchResults.results.length === 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-              {t('systemDetail.noResultsFound')}
-            </div>
-          </div>
-        )}
-
-        {/* Full-text page results */}
-        {searchResults && searchResults.results.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-              {t('systemDetail.resultsInPages', {
-                count: searchResults.results.length,
-                query: searchResults.query,
-              })}
-            </div>
-            {searchResults.results.map((r, i) => (
-              <div
-                key={i}
-                onClick={() =>
-                  navigate(`/library/book/${r.id}?page=${r.page_number}`, {
-                    state: { from: window.location.pathname },
-                  })
-                }
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  padding: 14,
-                  marginBottom: 8,
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    marginBottom: 4,
-                  }}
-                >
-                  <span style={{ fontWeight: 600, fontSize: 15 }}>{r.title}</span>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: 'var(--text-muted)',
-                      flexShrink: 0,
-                      marginLeft: 12,
-                    }}
-                  >
-                    {t('common.pagePrefixed', { page: r.page_number })}
-                  </span>
-                </div>
-                <div
-                  style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }}
-                  dangerouslySetInnerHTML={{ __html: r.snippet }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+        <SystemSearchResults
+          searchResults={searchResults}
+          matchedBooks={matchedBooks}
+          booksContainerStyle={booksContainerStyle}
+          card={card}
+          compact={compact}
+          onOpenBook={(book) =>
+            navigate(`/library/book/${book.id}`, {
+              state: { from: window.location.pathname },
+            })
+          }
+          onOpenPage={(r) =>
+            navigate(`/library/book/${r.id}?page=${r.page_number}`, {
+              state: { from: window.location.pathname },
+            })
+          }
+        />
 
         {/* Books by category */}
         {!searchResults &&
           [...CATEGORY_ORDER, ...Object.keys(categories).filter((c) => !CATEGORY_ORDER.includes(c))]
             .filter((cat) => categories[cat])
-            .map((cat) => {
-              const books = sortBooks(categories[cat])
-              const CatIcon = CATEGORY_ICONS[cat] || LuFileText
-              const isCollapsed = collapsedCats.has(cat)
-              const catLabel = t(`categories.${cat}`, {
-                defaultValue: cat.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-              })
-              const toggleCat = () =>
-                setCollapsedCats((prev) => {
-                  const next = new Set(prev)
-                  next.has(cat) ? next.delete(cat) : next.add(cat)
-                  return next
-                })
-              return (
-                <div key={cat} style={{ marginBottom: 32 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      marginBottom: isCollapsed ? 0 : 16,
-                    }}
-                  >
-                    <button
-                      onClick={toggleCat}
-                      aria-expanded={!isCollapsed}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px 0',
-                        textAlign: 'left',
-                      }}
-                    >
-                      {isCollapsed ? (
-                        <LuChevronRight size={15} color="var(--gold-dim)" />
-                      ) : (
-                        <LuChevronDown size={15} color="var(--gold-dim)" />
-                      )}
-                      <CatIcon size={15} color="var(--gold-dim)" />
-                      <span style={{ fontSize: 17, color: 'var(--gold-dim)', fontWeight: 600 }}>
-                        {catLabel}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 14,
-                          color: 'var(--text-muted)',
-                          fontFamily: 'Alegreya Sans, sans-serif',
-                          fontWeight: 400,
-                        }}
-                      >
-                        ({books.length})
-                      </span>
-                    </button>
-                    <button
-                      onClick={() =>
-                        setDownloadModal({
-                          title: `${catLabel} — ${system.name}`,
-                          params: { type: 'system_category', id: system.id, category: cat },
-                        })
-                      }
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '3px 8px',
-                        borderRadius: 5,
-                        fontSize: 12,
-                        color: 'var(--text-muted)',
-                        border: '1px solid var(--border)',
-                        background: 'var(--bg-card)',
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                      }}
-                      title={t('systemDetail.download')}
-                    >
-                      <LuDownload size={11} /> {t('systemDetail.download')}
-                    </button>
-                    {isEditor && <RescanButton scope={groupScope(books)} />}
-                  </div>
-                  {!isCollapsed &&
-                    (() => {
-                      // Group books by subfolder (derived from relative_path).
-                      // Books sitting directly in the category dir have no subfolder (key='').
-                      const folderMap = {}
-                      for (const book of books) {
-                        const sub = getBookSubfolder(book)
-                        const key = sub || ''
-                        if (!folderMap[key]) folderMap[key] = []
-                        folderMap[key].push(book)
-                      }
-                      const hasFolders = Object.keys(folderMap).some((k) => k !== '')
-                      const toggleSubfolder = (key) =>
-                        setCollapsedSubfolders((prev) => {
-                          const next = new Set(prev)
-                          next.has(key) ? next.delete(key) : next.add(key)
-                          return next
-                        })
-                      const saveBook = (bookId, updated) =>
-                        setSystem((s) => ({
-                          ...s,
-                          books: s.books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)),
-                        }))
-
-                      if (!hasFolders) {
-                        // No subfolders — render flat list
-                        return (
-                          <div style={booksContainerStyle}>
-                            {books.map((book) => (
-                              <div
-                                key={book.id}
-                                style={
-                                  !list && editingBookId === book.id
-                                    ? { gridColumn: '1 / -1' }
-                                    : undefined
-                                }
-                              >
-                                <BookRow
-                                  book={book}
-                                  card={card}
-                                  compact={compact}
-                                  onOpen={() =>
-                                    navigate(`/library/book/${book.id}`, {
-                                      state: { from: window.location.pathname },
-                                    })
-                                  }
-                                  onEdit={
-                                    isEditor
-                                      ? () =>
-                                          setEditingBookId((id) =>
-                                            id === book.id ? null : book.id
-                                          )
-                                      : null
-                                  }
-                                  editing={editingBookId === book.id}
-                                  bulkMode={bulkMode}
-                                  selected={selectedBookIds.has(book.id)}
-                                  onToggle={(mods) => toggleBookSelect(book.id, mods)}
-                                />
-                                {editingBookId === book.id && (
-                                  <BookEditor
-                                    book={book}
-                                    allTags={allTags}
-                                    existingCategories={existingCategories}
-                                    onSave={(updated) => {
-                                      saveBook(book.id, updated)
-                                      setEditingBookId(null)
-                                    }}
-                                    onClose={() => setEditingBookId(null)}
-                                  />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      }
-
-                      const sortedFolderKeys = Object.keys(folderMap).sort((a, b) => {
-                        if (a === '') return -1
-                        if (b === '') return 1
-                        return a.localeCompare(b)
-                      })
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {sortedFolderKeys.map((key) =>
-                            key === '' ? (
-                              // Ungrouped books (no subfolder) — render flat above the folder widgets
-                              <div
-                                key="__ungrouped__"
-                                style={{ ...booksContainerStyle, marginBottom: 4 }}
-                              >
-                                {folderMap[''].map((book) => (
-                                  <div
-                                    key={book.id}
-                                    style={
-                                      !list && editingBookId === book.id
-                                        ? { gridColumn: '1 / -1' }
-                                        : undefined
-                                    }
-                                  >
-                                    <BookRow
-                                      book={book}
-                                      card={card}
-                                      compact={compact}
-                                      onOpen={() =>
-                                        navigate(`/library/book/${book.id}`, {
-                                          state: { from: window.location.pathname },
-                                        })
-                                      }
-                                      onEdit={
-                                        isEditor
-                                          ? () =>
-                                              setEditingBookId((id) =>
-                                                id === book.id ? null : book.id
-                                              )
-                                          : null
-                                      }
-                                      editing={editingBookId === book.id}
-                                      bulkMode={bulkMode}
-                                      selected={selectedBookIds.has(book.id)}
-                                      onToggle={(mods) => toggleBookSelect(book.id, mods)}
-                                    />
-                                    {editingBookId === book.id && (
-                                      <BookEditor
-                                        book={book}
-                                        allTags={allTags}
-                                        existingCategories={existingCategories}
-                                        onSave={(updated) => {
-                                          saveBook(book.id, updated)
-                                          setEditingBookId(null)
-                                        }}
-                                        onClose={() => setEditingBookId(null)}
-                                      />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <BookFolderGroup
-                                key={key}
-                                folder={key}
-                                books={folderMap[key]}
-                                systemId={system.id}
-                                category={cat}
-                                card={card}
-                                compact={compact}
-                                list={list}
-                                booksContainerStyle={booksContainerStyle}
-                                collapsed={collapsedSubfolders}
-                                onToggle={toggleSubfolder}
-                                editingBookId={editingBookId}
-                                setEditingBookId={setEditingBookId}
-                                onOpenBook={(book) =>
-                                  navigate(`/library/book/${book.id}`, {
-                                    state: { from: window.location.pathname },
-                                  })
-                                }
-                                isEditor={isEditor}
-                                onSaveBook={saveBook}
-                                onDownload={setDownloadModal}
-                                bulkMode={bulkMode}
-                                selectedBookIds={selectedBookIds}
-                                onToggleBook={toggleBookSelect}
-                              />
-                            )
-                          )}
-                        </div>
-                      )
-                    })()}
-                </div>
-              )
-            })}
+            .map((cat) => (
+              <SystemCategorySection
+                key={cat}
+                cat={cat}
+                books={sortBooks(categories[cat])}
+                system={system}
+                isCollapsed={collapsedCats.has(cat)}
+                onToggleCat={() =>
+                  setCollapsedCats((prev) => {
+                    const next = new Set(prev)
+                    next.has(cat) ? next.delete(cat) : next.add(cat)
+                    return next
+                  })
+                }
+                collapsedSubfolders={collapsedSubfolders}
+                onToggleSubfolder={toggleSubfolder}
+                groupScope={groupScope}
+                editingBookId={editingBookId}
+                setEditingBookId={setEditingBookId}
+                allTags={allTags}
+                existingCategories={existingCategories}
+                card={card}
+                compact={compact}
+                list={list}
+                booksContainerStyle={booksContainerStyle}
+                isEditor={isEditor}
+                onOpenBook={openBook}
+                onSaveBook={saveBook}
+                onDownload={setDownloadModal}
+                bulkMode={bulkMode}
+                selectedBookIds={selectedBookIds}
+                onToggleBook={toggleBookSelect}
+              />
+            ))}
 
         {!searchResults && allCatKeys.length === 0 && (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>

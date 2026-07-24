@@ -9,9 +9,10 @@ Within a category (or built-in type group) resources keep a manual sort_order.
 """
 
 from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
-from ...config import SessionLocal
+from ...config import get_db
 from ...models import (
     Audio,
     Book,
@@ -105,131 +106,125 @@ def _apply_shares(db, resource_id: str, user_ids) -> None:
         db.add(CampaignResourceShare(resource_id=resource_id, user_id=uid))
 
 
-def list_resources(campaign_id: str, current_user: CurrentUser = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        if not can_view(c, current_user, db):
-            raise HTTPException(403, "Not a member of this campaign")
+def list_resources(
+    campaign_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
 
-        is_owner = c.owner_id == current_user.id
-        resources = db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
+    is_owner = c.owner_id == current_user.id
+    resources = db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
 
-        # Pre-load shares for private resources in one pass.
-        share_map = {}
-        for s in (
-            db.query(CampaignResourceShare)
-            .filter(
-                CampaignResourceShare.resource_id.in_([r.id for r in resources] or [""])
-            )
-            .all()
-        ):
-            share_map.setdefault(s.resource_id, set()).add(s.user_id)
+    # Pre-load shares for private resources in one pass.
+    share_map = {}
+    for s in (
+        db.query(CampaignResourceShare)
+        .filter(
+            CampaignResourceShare.resource_id.in_([r.id for r in resources] or [""])
+        )
+        .all()
+    ):
+        share_map.setdefault(s.resource_id, set()).add(s.user_id)
 
-        out = [
-            _serialize(db, r, share_map, include_shares=is_owner)
-            for r in resources
-            if _can_see_resource(r, is_owner, current_user.id, share_map)
-        ]
-        # Order: public, then private, then gm; then by manual sort_order, then name.
-        out.sort(key=lambda d: (_VIS_ORDER.get(d["visibility"], 9), d["sort_order"], d["name"].lower()))
-        return out
-    finally:
-        db.close()
+    out = [
+        _serialize(db, r, share_map, include_shares=is_owner)
+        for r in resources
+        if _can_see_resource(r, is_owner, current_user.id, share_map)
+    ]
+    # Order: public, then private, then gm; then by manual sort_order, then name.
+    out.sort(key=lambda d: (_VIS_ORDER.get(d["visibility"], 9), d["sort_order"], d["name"].lower()))
+    return out
 
 
 def add_resource(
-    campaign_id: str, data: ResourceAdd, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str, data: ResourceAdd, current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        if data.resource_type not in ("book", "map", "token", "audio", "file"):
-            raise HTTPException(400, "Invalid resource_type")
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    if data.resource_type not in ("book", "map", "token", "audio", "file"):
+        raise HTTPException(400, "Invalid resource_type")
 
-        existing = (
-            db.query(CampaignResource)
-            .filter_by(
-                campaign_id=campaign_id,
-                resource_type=data.resource_type,
-                resource_id=data.resource_id,
-            )
-            .first()
-        )
-        if existing:
-            raise HTTPException(409, "Resource already linked")
-
-        visibility = data.visibility if data.visibility in _VISIBILITIES else "gm"
-        category_id = _resolve_category(db, campaign_id, data.category_id)
-        max_order = (
-            db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
-        )
-        res = CampaignResource(
+    existing = (
+        db.query(CampaignResource)
+        .filter_by(
             campaign_id=campaign_id,
             resource_type=data.resource_type,
             resource_id=data.resource_id,
-            visibility=visibility,
-            category_id=category_id,
-            sort_order=max_order,
         )
-        db.add(res)
-        db.flush()
-        if visibility == "private":
-            _apply_shares(db, res.id, data.shared_user_ids)
-        db.commit()
-        db.refresh(res)
-        return _serialize(db, res, include_shares=True)
-    finally:
-        db.close()
+        .first()
+    )
+    if existing:
+        raise HTTPException(409, "Resource already linked")
+
+    visibility = data.visibility if data.visibility in _VISIBILITIES else "gm"
+    category_id = _resolve_category(db, campaign_id, data.category_id)
+    max_order = (
+        db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
+    )
+    res = CampaignResource(
+        campaign_id=campaign_id,
+        resource_type=data.resource_type,
+        resource_id=data.resource_id,
+        visibility=visibility,
+        category_id=category_id,
+        sort_order=max_order,
+    )
+    db.add(res)
+    db.flush()
+    if visibility == "private":
+        _apply_shares(db, res.id, data.shared_user_ids)
+    db.commit()
+    db.refresh(res)
+    return _serialize(db, res, include_shares=True)
 
 
 def bulk_add_resources(
     campaign_id: str,
     data: ResourceBulkAdd,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Link many resources at once. Duplicates and unknown types are skipped
     silently so one bad entry doesn't fail the whole batch. Returns the rows
     that were actually created."""
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
 
-        existing_keys = {
-            (r.resource_type, r.resource_id)
-            for r in db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
-        }
-        order = len(existing_keys)
-        created = []
-        for item in data.resources:
-            if item.resource_type not in ("book", "map", "token", "audio", "file"):
-                continue
-            key = (item.resource_type, item.resource_id)
-            if key in existing_keys:
-                continue
-            existing_keys.add(key)
-            visibility = item.visibility if item.visibility in _VISIBILITIES else "gm"
-            res = CampaignResource(
-                campaign_id=campaign_id,
-                resource_type=item.resource_type,
-                resource_id=item.resource_id,
-                visibility=visibility,
-                category_id=_resolve_category(db, campaign_id, item.category_id),
-                sort_order=order,
-            )
-            order += 1
-            db.add(res)
-            db.flush()
-            if visibility == "private":
-                _apply_shares(db, res.id, item.shared_user_ids)
-            created.append(res)
+    existing_keys = {
+        (r.resource_type, r.resource_id)
+        for r in db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
+    }
+    order = len(existing_keys)
+    created = []
+    for item in data.resources:
+        if item.resource_type not in ("book", "map", "token", "audio", "file"):
+            continue
+        key = (item.resource_type, item.resource_id)
+        if key in existing_keys:
+            continue
+        existing_keys.add(key)
+        visibility = item.visibility if item.visibility in _VISIBILITIES else "gm"
+        res = CampaignResource(
+            campaign_id=campaign_id,
+            resource_type=item.resource_type,
+            resource_id=item.resource_id,
+            visibility=visibility,
+            category_id=_resolve_category(db, campaign_id, item.category_id),
+            sort_order=order,
+        )
+        order += 1
+        db.add(res)
+        db.flush()
+        if visibility == "private":
+            _apply_shares(db, res.id, item.shared_user_ids)
+        created.append(res)
 
-        db.commit()
-        return [_serialize(db, r, include_shares=True) for r in created]
-    finally:
-        db.close()
+    db.commit()
+    return [_serialize(db, r, include_shares=True) for r in created]
 
 
 def update_resource(
@@ -237,76 +232,67 @@ def update_resource(
     resource_id: str,
     data: ResourceUpdate,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        res = db.query(CampaignResource).filter_by(id=resource_id, campaign_id=campaign_id).first()
-        if not res:
-            raise HTTPException(404, "Resource not found")
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    res = db.query(CampaignResource).filter_by(id=resource_id, campaign_id=campaign_id).first()
+    if not res:
+        raise HTTPException(404, "Resource not found")
 
-        if data.visibility is not None:
-            if data.visibility not in _VISIBILITIES:
-                raise HTTPException(400, "Invalid visibility")
-            res.visibility = data.visibility
-        if data.category_id is not None:
-            res.category_id = _resolve_category(db, campaign_id, data.category_id)
-        if data.shared_user_ids is not None:
-            _apply_shares(db, res.id, data.shared_user_ids)
-        # Shares only matter for private visibility; clear them otherwise.
-        if res.visibility != "private":
-            db.query(CampaignResourceShare).filter_by(resource_id=res.id).delete()
+    if data.visibility is not None:
+        if data.visibility not in _VISIBILITIES:
+            raise HTTPException(400, "Invalid visibility")
+        res.visibility = data.visibility
+    if data.category_id is not None:
+        res.category_id = _resolve_category(db, campaign_id, data.category_id)
+    if data.shared_user_ids is not None:
+        _apply_shares(db, res.id, data.shared_user_ids)
+    # Shares only matter for private visibility; clear them otherwise.
+    if res.visibility != "private":
+        db.query(CampaignResourceShare).filter_by(resource_id=res.id).delete()
 
-        db.commit()
-        db.refresh(res)
-        return _serialize(db, res, include_shares=True)
-    finally:
-        db.close()
+    db.commit()
+    db.refresh(res)
+    return _serialize(db, res, include_shares=True)
 
 
 def reorder_resources(
     campaign_id: str,
     data: ResourceReorder,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Apply a new manual order from an ordered list of resource ids."""
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        by_id = {
-            r.id: r
-            for r in db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
-        }
-        order = 0
-        for rid in data.ordered_ids:
-            r = by_id.get(rid)
-            if r:
-                r.sort_order = order
-                order += 1
-        db.commit()
-        return {"ok": True}
-    finally:
-        db.close()
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    by_id = {
+        r.id: r
+        for r in db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
+    }
+    order = 0
+    for rid in data.ordered_ids:
+        r = by_id.get(rid)
+        if r:
+            r.sort_order = order
+            order += 1
+    db.commit()
+    return {"ok": True}
 
 
 def remove_resource(
-    campaign_id: str, resource_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str, resource_id: str, current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        res = db.query(CampaignResource).filter_by(id=resource_id, campaign_id=campaign_id).first()
-        if res:
-            # If this links a campaign-uploaded file, remove the file too.
-            if res.resource_type == "file":
-                _delete_campaign_file(db, campaign_id, res.resource_id)
-            db.delete(res)
-            db.commit()
-    finally:
-        db.close()
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    res = db.query(CampaignResource).filter_by(id=resource_id, campaign_id=campaign_id).first()
+    if res:
+        # If this links a campaign-uploaded file, remove the file too.
+        if res.resource_type == "file":
+            _delete_campaign_file(db, campaign_id, res.resource_id)
+        db.delete(res)
+        db.commit()
 
 
 def _delete_campaign_file(db, campaign_id: str, file_id: str) -> None:

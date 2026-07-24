@@ -1,12 +1,16 @@
 """Maintenance endpoint handlers — admin-only housekeeping."""
 from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
-from ...config import SessionLocal, logger
+from ...config import get_db, logger
 from ._helpers import _do_cleanup
 
 
-def cleanup_missing(_: CurrentUser = Depends(require_admin)):
+def cleanup_missing(
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     from ..library import _helpers as _lib
 
     logger.debug("Cleanup: manual trigger received")
@@ -18,7 +22,6 @@ def cleanup_missing(_: CurrentUser = Depends(require_admin)):
         )
 
     logger.debug("Cleanup: no scan running, proceeding")
-    db = SessionLocal()
     try:
         removed = _do_cleanup(db)
         logger.info(f"Cleanup complete: {removed}")
@@ -26,5 +29,3 @@ def cleanup_missing(_: CurrentUser = Depends(require_admin)):
     except Exception:
         db.rollback()
         raise
-    finally:
-        db.close()

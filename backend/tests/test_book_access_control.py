@@ -446,3 +446,92 @@ class TestPdfRendering:
         for suffix in ("/toc", "/page/1", "/page/1/text", "/page/1/words"):
             r = client.get(f"/api/books/{rendered_pdf_book.id}{suffix}")
             assert r.status_code == 401, f"{suffix} → {r.status_code}"
+
+
+@pytest.fixture
+def image_book():
+    """A real 1-page image (PNG) inserted as a Book, exercising the image branch
+    of serve_book_page (which serves the file directly rather than rendering)."""
+    from PIL import Image
+
+    f = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    f.close()
+    Image.new("RGB", (40, 30), (10, 20, 30)).save(f.name, "PNG")
+
+    book = make_book(
+        system_id=make_game_system().id,
+        filepath=f.name,
+        filename=os.path.basename(f.name),
+        relative_path=os.path.basename(f.name),
+        mime_type="image/png",
+        is_missing=False,
+        page_count=1,
+    )
+    _invalidate_book_cache()
+    yield book
+    os.unlink(f.name)
+
+
+class TestImageAndMissingPages:
+    def test_image_book_serves_file_on_page_1(self, client, admin_headers, image_book):
+        r = client.get(f"/api/books/{image_book.id}/page/1", headers=admin_headers)
+        assert r.status_code == 200, r.text
+        assert r.headers["content-type"] == "image/png"
+        assert len(r.content) > 0
+
+    def test_image_book_rejects_page_2(self, client, admin_headers, image_book):
+        r = client.get(f"/api/books/{image_book.id}/page/2", headers=admin_headers)
+        assert r.status_code == 400
+
+    def test_image_book_missing_file_marks_is_missing(self, client, admin_headers, image_book):
+        # Delete the backing file, then request it: the handler 404s and flips
+        # is_missing on the row.
+        os.unlink(image_book.filepath)
+        _invalidate_book_cache()
+        r = client.get(f"/api/books/{image_book.id}/page/1", headers=admin_headers)
+        assert r.status_code == 404
+        db = SessionLocal()
+        try:
+            from backend.models import Book
+
+            refreshed = db.query(Book).filter_by(id=image_book.id).first()
+            assert refreshed.is_missing is True
+        finally:
+            db.close()
+        # Re-create the file so the fixture teardown's unlink succeeds.
+        from PIL import Image
+
+        Image.new("RGB", (40, 30), (0, 0, 0)).save(image_book.filepath, "PNG")
+
+    def test_page_of_unknown_book_is_404(self, client, admin_headers):
+        r = client.get("/api/books/does-not-exist/page/1", headers=admin_headers)
+        assert r.status_code == 404
+
+    def test_words_on_image_book_returns_empty(self, client, admin_headers, image_book):
+        # Non-application/* mime → the words route returns an empty word list.
+        r = client.get(f"/api/books/{image_book.id}/page/1/words", headers=admin_headers)
+        assert r.status_code == 200
+        assert r.json() == {"width": 0, "height": 0, "words": []}
+
+    def test_page_text_served_from_search_index(self, client, admin_headers, rendered_pdf_book):
+        # Seed a book_search row so get_page_text returns the indexed content
+        # without touching the PDF.
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text as sql_text
+
+            db.execute(
+                sql_text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:bid, :pnum, :content)"
+                ),
+                {"bid": rendered_pdf_book.id, "pnum": 1, "content": "indexed page body"},
+            )
+            db.commit()
+        finally:
+            db.close()
+        r = client.get(
+            f"/api/books/{rendered_pdf_book.id}/page/1/text", headers=admin_headers
+        )
+        assert r.status_code == 200
+        assert r.json()["text"] == "indexed page body"

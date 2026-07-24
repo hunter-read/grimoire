@@ -58,6 +58,7 @@ module = [
     "backend.scheduler",
     "backend.pdf_worker",
     "backend.indexer",
+    "backend.indexer.*",
     "backend.models.*",
 ]
 disallow_untyped_defs = true
