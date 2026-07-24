@@ -30,10 +30,11 @@ import re
 import zipfile
 
 from fastapi import Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
 from ...auth import CurrentUser, get_current_user
-from ...config import SessionLocal
+from ...config import get_db
 from ...models import WikiPage
 from ._helpers import assert_can_manage, get_campaign_or_404
 from .wiki import (
@@ -92,68 +93,65 @@ def export_wiki(
     campaign_id: str,
     format: str = Query("md", pattern="^(md|json)$"),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Export every wiki page of an owned campaign as a markdown zip or JSON bundle."""
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
-        pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
-        pages.sort(key=lambda p: (p.sort_order or 0, (p.title or "").lower()))
-        by_id = {p.id: p for p in pages}
-        # A page's parent slug, used to round-trip nesting through the export.
-        parent_slug = {
-            p.id: (by_id[p.parent_id].slug if p.parent_id in by_id else None)
-            for p in pages
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
+    pages.sort(key=lambda p: (p.sort_order or 0, (p.title or "").lower()))
+    by_id = {p.id: p for p in pages}
+    # A page's parent slug, used to round-trip nesting through the export.
+    parent_slug = {
+        p.id: (by_id[p.parent_id].slug if p.parent_id in by_id else None)
+        for p in pages
+    }
+    base = slugify(c.name) or "campaign"
+
+    if format == "json":
+        bundle = {
+            "grimoire_wiki_version": BUNDLE_VERSION,
+            "campaign": c.name,
+            "pages": [
+                {
+                    "title": p.title,
+                    "slug": p.slug,
+                    "body": p.body or "",
+                    "visibility": p.visibility,
+                    "page_type": p.page_type,
+                    "session_date": p.session_date,
+                    "icon": p.icon,
+                    "parent": parent_slug[p.id],
+                }
+                for p in pages
+            ],
         }
-        base = slugify(c.name) or "campaign"
-
-        if format == "json":
-            bundle = {
-                "grimoire_wiki_version": BUNDLE_VERSION,
-                "campaign": c.name,
-                "pages": [
-                    {
-                        "title": p.title,
-                        "slug": p.slug,
-                        "body": p.body or "",
-                        "visibility": p.visibility,
-                        "page_type": p.page_type,
-                        "session_date": p.session_date,
-                        "icon": p.icon,
-                        "parent": parent_slug[p.id],
-                    }
-                    for p in pages
-                ],
-            }
-            data = json.dumps(bundle, indent=2, ensure_ascii=False).encode("utf-8")
-            return Response(
-                content=data,
-                media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="{base}-wiki.json"'},
-            )
-
-        # format == "md": a zip of one markdown file per page.
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            used = set()
-            for p in pages:
-                name = p.slug or slugify(p.title)
-                fname = f"{name}.md"
-                n = 2
-                while fname in used:
-                    fname = f"{name}-{n}.md"
-                    n += 1
-                used.add(fname)
-                fm = _frontmatter(p, parent_slug[p.id])
-                zf.writestr(fname, f"{fm}\n\n{p.body or ''}\n")
+        data = json.dumps(bundle, indent=2, ensure_ascii=False).encode("utf-8")
         return Response(
-            content=buf.getvalue(),
-            media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{base}-wiki.zip"'},
+            content=data,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{base}-wiki.json"'},
         )
-    finally:
-        db.close()
+
+    # format == "md": a zip of one markdown file per page.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        used = set()
+        for p in pages:
+            name = p.slug or slugify(p.title)
+            fname = f"{name}.md"
+            n = 2
+            while fname in used:
+                fname = f"{name}-{n}.md"
+                n += 1
+            used.add(fname)
+            fm = _frontmatter(p, parent_slug[p.id])
+            zf.writestr(fname, f"{fm}\n\n{p.body or ''}\n")
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{base}-wiki.zip"'},
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -613,63 +611,60 @@ def import_wiki(
     campaign_id: str,
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Import wiki pages from a markdown / JSON / LegendKeeper file (owner only)."""
-    db = SessionLocal()
-    try:
-        c = get_campaign_or_404(db, campaign_id)
-        assert_can_manage(c, current_user, db)
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
 
-        data = file.file.read(_MAX_IMPORT_BYTES + 1)
-        if len(data) > _MAX_IMPORT_BYTES:
-            raise HTTPException(413, "File is too large")
-        if not data:
-            raise HTTPException(400, "Empty file")
+    data = file.file.read(_MAX_IMPORT_BYTES + 1)
+    if len(data) > _MAX_IMPORT_BYTES:
+        raise HTTPException(413, "File is too large")
+    if not data:
+        raise HTTPException(400, "Empty file")
 
-        records, fmt = _parse_upload(file.filename, data)
-        if not records:
-            raise HTTPException(400, "No pages found to import")
+    records, fmt = _parse_upload(file.filename, data)
+    if not records:
+        raise HTTPException(400, "No pages found to import")
 
-        # Map every foreign source_key to the final title we assign, so internal
-        # links remap correctly even when an import-set title collides with itself.
-        key_to_title: dict = {}
-        for rec in records:
-            key_to_title[rec["source_key"]] = rec["title"]
+    # Map every foreign source_key to the final title we assign, so internal
+    # links remap correctly even when an import-set title collides with itself.
+    key_to_title: dict = {}
+    for rec in records:
+        key_to_title[rec["source_key"]] = rec["title"]
 
-        # Create parents before children so each child can reference its parent's id.
-        key_to_id: dict = {}
-        created = []
-        for rec in _order_parents_first(records):
-            parent_id = key_to_id.get(rec["parent_key"]) if rec["parent_key"] else None
-            page = WikiPage(
-                campaign_id=campaign_id,
-                title=rec["title"],
-                slug=_ensure_unique_slug(db, campaign_id, slugify(rec["title"])),
-                body=_remap_links(rec["body"], key_to_title),
-                visibility=rec["visibility"],
-                page_type=rec["page_type"],
-                session_date=rec["session_date"],
-                icon=rec["icon"],
-                parent_id=parent_id,
-                created_by_id=current_user.id,
-            )
-            db.add(page)
-            db.flush()
-            key_to_id[rec["source_key"]] = page.id
-            created.append(page)
+    # Create parents before children so each child can reference its parent's id.
+    key_to_id: dict = {}
+    created = []
+    for rec in _order_parents_first(records):
+        parent_id = key_to_id.get(rec["parent_key"]) if rec["parent_key"] else None
+        page = WikiPage(
+            campaign_id=campaign_id,
+            title=rec["title"],
+            slug=_ensure_unique_slug(db, campaign_id, slugify(rec["title"])),
+            body=_remap_links(rec["body"], key_to_title),
+            visibility=rec["visibility"],
+            page_type=rec["page_type"],
+            session_date=rec["session_date"],
+            icon=rec["icon"],
+            parent_id=parent_id,
+            created_by_id=current_user.id,
+        )
+        db.add(page)
+        db.flush()
+        key_to_id[rec["source_key"]] = page.id
+        created.append(page)
 
-        # Rebuild links after all pages exist so cross-references resolve to real
-        # targets instead of spawning stubs.
-        for page in created:
-            rebuild_links(db, c, page, current_user)
+    # Rebuild links after all pages exist so cross-references resolve to real
+    # targets instead of spawning stubs.
+    for page in created:
+        rebuild_links(db, c, page, current_user)
 
-        db.commit()
-        for page in created:
-            db.refresh(page)
-        return {
-            "imported": len(created),
-            "format": fmt,
-            "pages": [_page_summary(p) for p in created],
-        }
-    finally:
-        db.close()
+    db.commit()
+    for page in created:
+        db.refresh(page)
+    return {
+        "imported": len(created),
+        "format": fmt,
+        "pages": [_page_summary(p) for p in created],
+    }

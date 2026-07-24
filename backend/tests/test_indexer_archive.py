@@ -21,8 +21,10 @@ from backend.indexer import (
     _first_image_from_archive,
     archive_ext,
     archive_mime,
+    generate_thumbnail,
     scan_library,
 )
+from backend.indexer.thumbnails import _extract_7z_member
 from backend.models import Book
 
 
@@ -129,6 +131,131 @@ class TestFirstImageFromArchive:
         p = os.path.join(self.tmp, "e.cbr")
         Path(p).write_bytes(b"Rar!\x1a\x07\x00 not really")
         assert _first_image_from_archive(p, ".cbr") is None
+
+    def test_tar_without_images_returns_none(self):
+        p = os.path.join(self.tmp, "f.cbt")
+        with tarfile.open(p, "w") as tf:
+            data = b"just text"
+            info = tarfile.TarInfo("notes.txt")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        assert _first_image_from_archive(p, ".cbt") is None
+
+    def test_sevenzip_without_images_returns_none(self):
+        py7zr = pytest.importorskip("py7zr")
+        p = os.path.join(self.tmp, "g.cb7")
+        with py7zr.SevenZipFile(p, "w") as zf:
+            zf.writestr(b"no image", "readme.txt")
+        assert _first_image_from_archive(p, ".cb7") is None
+
+    def test_extract_7z_member_reads_bytes(self):
+        py7zr = pytest.importorskip("py7zr")
+        p = os.path.join(self.tmp, "h.cb7")
+        payload = _png_bytes()
+        with py7zr.SevenZipFile(p, "w") as zf:
+            zf.writestr(payload, "page.png")
+        with py7zr.SevenZipFile(p) as zf:
+            out = _extract_7z_member(zf, "page.png")
+        assert out == payload
+
+    def test_extract_7z_member_falls_back_to_read_api(self, monkeypatch):
+        """When py7zr.io.BytesIOFactory is unavailable (0.x), use the read() API."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _no_factory(name, *args, **kwargs):
+            if name == "py7zr.io":
+                raise ImportError("no BytesIOFactory in this py7zr")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _no_factory)
+
+        class _FakeZip:
+            def __init__(self):
+                self.reset_called = False
+
+            def reset(self):
+                self.reset_called = True
+
+            def read(self, names):
+                return {names[0]: io.BytesIO(b"cover-bytes")}
+
+        zf = _FakeZip()
+        assert _extract_7z_member(zf, "page.png") == b"cover-bytes"
+        assert zf.reset_called is True
+
+    def test_rar_branch_reads_first_image(self, monkeypatch):
+        """The .cbr branch uses rarfile; stub it so the branch runs without the
+        native unrar backend."""
+        import sys
+        import types
+
+        payload = _png_bytes()
+
+        class _FakeRarFile:
+            def __init__(self, path):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def namelist(self):
+                return ["02.png", "01.png", "readme.txt"]
+
+            def read(self, name):
+                return payload
+
+        fake = types.ModuleType("rarfile")
+        fake.RarFile = _FakeRarFile
+        monkeypatch.setitem(sys.modules, "rarfile", fake)
+
+        out = _first_image_from_archive("/whatever.cbr", ".cbr")
+        assert out == payload
+
+
+class TestGenerateThumbnail:
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def test_image_thumbnail_written(self):
+        src = os.path.join(self.tmp, "art.png")
+        Image.new("RGB", (400, 500), (10, 200, 60)).save(src, "PNG")
+        out = os.path.join(self.tmp, "thumb.webp")
+        assert generate_thumbnail(src, out) is True
+        assert Path(out).exists()
+        # Thumbnail is downscaled within the requested box.
+        w, h = Image.open(out).size
+        assert w <= 300 and h <= 400
+
+    def test_comic_archive_cover_thumbnail(self):
+        src = os.path.join(self.tmp, "issue.cbz")
+        with zipfile.ZipFile(src, "w") as zf:
+            zf.writestr("01.png", _png_bytes())
+        out = os.path.join(self.tmp, "cover.webp")
+        assert generate_thumbnail(src, out) is True
+        assert Path(out).exists()
+
+    def test_unsupported_type_returns_false(self):
+        src = os.path.join(self.tmp, "notes.txt")
+        Path(src).write_text("hello")
+        out = os.path.join(self.tmp, "x.webp")
+        assert generate_thumbnail(src, out) is False
+
+    def test_corrupt_image_returns_false(self):
+        src = os.path.join(self.tmp, "broken.png")
+        Path(src).write_bytes(b"not a png")
+        out = os.path.join(self.tmp, "y.webp")
+        assert generate_thumbnail(src, out) is False
+
+    def test_stop_request_aborts(self):
+        src = os.path.join(self.tmp, "art.png")
+        Image.new("RGB", (50, 50)).save(src, "PNG")
+        out = os.path.join(self.tmp, "z.webp")
+        assert generate_thumbnail(src, out, should_stop=lambda: True) is False
 
 
 # ---------------------------------------------------------------------------

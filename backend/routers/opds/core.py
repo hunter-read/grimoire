@@ -10,10 +10,11 @@ import datetime
 import os
 from xml.sax.saxutils import escape
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from fastapi.responses import Response, FileResponse
+from sqlalchemy.orm import Session
 
-from ...config import SessionLocal
+from ...config import get_db
 from ...models import Book, User
 
 
@@ -99,117 +100,101 @@ def _feed_wrapper(title: str, feed_id: str, updated: str, links: str, entries: s
     )
 
 
-def catalog(token: str, request_url: str = "") -> Response:
+def catalog(token: str, request_url: str = "", db: Session = Depends(get_db)) -> Response:
     """Root navigation feed — lists available sub-feeds."""
-    db = SessionLocal()
-    try:
-        # Validates the token (raises on an invalid/expired one) before we build
-        # the feed; the resolved user itself isn't needed for the root catalog.
-        _resolve_user(db, token)
-        # Derive base URL from the request — FastAPI passes Request via DI,
-        # but we keep this free-function friendly by computing it from config.
-        base_url = _base_url()
-        updated = _now_iso()
-        feed_url = f"{base_url}/opds/{token}"
+    # Validates the token (raises on an invalid/expired one) before we build
+    # the feed; the resolved user itself isn't needed for the root catalog.
+    _resolve_user(db, token)
+    # Derive base URL from the request — FastAPI passes Request via DI,
+    # but we keep this free-function friendly by computing it from config.
+    base_url = _base_url()
+    updated = _now_iso()
+    feed_url = f"{base_url}/opds/{token}"
 
-        links = (
-            f'<link rel="self" href="{escape(feed_url)}" type="{_CONTENT_TYPE}"/>'
-            f'<link rel="start" href="{escape(feed_url)}" type="{_CONTENT_TYPE}"/>'
-        )
+    links = (
+        f'<link rel="self" href="{escape(feed_url)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="start" href="{escape(feed_url)}" type="{_CONTENT_TYPE}"/>'
+    )
 
-        all_url = f"{base_url}/opds/{token}/all"
-        entries = (
-            f"<entry>"
-            f"<id>urn:grimoire:opds:all</id>"
-            f"<title>All Books</title>"
-            f"<updated>{updated}</updated>"
-            f"<content type='text'>Browse the complete library</content>"
-            f'<link rel="subsection" href="{escape(all_url)}" type="{_ACQUISITION_TYPE}"/>'
-            f"</entry>"
-        )
+    all_url = f"{base_url}/opds/{token}/all"
+    entries = (
+        f"<entry>"
+        f"<id>urn:grimoire:opds:all</id>"
+        f"<title>All Books</title>"
+        f"<updated>{updated}</updated>"
+        f"<content type='text'>Browse the complete library</content>"
+        f'<link rel="subsection" href="{escape(all_url)}" type="{_ACQUISITION_TYPE}"/>'
+        f"</entry>"
+    )
 
-        body = _feed_wrapper("Grimoire Library", feed_url, updated, links, entries)
-        return Response(content=body, media_type=_CONTENT_TYPE)
-    finally:
-        db.close()
+    body = _feed_wrapper("Grimoire Library", feed_url, updated, links, entries)
+    return Response(content=body, media_type=_CONTENT_TYPE)
 
 
-def catalog_all(token: str) -> Response:
+def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
     """Acquisition feed — all books the user is allowed to see."""
-    db = SessionLocal()
-    try:
-        user = _resolve_user(db, token)
-        base_url = _base_url()
-        updated = _now_iso()
-        feed_url = f"{base_url}/opds/{token}/all"
-        root_url = f"{base_url}/opds/{token}"
+    user = _resolve_user(db, token)
+    base_url = _base_url()
+    updated = _now_iso()
+    feed_url = f"{base_url}/opds/{token}/all"
+    root_url = f"{base_url}/opds/{token}"
 
-        q = db.query(Book).filter(Book.is_missing != True)
-        if not (user.allow_explicit if user.allow_explicit is not None else True):
-            q = q.filter(Book.is_explicit != True)
-        books = q.order_by(Book.title).all()
+    q = db.query(Book).filter(Book.is_missing != True)
+    if not (user.allow_explicit if user.allow_explicit is not None else True):
+        q = q.filter(Book.is_explicit != True)
+    books = q.order_by(Book.title).all()
 
-        links = (
-            f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
-            f'<link rel="start" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
-            f'<link rel="up" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
-        )
+    links = (
+        f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
+        f'<link rel="start" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="up" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
+    )
 
-        entries = "".join(_book_to_entry(b, token, base_url) for b in books)
-        body = _feed_wrapper("All Books", feed_url, updated, links, entries)
-        return Response(content=body, media_type=_ACQUISITION_TYPE)
-    finally:
-        db.close()
+    entries = "".join(_book_to_entry(b, token, base_url) for b in books)
+    body = _feed_wrapper("All Books", feed_url, updated, links, entries)
+    return Response(content=body, media_type=_ACQUISITION_TYPE)
 
 
-def book_entry(token: str, book_id: str) -> Response:
+def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Response:
     """Single-entry acquisition feed for a specific book."""
-    db = SessionLocal()
-    try:
-        user = _resolve_user(db, token)
-        book = db.query(Book).filter_by(id=book_id).first()
-        if not book or book.is_missing:
-            raise HTTPException(404, "Book not found")
-        if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
-            raise HTTPException(403, "Forbidden")
+    user = _resolve_user(db, token)
+    book = db.query(Book).filter_by(id=book_id).first()
+    if not book or book.is_missing:
+        raise HTTPException(404, "Book not found")
+    if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
+        raise HTTPException(403, "Forbidden")
 
-        base_url = _base_url()
-        updated = _now_iso()
-        feed_url = f"{base_url}/opds/{token}/entry/{book_id}"
-        root_url = f"{base_url}/opds/{token}"
+    base_url = _base_url()
+    updated = _now_iso()
+    feed_url = f"{base_url}/opds/{token}/entry/{book_id}"
+    root_url = f"{base_url}/opds/{token}"
 
-        links = (
-            f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
-            f'<link rel="start" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
-            f'<link rel="up" href="{escape(root_url)}/all" type="{_ACQUISITION_TYPE}"/>'
-        )
+    links = (
+        f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
+        f'<link rel="start" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="up" href="{escape(root_url)}/all" type="{_ACQUISITION_TYPE}"/>'
+    )
 
-        entry = _book_to_entry(book, token, base_url)
-        body = _feed_wrapper(book.title or "Book", feed_url, updated, links, entry)
-        return Response(content=body, media_type=_ACQUISITION_TYPE)
-    finally:
-        db.close()
+    entry = _book_to_entry(book, token, base_url)
+    body = _feed_wrapper(book.title or "Book", feed_url, updated, links, entry)
+    return Response(content=body, media_type=_ACQUISITION_TYPE)
 
 
-def download_book(token: str, book_id: str) -> FileResponse:
+def download_book(token: str, book_id: str, db: Session = Depends(get_db)) -> FileResponse:
     """File download via OPDS token — no JWT required."""
-    db = SessionLocal()
-    try:
-        user = _resolve_user(db, token)
-        book = db.query(Book).filter_by(id=book_id).first()
-        if not book or book.is_missing:
-            raise HTTPException(404, "Book not found")
-        if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
-            raise HTTPException(403, "Forbidden")
-        if not os.path.isfile(book.filepath):
-            raise HTTPException(404, "File not found on disk")
-        return FileResponse(
-            book.filepath,
-            media_type=book.mime_type or "application/pdf",
-            filename=book.filename,
-        )
-    finally:
-        db.close()
+    user = _resolve_user(db, token)
+    book = db.query(Book).filter_by(id=book_id).first()
+    if not book or book.is_missing:
+        raise HTTPException(404, "Book not found")
+    if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
+        raise HTTPException(403, "Forbidden")
+    if not os.path.isfile(book.filepath):
+        raise HTTPException(404, "File not found on disk")
+    return FileResponse(
+        book.filepath,
+        media_type=book.mime_type or "application/pdf",
+        filename=book.filename,
+    )
 
 
 def _base_url() -> str:

@@ -14,9 +14,10 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, create_token, require_admin, set_auth_cookie
-from ...config import SessionLocal
+from ...config import get_db
 from ..settings._helpers import (
     _get_raw,
     oidc_effective,
@@ -71,12 +72,11 @@ def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
     }
 
 
-def oidc_login(return_to: Optional[str] = Query(None)):
-    db = SessionLocal()
-    try:
-        raw = _get_raw(db)
-    finally:
-        db.close()
+def oidc_login(
+    return_to: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    raw = _get_raw(db)
 
     if not oidc_is_configured(raw):
         raise HTTPException(503, "OIDC is not configured")
@@ -128,6 +128,7 @@ def oidc_callback(
     state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
     error_description: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
 ):
     if error:
         # IdP refused before we even got a code (user denied, mis-config, etc.)
@@ -139,100 +140,96 @@ def oidc_callback(
     if not saved:
         return _redirect_with_error("invalid or expired login state")
 
-    db = SessionLocal()
+    raw = _get_raw(db)
+    eff = oidc_effective(raw)
+    secret = oidc_effective_client_secret(raw)
+
+    if not oidc_is_configured(raw):
+        return _redirect_with_error("OIDC is not configured")
+
+    token_url = eff["oidc_token_endpoint"] or _try_endpoint(
+        eff["oidc_issuer_url"], "token_endpoint"
+    )
+    if not token_url:
+        return _redirect_with_error("token endpoint not configured")
+
+    # Token exchange
     try:
-        raw = _get_raw(db)
-        eff = oidc_effective(raw)
-        secret = oidc_effective_client_secret(raw)
-
-        if not oidc_is_configured(raw):
-            return _redirect_with_error("OIDC is not configured")
-
-        token_url = eff["oidc_token_endpoint"] or _try_endpoint(
-            eff["oidc_issuer_url"], "token_endpoint"
+        token_resp = httpx.post(
+            token_url,
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": oidc_redirect_uri(),
+                "client_id": eff["oidc_client_id"],
+                "client_secret": secret,
+                "code_verifier": saved["code_verifier"],
+            },
+            timeout=15.0,
         )
-        if not token_url:
-            return _redirect_with_error("token endpoint not configured")
+        token_resp.raise_for_status()
+        tokens = token_resp.json()
+    except httpx.HTTPError as e:
+        logger.warning("OIDC token exchange failed: %s", e)
+        return _redirect_with_error("token exchange failed")
 
-        # Token exchange
-        try:
-            token_resp = httpx.post(
-                token_url,
-                data={
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": oidc_redirect_uri(),
-                    "client_id": eff["oidc_client_id"],
-                    "client_secret": secret,
-                    "code_verifier": saved["code_verifier"],
-                },
-                timeout=15.0,
-            )
-            token_resp.raise_for_status()
-            tokens = token_resp.json()
-        except httpx.HTTPError as e:
-            logger.warning("OIDC token exchange failed: %s", e)
-            return _redirect_with_error("token exchange failed")
+    id_token = tokens.get("id_token")
+    access_token = tokens.get("access_token")
+    if not id_token:
+        return _redirect_with_error("no id_token returned")
 
-        id_token = tokens.get("id_token")
-        access_token = tokens.get("access_token")
-        if not id_token:
-            return _redirect_with_error("no id_token returned")
-
-        # Validate ID token — use the explicit token_issuer when set, otherwise
-        # fetch the canonical issuer from the discovery doc so the iss claim
-        # matches exactly regardless of what the admin typed as the issuer URL.
-        token_issuer = eff["oidc_token_issuer"] or _discover_issuer(eff["oidc_issuer_url"])
-        try:
-            claims = _validate_id_token(
-                id_token,
-                issuer=token_issuer,
-                client_id=eff["oidc_client_id"],
-                jwks_uri=eff["oidc_jwks_uri"]
-                or _try_endpoint(eff["oidc_issuer_url"], "jwks_uri"),
-                expected_nonce=saved["nonce"],
-                allowed_alg=eff["oidc_signing_alg"],
-            )
-        except _OIDCError as e:
-            logger.warning("OIDC id_token validation failed: %s", e)
-            return _redirect_with_error(str(e))
-
-        # Resolve / fetch userinfo (some IdPs put groups only in /userinfo)
-        userinfo = _fetch_userinfo(
-            eff["oidc_userinfo_endpoint"]
-            or _try_endpoint(eff["oidc_issuer_url"], "userinfo_endpoint"),
-            access_token,
+    # Validate ID token — use the explicit token_issuer when set, otherwise
+    # fetch the canonical issuer from the discovery doc so the iss claim
+    # matches exactly regardless of what the admin typed as the issuer URL.
+    token_issuer = eff["oidc_token_issuer"] or _discover_issuer(eff["oidc_issuer_url"])
+    try:
+        claims = _validate_id_token(
+            id_token,
+            issuer=token_issuer,
+            client_id=eff["oidc_client_id"],
+            jwks_uri=eff["oidc_jwks_uri"]
+            or _try_endpoint(eff["oidc_issuer_url"], "jwks_uri"),
+            expected_nonce=saved["nonce"],
+            allowed_alg=eff["oidc_signing_alg"],
         )
-        # Merge: claims wins for stable identifiers; userinfo wins for richer
-        # claims that aren't in the ID token (groups, etc.).
-        merged: dict = dict(claims)
-        for k, v in (userinfo or {}).items():
-            merged.setdefault(k, v)
-            if k in (
-                "groups",
-                "roles",
-                "email",
-                eff["oidc_groups_claim"],
-                eff["oidc_permissions_claim"],
-            ):
-                merged[k] = v  # prefer userinfo for these
+    except _OIDCError as e:
+        logger.warning("OIDC id_token validation failed: %s", e)
+        return _redirect_with_error(str(e))
 
-        # Resolve user
-        try:
-            user = _resolve_user(db, merged, eff)
-        except _OIDCError as e:
-            logger.info("OIDC login rejected: %s", e)
-            return _redirect_with_error(str(e))
+    # Resolve / fetch userinfo (some IdPs put groups only in /userinfo)
+    userinfo = _fetch_userinfo(
+        eff["oidc_userinfo_endpoint"]
+        or _try_endpoint(eff["oidc_issuer_url"], "userinfo_endpoint"),
+        access_token,
+    )
+    # Merge: claims wins for stable identifiers; userinfo wins for richer
+    # claims that aren't in the ID token (groups, etc.).
+    merged: dict = dict(claims)
+    for k, v in (userinfo or {}).items():
+        merged.setdefault(k, v)
+        if k in (
+            "groups",
+            "roles",
+            "email",
+            eff["oidc_groups_claim"],
+            eff["oidc_permissions_claim"],
+        ):
+            merged[k] = v  # prefer userinfo for these
 
-        token = create_token(user.id, user.username, user.role)
-        # Hand the token to the frontend via the URL fragment so it isn't
-        # logged by intermediate proxies. Also set the session cookie so
-        # <img>/download GETs authenticate without the JWT in the URL.
-        return_to = saved.get("return_to") or "/"
-        if not return_to.startswith("/"):
-            return_to = "/"
-        resp = RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
-        set_auth_cookie(resp, token)
-        return resp
-    finally:
-        db.close()
+    # Resolve user
+    try:
+        user = _resolve_user(db, merged, eff)
+    except _OIDCError as e:
+        logger.info("OIDC login rejected: %s", e)
+        return _redirect_with_error(str(e))
+
+    token = create_token(user.id, user.username, user.role)
+    # Hand the token to the frontend via the URL fragment so it isn't
+    # logged by intermediate proxies. Also set the session cookie so
+    # <img>/download GETs authenticate without the JWT in the URL.
+    return_to = saved.get("return_to") or "/"
+    if not return_to.startswith("/"):
+        return_to = "/"
+    resp = RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
+    set_auth_cookie(resp, token)
+    return resp

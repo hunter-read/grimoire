@@ -12,9 +12,10 @@ import string
 import urllib.parse
 
 from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
-from ...config import SessionLocal, BASE_URL
+from ...config import get_db, BASE_URL
 from ...models import Campaign, CampaignMember, User
 from ..settings._helpers import _get_raw, guest_access_effective
 from ._helpers import assert_can_manage, delete_guest_user, get_campaign_or_404
@@ -99,103 +100,99 @@ def _get_guest_member(db, campaign_id: str, member_id: str) -> CampaignMember:
 
 
 def create_guest(
-    campaign_id: str, data: GuestCreate, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    data: GuestCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        _assert_guest_access(db)
-        c = _get_managed_campaign(db, campaign_id, current_user)
+    _assert_guest_access(db)
+    c = _get_managed_campaign(db, campaign_id, current_user)
 
-        nickname = (data.nickname or "").strip() or "Guest"
-        code = _generate_guest_code(db)
+    nickname = (data.nickname or "").strip() or "Guest"
+    code = _generate_guest_code(db)
 
-        guest_user = User(
-            username=f"guest_{secrets.token_hex(8)}",
-            display_name=nickname,
-            role="guest",
-            is_guest=True,
-            hashed_password=None,
-            campaign_access=True,
-        )
-        db.add(guest_user)
-        db.flush()
+    guest_user = User(
+        username=f"guest_{secrets.token_hex(8)}",
+        display_name=nickname,
+        role="guest",
+        is_guest=True,
+        hashed_password=None,
+        campaign_access=True,
+    )
+    db.add(guest_user)
+    db.flush()
 
-        member = CampaignMember(
-            campaign_id=campaign_id,
-            user_id=guest_user.id,
-            status="accepted",
-            is_guest=True,
-            guest_code=code,
-        )
-        db.add(member)
+    member = CampaignMember(
+        campaign_id=campaign_id,
+        user_id=guest_user.id,
+        status="accepted",
+        is_guest=True,
+        guest_code=code,
+    )
+    db.add(member)
 
-        # First guest flips the per-campaign flag on.
-        if not c.guest_invites_enabled:
-            c.guest_invites_enabled = True
+    # First guest flips the per-campaign flag on.
+    if not c.guest_invites_enabled:
+        c.guest_invites_enabled = True
 
-        db.commit()
-        db.refresh(member)
-        return _serialize_guest(member, guest_user)
-    finally:
-        db.close()
+    db.commit()
+    db.refresh(member)
+    return _serialize_guest(member, guest_user)
 
 
-def list_guests(campaign_id: str, current_user: CurrentUser = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        _get_managed_campaign(db, campaign_id, current_user)
-        members = (
-            db.query(CampaignMember).filter_by(campaign_id=campaign_id, is_guest=True).all()
-        )
-        users = {u.id: u for u in db.query(User).all()}
-        return [_serialize_guest(m, users.get(m.user_id)) for m in members]
-    finally:
-        db.close()
+def list_guests(
+    campaign_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _get_managed_campaign(db, campaign_id, current_user)
+    members = (
+        db.query(CampaignMember).filter_by(campaign_id=campaign_id, is_guest=True).all()
+    )
+    users = {u.id: u for u in db.query(User).all()}
+    return [_serialize_guest(m, users.get(m.user_id)) for m in members]
 
 
 def regenerate_guest_code(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    member_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        _assert_guest_access(db)
-        _get_managed_campaign(db, campaign_id, current_user)
-        member = _get_guest_member(db, campaign_id, member_id)
-        member.guest_code = _generate_guest_code(db)
-        db.commit()
-        db.refresh(member)
-        user = db.query(User).filter_by(id=member.user_id).first()
-        return _serialize_guest(member, user)
-    finally:
-        db.close()
+    _assert_guest_access(db)
+    _get_managed_campaign(db, campaign_id, current_user)
+    member = _get_guest_member(db, campaign_id, member_id)
+    member.guest_code = _generate_guest_code(db)
+    db.commit()
+    db.refresh(member)
+    user = db.query(User).filter_by(id=member.user_id).first()
+    return _serialize_guest(member, user)
 
 
 def remove_guest(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    member_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        _get_managed_campaign(db, campaign_id, current_user)
-        member = _get_guest_member(db, campaign_id, member_id)
-        user_id = member.user_id
-        db.delete(member)
-        # Guests are single-campaign — drop the backing User and its
-        # contributions too so no orphan account lingers.
-        delete_guest_user(db, user_id)
-        db.commit()
-    finally:
-        db.close()
+    _get_managed_campaign(db, campaign_id, current_user)
+    member = _get_guest_member(db, campaign_id, member_id)
+    user_id = member.user_id
+    db.delete(member)
+    # Guests are single-campaign — drop the backing User and its
+    # contributions too so no orphan account lingers.
+    delete_guest_user(db, user_id)
+    db.commit()
 
 
 def guest_share_template(
-    campaign_id: str, member_id: str, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    member_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        c = _get_managed_campaign(db, campaign_id, current_user)
-        member = _get_guest_member(db, campaign_id, member_id)
-        user = db.query(User).filter_by(id=member.user_id).first()
-        nickname = user.display_name if user else ""
-        return _share_template(c, nickname, member.guest_code)
-    finally:
-        db.close()
+    c = _get_managed_campaign(db, campaign_id, current_user)
+    member = _get_guest_member(db, campaign_id, member_id)
+    user = db.query(User).filter_by(id=member.user_id).first()
+    nickname = user.display_name if user else ""
+    return _share_template(c, nickname, member.guest_code)
