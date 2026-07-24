@@ -1,7 +1,44 @@
 """Shared search helpers and category prioritization for the search router."""
+from html import escape
+
 from sqlalchemy import String, cast, or_
 
 from ...models import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
+
+
+# FTS5 snippet() wraps matches in these sentinels rather than literal <mark>
+# tags. The snippet's surrounding text comes from a PDF's text layer and is
+# untrusted; it is HTML-escaped below before the sentinels are swapped for real
+# <mark> tags, so injected markup (e.g. "<script>" in a scanned page) is rendered
+# inert while our own highlight markup survives.
+#
+# The sentinels are private-use-area codepoints (U+E000..): they survive a SQL
+# string literal (unlike NUL, which SQLite's driver rejects) and html.escape()
+# untouched, and don't occur in real document text. Even if a document did embed
+# one, the worst case is a stray (already-escaped) highlight — never markup
+# injection, since escaping runs first.
+_SNIPPET_OPEN = "\ue000"
+_SNIPPET_CLOSE = "\ue001"
+
+# The snippet() column call callers embed in their FTS query. Column index 2 is
+# ``content``; ``40`` is the token budget; ``...`` is the ellipsis for truncation.
+SNIPPET_SQL = f"snippet(book_search, 2, '{_SNIPPET_OPEN}', '{_SNIPPET_CLOSE}', '...', 40)"
+
+
+def escape_snippet(raw: str) -> str:
+    """Make an FTS5 snippet() result safe for dangerouslySetInnerHTML.
+
+    HTML-escapes the whole snippet (the surrounding text is untrusted document
+    content), then replaces the escaped highlight sentinels with real
+    ``<mark>``/``</mark>`` tags. Returns "" for a None/empty snippet.
+    """
+    if not raw:
+        return ""
+    return (
+        escape(raw)
+        .replace(escape(_SNIPPET_OPEN), "<mark>")
+        .replace(escape(_SNIPPET_CLOSE), "</mark>")
+    )
 
 
 # Lower number = shown first in results
