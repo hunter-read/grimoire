@@ -37,7 +37,7 @@ export default function BannerHero({ campaign, isOwner, onChanged }) {
 
   // Bust the browser cache after a re-upload by keying on updated_at.
   const bannerSrc = campaign.has_banner
-    ? `${campaigns.bannerUrl(campaign.id)}&v=${encodeURIComponent(campaign.updated_at)}`
+    ? campaigns.bannerUrl(campaign.id, campaign.updated_at)
     : null
 
   if (!campaign.has_banner && !isOwner) return null

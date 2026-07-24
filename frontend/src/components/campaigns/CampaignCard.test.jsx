@@ -3,8 +3,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CampaignCard from './CampaignCard'
 
+// Mirror the real bannerUrl: media URLs carry no ?token= (auth is via the
+// HttpOnly cookie), so `v` must be attached as a real query param — a plain
+// string concat of "&v=" would produce a malformed, unroutable URL.
 vi.mock('../../api', () => ({
-  campaigns: { bannerUrl: (id) => `/api/campaigns/${id}/banner?token=x` },
+  campaigns: {
+    bannerUrl: (id, v) => `/api/campaigns/${id}/banner${v ? `?v=${encodeURIComponent(v)}` : ''}`,
+  },
 }))
 vi.mock('./WikiMarkdown', () => ({
   default: ({ body }) => <div data-testid="wiki">{body}</div>,
@@ -50,8 +55,9 @@ describe('CampaignCard', () => {
       />
     )
     const img = container.querySelector('img')
-    expect(img.getAttribute('src')).toContain('/api/campaigns/c1/banner')
-    expect(img.getAttribute('src')).toContain('v=2026-01-01')
+    // The cache-buster must be a real query param (leading '?'), not a bare
+    // '&v=' appended to the path, or the URL doesn't route on the backend.
+    expect(img.getAttribute('src')).toBe('/api/campaigns/c1/banner?v=2026-01-01T00%3A00%3A00')
     expect(img).toHaveAttribute('loading', 'lazy')
   })
 

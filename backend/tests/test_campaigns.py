@@ -1,4 +1,6 @@
 """Tests for campaign management endpoints."""
+import io
+import os
 import uuid
 import pytest
 from backend.tests.conftest import make_campaign, make_game_system, make_book, make_map
@@ -1014,12 +1016,11 @@ class TestRemovedAdminEndpoints:
 # ---------------------------------------------------------------------------
 
 
-def _png_bytes(color=(120, 80, 200)):
-    import io
+def _png_bytes(color=(120, 80, 200), size=(8, 8)):
     from PIL import Image
 
     buf = io.BytesIO()
-    Image.new("RGB", (8, 8), color).save(buf, format="PNG")
+    Image.new("RGB", size, color).save(buf, format="PNG")
     return buf.getvalue()
 
 
@@ -1085,6 +1086,75 @@ class TestBannerUpload:
         assert resp.status_code == 204
         body = client.get(f"/api/campaigns/{campaign['id']}", headers=gm_headers).json()
         assert body["has_banner"] is False
+
+    def test_default_serves_downscaled_webp(self, client, gm_headers, campaign):
+        # A wide upload is downscaled to <=1000px WebP and served by default.
+        client.post(
+            f"/api/campaigns/{campaign['id']}/banner",
+            files={"file": ("banner.png", _png_bytes(size=(1600, 800)), "image/png")},
+            headers=gm_headers,
+        )
+        from backend.routers.campaigns.uploads import _banner_thumb_path
+
+        assert os.path.isfile(_banner_thumb_path(campaign["id"]))
+
+        img = client.get(f"/api/campaigns/{campaign['id']}/banner", headers=gm_headers)
+        assert img.status_code == 200
+        assert img.headers["content-type"] == "image/webp"
+
+        from PIL import Image
+
+        w, h = Image.open(io.BytesIO(img.content)).size
+        assert w == 1000 and h == 500  # scaled down, aspect preserved
+
+    def test_size_full_serves_original(self, client, gm_headers, campaign):
+        client.post(
+            f"/api/campaigns/{campaign['id']}/banner",
+            files={"file": ("banner.png", _png_bytes(size=(1600, 800)), "image/png")},
+            headers=gm_headers,
+        )
+        full = client.get(
+            f"/api/campaigns/{campaign['id']}/banner?size=full", headers=gm_headers
+        )
+        assert full.status_code == 200
+        assert full.headers["content-type"] == "image/png"
+
+        from PIL import Image
+
+        w, h = Image.open(io.BytesIO(full.content)).size
+        assert w == 1600 and h == 800  # untouched original
+
+    def test_backfills_thumb_for_preexisting_banner(self, client, gm_headers, campaign):
+        # Simulate a banner uploaded before downscaling existed: original on disk,
+        # no small copy. The first small request must generate it.
+        client.post(
+            f"/api/campaigns/{campaign['id']}/banner",
+            files={"file": ("banner.png", _png_bytes(size=(1600, 800)), "image/png")},
+            headers=gm_headers,
+        )
+        from backend.routers.campaigns.uploads import _banner_thumb_path
+
+        thumb = _banner_thumb_path(campaign["id"])
+        os.remove(thumb)
+        assert not os.path.isfile(thumb)
+
+        img = client.get(f"/api/campaigns/{campaign['id']}/banner", headers=gm_headers)
+        assert img.status_code == 200
+        assert img.headers["content-type"] == "image/webp"
+        assert os.path.isfile(thumb)  # regenerated and cached
+
+    def test_delete_removes_downscaled_copy(self, client, gm_headers, campaign):
+        client.post(
+            f"/api/campaigns/{campaign['id']}/banner",
+            files={"file": ("banner.png", _png_bytes(size=(1600, 800)), "image/png")},
+            headers=gm_headers,
+        )
+        from backend.routers.campaigns.uploads import _banner_thumb_path
+
+        thumb = _banner_thumb_path(campaign["id"])
+        assert os.path.isfile(thumb)
+        client.delete(f"/api/campaigns/{campaign['id']}/banner", headers=gm_headers)
+        assert not os.path.isfile(thumb)
 
 
 class TestCharacterUploads:

@@ -335,7 +335,11 @@ describe('api', () => {
       expect(fetch).toHaveBeenCalled()
 
       // Sync URL builders don't hit fetch.
-      expect(campaigns.bannerUrl('c1')).toContain('/api/campaigns/c1/banner')
+      expect(campaigns.bannerUrl('c1')).toBe('/api/campaigns/c1/banner')
+      // A cache-buster attaches as a real query param, not a bare '&v='.
+      expect(campaigns.bannerUrl('c1', '2026-01-01T00:00:00')).toBe(
+        '/api/campaigns/c1/banner?v=2026-01-01T00%3A00%3A00'
+      )
       expect(campaigns.memberArtUrl('c1', 'm1')).toContain('/art')
       expect(campaigns.memberSheetUrl('c1', 'm1')).toContain('/sheet')
       expect(campaigns.fileUrl('c1', 'f1')).toContain('/files/f1')

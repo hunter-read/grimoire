@@ -59,7 +59,12 @@ export const campaigns = {
   // Banner (keyed by campaign id)
   uploadBanner: (id, file) => api.upload(`/campaigns/${id}/banner`, file),
   deleteBanner: (id) => api.delete(`/campaigns/${id}/banner`),
-  bannerUrl: (id) => mediaUrl(`/campaigns/${id}/banner`),
+  // `v` cache-busts the upload cache after a re-upload so the fresh banner is
+  // fetched instead of the stale copy the browser is still holding. It must go
+  // through mediaUrl as a real query param — media URLs no longer carry a
+  // ?token= (auth moved to the HttpOnly cookie in #218), so appending "&v=..."
+  // to the bare path produced a malformed, unroutable URL.
+  bannerUrl: (id, v) => mediaUrl(`/campaigns/${id}/banner`, v ? { v } : {}),
 
   // Character art & sheet (keyed by CampaignMember id)
   uploadMemberArt: (id, memberId, file) =>

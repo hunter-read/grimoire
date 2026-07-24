@@ -370,8 +370,8 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/campaigns/:id/banner` | POST | owner | Upload/replace campaign banner (multipart `file`) |
-| `/api/campaigns/:id/banner` | GET | member or owner | Banner image |
+| `/api/campaigns/:id/banner` | POST | owner | Upload/replace campaign banner (multipart `file`). A downscaled (≤1000px-wide WebP) copy is generated for fast display alongside the stored original. |
+| `/api/campaigns/:id/banner` | GET | member or owner | Banner image. Defaults to the downscaled WebP; pass `?size=full` for the original upload. The small copy is generated on first access for banners uploaded before downscaling existed. |
 | `/api/campaigns/:id/banner` | DELETE | owner | Remove banner |
 | `/api/campaigns/:id/members/:member_id/art` | POST | member (own) or owner | Upload/replace character art (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/art` | GET | member or owner | Character art image |

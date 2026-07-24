@@ -8,8 +8,9 @@ player who belongs to several campaigns gets a distinct file per membership.
 import io
 import os
 import uuid
+from typing import Optional
 
-from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, File, Form, HTTPException, Query, Request, UploadFile
 
 from ...auth import CurrentUser, get_current_user
 from ...config import CAMPAIGN_UPLOAD_DIR, SessionLocal, logger
@@ -49,6 +50,35 @@ def _validate_image(data: bytes) -> None:
         raise HTTPException(400, "File is not a valid image")
 
 
+# The detail hero caps at maxWidth:800 (grid cards are smaller), so 1000px keeps
+# it crisp on high-DPI screens while still being far smaller than a full upload.
+# Serving a downscaled WebP by default keeps the page snappy on slow connections;
+# the full-resolution original stays available via ?size=full.
+_BANNER_THUMB_MAX_W = 1000
+
+
+def _make_banner_thumb(data: bytes) -> Optional[bytes]:
+    """Downscale banner bytes to a <=1000px-wide WebP. Returns None on failure."""
+    from PIL import Image
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGB")
+        # Only ever scale down — never upscale a banner that's already small.
+        img.thumbnail((_BANNER_THUMB_MAX_W, 10_000), Image.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, "WEBP", quality=80)
+        return out.getvalue()
+    except Exception as e:
+        logger.warning("Failed to generate banner thumbnail: %s", e)
+        return None
+
+
+def _banner_thumb_path(campaign_id: str) -> str:
+    return os.path.join(_BANNER_DIR, f"{campaign_id}_sm.webp")
+
+
 def _read_upload(upload: UploadFile, allowed: dict, max_bytes: int) -> bytes:
     if upload.content_type not in allowed:
         raise HTTPException(400, f"Unsupported file type: {upload.content_type}")
@@ -75,9 +105,7 @@ def _remove_existing(directory: str, stem: str) -> None:
 
 
 def _get_member_or_404(db, campaign_id: str, member_id: str) -> CampaignMember:
-    member = (
-        db.query(CampaignMember).filter_by(id=member_id, campaign_id=campaign_id).first()
-    )
+    member = db.query(CampaignMember).filter_by(id=member_id, campaign_id=campaign_id).first()
     if not member:
         raise HTTPException(404, "Member not found")
     return member
@@ -107,8 +135,20 @@ def upload_banner(
         ext = _IMAGE_TYPES[file.content_type]
         _remove_existing(_BANNER_DIR, campaign_id)
         filename = f"{campaign_id}{ext}"
+        os.makedirs(_BANNER_DIR, exist_ok=True)
         with open(os.path.join(_BANNER_DIR, filename), "wb") as f:
             f.write(data)
+
+        # Store a downscaled copy served by default; failure is non-fatal — the
+        # get handler falls back to the original.
+        thumb = _make_banner_thumb(data)
+        thumb_path = _banner_thumb_path(campaign_id)
+        if thumb is not None:
+            with open(thumb_path, "wb") as f:
+                f.write(thumb)
+        elif os.path.isfile(thumb_path):
+            # A prior, now-stale thumbnail must not outlive this replacement.
+            os.remove(thumb_path)
 
         c.banner_path = filename
         db.commit()
@@ -118,8 +158,14 @@ def upload_banner(
 
 
 def get_banner(
-    campaign_id: str, request: Request, current_user: CurrentUser = Depends(get_current_user)
+    campaign_id: str,
+    request: Request,
+    size: str = Query("small"),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
+    """Serve the campaign banner. Defaults to a <=1000px-wide WebP; `size=full`
+    serves the original upload. The small copy is generated on first access for
+    banners uploaded before downscaling existed."""
     db = SessionLocal()
     try:
         c = get_campaign_or_404(db, campaign_id)
@@ -130,6 +176,19 @@ def get_banner(
         path = os.path.join(_BANNER_DIR, c.banner_path)
         if not os.path.isfile(path):
             raise HTTPException(404, "No banner")
+
+        if size != "full":
+            thumb_path = _banner_thumb_path(campaign_id)
+            if not os.path.isfile(thumb_path):
+                # Backfill for banners uploaded before downscaling.
+                with open(path, "rb") as f:
+                    thumb = _make_banner_thumb(f.read())
+                if thumb is not None:
+                    with open(thumb_path, "wb") as f:
+                        f.write(thumb)
+            if os.path.isfile(thumb_path):
+                path = thumb_path
+
         return cached_file_response(request, path)
     finally:
         db.close()
@@ -141,6 +200,9 @@ def delete_banner(campaign_id: str, current_user: CurrentUser = Depends(get_curr
         c = get_campaign_or_404(db, campaign_id)
         assert_can_manage(c, current_user, db)
         _remove_existing(_BANNER_DIR, campaign_id)
+        thumb_path = _banner_thumb_path(campaign_id)
+        if os.path.isfile(thumb_path):
+            os.remove(thumb_path)
         c.banner_path = None
         db.commit()
     finally:
@@ -522,8 +584,6 @@ def get_campaign_file(
         path = os.path.join(_FILES_DIR, cf.stored_path)
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
-        return cached_file_response(
-            request, path, filename=cf.filename, media_type=cf.mime_type
-        )
+        return cached_file_response(request, path, filename=cf.filename, media_type=cf.mime_type)
     finally:
         db.close()

@@ -31,7 +31,7 @@ export default function CampaignCard({
   const isOwner = campaign.owner_id === userId
   // Cache-bust the banner with updated_at so a re-upload shows without a stale image.
   const bannerSrc = campaign.has_banner
-    ? `${campaigns.bannerUrl(campaign.id)}&v=${encodeURIComponent(campaign.updated_at)}`
+    ? campaigns.bannerUrl(campaign.id, campaign.updated_at)
     : null
 
   return (
