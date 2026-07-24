@@ -7,7 +7,14 @@ from sqlalchemy.orm import Session
 
 from ...config import get_db
 from ...models import Book, GameSystem
-from ._helpers import _CATEGORY_PRIORITY, _search_maps, _search_tokens, _search_audio
+from ._helpers import (
+    SNIPPET_SQL,
+    _CATEGORY_PRIORITY,
+    _search_audio,
+    _search_maps,
+    _search_tokens,
+    escape_snippet,
+)
 
 
 def search_library(
@@ -17,11 +24,15 @@ def search_library(
     system_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    # snippet() wraps matches in NUL sentinels, not literal <mark> tags; the
+    # untrusted surrounding text is HTML-escaped and the sentinels swapped for
+    # real <mark> tags in escape_snippet() below (the client renders the snippet
+    # via dangerouslySetInnerHTML). See ._helpers.SNIPPET_SQL / escape_snippet.
     if book_id:
         sql = text(
-            """
+            f"""
             SELECT book_id, page_number,
-                   snippet(book_search, 2, '<mark>', '</mark>', '...', 40) as snippet,
+                   {SNIPPET_SQL} as snippet,
                    rank
             FROM book_search
             WHERE content MATCH :query AND book_id = :book_id
@@ -32,9 +43,9 @@ def search_library(
         rows = db.execute(sql, {"query": q, "book_id": book_id, "limit": limit}).fetchall()
     elif system_id:
         sql = text(
-            """
+            f"""
             SELECT book_id, page_number,
-                   snippet(book_search, 2, '<mark>', '</mark>', '...', 40) as snippet,
+                   {SNIPPET_SQL} as snippet,
                    rank
             FROM book_search
             WHERE content MATCH :query
@@ -46,9 +57,9 @@ def search_library(
         rows = db.execute(sql, {"query": q, "system_id": system_id, "limit": limit}).fetchall()
     else:
         sql = text(
-            """
+            f"""
             SELECT book_id, page_number,
-                   snippet(book_search, 2, '<mark>', '</mark>', '...', 40) as snippet,
+                   {SNIPPET_SQL} as snippet,
                    rank
             FROM book_search
             WHERE content MATCH :query
@@ -79,7 +90,12 @@ def search_library(
                 }
         if bid in book_cache:
             enriched.append(
-                {**book_cache[bid], "page_number": row[1], "snippet": row[2], "_rank": row[3]}
+                {
+                    **book_cache[bid],
+                    "page_number": row[1],
+                    "snippet": escape_snippet(row[2]),
+                    "_rank": row[3],
+                }
             )
 
     # Re-sort: category priority first, then BM25 rank (more negative = better match)

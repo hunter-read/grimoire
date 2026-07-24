@@ -210,3 +210,65 @@ class TestSearch:
         resp = client.get("/api/search?q=fireball&system_id=nonexistent-system-id", headers=admin_headers)
         assert resp.status_code == 200
         assert resp.json()["results"] == []
+
+
+@pytest.fixture(scope="module")
+def booby_trapped_book():
+    """A book whose PDF text layer contains raw HTML/JS markup.
+
+    The snippet is rendered via dangerouslySetInnerHTML on the client, so the
+    surrounding source text must be HTML-escaped server-side; only the highlight
+    <mark> tags we inject should survive as real markup.
+    """
+    sys = make_game_system()
+    book = make_book(system_id=sys.id, title="Cursed Tome", indexed=True)
+    payload = (
+        'necromancy <script>alert(document.cookie)</script> ritual '
+        '<img src=x onerror=alert(1)> and <b>bold</b> incantations & sigils'
+    )
+    db = SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO book_search (book_id, page_number, content) "
+                "VALUES (:bid, :pn, :content)"
+            ),
+            {"bid": book.id, "pn": 1, "content": payload},
+        )
+        db.commit()
+    finally:
+        db.close()
+    return book
+
+
+class TestSnippetEscaping:
+    def _snippet(self, client, admin_headers, book_id, query):
+        resp = client.get(f"/api/search?q={query}", headers=admin_headers)
+        assert resp.status_code == 200
+        row = next(r for r in resp.json()["results"] if r["id"] == book_id)
+        return row["snippet"]
+
+    def test_source_markup_is_escaped(self, client, admin_headers, booby_trapped_book):
+        snippet = self._snippet(client, admin_headers, booby_trapped_book.id, "necromancy")
+        # Raw tags from the PDF text layer must not survive as live markup.
+        assert "\ue000" not in snippet
+        assert "\ue001" not in snippet
+        assert "<b>" not in snippet
+        # They are present, but escaped.
+        assert "&lt;script&gt;" in snippet
+        assert "&lt;img" in snippet
+        assert "onerror" in snippet  # kept as inert text, not an attribute
+        # Ampersands in source text are escaped too.
+        assert "&amp; sigils" in snippet
+
+    def test_highlight_marks_are_preserved(self, client, admin_headers, booby_trapped_book):
+        snippet = self._snippet(client, admin_headers, booby_trapped_book.id, "necromancy")
+        # The matched term is still wrapped in a real <mark> highlight.
+        assert "<mark>" in snippet and "</mark>" in snippet
+        assert "<mark>necromancy</mark>" in snippet.lower()
+
+    def test_no_raw_sentinel_leaks(self, client, admin_headers, booby_trapped_book):
+        """The internal highlight sentinels must never appear in the response."""
+        snippet = self._snippet(client, admin_headers, booby_trapped_book.id, "ritual")
+        assert "" not in snippet
+        assert "" not in snippet

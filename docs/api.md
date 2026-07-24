@@ -323,6 +323,11 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 `maps` and `tokens` are empty when `book_id` or `system_id` is scoped.
 
+Each result's `snippet` is HTML-safe: the matched term is wrapped in `<mark>…</mark>`
+and all surrounding text (which originates from an untrusted PDF text layer) is
+HTML-escaped server-side, so the client can render it via `dangerouslySetInnerHTML`
+without risking markup injection.
+
 ### Campaigns
 
 #### Campaign CRUD
