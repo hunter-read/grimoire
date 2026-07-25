@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import { CodexModeProvider } from '../context/CodexModeContext'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -280,5 +281,59 @@ describe('Sidebar update banner dismiss', () => {
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Codex mode
+// ---------------------------------------------------------------------------
+
+function renderWithCodex(props = {}) {
+  return render(
+    <CodexModeProvider>
+      <MemoryRouter>
+        <Sidebar
+          user={baseUser}
+          onLogout={vi.fn()}
+          stats={baseStats}
+          about={baseAbout}
+          uiSettings={{}}
+          {...props}
+        />
+      </MemoryRouter>
+    </CodexModeProvider>
+  )
+}
+
+describe('Sidebar Codex mode', () => {
+  it('shows the Grimoire branding and no wargaming nav when off', () => {
+    localStorage.setItem('grimoire_codex_mode', 'false')
+    renderWithCodex()
+    expect(screen.getByText('GRIMOIRE')).toBeInTheDocument()
+    expect(screen.queryByText('Rosters')).toBeNull()
+    expect(screen.queryByText('Battles')).toBeNull()
+  })
+
+  it('offers a toggle that switches to Codex branding and nav', () => {
+    localStorage.setItem('grimoire_codex_mode', 'false')
+    renderWithCodex()
+    fireEvent.click(screen.getByRole('button', { name: /switch to codex/i }))
+    expect(screen.getByText('CODEX')).toBeInTheDocument()
+    expect(screen.getByText('Wargaming Library')).toBeInTheDocument()
+    expect(screen.getByText('Rosters')).toBeInTheDocument()
+    expect(screen.getByText('Battles')).toBeInTheDocument()
+  })
+
+  it('starts in Codex branding when persisted on', () => {
+    localStorage.setItem('grimoire_codex_mode', 'true')
+    renderWithCodex()
+    expect(screen.getByText('CODEX')).toBeInTheDocument()
+    expect(screen.getByText('Rosters')).toBeInTheDocument()
+  })
+
+  it('hides the toggle for guests', () => {
+    localStorage.setItem('grimoire_codex_mode', 'false')
+    renderWithCodex({ user: { username: 'g', role: 'guest' } })
+    expect(screen.queryByRole('button', { name: /switch to codex/i })).toBeNull()
   })
 })

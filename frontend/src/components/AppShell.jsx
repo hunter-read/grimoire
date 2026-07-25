@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import useScrollRestoration from '../hooks/useScrollRestoration'
 import { useAuth } from '../context/AuthContext'
+import { useCodexMode } from '../context/CodexModeContext'
 import { UISettingsProvider } from '../context/UISettingsContext'
 import { useAudioPlayer } from '../context/AudioPlayerContext'
 import GlobalAudioPlayer, { PLAYER_HEIGHT } from './audio/GlobalAudioPlayer'
@@ -23,6 +24,8 @@ import FavoritesView from '../views/FavoritesView'
 import CampaignsView from '../views/CampaignsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
+import ArmyRosterView from '../views/ArmyRosterView'
+import BattlesView from '../views/BattlesView'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
 
 const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
@@ -30,6 +33,7 @@ const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
 /** Authenticated app layout: sidebar(s) + routed main content. */
 export default function AppShell() {
   const { user, logout } = useAuth()
+  const { codex } = useCodexMode()
   const [stats, setStats] = useState(null)
   // Build info (version/commit/python) lives on a login-only endpoint, kept off
   // the API-key-gated /stats so it isn't exposed to external integrations.
@@ -146,6 +150,16 @@ export default function AppShell() {
               <Route path="/audio/:audioId" element={<AudioDetailView />} />
               <Route path="/search" element={<SearchView />} />
               <Route path="/favorites" element={<FavoritesView />} />
+              {/* Codex-mode wargaming surfaces. Registered only while Codex is
+                  on; otherwise they redirect back to the library. */}
+              <Route
+                path="/codex/rosters"
+                element={codex ? <ArmyRosterView /> : <Navigate to="/library" replace />}
+              />
+              <Route
+                path="/codex/battles"
+                element={codex ? <BattlesView /> : <Navigate to="/library" replace />}
+              />
               <Route path="/campaigns" element={<CampaignsView />} />
               <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />

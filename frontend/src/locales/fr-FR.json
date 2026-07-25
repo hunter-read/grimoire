@@ -6,6 +6,39 @@
     "name": "GRIMOIRE",
     "subtitle": "Bibliothèque TTRPG"
   },
+  "codex": {
+    "appName": "CODEX",
+    "appSubtitle": "Wargaming Library",
+    "toggle": {
+      "on": "Codex Mode",
+      "off": "Codex Mode",
+      "enable": "Switch to Codex (wargaming) mode",
+      "disable": "Switch back to Grimoire"
+    },
+    "nav": {
+      "rosters": "Rosters",
+      "battles": "Battles"
+    },
+    "rosters": {
+      "title": "Army Rosters",
+      "subtitle": "Build and manage your forces. Draw on your library's game systems as factions.",
+      "new": "New Roster",
+      "points": "Points",
+      "units": "Units",
+      "updated": "Updated {{when}}",
+      "factions": "Factions",
+      "factionsHint": "Pulled from your library. Pick a system to start a roster under it.",
+      "noFactions": "No game systems found in your library yet."
+    },
+    "battles": {
+      "title": "Battles",
+      "subtitle": "Plan upcoming games and track results across your campaigns.",
+      "new": "New Battle",
+      "upcoming": "Upcoming",
+      "recent": "Recent Results",
+      "vs": "vs"
+    }
+  },
   "nav": {
     "library": "Bibliothèque",
     "maps": "Cartes",

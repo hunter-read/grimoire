@@ -14,8 +14,11 @@ import {
   LuX,
   LuPanelLeftClose,
   LuPanelLeftOpen,
+  LuShield,
+  LuSwords,
 } from 'react-icons/lu'
 import AboutModal from './AboutModal'
+import { useCodexMode } from '../context/CodexModeContext'
 
 const GITHUB_REPO = 'hunter-read/grimoire'
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
@@ -66,6 +69,7 @@ export default function Sidebar({
   onToggleCollapse,
 }) {
   const { t } = useTranslation()
+  const { codex, toggleCodex } = useCodexMode()
   // Guests only see their campaign(s) — no library, maps, tokens, search,
   // favorites, or settings.
   const isGuest = user?.role === 'guest'
@@ -155,7 +159,7 @@ export default function Sidebar({
         }}
       >
         <img
-          src="/grimoire-logo.svg"
+          src={codex ? '/codex-logo.svg' : '/grimoire-logo.svg'}
           alt=""
           aria-hidden="true"
           width={collapsed ? 40 : 72}
@@ -165,7 +169,7 @@ export default function Sidebar({
         {!collapsed && (
           <div>
             <h1 style={{ fontSize: 20, letterSpacing: '0.08em', margin: 0, lineHeight: 1.1 }}>
-              {t('app.name')}
+              {codex ? t('codex.appName') : t('app.name')}
             </h1>
             <div
               style={{
@@ -177,7 +181,7 @@ export default function Sidebar({
                 textTransform: 'uppercase',
               }}
             >
-              {t('app.subtitle')}
+              {codex ? t('codex.appSubtitle') : t('app.subtitle')}
             </div>
           </div>
         )}
@@ -194,6 +198,15 @@ export default function Sidebar({
         {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
         {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
 
+        {/* Codex mode surfaces wargaming-focused sections. */}
+        {!isGuest && codex && (
+          <>
+            <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+            {navItem('/codex/rosters', <LuShield size={16} />, t('codex.nav.rosters'))}
+            {navItem('/codex/battles', <LuSwords size={16} />, t('codex.nav.battles'))}
+          </>
+        )}
+
         {!isGuest && (
           <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
         )}
@@ -201,6 +214,35 @@ export default function Sidebar({
         {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
       </nav>
+
+      {/* Codex mode toggle — an experiment switch that reskins the app toward a
+          wargaming focus. Front-end only; persists in localStorage. */}
+      {!isGuest && (
+        <button
+          onClick={toggleCodex}
+          title={codex ? t('codex.toggle.disable') : t('codex.toggle.enable')}
+          aria-label={codex ? t('codex.toggle.disable') : t('codex.toggle.enable')}
+          aria-pressed={codex}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: collapsed ? 0 : 10,
+            margin: collapsed ? '0 8px 4px' : '0 8px 4px',
+            padding: collapsed ? '9px 0' : '9px 14px',
+            borderRadius: 8,
+            background: codex ? 'var(--bg-card)' : 'transparent',
+            border: codex ? '1px solid var(--gold)' : '1px solid var(--border)',
+            color: codex ? 'var(--gold)' : 'var(--text-muted)',
+            fontSize: 13,
+            fontWeight: 500,
+            width: 'calc(100% - 16px)',
+          }}
+        >
+          <LuSwords size={16} />
+          {!collapsed && (codex ? t('codex.toggle.on') : t('codex.toggle.off'))}
+        </button>
+      )}
 
       {/* Collapse toggle — bottom of the nav section, above the stats footer.
           No top border: it reads as part of the nav, not a separate section. */}

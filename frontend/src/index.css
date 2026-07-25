@@ -25,6 +25,46 @@
   --invite-border: var(--gold);
 }
 
+/* ---------------------------------------------------------------------------
+   Codex mode — alternate wargaming skin.
+
+   Toggled from the sidebar (see CodexModeContext). Everything the app draws is
+   keyed off the CSS variables above, so recoloring the palette here reskins the
+   whole app without touching a single component. Palette derived from
+   codex-logo.svg: gunmetal ink (#14171B), steel (#9AA4AE), crimson (#B22B33).
+   The gold accents become steel/crimson so "gold"-named variables keep working.
+--------------------------------------------------------------------------- */
+:root[data-mode='codex'] {
+  --bg-deep: #0b0d10;
+  --bg-panel: #14171b;
+  --bg-card: #1c2127;
+  --bg-card-hover: #262c34;
+  --bg-input: #0f1215;
+  --border: #2b323b;
+  --border-light: #3c4551;
+  /* "gold" accents remap to steel so existing components read as Codex-tinted */
+  --gold: #9aa4ae;
+  --gold-dim: #79838d;
+  --gold-bright: #c3ccd4;
+  --amber: #b22b33;
+  --text: #dfe4ea;
+  --text-dim: #aeb6bf;
+  --text-muted: #7d8791;
+  --red: #b22b33;
+  --green: #5a9a7a;
+  --blue: #4a7a9a;
+  --tag-bg: #1f252c;
+  --tag-border: #39424d;
+  --mark-bg: rgba(178, 43, 51, 0.3);
+  --invite-bg: rgba(154, 164, 174, 0.12);
+  --invite-border: var(--gold);
+}
+
+/* In Codex mode headings use the steel accent, not gold serif warmth. */
+:root[data-mode='codex'] mark {
+  color: #e07b82;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body, #root {
