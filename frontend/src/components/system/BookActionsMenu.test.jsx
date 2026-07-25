@@ -13,7 +13,14 @@ vi.mock('../../api', () => ({
 }))
 
 function makeBook(overrides = {}) {
-  return { id: 'b1', mime_type: 'application/pdf', index_error: '', ...overrides }
+  return {
+    id: 'b1',
+    mime_type: 'application/pdf',
+    index_error: '',
+    indexed: true,
+    index_failed: false,
+    ...overrides,
+  }
 }
 
 function renderMenu(book = {}, props = {}) {
@@ -73,6 +80,25 @@ describe('BookActionsMenu', () => {
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.rescan' }))
     await waitFor(() => expect(screen.getByText('bookActions.rescanError')).toBeInTheDocument())
+  })
+
+  it('shows re-scan (not re-OCR) for an index-failed OCR book and posts to /rescan', async () => {
+    // A failed OCR book keeps an error message in index_error, but index_failed
+    // takes precedence: it must recover through the full re-scan flow.
+    renderMenu({ id: 'b8', indexed: false, index_failed: true, index_error: 'ocr open failed: x' })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.rescan' }))
+    await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b8/rescan'))
+  })
+
+  it('hides re-index items for a never-indexed / still-pending book', () => {
+    renderMenu({ indexed: false, index_failed: false })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
+    // download stays available regardless
+    expect(screen.getByRole('menuitem', { name: 'bookActions.download' })).toBeInTheDocument()
   })
 
   // --- image-only / OCR PDF: re-OCR with DPI ---
