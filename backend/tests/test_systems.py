@@ -68,6 +68,16 @@ class TestGetSystem:
         if books:
             assert all("index_failed" in b for b in books)
 
+    def test_system_books_include_mime_type(self, client, admin_headers, system):
+        # The per-book actions menu gates its re-scan / re-OCR items on
+        # mime_type being a PDF, so this field must be present in the payload.
+        from backend.tests.conftest import make_book
+        book = make_book(system_id=system.id)
+        resp = client.get(f"/api/systems/{system.id}", headers=admin_headers)
+        books = {b["id"]: b for b in resp.json()["books"]}
+        assert "mime_type" in books[book.id]
+        assert books[book.id]["mime_type"] == "application/pdf"
+
     def test_system_books_include_is_missing(self, client, admin_headers, system):
         from backend.tests.conftest import make_book
         make_book(system_id=system.id)

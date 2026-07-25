@@ -99,6 +99,7 @@ def get_system(
                 "description": b.description,
                 "page_count": b.page_count,
                 "file_size": b.file_size,
+                "mime_type": b.mime_type,
                 "authors": b.authors or [],
                 "publisher": b.publisher,
                 "publisher_url": b.publisher_url,

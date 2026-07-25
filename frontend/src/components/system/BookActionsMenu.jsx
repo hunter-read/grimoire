@@ -12,12 +12,14 @@ const MENU_WIDTH = 220
  * standalone always-visible control on the row.
  *
  * The re-index item adapts to the book:
- *   - image-only / OCR PDF → "Re-OCR…" which reveals an inline DPI field, then
- *     POSTs /books/:id/reindex (optionally ?ocr_dpi=N).
- *   - text-layer PDF (or anything else) → "Re-scan & re-index" which POSTs
- *     /books/:id/rescan to re-read the file and rebuild its index.
- * Re-index items are shown only when `onEdit` is passed (gm/admin) and the book
- * is a PDF.
+ *   - successfully OCR / image-only PDF → "Re-OCR…" which reveals an inline DPI
+ *     field, then POSTs /books/:id/reindex (optionally ?ocr_dpi=N).
+ *   - text-layer PDF, or any index-failed PDF → "Re-scan & re-index" which POSTs
+ *     /books/:id/rescan to re-read the file and rebuild its index. For a failed
+ *     book this recovers it through the full scan → index → OCR flow.
+ * Re-index items are shown only when `onEdit` is passed (gm/admin), the book is
+ * a PDF, and it has actually been processed (indexed or index-failed) — a
+ * never-scanned / still-pending book has nothing to re-do yet.
  *
  * The menu is portalled to document.body at fixed coordinates so it isn't
  * clipped by the book row's `overflow: hidden`.
@@ -33,8 +35,15 @@ export default function BookActionsMenu({ book, onEdit, editing }) {
   const menuRef = useRef(null)
 
   const isPdf = book.mime_type === 'application/pdf'
-  const isOcrBook = book.index_error === 'ocr' || book.index_error === 'image-only'
-  const canReindex = Boolean(onEdit) && isPdf
+  // A book that finished indexing via OCR / as image-only. A hard index failure
+  // resets index_error to the error message, so index_failed takes precedence:
+  // failed books always go through the full re-scan → index → OCR flow below.
+  const isOcrBook =
+    !book.index_failed && (book.index_error === 'ocr' || book.index_error === 'image-only')
+  // Re-index items only make sense once a book has actually been processed —
+  // successfully indexed, or index-failed (which the re-scan can recover from).
+  // A never-scanned / still-pending book has nothing to re-do yet.
+  const canReindex = Boolean(onEdit) && isPdf && (book.indexed || book.index_failed)
 
   const place = useCallback(() => {
     const el = triggerRef.current
