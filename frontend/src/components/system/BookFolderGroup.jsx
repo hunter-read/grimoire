@@ -3,6 +3,7 @@ import { toTitleCase } from '../../utils'
 import BookRow from './BookRow'
 import BookEditor from './BookEditor'
 import RescanButton from '../RescanButton'
+import { countBooks, allBooks } from './folderTree'
 
 /** The library-root-relative folder a group of books shares (relative_path minus filename). */
 function folderScope(books) {
@@ -12,15 +13,17 @@ function folderScope(books) {
 }
 
 /**
- * Renders a single subfolder group within a book category section.
- * Used in SystemDetailView whenever a category has books organised into subfolders.
+ * Renders a single subfolder group within a book category section, recursing into
+ * nested subfolders so arbitrarily deep folder hierarchies are shown (issue #189).
+ * Collapse state is keyed by the full folder path so each level toggles independently.
  *
  * Props:
- *   folder           – string folder name (e.g. "Monsters", "Curse of Strahd")
- *   books            – sorted array of book objects in this folder
+ *   folder           – this folder's display name (last path segment)
+ *   path             – full segment path from the category dir, e.g. ["monsters","spelljammer"]
+ *   node             – folder-tree node: { books: [], folders: { name -> node } }
  *   systemId         – string system id (for download scoping)
  *   category         – string category slug (for download scoping)
- *   collapsed        – Set of collapsed folder keys
+ *   collapsed        – Set of collapsed folder keys (`${category}::${path}`)
  *   onToggle         – (key: string) => void
  *   editingBookId    – currently-open book editor id
  *   setEditingBookId – setter
@@ -31,7 +34,8 @@ function folderScope(books) {
  */
 export default function BookFolderGroup({
   folder,
-  books,
+  path,
+  node,
   systemId,
   category,
   collapsed,
@@ -53,12 +57,39 @@ export default function BookFolderGroup({
   existingCategories = [],
   systemGenres = [],
 }) {
-  const isCollapsed = collapsed.has(`${category}::${folder}`)
-  const toggleKey = `${category}::${folder}`
+  const folderPath = path.join('/')
+  const toggleKey = `${category}::${folderPath}`
+  const isCollapsed = collapsed.has(toggleKey)
+  const total = countBooks(node)
+  const childNames = Object.keys(node.folders).sort((a, b) => a.localeCompare(b))
   const containerStyle = booksContainerStyle || {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
+  }
+
+  // Shared props threaded down to nested BookFolderGroup instances.
+  const childProps = {
+    systemId,
+    category,
+    collapsed,
+    onToggle,
+    editingBookId,
+    setEditingBookId,
+    onOpenBook,
+    isEditor,
+    onSaveBook,
+    onDownload,
+    bulkMode,
+    selectedBookIds,
+    onToggleBook,
+    card,
+    compact,
+    list,
+    booksContainerStyle,
+    allTags,
+    existingCategories,
+    systemGenres,
   }
 
   return (
@@ -117,7 +148,7 @@ export default function BookFolderGroup({
             {toTitleCase(folder)}
           </span>
           <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 4 }}>
-            ({books.length})
+            ({total})
           </span>
         </button>
         <button
@@ -125,7 +156,7 @@ export default function BookFolderGroup({
             e.stopPropagation()
             onDownload?.({
               title: toTitleCase(folder),
-              params: { type: 'book_folder', id: systemId, category, folder },
+              params: { type: 'book_folder', id: systemId, category, folder: folderPath },
             })
           }}
           style={zipBtnStyle}
@@ -133,47 +164,60 @@ export default function BookFolderGroup({
         >
           <LuDownload size={11} /> Download
         </button>
-        {isEditor && <RescanButton scope={folderScope(books)} />}
+        {isEditor && <RescanButton scope={folderScope(allBooks(node))} />}
       </div>
 
-      {/* Book list */}
+      {/* Nested folders then this folder's own books */}
       {!isCollapsed && (
-        <div style={{ padding: '12px 16px', ...containerStyle }}>
-          {books.map((book) => (
-            <div
-              key={book.id}
-              style={!list && editingBookId === book.id ? { gridColumn: '1 / -1' } : undefined}
-            >
-              <BookRow
-                book={book}
-                card={card}
-                compact={compact}
-                onOpen={() => onOpenBook(book)}
-                onEdit={
-                  isEditor
-                    ? () => setEditingBookId((id) => (id === book.id ? null : book.id))
-                    : null
-                }
-                editing={editingBookId === book.id}
-                bulkMode={bulkMode}
-                selected={selectedBookIds?.has(book.id)}
-                onToggle={(mods) => onToggleBook(book.id, mods)}
-              />
-              {editingBookId === book.id && (
-                <BookEditor
-                  book={book}
-                  allTags={allTags}
-                  existingCategories={existingCategories}
-                  systemGenres={systemGenres}
-                  onSave={(updated) => {
-                    onSaveBook(book.id, updated)
-                    setEditingBookId(null)
-                  }}
-                  onClose={() => setEditingBookId(null)}
-                />
-              )}
-            </div>
+        <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {childNames.map((name) => (
+            <BookFolderGroup
+              key={name}
+              folder={name}
+              path={[...path, name]}
+              node={node.folders[name]}
+              {...childProps}
+            />
           ))}
+          {node.books.length > 0 && (
+            <div style={containerStyle}>
+              {node.books.map((book) => (
+                <div
+                  key={book.id}
+                  style={!list && editingBookId === book.id ? { gridColumn: '1 / -1' } : undefined}
+                >
+                  <BookRow
+                    book={book}
+                    card={card}
+                    compact={compact}
+                    onOpen={() => onOpenBook(book)}
+                    onEdit={
+                      isEditor
+                        ? () => setEditingBookId((id) => (id === book.id ? null : book.id))
+                        : null
+                    }
+                    editing={editingBookId === book.id}
+                    bulkMode={bulkMode}
+                    selected={selectedBookIds?.has(book.id)}
+                    onToggle={(mods) => onToggleBook(book.id, mods)}
+                  />
+                  {editingBookId === book.id && (
+                    <BookEditor
+                      book={book}
+                      allTags={allTags}
+                      existingCategories={existingCategories}
+                      systemGenres={systemGenres}
+                      onSave={(updated) => {
+                        onSaveBook(book.id, updated)
+                        setEditingBookId(null)
+                      }}
+                      onClose={() => setEditingBookId(null)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -49,10 +49,18 @@ function makeBook(overrides = {}) {
   }
 }
 
+/** Wrap a flat book list into a single-level folder-tree node (this folder's own
+ *  books, no nested subfolders). Nested cases build their own `node` explicitly. */
+function nodeOf(books) {
+  return { books, folders: {} }
+}
+
 function makeProps(overrides = {}) {
+  const { books, node, folder = 'Abomination Vaults', path, ...rest } = overrides
   return {
-    folder: 'Abomination Vaults',
-    books: [makeBook()],
+    folder,
+    path: path || [folder],
+    node: node || nodeOf(books || [makeBook()]),
     systemId: 'system-1',
     category: 'adventure',
     collapsed: new Set(),
@@ -63,7 +71,7 @@ function makeProps(overrides = {}) {
     isEditor: false,
     onSaveBook: vi.fn(),
     onDownload: vi.fn(),
-    ...overrides,
+    ...rest,
   }
 }
 
@@ -119,21 +127,99 @@ describe('BookFolderGroup', () => {
 
   it('uses category::folder as the collapse key, so same name in different categories collapses independently', () => {
     // A "monsters" folder under core should collapse independently from one under supplement
+    const coreBook = makeBook({ title: 'Core Bestiary' })
     const coreProps = makeProps({
       folder: 'monsters',
       category: 'core',
+      books: [coreBook],
       collapsed: new Set(['core::monsters']),
     })
     const { rerender } = render(<BookFolderGroup {...coreProps} />)
-    expect(screen.queryByText(coreProps.books[0].title)).not.toBeInTheDocument()
+    expect(screen.queryByText(coreBook.title)).not.toBeInTheDocument()
 
+    const suppBook = makeBook({ title: 'Supplement Bestiary' })
     const suppProps = makeProps({
       folder: 'monsters',
       category: 'supplement',
+      books: [suppBook],
       collapsed: new Set(),
     })
     rerender(<BookFolderGroup {...suppProps} />)
-    expect(screen.getByText(suppProps.books[0].title)).toBeInTheDocument()
+    expect(screen.getByText(suppBook.title)).toBeInTheDocument()
+  })
+
+  // --- Nested subfolders (issue #189) ---
+
+  it('renders a nested subfolder group and its book', () => {
+    const nestedBook = makeBook({ title: 'Spelljammer Bestiary' })
+    const node = {
+      books: [makeBook({ title: 'Top-Level Monster' })],
+      folders: { spelljammer: { books: [nestedBook], folders: {} } },
+    }
+    render(<BookFolderGroup {...makeProps({ folder: 'monsters', node })} />)
+    // Both the parent's own book and the nested folder's book are visible.
+    expect(screen.getByText('Top-Level Monster')).toBeInTheDocument()
+    expect(screen.getByText('Spelljammer')).toBeInTheDocument()
+    expect(screen.getByText('Spelljammer Bestiary')).toBeInTheDocument()
+  })
+
+  it('parent count includes books nested in subfolders', () => {
+    const node = {
+      books: [makeBook()],
+      folders: { spelljammer: { books: [makeBook(), makeBook()], folders: {} } },
+    }
+    render(<BookFolderGroup {...makeProps({ folder: 'monsters', node })} />)
+    // 1 own + 2 nested = 3 total on the parent header.
+    expect(screen.getByText('(3)')).toBeInTheDocument()
+  })
+
+  it('collapses a nested folder independently via its full path key', () => {
+    const nestedBook = makeBook({ title: 'Spelljammer Bestiary' })
+    const node = {
+      books: [],
+      folders: { spelljammer: { books: [nestedBook], folders: {} } },
+    }
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          folder: 'monsters',
+          category: 'core',
+          node,
+          collapsed: new Set(['core::monsters/spelljammer']),
+        })}
+      />
+    )
+    // The nested folder header shows, but its book is hidden by the path-keyed collapse.
+    expect(screen.getByText('Spelljammer')).toBeInTheDocument()
+    expect(screen.queryByText('Spelljammer Bestiary')).not.toBeInTheDocument()
+  })
+
+  it('downloads a nested folder with its full path in the folder param', async () => {
+    const onDownload = vi.fn()
+    const node = { books: [makeBook()], folders: {} }
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          folder: 'spelljammer',
+          path: ['monsters', 'spelljammer'],
+          node,
+          onDownload,
+          systemId: 'sys-42',
+          category: 'core',
+        })}
+      />
+    )
+    await userEvent.click(screen.getByText('Download'))
+    expect(onDownload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          type: 'book_folder',
+          id: 'sys-42',
+          category: 'core',
+          folder: 'monsters/spelljammer',
+        }),
+      })
+    )
   })
 
   // --- Multiple books ---
