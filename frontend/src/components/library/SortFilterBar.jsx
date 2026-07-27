@@ -1,0 +1,295 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  LuArrowUp,
+  LuArrowDown,
+  LuArrowDownUp,
+  LuBookmark,
+  LuStar,
+  LuX,
+  LuFilter,
+} from 'react-icons/lu'
+import FilterModal from './FilterModal'
+
+/**
+ * Compact, stash-inspired sort + filter toolbar with server-backed saved
+ * presets. Sort lives inline (label + connected select/order button); all
+ * filters live in a modal opened by the "Filters (N)" button.
+ *
+ * Saved-filter state is owned by the parent (so a per-scope default can be
+ * applied on page load) and passed in via props:
+ *  - saved:        [{ id, name, state, is_default }]
+ *  - onSavePreset: (name, { asDefault }) => void   — save current state
+ *  - onDeletePreset: (id) => void
+ *  - onSetDefault: (id, value) => void
+ *
+ * Other props:
+ *  - state: { sort, order, filters: {...} }
+ *  - onChange: (nextState) => void
+ *  - sortOptions: [{ value, label }]
+ *  - selectFilters / multiFilters / toggleFilters: filter definitions (rendered in the modal)
+ */
+export default function SortFilterBar({
+  state,
+  onChange,
+  sortOptions,
+  selectFilters = [],
+  multiFilters = [],
+  toggleFilters = [],
+  showSearch = true,
+  searchPlaceholder,
+  saved = [],
+  onSavePreset,
+  onDeletePreset,
+  onSetDefault,
+}) {
+  const { t } = useTranslation()
+  const [showSaved, setShowSaved] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+
+  const filters = state.filters || {}
+  const setSort = (sort) => onChange({ ...state, sort })
+  const toggleOrder = () => onChange({ ...state, order: state.order === 'asc' ? 'desc' : 'asc' })
+
+  const isActive = (v) =>
+    v !== undefined &&
+    v !== null &&
+    v !== '' &&
+    v !== 'any' &&
+    !(Array.isArray(v) && v.length === 0)
+  const activeFilterCount = Object.values(filters).filter(isActive).length
+
+  const controlStyle = {
+    fontSize: 13,
+    padding: '5px 8px',
+    borderRadius: 6,
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+  }
+
+  const groupLabelStyle = {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    color: 'var(--text-muted)',
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 10,
+        alignItems: 'center',
+        marginBottom: 16,
+      }}
+    >
+      {/* Sort group: label + icon + connected select/order button. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={groupLabelStyle}>
+          <LuArrowDownUp size={12} />
+          {t('sortFilter.sort')}
+        </span>
+        <div style={{ display: 'flex' }}>
+          <select
+            aria-label={t('sortFilter.sort')}
+            value={state.sort}
+            onChange={(e) => setSort(e.target.value)}
+            style={{
+              ...controlStyle,
+              borderTopRightRadius: 0,
+              borderBottomRightRadius: 0,
+              borderRight: 'none',
+            }}
+          >
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={toggleOrder}
+            aria-label={
+              state.order === 'asc' ? t('sortFilter.ascending') : t('sortFilter.descending')
+            }
+            title={state.order === 'asc' ? t('sortFilter.ascending') : t('sortFilter.descending')}
+            style={{
+              ...controlStyle,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              borderTopLeftRadius: 0,
+              borderBottomLeftRadius: 0,
+            }}
+          >
+            {state.order === 'asc' ? <LuArrowUp size={14} /> : <LuArrowDown size={14} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Filters button → modal. Shows the active-filter count. `marginLeft: auto`
+          pushes it (and the saved-filters menu) to the right, leaving Sort left. */}
+      <button
+        type="button"
+        onClick={() => setShowFilters(true)}
+        aria-label={t('sortFilter.filters')}
+        style={{
+          ...controlStyle,
+          marginLeft: 'auto',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          color: activeFilterCount ? 'var(--gold)' : 'var(--text)',
+        }}
+      >
+        <LuFilter size={13} />
+        {t('sortFilter.filters')}
+        {activeFilterCount > 0 && (
+          <span
+            style={{
+              fontSize: 11,
+              minWidth: 16,
+              height: 16,
+              padding: '0 4px',
+              borderRadius: 8,
+              background: 'var(--gold-dim)',
+              color: 'var(--bg-deep)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+            }}
+          >
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {/* Saved filters menu. */}
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          onClick={() => setShowSaved((v) => !v)}
+          aria-label={t('sortFilter.savedFilters')}
+          style={{
+            ...controlStyle,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <LuBookmark size={13} /> {t('sortFilter.savedFilters')}
+        </button>
+        {showSaved && (
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: '110%',
+              zIndex: 20,
+              minWidth: 220,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: 8,
+              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+            }}
+          >
+            {saved.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 8px' }}>
+                {t('sortFilter.noSaved')}
+              </div>
+            ) : (
+              saved.map((f) => (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(f.state)
+                      setShowSaved(false)
+                    }}
+                    style={{
+                      flex: 1,
+                      textAlign: 'left',
+                      fontSize: 13,
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    {f.name}
+                    {f.is_default && (
+                      <span style={{ fontSize: 10, color: 'var(--gold)' }}>
+                        {t('sortFilter.defaultBadge')}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSetDefault?.(f.id, !f.is_default)}
+                    aria-label={`${t('sortFilter.setDefault')} ${f.name}`}
+                    title={t('sortFilter.setDefault')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: f.is_default ? 'var(--gold)' : 'var(--text-muted)',
+                      display: 'flex',
+                      padding: 4,
+                    }}
+                  >
+                    <LuStar size={12} fill={f.is_default ? 'var(--gold)' : 'none'} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeletePreset?.(f.id)}
+                    aria-label={`${t('sortFilter.delete')} ${f.name}`}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      padding: 4,
+                    }}
+                  >
+                    <LuX size={12} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {showFilters && (
+        <FilterModal
+          state={state}
+          onChange={onChange}
+          selectFilters={selectFilters}
+          multiFilters={multiFilters}
+          toggleFilters={toggleFilters}
+          showSearch={showSearch}
+          searchPlaceholder={searchPlaceholder}
+          onSavePreset={onSavePreset}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
+    </div>
+  )
+}

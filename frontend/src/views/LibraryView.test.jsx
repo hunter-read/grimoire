@@ -6,9 +6,17 @@ import LibraryView from './LibraryView'
 import api from '../api'
 
 vi.mock('../api', () => ({
-  default: { get: vi.fn(), patch: vi.fn(() => Promise.resolve({})) },
+  default: {
+    get: vi.fn(),
+    patch: vi.fn(() => Promise.resolve({})),
+    post: vi.fn(() => Promise.resolve({})),
+    delete: vi.fn(() => Promise.resolve({})),
+  },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
+
+// Open the shared filter modal (favourites/tags/genre live there now).
+const openFilters = () => userEvent.click(screen.getByRole('button', { name: 'Filters' }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
@@ -94,10 +102,12 @@ describe('LibraryView', () => {
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
 
-  it('shows the favorites-only toggle button', async () => {
+  it('shows the favorites filter toggle in the filter modal', async () => {
     api.get.mockResolvedValue([makeSystem()])
     renderView()
-    await waitFor(() => expect(screen.getByText(/favorites only/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument())
+    await openFilters()
+    expect(screen.getByRole('checkbox', { name: /Favorites/ })).toBeInTheDocument()
   })
 
   it('favorites toggle hides non-favorite systems', async () => {
@@ -110,7 +120,8 @@ describe('LibraryView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Favorite System')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText(/favorites only/i))
+    await openFilters()
+    await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
 
     expect(screen.getByText('Favorite System')).toBeInTheDocument()
     expect(screen.queryByText('Other System')).not.toBeInTheDocument()
@@ -126,7 +137,8 @@ describe('LibraryView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Other System')).toBeInTheDocument())
 
-    const toggle = screen.getByText(/favorites only/i)
+    await openFilters()
+    const toggle = screen.getByRole('checkbox', { name: /Favorites/ })
     await userEvent.click(toggle)
     expect(screen.queryByText('Other System')).not.toBeInTheDocument()
 
@@ -189,14 +201,22 @@ describe('LibraryView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Unfavorited System')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText(/favorites only/i))
+    await openFilters()
+    await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
 
     expect(screen.queryByText('Unfavorited System')).not.toBeInTheDocument()
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
   })
 
   describe('tag filtering', () => {
-    it('renders a tag pill for each tag present across systems', async () => {
+    // Tags live in a searchable multiselect dropdown inside the filter modal;
+    // open the modal, then the "Tags" dropdown, to reach the checkboxes.
+    const openTags = async () => {
+      await openFilters()
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    }
+
+    it('lists every tag present across systems in the Tags dropdown', async () => {
       api.get.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha', tags: ['osr', 'fantasy'] }),
         makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
@@ -204,9 +224,10 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
-      expect(screen.getByRole('button', { name: 'Osr' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Fantasy' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Pbta' })).toBeInTheDocument()
+      await openTags()
+      expect(screen.getByRole('checkbox', { name: 'osr' })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: 'fantasy' })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: 'pbta' })).toBeInTheDocument()
     })
 
     it('filters systems to those carrying a selected tag', async () => {
@@ -217,32 +238,33 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+      await openTags()
+      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
 
       expect(screen.getByText('OSR System')).toBeInTheDocument()
       expect(screen.queryByText('PbtA System')).not.toBeInTheDocument()
     })
 
-    it('ORs multiple selected tags', async () => {
+    it('ANDs multiple selected tags', async () => {
       api.get.mockResolvedValue([
-        makeSystem({ id: 's1', name: 'OSR System', tags: ['osr'] }),
-        makeSystem({ id: 's2', name: 'PbtA System', tags: ['pbta'] }),
-        makeSystem({ id: 's3', name: 'Horror System', tags: ['horror'] }),
+        makeSystem({ id: 's1', name: 'Both System', tags: ['osr', 'grim'] }),
+        makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
       ])
       renderView()
-      await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Both System')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Pbta' }))
+      await openTags()
+      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'grim' }))
 
-      expect(screen.getByText('OSR System')).toBeInTheDocument()
-      expect(screen.getByText('PbtA System')).toBeInTheDocument()
-      expect(screen.queryByText('Horror System')).not.toBeInTheDocument()
+      // Only the system carrying BOTH tags survives.
+      expect(screen.getByText('Both System')).toBeInTheDocument()
+      expect(screen.queryByText('OSR Only')).not.toBeInTheDocument()
     })
 
     it('shows an empty-match message when the tag + favorites combo matches nothing', async () => {
-      // Only the non-favorite system carries "osr"; with favorites-only on and
-      // the osr tag selected, nothing matches.
+      // Only the non-favorite system carries "osr"; with favorites on and the
+      // osr tag selected, nothing matches.
       api.get.mockResolvedValue([
         makeSystem({ id: 'fav', name: 'Fav System', tags: ['pbta'] }),
         makeSystem({ id: 'osr', name: 'OSR System', tags: ['osr'] }),
@@ -251,8 +273,10 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByText(/favorites only/i))
-      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+      await openFilters()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
 
       expect(screen.queryByText('OSR System')).not.toBeInTheDocument()
       expect(screen.getByText(/no systems match the selected tags/i)).toBeInTheDocument()
@@ -280,7 +304,7 @@ describe('LibraryView', () => {
       api.get.mockResolvedValue([makeSystem()])
       renderView()
       await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
-      expect(screen.queryByRole('button', { name: /select multiple/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /select/i })).not.toBeInTheDocument()
     })
 
     it('enters bulk mode and applies tags to selected systems', async () => {
@@ -291,7 +315,7 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+      await userEvent.click(screen.getByRole('button', { name: /select/i }))
       await userEvent.click(screen.getByText('Alpha'))
 
       const input = screen.getByLabelText(/tags to add/i)
@@ -309,7 +333,7 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+      await userEvent.click(screen.getByRole('button', { name: /select/i }))
       await userEvent.click(screen.getByText('Alpha'))
       await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
 
@@ -361,6 +385,53 @@ describe('LibraryView', () => {
         'aria-expanded',
         'false'
       )
+    })
+  })
+
+  describe('sort/filter and special collections', () => {
+    beforeEach(() => {
+      mockUserPrefs = { cardSize: 'comfortable' }
+    })
+
+    it('groups one-page systems with the special collection section', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 'normal', name: 'Normal System' }),
+        makeSystem({ id: 'onepage', name: 'Tiny RPGs', is_one_page: true }),
+        makeSystem({ id: 'agnostic', name: 'Zines', is_system_agnostic: true }),
+      ])
+      renderView()
+      // Special section heading (agnosticTitle) renders when specials exist.
+      await waitFor(() => expect(screen.getByText('Tiny RPGs')).toBeInTheDocument())
+      expect(screen.getByText('Zines')).toBeInTheDocument()
+    })
+
+    it('renders the sort control and reorders by name descending', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 'a', name: 'Aardvark' }),
+        makeSystem({ id: 'z', name: 'Zebra' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Aardvark')).toBeInTheDocument())
+      // Flip the order toggle; both systems still render, now Zebra first.
+      const orderBtn = screen.getByLabelText(/ascending|descending/i)
+      await userEvent.click(orderBtn)
+      const names = screen.getAllByText(/Aardvark|Zebra/).map((n) => n.textContent)
+      expect(names.indexOf('Zebra')).toBeLessThan(names.indexOf('Aardvark'))
+    })
+
+    it('offers genre and family filter options derived from systems', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 'g', name: 'GenreSys', genres: ['Fantasy'], system_family: 'Fate' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('GenreSys')).toBeInTheDocument())
+      // The derived filter options appear in the modal's selects (real i18n
+      // labels: "Genre" / "System family").
+      await openFilters()
+      const genreSelect = screen.getByLabelText('Genre')
+      expect(genreSelect.querySelector('option[value="Fantasy"]')).toBeTruthy()
+      const familySelect = screen.getByLabelText('System family')
+      expect(familySelect.querySelector('option[value="Fate"]')).toBeTruthy()
     })
   })
 })

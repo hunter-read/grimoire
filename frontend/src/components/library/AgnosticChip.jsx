@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary } from 'react-icons/lu'
+import { systemDisplayName } from '../../utils/systemDisplayName'
 
 /**
  * Compact pill for system-agnostic collections — no cover image, sits at the
@@ -27,7 +28,9 @@ export default function AgnosticChip({ system, onClick }) {
       }}
     >
       <LuLibrary size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{system.name}</span>
+      <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+        {systemDisplayName(system)}
+      </span>
       {system.is_explicit && <span style={{ fontSize: 10, color: '#e07070' }}>18+</span>}
       <span
         style={{

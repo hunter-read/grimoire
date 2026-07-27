@@ -61,6 +61,45 @@ describe('SystemCategorySection', () => {
     expect(screen.getByText('(2)')).toBeInTheDocument()
   })
 
+  it('uses the original folder name for a custom category (not the slug)', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          cat: 'gm-tools',
+          books: [{ id: 'b1', title: 'b1', relative_path: 'books/D&D 5e/GM Tools/screen.pdf' }],
+        })}
+      />
+    )
+    expect(screen.getByText('GM Tools')).toBeInTheDocument()
+    expect(screen.queryByText(/gm-tools/i)).not.toBeInTheDocument()
+  })
+
+  it('humanizes the slug when the book path has no category folder', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          cat: 'gm-tools',
+          // relative_path with no category dir → fall back to a humanized slug.
+          books: [{ id: 'b1', title: 'b1', relative_path: 'books/D&D 5e/screen.pdf' }],
+        })}
+      />
+    )
+    expect(screen.getByText('GM Tools')).toBeInTheDocument()
+  })
+
+  it('labels the section "Books" for one-page RPG systems (ignoring the category)', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          cat: 'uncategorized',
+          system: { id: 'op', name: 'One-Page RPGs', is_one_page: true },
+        })}
+      />
+    )
+    expect(screen.getByText('Books')).toBeInTheDocument()
+    expect(screen.queryByText(/uncategorized/i)).not.toBeInTheDocument()
+  })
+
   it('renders a flat book list when no book has a subfolder', () => {
     render(<SystemCategorySection {...baseProps()} />)
     expect(screen.getAllByTestId('book-item')).toHaveLength(2)

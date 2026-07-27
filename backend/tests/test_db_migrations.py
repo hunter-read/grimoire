@@ -432,3 +432,80 @@ class TestOcrQueueMigration:
         init_db(path)  # must be a clean no-op, not "duplicate column" error
 
         assert _stamped_revision(path) == _alembic_head(path)
+
+
+class TestExpandMetadataMigration:
+    """Migration 0004: new columns, lookup seeds, and legacy backfill (#202)."""
+
+    def test_new_columns_present(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        insp = inspect(engine)
+        sys_cols = {c["name"] for c in insp.get_columns("game_systems")}
+        book_cols = {c["name"] for c in insp.get_columns("books")}
+        assert {
+            "genres",
+            "dice_materials",
+            "system_family",
+            "license",
+            "year",
+            "urls",
+            "character_builder_urls",
+            "is_one_page",
+        } <= sys_cols
+        assert {"artists", "genres", "isbn", "version", "language", "month", "day", "urls"} <= book_cols
+
+    def test_lookup_tables_seeded(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            genre_count = conn.execute(text("SELECT count(*) FROM genres")).scalar()
+            fam_count = conn.execute(text("SELECT count(*) FROM system_families")).scalar()
+            cyber = conn.execute(
+                text(
+                    "SELECT p.name FROM genres g JOIN genres p ON g.parent_id=p.id "
+                    "WHERE g.name='Cyberpunk'"
+                )
+            ).scalar()
+        assert genre_count > 0
+        assert fam_count > 0
+        assert cyber == "Science Fiction"
+
+    def test_legacy_backfill(self):
+        """genre → genres, character_builder_url → list, publisher_url → book urls."""
+        path = os.path.join(tempfile.mkdtemp(), "legacy.db")
+        engine = create_engine(f"sqlite:///{path}")
+        # Migrate up to the pre-0004 revision, insert legacy rows, then finish.
+        with engine.connect() as conn:
+            from alembic import command
+
+            cfg = _alembic_config(conn)
+            command.upgrade(cfg, "b2e5d3f0c8a1")
+            conn.commit()
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug, genre, character_builder_url) "
+                    "VALUES ('s1','S','s','Fantasy','http://b')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO books (id, title, filename, filepath, relative_path, publisher_url) "
+                    "VALUES ('b1','B','b.pdf','/b.pdf','b.pdf','http://p')"
+                )
+            )
+            conn.commit()
+        engine.dispose()
+
+        init_db(path)  # runs 0004 including backfill
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            g = conn.execute(
+                text("SELECT genres, character_builder_urls FROM game_systems WHERE id='s1'")
+            ).fetchone()
+            b = conn.execute(text("SELECT urls FROM books WHERE id='b1'")).fetchone()
+        assert json.loads(g[0]) == ["Fantasy"]
+        assert json.loads(g[1])[0]["url"] == "http://b"
+        assert json.loads(b[0])[0]["url"] == "http://p"

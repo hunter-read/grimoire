@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { LuFileText, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
-import { CATEGORY_ICONS } from '../../constants'
+import { CATEGORY_ICONS, CATEGORY_LABELS, categoryLabel } from '../../constants'
+import { toTitleCase } from '../../utils'
 import RescanButton from '../RescanButton'
 import BookFolderGroup from './BookFolderGroup'
 import CategoryBookItem from './CategoryBookItem'
@@ -11,6 +12,14 @@ import CategoryBookItem from './CategoryBookItem'
 function getBookSubfolder(book) {
   const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.length > 4 ? parts[3] : null
+}
+
+/** The original (non-slugified) category folder name from a book's relative_path.
+ *  Path structure: books/{SystemName}/{categoryDir}/.../book.pdf → parts[2].
+ *  Returns null when the book has no category folder (sits directly in the system dir). */
+function getCategoryFolderName(book) {
+  const parts = (book?.relative_path || '').replace(/\\/g, '/').split('/')
+  return parts.length > 3 ? parts[2] : null
 }
 
 /**
@@ -47,6 +56,7 @@ export default function SystemCategorySection({
   setEditingBookId,
   allTags,
   existingCategories,
+  systemGenres,
   card,
   compact,
   list,
@@ -59,11 +69,22 @@ export default function SystemCategorySection({
   selectedBookIds,
   onToggleBook,
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const CatIcon = CATEGORY_ICONS[cat] || LuFileText
-  const catLabel = t(`categories.${cat}`, {
-    defaultValue: cat.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-  })
+  // Label resolution:
+  //  - One-page RPGs are single documents with no meaningful category → "Books".
+  //  - Known categories use their i18n label, then the friendly CATEGORY_LABELS
+  //    value ("Core Rulebooks").
+  //  - Custom folders use the original folder name from the book path verbatim
+  //    (e.g. "GM Tools", not the slug "gm-tools"), falling back to a humanized
+  //    slug only when the path is unavailable.
+  const isKnownCategory = !!CATEGORY_LABELS[cat] || i18n.exists(`categories.${cat}`)
+  const customLabel = getCategoryFolderName(books?.[0]) || toTitleCase(cat)
+  const catLabel = system?.is_one_page
+    ? t('systemDetail.books')
+    : isKnownCategory
+      ? t(`categories.${cat}`, { defaultValue: categoryLabel(cat) })
+      : customLabel
 
   const bookItemProps = {
     card,
@@ -73,6 +94,7 @@ export default function SystemCategorySection({
     setEditingBookId,
     allTags,
     existingCategories,
+    systemGenres,
     isEditor,
     onOpenBook,
     onSaveBook,
@@ -140,6 +162,9 @@ export default function SystemCategorySection({
                 bulkMode={bulkMode}
                 selectedBookIds={selectedBookIds}
                 onToggleBook={onToggleBook}
+                allTags={allTags}
+                existingCategories={existingCategories}
+                systemGenres={systemGenres}
               />
             )
           )}

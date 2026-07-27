@@ -3,9 +3,19 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import BulkEditModal from './BulkEditModal'
 
 const patch = vi.fn(() => Promise.resolve({}))
-const get = vi.fn(() => Promise.resolve({ books: [] }))
+const post = vi.fn(() => Promise.resolve({ id: 'g1', name: 'Fantasy' }))
+// useLookups fetches /genres and /system-families; return empty lookup lists.
+const get = vi.fn((path) => {
+  if (path?.includes('genres')) return Promise.resolve({ genres: [] })
+  if (path?.includes('system-families')) return Promise.resolve({ families: [] })
+  return Promise.resolve({ books: [] })
+})
 vi.mock('../api', () => ({
-  default: { patch: (...args) => patch(...args), get: (...args) => get(...args) },
+  default: {
+    patch: (...args) => patch(...args),
+    get: (...args) => get(...args),
+    post: (...args) => post(...args),
+  },
   mediaUrl: (p) => p,
 }))
 
@@ -53,23 +63,27 @@ describe('BulkEditModal', () => {
     expect(onSaved).toHaveBeenCalledWith({ m1: { tags: ['old', 'new'] } })
   })
 
-  it('edits a system genre via the /systems endpoint', async () => {
+  it('edits system genres via the genre combobox', async () => {
     const onSaved = vi.fn()
     // Seed `books` so the cover picker doesn't lazy-fetch.
     const systems = [
-      { id: 's1', name: 'Alpha', tags: ['osr'], genre: '', is_explicit: false, books: [] },
+      { id: 's1', name: 'Alpha', tags: ['osr'], genres: [], is_explicit: false, books: [] },
     ]
     render(<BulkEditModal type="system" items={systems} onClose={vi.fn()} onSaved={onSaved} />)
 
     expect(screen.getByText('Alpha')).toBeInTheDocument()
 
-    // Genre is a labelled field in the rich system editor.
-    fireEvent.change(screen.getByLabelText('Genre'), { target: { value: 'Fantasy' } })
+    // Genres use the shared GenrePicker combobox (aria-label "Add genre"): type
+    // then pick the create row.
+    const combo = screen.getByRole('combobox', { name: /add genre/i })
+    fireEvent.change(combo, { target: { value: 'Fantasy' } })
+    fireEvent.click(await screen.findByRole('option', { name: /Fantasy/ }))
+
     fireEvent.click(screen.getByText('Save all'))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
-    expect(patch).toHaveBeenCalledWith('/systems/s1', { genre: 'Fantasy' })
-    expect(onSaved).toHaveBeenCalledWith({ s1: { genre: 'Fantasy' } })
+    expect(patch).toHaveBeenCalledWith('/systems/s1', { genres: ['Fantasy'] })
+    expect(onSaved).toHaveBeenCalledWith({ s1: { genres: ['Fantasy'] } })
   })
 
   it('edits system description, publishers, and explicit flag', async () => {

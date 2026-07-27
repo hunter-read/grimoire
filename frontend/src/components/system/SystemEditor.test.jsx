@@ -5,13 +5,18 @@ import SystemEditor from './SystemEditor'
 import api from '../../api'
 
 vi.mock('../../api', () => ({
-  default: { patch: vi.fn() },
+  default: { patch: vi.fn(), get: vi.fn(), post: vi.fn() },
   mediaUrl: (p) => `http://localhost${p}`,
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
   api.patch.mockResolvedValue({})
+  // useLookups loads genres + system families on mount.
+  api.get.mockImplementation((path) =>
+    Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+  )
+  api.post.mockResolvedValue({})
 })
 
 const system = (over = {}) => ({
@@ -30,10 +35,10 @@ const system = (over = {}) => ({
 describe('SystemEditor', () => {
   it('saves the patched fields and calls onSave', async () => {
     const onSave = vi.fn()
-    render(<SystemEditor system={system({ genre: 'Fantasy' })} onSave={onSave} />)
+    render(<SystemEditor system={system({ genres: ['Fantasy'] })} onSave={onSave} />)
     await userEvent.click(screen.getByText(/save changes/i))
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/systems/sys1', expect.any(Object)))
-    expect(api.patch.mock.calls[0][1].genre).toBe('Fantasy')
+    expect(api.patch.mock.calls[0][1].genres).toEqual(['Fantasy'])
     expect(onSave).toHaveBeenCalled()
   })
 
@@ -81,17 +86,18 @@ describe('SystemEditor', () => {
     expect(api.patch.mock.calls[0][1].cover_book_id).toBe('b1')
   })
 
-  it('edits the description and character-builder URL fields', async () => {
+  it('edits the description and a character-builder link', async () => {
     render(<SystemEditor system={system()} onSave={vi.fn()} />)
     const desc = document.getElementById('system-field-description')
     await userEvent.type(desc, 'A grim world')
-    const cb = document.getElementById('system-field-character_builder_url')
-    await userEvent.type(cb, 'https://builder.example')
+    // The first character-builder link row is pre-rendered (blank) for editing.
+    const cbUrl = document.getElementById('system-cb-url-url-0')
+    await userEvent.type(cbUrl, 'https://builder.example')
     await userEvent.click(screen.getByText(/save changes/i))
     await waitFor(() => expect(api.patch).toHaveBeenCalled())
     const payload = api.patch.mock.calls[0][1]
     expect(payload.description).toBe('A grim world')
-    expect(payload.character_builder_url).toBe('https://builder.example')
+    expect(payload.character_builder_urls).toEqual([{ label: '', url: 'https://builder.example' }])
   })
 
   it('removes the last tag on Backspace in an empty input', async () => {

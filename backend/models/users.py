@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -68,3 +69,26 @@ class Favorite(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "item_type", "item_id"),)
+
+
+class SavedFilter(Base):
+    """A named, per-user saved sort/filter preset for a library scope.
+
+    ``scope`` is one of the browsable content areas (systems/books/maps/tokens/
+    audio). ``state`` holds the serialized sort/filter object the UI applies.
+    At most one filter per (user, scope) may have ``is_default`` set — it is the
+    view the user lands on. The (user, scope, name) uniqueness prevents dupes.
+    """
+
+    __tablename__ = "saved_filters"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    scope = Column(String(20), nullable=False)
+    name = Column(String(120), nullable=False)
+    state = Column(JSON, default=dict)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "scope", "name"),)

@@ -224,6 +224,21 @@ export default function BookRow({
             </span>
             {!bulkMode && <BookActionsMenu book={book} onEdit={onEdit} editing={editing} />}
           </div>
+          {/* Genres on full cards only (not compact). */}
+          {!compact && (book.genres || []).length > 0 && (
+            <div
+              style={{
+                fontSize: 11,
+                color: 'var(--green, #5a9a5a)',
+                marginTop: 3,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {(book.genres || []).slice(0, 3).join(', ')}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -346,6 +361,11 @@ export default function BookRow({
           {progress > 0 && <span style={{ color: 'var(--gold-dim)' }}>p. {lastPage}</span>}
           {book.year && <span>{book.year}</span>}
           {book.publisher && <span>{book.publisher}</span>}
+          {(book.genres || []).length > 0 && (
+            <span style={{ color: 'var(--green, #5a9a5a)' }}>
+              {(book.genres || []).slice(0, 3).join(', ')}
+            </span>
+          )}
           {book.is_explicit && (
             <span
               title={t('bookRow.explicitTitle')}

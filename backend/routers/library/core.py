@@ -89,6 +89,7 @@ def get_stats(
     return {
         "game_systems": db.query(GameSystem)
         .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
+        .filter(GameSystem.is_one_page != True)  # noqa: E712
         .count(),
         "books": db.query(Book).count(),
         "maps": db.query(GenericMap).count(),

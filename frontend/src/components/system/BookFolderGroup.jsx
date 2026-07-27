@@ -49,6 +49,9 @@ export default function BookFolderGroup({
   compact,
   list,
   booksContainerStyle,
+  allTags = [],
+  existingCategories = [],
+  systemGenres = [],
 }) {
   const isCollapsed = collapsed.has(`${category}::${folder}`)
   const toggleKey = `${category}::${folder}`
@@ -159,6 +162,9 @@ export default function BookFolderGroup({
               {editingBookId === book.id && (
                 <BookEditor
                   book={book}
+                  allTags={allTags}
+                  existingCategories={existingCategories}
+                  systemGenres={systemGenres}
                   onSave={(updated) => {
                     onSaveBook(book.id, updated)
                     setEditingBookId(null)

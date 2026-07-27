@@ -8,9 +8,17 @@ import api from '../api'
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 vi.mock('../api', () => ({
-  default: { get: vi.fn(), patch: vi.fn() },
+  default: {
+    get: vi.fn(),
+    patch: vi.fn(() => Promise.resolve({})),
+    post: vi.fn(() => Promise.resolve({})),
+    delete: vi.fn(() => Promise.resolve({})),
+  },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
+
+// Open the shared filter modal (favourites/tags/genres live there now).
+const openBookFilters = () => userEvent.click(screen.getByRole('button', { name: 'Filters' }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
@@ -139,6 +147,8 @@ describe('SystemDetailView — subfolder grouping', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsFavorite.mockReturnValue(false)
+    // Session-persisted view state (grouping, collapse) must not leak between tests.
+    sessionStorage.clear()
   })
 
   describe('getBookSubfolder logic (via render)', () => {
@@ -286,6 +296,35 @@ describe('SystemDetailView — subfolder grouping', () => {
       renderView()
       expect(document.querySelector('svg')).toBeInTheDocument() // Spinner renders an SVG
     })
+
+    it('shows the system-metadata Edit button for a normal system', async () => {
+      api.get.mockResolvedValue(makeSystem())
+      renderView()
+      await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
+      expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument()
+    })
+
+    it('prettifies the name and hides Edit for a one-page collection', async () => {
+      api.get.mockResolvedValue({
+        ...makeSystem(),
+        name: 'one-page-rpgs',
+        is_one_page: true,
+      })
+      renderView()
+      await waitFor(() => expect(screen.getByText('One Page RPGs')).toBeInTheDocument())
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
+    })
+
+    it('hides Edit for a system-agnostic collection', async () => {
+      api.get.mockResolvedValue({
+        ...makeSystem(),
+        name: 'system-agnostic',
+        is_system_agnostic: true,
+      })
+      renderView()
+      await waitFor(() => expect(screen.getByText('System Agnostic')).toBeInTheDocument())
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
+    })
   })
 
   describe('category section collapse', () => {
@@ -301,11 +340,63 @@ describe('SystemDetailView — subfolder grouping', () => {
     })
   })
 
+  describe('category grouping toggle', () => {
+    it('flattens the book list (hides category headers) and keeps all books', async () => {
+      const books = [
+        makeBook({
+          title: 'PHB',
+          category: 'core',
+          relative_path: 'books/TestSystem/core/phb.pdf',
+        }),
+        makeBook({
+          title: 'Strahd',
+          category: 'adventure',
+          relative_path: 'books/TestSystem/adventure/cos.pdf',
+        }),
+      ]
+      api.get.mockResolvedValue(makeSystem(books))
+      renderView()
+      await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+      // Grouped by default: category headers exist, the switch is on.
+      expect(screen.getByRole('button', { name: /core rulebooks/i })).toBeInTheDocument()
+      const groupSwitch = screen.getByRole('switch', { name: /group/i })
+      expect(groupSwitch).toBeChecked()
+
+      // Toggle to flat.
+      await userEvent.click(groupSwitch)
+      // Headers gone, but both books still shown.
+      expect(screen.queryByRole('button', { name: /core rulebooks/i })).not.toBeInTheDocument()
+      expect(groupSwitch).not.toBeChecked()
+      expect(screen.getByText('PHB')).toBeInTheDocument()
+      expect(screen.getByText('Strahd')).toBeInTheDocument()
+    })
+
+    it('preserves the active sort/filter when flattening', async () => {
+      const books = [
+        makeBook({ id: 'b1', title: 'Zeta', category: 'core', page_count: 5 }),
+        makeBook({ id: 'b2', title: 'Alpha', category: 'adventure', page_count: 500 }),
+      ]
+      api.get.mockResolvedValue(makeSystem(books))
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      // Sort by page count ascending, then flatten.
+      await userEvent.selectOptions(screen.getByLabelText('Sort'), 'page_count')
+      await userEvent.click(screen.getByRole('switch', { name: /group/i }))
+      const titles = screen.getAllByText(/Alpha|Zeta/).map((n) => n.textContent)
+      expect(titles.indexOf('Zeta')).toBeLessThan(titles.indexOf('Alpha'))
+    })
+  })
+
   describe('favorites filter', () => {
-    it('shows the Favorites only toggle button', async () => {
+    it('shows the Favorites toggle in the filter modal', async () => {
       api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
       renderView()
-      await waitFor(() => expect(screen.getByText(/favorites only/i)).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+      )
+      await openBookFilters()
+      expect(screen.getByRole('checkbox', { name: /Favorites/ })).toBeInTheDocument()
     })
 
     it('favorites filter hides non-favorite books', async () => {
@@ -317,7 +408,8 @@ describe('SystemDetailView — subfolder grouping', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Favorite Book')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByText(/favorites only/i))
+      await openBookFilters()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
 
       expect(screen.getByText('Favorite Book')).toBeInTheDocument()
       expect(screen.queryByText('Other Book')).not.toBeInTheDocument()
@@ -328,7 +420,8 @@ describe('SystemDetailView — subfolder grouping', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Unfavorited')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByText(/favorites only/i))
+      await openBookFilters()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
 
       expect(screen.queryByText('Unfavorited')).not.toBeInTheDocument()
       expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
@@ -536,7 +629,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     expect(screen.getByText('TSR', { exact: false })).toBeInTheDocument()
   })
 
-  it('toggles a tag filter and hides books lacking that tag', async () => {
+  it('toggles a tag filter (from the modal) and hides books lacking that tag', async () => {
     api.get.mockResolvedValue(
       makeSystem([
         makeBook({ id: 'b1', title: 'Tagged', tags: ['spooky'] }),
@@ -546,21 +639,103 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Tagged')).toBeInTheDocument())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Spooky' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'spooky' }))
     expect(screen.getByText('Tagged')).toBeInTheDocument()
     expect(screen.queryByText('Untagged')).not.toBeInTheDocument()
   })
 
-  it('reveals the rest of the tags via the show-all toggle when there are many', async () => {
+  it('lists all system tags as filter options in the modal', async () => {
     const tags = Array.from({ length: 20 }, (_, i) => `tag-${String(i).padStart(2, '0')}`)
     api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB', tags })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-    // The 16th+ tags are hidden until the show-all toggle is clicked.
-    expect(screen.queryByRole('button', { name: 'Tag-19' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /\+\d+ more/i }))
-    expect(screen.getByRole('button', { name: 'Tag-19' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    // All tags are available as checkboxes in the dropdown (scrolls; no cap).
+    expect(screen.getByRole('checkbox', { name: 'tag-19' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'tag-00' })).toBeInTheDocument()
+  })
+
+  it('filters books by genre from the modal', async () => {
+    api.get.mockResolvedValue(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'Fantasy Book', genres: ['Fantasy'] }),
+        makeBook({ id: 'b2', title: 'Horror Book', genres: ['Horror'] }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Fantasy Book')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Genre' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Fantasy' }))
+    expect(screen.getByText('Fantasy Book')).toBeInTheDocument()
+    expect(screen.queryByText('Horror Book')).not.toBeInTheDocument()
+  })
+
+  it('re-sorts books when the sort control changes', async () => {
+    api.get.mockResolvedValue(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'Zeta', page_count: 5 }),
+        makeBook({ id: 'b2', title: 'Alpha', page_count: 500 }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+    // Default sort is title asc → Alpha before Zeta.
+    let titles = screen.getAllByText(/Alpha|Zeta/).map((n) => n.textContent)
+    expect(titles.indexOf('Alpha')).toBeLessThan(titles.indexOf('Zeta'))
+    // Sort by page count ascending → Zeta (5) before Alpha (500).
+    await userEvent.selectOptions(screen.getByLabelText('Sort'), 'page_count')
+    titles = screen.getAllByText(/Alpha|Zeta/).map((n) => n.textContent)
+    expect(titles.indexOf('Zeta')).toBeLessThan(titles.indexOf('Alpha'))
+  })
+
+  it('saves a books filter preset via the modal', async () => {
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    await userEvent.type(screen.getByLabelText('Name this filter'), 'My Books View')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/saved-filters',
+        expect.objectContaining({ scope: 'books', name: 'My Books View' })
+      )
+    )
+  })
+
+  it('applies the default books preset on load', async () => {
+    api.get.mockImplementation((url) => {
+      if (url.includes('/saved-filters')) {
+        return Promise.resolve({
+          filters: [
+            {
+              id: 'd1',
+              scope: 'books',
+              name: 'Default',
+              is_default: true,
+              state: { sort: 'title', order: 'asc', filters: { explicit: true } },
+            },
+          ],
+        })
+      }
+      return Promise.resolve(
+        makeSystem([
+          makeBook({ id: 'b1', title: 'Clean', is_explicit: false }),
+          makeBook({ id: 'b2', title: 'Spicy', is_explicit: true }),
+        ])
+      )
+    })
+    renderView()
+    // The default filter (explicit only) is applied on load, hiding "Clean".
+    await waitFor(() => expect(screen.getByText('Spicy')).toBeInTheDocument())
+    expect(screen.queryByText('Clean')).not.toBeInTheDocument()
   })
 
   it('applies bulk tags to the selected books', async () => {
@@ -573,7 +748,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-    fireEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select/i }))
     fireEvent.click(screen.getByRole('button', { name: /open phb/i }))
     fireEvent.click(screen.getByRole('button', { name: /open dmg/i }))
     expect(screen.getByTestId('bulk-count').textContent).toBe('2')
@@ -593,7 +768,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-    fireEvent.click(screen.getByRole('button', { name: /select multiple/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select/i }))
     fireEvent.click(screen.getByRole('button', { name: /open phb/i }))
     fireEvent.click(screen.getByText('bulk-edit'))
     expect(screen.getByTestId('bulk-edit-modal')).toBeInTheDocument()

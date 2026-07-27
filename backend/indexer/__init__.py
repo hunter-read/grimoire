@@ -46,8 +46,11 @@ from .categories import (  # noqa: E402,F401
     agnostic_category,
     folder_category_inference_disabled,
     guess_category,
+    is_one_page_folder,
+    is_special_collection_folder,
     is_system_agnostic_folder,
     slugify,
+    strip_sort_prefix,
 )
 
 # --- Archive + thumbnail helpers -----------------------------------------------

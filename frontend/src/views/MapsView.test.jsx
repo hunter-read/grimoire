@@ -6,7 +6,12 @@ import MapsView from './MapsView'
 import api from '../api'
 
 vi.mock('../api', () => ({
-  default: { get: vi.fn(), patch: vi.fn() },
+  default: {
+    get: vi.fn(),
+    patch: vi.fn(() => Promise.resolve({})),
+    post: vi.fn(() => Promise.resolve({})),
+    delete: vi.fn(() => Promise.resolve({})),
+  },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
@@ -68,6 +73,13 @@ function renderView() {
   )
 }
 
+// Favorites is now a checkbox inside the Filters modal (no toolbar button).
+async function toggleFavoritesFilter() {
+  await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+  await userEvent.click(screen.getByRole('checkbox', { name: /favorites/i }))
+  await userEvent.click(screen.getByRole('button', { name: /done/i }))
+}
+
 describe('MapsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -94,10 +106,12 @@ describe('MapsView', () => {
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
 
-  it('shows the Favorites only button', async () => {
+  it('exposes a favorites filter in the Filters modal', async () => {
     setupMaps([makeMap({ filename: 'cave.png', relative_path: 'maps/cave.png' })])
     renderView()
-    await waitFor(() => expect(screen.getByText(/favorites only/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+    expect(screen.getByRole('checkbox', { name: /favorites/i })).toBeInTheDocument()
   })
 
   it('favorites filter hides non-favorite maps', async () => {
@@ -113,7 +127,7 @@ describe('MapsView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('fav.png')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText(/favorites only/i))
+    await toggleFavoritesFilter()
 
     expect(screen.getByText('fav.png')).toBeInTheDocument()
     expect(screen.queryByText('other.png')).not.toBeInTheDocument()
@@ -132,11 +146,10 @@ describe('MapsView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('other.png')).toBeInTheDocument())
 
-    const toggle = screen.getByText(/favorites only/i)
-    await userEvent.click(toggle)
+    await toggleFavoritesFilter()
     expect(screen.queryByText('other.png')).not.toBeInTheDocument()
 
-    await userEvent.click(toggle)
+    await toggleFavoritesFilter()
     expect(screen.getByText('other.png')).toBeInTheDocument()
   })
 
@@ -147,7 +160,7 @@ describe('MapsView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('unfav.png')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText(/favorites only/i))
+    await toggleFavoritesFilter()
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
   })
 
@@ -174,10 +187,10 @@ describe('MapsView', () => {
     await waitFor(() => expect(screen.getByText('forest.png')).toBeInTheDocument())
 
     // Enable favorites filter — forest.png should vanish
-    await userEvent.click(screen.getByText(/favorites only/i))
+    await toggleFavoritesFilter()
     expect(screen.queryByText('forest.png')).not.toBeInTheDocument()
 
-    // Also apply text filter for "dragon" — only dragon.png remains
+    // The text search now lives in a standalone search box outside the modal.
     await userEvent.type(screen.getByPlaceholderText(/filter maps/i), 'dragon')
     await waitFor(() => expect(screen.queryByText('dungeon.png')).not.toBeInTheDocument())
     expect(screen.getByText('dragon.png')).toBeInTheDocument()

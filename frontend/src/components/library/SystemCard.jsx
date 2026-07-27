@@ -126,9 +126,16 @@ export default function SystemCard({
               gap: 8,
               marginTop: 4,
               alignItems: 'center',
+              flexWrap: 'wrap',
             }}
           >
             <span>{t('library.bookCount', { count: system.book_count })}</span>
+            {system.system_family && <span>· {system.system_family}</span>}
+            {(system.genres || []).length > 0 && (
+              <span style={{ color: 'var(--green, #5a9a5a)' }}>
+                · {(system.genres || []).slice(0, 3).join(', ')}
+              </span>
+            )}
             {system.is_explicit && <span style={{ color: '#e07070' }}>18+</span>}
           </div>
         </div>
@@ -324,6 +331,10 @@ export default function SystemCard({
         <div
           style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginTop: 'auto', paddingTop: 8 }}
         >
+          {/* Genres are shown before tags (issue #202), in the genre colour. */}
+          {(system.genres || []).slice(0, 3).map((g) => (
+            <Tag key={`genre-${g}`} label={g} color="rgba(90, 154, 90, 0.2)" />
+          ))}
           {(system.tags || []).slice(0, 4).map((tag) =>
             onTagClick && !selectable ? (
               <button

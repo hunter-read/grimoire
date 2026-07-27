@@ -22,10 +22,19 @@ from .campaigns import (
     WikiPageShare,
 )
 from .db import init_db
-from .library import Book, BookFolder, GameSystem
+from .library import (
+    Book,
+    BookFolder,
+    DiceMaterial,
+    GameSystem,
+    Genre,
+    License,
+    ParentSystem,
+    SystemFamily,
+)
 from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
 from .settings import AppSetting
-from .users import Bookmark, Favorite, User
+from .users import Bookmark, Favorite, SavedFilter, User
 
 __all__ = [
     "Base",
@@ -34,6 +43,11 @@ __all__ = [
     "GameSystem",
     "Book",
     "BookFolder",
+    "Genre",
+    "SystemFamily",
+    "ParentSystem",
+    "License",
+    "DiceMaterial",
     # Media
     "GenericMap",
     "MapFolder",
@@ -45,6 +59,7 @@ __all__ = [
     "User",
     "Bookmark",
     "Favorite",
+    "SavedFilter",
     # Campaigns
     "Campaign",
     "CampaignMember",

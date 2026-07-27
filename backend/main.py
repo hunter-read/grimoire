@@ -34,10 +34,12 @@ from .routers import (
     favorites as favorites_router,
     library as library_router,
     logs as logs_router,
+    lookups as lookups_router,
     maintenance as maintenance_router,
     maps as maps_router,
     oidc as oidc_router,
     opds as opds_router,
+    saved_filters as saved_filters_router,
     search as search_router,
     settings as settings_router,
     systems as systems_router,
@@ -228,6 +230,7 @@ api.include_router(oidc_router.router)
 api.include_router(users_router.router)
 api.include_router(systems_router.router)
 api.include_router(books_router.router)
+api.include_router(lookups_router.router)
 api.include_router(maps_router.router)
 api.include_router(tokens_router.router)
 api.include_router(audio_router.router)
@@ -235,6 +238,7 @@ api.include_router(library_router.router)
 api.include_router(search_router.router)
 api.include_router(campaigns_router.router)
 api.include_router(favorites_router.router)
+api.include_router(saved_filters_router.router)
 api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
 api.include_router(export_router.router)

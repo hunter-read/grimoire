@@ -67,6 +67,17 @@ _SYSTEM_AGNOSTIC_SLUGS = frozenset(
     }
 )
 
+# Normalized folder names treated as the "one-page / small RPG" collection — a
+# special sibling of the system-agnostic collection (issue #202). Books here use
+# their immediate subfolder name as the category label, exactly like agnostic.
+_ONE_PAGE_SLUGS = frozenset(
+    {
+        "one-page-rpgs",
+        "single-page-rpgs",
+        "one-shot-rpgs",
+    }
+)
+
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"}
 PDF_EXTS = {".pdf"}
 DOC_EXTS = {".pdf", ".epub", ".djvu"}

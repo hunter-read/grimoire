@@ -3,9 +3,13 @@ import { useReducer } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import SystemBulkEditFields from './SystemBulkEditFields'
 
-const get = vi.fn(() => Promise.resolve({ books: [] }))
+const get = vi.fn((path) => {
+  if (path?.includes('genres')) return Promise.resolve({ genres: [] })
+  if (path?.includes('system-families')) return Promise.resolve({ families: [] })
+  return Promise.resolve({ books: [] })
+})
 vi.mock('../../api', () => ({
-  default: { get: (...a) => get(...a) },
+  default: { get: (...a) => get(...a), post: vi.fn(() => Promise.resolve({})) },
   mediaUrl: (p) => p,
 }))
 
@@ -37,9 +41,11 @@ describe('SystemBulkEditFields', () => {
     fireEvent.change(tagInput, { target: { value: 'osr' } })
     fireEvent.keyDown(tagInput, { key: 'Enter' })
     expect(draft.tags).toEqual(['osr'])
-    expect(screen.getByText('osr')).toBeInTheDocument()
+    const chip = screen.getByText('osr')
+    expect(chip).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }))
+    // The chip's own remove button (scoped to the chip, not other remove btns).
+    fireEvent.click(chip.querySelector('button'))
     expect(draft.tags).toEqual([])
   })
 
@@ -68,6 +74,34 @@ describe('SystemBulkEditFields', () => {
     // Clicking the selected cover again clears it.
     fireEvent.click(screen.getByRole('button', { name: 'Core' }))
     expect(draft.cover_book_id).toBeNull()
+  })
+
+  it('edits the system family via the combobox', () => {
+    const draft = { tags: [], publishers: [], system_family: '' }
+    render(<Harness system={withBooks([])} initialDraft={draft} />)
+    fireEvent.change(document.getElementById('sys-bulk-family'), {
+      target: { value: 'Fate' },
+    })
+    expect(draft.system_family).toBe('Fate')
+  })
+
+  it('adds a dice/material via the picker (default option)', () => {
+    const draft = { tags: [], publishers: [], dice_materials: [] }
+    render(<Harness system={withBooks([])} initialDraft={draft} />)
+    const diceInput = screen.getByRole('combobox', { name: /add dice\/material/i })
+    fireEvent.focus(diceInput)
+    fireEvent.change(diceInput, { target: { value: 'D20' } })
+    fireEvent.keyDown(diceInput, { key: 'Enter' })
+    expect(draft.dice_materials).toEqual(['D20'])
+  })
+
+  it('edits a generic link row', () => {
+    const draft = { tags: [], publishers: [], urls: [] }
+    render(<Harness system={withBooks([])} initialDraft={draft} />)
+    fireEvent.change(document.getElementById('sys-bulk-url-url-0'), {
+      target: { value: 'http://x' },
+    })
+    expect(draft.urls[0].url).toBe('http://x')
   })
 
   it('lazy-fetches books when the system has none and shows their covers', async () => {

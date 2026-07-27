@@ -25,13 +25,40 @@ class GameSystem(Base):
     slug = Column(String(255), unique=True, nullable=False)
     description = Column(Text, default="")
     publishers = Column(JSON, default=list)
+    # Legacy single-value URL column. Kept for backward compatibility; new code
+    # reads/writes the multi-value ``character_builder_urls`` list instead.
     character_builder_url = Column(String(512), default="")
+    # Admin-uploaded cover: bare filename stored under DATA_PATH/system_covers/.
     cover_image = Column(String(512), default="")
+    # Library-relative path to a cover.*/folder.* image found at the system's
+    # folder root by the scanner. Takes precedence over the uploaded cover_image,
+    # which in turn beats the cover_book_id fallback.
+    folder_cover_path = Column(String(1000), default="")
     cover_book_id = Column(String(36), nullable=True)
     tags = Column(JSON, default=list)
+    # Legacy single-value genre column. Superseded by the ``genres`` JSON list;
+    # kept so old databases keep working and the backfill has a source.
     genre = Column(String(100), default="")
+    # Multi-value metadata (issue #202).
+    genres = Column(JSON, default=list)
+    dice_materials = Column(JSON, default=list)
+    system_family = Column(String(150), default="")
+    # Parent-system / edition hierarchy: a system_family (e.g. "d20 System") may
+    # contain several parent_systems (e.g. "Dungeons & Dragons"), each of which
+    # has editions (e.g. "5e"). ``parent_system`` + ``edition`` combine for
+    # display ("Cyberpunk" + "Red" → "Cyberpunk Red").
+    parent_system = Column(String(150), default="")
+    edition = Column(String(80), default="")
+    license = Column(String(100), default="")
+    year = Column(Integer, nullable=True)
+    # Labeled link lists: ``[{"label": str, "url": str}, ...]``.
+    urls = Column(JSON, default=list)
+    character_builder_urls = Column(JSON, default=list)
     is_explicit = Column(Boolean, default=False)
     is_system_agnostic = Column(Boolean, default=False)
+    # Special "one-page / small RPG" collection, grouped with system-agnostic
+    # in the library view. Set by the indexer from the folder name.
+    is_one_page = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
@@ -54,9 +81,27 @@ class Book(Base):
     category = Column(String(100), default="core", index=True)
     description = Column(Text, default="")
     authors = Column(JSON, default=list)
+    artists = Column(JSON, default=list)
     publisher = Column(String(255), default="")
+    # Legacy single-value URL column, superseded by the ``urls`` list. Kept for
+    # backward compatibility and as the backfill source.
     publisher_url = Column(String(512), default="")
+    # Labeled link list: ``[{"label": str, "url": str}, ...]``.
+    urls = Column(JSON, default=list)
+    # Genres (issue #202). Independent of the system's genres; a book may carry
+    # its own (e.g. a grimdark D&D book tagged Horror as well as Fantasy).
+    genres = Column(JSON, default=list)
+    isbn = Column(String(20), default="")
+    version = Column(String(50), default="")
+    language = Column(String(20), default="")
+    # Per-book license override. Empty means "inherit the system's license" — an
+    # OGL SRD can sit inside an otherwise-proprietary system (issue: metadata).
+    license = Column(String(100), default="")
+    # Publication date with variable precision. ``year`` may stand alone;
+    # ``month`` and/or ``day`` refine it. All nullable.
     year = Column(Integer, nullable=True)
+    month = Column(Integer, nullable=True)
+    day = Column(Integer, nullable=True)
     file_size = Column(Integer, default=0)
     page_count = Column(Integer, default=0)
     mime_type = Column(String(100), default="application/pdf")
@@ -99,3 +144,84 @@ class BookFolder(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     path = Column(String(1000), nullable=False, unique=True)
     tags = Column(JSON, default=list)
+
+
+class Genre(Base):
+    """A curated genre value, optionally nested under a parent (tiered).
+
+    Powers the tiered genre picker (e.g. Science Fiction → Cyberpunk). Defaults
+    are seeded on migration; users may add their own via settings. ``is_default``
+    marks a seeded row so the UI can distinguish it, but defaults are removable.
+    """
+
+    __tablename__ = "genres"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(120), unique=True, nullable=False)
+    parent_id = Column(String(36), ForeignKey("genres.id"), nullable=True, index=True)
+    is_default = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+    parent = relationship("Genre", remote_side=[id], back_populates="children")
+    children = relationship(
+        "Genre", back_populates="parent", cascade="all, delete-orphan"
+    )
+
+
+class SystemFamily(Base):
+    """A curated system-family / engine value (e.g. Powered by the Apocalypse)."""
+
+    __tablename__ = "system_families"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(150), unique=True, nullable=False)
+    is_default = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+
+class ParentSystem(Base):
+    """A curated parent-system value (e.g. "Dungeons & Dragons").
+
+    The mid tier between a broad system_family ("d20 System") and a concrete
+    GameSystem ("D&D 5e"). Users manage the list in settings; systems reference
+    it by name via ``GameSystem.parent_system``.
+    """
+
+    __tablename__ = "parent_systems"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(150), unique=True, nullable=False)
+    is_default = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+
+class License(Base):
+    """A curated license value (e.g. OGL 1.0a, ORC, CC-BY 4.0, Proprietary).
+
+    Applied at the system level as a default and optionally overridden per book.
+    Seeded with common TTRPG licenses; users may add their own.
+    """
+
+    __tablename__ = "licenses"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(100), unique=True, nullable=False)
+    is_default = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+
+class DiceMaterial(Base):
+    """A curated dice / materials value (e.g. D20, Playing Cards, Tarot Cards).
+
+    Backs the dice/materials picker on systems. Seeded from the built-in default
+    groups; users may add their own via settings.
+    """
+
+    __tablename__ = "dice_materials"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(120), unique=True, nullable=False)
+    # Grouping label for the picker ("Dice", "Cards", "Other", "Custom").
+    group = Column(String(60), default="Custom")
+    is_default = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
