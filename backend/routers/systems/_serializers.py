@@ -8,8 +8,12 @@ from typing import Any
 from ...models import Book, GameSystem
 
 
-def serialize_book(book: Book) -> dict[str, Any]:
-    """Serialize a Book to the API shape used by the system detail view."""
+def serialize_book(book: Book, tags: list[str] | None = None) -> dict[str, Any]:
+    """Serialize a Book to the API shape used by the system detail view.
+
+    ``tags`` are the book's shared tags (display strings) — pass them in from a
+    batch ``tag_service`` lookup so serialization stays a pure, per-row mapping.
+    """
     return {
         "id": book.id,
         "title": book.title,
@@ -38,7 +42,7 @@ def serialize_book(book: Book) -> dict[str, Any]:
         "ocr_indexed": book.index_error == "ocr",
         "ocr_dpi": book.ocr_dpi,
         "has_thumbnail": book.has_thumbnail,
-        "tags": book.tags or [],
+        "tags": tags if tags is not None else [],
         "is_explicit": bool(book.is_explicit),
         "is_missing": bool(book.is_missing),
         "relative_path": book.relative_path,
@@ -46,9 +50,16 @@ def serialize_book(book: Book) -> dict[str, Any]:
 
 
 def serialize_system_summary(
-    system: GameSystem, book_count: int, total_page_count: int, cover_book_id: str | None
+    system: GameSystem,
+    book_count: int,
+    total_page_count: int,
+    cover_book_id: str | None,
+    tags: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Serialize a GameSystem for the systems list (no book payload)."""
+    """Serialize a GameSystem for the systems list (no book payload).
+
+    ``tags`` are the system's shared tags (display strings) from a batch lookup.
+    """
     return {
         "id": system.id,
         "name": system.name,
@@ -58,7 +69,7 @@ def serialize_system_summary(
         "character_builder_url": system.character_builder_url,
         "character_builder_urls": system.character_builder_urls or [],
         "urls": system.urls or [],
-        "tags": system.tags or [],
+        "tags": tags if tags is not None else [],
         "genre": system.genre,
         "genres": system.genres or [],
         "dice_materials": system.dice_materials or [],

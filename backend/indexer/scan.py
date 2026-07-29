@@ -30,6 +30,7 @@ from ..models import (
     GenericMap,
     Token,
 )
+from ..services import tag_service
 from ._subprocess import _run_with_timeout
 from .categories import (
     agnostic_category,
@@ -380,7 +381,16 @@ def _register_book(
         # requested (modes "missing"/"replace") — see _apply_opf_to_book.
         if ctx.metadata_mode in ("missing", "replace"):
             opf_meta = _find_opf_meta(root, filename)
-            if _apply_opf_to_book(existing, opf_meta, ctx.metadata_mode):
+            changed = _apply_opf_to_book(existing, opf_meta, ctx.metadata_mode)
+            # OPF ``tags`` are shared tags (issue #235), applied via the service.
+            # In "missing" mode only fill when the book has no tags yet.
+            opf_tags = opf_meta.get("tags")
+            if opf_tags:
+                current = tag_service.display_tags_for_resource(session, "book", existing.id)
+                if ctx.metadata_mode == "replace" or not current:
+                    tag_service.set_resource_tags(session, "book", existing.id, opf_tags)
+                    changed = True
+            if changed:
                 logger.debug(f"Refreshing metadata for '{filename}' (mode={ctx.metadata_mode})")
                 try:
                     _run_with_timeout(
@@ -446,7 +456,6 @@ def _register_book(
         description=opf_meta.get("description"),
         publisher=opf_meta.get("publisher"),
         year=opf_meta.get("year"),
-        tags=opf_meta.get("tags"),
     )
 
     # Commit the book record first so that if a subsequent
@@ -456,6 +465,11 @@ def _register_book(
     logger.debug(f"DB: committing new book '{filename}'")
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
+        # OPF ``subjects`` become shared tags on the book (issue #235).
+        opf_tags = opf_meta.get("tags")
+        if opf_tags:
+            tag_service.set_resource_tags(session, "book", book.id, opf_tags)
+            session.commit()
         stats["new_books"] += 1
         logger.info(f"Added book: {title} ({category}) in {system_name}")
     except TimeoutError as e:

@@ -118,6 +118,19 @@ describe('Sidebar navigation visibility', () => {
     renderSidebar({ uiSettings: { hide_maps: true } })
     expect(screen.queryByText('Maps')).toBeNull()
   })
+
+  it('shows the Tags link pointing at /tags (issue #235)', () => {
+    renderSidebar()
+    const tagsLink = screen.getByRole('link', { name: 'Tags' })
+    expect(tagsLink).toHaveAttribute('href', '/tags')
+  })
+
+  it('does not show the Tags link for guests', () => {
+    renderSidebar({ user: { ...baseUser, role: 'guest' } })
+    expect(screen.queryByRole('link', { name: 'Tags' })).toBeNull()
+    // Guests still see campaigns.
+    expect(screen.getByText('Campaigns')).toBeTruthy()
+  })
 })
 
 // ---------------------------------------------------------------------------

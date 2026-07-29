@@ -6,6 +6,7 @@ import LazyGrid from '../LazyGrid'
 import BulkActionBar from '../BulkActionBar'
 import SortFilterBar from '../library/SortFilterBar'
 import SearchInput from '../library/SearchInput'
+import useTagLabels, { titleCaseTag } from '../../hooks/useTagLabels'
 
 /**
  * Page layout shared by the media gallery views (maps, tokens). Renders the
@@ -33,7 +34,14 @@ export default function GalleryLayout({
     value: key,
     label: t(`sortFilter.sort${key.charAt(0).toUpperCase()}${key.slice(1)}`),
   }))
-  const tagOptions = gallery.allTags.map((tg) => ({ value: tg, label: tg }))
+  // Tag filter options: values are the internal (lowercased) keys the gallery
+  // matches on; labels use the shared-tag display casing when available, falling
+  // back to Title Case for folder-only tags not in the shared-tag tables (#235).
+  const tagLabels = useTagLabels(config.type)
+  const tagOptions = gallery.allTags.map((tg) => ({
+    value: tg,
+    label: tagLabels[tg] || titleCaseTag(tg),
+  }))
   const handleSavePreset = (name, opts) => gallery.savedFilters.save(name, gallery.sortFilter, opts)
 
   return (

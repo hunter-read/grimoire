@@ -12,8 +12,8 @@ import LazyImg from '../LazyImg'
  *
  * In bulk-select mode (`selectable`), clicking the card toggles its selection
  * (with shift / cmd-click modifiers) instead of navigating, and a checkbox is
- * shown. Tags on the full card are clickable to toggle a tag filter via
- * `onTagClick`; `activeTags` highlights the ones currently filtering.
+ * shown. Tag chips on the full card link to the tags page (grid tag filtering
+ * is handled by the Filters modal's Tags dropdown).
  */
 export default function SystemCard({
   system,
@@ -23,8 +23,6 @@ export default function SystemCard({
   selectable = false,
   selected = false,
   onToggleSelect,
-  onTagClick,
-  activeTags,
 }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
@@ -331,31 +329,16 @@ export default function SystemCard({
         <div
           style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginTop: 'auto', paddingTop: 8 }}
         >
-          {/* Genres are shown before tags (issue #202), in the genre colour. */}
+          {/* Genres are shown before tags (issue #202), in the genre colour.
+              Genres aren't tags, so they never navigate. */}
           {(system.genres || []).slice(0, 3).map((g) => (
-            <Tag key={`genre-${g}`} label={g} color="rgba(90, 154, 90, 0.2)" />
+            <Tag key={`genre-${g}`} label={g} color="rgba(90, 154, 90, 0.2)" linkable={false} />
           ))}
-          {(system.tags || []).slice(0, 4).map((tag) =>
-            onTagClick && !selectable ? (
-              <button
-                key={tag}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onTagClick(tag.toLowerCase())
-                }}
-                aria-pressed={activeTags?.has(tag.toLowerCase())}
-                aria-label={t('library.filterByTag', { tag })}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-              >
-                <Tag
-                  label={tag}
-                  color={activeTags?.has(tag.toLowerCase()) ? 'rgba(201,168,76,0.25)' : undefined}
-                />
-              </button>
-            ) : (
-              <Tag key={tag} label={tag} />
-            )
-          )}
+          {/* Tag chips navigate to the tags page (issue #235.7); grid tag
+              filtering lives in the Filters modal's Tags dropdown. */}
+          {(system.tags || []).slice(0, 4).map((tag) => (
+            <Tag key={tag} label={tag} />
+          ))}
         </div>
       </div>
     </div>

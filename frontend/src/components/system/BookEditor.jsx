@@ -8,7 +8,7 @@ import GenrePicker from '../metadata/GenrePicker'
 import CategoryPicker from '../metadata/CategoryPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
 import LookupCombobox from '../metadata/LookupCombobox'
-import TagChipInput from '../metadata/TagChipInput'
+import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
@@ -42,7 +42,6 @@ export default function BookEditor({
     is_explicit: book.is_explicit || false,
   })
   const [tags, setTags] = useState(book.tags || [])
-  const [tagInput, setTagInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [progressReset, setProgressReset] = useState(false)
   const hasProgress = !!getBookPrefs(book.id).page
@@ -94,9 +93,6 @@ export default function BookEditor({
 
   const handleSave = () => {
     setSaving(true)
-    // Flush any pending tag text still in the input.
-    const pending = tagInput.trim().toLowerCase().replace(/,+$/, '')
-    const finalTags = pending && !tags.includes(pending) ? [...tags, pending] : tags
     const payload = {
       ...form,
       category: slugify(form.category) || 'core',
@@ -106,7 +102,7 @@ export default function BookEditor({
       year: form.year ? parseInt(form.year) : null,
       month: form.month ? parseInt(form.month) : null,
       day: form.day ? parseInt(form.day) : null,
-      tags: finalTags,
+      tags,
     }
     api
       .patch(`/books/${book.id}`, payload)
@@ -184,12 +180,10 @@ export default function BookEditor({
           {/* Tags under genres, using the shared chip input. */}
           <div style={{ marginBottom: 10 }}>
             <label style={fieldLabel}>{t('bookEditor.tagsLabel')}</label>
-            <TagChipInput
-              id="book-tag-input"
-              tags={tags}
+            <TagPicker
+              value={tags}
               onChange={setTags}
-              inputValue={tagInput}
-              onInputChange={setTagInput}
+              resourceType="book"
               placeholder={t('bookEditor.tagPlaceholder')}
             />
           </div>

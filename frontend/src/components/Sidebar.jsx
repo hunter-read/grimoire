@@ -10,6 +10,7 @@ import {
   LuLogOut,
   LuUser,
   LuHeart,
+  LuTags,
   LuScroll,
   LuX,
   LuPanelLeftClose,
@@ -188,17 +189,26 @@ export default function Sidebar({
         aria-label="Main navigation"
         style={{ padding: collapsed ? '12px 8px' : '12px 8px', flex: 1 }}
       >
+        {/* Group 1: library content (Library, Maps, Tokens, Audio) */}
         {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
         {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
         {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
-        {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
 
         {!isGuest && (
           <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
         )}
 
+        {/* Group 2: discovery (Search, Tags, Favorites) */}
+        {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
+        {!isGuest && navItem('/tags', <LuTags size={16} />, t('nav.tags'))}
         {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
+
+        {!isGuest && !hide_campaigns && (
+          <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+        )}
+
+        {/* Group 3: campaigns (more items to be grouped here later) */}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
       </nav>
 

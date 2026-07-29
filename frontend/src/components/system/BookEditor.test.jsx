@@ -14,6 +14,8 @@ vi.mock('../../api', () => ({
     get: (path) => Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] }),
     post: () => Promise.resolve({}),
   },
+  // TagPicker loads the tag catalog.
+  tags: { list: () => Promise.resolve({ tags: [] }) },
 }))
 
 const mockGetBookPrefs = vi.fn(() => ({}))
@@ -159,12 +161,12 @@ describe('BookEditor category combobox', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('adds tags via the chip input and includes them on save', async () => {
+  it('adds tags via the tag picker and includes them on save', async () => {
     renderEditor({ book: { tags: ['existing'] } })
-    // Existing tag chip renders (lowercase, as stored).
+    // Existing tag chip renders (as stored).
     expect(screen.getByText('existing')).toBeInTheDocument()
 
-    const tagInput = document.getElementById('book-tag-input')
+    const tagInput = screen.getByRole('combobox', { name: 'tags.addTag' })
     fireEvent.change(tagInput, { target: { value: 'fantasy' } })
     fireEvent.keyDown(tagInput, { key: 'Enter' })
     fireEvent.click(screen.getByText('bookEditor.save'))
@@ -173,14 +175,15 @@ describe('BookEditor category combobox', () => {
     expect(mockPatch.mock.calls[0][1].tags).toEqual(['existing', 'fantasy'])
   })
 
-  it('flushes a pending tag still in the input on save', async () => {
+  it('does not save an uncommitted tag still in the input', async () => {
+    // The TagPicker commits on Enter; text left in the box is not persisted.
     renderEditor({ book: { tags: [] } })
-    const tagInput = document.getElementById('book-tag-input')
+    const tagInput = screen.getByRole('combobox', { name: 'tags.addTag' })
     fireEvent.change(tagInput, { target: { value: 'solo' } })
     fireEvent.click(screen.getByText('bookEditor.save'))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalled())
-    expect(mockPatch.mock.calls[0][1].tags).toEqual(['solo'])
+    expect(mockPatch.mock.calls[0][1].tags).toEqual([])
   })
 
   it('resets reading progress when the book has progress', () => {

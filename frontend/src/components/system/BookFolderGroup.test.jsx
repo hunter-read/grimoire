@@ -367,6 +367,50 @@ describe('BookFolderGroup', () => {
     expect(screen.getByText('Download')).toBeInTheDocument()
   })
 
+  // --- Book folder tagging (issue #235 follow-up) ---
+
+  it('renders existing book-folder tags on the header', () => {
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          systemId: 'sys-1',
+          category: 'adventure',
+          folder: 'Abomination Vaults',
+          bookFolderTags: { 'sys-1/adventure/Abomination Vaults': ['Gothic'] },
+        })}
+      />
+    )
+    expect(screen.getByText('Gothic')).toBeInTheDocument()
+  })
+
+  it('starts editing folder tags with the full BookFolder path', async () => {
+    const onEditFolder = vi.fn()
+    render(
+      <BookFolderGroup
+        {...makeProps({
+          isEditor: true,
+          systemId: 'sys-1',
+          category: 'adventure',
+          folder: 'Abomination Vaults',
+          onEditFolder,
+        })}
+      />
+    )
+    // canTag (isEditor) shows an add-tags affordance.
+    await userEvent.click(screen.getByRole('button', { name: /add tags/i }))
+    expect(onEditFolder).toHaveBeenCalledWith('sys-1/adventure/Abomination Vaults')
+  })
+
+  it('nested subfolders render (deep nesting uses an indented guide, not a panel)', () => {
+    const node = {
+      books: [],
+      folders: { spelljammer: { books: [makeBook({ title: 'Deep Book' })], folders: {} } },
+    }
+    render(<BookFolderGroup {...makeProps({ folder: 'monsters', node })} />)
+    expect(screen.getByText('Spelljammer')).toBeInTheDocument()
+    expect(screen.getByText('Deep Book')).toBeInTheDocument()
+  })
+
   // --- Rescan scope (folderScope) ---
 
   it('scopes the rescan button to the folder derived from a book relative_path', () => {

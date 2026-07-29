@@ -3,8 +3,26 @@ from typing import Optional
 from pydantic import BaseModel, field_validator
 
 
-def _normalize_tags(tags: list[str]) -> list[str]:
-    seen = set()
+def _dedupe_tags(tags: list[str]) -> list[str]:
+    """Strip and de-duplicate tags by lowercased key, keeping first-seen casing.
+
+    Item tags are shared tags (issue #235): the service lowercases the internal
+    match key while preserving this display casing, so we must NOT lowercase here.
+    """
+    seen: set = set()
+    result = []
+    for t in tags:
+        stripped = t.strip()
+        key = stripped.lower()
+        if key and key not in seen:
+            seen.add(key)
+            result.append(stripped)
+    return result
+
+
+def _lowercase_tags(tags: list[str]) -> list[str]:
+    """Lowercase + de-dupe — for folder tags, which remain plain JSON values."""
+    seen: set = set()
     result = []
     for t in tags:
         lowered = t.strip().lower()
@@ -20,8 +38,8 @@ class AudioUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v) if v is not None else v
+    def dedupe_tags(cls, v):
+        return _dedupe_tags(v) if v is not None else v
 
 
 class FolderTagsUpdate(BaseModel):
@@ -31,4 +49,4 @@ class FolderTagsUpdate(BaseModel):
     @field_validator("tags", mode="before")
     @classmethod
     def lowercase_tags(cls, v):
-        return _normalize_tags(v)
+        return _lowercase_tags(v)

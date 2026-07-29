@@ -41,6 +41,7 @@ import { CATEGORY_ORDER } from '../constants'
 import matchBooks from '../utils/matchBooks'
 import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
+import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 
 const DEFAULT_BOOK_FILTER = { sort: 'title', order: 'asc', filters: {} }
 
@@ -84,6 +85,11 @@ export default function SystemDetailView() {
   const [system, setSystem] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
+  // Book subcategory folder tags, keyed by BookFolder path
+  // ("{systemId}/{category}/{subfolder…}"). Loaded once per system; edited
+  // inline on each folder group header (issue #235 follow-up).
+  const [bookFolderTags, setBookFolderTags] = useState({})
+  const [editingFolderKey, setEditingFolderKey] = useState(null)
   const [collapsedCats, setCollapsedCats] = useSessionState(
     `grimoire:system:${systemId}:collapsed`,
     new Set()
@@ -117,9 +123,23 @@ export default function SystemDetailView() {
   const [bulkApplying, setBulkApplying] = useState(false)
   const [showAddToCampaign, setShowAddToCampaign] = useState(false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
+  // Shared-tag display labels for book tags (filter values match on internal key).
+  const bookTagLabels = useTagLabels('book')
 
   useEffect(() => {
     api.get(`/systems/${systemId}`).then(setSystem)
+  }, [systemId])
+
+  // Load book subcategory folder tags for this system.
+  useEffect(() => {
+    api
+      .get(`/systems/${systemId}/book-folders`)
+      .then((r) => {
+        const map = {}
+        for (const f of r.folders || []) map[f.path] = f.tags || []
+        setBookFolderTags(map)
+      })
+      .catch(() => setBookFolderTags({}))
   }, [systemId])
 
   const {
@@ -289,6 +309,20 @@ export default function SystemDetailView() {
       books: s.books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)),
     }))
 
+  // Persist a book folder's tags and reflect them locally. ``path`` is the full
+  // BookFolder path ("{systemId}/{category}/{subfolder…}").
+  const saveBookFolderTags = (path, tags) => {
+    setBookFolderTags((prev) => ({ ...prev, [path]: tags }))
+    setEditingFolderKey(null)
+    api.patch(`/systems/${systemId}/book-folders`, { path, tags }).catch(() =>
+      api.get(`/systems/${systemId}/book-folders`).then((r) => {
+        const map = {}
+        for (const f of r.folders || []) map[f.path] = f.tags || []
+        setBookFolderTags(map)
+      })
+    )
+  }
+
   const toggleSubfolder = (key) =>
     setCollapsedSubfolders((prev) => {
       const next = new Set(prev)
@@ -306,7 +340,10 @@ export default function SystemDetailView() {
   const bookGenreOptions = [...new Set((system.books || []).flatMap((b) => b.genres || []))]
     .sort((a, b) => a.localeCompare(b))
     .map((g) => ({ value: g, label: g }))
-  const bookTagOptions = allTags.map((tg) => ({ value: tg, label: tg }))
+  const bookTagOptions = allTags.map((tg) => ({
+    value: tg,
+    label: bookTagLabels[tg] || titleCaseTag(tg),
+  }))
 
   // Book view mode → layout flags shared with BookRow / BookFolderGroup.
   const card = viewMode === 'card'
@@ -408,7 +445,12 @@ export default function SystemDetailView() {
                     ? [system.genre]
                     : []
                 ).map((g) => (
-                  <Tag key={`genre-${g}`} label={g} color="rgba(90, 154, 90, 0.2)" />
+                  <Tag
+                    key={`genre-${g}`}
+                    label={g}
+                    color="rgba(90, 154, 90, 0.2)"
+                    linkable={false}
+                  />
                 ))}
                 {(system.tags || []).map((tag) => (
                   <Tag key={tag} label={tag} />
@@ -752,6 +794,10 @@ export default function SystemDetailView() {
               collapsedSubfolders={collapsedSubfolders}
               onToggleSubfolder={toggleSubfolder}
               groupScope={groupScope}
+              bookFolderTags={bookFolderTags}
+              editingFolderKey={editingFolderKey}
+              onEditFolder={setEditingFolderKey}
+              onSaveBookFolderTags={saveBookFolderTags}
               editingBookId={editingBookId}
               setEditingBookId={setEditingBookId}
               allTags={allTags}

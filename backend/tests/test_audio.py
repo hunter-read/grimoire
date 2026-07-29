@@ -2,6 +2,7 @@
 import os
 import struct
 import tempfile
+import uuid
 import wave
 
 import pytest
@@ -89,16 +90,20 @@ class TestUpdateAudio:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
-    def test_tags_are_lowercased_on_update(self, client, gm_headers):
+    def test_tags_keep_display_casing_on_update(self, client, gm_headers):
+        # Shared tags preserve the entered casing; matching is case-insensitive.
+        # Returned tags are sorted by display value (case-insensitive). Unique tag
+        # names avoid reusing a display value set by another test.
+        uid = uuid.uuid4().hex[:6]
         a = make_audio()
         resp = client.patch(
             f"/api/audio/{a.id}",
-            json={"tags": ["Ambient", "TAVERN", "loop"]},
+            json={"tags": [f"Alpha{uid}", f"BRAVO{uid}", f"charlie{uid}"]},
             headers=gm_headers,
         )
         assert resp.status_code == 200
         detail = client.get(f"/api/audio/{a.id}", headers=gm_headers).json()
-        assert detail["tags"] == ["ambient", "tavern", "loop"]
+        assert detail["tags"] == [f"Alpha{uid}", f"BRAVO{uid}", f"charlie{uid}"]
 
     def test_duplicate_tags_deduplicated_on_update(self, client, gm_headers):
         a = make_audio()

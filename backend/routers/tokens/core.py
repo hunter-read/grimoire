@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 
 from ...config import THUMB_DIR, get_db
 from ...models import Token, TokenFolder
+from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
 from .._media_access import assert_media_access
@@ -32,6 +33,7 @@ def list_tokens(
         q = q.filter(Token.is_explicit != True)
     total = q.count()
     tokens = q.order_by(Token.filename).offset(offset).limit(limit).all()
+    token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
     return {
         "total": total,
         "tokens": [
@@ -40,7 +42,7 @@ def list_tokens(
                 "filename": t.filename,
                 "relative_path": t.relative_path,
                 "description": t.description,
-                "tags": t.tags or [],
+                "tags": token_tags.get(t.id, []),
                 "file_size": t.file_size,
                 "has_thumbnail": t.has_thumbnail,
                 "is_explicit": bool(t.is_explicit),
@@ -96,7 +98,7 @@ def get_token(
         "folder_path": folder_path,
         "folder_tags": folder.tags if folder else [],
         "description": t.description,
-        "tags": t.tags or [],
+        "tags": tag_service.display_tags_for_resource(db, "token", t.id),
         "file_size": t.file_size,
         "has_thumbnail": t.has_thumbnail,
         "is_explicit": bool(t.is_explicit),
@@ -152,7 +154,10 @@ def update_token(
     t = db.query(Token).filter_by(id=token_id).first()
     if not t:
         raise HTTPException(404)
-    for field, value in data.model_dump(exclude_none=True).items():
+    payload = data.model_dump(exclude_none=True)
+    tag_service.sync_tags_from_payload(db, "token", t.id, payload)
+    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
+    for field, value in payload.items():
         setattr(t, field, value)
     db.commit()
     return {"status": "ok"}

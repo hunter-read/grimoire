@@ -18,6 +18,28 @@ from backend.models import (
     GameSystem,
 )
 from backend.indexer import _load_tags_json, _apply_tags_from_library
+from backend.services import tag_service
+
+
+def _sync_item_tags(resource_type: str, resource_id: str, tags) -> None:
+    """Apply item tags via the shared-tag service (items have no ``tags`` column)."""
+    if not tags:
+        return
+    db = SessionLocal()
+    try:
+        tag_service.set_resource_tags(db, resource_type, resource_id, tags)
+        db.commit()
+    finally:
+        db.close()
+
+
+def _tags_of(resource_type: str, resource_id: str) -> list[str]:
+    """A resource's shared tags as display strings (sorted by display)."""
+    db = SessionLocal()
+    try:
+        return tag_service.display_tags_for_resource(db, resource_type, resource_id)
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -47,14 +69,14 @@ def _add_map(lib: Path, rel: str, tags=None) -> GenericMap:
             filename=Path(rel).name,
             filepath=full,
             relative_path=rel,
-            tags=tags or [],
         )
         db.add(m)
         db.commit()
         db.refresh(m)
-        return m
     finally:
         db.close()
+    _sync_item_tags("map", m.id, tags)
+    return m
 
 
 def _add_token(lib: Path, rel: str, tags=None) -> Token:
@@ -66,14 +88,14 @@ def _add_token(lib: Path, rel: str, tags=None) -> Token:
             filename=Path(rel).name,
             filepath=full,
             relative_path=rel,
-            tags=tags or [],
         )
         db.add(t)
         db.commit()
         db.refresh(t)
-        return t
     finally:
         db.close()
+    _sync_item_tags("token", t.id, tags)
+    return t
 
 
 def _add_system(slug: str, tags=None) -> GameSystem:
@@ -84,14 +106,14 @@ def _add_system(slug: str, tags=None) -> GameSystem:
             id=str(uuid.uuid4()),
             name=f"System {uid}",
             slug=slug,
-            tags=tags or [],
         )
         db.add(sys)
         db.commit()
         db.refresh(sys)
-        return sys
     finally:
         db.close()
+    _sync_item_tags("system", sys.id, tags)
+    return sys
 
 
 def _get_map(map_id: str) -> GenericMap | None:
@@ -135,14 +157,14 @@ def _add_audio(lib: Path, rel: str, tags=None) -> Audio:
             filename=Path(rel).name,
             filepath=full,
             relative_path=rel,
-            tags=tags or [],
         )
         db.add(a)
         db.commit()
         db.refresh(a)
-        return a
     finally:
         db.close()
+    _sync_item_tags("audio", a.id, tags)
+    return a
 
 
 def _get_audio(audio_id: str) -> Audio | None:
@@ -253,7 +275,7 @@ def test_apply_sets_tags_on_map_file():
     _write_json(maps_dir / "tags.json", {"cave.png": ["cave", "dungeon"]})
     _run(lib)
 
-    assert _get_map(m.id).tags == ["cave", "dungeon"]
+    assert _tags_of("map", m.id) == ["cave", "dungeon"]
 
 
 def test_apply_sets_tags_on_map_folder_dot():
@@ -296,7 +318,7 @@ def test_apply_sets_tags_on_map_file_in_subfolder():
     _write_json(maps_dir / "tags.json", {"caves/ice-cave.png": ["ice", "cold"]})
     _run(lib)
 
-    assert _get_map(m.id).tags == ["ice", "cold"]
+    assert sorted(_tags_of("map", m.id)) == ["cold", "ice"]
 
 
 def test_apply_updates_existing_map_folder_tags():
@@ -346,7 +368,7 @@ def test_apply_sets_tags_on_token_file():
     _write_json(tokens_dir / "tags.json", {"goblin.png": ["monster", "small"]})
     _run(lib)
 
-    assert _get_token(t.id).tags == ["monster", "small"]
+    assert _tags_of("token", t.id) == ["monster", "small"]
 
 
 def test_apply_sets_tags_on_token_folder():
@@ -393,7 +415,7 @@ def test_apply_sets_tags_on_audio_file():
     _write_json(audio_dir / "tags.json", {"tavern.mp3": ["ambient", "tavern"]})
     _run(lib)
 
-    assert _get_audio(a.id).tags == ["ambient", "tavern"]
+    assert _tags_of("audio", a.id) == ["ambient", "tavern"]
 
 
 def test_apply_sets_tags_on_audio_folder():
@@ -445,7 +467,7 @@ def test_apply_sets_tags_on_game_system():
     _run(lib)
 
     system = _get_system(slug)
-    assert system.tags == ["fantasy", "5e"]
+    assert sorted(_tags_of("system", system.id)) == ["5e", "fantasy"]
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +487,7 @@ def test_apply_tags_json_in_subdirectory():
     _write_json(sub / "tags.json", {"river.png": ["water", "outdoor"]})
     _run(lib)
 
-    assert _get_map(m.id).tags == ["water", "outdoor"]
+    assert sorted(_tags_of("map", m.id)) == ["outdoor", "water"]
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +506,7 @@ def test_apply_noop_when_no_tags_json():
     _run(lib)
 
     # Tags should be unchanged
-    assert _get_map(m.id).tags == ["keep-me"]
+    assert _tags_of("map", m.id) == ["keep-me"]
 
 
 # ---------------------------------------------------------------------------

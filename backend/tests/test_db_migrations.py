@@ -61,20 +61,23 @@ class TestInitDb:
 
 
 class TestNormalizeTags:
-    def test_normalizes_audio_table_tags(self):
+    # Item tables no longer carry a JSON ``tags`` column (issue #235 moved item
+    # tags to the shared-tag tables), so normalization now only runs on the
+    # folder tables — these tests exercise that via ``audio_folders``.
+
+    def test_normalizes_folder_table_tags(self):
         path = _fresh_db()
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
                 text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a1', 'x.mp3', '/x.mp3', 'audio/x.mp3', :tags)"
+                    "INSERT INTO audio_folders (id, path, tags) VALUES ('n1', 'Sfx', :tags)"
                 ),
                 {"tags": json.dumps(["Ambient", "AMBIENT", "  Tavern  "])},
             )
             conn.commit()
             _normalize_tags_in_db(conn)
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a1'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n1'")).scalar()
         assert json.loads(raw) == ["ambient", "tavern"]
 
     def test_normalizes_audio_folder_tags(self):
@@ -99,15 +102,12 @@ class TestNormalizeTags:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a2', 'y.mp3', '/y.mp3', 'audio/y.mp3', :tags)"
-                ),
+                text("INSERT INTO audio_folders (id, path, tags) VALUES ('n2', 'A2', :tags)"),
                 {"tags": json.dumps({"not": "a list"})},
             )
             conn.commit()
             _normalize_tags_in_db(conn)  # must not raise
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a2'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n2'")).scalar()
         assert json.loads(raw) == {"not": "a list"}
 
     def test_already_normalized_tags_unchanged(self):
@@ -115,15 +115,12 @@ class TestNormalizeTags:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a3', 'z.mp3', '/z.mp3', 'audio/z.mp3', :tags)"
-                ),
+                text("INSERT INTO audio_folders (id, path, tags) VALUES ('n3', 'A3', :tags)"),
                 {"tags": json.dumps(["already", "clean"])},
             )
             conn.commit()
             _normalize_tags_in_db(conn)
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a3'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n3'")).scalar()
         assert json.loads(raw) == ["already", "clean"]
 
     def test_malformed_json_tags_are_skipped(self, caplog):
@@ -134,15 +131,12 @@ class TestNormalizeTags:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a4', 'b.mp3', '/b.mp3', 'audio/b.mp3', 'not-json{')"
-                )
+                text("INSERT INTO audio_folders (id, path, tags) VALUES ('n4', 'A4', 'not-json{')")
             )
             conn.commit()
             with caplog.at_level("WARNING", logger="grimoire.db"):
                 _normalize_tags_in_db(conn)  # must not raise
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a4'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n4'")).scalar()
         assert raw == "not-json{"
         assert any(
             "skipping tag normalization" in r.message.lower() for r in caplog.records

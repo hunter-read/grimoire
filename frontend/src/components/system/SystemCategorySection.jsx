@@ -45,6 +45,10 @@ export default function SystemCategorySection({
   collapsedSubfolders,
   onToggleSubfolder,
   groupScope,
+  bookFolderTags,
+  editingFolderKey,
+  onEditFolder,
+  onSaveBookFolderTags,
   editingBookId,
   setEditingBookId,
   allTags,
@@ -150,6 +154,10 @@ export default function SystemCategorySection({
               allTags={allTags}
               existingCategories={existingCategories}
               systemGenres={systemGenres}
+              bookFolderTags={bookFolderTags}
+              editingFolderKey={editingFolderKey}
+              onEditFolder={onEditFolder}
+              onSaveBookFolderTags={onSaveBookFolderTags}
             />
           ))}
         </div>

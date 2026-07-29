@@ -305,6 +305,7 @@ export default function TokenDetailView() {
                   tags={currentFolderTags}
                   onSave={saveFolderTags}
                   onCancel={() => setEditingFolderTags(false)}
+                  resourceType="token"
                 />
               </div>
             ) : (
@@ -336,6 +337,7 @@ export default function TokenDetailView() {
                 tags={token.tags}
                 onSave={saveTokenTags}
                 onCancel={() => setEditingTokenTags(false)}
+                resourceType="token"
               />
             </div>
           ) : (

@@ -16,6 +16,7 @@ vi.mock('../api', () => ({
     get: (...args) => get(...args),
     post: (...args) => post(...args),
   },
+  tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p) => p,
 }))
 

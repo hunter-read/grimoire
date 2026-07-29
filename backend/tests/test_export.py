@@ -192,7 +192,7 @@ class TestExportTagsData:
         systems = data["library"]["systems"]
         match = next((s for s in systems if s["slug"] == export_system.slug), None)
         assert match is not None
-        assert match["tags"] == export_system.tags
+        assert sorted(match["tags"]) == ["fantasy", "official"]
 
     def test_system_entry_shape(self, client, admin_headers, export_system):
         data = client.get("/api/export/tags", headers=admin_headers).json()
@@ -208,7 +208,7 @@ class TestExportTagsData:
         books = data["library"]["books"]
         match = next((b for b in books if b["id"] == export_book.id), None)
         assert match is not None
-        assert match["tags"] == export_book.tags
+        assert sorted(match["tags"]) == ["core", "phb"]
 
     def test_book_entry_shape(self, client, admin_headers, export_book):
         data = client.get("/api/export/tags", headers=admin_headers).json()
@@ -230,7 +230,7 @@ class TestExportTagsData:
         maps = data["maps"]["items"]
         match = next((m for m in maps if m["id"] == export_map.id), None)
         assert match is not None
-        assert match["tags"] == export_map.tags
+        assert sorted(match["tags"]) == ["dungeon", "outdoor"]
 
     def test_map_entry_shape(self, client, admin_headers, export_map):
         data = client.get("/api/export/tags", headers=admin_headers).json()
@@ -257,7 +257,7 @@ class TestExportTagsData:
         tokens = data["tokens"]["items"]
         match = next((t for t in tokens if t["id"] == export_token.id), None)
         assert match is not None
-        assert match["tags"] == export_token.tags
+        assert sorted(match["tags"]) == ["cr5", "monster"]
 
     def test_token_entry_shape(self, client, admin_headers, export_token):
         data = client.get("/api/export/tags", headers=admin_headers).json()

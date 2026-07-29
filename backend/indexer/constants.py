@@ -131,4 +131,6 @@ _OPF_NS = {
 METADATA_MODES = ("new", "missing", "replace")
 
 # Book fields that can be sourced from an OPF sidecar.
-_OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year", "tags")
+# Note: OPF ``tags`` are applied separately via the shared-tag service (issue
+# #235); they are intentionally NOT in this setattr list (no column to set).
+_OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year")

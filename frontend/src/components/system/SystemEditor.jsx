@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImage, LuX, LuPlus } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import LazyImg from '../LazyImg'
 import GenrePicker from '../metadata/GenrePicker'
+import TagPicker from '../metadata/TagPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
 import LookupCombobox from '../metadata/LookupCombobox'
 import SingleSelectCombobox from '../metadata/SingleSelectCombobox'
@@ -40,34 +41,17 @@ export default function SystemEditor({ system, onSave }) {
     cover_book_id: system.cover_book_id || null,
     is_explicit: system.is_explicit || false,
   })
-  const [tagInput, setTagInput] = useState('')
-  const tagInputRef = useRef(null)
   const familyOptions = families.map((f) => f.name)
   const parentSystemOptions = parentSystems.map((p) => p.name)
   const licenseOptions = licenses.map((l) => l.name)
 
-  const commitTag = () => {
-    const tag = tagInput.trim().toLowerCase().replace(/,+$/, '')
-    if (tag && !form.tags.includes(tag)) setForm((f) => ({ ...f, tags: [...f.tags, tag] }))
-    setTagInput('')
-  }
-
-  const handleTagKey = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      commitTag()
-    } else if (e.key === 'Backspace' && !tagInput && form.tags.length > 0)
-      setForm((f) => ({ ...f, tags: f.tags.slice(0, -1) }))
-  }
+  const setTags = (tags) => setForm((f) => ({ ...f, tags }))
 
   const handleSave = () => {
-    const pending = tagInput.trim().toLowerCase().replace(/,+$/, '')
-    const tags = pending && !form.tags.includes(pending) ? [...form.tags, pending] : form.tags
     const publishers = form.publishers.filter((p) => p.name.trim())
     const year = form.year === '' ? null : Number(form.year)
     const data = {
       ...form,
-      tags,
       publishers,
       urls: cleanLinks(form.urls),
       character_builder_urls: cleanLinks(form.character_builder_urls),
@@ -202,72 +186,12 @@ export default function SystemEditor({ system, onSave }) {
             >
               {t('systemEditor.tags')}
             </label>
-            <div
-              onClick={() => tagInputRef.current?.focus()}
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 5,
-                alignItems: 'center',
-                padding: '6px 8px',
-                borderRadius: 6,
-                cursor: 'text',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                minHeight: 36,
-              }}
-            >
-              {form.tags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    fontSize: 12,
-                    padding: '2px 6px 2px 8px',
-                    borderRadius: 10,
-                    background: 'rgba(201,168,76,0.15)',
-                    border: '1px solid var(--gold-dim)',
-                    color: 'var(--gold)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  {tag}
-                  <button
-                    onClick={() =>
-                      setForm((f) => ({ ...f, tags: f.tags.filter((x) => x !== tag) }))
-                    }
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'inherit',
-                      padding: '0 0 0 4px',
-                      lineHeight: 1,
-                    }}
-                  >
-                    <LuX size={10} />
-                  </button>
-                </span>
-              ))}
-              <input
-                id="system-tag-input"
-                ref={tagInputRef}
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagKey}
-                onBlur={commitTag}
-                placeholder={form.tags.length === 0 ? t('systemEditor.tagPlaceholder') : ''}
-                style={{
-                  fontSize: 13,
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  color: 'var(--text)',
-                  minWidth: 80,
-                  flex: 1,
-                }}
-              />
-            </div>
+            <TagPicker
+              value={form.tags}
+              onChange={setTags}
+              resourceType="system"
+              placeholder={t('systemEditor.tagPlaceholder')}
+            />
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
               {t('systemEditor.tagHint')}
             </div>

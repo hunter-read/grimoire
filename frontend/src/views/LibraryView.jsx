@@ -13,6 +13,7 @@ import { useFavorites } from '../context/FavoritesContext'
 import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
 import useSavedFilters from '../hooks/useSavedFilters'
+import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import SystemCard from '../components/library/SystemCard'
 import AgnosticChip from '../components/library/AgnosticChip'
 import SortFilterBar from '../components/library/SortFilterBar'
@@ -42,6 +43,8 @@ export default function LibraryView() {
   const [defaultApplied, setDefaultApplied] = useState(false)
   const library = useSystemLibrary(systems, setSystems)
   const { bulk, allTags } = library
+  // Shared-tag display labels for system tags (values still match on internal key).
+  const systemTagLabels = useTagLabels('system')
   const {
     saved: savedFilters,
     loaded: filtersLoaded,
@@ -78,22 +81,10 @@ export default function LibraryView() {
 
   // Favorites and tags now live in the SortFilterBar filter section.
   const activeFilters = sortFilter.filters || {}
+  // Tags currently filtering the grid (set via the Filters modal's Tags dropdown).
   const selectedTags = new Set((activeFilters.tags || []).map((tg) => tg.toLowerCase()))
   const favOnly = activeFilters.favorites === true
   const isFavSystem = (id) => isFavorite('system', id)
-
-  // Toggle a single tag in the sortFilter state (used by card tag chips).
-  const toggleTag = (tag) => {
-    const cur = activeFilters.tags || []
-    const lower = tag.toLowerCase()
-    const next = cur.some((tg) => tg.toLowerCase() === lower)
-      ? cur.filter((tg) => tg.toLowerCase() !== lower)
-      : [...cur, tag]
-    updateSortFilter({
-      ...sortFilter,
-      filters: { ...activeFilters, tags: next.length ? next : undefined },
-    })
-  }
 
   const visible = (s) => s.book_count > 0
 
@@ -139,7 +130,10 @@ export default function LibraryView() {
   ]
     .sort((a, b) => a.localeCompare(b))
     .map((d) => ({ value: d, label: d }))
-  const tagOptions = allTags.map((tg) => ({ value: tg, label: tg }))
+  const tagOptions = allTags.map((tg) => ({
+    value: tg,
+    label: systemTagLabels[tg] || titleCaseTag(tg),
+  }))
 
   const tagFiltered = selectedTags.size > 0
   // Whether the library holds any browsable regular (non-special) systems at
@@ -504,8 +498,6 @@ export default function LibraryView() {
                         orderedIds: normalSystems.map((s) => s.id),
                       })
                     }
-                    onTagClick={toggleTag}
-                    activeTags={selectedTags}
                   />
                 ))}
               </div>

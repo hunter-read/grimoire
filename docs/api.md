@@ -322,7 +322,41 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/favorites` | POST | any | Add a favorite (idempotent). Body: `{item_type, item_id}` |
 | `/api/favorites/:type/:id` | DELETE | any | Remove a favorite (silent 204 if not found) |
 
-Item types: `book`, `map`, `token`, `audio`, `system`
+Item types: `book`, `map`, `token`, `audio`, `system`, `tag` (a `tag` favorite's
+`item_id` is the tag's internal key; it enriches to `{internal, display, count}`).
+
+### Tags
+
+Application-wide tags shared across systems, books, maps, tokens, and audio. Each
+tag has a lowercased **internal** key (used for matching/dedup) and an editable
+**display** value (the casing first entered). The internal key normally stays put,
+but a rename that changes the display's normalized form re-keys it (a typo fix like
+`freinds` → `friends`), merging into an existing tag if one already owns the new key.
+A resource's tags are set through its own update endpoint (e.g. `PATCH /api/books/:id`
+with `tags`); these endpoints manage the shared tag catalog and browse items by tag.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/tags` | GET | any | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
+| `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}` |
+| `/api/tags/:internal/items` | GET | any | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived — each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
+| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Body: `{display}` |
+| `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}` |
+| `/api/tags/:internal` | DELETE | gm/admin | Delete a tag and unlink it from every resource |
+
+Tag object shape: `{internal, display, category}` (list/item endpoints also include
+`count`; the list adds `is_favorite`). A tag's **category** is the single resource
+type it is used on (`system`/`book`/`map`/`token`/`audio`), or `shared` once it spans
+more than one type. The reported category is *effective*: it reconciles the tag's
+stored category (direct usage) with every resource type it appears on via folder tags,
+so a tag on a book plus a map folder resolves to `shared` even though folder tags never
+rewrite the stored row. Migrated tag displays default to Title Case; users favorite
+tags via the favorites endpoints (`item_type: "tag"`). Resource types: `system`,
+`book`, `map`, `token`, `audio`.
+
+Book subcategory folders are tagged via `PATCH /api/systems/:id/book-folders` (path
+`{system_id}/{category}/{subfolder…}`) and surface on the tags page under **Books**,
+alongside the `tags.json`-style folder tags on maps/tokens/audio.
 
 ### Saved filters
 

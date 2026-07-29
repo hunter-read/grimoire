@@ -6,6 +6,7 @@ import LazyImg from '../LazyImg'
 import GenrePicker from '../metadata/GenrePicker'
 import LinkListEditor from '../metadata/LinkListEditor'
 import LookupCombobox from '../metadata/LookupCombobox'
+import TagPicker from '../metadata/TagPicker'
 import SingleSelectCombobox from '../metadata/SingleSelectCombobox'
 import DiceMaterialsPicker from '../metadata/DiceMaterialsPicker'
 import { groupsFromManaged } from '../metadata/diceMaterials'
@@ -31,8 +32,6 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
   const parentSystemOptions = parentSystems.map((p) => p.name)
   const licenseOptions = licenses.map((l) => l.name)
   const diceGroups = diceMaterials.length ? groupsFromManaged(diceMaterials) : undefined
-  const [tagInput, setTagInput] = useState('')
-  const tagInputRef = useRef(null)
   const [books, setBooks] = useState(system.books || null)
 
   // The systems list endpoint omits per-system books, so fetch them the first
@@ -60,21 +59,6 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
   const tags = draft.tags || []
   const publishers = draft.publishers || []
   const familyOptions = families.map((f) => f.name)
-
-  const commitTag = () => {
-    const tag = tagInput.trim().toLowerCase().replace(/,+$/, '')
-    if (tag && !tags.includes(tag)) setField('tags', [...tags, tag])
-    setTagInput('')
-  }
-
-  const handleTagKey = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      commitTag()
-    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-      setField('tags', tags.slice(0, -1))
-    }
-  }
 
   const setPublisher = (idx, key, value) =>
     setField(
@@ -141,35 +125,12 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
 
       <div>
         <label style={label}>{t('systemEditor.tags')}</label>
-        <div onClick={() => tagInputRef.current?.focus()} style={tagBox}>
-          {tags.map((tag) => (
-            <span key={tag} style={tagChip}>
-              {tag}
-              <button
-                type="button"
-                onClick={() =>
-                  setField(
-                    'tags',
-                    tags.filter((x) => x !== tag)
-                  )
-                }
-                style={tagChipRemove}
-                aria-label={t('common.remove')}
-              >
-                <LuX size={10} />
-              </button>
-            </span>
-          ))}
-          <input
-            ref={tagInputRef}
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={handleTagKey}
-            onBlur={commitTag}
-            placeholder={tags.length === 0 ? t('systemEditor.tagPlaceholder') : ''}
-            style={tagBoxInput}
-          />
-        </div>
+        <TagPicker
+          value={tags}
+          onChange={(v) => setField('tags', v)}
+          resourceType="system"
+          placeholder={t('systemEditor.tagPlaceholder')}
+        />
       </div>
 
       {/* Parent System (75%) + Edition (25%) above License + Year. */}

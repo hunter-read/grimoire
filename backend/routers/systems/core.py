@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
+from ...services import tag_service
 from ._helpers import resolve_cover_book_id
 from ._schemas import BookFolderUpdate, GameSystemUpdate
 from ._serializers import serialize_book, serialize_system_summary
@@ -59,6 +60,7 @@ def list_systems(
     }
 
     systems = db.query(GameSystem).all()
+    system_tags = tag_service.display_tags_for_resources(db, "system", [s.id for s in systems])
     result = []
     for s in systems:
         if s.is_explicit and not can_see_explicit:
@@ -78,7 +80,13 @@ def list_systems(
         book_count, total_pages = agg.get(s.id, (0, 0))
         cover_book_id = resolve_cover_book_id(db, s)
         result.append(
-            serialize_system_summary(s, book_count, int(total_pages or 0), cover_book_id)
+            serialize_system_summary(
+                s,
+                book_count,
+                int(total_pages or 0),
+                cover_book_id,
+                tags=system_tags.get(s.id, []),
+            )
         )
 
     result = _sort_systems(result, sort, order)
@@ -148,13 +156,16 @@ def get_system(
         books = [b for b in books if _has_value(b.genres, genre)]
     books = _sort_books(books, book_sort, book_order)
 
+    system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
+    book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
     summary = serialize_system_summary(
         system,
         book_count=len(books),
         total_page_count=sum(b.page_count or 0 for b in books),
         cover_book_id=cover_book_id,
+        tags=system_tags,
     )
-    summary["books"] = [serialize_book(b) for b in books]
+    summary["books"] = [serialize_book(b, tags=book_tags.get(b.id, [])) for b in books]
     return summary
 
 
@@ -215,6 +226,8 @@ def update_system(
     # model_dump serializes nested Pydantic models (publishers, urls,
     # character_builder_urls) to plain dicts, which SQLAlchemy stores as JSON.
     payload = data.model_dump(exclude_none=True)
+    tag_service.sync_tags_from_payload(db, "system", system.id, payload)
+    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
     for field, value in payload.items():
         setattr(system, field, value)
     db.commit()

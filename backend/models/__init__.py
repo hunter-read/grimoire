@@ -34,6 +34,7 @@ from .library import (
 )
 from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
 from .settings import AppSetting
+from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
 from .users import Bookmark, Favorite, SavedFilter, User
 
 __all__ = [
@@ -77,4 +78,10 @@ __all__ = [
     "SessionAvailability",
     # Settings
     "AppSetting",
+    # Tags
+    "Tag",
+    "ResourceTag",
+    "RESOURCE_TYPES",
+    "SHARED_CATEGORY",
+    "TAG_CATEGORIES",
 ]

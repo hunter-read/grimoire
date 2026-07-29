@@ -12,15 +12,17 @@ vi.mock('../api', () => ({
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
   },
+  tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
 // Open the shared filter modal (favourites/tags/genre live there now).
 const openFilters = () => userEvent.click(screen.getByRole('button', { name: 'Filters' }))
 
+const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, useNavigate: () => vi.fn() }
+  return { ...actual, useNavigate: () => mockNavigate }
 })
 
 let mockUserPrefs = { cardSize: 'comfortable', librarySort: 'az' }
@@ -225,9 +227,9 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
       await openTags()
-      expect(screen.getByRole('checkbox', { name: 'osr' })).toBeInTheDocument()
-      expect(screen.getByRole('checkbox', { name: 'fantasy' })).toBeInTheDocument()
-      expect(screen.getByRole('checkbox', { name: 'pbta' })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /^osr$/i })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /^fantasy$/i })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /^pbta$/i })).toBeInTheDocument()
     })
 
     it('filters systems to those carrying a selected tag', async () => {
@@ -239,7 +241,7 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
 
       await openTags()
-      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /^osr$/i }))
 
       expect(screen.getByText('OSR System')).toBeInTheDocument()
       expect(screen.queryByText('PbtA System')).not.toBeInTheDocument()
@@ -254,8 +256,8 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('Both System')).toBeInTheDocument())
 
       await openTags()
-      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
-      await userEvent.click(screen.getByRole('checkbox', { name: 'grim' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /^osr$/i }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /^grim$/i }))
 
       // Only the system carrying BOTH tags survives.
       expect(screen.getByText('Both System')).toBeInTheDocument()
@@ -276,13 +278,14 @@ describe('LibraryView', () => {
       await openFilters()
       await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
       await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
-      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /^osr$/i }))
 
       expect(screen.queryByText('OSR System')).not.toBeInTheDocument()
       expect(screen.getByText(/no systems match the selected tags/i)).toBeInTheDocument()
     })
 
-    it('clicking a tag on a card activates that tag as a filter', async () => {
+    it('clicking a tag on a card navigates to the tags page (issue #235.7)', async () => {
+      mockNavigate.mockClear()
       api.get.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha', tags: ['osr'] }),
         makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
@@ -290,11 +293,9 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
-      // The card tag is a button labelled "Filter by osr".
-      await userEvent.click(screen.getByRole('button', { name: /filter by osr/i }))
-
-      expect(screen.getByText('Alpha')).toBeInTheDocument()
-      expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+      // Card tag chips now link to the tags page rather than filtering in place.
+      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=osr')
     })
   })
 

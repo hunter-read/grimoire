@@ -35,7 +35,6 @@ class GameSystem(Base):
     # which in turn beats the cover_book_id fallback.
     folder_cover_path = Column(String(1000), default="")
     cover_book_id = Column(String(36), nullable=True)
-    tags = Column(JSON, default=list)
     # Legacy single-value genre column. Superseded by the ``genres`` JSON list;
     # kept so old databases keep working and the backfill has a source.
     genre = Column(String(100), default="")
@@ -106,7 +105,6 @@ class Book(Base):
     page_count = Column(Integer, default=0)
     mime_type = Column(String(100), default="application/pdf")
     has_thumbnail = Column(Boolean, default=False)
-    tags = Column(JSON, default=list)
     is_explicit = Column(Boolean, default=False)
     indexed = Column(Boolean, default=False)
     index_failed = Column(Boolean, default=False)

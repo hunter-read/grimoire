@@ -30,6 +30,7 @@ def resolve_cover_book_id(db, system) -> str | None:
 
 
 def _normalize_tags(tags: list[str]) -> list[str]:
+    """Lowercase + de-dupe — for folder tags, which remain plain JSON values."""
     seen: set[str] = set()
     result: list[str] = []
     for t in tags:
@@ -37,4 +38,21 @@ def _normalize_tags(tags: list[str]) -> list[str]:
         if lowered and lowered not in seen:
             seen.add(lowered)
             result.append(lowered)
+    return result
+
+
+def _dedupe_tags(tags: list[str]) -> list[str]:
+    """Strip and de-duplicate by lowercased key, keeping first-seen casing.
+
+    For shared item tags (issue #235): the tag service lowercases the internal
+    match key while preserving this display casing, so we must NOT lowercase here.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for t in tags:
+        stripped = t.strip()
+        key = stripped.lower()
+        if key and key not in seen:
+            seen.add(key)
+            result.append(stripped)
     return result

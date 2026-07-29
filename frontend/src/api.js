@@ -184,6 +184,21 @@ export const opds = {
   revokeToken: () => api.delete('/users/me/opds'),
 }
 
+export const tags = {
+  // in_use_by scopes the list to tags used on a resource type (with counts).
+  list: (inUseBy) => api.get(`/tags${inUseBy ? `?in_use_by=${encodeURIComponent(inUseBy)}` : ''}`),
+  items: (internal, resourceType) =>
+    api.get(
+      `/tags/${encodeURIComponent(internal)}/items${
+        resourceType ? `?resource_type=${encodeURIComponent(resourceType)}` : ''
+      }`
+    ),
+  create: (value, display) => api.post('/tags', { value, display }),
+  rename: (internal, display) => api.patch(`/tags/${encodeURIComponent(internal)}`, { display }),
+  merge: (internal, into) => api.post(`/tags/${encodeURIComponent(internal)}/merge`, { into }),
+  remove: (internal) => api.delete(`/tags/${encodeURIComponent(internal)}`),
+}
+
 export const settings = {
   get: () => api.get('/settings'),
   getUi: () => api.get('/settings/ui'),

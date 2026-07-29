@@ -29,19 +29,25 @@ _ALEMBIC_INI = os.path.join(
 
 
 def _normalize_tags_in_db(conn: Connection) -> None:
-    """Lower-case and deduplicate tags in all tag-bearing tables."""
+    """Lower-case and deduplicate the JSON ``tags`` on the folder tables.
+
+    Item tags (systems/books/maps/tokens/audio) moved to the shared-tag tables
+    (issue #235) and their JSON columns are dropped, so only the folder tables —
+    which still carry plain JSON tag lists — are normalized here. Tables without a
+    ``tags`` column are skipped defensively.
+    """
     tables = [
-        "game_systems",
-        "books",
         "book_folders",
-        "generic_maps",
         "map_folders",
-        "tokens",
         "token_folders",
-        "audio",
         "audio_folders",
     ]
+    inspector = inspect(conn)
     for table in tables:
+        if not inspector.has_table(table):
+            continue
+        if "tags" not in {c["name"] for c in inspector.get_columns(table)}:
+            continue
         rows = conn.execute(
             text(f"SELECT rowid, tags FROM {table} WHERE tags IS NOT NULL")
         ).fetchall()

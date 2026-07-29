@@ -43,6 +43,7 @@ from .routers import (
     search as search_router,
     settings as settings_router,
     systems as systems_router,
+    tags as tags_router,
     tokens as tokens_router,
     users as users_router,
 )
@@ -238,6 +239,7 @@ api.include_router(library_router.router)
 api.include_router(search_router.router)
 api.include_router(campaigns_router.router)
 api.include_router(favorites_router.router)
+api.include_router(tags_router.router)
 api.include_router(saved_filters_router.router)
 api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)

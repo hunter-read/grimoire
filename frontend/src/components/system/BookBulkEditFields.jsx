@@ -1,17 +1,16 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CATEGORY_ORDER, categoryLabel } from '../../constants'
 import GenrePicker from '../metadata/GenrePicker'
 import CategoryPicker from '../metadata/CategoryPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
 import LookupCombobox from '../metadata/LookupCombobox'
-import TagChipInput from '../metadata/TagChipInput'
+import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { linksForEditing } from '../metadata/metadataUtils'
 
 // Rich editor body for one book inside the bulk-edit carousel. Mirrors the
 // single-book editor and reuses the same shared components (CategoryPicker,
-// GenrePicker with inherit-from-system, TagChipInput, LinkListEditor).
+// GenrePicker with inherit-from-system, TagPicker, LinkListEditor).
 export default function BookBulkEditFields({
   draft,
   setField,
@@ -21,7 +20,6 @@ export default function BookBulkEditFields({
   const { t } = useTranslation()
   const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
   const licenseOptions = licenses.map((l) => l.name)
-  const [tagInput, setTagInput] = useState('')
 
   const categoryOptions = [
     ...new Set([...CATEGORY_ORDER, ...existingCategories, draft.category].filter(Boolean)),
@@ -90,12 +88,10 @@ export default function BookBulkEditFields({
       {/* Tags under genres. */}
       <div>
         <label style={label}>{t('bookEditor.tagsLabel')}</label>
-        <TagChipInput
-          id="book-bulk-tags"
-          tags={draft.tags || []}
+        <TagPicker
+          value={draft.tags || []}
           onChange={(v) => setField('tags', v)}
-          inputValue={tagInput}
-          onInputChange={setTagInput}
+          resourceType="book"
           placeholder={t('bookEditor.tagPlaceholder')}
         />
       </div>

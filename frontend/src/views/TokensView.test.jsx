@@ -12,6 +12,7 @@ vi.mock('../api', () => ({
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
   },
+  tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 

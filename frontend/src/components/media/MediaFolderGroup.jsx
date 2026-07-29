@@ -52,7 +52,7 @@ export default function MediaFolderGroup({
 }) {
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
-  const { i18n, archiveType, countKey } = config
+  const { i18n, archiveType, countKey, type } = config
   const { playQueue } = useAudioPlayer()
   const [editingRoot, setEditingRoot] = useState(false)
   const isCollapsed = collapsed.has(folder)
@@ -203,6 +203,7 @@ export default function MediaFolderGroup({
               editing={editingRoot}
               canTag={canTag}
               i18n={i18n}
+              resourceType={type}
               onEdit={() => setEditingRoot(true)}
               onSave={(newTags) => onSaveFolderTags(folder, newTags)}
               onCancel={() => setEditingRoot(false)}
@@ -221,6 +222,7 @@ export default function MediaFolderGroup({
                 editing={editingRoot}
                 canTag={canTag}
                 i18n={i18n}
+                resourceType={type}
                 fullLabels
                 onEdit={() => setEditingRoot(true)}
                 onSave={(newTags) => onSaveFolderTags(folder, newTags)}
@@ -363,6 +365,7 @@ export default function MediaFolderGroup({
                           editing
                           canTag={canTag}
                           i18n={i18n}
+                          resourceType={type}
                           onSave={(newTags) => onSaveFolderTags(folderPath, newTags)}
                           onCancel={() => onSetEditingFolder(null)}
                         />
@@ -384,6 +387,7 @@ export default function MediaFolderGroup({
                           editing={editingFolder === editKey}
                           canTag={canTag}
                           i18n={i18n}
+                          resourceType={type}
                           fullLabels
                           onEdit={() => onSetEditingFolder(editKey)}
                           onSave={(newTags) => onSaveFolderTags(folderPath, newTags)}

@@ -10,7 +10,10 @@ const get = vi.fn((path) => {
   if (path?.includes('system-families')) return Promise.resolve({ families: [] })
   return Promise.resolve({})
 })
-vi.mock('../../api', () => ({ default: { get: (...a) => get(...a), post: vi.fn() } }))
+vi.mock('../../api', () => ({
+  default: { get: (...a) => get(...a), post: vi.fn() },
+  tags: { list: () => Promise.resolve({ tags: [] }) },
+}))
 
 // setField mutates the draft in place and forces a re-render.
 function Harness({ initialDraft, systemGenres = [] }) {
@@ -43,7 +46,7 @@ describe('BookBulkEditFields', () => {
   it('adds a tag chip', () => {
     const draft = { tags: [], genres: [] }
     render(<Harness initialDraft={draft} />)
-    const input = document.getElementById('book-bulk-tags')
+    const input = screen.getByRole('combobox', { name: 'tags.addTag' })
     fireEvent.change(input, { target: { value: 'osr' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(draft.tags).toEqual(['osr'])

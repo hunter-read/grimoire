@@ -33,6 +33,13 @@ describe('MobileSidebar', () => {
     expect(screen.getByText(/settings/i)).toBeInTheDocument()
   })
 
+  it('lists the Tags link in the drawer pointing at /tags (issue #235)', async () => {
+    renderBar()
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    const tagsLink = screen.getByRole('link', { name: /tags/i })
+    expect(tagsLink).toHaveAttribute('href', '/tags')
+  })
+
   it('closes the drawer when a drawer item is clicked', async () => {
     renderBar()
     await userEvent.click(screen.getByRole('button', { name: /more/i }))

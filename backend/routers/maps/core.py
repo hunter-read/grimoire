@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import GenericMap, MapFolder
+from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
 from .._media_access import assert_media_access
@@ -45,6 +46,7 @@ def list_maps(
     else:
         total = q.count()
         maps = q.offset(offset).limit(limit).all()
+    map_tags = tag_service.display_tags_for_resources(db, "map", [m.id for m in maps])
     return {
         "total": total,
         "maps": [
@@ -53,7 +55,7 @@ def list_maps(
                 "filename": m.filename,
                 "relative_path": m.relative_path,
                 "description": m.description,
-                "tags": m.tags or [],
+                "tags": map_tags.get(m.id, []),
                 "map_type": m.map_type,
                 "file_size": m.file_size,
                 "has_thumbnail": m.has_thumbnail,
@@ -102,7 +104,7 @@ def get_map(
         "folder_path": folder_path,
         "folder_tags": folder.tags if folder else [],
         "description": m.description,
-        "tags": m.tags or [],
+        "tags": tag_service.display_tags_for_resource(db, "map", m.id),
         "map_type": m.map_type,
         "grid_size": m.grid_size,
         "file_size": m.file_size,
@@ -200,7 +202,10 @@ def update_map(
     m = db.query(GenericMap).filter_by(id=map_id).first()
     if not m:
         raise HTTPException(404)
-    for field, value in data.model_dump(exclude_none=True).items():
+    payload = data.model_dump(exclude_none=True)
+    tag_service.sync_tags_from_payload(db, "map", m.id, payload)
+    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
+    for field, value in payload.items():
         setattr(m, field, value)
     db.commit()
     return {"status": "ok"}

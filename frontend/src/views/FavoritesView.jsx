@@ -7,6 +7,7 @@ import MapFavorite from '../components/favorites/MapFavorite'
 import TokenFavorite from '../components/favorites/TokenFavorite'
 import AudioFavorite from '../components/favorites/AudioFavorite'
 import SystemFavorite from '../components/favorites/SystemFavorite'
+import Tag from '../components/Tag'
 
 export default function FavoritesView() {
   const { t } = useTranslation()
@@ -17,6 +18,7 @@ export default function FavoritesView() {
   const maps = items.filter((i) => i.item_type === 'map')
   const tokens = items.filter((i) => i.item_type === 'token')
   const audio = items.filter((i) => i.item_type === 'audio')
+  const tags = items.filter((i) => i.item_type === 'tag')
 
   if (items.length === 0) {
     return (
@@ -45,6 +47,28 @@ export default function FavoritesView() {
       >
         <LuHeart size={20} fill="var(--gold)" color="var(--gold)" /> {t('favorites.title')}
       </h2>
+
+      {tags.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--text-muted)',
+              marginBottom: 12,
+            }}
+          >
+            {t('favorites.tags', { count: tags.length })}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            {tags.map((tg) => (
+              <Tag key={tg.item_id} label={tg.display || tg.internal} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {systems.length > 0 && (
         <FavoritesSection

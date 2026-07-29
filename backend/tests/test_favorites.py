@@ -218,3 +218,49 @@ class TestRemoveFavorite:
     def test_unauthenticated_denied(self, client, fav_book):
         resp = client.delete(f"/api/favorites/book/{fav_book.id}")
         assert resp.status_code == 401
+
+
+class TestTagFavorites:
+    """Tags can be favorited by their internal key (issue #235 follow-up)."""
+
+    def test_add_tag_favorite_and_enrich(self, client, admin_headers):
+        import uuid as _uuid
+
+        from backend.tests.conftest import make_map
+
+        label = f"FavTag{_uuid.uuid4().hex[:6]}"
+        m = make_map()
+        client.patch(f"/api/maps/{m.id}", json={"tags": [label]}, headers=admin_headers)
+        # Favorite the tag by its internal key.
+        resp = client.post(
+            "/api/favorites",
+            json={"item_type": "tag", "item_id": label.lower()},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        # It enriches to {internal, display, count}.
+        items = client.get("/api/favorites", headers=admin_headers).json()["items"]
+        match = next(
+            (i for i in items if i["item_type"] == "tag" and i["item_id"] == label.lower()),
+            None,
+        )
+        assert match is not None
+        assert match["display"] == label
+        assert match["count"] >= 1
+
+    def test_tag_list_marks_favorite(self, client, admin_headers):
+        import uuid as _uuid
+
+        from backend.tests.conftest import make_map
+
+        label = f"HeartTag{_uuid.uuid4().hex[:6]}"
+        m = make_map()
+        client.patch(f"/api/maps/{m.id}", json={"tags": [label]}, headers=admin_headers)
+        client.post(
+            "/api/favorites",
+            json={"item_type": "tag", "item_id": label.lower()},
+            headers=admin_headers,
+        )
+        listing = client.get("/api/tags?in_use_by=map", headers=admin_headers).json()["tags"]
+        row = next(t for t in listing if t["internal"] == label.lower())
+        assert row["is_favorite"] is True

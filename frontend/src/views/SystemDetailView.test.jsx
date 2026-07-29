@@ -14,6 +14,7 @@ vi.mock('../api', () => ({
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
   },
+  tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
@@ -281,6 +282,45 @@ describe('SystemDetailView — subfolder grouping', () => {
       // Expand again
       await userEvent.click(screen.getByRole('button', { name: /monsters/i }))
       expect(screen.getByText('Bestiary')).toBeInTheDocument()
+    })
+  })
+
+  describe('book folder tagging', () => {
+    // Return folder tags for the /book-folders endpoint, the system otherwise.
+    function mockWithFolders(books, folders = []) {
+      api.get.mockImplementation((url) => {
+        if (url.includes('/book-folders')) return Promise.resolve({ folders })
+        return Promise.resolve(makeSystem(books))
+      })
+    }
+
+    it('loads and shows existing book-folder tags on the folder header', async () => {
+      const books = [
+        makeBook({ title: 'Bestiary', relative_path: 'books/TestSystem/core/monsters/b.pdf' }),
+      ]
+      mockWithFolders(books, [{ path: 'system-1/core/monsters', tags: ['Gothic'] }])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument())
+      expect(screen.getByText('Gothic')).toBeInTheDocument()
+    })
+
+    it('saves book-folder tags via PATCH with the full folder path', async () => {
+      const books = [
+        makeBook({ title: 'Bestiary', relative_path: 'books/TestSystem/core/monsters/b.pdf' }),
+      ]
+      mockWithFolders(books, [])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument())
+      // Open the folder's tag editor; the InlineTagEditor commits on every add.
+      await userEvent.click(screen.getByRole('button', { name: /add tags/i }))
+      const input = await screen.findByRole('combobox', { name: /add tag/i })
+      await userEvent.type(input, 'Gothic{Enter}')
+      await waitFor(() =>
+        expect(api.patch).toHaveBeenCalledWith('/systems/system-1/book-folders', {
+          path: 'system-1/core/monsters',
+          tags: ['Gothic'],
+        })
+      )
     })
   })
 
@@ -641,7 +681,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
     await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
-    await userEvent.click(screen.getByRole('checkbox', { name: 'spooky' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /^spooky$/i }))
     expect(screen.getByText('Tagged')).toBeInTheDocument()
     expect(screen.queryByText('Untagged')).not.toBeInTheDocument()
   })
@@ -655,8 +695,8 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
     await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
     // All tags are available as checkboxes in the dropdown (scrolls; no cap).
-    expect(screen.getByRole('checkbox', { name: 'tag-19' })).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'tag-00' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /^tag-19$/i })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /^tag-00$/i })).toBeInTheDocument()
   })
 
   it('filters books by genre from the modal', async () => {

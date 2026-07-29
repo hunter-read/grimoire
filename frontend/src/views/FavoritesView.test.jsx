@@ -75,4 +75,17 @@ describe('FavoritesView', () => {
     expect(screen.queryByText(/100 pages/)).not.toBeInTheDocument()
     expect(screen.getByText('Core Rules')).toBeInTheDocument()
   })
+
+  it('renders favorited tags as badge buttons that link to the tags page', () => {
+    const aTag = {
+      item_type: 'tag',
+      item_id: 'draw steel',
+      internal: 'draw steel',
+      display: 'Draw Steel',
+      count: 4,
+    }
+    renderWith([aTag])
+    const link = screen.getByRole('button', { name: 'Draw Steel' })
+    expect(link).toBeInTheDocument()
+  })
 })

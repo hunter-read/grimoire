@@ -60,5 +60,7 @@ module = [
     "backend.indexer",
     "backend.indexer.*",
     "backend.models.*",
+    "backend.services",
+    "backend.services.*",
 ]
 disallow_untyped_defs = true

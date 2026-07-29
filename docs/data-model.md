@@ -60,14 +60,16 @@ erDiagram
     wiki_pages ||--o{ wiki_pages : "parent of"
     wiki_pages ||--o{ wiki_page_links : "source of"
     wiki_pages ||--o{ wiki_page_links : "target of"
+
+    tags ||--o{ resource_tags : "applied via"
 ```
 
 ## Foreign keys
 
 There are 34 `ForeignKey` declarations across the models, plus the three self-referential
 keys (`campaigns.parent_campaign_id`, `wiki_pages.parent_id`, `genres.parent_id`) and the
-polymorphic soft links from `campaign_resources`/`favorites`, which are *not* declared
-foreign keys.
+polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, which are
+*not* declared foreign keys.
 
 | From (table.column) | To (table.column) | Notes |
 | --- | --- | --- |
@@ -105,6 +107,7 @@ foreign keys.
 | `wiki_page_links.campaign_id` | `campaigns.id` | |
 | `wiki_page_links.source_page_id` | `wiki_pages.id` | |
 | `wiki_page_links.target_page_id` | `wiki_pages.id` | |
+| `resource_tags.tag_id` | `tags.id` | `ON DELETE CASCADE`; `resource_id` is a polymorphic soft link (not a FK) |
 
 ## Table reference
 
@@ -114,7 +117,7 @@ foreign keys.
 | --- | --- | --- |
 | `game_systems` | A TTRPG system (D&D 5e, PbtA, …). | `name`, `slug` unique. `is_system_agnostic` flags cross-system content; `is_one_page` flags the special one-page/small-RPG collection (both grouped together in the library UI). Metadata (issue #202): `genres` (JSON list; supersedes the legacy scalar `genre`), `dice_materials` (JSON list), `system_family`, `parent_system` (mid-tier grouping, e.g. "Dungeons & Dragons"), `edition` (e.g. "5e"/"Red"; combines with `parent_system` for display), `license`, `year`, `urls` and `character_builder_urls` (JSON lists of `{label, url}`; supersede the legacy scalar `character_builder_url`). |
 | `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, OCR unavailable) / `ocr` (indexed via OCR). `ocr_pending` (indexed `ix_books_ocr_pending`) flags a scanned PDF queued for deferred OCR; `ocr_pages_done` is the per-page OCR checkpoint so a long book resumes rather than restarts after an interruption. `ocr_dpi` is an optional per-book OCR resolution override (NULL = global `OCR_DPI`), set when a book is re-OCR'd at a higher DPI via `POST /api/books/{id}/reindex`. Metadata (issue #202): `artists` and `genres` (JSON lists), `isbn`, `version`, `language`, `license` (per-book override of the system license — an OGL SRD inside a proprietary system), `urls` (JSON list of `{label, url}`; supersedes the legacy scalar `publisher_url`), and a variable-precision publication date `year`/`month`/`day` (all nullable — `year` may stand alone). |
-| `book_folders` | Tags auto-applied to a book subcategory folder path. | `path` unique. |
+| `book_folders` | Tags applied to a book subcategory folder path (`{system_id}/{category}/{subfolder…}`), editable inline on the system page and surfaced on the tags page under Books. | `path` unique. |
 | `genres` | Curated genre lookup, tiered via a self-referential `parent_id` (e.g. Cyberpunk → Science Fiction). | `name` unique. `is_default` marks seeded rows; `sort_order` orders siblings. Children cascade-delete. |
 | `system_families` | Curated system-family / engine lookup (PbtA, d20, Year Zero, …). | `name` unique. `is_default`, `sort_order`. |
 | `parent_systems` | Curated parent-system lookup — the mid tier between a `system_family` and a concrete system (e.g. "Dungeons & Dragons"). | `name` unique. `is_default`, `sort_order`. Seeded empty. |
@@ -141,6 +144,24 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
 | `favorites` | Per-user favorite across books/maps/tokens. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 | `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
+
+### Tags - [`backend/models/tags.py`](../backend/models/tags.py)
+
+Application-wide tags shared across systems, books, maps, tokens, and audio (issue
+#235). Item tags are written through each resource's own update endpoint, which
+mirrors them into these tables via `backend/services/tag_service.py`. (Folder-level
+tags on `*_folders` remain JSON on those rows and are a separate concept.)
+
+| Table | Purpose | Key columns / constraints |
+| --- | --- | --- |
+| `tags` | A shared tag. | `internal` unique (lowercased match key; usually stable, but a rename that changes the display's normalized form re-keys it, merging on collision). `display` (human casing, editable on the tags page). `category` — the single resource type it belongs to (`system`/`book`/`map`/`token`/`audio`) or `shared` once used across more than one type (auto-promoted by the tag service). The tags API reports an *effective* category that also factors in folder-tag usage (incl. book folders), so a stored `book` tag that also appears on a map folder is reported as `shared`. |
+| `resource_tags` | Polymorphic link between a tag and a tagged resource. | FK `tag_id` (`ON DELETE CASCADE`). Polymorphic `(resource_type, resource_id)` where `resource_type` ∈ system/book/map/token/audio. **Unique** `(tag_id, resource_type, resource_id)`. Indexes `ix_resource_tags_resource` on `(resource_type, resource_id)` and `ix_resource_tags_tag` on `tag_id`. |
+
+These tables are the sole source of item tags: the legacy per-row JSON `tags`
+columns on `game_systems`/`books`/`generic_maps`/`tokens`/`audio` were backfilled
+into them (migration 0008) and then dropped (migration 0009). Folder tables
+(`*_folders`) still keep their own JSON `tags` — folder tagging is a separate,
+path-keyed feature.
 
 ### Campaigns - [`backend/models/campaigns.py`](../backend/models/campaigns.py)
 

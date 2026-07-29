@@ -251,6 +251,7 @@ export default function AudioDetailView() {
                   tags={currentFolderTags}
                   onSave={saveFolderTags}
                   onCancel={() => setEditingFolderTags(false)}
+                  resourceType="audio"
                 />
               </div>
             ) : (
@@ -282,6 +283,7 @@ export default function AudioDetailView() {
                 tags={track.tags}
                 onSave={saveTrackTags}
                 onCancel={() => setEditingTrackTags(false)}
+                resourceType="audio"
               />
             </div>
           ) : (

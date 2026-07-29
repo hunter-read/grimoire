@@ -1,5 +1,6 @@
 """Tests for map and map folder endpoints."""
 import hashlib
+import uuid
 
 import pytest
 from backend.tests.conftest import make_map
@@ -138,16 +139,20 @@ class TestUpdateMap:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
-    def test_tags_are_lowercased_on_map_update(self, client, gm_headers):
+    def test_tags_keep_display_casing_on_map_update(self, client, gm_headers):
+        # Shared tags preserve the entered casing (display value); matching is
+        # case-insensitive under the hood. Returned tags are sorted by display.
+        # Unique tag names avoid reusing a display value set by another test.
+        uid = uuid.uuid4().hex[:6]
         m = make_map()
         resp = client.patch(
             f"/api/maps/{m.id}",
-            json={"tags": ["Draw Steel", "DUNGEON", "city"]},
+            json={"tags": [f"Alpha{uid}", f"BRAVO{uid}", f"charlie{uid}"]},
             headers=gm_headers,
         )
         assert resp.status_code == 200
         detail = client.get(f"/api/maps/{m.id}", headers=gm_headers).json()
-        assert detail["tags"] == ["draw steel", "dungeon", "city"]
+        assert detail["tags"] == [f"Alpha{uid}", f"BRAVO{uid}", f"charlie{uid}"]
 
     def test_duplicate_tags_deduplicated_on_map_update(self, client, gm_headers):
         m = make_map()
@@ -158,6 +163,7 @@ class TestUpdateMap:
         )
         assert resp.status_code == 200
         detail = client.get(f"/api/maps/{m.id}", headers=gm_headers).json()
+        # Case-variants collapse to one tag, keeping the first-entered display.
         assert detail["tags"] == ["draw steel"]
 
     def test_player_cannot_update_map(self, client, player_headers, map_entry):

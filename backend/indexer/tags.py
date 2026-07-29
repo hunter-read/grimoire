@@ -20,6 +20,7 @@ from ..models import (
     Token,
     TokenFolder,
 )
+from ..services import tag_service
 from .categories import slugify
 from .metadata import resolve_collection_dir
 
@@ -81,6 +82,8 @@ def _apply_tags_from_library(
         "tokens": (TokenFolder, Token),
         "audio": (AudioFolder, Audio),
     }
+    # Section name → shared-tag resource_type (issue #235).
+    _section_resource = {"maps": "map", "tokens": "token", "audio": "audio"}
     for section in ("maps", "tokens", "audio"):
         section_dir = resolve_collection_dir(library, section)
         if not section_dir.exists():
@@ -132,7 +135,10 @@ def _apply_tags_from_library(
                         file_rel = os.path.relpath(target, library_path)
                         record = session.query(file_model).filter_by(relative_path=file_rel).first()
                         if record:
-                            record.tags = tags
+                            # Item tags live in the shared-tag tables (issue #235).
+                            tag_service.set_resource_tags(
+                                session, _section_resource[section], record.id, tags
+                            )
                             logger.debug(f"tags.json: file {file_rel} ← {tags}")
                         else:
                             logger.debug(f"tags.json: no record found for {file_rel}")
@@ -158,7 +164,7 @@ def _apply_tags_from_library(
             system_slug = slugify(system_dir.name)
             system = session.query(GameSystem).filter_by(slug=system_slug).first()
             if system:
-                system.tags = tags
+                tag_service.set_resource_tags(session, "system", system.id, tags)
                 logger.debug(f"tags.json: system {system_dir.name} ← {tags}")
 
     session.commit()

@@ -10,6 +10,7 @@ import {
   LuLogOut,
   LuUser,
   LuHeart,
+  LuTags,
   LuEllipsis,
   LuX,
   LuScroll,
@@ -24,6 +25,7 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
   const { hide_maps, hide_tokens, hide_audio, hide_campaigns } = uiSettings
   const moreRoutes = [
     '/settings',
+    '/tags',
     ...(!hide_maps ? ['/maps'] : []),
     ...(!hide_tokens ? ['/tokens'] : []),
     ...(!hide_audio ? ['/audio'] : []),
@@ -105,6 +107,12 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
                 onClick={() => setMoreOpen(false)}
               />
             )}
+            <MoreItem
+              to="/tags"
+              Icon={LuTags}
+              label={t('nav.tags')}
+              onClick={() => setMoreOpen(false)}
+            />
             <MoreItem
               to="/settings"
               Icon={LuSettings}

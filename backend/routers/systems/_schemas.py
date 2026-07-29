@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-from ._helpers import _normalize_tags
+from ._helpers import _dedupe_tags, _normalize_tags
 
 
 class PublisherEntry(BaseModel):
@@ -51,8 +51,8 @@ class GameSystemUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v) if v is not None else v
+    def dedupe_tags(cls, v):
+        return _dedupe_tags(v) if v is not None else v
 
     @field_validator("genres", "dice_materials", mode="before")
     @classmethod

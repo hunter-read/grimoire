@@ -10,6 +10,7 @@ from textwrap import dedent
 from backend.config import SessionLocal
 from backend.indexer import parse_opf_metadata, scan_library
 from backend.models import Book
+from backend.services import tag_service
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +328,13 @@ class TestCalibrePerBookFolderStructure:
         assert book.authors == ["Wizards of the Coast"]
         assert book.publisher == "Wizards of the Coast"
         assert book.year == 2014
-        assert "tabletop rpg" in book.tags
+        # OPF subjects become shared tags; match on the internal (lowercased) key.
+        db = SessionLocal()
+        try:
+            internals = {t["internal"] for t in tag_service.tags_for_resource(db, "book", book.id)}
+        finally:
+            db.close()
+        assert "tabletop rpg" in internals
 
     def test_stem_opf_takes_priority_over_metadata_opf(self):
         stem_opf = dedent("""\

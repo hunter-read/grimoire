@@ -10,6 +10,7 @@ const get = vi.fn((path) => {
 })
 vi.mock('../../api', () => ({
   default: { get: (...a) => get(...a), post: vi.fn(() => Promise.resolve({})) },
+  tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p) => p,
 }))
 
