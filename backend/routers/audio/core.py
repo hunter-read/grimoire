@@ -73,12 +73,9 @@ def update_audio_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    internals = tag_service.register_folder_tags(db, data.tags, category="audio")
-    folder = db.query(AudioFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = internals
-    else:
-        db.add(AudioFolder(path=data.path, tags=internals))
+    internals = tag_service.upsert_folder_tags(
+        db, AudioFolder, data.path, data.tags, category="audio"
+    )
     db.commit()
     return {"path": data.path, "tags": internals}
 

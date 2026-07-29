@@ -27,20 +27,3 @@ def resolve_cover_book_id(db, system) -> str | None:
         if auto:
             cover_book_id = auto.id
     return cover_book_id
-
-
-def _dedupe_tags(tags: list[str]) -> list[str]:
-    """Strip and de-duplicate by lowercased key, keeping first-seen casing.
-
-    For shared item tags (issue #235): the tag service lowercases the internal
-    match key while preserving this display casing, so we must NOT lowercase here.
-    """
-    seen: set[str] = set()
-    result: list[str] = []
-    for t in tags:
-        stripped = t.strip()
-        key = stripped.lower()
-        if key and key not in seen:
-            seen.add(key)
-            result.append(stripped)
-    return result

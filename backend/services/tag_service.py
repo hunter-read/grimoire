@@ -90,6 +90,24 @@ def default_display(raw: str) -> str:
     return str(raw).strip()
 
 
+def dedupe_tags(tags: Iterable[str]) -> list[str]:
+    """Strip and de-duplicate tags by lowercased key, keeping first-seen casing.
+
+    Used by the tag-accepting request schemas: the display casing is preserved
+    here (the service lowercases only the internal match key), so callers must
+    NOT lowercase up front.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for t in tags or []:
+        stripped = str(t).strip()
+        key = stripped.lower()
+        if key and key not in seen:
+            seen.add(key)
+            result.append(stripped)
+    return result
+
+
 def tag_dict(tag: Tag) -> dict:
     """Serialise a tag to the API shape used everywhere: {internal, display, category}."""
     return {"internal": tag.internal, "display": tag.display, "category": tag.category}
@@ -149,6 +167,25 @@ def register_folder_tags(
         seen.add(internal)
         get_or_create_tag(db, raw, category=category)
         internals.append(internal)
+    return internals
+
+
+def upsert_folder_tags(
+    db: Session, folder_model: type, path: str, raw_tags: Iterable[str], *, category: str
+) -> list[str]:
+    """Set a folder record's tags to the given list, registering catalog rows.
+
+    Registers a ``Tag`` catalog row for each tag (see :func:`register_folder_tags`)
+    and stores the resulting internal keys on the ``folder_model`` row at ``path``
+    (creating it if absent). Returns the stored internal keys. Shared by the
+    map/token/audio folder-tag update endpoints; callers own the transaction.
+    """
+    internals = register_folder_tags(db, raw_tags, category=category)
+    folder = db.query(folder_model).filter_by(path=path).first()
+    if folder is not None:
+        folder.tags = internals
+    else:
+        db.add(folder_model(path=path, tags=internals))
     return internals
 
 

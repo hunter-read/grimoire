@@ -68,12 +68,9 @@ def update_token_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    internals = tag_service.register_folder_tags(db, data.tags, category="token")
-    folder = db.query(TokenFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = internals
-    else:
-        db.add(TokenFolder(path=data.path, tags=internals))
+    internals = tag_service.upsert_folder_tags(
+        db, TokenFolder, data.path, data.tags, category="token"
+    )
     db.commit()
     return {"path": data.path, "tags": internals}
 

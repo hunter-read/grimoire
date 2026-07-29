@@ -210,12 +210,9 @@ def update_book_folder(
     _: CurrentUser = Depends(require_gm_or_admin),  # noqa: ARG001,
     db: Session = Depends(get_db),
 ):
-    internals = tag_service.register_folder_tags(db, data.tags, category="book")
-    folder = db.query(BookFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = internals
-    else:
-        db.add(BookFolder(path=data.path, tags=internals))
+    internals = tag_service.upsert_folder_tags(
+        db, BookFolder, data.path, data.tags, category="book"
+    )
     db.commit()
     return {"path": data.path, "tags": internals}
 

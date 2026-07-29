@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-from ._helpers import _dedupe_tags
+from ...services import tag_service
 
 
 class PublisherEntry(BaseModel):
@@ -27,7 +27,7 @@ class BookFolderUpdate(BaseModel):
     def dedupe_tags(cls, v):
         # Keep the entered casing (dedupe by key); the book-folder handler
         # registers catalog rows with this casing and stores internal keys.
-        return _dedupe_tags(v)
+        return tag_service.dedupe_tags(v)
 
 
 class GameSystemUpdate(BaseModel):
@@ -54,7 +54,7 @@ class GameSystemUpdate(BaseModel):
     @field_validator("tags", mode="before")
     @classmethod
     def dedupe_tags(cls, v):
-        return _dedupe_tags(v) if v is not None else v
+        return tag_service.dedupe_tags(v) if v is not None else v
 
     @field_validator("genres", "dice_materials", mode="before")
     @classmethod

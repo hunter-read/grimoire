@@ -83,12 +83,7 @@ def update_map_folder(
 ):
     # Register catalog rows (display casing lives there) and store internal keys
     # on the folder, so a tags.json rescan can't revert user edits.
-    internals = tag_service.register_folder_tags(db, data.tags, category="map")
-    folder = db.query(MapFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = internals
-    else:
-        db.add(MapFolder(path=data.path, tags=internals))
+    internals = tag_service.upsert_folder_tags(db, MapFolder, data.path, data.tags, category="map")
     db.commit()
     return {"path": data.path, "tags": internals}
 
