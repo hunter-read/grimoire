@@ -55,7 +55,12 @@ def list_tokens(
 
 def list_token_folders(db: Session = Depends(get_db)):
     folders = db.query(TokenFolder).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_token_folder(
@@ -63,13 +68,14 @@ def update_token_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
+    internals = tag_service.register_folder_tags(db, data.tags, category="token")
     folder = db.query(TokenFolder).filter_by(path=data.path).first()
     if folder:
-        folder.tags = data.tags
+        folder.tags = internals
     else:
-        db.add(TokenFolder(path=data.path, tags=data.tags))
+        db.add(TokenFolder(path=data.path, tags=internals))
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def get_token(
@@ -96,7 +102,7 @@ def get_token(
         "filename": t.filename,
         "relative_path": t.relative_path,
         "folder_path": folder_path,
-        "folder_tags": folder.tags if folder else [],
+        "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
         "description": t.description,
         "tags": tag_service.display_tags_for_resource(db, "token", t.id),
         "file_size": t.file_size,

@@ -29,18 +29,6 @@ def resolve_cover_book_id(db, system) -> str | None:
     return cover_book_id
 
 
-def _normalize_tags(tags: list[str]) -> list[str]:
-    """Lowercase + de-dupe — for folder tags, which remain plain JSON values."""
-    seen: set[str] = set()
-    result: list[str] = []
-    for t in tags:
-        lowered = t.strip().lower()
-        if lowered and lowered not in seen:
-            seen.add(lowered)
-            result.append(lowered)
-    return result
-
-
 def _dedupe_tags(tags: list[str]) -> list[str]:
     """Strip and de-duplicate by lowercased key, keeping first-seen casing.
 

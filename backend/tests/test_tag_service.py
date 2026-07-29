@@ -256,6 +256,84 @@ class TestFolderTags:
         assert {r["resource_id"] for r in refs} == {nested}
 
 
+class TestFolderTagCatalog:
+    """Folder tags register catalog rows; display comes from the catalog so a
+    rename sticks and tags.json can't overwrite it (read-only library)."""
+
+    def _map_in_folder(self, db, folder, rel_name):
+        from backend.models import GenericMap
+
+        mid = f"m-{rel_name}"
+        db.add(
+            GenericMap(
+                id=mid,
+                filename=f"{rel_name}.png",
+                filepath=f"/x/{rel_name}.png",
+                relative_path=f"maps/{folder}/{rel_name}.png",
+            )
+        )
+        db.commit()
+        return mid
+
+    def test_register_folder_tags_creates_rows_and_returns_internals(self):
+        from backend.models import Tag
+
+        db = _session()
+        internals = tag_service.register_folder_tags(db, ["Wetland", "Outdoor"], category="map")
+        db.commit()
+        assert internals == ["wetland", "outdoor"]
+        rows = {t.internal: t for t in db.query(Tag).all()}
+        assert rows["wetland"].display == "Wetland"  # entered casing → default display
+        assert rows["wetland"].category == "map"
+
+    def test_folder_display_comes_from_catalog(self):
+        from backend.models import MapFolder
+
+        db = _session()
+        mid = self._map_in_folder(db, "Swamps", "bog")
+        # Catalog row has nicer casing; folder stores the internal key.
+        tag_service.get_or_create_tag(db, "Wetland", category="map")
+        db.add(MapFolder(path="Swamps", tags=["wetland"]))
+        db.commit()
+        ft = tag_service.folder_tags_in_use(db, "map")
+        assert ft["wetland"]["display"] == "Wetland"
+        assert ft["wetland"]["refs"] == [{"resource_type": "map", "resource_id": mid}]
+        # folder_display_tags resolves the stored internal to the catalog display.
+        assert tag_service.folder_display_tags(db, ["wetland"]) == ["Wetland"]
+
+    def test_folder_display_falls_back_to_key_without_catalog_row(self):
+        db = _session()
+        assert tag_service.folder_display_tags(db, ["orphan"]) == ["orphan"]
+
+    def test_rename_materializes_folder_only_tag(self):
+        from backend.models import MapFolder, Tag
+
+        db = _session()
+        # A folder-only tag: exists in JSON, no Tag row yet.
+        db.add(MapFolder(path="Swamps", tags=["wetland"]))
+        db.commit()
+        assert db.query(Tag).filter_by(internal="wetland").first() is None
+        # Rename must not fail; it creates the catalog row so the display persists.
+        tag = tag_service.rename_tag(db, "wetland", "Wetlands")
+        db.commit()
+        assert tag is not None
+        assert tag.display == "Wetlands"
+        # Renamed to a new key → folder JSON is re-keyed too.
+        folder = db.query(MapFolder).filter_by(path="Swamps").first()
+        assert folder.tags == ["wetlands"]
+
+    def test_add_resource_tags_is_additive(self):
+        db = _session()
+        tag_service.set_resource_tags(db, "map", "m1", ["Forest"])
+        db.commit()
+        # Adding does not remove the existing tag.
+        added = tag_service.add_resource_tags(db, "map", "m1", ["Cave", "Forest"])
+        db.commit()
+        assert [t["internal"] for t in added] == ["cave"]  # Forest already present, skipped
+        read = tag_service.tags_for_resource(db, "map", "m1")
+        assert {t["internal"] for t in read} == {"forest", "cave"}
+
+
 class TestBookFolderTags:
     def _book(self, db, system_id, category, sub, name):
         from backend.models import Book
@@ -326,19 +404,20 @@ class TestBookFolderTags:
         from backend.models import BookFolder
 
         db = _session()
-        db.add(BookFolder(path="sys1/adventures/curse", tags=["Gothic", "Old"]))
+        # Folders store internal keys; display lives in the catalog.
+        db.add(BookFolder(path="sys1/adventures/curse", tags=["gothic", "old"]))
         db.commit()
-        # Rename re-keys the JSON entry in book folders too.
+        # Rename re-keys the JSON entry in book folders too (to the new internal).
         tag_service.get_or_create_tag(db, "Old", category="book")
         db.commit()
         tag_service.rename_tag(db, "old", "Ancient")
         db.commit()
         folder = db.query(BookFolder).first()
-        assert "Ancient" in folder.tags and "Old" not in folder.tags
+        assert "ancient" in folder.tags and "old" not in folder.tags
         # And removal strips it.
         tag_service.remove_tag_from_folders(db, "gothic")
         db.commit()
-        assert "Gothic" not in db.query(BookFolder).first().tags
+        assert "gothic" not in db.query(BookFolder).first().tags
 
 
 class TestEffectiveCategory:

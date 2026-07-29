@@ -20,18 +20,6 @@ def _dedupe_tags(tags: list[str]) -> list[str]:
     return result
 
 
-def _lowercase_tags(tags: list[str]) -> list[str]:
-    """Lowercase + de-dupe — for folder tags, which remain plain JSON values."""
-    seen: set = set()
-    result = []
-    for t in tags:
-        lowered = t.strip().lower()
-        if lowered and lowered not in seen:
-            seen.add(lowered)
-            result.append(lowered)
-    return result
-
-
 class AudioUpdate(BaseModel):
     description: Optional[str] = None
     tags: Optional[list[str]] = None
@@ -48,5 +36,7 @@ class FolderTagsUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _lowercase_tags(v)
+    def dedupe_tags(cls, v):
+        # Keep the entered casing (dedupe by key); the folder-update handler
+        # registers catalog rows with this casing and stores internal keys.
+        return _dedupe_tags(v)

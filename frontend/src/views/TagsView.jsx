@@ -1,12 +1,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuTags, LuSearch, LuHeart, LuArrowDownUp, LuArrowUp, LuArrowDown } from 'react-icons/lu'
+import {
+  LuTags,
+  LuSearch,
+  LuHeart,
+  LuArrowDownUp,
+  LuArrowUp,
+  LuArrowDown,
+  LuChevronDown,
+} from 'react-icons/lu'
 import { tags as tagsApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
+import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import Spinner from '../components/Spinner'
 import TagDetail from '../components/tags/TagDetail'
+
+const CATS_COLLAPSED_KEY = 'tagsCategoryCollapsed'
 
 // Category order for the grouped tag list: Shared always on top, then the
 // resource types in their canonical order.
@@ -39,6 +50,26 @@ export default function TagsView() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
+  // Per-category collapse state for the left list, persisted in user prefs.
+  const [collapsedCats, setCollapsedCats] = useState(
+    () =>
+      new Set(
+        Object.keys(getUserPrefs()[CATS_COLLAPSED_KEY] || {}).filter(
+          (c) => getUserPrefs()[CATS_COLLAPSED_KEY][c]
+        )
+      )
+  )
+
+  const toggleCat = (cat) => {
+    setCollapsedCats((prev) => {
+      const next = new Set(prev)
+      next.has(cat) ? next.delete(cat) : next.add(cat)
+      const map = {}
+      for (const c of next) map[c] = true
+      saveUserPref(CATS_COLLAPSED_KEY, map)
+      return next
+    })
+  }
 
   const loadTags = useCallback(() => {
     tagsApi.list().then((r) => setAllTags(r.tags))
@@ -325,90 +356,125 @@ export default function TagsView() {
 
               {/* Tag list, grouped by category (scrolls within the panel) */}
               <div role="list" style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
-                {groups.map((g) => (
-                  <div key={g.category} role="group" aria-label={t(`tags.category_${g.category}`)}>
+                {groups.map((g) => {
+                  const catCollapsed = collapsedCats.has(g.category)
+                  return (
                     <div
-                      style={{
-                        padding: '8px 8px 4px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                        color: 'var(--text-muted)',
-                      }}
+                      key={g.category}
+                      role="group"
+                      aria-label={t(`tags.category_${g.category}`)}
                     >
-                      {t(`tags.category_${g.category}`, { defaultValue: g.category })}
-                    </div>
-                    {g.tags.map((tg) => {
-                      const fav = tagFavorited(tg)
-                      return (
-                        <div
-                          key={tg.internal}
-                          role="listitem"
+                      <button
+                        type="button"
+                        onClick={() => toggleCat(g.category)}
+                        aria-expanded={!catCollapsed}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          width: '100%',
+                          padding: '8px 8px 4px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          color: 'var(--text-muted)',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <LuChevronDown
+                          size={13}
+                          aria-hidden="true"
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            borderRadius: 6,
-                            background:
-                              tg.internal === activeTag ? 'var(--bg-card)' : 'transparent',
+                            transition: 'transform 0.15s',
+                            transform: catCollapsed ? 'rotate(-90deg)' : 'none',
+                            flexShrink: 0,
                           }}
-                        >
-                          <button
-                            onClick={() => toggleTagFavorite(tg)}
-                            title={fav ? t('tags.unfavorite') : t('tags.favorite')}
-                            aria-label={fav ? t('tags.unfavorite') : t('tags.favorite')}
-                            aria-pressed={fav}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '7px 2px 7px 8px',
-                              display: 'flex',
-                              color: fav ? 'var(--gold)' : 'var(--text-muted)',
-                            }}
-                          >
-                            <LuHeart size={13} fill={fav ? 'var(--gold)' : 'none'} />
-                          </button>
-                          <button
-                            onClick={() => selectTag(tg.internal)}
-                            aria-current={tg.internal === activeTag}
-                            style={{
-                              flex: 1,
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: 8,
-                              padding: '7px 10px 7px 2px',
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: 'var(--text)',
-                              fontSize: 14,
-                              textAlign: 'left',
-                              minWidth: 0,
-                            }}
-                          >
-                            <span
+                        />
+                        {t(`tags.category_${g.category}`, { defaultValue: g.category })}
+                        <span style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+                          ({g.tags.length})
+                        </span>
+                      </button>
+                      {!catCollapsed &&
+                        g.tags.map((tg) => {
+                          const fav = tagFavorited(tg)
+                          return (
+                            <div
+                              key={tg.internal}
+                              role="listitem"
                               style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                borderRadius: 6,
+                                background:
+                                  tg.internal === activeTag ? 'var(--bg-card)' : 'transparent',
                               }}
                             >
-                              {tg.display}
-                            </span>
-                            <span
-                              style={{ color: 'var(--text-muted)', fontSize: 12, flexShrink: 0 }}
-                            >
-                              {tg.count}
-                            </span>
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
+                              <button
+                                onClick={() => toggleTagFavorite(tg)}
+                                title={fav ? t('tags.unfavorite') : t('tags.favorite')}
+                                aria-label={fav ? t('tags.unfavorite') : t('tags.favorite')}
+                                aria-pressed={fav}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '7px 2px 7px 8px',
+                                  display: 'flex',
+                                  color: fav ? 'var(--gold)' : 'var(--text-muted)',
+                                }}
+                              >
+                                <LuHeart size={13} fill={fav ? 'var(--gold)' : 'none'} />
+                              </button>
+                              <button
+                                onClick={() => selectTag(tg.internal)}
+                                aria-current={tg.internal === activeTag}
+                                style={{
+                                  flex: 1,
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '7px 10px 7px 2px',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: 'var(--text)',
+                                  fontSize: 14,
+                                  textAlign: 'left',
+                                  minWidth: 0,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {tg.display}
+                                </span>
+                                <span
+                                  style={{
+                                    color: 'var(--text-muted)',
+                                    fontSize: 12,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {tg.count}
+                                </span>
+                              </button>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  )
+                })}
                 {totalVisible === 0 && (
                   <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>
                     {t('tags.noMatches')}

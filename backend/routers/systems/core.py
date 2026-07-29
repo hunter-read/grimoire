@@ -196,7 +196,12 @@ def list_book_folders(
     if not system:
         raise HTTPException(404, "System not found")
     folders = db.query(BookFolder).filter(BookFolder.path.like(f"{system_id}/%")).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_book_folder(
@@ -205,13 +210,14 @@ def update_book_folder(
     _: CurrentUser = Depends(require_gm_or_admin),  # noqa: ARG001,
     db: Session = Depends(get_db),
 ):
+    internals = tag_service.register_folder_tags(db, data.tags, category="book")
     folder = db.query(BookFolder).filter_by(path=data.path).first()
     if folder:
-        folder.tags = data.tags
+        folder.tags = internals
     else:
-        db.add(BookFolder(path=data.path, tags=data.tags))
+        db.add(BookFolder(path=data.path, tags=internals))
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def update_system(

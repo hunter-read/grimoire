@@ -128,6 +128,44 @@ def get_or_create_tag(
     return tag
 
 
+def register_folder_tags(
+    db: Session, raw_tags: Iterable[str], *, category: str = SHARED_CATEGORY
+) -> list[str]:
+    """Ensure a ``Tag`` catalog row exists for each folder tag, returning the
+    de-duplicated **internal** keys to store on the folder record.
+
+    Folder tags are stored on the ``*_folders``/``book_folders`` JSON columns as
+    internal keys; their display casing lives in the catalog. A new tag is created
+    with its entered casing as the default display; an existing tag keeps its
+    display (never overwritten) and may be promoted to ``shared``. Callers own the
+    transaction (no commit here).
+    """
+    seen: set[str] = set()
+    internals: list[str] = []
+    for raw in raw_tags or []:
+        internal = normalize_internal(raw)
+        if not internal or internal in seen:
+            continue
+        seen.add(internal)
+        get_or_create_tag(db, raw, category=category)
+        internals.append(internal)
+    return internals
+
+
+def folder_display_tags(db: Session, internals: Iterable[str]) -> list[str]:
+    """Resolve a folder's stored internal keys to display strings for API reads.
+
+    Folder JSON holds internal keys; their display casing comes from the catalog
+    (falling back to the key itself when no ``Tag`` row exists yet). Order is
+    preserved.
+    """
+    keys = [normalize_internal(i) for i in (internals or []) if normalize_internal(i)]
+    if not keys:
+        return []
+    catalog = _catalog_display_map(db, set(keys))
+    return [catalog.get(k, k) for k in keys]
+
+
 def _promote_category(tag: Tag, category: str) -> None:
     """Move a tag to ``shared`` if it's used in a category other than its current
     one. A tag stays single-category until it spans a second type (issue #235)."""
@@ -226,6 +264,49 @@ def set_resource_tags(
         )
     db.flush()
     return [tag_dict(t) for t in resolved]
+
+
+def add_resource_tags(
+    db: Session, resource_type: str, resource_id: str, raw_tags: Iterable[str]
+) -> list[dict]:
+    """Add tags to a resource **without removing** any it already has.
+
+    Used by ``tags.json`` application (the library is read-only, so ``tags.json``
+    is an additive input): a new tag creates its catalog row with the entered
+    casing; an existing tag keeps its display and is linked if not already. Never
+    unlinks. Returns the tags added this call (skipping ones already present).
+    """
+    if resource_type not in RESOURCE_TYPES:
+        raise ValueError(f"Unknown resource_type: {resource_type!r}")
+
+    existing = {
+        r.tag_id
+        for r in db.query(ResourceTag.tag_id).filter(
+            ResourceTag.resource_type == resource_type,
+            ResourceTag.resource_id == resource_id,
+        )
+    }
+    seen: set[str] = set()
+    added: list[Tag] = []
+    for raw in raw_tags or []:
+        internal = normalize_internal(raw)
+        if not internal or internal in seen:
+            continue
+        seen.add(internal)
+        tag = get_or_create_tag(db, raw, category=resource_type)
+        if tag is None or tag.id in existing:
+            continue
+        db.add(
+            ResourceTag(
+                tag_id=tag.id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+            )
+        )
+        existing.add(tag.id)
+        added.append(tag)
+    db.flush()
+    return [tag_dict(t) for t in added]
 
 
 def sync_tags_from_payload(
@@ -358,6 +439,21 @@ def _ancestor_folder_paths(relative_path: str) -> set[str]:
     return {"/".join(segs[: i + 1]) for i in range(len(segs))}
 
 
+def _catalog_display_map(db: Session, internals: set[str]) -> dict[str, str]:
+    """Map internal keys → the ``Tag`` catalog's display casing, for keys present.
+
+    Folder tags store internal keys; their display comes from the catalog so a
+    rename on the tags page (which updates the ``Tag`` row) is reflected in
+    folder-derived listings and a ``tags.json`` rescan can't revert it.
+    """
+    if not internals:
+        return {}
+    return {
+        t.internal: t.display
+        for t in db.query(Tag).filter(Tag.internal.in_(internals)).all()
+    }
+
+
 def folder_tags_in_use(
     db: Session, resource_type: Optional[str] = None
 ) -> dict[str, dict]:
@@ -426,9 +522,14 @@ def folder_tags_in_use(
                             "resource_id": book_id,
                         }
 
-    # Flatten the ref maps to lists.
+    # The catalog is authoritative for display casing (a rename updates the Tag
+    # row); fall back to the JSON-derived default for keys with no Tag row yet.
+    catalog = _catalog_display_map(db, set(out.keys()))
     return {
-        internal: {"display": v["display"], "refs": list(v["refs"].values())}
+        internal: {
+            "display": catalog.get(internal, v["display"]),
+            "refs": list(v["refs"].values()),
+        }
         for internal, v in out.items()
     }
 
@@ -569,12 +670,25 @@ def rename_tag(db: Session, internal: str, new_display: str) -> Optional[Tag]:
 
     If another tag already owns the new internal key, this tag is merged into it
     (links re-pointed, folder JSON entries rewritten, source row deleted) and the
-    surviving tag is returned. Otherwise the same row is updated in place. Returns
-    ``None`` if ``internal`` doesn't resolve to a tag. Callers own the transaction.
+    surviving tag is returned. Otherwise the same row is updated in place.
+
+    A **folder-only** tag (no ``Tag`` row yet — it exists only in folder JSON) is
+    materialised into a catalog row first, so its new display is stored in the DB
+    and a ``tags.json`` rescan can't revert it (the library is read-only). Returns
+    ``None`` only if ``internal`` resolves to nothing at all. Callers own the
+    transaction.
     """
-    src = db.query(Tag).filter(Tag.internal == normalize_internal(internal)).first()
+    key = normalize_internal(internal)
+    src = db.query(Tag).filter(Tag.internal == key).first()
     if src is None:
-        return None
+        # Folder-only tag: create its catalog row so the rename can persist.
+        folder_types = folder_types_for_tag(db, key)
+        if not folder_types:
+            return None
+        category = next(iter(folder_types)) if len(folder_types) == 1 else SHARED_CATEGORY
+        src = get_or_create_tag(db, key, category=category)
+        if src is None:
+            return None
     display = default_display(new_display)
     if not display:
         return src
@@ -615,9 +729,11 @@ def rename_tag(db: Session, internal: str, new_display: str) -> Optional[Tag]:
 
 
 def _rekey_folder_tags(db: Session, old_internal: str, new_display: str) -> None:
-    """Rewrite media-folder JSON tag entries matching ``old_internal`` to
-    ``new_display`` (de-duplicating by internal key within each folder)."""
+    """Rewrite media-folder JSON tag entries matching ``old_internal`` to the new
+    tag's internal key (folders store internal keys; display lives in the
+    catalog), de-duplicating by key within each folder."""
     old_key = normalize_internal(old_internal)
+    new_key = normalize_internal(new_display)
     folder_models = [m for m, _i, _r in _FOLDER_SOURCES] + [BookFolder]
     for folder_model in folder_models:
         for folder in db.query(folder_model).all():
@@ -627,12 +743,11 @@ def _rekey_folder_tags(db: Session, old_internal: str, new_display: str) -> None
             rebuilt: list[str] = []
             seen: set[str] = set()
             for raw in tags:
-                value = new_display if normalize_internal(raw) == old_key else raw
-                key = normalize_internal(value)
-                if key in seen:
+                key = new_key if normalize_internal(raw) == old_key else normalize_internal(raw)
+                if not key or key in seen:
                     continue
                 seen.add(key)
-                rebuilt.append(value)
+                rebuilt.append(key)
             folder.tags = rebuilt
 
 

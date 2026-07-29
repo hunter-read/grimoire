@@ -16,6 +16,7 @@ from backend.models import (
     Audio,
     AudioFolder,
     GameSystem,
+    Tag,
 )
 from backend.indexer import _load_tags_json, _apply_tags_from_library
 from backend.services import tag_service
@@ -244,18 +245,20 @@ def test_load_tags_json_strips_empty_strings_from_tags():
     assert result["."] == ["dungeon"]
 
 
-def test_load_tags_json_lowercases_tags():
+def test_load_tags_json_keeps_entered_casing():
+    # tags.json keeps the entered casing; it becomes the default display for a new
+    # tag, and the tag service never overwrites an existing tag's display.
     tmp = tempfile.mkdtemp()
     _write_json(Path(tmp) / "tags.json", {".": ["Draw Steel", "FANTASY", "dungeon"]})
     result = _load_tags_json(tmp)
-    assert result["."] == ["draw steel", "fantasy", "dungeon"]
+    assert result["."] == ["Draw Steel", "FANTASY", "dungeon"]
 
 
-def test_load_tags_json_deduplicates_after_lowercasing():
+def test_load_tags_json_deduplicates_by_key_keeping_first_casing():
     tmp = tempfile.mkdtemp()
     _write_json(Path(tmp) / "tags.json", {".": ["Draw Steel", "draw steel", "DRAW STEEL"]})
     result = _load_tags_json(tmp)
-    assert result["."] == ["draw steel"]
+    assert result["."] == ["Draw Steel"]
 
 
 # ---------------------------------------------------------------------------
@@ -321,12 +324,14 @@ def test_apply_sets_tags_on_map_file_in_subfolder():
     assert sorted(_tags_of("map", m.id)) == ["cold", "ice"]
 
 
-def test_apply_updates_existing_map_folder_tags():
+def test_apply_adds_to_existing_map_folder_tags():
+    # The library is read-only, so tags.json is additive: it adds tags without
+    # removing user-set folder tags (stored as internal keys).
     _, lib = _mk_lib()
     maps_dir = lib / "maps" / "Updater"
     maps_dir.mkdir(parents=True)
 
-    # Pre-create a folder record with old tags
+    # Pre-create a folder record with an existing (user-set) tag.
     db = SessionLocal()
     try:
         db.add(MapFolder(path="Updater", tags=["old"]))
@@ -338,7 +343,8 @@ def test_apply_updates_existing_map_folder_tags():
     _run(lib)
 
     folder = _get_map_folder("Updater")
-    assert folder.tags == ["new", "fresh"]
+    # Existing "old" is kept; the new keys are appended (never removed).
+    assert folder.tags == ["old", "new", "fresh"]
 
 
 def test_apply_ignores_unknown_file_key_gracefully():
@@ -420,13 +426,16 @@ def test_apply_sets_tags_on_audio_file():
 
 def test_apply_sets_tags_on_audio_folder():
     _, lib = _mk_lib()
-    audio_dir = lib / "audio" / "Soundscapes"
+    # Unique folder name so the additive merge isn't polluted by an AudioFolder
+    # another test seeded in the shared DB.
+    name = f"Soundscapes{uuid.uuid4().hex[:6]}"
+    audio_dir = lib / "audio" / name
     audio_dir.mkdir(parents=True)
 
     _write_json(audio_dir / "tags.json", {".": ["soundscape", "atmosphere"]})
     _run(lib)
 
-    folder = _get_audio_folder("Soundscapes")
+    folder = _get_audio_folder(name)
     assert folder is not None
     assert folder.tags == ["soundscape", "atmosphere"]
 
@@ -524,3 +533,75 @@ def test_apply_does_not_error_when_tokens_dir_missing():
     _, lib = _mk_lib()
     # No tokens/ dir at all
     _run(lib)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Read-only library: tags.json is additive, catalog owns the display
+# ---------------------------------------------------------------------------
+
+
+def _tag_row(internal: str) -> Tag | None:
+    db = SessionLocal()
+    try:
+        return db.query(Tag).filter_by(internal=internal).first()
+    finally:
+        db.close()
+
+
+def test_tags_json_registers_catalog_row_with_entered_casing():
+    _, lib = _mk_lib()
+    maps_dir = lib / "maps" / "Registrar"
+    maps_dir.mkdir(parents=True)
+    _write_json(maps_dir / "tags.json", {".": ["Gothic Horror"]})
+    _run(lib)
+
+    # A catalog row exists with the entered casing as its display; the folder
+    # stores the internal key.
+    row = _tag_row("gothic horror")
+    assert row is not None and row.display == "Gothic Horror"
+    assert _get_map_folder("Registrar").tags == ["gothic horror"]
+
+
+def test_rescan_does_not_overwrite_edited_display():
+    _, lib = _mk_lib()
+    maps_dir = lib / "maps" / "Keeper"
+    maps_dir.mkdir(parents=True)
+    _write_json(maps_dir / "tags.json", {".": ["wetland"]})
+    _run(lib)
+
+    # User edits the tag's display casing (same internal key) in the DB.
+    db = SessionLocal()
+    try:
+        tag_service.rename_tag(db, "wetland", "Wetland")  # same key, nicer casing
+        db.commit()
+    finally:
+        db.close()
+    # Sanity: display updated, key unchanged.
+    assert _tag_row("wetland").display == "Wetland"
+
+    # A later rescan reads tags.json again but must NOT revert the display
+    # (tags.json only sets the internal key, never overwrites an existing
+    # tag's display).
+    _run(lib)
+    assert _tag_row("wetland").display == "Wetland"
+
+
+def test_rescan_does_not_remove_user_added_folder_tags():
+    _, lib = _mk_lib()
+    maps_dir = lib / "maps" / "Additive"
+    maps_dir.mkdir(parents=True)
+    _write_json(maps_dir / "tags.json", {".": ["fromjson"]})
+    _run(lib)
+
+    # User adds another folder tag via the DB (as the API would).
+    db = SessionLocal()
+    try:
+        folder = db.query(MapFolder).filter_by(path="Additive").first()
+        folder.tags = list(folder.tags) + ["byhand"]
+        db.commit()
+    finally:
+        db.close()
+
+    # A rescan re-applies tags.json additively; the user's tag survives.
+    _run(lib)
+    assert set(_get_map_folder("Additive").tags) == {"fromjson", "byhand"}

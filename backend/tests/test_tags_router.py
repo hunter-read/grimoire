@@ -335,6 +335,20 @@ class TestFolderTags:
         assert label.lower() not in internals
         assert "keep" in internals
 
+    def test_rename_folder_only_tag_does_not_404(self, client, admin_headers):
+        # Renaming a folder-derived tag (no shared Tag row yet) must persist to
+        # the DB instead of 404ing; the display then survives a rescan.
+        label = f"FolderRen{uuid.uuid4().hex[:6]}"
+        folder = f"Vault{uuid.uuid4().hex[:6]}"
+        _map_in_folder_with_folder_tags(folder, [label.lower()])
+        resp = client.patch(
+            f"/api/tags/{label.lower()}",
+            json={"display": f"{label} Pretty"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["display"] == f"{label} Pretty"
+
     def test_delete_missing_tag_still_404s(self, client, admin_headers):
         resp = client.delete(
             f"/api/tags/none-{uuid.uuid4().hex[:6]}", headers=admin_headers

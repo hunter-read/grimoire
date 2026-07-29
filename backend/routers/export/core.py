@@ -56,7 +56,7 @@ def export_tags(
             for b in book_rows
         ]
         book_folders = [
-            {"path": f.path, "tags": f.tags or []}
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
             for f in db.query(BookFolder).order_by(BookFolder.path).all()
         ]
         payload["library"] = {
@@ -78,7 +78,7 @@ def export_tags(
             for m in map_rows
         ]
         map_folders = [
-            {"path": f.path, "tags": f.tags or []}
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
             for f in db.query(MapFolder).order_by(MapFolder.path).all()
         ]
         payload["maps"] = {"items": maps, "folders": map_folders}
@@ -98,7 +98,7 @@ def export_tags(
             for t in token_rows
         ]
         token_folders = [
-            {"path": f.path, "tags": f.tags or []}
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
             for f in db.query(TokenFolder).order_by(TokenFolder.path).all()
         ]
         payload["tokens"] = {"items": tokens, "folders": token_folders}
@@ -118,7 +118,7 @@ def export_tags(
             for a in audio_rows
         ]
         audio_folders = [
-            {"path": f.path, "tags": f.tags or []}
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
             for f in db.query(AudioFolder).order_by(AudioFolder.path).all()
         ]
         payload["audio"] = {"items": audio, "folders": audio_folders}

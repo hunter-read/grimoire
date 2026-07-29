@@ -68,7 +68,12 @@ def list_maps(
 
 def list_map_folders(db: Session = Depends(get_db)):
     folders = db.query(MapFolder).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_map_folder(
@@ -76,13 +81,16 @@ def update_map_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
+    # Register catalog rows (display casing lives there) and store internal keys
+    # on the folder, so a tags.json rescan can't revert user edits.
+    internals = tag_service.register_folder_tags(db, data.tags, category="map")
     folder = db.query(MapFolder).filter_by(path=data.path).first()
     if folder:
-        folder.tags = data.tags
+        folder.tags = internals
     else:
-        db.add(MapFolder(path=data.path, tags=data.tags))
+        db.add(MapFolder(path=data.path, tags=internals))
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def get_map(
@@ -102,7 +110,7 @@ def get_map(
         "filename": m.filename,
         "relative_path": m.relative_path,
         "folder_path": folder_path,
-        "folder_tags": folder.tags if folder else [],
+        "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
         "description": m.description,
         "tags": tag_service.display_tags_for_resource(db, "map", m.id),
         "map_type": m.map_type,

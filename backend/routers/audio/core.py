@@ -60,7 +60,12 @@ def list_audio(
 
 def list_audio_folders(db: Session = Depends(get_db)):
     folders = db.query(AudioFolder).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_audio_folder(
@@ -68,13 +73,14 @@ def update_audio_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
+    internals = tag_service.register_folder_tags(db, data.tags, category="audio")
     folder = db.query(AudioFolder).filter_by(path=data.path).first()
     if folder:
-        folder.tags = data.tags
+        folder.tags = internals
     else:
-        db.add(AudioFolder(path=data.path, tags=data.tags))
+        db.add(AudioFolder(path=data.path, tags=internals))
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def get_audio(
@@ -91,7 +97,7 @@ def get_audio(
     return {
         **_serialize(a, tags=tag_service.display_tags_for_resource(db, "audio", a.id)),
         "folder_path": folder_path,
-        "folder_tags": folder.tags if folder else [],
+        "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
     }
 
 

@@ -44,18 +44,49 @@ def _load_tags_json(folder_path: str) -> dict:
         result = {}
         for key, val in raw.items():
             if isinstance(val, list):
+                # Keep the entered casing (dedupe by lowercased key). It becomes
+                # the default display for a brand-new tag; the tag service never
+                # overwrites an existing tag's display, so a rescan is safe.
                 seen: set[str] = set()
                 normalized = []
                 for t in val:
-                    lowered = str(t).strip().lower()
+                    stripped = str(t).strip()
+                    lowered = stripped.lower()
                     if lowered and lowered not in seen:
                         seen.add(lowered)
-                        normalized.append(lowered)
+                        normalized.append(stripped)
                 result[key] = normalized
         return result
     except Exception as exc:
         logger.warning(f"tags.json at {folder_path} could not be parsed: {exc}")
         return {}
+
+
+def _apply_folder_tags(
+    session: Session,
+    folder_model: type,
+    folder_rel: str,
+    tags: list[str],
+    resource_type: str,
+) -> None:
+    """Additively apply ``tags.json`` tags to a folder record.
+
+    The library is read-only, so ``tags.json`` only *adds* tags: catalog rows are
+    registered (new tags keep their entered casing, existing displays are left
+    alone) and the folder's stored internal keys are the union of what's there and
+    the new keys — user-set folder tags are never removed by a rescan.
+    """
+    internals = tag_service.register_folder_tags(session, tags, category=resource_type)
+    record = session.query(folder_model).filter_by(path=folder_rel).first()
+    if record:
+        existing = [tag_service.normalize_internal(t) for t in (record.tags or [])]
+        merged = list(existing)
+        for key in internals:
+            if key not in merged:
+                merged.append(key)
+        record.tags = merged
+    else:
+        session.add(folder_model(path=folder_rel, tags=internals))
 
 
 def _within_scope(path: Path, scope_dir: Path | None) -> bool:
@@ -113,33 +144,24 @@ def _apply_tags_from_library(
                 if not tags:
                     continue
 
+                rtype = _section_resource[section]
                 if key == ".":
                     folder_rel = str(os.path.relpath(root, section_dir))
-                    record = session.query(folder_model).filter_by(path=folder_rel).first()
-                    if record:
-                        record.tags = tags
-                    else:
-                        session.add(folder_model(path=folder_rel, tags=tags))
-                    logger.debug(f"tags.json: folder {folder_rel} ← {tags}")
+                    _apply_folder_tags(session, folder_model, folder_rel, tags, rtype)
+                    logger.debug(f"tags.json: folder {folder_rel} += {tags}")
                 else:
                     target = root_path / key
                     if target.is_dir():
                         folder_rel = str(os.path.relpath(target, section_dir))
-                        record = session.query(folder_model).filter_by(path=folder_rel).first()
-                        if record:
-                            record.tags = tags
-                        else:
-                            session.add(folder_model(path=folder_rel, tags=tags))
-                        logger.debug(f"tags.json: folder {folder_rel} ← {tags}")
+                        _apply_folder_tags(session, folder_model, folder_rel, tags, rtype)
+                        logger.debug(f"tags.json: folder {folder_rel} += {tags}")
                     else:
                         file_rel = os.path.relpath(target, library_path)
                         record = session.query(file_model).filter_by(relative_path=file_rel).first()
                         if record:
-                            # Item tags live in the shared-tag tables (issue #235).
-                            tag_service.set_resource_tags(
-                                session, _section_resource[section], record.id, tags
-                            )
-                            logger.debug(f"tags.json: file {file_rel} ← {tags}")
+                            # Additive: tags.json only adds item tags (issue #235).
+                            tag_service.add_resource_tags(session, rtype, record.id, tags)
+                            logger.debug(f"tags.json: file {file_rel} += {tags}")
                         else:
                             logger.debug(f"tags.json: no record found for {file_rel}")
 
@@ -164,7 +186,8 @@ def _apply_tags_from_library(
             system_slug = slugify(system_dir.name)
             system = session.query(GameSystem).filter_by(slug=system_slug).first()
             if system:
-                tag_service.set_resource_tags(session, "system", system.id, tags)
-                logger.debug(f"tags.json: system {system_dir.name} ← {tags}")
+                # Additive: tags.json only adds system tags (issue #235).
+                tag_service.add_resource_tags(session, "system", system.id, tags)
+                logger.debug(f"tags.json: system {system_dir.name} += {tags}")
 
     session.commit()

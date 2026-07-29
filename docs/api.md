@@ -340,7 +340,7 @@ with `tags`); these endpoints manage the shared tag catalog and browse items by 
 | `/api/tags` | GET | any | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
 | `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}` |
 | `/api/tags/:internal/items` | GET | any | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived — each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
-| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Body: `{display}` |
+| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists — no 404). Body: `{display}` |
 | `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}` |
 | `/api/tags/:internal` | DELETE | gm/admin | Delete a tag and unlink it from every resource |
 
@@ -357,6 +357,14 @@ tags via the favorites endpoints (`item_type: "tag"`). Resource types: `system`,
 Book subcategory folders are tagged via `PATCH /api/systems/:id/book-folders` (path
 `{system_id}/{category}/{subfolder…}`) and surface on the tags page under **Books**,
 alongside the `tags.json`-style folder tags on maps/tokens/audio.
+
+**Folder tags** (the JSON `tags` lists on `*_folders`/`book_folders`) store tag
+**internal keys**; their display casing comes from the tag catalog (folder read
+endpoints resolve them back to display strings). Saving folder tags registers a
+catalog row for each (new tags take the entered casing as their default display;
+existing tags keep theirs). Because the library is read-only, `tags.json` is an
+**additive** input: on rescan it only *adds* tags — it never removes a folder or
+item tag set/removed in the UI, and never overwrites an existing tag's display.
 
 ### Saved filters
 

@@ -130,6 +130,20 @@ describe('TagsView', () => {
     expect(screen.getByRole('group', { name: /map/i })).toHaveTextContent('Forest')
   })
 
+  it('collapses a category group when its header is clicked', async () => {
+    renderView()
+    await screen.findByText('Forest')
+    // The Map group header toggles its tags; Forest is under Map.
+    expect(screen.getByText('Forest')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^map/i }))
+    expect(screen.queryByText('Forest')).not.toBeInTheDocument()
+    // Shared group is unaffected — Strahd still shows.
+    expect(screen.getByText('Strahd')).toBeInTheDocument()
+    // Expanding again brings it back.
+    await userEvent.click(screen.getByRole('button', { name: /^map/i }))
+    expect(screen.getByText('Forest')).toBeInTheDocument()
+  })
+
   it('favorites a tag from the list heart', async () => {
     renderView()
     await screen.findByText('Forest')

@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-from ._helpers import _dedupe_tags, _normalize_tags
+from ._helpers import _dedupe_tags
 
 
 class PublisherEntry(BaseModel):
@@ -24,8 +24,10 @@ class BookFolderUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v)
+    def dedupe_tags(cls, v):
+        # Keep the entered casing (dedupe by key); the book-folder handler
+        # registers catalog rows with this casing and stores internal keys.
+        return _dedupe_tags(v)
 
 
 class GameSystemUpdate(BaseModel):

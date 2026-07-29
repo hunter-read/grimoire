@@ -389,18 +389,25 @@ Drop a `tags.json` file into any `maps/`, `tokens/`, or `audio/` folder (or subf
 | `"subfolder"` | A subfolder |
 | `"subfolder/file.png"` | A file inside a subfolder |
 
-Values are arrays of tag strings.
+Values are arrays of tag strings. The casing you write is used as the tag's
+display name the first time it's seen.
 
 ```json
 {
-  ".": ["dungeon", "fantasy"],
-  "cave-entrance.png": ["cave", "outdoors"],
-  "boss-arena": ["combat", "finale"],
-  "boss-arena/throne-room.png": ["throne", "indoor"]
+  ".": ["Dungeon", "Fantasy"],
+  "cave-entrance.png": ["Cave", "Outdoors"],
+  "boss-arena": ["Combat", "Finale"],
+  "boss-arena/throne-room.png": ["Throne", "Indoor"]
 }
 ```
 
-Tags are applied (or updated) every time the library is rescanned. Tags set via the web UI are replaced by the values in `tags.json` on the next scan.
+`tags.json` is **additive and read-only**: on every rescan it only *adds* the
+tags it lists — it never removes tags you set (or removed) in the web UI, and it
+never overwrites a tag's display name once the tag exists. A new tag is created
+using the casing in the file; renaming a tag later in the web UI sticks, because
+the display name lives in the app's tag catalog rather than in `tags.json` (which
+the app treats as read-only and never rewrites). Tags are matched
+case-insensitively, so `"dungeon"` and `"Dungeon"` are the same tag.
 
 ---
 
