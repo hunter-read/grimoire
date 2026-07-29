@@ -64,6 +64,15 @@ class TestWikiCRUD:
         assert a["slug"] == "dragon"
         assert b["slug"] == "dragon-2"
 
+    def test_unicode_title_keeps_letters_in_slug(self, client, gm_headers, gm_campaign):
+        # German special characters (and other Unicode letters) must survive
+        # slugification so [[links]] resolve; the frontend slugify matches this
+        # (issue #252).
+        page = _create(client, gm_headers, gm_campaign["id"], title="Breitfuß").json()
+        assert page["slug"] == "breitfuß"
+        page2 = _create(client, gm_headers, gm_campaign["id"], title="Zürich Straße").json()
+        assert page2["slug"] == "zürich-straße"
+
     def test_update_page(self, client, gm_headers, gm_campaign):
         page = _create(client, gm_headers, gm_campaign["id"], title="Notes").json()
         resp = client.patch(

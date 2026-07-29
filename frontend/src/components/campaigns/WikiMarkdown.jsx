@@ -23,14 +23,29 @@ const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'file:', 'image:']
 // won't. The match spans newlines so a secret can wrap several lines/paragraphs.
 const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
 
+// Must match the backend slugify (backend/routers/campaigns/wiki.py) exactly, or
+// [[links]] won't resolve to their pages. Python's \w is Unicode-aware, so we use
+// Unicode property escapes (with the `u` flag) instead of JS's ASCII-only \w —
+// otherwise non-ASCII letters like ä/ö/ü/ß are stripped and the slug diverges
+// (issue #252). `_` is kept here (as \w does) then collapsed to `-` below.
 function slugify(title) {
   return (
     title
       .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
+      .replace(/[^\p{L}\p{N}_\s-]/gu, '')
       .trim()
       .replace(/[\s_-]+/g, '-') || 'untitled'
   )
+}
+
+// Decode a percent-encoded slug, tolerating malformed input (a stray "%" would
+// otherwise throw). Returns the original string if it can't be decoded.
+function safeDecode(s) {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
 }
 
 function escapeLinkText(text) {
@@ -122,7 +137,10 @@ export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenS
           )
         }
         if (href?.startsWith('grimoire-wiki:')) {
-          const slug = href.slice('grimoire-wiki:'.length)
+          // react-markdown percent-encodes non-ASCII in hrefs, so a Unicode slug
+          // (e.g. "breitfuß") arrives encoded ("breitfu%C3%9F"). Decode it back so
+          // it matches the backend slug (issue #252).
+          const slug = safeDecode(href.slice('grimoire-wiki:'.length))
           const exists = slugSet.has(slug)
           return (
             <button
