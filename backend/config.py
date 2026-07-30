@@ -45,6 +45,13 @@ VALKEY_URL = os.environ.get("VALKEY_URL", "")
 OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
 OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
 
+# Set true to disable the "update available" check that proxies GitHub's
+# releases API. When disabled, /api/latest-release always returns null and no
+# outbound request to GitHub is ever made.
+DISABLE_VERSION_CHECKING = (
+    os.environ.get("DISABLE_VERSION_CHECKING", "false").lower() == "true"
+)
+
 
 def _read_ocr_concurrency() -> int:
     """Parallel-OCR worker count. 0 = OCR disabled; negatives clamp to 0; bad

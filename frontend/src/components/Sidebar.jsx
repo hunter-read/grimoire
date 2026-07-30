@@ -16,9 +16,9 @@ import {
   LuPanelLeftClose,
   LuPanelLeftOpen,
 } from 'react-icons/lu'
+import api from '../api'
 import AboutModal from './AboutModal'
 
-const GITHUB_REPO = 'hunter-read/grimoire'
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
 function useLatestRelease() {
@@ -26,14 +26,14 @@ function useLatestRelease() {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json' },
-      signal: AbortSignal.timeout(5000),
-    })
-      .then((r) => (r.ok ? r.json() : null))
+    // Proxied through our backend (same-origin) so privacy browsers and
+    // request blockers don't kill the update check. Returns null when version
+    // checking is disabled or GitHub is unreachable.
+    api
+      .get('/latest-release')
       .then((data) => {
-        if (!cancelled && data?.tag_name) {
-          setLatest(data.tag_name.replace(/^v/, ''))
+        if (!cancelled && data?.latest_version) {
+          setLatest(data.latest_version)
         }
       })
       .catch(() => {
