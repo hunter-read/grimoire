@@ -1,5 +1,13 @@
 """Tests for guess_category(), agnostic_category(), and is_system_agnostic_folder() in the library indexer."""
-from backend.indexer import guess_category, agnostic_category, is_system_agnostic_folder
+from backend.indexer import (
+    agnostic_category,
+    guess_category,
+    is_one_page_folder,
+    is_special_collection_folder,
+    is_system_agnostic_folder,
+    slugify,
+    strip_sort_prefix,
+)
 
 
 class TestKnownCategories:
@@ -212,6 +220,85 @@ class TestIsSystemAgnosticFolder:
 
     def test_empty_string_not_agnostic(self):
         assert is_system_agnostic_folder("") is False
+
+
+class TestOnePageFolder:
+    """Tests for is_one_page_folder() and is_special_collection_folder() (#202)."""
+
+    def test_one_page_rpgs(self):
+        assert is_one_page_folder("One-Page RPGs") is True
+
+    def test_single_page_rpgs_alias(self):
+        assert is_one_page_folder("Single-Page RPGs") is True
+
+    def test_one_shot_rpgs_alias(self):
+        assert is_one_page_folder("One-Shot RPGs") is True
+
+    def test_case_insensitive(self):
+        assert is_one_page_folder("one-page-rpgs") is True
+
+    def test_normal_folder_not_one_page(self):
+        assert is_one_page_folder("Dungeons and Dragons 5e") is False
+
+    def test_agnostic_not_one_page(self):
+        assert is_one_page_folder("System Agnostic") is False
+
+    def test_special_includes_agnostic(self):
+        assert is_special_collection_folder("System Agnostic") is True
+
+    def test_special_includes_one_page(self):
+        assert is_special_collection_folder("One-Page RPGs") is True
+
+    def test_special_excludes_normal(self):
+        assert is_special_collection_folder("Pathfinder 2e") is False
+
+    def test_one_page_uses_subfolder_category(self):
+        # One-page collections share the agnostic category resolver.
+        assert agnostic_category("books/One-Page RPGs/Honey Heist/hh.pdf") == "honey-heist"
+
+
+class TestStripSortPrefix:
+    """Leading !$% sort-order prefixes are stripped from system folder names."""
+
+    def test_strips_single_bang(self):
+        assert strip_sort_prefix("!system-agnostic") == "system-agnostic"
+
+    def test_strips_double_bang(self):
+        assert strip_sort_prefix("!!Dungeons & Dragons") == "Dungeons & Dragons"
+
+    def test_strips_mixed_prefix_chars(self):
+        assert strip_sort_prefix("!$%Pathfinder 2e") == "Pathfinder 2e"
+
+    def test_stops_at_first_non_prefix_char(self):
+        # Only the leading run is removed; internal specials are preserved.
+        assert strip_sort_prefix("!!D&D $ Extras") == "D&D $ Extras"
+
+    def test_no_prefix_is_unchanged(self):
+        assert strip_sort_prefix("Call of Cthulhu") == "Call of Cthulhu"
+
+    def test_trims_surrounding_whitespace(self):
+        assert strip_sort_prefix("!! Dungeons & Dragons ") == "Dungeons & Dragons"
+
+    def test_empty_string(self):
+        assert strip_sort_prefix("") == ""
+
+    def test_all_prefix_chars_collapse_to_empty(self):
+        assert strip_sort_prefix("!!!") == ""
+
+    def test_does_not_strip_other_specials(self):
+        # A hash isn't in the recognised set, so nothing is stripped.
+        assert strip_sort_prefix("#Homebrew") == "#Homebrew"
+
+    def test_prefixed_agnostic_folder_still_detected(self):
+        # Detection goes through slugify, which already drops "!", so prefixed
+        # special-collection folders are recognised regardless.
+        assert is_system_agnostic_folder("!system-agnostic") is True
+
+    def test_prefixed_one_page_folder_still_detected(self):
+        assert is_one_page_folder("!!one-page-rpgs") is True
+
+    def test_stripped_name_slugs_cleanly(self):
+        assert slugify(strip_sort_prefix("!!Dungeons & Dragons")) == "dungeons-dragons"
 
 
 class TestAgnosticCategory:

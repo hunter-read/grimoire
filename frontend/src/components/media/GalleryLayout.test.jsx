@@ -3,26 +3,31 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import GalleryLayout from './GalleryLayout'
 import { MEDIA_CONFIGS } from './mediaConfig'
 
-// Fire the inline arrow handlers GalleryLayout passes down so they're covered.
+// The toolbar has its own coverage; stub it so this test focuses on layout.
 vi.mock('./GalleryToolbar', () => ({
-  default: ({ onCollapseAll, onExpandAll, onToggleFavOnly, onToggleBulk }) => (
-    <div data-testid="toolbar">
-      <button data-testid="tb-collapse" onClick={onCollapseAll} />
-      <button data-testid="tb-expand" onClick={onExpandAll} />
-      <button data-testid="tb-fav" onClick={onToggleFavOnly} />
-      <button data-testid="tb-bulk" onClick={onToggleBulk} />
-    </div>
-  ),
+  default: ({ showBulk }) => <div data-testid="toolbar" data-showbulk={String(showBulk)} />,
 }))
-vi.mock('./TagFilterBar', () => ({ default: () => <div data-testid="tag-filter" /> }))
 vi.mock('./MediaFolderGroup', () => ({
   default: ({ folder }) => <div data-testid="folder-group">{folder}</div>,
 }))
+vi.mock('./MediaCard', () => ({
+  default: ({ item, onClick, onToggle }) => (
+    <button data-testid="flat-card" onClick={onClick} onDoubleClick={() => onToggle({})}>
+      {item.filename}
+    </button>
+  ),
+}))
+vi.mock('../LazyGrid', () => ({ default: ({ children }) => <div>{children}</div> }))
 vi.mock('../BulkActionBar', () => ({ default: () => <div data-testid="bulk-bar" /> }))
 
 const makeGallery = (over = {}) => ({
   filter: '',
   setFilter: vi.fn(),
+  sortFilter: { sort: 'name', order: 'asc', filters: {} },
+  setSortFilter: vi.fn(),
+  savedFilters: { saved: [], save: vi.fn(), setDefault: vi.fn(), remove: vi.fn(), loaded: true },
+  grouped: true,
+  setGrouped: vi.fn(),
   bulk: { bulkMode: false, enter: vi.fn(), exit: vi.fn(), toggleFolder: vi.fn() },
   noFolders: false,
   allCollapsed: false,
@@ -32,12 +37,12 @@ const makeGallery = (over = {}) => ({
   viewMode: 'grid',
   cycleViewMode: vi.fn(),
   favOnly: false,
-  setFavOnly: vi.fn(),
   allTags: [],
   selectedTags: new Set(),
   toggleTag: vi.fn(),
   clearTags: vi.fn(),
   folderEntries: [['Dungeons', {}]],
+  flatItems: [],
   cardSize: 'comfortable',
   list: false,
   collapsed: new Set(),
@@ -69,43 +74,47 @@ const baseProps = (over = {}) => ({
 })
 
 describe('GalleryLayout', () => {
-  it('renders title, subtitle, toolbar, tag filter, and folder groups', () => {
+  it('renders title, subtitle, toolbar, and folder groups when grouped', () => {
     render(<GalleryLayout {...baseProps()} />)
     expect(screen.getByRole('heading', { name: 'Maps' })).toBeInTheDocument()
     expect(screen.getByText('Battle maps')).toBeInTheDocument()
     expect(screen.getByTestId('toolbar')).toBeInTheDocument()
-    expect(screen.getByTestId('tag-filter')).toBeInTheDocument()
     expect(screen.getByTestId('folder-group')).toHaveTextContent('Dungeons')
     expect(screen.queryByTestId('bulk-bar')).not.toBeInTheDocument()
   })
 
-  it('wires the toolbar collapse/expand/favorite/bulk callbacks through', () => {
-    const gallery = makeGallery()
-    render(<GalleryLayout {...baseProps({ gallery })} />)
-    fireEvent.click(screen.getByTestId('tb-collapse'))
-    expect(gallery.setCollapsed).toHaveBeenCalledWith(gallery.allKeys)
-    fireEvent.click(screen.getByTestId('tb-expand'))
-    expect(gallery.setCollapsed).toHaveBeenCalledWith(expect.any(Set))
-    fireEvent.click(screen.getByTestId('tb-fav'))
-    expect(gallery.setFavOnly).toHaveBeenCalled()
-    fireEvent.click(screen.getByTestId('tb-bulk'))
-    expect(gallery.bulk.enter).toHaveBeenCalled()
+  it('renders a flat card grid (no folder groups) when grouping is off', () => {
+    const gallery = makeGallery({
+      grouped: false,
+      flatItems: [
+        { id: 'a', filename: 'goblin.png' },
+        { id: 'b', filename: 'dragon.png' },
+      ],
+    })
+    const onSelectItem = vi.fn()
+    render(<GalleryLayout {...baseProps({ gallery, onSelectItem })} />)
+    expect(screen.queryByTestId('folder-group')).not.toBeInTheDocument()
+    const cards = screen.getAllByTestId('flat-card')
+    expect(cards.map((n) => n.textContent)).toEqual(['goblin.png', 'dragon.png'])
+    // Exercise the flat-card onClick / onToggle wiring.
+    fireEvent.click(cards[0])
+    expect(onSelectItem).toHaveBeenCalledWith('a')
+    fireEvent.doubleClick(cards[1])
+    expect(gallery.toggleSelect).toHaveBeenCalledWith('b', {})
   })
 
-  it('shows the bulk hint and bulk action bar in bulk mode (hiding the tag filter)', () => {
+  it('shows the bulk hint and bulk action bar in bulk mode', () => {
     const gallery = makeGallery({
       bulk: { bulkMode: true, enter: vi.fn(), exit: vi.fn(), toggleFolder: vi.fn() },
     })
     render(<GalleryLayout {...baseProps({ gallery })} />)
     expect(screen.getByTestId('bulk-bar')).toBeInTheDocument()
-    expect(screen.queryByTestId('tag-filter')).not.toBeInTheDocument()
   })
 
   it('renders the empty state when there are no folders', () => {
     const gallery = makeGallery({ noFolders: true, folderEntries: [] })
     render(<GalleryLayout {...baseProps({ gallery })} />)
     expect(screen.queryByTestId('folder-group')).not.toBeInTheDocument()
-    // Empty message text comes from the maps config i18n keys (maps.noMaps).
     expect(screen.getByText(/No maps found/i)).toBeInTheDocument()
   })
 
@@ -116,7 +125,18 @@ describe('GalleryLayout', () => {
     expect(screen.getByText(/No maps match your filter/i)).toBeInTheDocument()
   })
 
-  it('renders in player mode without crashing', () => {
+  it('shows the no-favourites message when favOnly is on and nothing matches', () => {
+    const gallery = makeGallery({ noFolders: true, folderEntries: [], favOnly: true })
+    render(<GalleryLayout {...baseProps({ gallery })} />)
+    expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
+  })
+
+  it('passes showBulk=false to the toolbar in player mode', () => {
+    render(<GalleryLayout {...baseProps({ isPlayer: true })} />)
+    expect(screen.getByTestId('toolbar')).toHaveAttribute('data-showbulk', 'false')
+  })
+
+  it('renders folder groups in player mode', () => {
     render(<GalleryLayout {...baseProps({ isPlayer: true })} />)
     expect(screen.getByTestId('folder-group')).toBeInTheDocument()
   })

@@ -16,6 +16,13 @@ vi.mock('./AboutModal', () => ({
   ),
 }))
 
+// The update check goes through our backend proxy (api.get('/latest-release')).
+vi.mock('../api', () => ({
+  default: { get: vi.fn() },
+}))
+
+import api from '../api'
+
 const DISMISSED_KEY = 'grimoire_update_dismissed'
 
 const baseStats = {
@@ -35,10 +42,16 @@ const baseAbout = {
 
 const baseUser = { username: 'jdoe', display_name: 'Jane Doe', role: 'player' }
 
-function mockFetch(tagName = null, ok = true) {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok,
-    json: () => Promise.resolve(tagName ? { tag_name: tagName } : {}),
+// Drive the update check: resolve api.get('/latest-release') with the given
+// version (tag_name-style "v2.0.0" accepted for parity with the old fixtures),
+// or reject to simulate an unreachable backend.
+function mockLatest(tagName = null, { reject = false } = {}) {
+  if (reject) {
+    api.get.mockRejectedValue(new Error('network error'))
+    return
+  }
+  api.get.mockResolvedValue({
+    latest_version: tagName ? tagName.replace(/^v/, '') : null,
   })
 }
 
@@ -59,8 +72,8 @@ function renderSidebar(props = {}) {
 
 beforeEach(() => {
   vi.resetAllMocks()
-  // Default: fetch returns a non-ok response so no update banner appears
-  mockFetch(null, false)
+  // Default: no newer release, so no update banner appears
+  mockLatest(null)
 })
 
 afterEach(() => {
@@ -117,6 +130,19 @@ describe('Sidebar navigation visibility', () => {
   it('hides maps link when hide_maps is true', () => {
     renderSidebar({ uiSettings: { hide_maps: true } })
     expect(screen.queryByText('Maps')).toBeNull()
+  })
+
+  it('shows the Tags link pointing at /tags (issue #235)', () => {
+    renderSidebar()
+    const tagsLink = screen.getByRole('link', { name: 'Tags' })
+    expect(tagsLink).toHaveAttribute('href', '/tags')
+  })
+
+  it('does not show the Tags link for guests', () => {
+    renderSidebar({ user: { ...baseUser, role: 'guest' } })
+    expect(screen.queryByRole('link', { name: 'Tags' })).toBeNull()
+    // Guests still see campaigns.
+    expect(screen.getByText('Campaigns')).toBeTruthy()
   })
 })
 
@@ -192,7 +218,7 @@ describe('Sidebar stats footer', () => {
 
 describe('Sidebar update banner', () => {
   it('shows update banner when a newer version is available', async () => {
-    mockFetch('v2.0.0')
+    mockLatest('v2.0.0')
     renderSidebar()
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
@@ -201,25 +227,25 @@ describe('Sidebar update banner', () => {
   })
 
   it('does not show update banner when already on the latest version', async () => {
-    mockFetch('v1.2.0') // same as baseStats.version
+    mockLatest('v1.2.0') // same as baseStats.version
     renderSidebar()
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled()
+      expect(api.get).toHaveBeenCalledWith('/latest-release')
     })
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
   it('does not show update banner when current version is newer than remote', async () => {
-    mockFetch('v1.1.0')
+    mockLatest('v1.1.0')
     renderSidebar()
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled()
+      expect(api.get).toHaveBeenCalledWith('/latest-release')
     })
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
   it('does not show update banner when fetch fails', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('network error'))
+    mockLatest(null, { reject: true })
     renderSidebar()
     // Give time for fetch to settle
     await act(async () => {
@@ -229,10 +255,10 @@ describe('Sidebar update banner', () => {
   })
 
   it('does not show update banner when stats version is "dev"', async () => {
-    mockFetch('v2.0.0')
+    mockLatest('v2.0.0')
     renderSidebar({ stats: { ...baseStats, version: 'dev' } })
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled()
+      expect(api.get).toHaveBeenCalledWith('/latest-release')
     })
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
@@ -244,7 +270,7 @@ describe('Sidebar update banner', () => {
 
 describe('Sidebar update banner dismiss', () => {
   it('hides the banner when X is clicked', async () => {
-    mockFetch('v2.0.0')
+    mockLatest('v2.0.0')
     renderSidebar()
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
@@ -254,7 +280,7 @@ describe('Sidebar update banner dismiss', () => {
   })
 
   it('saves the dismissed version to localStorage when X is clicked', async () => {
-    mockFetch('v2.0.0')
+    mockLatest('v2.0.0')
     renderSidebar()
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
@@ -265,17 +291,17 @@ describe('Sidebar update banner dismiss', () => {
 
   it('does not show banner on mount when that version was already dismissed', async () => {
     localStorage.setItem(DISMISSED_KEY, '2.0.0')
-    mockFetch('v2.0.0')
+    mockLatest('v2.0.0')
     renderSidebar()
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled()
+      expect(api.get).toHaveBeenCalledWith('/latest-release')
     })
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
   it('shows banner again when a newer version than the dismissed one is available', async () => {
     localStorage.setItem(DISMISSED_KEY, '2.0.0')
-    mockFetch('v2.1.0')
+    mockLatest('v2.1.0')
     renderSidebar()
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()

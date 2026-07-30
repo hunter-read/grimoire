@@ -2,16 +2,7 @@
 from typing import Optional
 from pydantic import BaseModel, field_validator
 
-
-def _normalize_tags(tags: list[str]) -> list[str]:
-    seen = set()
-    result = []
-    for t in tags:
-        lowered = t.strip().lower()
-        if lowered and lowered not in seen:
-            seen.add(lowered)
-            result.append(lowered)
-    return result
+from ...services import tag_service
 
 
 class AudioUpdate(BaseModel):
@@ -20,8 +11,8 @@ class AudioUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v) if v is not None else v
+    def dedupe_tags(cls, v):
+        return tag_service.dedupe_tags(v) if v is not None else v
 
 
 class FolderTagsUpdate(BaseModel):
@@ -30,5 +21,7 @@ class FolderTagsUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v)
+    def dedupe_tags(cls, v):
+        # Keep the entered casing (dedupe by key); the folder-update handler
+        # registers catalog rows with this casing and stores internal keys.
+        return tag_service.dedupe_tags(v)

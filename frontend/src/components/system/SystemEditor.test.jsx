@@ -5,13 +5,19 @@ import SystemEditor from './SystemEditor'
 import api from '../../api'
 
 vi.mock('../../api', () => ({
-  default: { patch: vi.fn() },
+  default: { patch: vi.fn(), get: vi.fn(), post: vi.fn() },
+  tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p) => `http://localhost${p}`,
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
   api.patch.mockResolvedValue({})
+  // useLookups loads genres + system families on mount.
+  api.get.mockImplementation((path) =>
+    Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+  )
+  api.post.mockResolvedValue({})
 })
 
 const system = (over = {}) => ({
@@ -30,10 +36,10 @@ const system = (over = {}) => ({
 describe('SystemEditor', () => {
   it('saves the patched fields and calls onSave', async () => {
     const onSave = vi.fn()
-    render(<SystemEditor system={system({ genre: 'Fantasy' })} onSave={onSave} />)
+    render(<SystemEditor system={system({ genres: ['Fantasy'] })} onSave={onSave} />)
     await userEvent.click(screen.getByText(/save changes/i))
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/systems/sys1', expect.any(Object)))
-    expect(api.patch.mock.calls[0][1].genre).toBe('Fantasy')
+    expect(api.patch.mock.calls[0][1].genres).toEqual(['Fantasy'])
     expect(onSave).toHaveBeenCalled()
   })
 
@@ -81,26 +87,60 @@ describe('SystemEditor', () => {
     expect(api.patch.mock.calls[0][1].cover_book_id).toBe('b1')
   })
 
-  it('edits the description and character-builder URL fields', async () => {
+  it('adds a genre and a dice/material and includes them in the save payload', async () => {
+    render(<SystemEditor system={system()} onSave={vi.fn()} />)
+    // GenrePicker: type a new genre and commit with Enter.
+    const genreInput = screen.getByRole('combobox', { name: /add genre/i })
+    await userEvent.type(genreInput, 'Cyberpunk{Enter}')
+    // DiceMaterialsPicker: type a new material and commit.
+    const diceInput = screen.getByRole('combobox', { name: /dice|material/i })
+    await userEvent.type(diceInput, 'd20{Enter}')
+
+    await userEvent.click(screen.getByText(/save changes/i))
+    await waitFor(() => expect(api.patch).toHaveBeenCalled())
+    const payload = api.patch.mock.calls[0][1]
+    expect(payload.genres).toContain('Cyberpunk')
+    expect(payload.dice_materials).toContain('D20')
+  })
+
+  it('edits edition, year, and a generic URL row in the save payload', async () => {
+    render(<SystemEditor system={system()} onSave={vi.fn()} />)
+    await userEvent.type(document.getElementById('system-edition'), '5e')
+    const year = document.getElementById('system-field-year')
+    if (year) await userEvent.type(year, '2014')
+    // First generic URL row is pre-rendered blank for editing.
+    const urlInput = document.getElementById('system-url-url-0')
+    if (urlInput) await userEvent.type(urlInput, 'https://example.com')
+
+    await userEvent.click(screen.getByText(/save changes/i))
+    await waitFor(() => expect(api.patch).toHaveBeenCalled())
+    const payload = api.patch.mock.calls[0][1]
+    expect(payload.edition).toBe('5e')
+    if (urlInput) expect(payload.urls).toEqual([{ label: '', url: 'https://example.com' }])
+  })
+
+  it('edits the description and a character-builder link', async () => {
     render(<SystemEditor system={system()} onSave={vi.fn()} />)
     const desc = document.getElementById('system-field-description')
     await userEvent.type(desc, 'A grim world')
-    const cb = document.getElementById('system-field-character_builder_url')
-    await userEvent.type(cb, 'https://builder.example')
+    // The first character-builder link row is pre-rendered (blank) for editing.
+    const cbUrl = document.getElementById('system-cb-url-url-0')
+    await userEvent.type(cbUrl, 'https://builder.example')
     await userEvent.click(screen.getByText(/save changes/i))
     await waitFor(() => expect(api.patch).toHaveBeenCalled())
     const payload = api.patch.mock.calls[0][1]
     expect(payload.description).toBe('A grim world')
-    expect(payload.character_builder_url).toBe('https://builder.example')
+    expect(payload.character_builder_urls).toEqual([{ label: '', url: 'https://builder.example' }])
   })
 
-  it('removes the last tag on Backspace in an empty input', async () => {
+  it('does not remove tags on Backspace (removal is via the ✕ button)', async () => {
     render(<SystemEditor system={system({ tags: ['alpha', 'beta'] })} onSave={vi.fn()} />)
-    const tagInput = document.getElementById('system-tag-input')
+    const tagInput = screen.getByRole('combobox', { name: /add tag/i })
     tagInput.focus()
     await userEvent.keyboard('{Backspace}')
-    expect(screen.queryByText('beta')).toBeNull()
+    // Both tags remain — Backspace only edits the input text.
     expect(screen.getByText('alpha')).toBeInTheDocument()
+    expect(screen.getByText('beta')).toBeInTheDocument()
   })
 
   it('removes a tag via its remove button', async () => {

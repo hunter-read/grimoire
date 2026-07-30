@@ -34,6 +34,7 @@ export const MEDIA_CONFIGS = {
     downloadType: 'maps',
     archiveType: 'map_folder',
     sessionKey: 'grimoire:maps:collapsed',
+    sortOptions: ['name', 'size'],
     // Grid cell min width per card size.
     gridMin: { comfortable: '200px', compact: '140px' },
     gridGap: 16,
@@ -69,6 +70,7 @@ export const MEDIA_CONFIGS = {
     downloadType: 'tokens',
     archiveType: 'token_folder',
     sessionKey: 'grimoire:tokens:collapsed',
+    sortOptions: ['name', 'size'],
     gridMin: { comfortable: '130px', compact: '90px' },
     gridGap: 12,
     thumb: { kind: 'square' },
@@ -109,6 +111,7 @@ export const MEDIA_CONFIGS = {
     downloadType: 'audio',
     archiveType: 'audio_folder',
     sessionKey: 'grimoire:audio:collapsed',
+    sortOptions: ['title', 'name', 'duration', 'size'],
     gridMin: { comfortable: '200px', compact: '140px' },
     gridGap: 16,
     thumb: { kind: 'square' },

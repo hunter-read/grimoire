@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { LuX, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 import api from '../api'
 import SystemBulkEditFields from './system/SystemBulkEditFields'
+import BookBulkEditFields from './system/BookBulkEditFields'
+import { cleanLinks } from './metadata/metadataUtils'
 
 // Per-type editable fields and the PATCH endpoint they save to. Tags are edited
 // as a comma-separated string and split on save.
@@ -21,19 +23,45 @@ const CONFIG = {
   },
   book: {
     endpoint: (id) => `/books/${id}`,
-    fields: ['title', 'category', 'description', 'publisher', 'year', 'tags', 'is_explicit'],
+    // Books use a bespoke editor body (BookBulkEditFields) mirroring the full
+    // single-book editor, so genres/tags/authors/artists/links stay native
+    // arrays and category uses the shared combobox.
+    fields: [
+      'title',
+      'description',
+      'category',
+      'genres',
+      'tags',
+      'urls',
+      'authors',
+      'artists',
+      'publisher',
+      'isbn',
+      'version',
+      'language',
+      'year',
+      'month',
+      'day',
+      'is_explicit',
+    ],
+    custom: true,
   },
   system: {
     endpoint: (id) => `/systems/${id}`,
-    // Systems use a bespoke editor body (SystemBulkEditFields) rather than the
-    // generic field loop, so tags/publishers stay native arrays and the cover
-    // image can be picked from each system's own books.
+    // Systems use a bespoke editor body (SystemBulkEditFields) that mirrors the
+    // full single-system editor, so tags/publishers/genres/links stay native
+    // arrays and the cover image can be picked from each system's own books.
     fields: [
       'description',
       'tags',
+      'genres',
+      'dice_materials',
+      'system_family',
+      'license',
+      'year',
       'publishers',
-      'character_builder_url',
-      'genre',
+      'urls',
+      'character_builder_urls',
       'is_explicit',
       'cover_book_id',
     ],
@@ -43,7 +71,15 @@ const CONFIG = {
 
 // Fields that are stored as arrays/objects rather than strings — kept as native
 // values in the draft (not stringified) and compared by JSON on save.
-const STRUCTURED_FIELDS = new Set(['publishers'])
+const STRUCTURED_FIELDS = new Set([
+  'publishers',
+  'genres',
+  'dice_materials',
+  'urls',
+  'character_builder_urls',
+  'authors',
+  'artists',
+])
 
 // Pull a grid size like "22x22" out of a map's filename or folder, e.g.
 // "Sunken Temple (22x22)" → "22x22". Used to pre-fill an empty grid size.
@@ -54,6 +90,15 @@ const inferGridSize = (item) => {
     if (m) return m[1].replace(/\s*[x×]\s*/i, 'x')
   }
   return ''
+}
+
+// Normalize a structured field's draft value before compare/save.
+const cleanStructured = (field, value) => {
+  const list = value || []
+  if (field === 'publishers') return list.filter((p) => p.name?.trim())
+  if (field === 'urls' || field === 'character_builder_urls') return cleanLinks(list)
+  // genres / dice_materials are plain string arrays, already trimmed in the UI.
+  return list
 }
 
 const tagsToString = (tags) => (Array.isArray(tags) ? tags.join(', ') : '')
@@ -69,7 +114,14 @@ const stringToTags = (s) =>
  * via its single-item PATCH endpoint and calls `onSaved` with a map of
  * { id: changedFields } so the parent view can patch local state.
  */
-export default function BulkEditModal({ type, items, onClose, onSaved }) {
+export default function BulkEditModal({
+  type,
+  items,
+  onClose,
+  onSaved,
+  existingCategories = [],
+  systemGenres = [],
+}) {
   const { t } = useTranslation()
   const cfg = CONFIG[type]
   const [index, setIndex] = useState(0)
@@ -133,17 +185,16 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
             const next = cfg.custom ? d.tags : stringToTags(d.tags)
             if (tagsToString(next) !== tagsToString(it.tags)) patch.tags = next
           } else if (STRUCTURED_FIELDS.has(f)) {
-            // Drop empty publisher rows before comparing/saving.
-            const next = (d[f] || []).filter((p) => p.name?.trim())
+            const next = cleanStructured(f, d[f])
             if (JSON.stringify(next) !== JSON.stringify(it[f] || [])) patch[f] = next
           } else if (f === 'is_explicit') {
             if (!!d.is_explicit !== !!it.is_explicit) patch.is_explicit = !!d.is_explicit
           } else if (f === 'cover_book_id') {
             if ((d.cover_book_id ?? null) !== (it.cover_book_id ?? null))
               patch.cover_book_id = d.cover_book_id ?? null
-          } else if (f === 'year') {
-            const next = d.year === '' ? null : Number(d.year)
-            if (next !== (it.year ?? null)) patch.year = next
+          } else if (f === 'year' || f === 'month' || f === 'day') {
+            const next = d[f] === '' || d[f] == null ? null : Number(d[f])
+            if (next !== (it[f] ?? null)) patch[f] = next
           } else if ((d[f] ?? '') !== (it[f] ?? '')) {
             patch[f] = d[f]
           }
@@ -208,6 +259,13 @@ export default function BulkEditModal({ type, items, onClose, onSaved }) {
 
         {cfg.custom && type === 'system' ? (
           <SystemBulkEditFields system={current} draft={draft} setField={setField} />
+        ) : cfg.custom && type === 'book' ? (
+          <BookBulkEditFields
+            draft={draft}
+            setField={setField}
+            existingCategories={existingCategories}
+            systemGenres={systemGenres}
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {cfg.fields.map((f) => {

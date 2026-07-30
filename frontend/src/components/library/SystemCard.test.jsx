@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import SystemCard from './SystemCard'
 
 vi.mock('../../context/FavoritesContext', () => ({
@@ -10,6 +11,16 @@ vi.mock('../../context/FavoritesContext', () => ({
 vi.mock('../../api', () => ({
   mediaUrl: (path) => `http://localhost${path}`,
 }))
+
+// Tag chips navigate via react-router's useNavigate — capture it.
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
+// SystemCard renders LinkableTag (uses useNavigate), so every render needs a Router.
+const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 function makeSystem(overrides = {}) {
   return {
@@ -26,6 +37,8 @@ function makeSystem(overrides = {}) {
 }
 
 describe('SystemCard', () => {
+  beforeEach(() => mockNavigate.mockClear())
+
   describe('full card layout', () => {
     it('renders name, description, publishers, and tags', () => {
       render(
@@ -64,33 +77,13 @@ describe('SystemCard', () => {
       expect(screen.getByText('18+')).toBeInTheDocument()
     })
 
-    it('renders clickable tag buttons that toggle a filter', async () => {
-      const onTagClick = vi.fn()
-      render(
-        <SystemCard
-          system={makeSystem({ tags: ['osr'] })}
-          onClick={vi.fn()}
-          onTagClick={onTagClick}
-          activeTags={new Set()}
-        />
-      )
-      await userEvent.click(screen.getByRole('button', { name: /filter by osr/i }))
-      expect(onTagClick).toHaveBeenCalledWith('osr')
-    })
-
-    it('marks an active tag as pressed', () => {
-      render(
-        <SystemCard
-          system={makeSystem({ tags: ['osr'] })}
-          onClick={vi.fn()}
-          onTagClick={vi.fn()}
-          activeTags={new Set(['osr'])}
-        />
-      )
-      expect(screen.getByRole('button', { name: /filter by osr/i })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      )
+    it('navigates to the tags page (by internal key) when a tag chip is clicked', async () => {
+      const onClick = vi.fn()
+      render(<SystemCard system={makeSystem({ tags: ['osr'] })} onClick={onClick} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=osr')
+      // Clicking a chip must not also trigger the card's own navigation.
+      expect(onClick).not.toHaveBeenCalled()
     })
   })
 
@@ -133,17 +126,20 @@ describe('SystemCard', () => {
       expect(screen.queryByRole('button', { name: /favorite/i })).not.toBeInTheDocument()
     })
 
-    it('tags are not clickable filters while selecting', () => {
+    it('tag chips still navigate to the tags page while selecting', async () => {
+      const onToggleSelect = vi.fn()
       render(
         <SystemCard
           system={makeSystem({ tags: ['osr'] })}
           onClick={vi.fn()}
           selectable
-          onTagClick={vi.fn()}
+          onToggleSelect={onToggleSelect}
         />
       )
-      expect(screen.queryByRole('button', { name: /filter by osr/i })).not.toBeInTheDocument()
-      expect(screen.getByText('Osr')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=osr')
+      // Clicking the chip does not toggle the card's selection.
+      expect(onToggleSelect).not.toHaveBeenCalled()
     })
   })
 

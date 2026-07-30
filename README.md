@@ -29,8 +29,10 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **Global Audio Player** - A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
 - **Bookmarks** - Per-user page and text-selection bookmarks with inline highlights
 - **Favorites** - Save systems, books, maps, tokens, and audio for quick access
+- **Shared Tags** - One tag catalog across systems, books, maps, tokens, and audio. Tags match on a lowercased internal key with an editable display name, so "Draw Steel" and "draw steel" are the same tag. A dedicated Tags page lists every tag with usage counts, lets you rename/merge/delete, and browses all items carrying a tag; clicking a tag anywhere jumps there. Filter dropdowns show only tags used on the current page, and campaign resources can be bulk-added by tag
 - **View Modes** - Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
-- **Metadata Editor** - Add descriptions, tags, genre, publisher links, and character builder URLs
+- **Metadata Editor** - Rich metadata for systems (multiple genres, dice/materials, system family, parent system + edition, license, year, and multiple generic + character-builder links) and books (authors, artists, genres, ISBN, version, language, a per-book license override, a variable-precision publication date, and multiple links). Genres, system families, parent systems, licenses, and dice/materials are drawn from curated lists you manage in **Settings → Metadata** (each section collapsible; defaults plus your own custom values). A *parent system* groups related systems (e.g. D&D 5e and AD&D under "Dungeons & Dragons"), and an *edition* string combines with it for display ("Cyberpunk" + "Red" → "Cyberpunk Red")
+- **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on
 - **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel
 - **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
 - **OPDS Catalog** - Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
@@ -235,19 +237,22 @@ Archive files placed anywhere under `books/` are shown alongside your books in t
 
 Archives are treated as opaque downloads - Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive. Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) additionally get a cover thumbnail generated from the first image inside them.
 
-#### System-agnostic collections
+#### Special collections (system-agnostic & one-page)
 
-Some books don't belong to a single game system - reference material, zines, art books, or rulesets like Ironsworn or Mothership that span multiple systems. Create a folder whose name is one of the recognized system-agnostic names and Grimoire will display its contents in a separate **System-Agnostic** section on the library page, outside the normal game-system grid.
+Some books don't belong to a single game system - reference material, zines, art books, or rulesets like Ironsworn or Mothership that span multiple systems. And some "systems" are really a bucket of many tiny games: one-page and small RPGs. Create a folder whose name is one of the recognized names below and Grimoire will display its contents in a separate **Special Collections** section on the library page, outside the normal game-system grid.
 
 **Recognized folder names** (case-insensitive):
 
-| Folder name | Example |
-|---|---|
-| `System Agnostic` | `books/System Agnostic/` |
-| `Generic` | `books/Generic/` |
-| `Any` | `books/Any/` |
+| Folder name | Collection | Example |
+|---|---|---|
+| `System Agnostic` | System-agnostic | `books/System Agnostic/` |
+| `Generic` | System-agnostic | `books/Generic/` |
+| `Any` | System-agnostic | `books/Any/` |
+| `One-Page RPGs` | One-page / small RPGs | `books/One-Page RPGs/` |
+| `Single-Page RPGs` | One-page / small RPGs | `books/Single-Page RPGs/` |
+| `One-Shot RPGs` | One-page / small RPGs | `books/One-Shot RPGs/` |
 
-Subfolders directly under the agnostic root become **custom category headings** - whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
+Subfolders directly under one of these roots become **custom category headings** - whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
 
 ```
 books/
@@ -275,6 +280,23 @@ books/
 ```
 
 Users with explicit content disabled will not see this system or its books.
+
+#### Sort-order prefixes
+
+To pull a system to the top of an alphabetically-sorted file browser, you can
+prefix its folder name with `!`, `$`, or `%`. Grimoire strips a leading run of
+those characters when deriving the system name (only the leading run — internal
+occurrences are kept):
+
+```
+books/
+├── !!Dungeons & Dragons/   → "Dungeons & Dragons"
+├── !system-agnostic/       → still the System-Agnostic collection
+└── $%Pathfinder 2e/        → "Pathfinder 2e"
+```
+
+The prefix stacks with `(nsfw)`, so `!!Forbidden Lore (NSFW)` becomes the
+explicit system "Forbidden Lore".
 
 ### Book metadata from OPF files
 
@@ -367,18 +389,25 @@ Drop a `tags.json` file into any `maps/`, `tokens/`, or `audio/` folder (or subf
 | `"subfolder"` | A subfolder |
 | `"subfolder/file.png"` | A file inside a subfolder |
 
-Values are arrays of tag strings.
+Values are arrays of tag strings. The casing you write is used as the tag's
+display name the first time it's seen.
 
 ```json
 {
-  ".": ["dungeon", "fantasy"],
-  "cave-entrance.png": ["cave", "outdoors"],
-  "boss-arena": ["combat", "finale"],
-  "boss-arena/throne-room.png": ["throne", "indoor"]
+  ".": ["Dungeon", "Fantasy"],
+  "cave-entrance.png": ["Cave", "Outdoors"],
+  "boss-arena": ["Combat", "Finale"],
+  "boss-arena/throne-room.png": ["Throne", "Indoor"]
 }
 ```
 
-Tags are applied (or updated) every time the library is rescanned. Tags set via the web UI are replaced by the values in `tags.json` on the next scan.
+`tags.json` is **additive and read-only**: on every rescan it only *adds* the
+tags it lists — it never removes tags you set (or removed) in the web UI, and it
+never overwrites a tag's display name once the tag exists. A new tag is created
+using the casing in the file; renaming a tag later in the web UI sticks, because
+the display name lives in the app's tag catalog rather than in `tags.json` (which
+the app treats as read-only and never rewrites). Tags are matched
+case-insensitively, so `"dungeon"` and `"Dungeon"` are the same tag.
 
 ---
 

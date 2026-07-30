@@ -10,8 +10,6 @@ import {
   LuSearch,
   LuX,
   LuDownload,
-  LuHeart,
-  LuListChecks,
 } from 'react-icons/lu'
 import api from '../api'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
@@ -27,12 +25,25 @@ import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
 import SystemSearchResults from '../components/system/SystemSearchResults'
 import SystemCategorySection from '../components/system/SystemCategorySection'
+import CategoryBookItem from '../components/system/CategoryBookItem'
+import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
+import BulkToggleButton from '../components/BulkToggleButton'
+import CollapseExpandButtons from '../components/CollapseExpandButtons'
+import ToolbarButton from '../components/ToolbarButton'
 import RescanButton from '../components/RescanButton'
 import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
+import SortFilterBar from '../components/library/SortFilterBar'
+import { bookFilterPredicate, bookComparator } from '../components/library/applyBookSortFilter'
+import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
 import matchBooks from '../utils/matchBooks'
+import { systemDisplayName } from '../utils/systemDisplayName'
+import { parentSystemLabel } from '../utils/parentSystemLabel'
+import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
+
+const DEFAULT_BOOK_FILTER = { sort: 'title', order: 'asc', filters: {} }
 
 /** The library-root-relative folder a book lives in (its relative_path minus the
  *  filename), e.g. "books/D&D 5e/adventure/Curse of Strahd". Used as the rescan scope. */
@@ -74,6 +85,11 @@ export default function SystemDetailView() {
   const [system, setSystem] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
+  // Book subcategory folder tags, keyed by BookFolder path
+  // ("{systemId}/{category}/{subfolder…}"). Loaded once per system; edited
+  // inline on each folder group header (issue #235 follow-up).
+  const [bookFolderTags, setBookFolderTags] = useState({})
+  const [editingFolderKey, setEditingFolderKey] = useState(null)
   const [collapsedCats, setCollapsedCats] = useSessionState(
     `grimoire:system:${systemId}:collapsed`,
     new Set()
@@ -82,10 +98,15 @@ export default function SystemDetailView() {
     `grimoire:system:${systemId}:subfolders`,
     new Set()
   )
-  const [selectedTags, setSelectedTags] = useState(new Set())
-  const [showAllTags, setShowAllTags] = useState(false)
-  const [bookSort, setBookSort] = useState('title')
-  const [favOnly, setFavOnly] = useState(false)
+  // Whether books are split into category sections (default) or shown as one
+  // flat sorted list. Persisted per system for the session. Sort/filter state
+  // is independent of this toggle.
+  const [grouped, setGrouped] = useSessionState(`grimoire:system:${systemId}:grouped`, true)
+  // Books sort/filter now flow through the shared SortFilterBar state, with
+  // server-backed saved presets (scope "books"). Favourites/tags/explicit/genre
+  // all live in filters; the category grouping below is preserved.
+  const [bookFilter, setBookFilter] = useState(DEFAULT_BOOK_FILTER)
+  const [defaultApplied, setDefaultApplied] = useState(false)
   const [viewMode, cycleViewMode] = useViewMode('book')
   const [searchQuery, setSearchQuery] = useSessionState(
     `grimoire:system:${systemId}:search-query`,
@@ -102,10 +123,41 @@ export default function SystemDetailView() {
   const [bulkApplying, setBulkApplying] = useState(false)
   const [showAddToCampaign, setShowAddToCampaign] = useState(false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
+  // Shared-tag display labels for book tags (filter values match on internal key).
+  const bookTagLabels = useTagLabels('book')
 
   useEffect(() => {
     api.get(`/systems/${systemId}`).then(setSystem)
   }, [systemId])
+
+  // Load book subcategory folder tags for this system.
+  useEffect(() => {
+    api
+      .get(`/systems/${systemId}/book-folders`)
+      .then((r) => {
+        const map = {}
+        for (const f of r.folders || []) map[f.path] = f.tags || []
+        setBookFolderTags(map)
+      })
+      .catch(() => setBookFolderTags({}))
+  }, [systemId])
+
+  const {
+    saved: savedBookFilters,
+    loaded: bookFiltersLoaded,
+    defaultFilter: defaultBookFilter,
+    save: saveBookPreset,
+    setDefault: setBookPresetDefault,
+    remove: removeBookPreset,
+  } = useSavedFilters('books')
+
+  // Apply the user's default books preset once on load.
+  useEffect(() => {
+    if (bookFiltersLoaded && !defaultApplied) {
+      if (defaultBookFilter?.state) setBookFilter(defaultBookFilter.state)
+      setDefaultApplied(true)
+    }
+  }, [bookFiltersLoaded, defaultApplied, defaultBookFilter])
 
   const doSearch = useCallback(
     (q) => {
@@ -149,6 +201,11 @@ export default function SystemDetailView() {
       </div>
     )
 
+  // Special collections (system-agnostic + one-page/small RPGs) are not real
+  // game systems, so they don't expose editable system metadata.
+  const isSpecialCollection = system.is_system_agnostic || system.is_one_page
+  const canEditSystemMeta = isEditor && !isSpecialCollection
+
   const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
 
   // Distinct category slugs already in use across this system's books, so the
@@ -157,48 +214,59 @@ export default function SystemDetailView() {
     ...new Set((system.books || []).map((b) => b.category).filter(Boolean)),
   ].sort()
 
-  const toggleTag = (tag) =>
-    setSelectedTags((prev) => {
-      const next = new Set(prev)
-      next.has(tag) ? next.delete(tag) : next.add(tag)
-      return next
-    })
+  const bookFilters = bookFilter.filters || {}
+  // Derived helpers kept for the card tag-chip toggles and empty-state copy.
+  const selectedTags = new Set((bookFilters.tags || []).map((tg) => tg.toLowerCase()))
+  const favOnly = bookFilters.favorites === true
 
-  const sortBooks = (books) => {
-    const sorted = [...books]
-    if (bookSort === 'title') sorted.sort((a, b) => a.title.localeCompare(b.title))
-    if (bookSort === 'year') sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
-    if (bookSort === 'size') sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
-    if (bookSort === 'pages') sorted.sort((a, b) => (b.page_count || 0) - (a.page_count || 0))
-    return sorted
+  const updateBookFilter = (next) => setBookFilter(next)
+  const handleSaveBookPreset = (name, opts) => saveBookPreset(name, bookFilter, opts)
+
+  // Toggle a single tag in the filter state (used by the card/tag chips).
+  const toggleTag = (tag) => {
+    const cur = bookFilters.tags || []
+    const lower = tag.toLowerCase()
+    const next = cur.some((tg) => tg.toLowerCase() === lower)
+      ? cur.filter((tg) => tg.toLowerCase() !== lower)
+      : [...cur, tag]
+    setBookFilter({
+      ...bookFilter,
+      filters: { ...bookFilters, tags: next.length ? next : undefined },
+    })
   }
 
+  const comparator = bookComparator(bookFilter.sort, bookFilter.order)
+  const sortBooks = (books) => [...books].sort(comparator)
+
+  const bookMatchesFilters = bookFilterPredicate(bookFilters, {
+    isFavorite: (id) => isFavorite('book', id),
+  })
+
   const categories = {}
-  ;(system.books || [])
-    .filter(
-      (book) =>
-        (selectedTags.size === 0 ||
-          [...selectedTags].every((tag) => (book.tags || []).includes(tag))) &&
-        (!favOnly || isFavorite('book', book.id))
-    )
-    .forEach((book) => {
-      const cat = book.category || 'core'
-      if (!categories[cat]) categories[cat] = []
-      categories[cat].push(book)
-    })
+  ;(system.books || []).filter(bookMatchesFilters).forEach((book) => {
+    const cat = book.category || 'core'
+    if (!categories[cat]) categories[cat] = []
+    categories[cat].push(book)
+  })
 
   const allCatKeys = Object.keys(categories)
   const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
   const expandAll = () => setCollapsedCats(new Set())
 
-  // Flat ordered list of visible book ids (category render order), for
-  // shift-range selection.
-  const orderedBookIds = [
+  // Category render order (built-ins first, then any custom categories).
+  const orderedCatKeys = [
     ...CATEGORY_ORDER,
     ...allCatKeys.filter((c) => !CATEGORY_ORDER.includes(c)),
-  ]
-    .filter((cat) => categories[cat])
-    .flatMap((cat) => sortBooks(categories[cat]).map((b) => b.id))
+  ].filter((cat) => categories[cat])
+
+  // All filtered books as a single sorted list (used by the flattened view).
+  const flatBooks = sortBooks((system.books || []).filter(bookMatchesFilters))
+
+  // Flat ordered list of visible book ids, for shift-range selection. Matches
+  // the on-screen order: grouped → by category; flat → the single sorted list.
+  const orderedBookIds = grouped
+    ? orderedCatKeys.flatMap((cat) => sortBooks(categories[cat]).map((b) => b.id))
+    : flatBooks.map((b) => b.id)
   const toggleBookSelect = (id, mods = {}) =>
     bulk.toggleItem(id, { ...mods, orderedIds: orderedBookIds })
 
@@ -241,6 +309,20 @@ export default function SystemDetailView() {
       books: s.books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)),
     }))
 
+  // Persist a book folder's tags and reflect them locally. ``path`` is the full
+  // BookFolder path ("{systemId}/{category}/{subfolder…}").
+  const saveBookFolderTags = (path, tags) => {
+    setBookFolderTags((prev) => ({ ...prev, [path]: tags }))
+    setEditingFolderKey(null)
+    api.patch(`/systems/${systemId}/book-folders`, { path, tags }).catch(() =>
+      api.get(`/systems/${systemId}/book-folders`).then((r) => {
+        const map = {}
+        for (const f of r.folders || []) map[f.path] = f.tags || []
+        setBookFolderTags(map)
+      })
+    )
+  }
+
   const toggleSubfolder = (key) =>
     setCollapsedSubfolders((prev) => {
       const next = new Set(prev)
@@ -248,12 +330,20 @@ export default function SystemDetailView() {
       return next
     })
 
-  const SORT_OPTIONS = [
-    ['title', t('common.sortAZ')],
-    ['year', t('common.sortYear')],
-    ['pages', t('common.sortPages')],
-    ['size', t('common.sortSize')],
+  // Sort + filter options for the books SortFilterBar.
+  const bookSortOptions = [
+    { value: 'title', label: t('sortFilter.sortTitle') },
+    { value: 'year', label: t('sortFilter.sortYear') },
+    { value: 'page_count', label: t('sortFilter.sortPageCount') },
+    { value: 'size', label: t('sortFilter.sortSize') },
   ]
+  const bookGenreOptions = [...new Set((system.books || []).flatMap((b) => b.genres || []))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((g) => ({ value: g, label: g }))
+  const bookTagOptions = allTags.map((tg) => ({
+    value: tg,
+    label: bookTagLabels[tg] || titleCaseTag(tg),
+  }))
 
   // Book view mode → layout flags shared with BookRow / BookFolderGroup.
   const card = viewMode === 'card'
@@ -263,15 +353,7 @@ export default function SystemDetailView() {
   // When searching, surface books whose title/metadata match the query above the
   // full-text page hits, honouring the same tag/favourite filters as the grid.
   const matchedBooks = searchResults
-    ? matchBooks(
-        (system.books || []).filter(
-          (book) =>
-            (selectedTags.size === 0 ||
-              [...selectedTags].every((tag) => (book.tags || []).includes(tag))) &&
-            (!favOnly || isFavorite('book', book.id))
-        ),
-        searchResults.query
-      )
+    ? matchBooks((system.books || []).filter(bookMatchesFilters), searchResults.query)
     : []
   // Container for a list of books in the current view mode.
   const booksContainerStyle = list
@@ -324,7 +406,7 @@ export default function SystemDetailView() {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 32, marginBottom: 8 }}>{system.name}</h2>
+              <h2 style={{ fontSize: 32, marginBottom: 8 }}>{systemDisplayName(system)}</h2>
               {system.publishers?.length > 0 && (
                 <div style={{ fontSize: 16, color: 'var(--text-dim)', marginBottom: 8 }}>
                   {t('systemDetail.publishedBy')}{' '}
@@ -355,12 +437,87 @@ export default function SystemDetailView() {
                   {system.description}
                 </p>
               )}
+              {/* Genres are shown before tags per issue #202. */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginBottom: 8 }}>
+                {(system.genres && system.genres.length
+                  ? system.genres
+                  : system.genre
+                    ? [system.genre]
+                    : []
+                ).map((g) => (
+                  <Tag
+                    key={`genre-${g}`}
+                    label={g}
+                    color="rgba(90, 154, 90, 0.2)"
+                    linkable={false}
+                  />
+                ))}
                 {(system.tags || []).map((tag) => (
                   <Tag key={tag} label={tag} />
                 ))}
-                {system.genre && <Tag label={system.genre} color="rgba(90, 154, 90, 0.2)" />}
               </div>
+              {/* Parent system / family / license / year metadata line. */}
+              {(parentSystemLabel(system) ||
+                system.system_family ||
+                system.license ||
+                system.year) && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 16,
+                    fontSize: 13,
+                    color: 'var(--text-muted)',
+                    marginBottom: 8,
+                  }}
+                >
+                  {parentSystemLabel(system) && (
+                    <span>
+                      {t('systemDetail.parentSystemLabel')}:{' '}
+                      <span style={{ color: 'var(--text-dim)' }}>{parentSystemLabel(system)}</span>
+                    </span>
+                  )}
+                  {system.system_family && (
+                    <span>
+                      {t('systemDetail.familyLabel')}:{' '}
+                      <span style={{ color: 'var(--text-dim)' }}>{system.system_family}</span>
+                    </span>
+                  )}
+                  {system.license && (
+                    <span>
+                      {t('systemDetail.licenseLabel')}:{' '}
+                      <span style={{ color: 'var(--text-dim)' }}>{system.license}</span>
+                    </span>
+                  )}
+                  {system.year && (
+                    <span>
+                      {t('systemDetail.yearLabel')}:{' '}
+                      <span style={{ color: 'var(--text-dim)' }}>{system.year}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {system.dice_materials?.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {/* Dice/materials use a distinct amber border to set them apart
+                      from genres (green) and tags (default). */}
+                  {system.dice_materials.map((d) => (
+                    <span
+                      key={d}
+                      style={{
+                        fontSize: 12,
+                        padding: '2px 8px',
+                        borderRadius: 10,
+                        background: 'rgba(214, 178, 74, 0.10)',
+                        border: '1px solid var(--gold)',
+                        color: 'var(--gold)',
+                      }}
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div
@@ -373,35 +530,57 @@ export default function SystemDetailView() {
                 minWidth: 0,
               }}
             >
-              {system.character_builder_url && (
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                  }}
-                >
-                  <a
-                    href={system.character_builder_url}
-                    target="_blank"
-                    rel="noopener"
+              {(() => {
+                // Prefer the multi-value lists; fall back to the legacy single
+                // character_builder_url for older data.
+                const builderLinks =
+                  system.character_builder_urls && system.character_builder_urls.length
+                    ? system.character_builder_urls
+                    : system.character_builder_url
+                      ? [{ label: '', url: system.character_builder_url }]
+                      : []
+                const genericLinks = system.urls || []
+                const allLinks = [
+                  ...builderLinks.map((l) => ({ ...l, builder: true })),
+                  ...genericLinks.map((l) => ({ ...l, builder: false })),
+                ].filter((l) => l.url)
+                if (allLinks.length === 0) return null
+                return (
+                  <div
                     style={{
-                      padding: '8px 16px',
-                      borderRadius: 6,
-                      fontSize: 15,
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--gold)',
-                      display: 'inline-flex',
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
                       alignItems: 'center',
-                      gap: 6,
+                      justifyContent: 'flex-end',
                     }}
                   >
-                    <LuClipboard size={14} /> {t('systemDetail.characterBuilder')}
-                  </a>
-                </div>
-              )}
+                    {allLinks.map((l, i) => (
+                      <a
+                        key={`${l.url}-${i}`}
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener"
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 6,
+                          fontSize: 15,
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--gold)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        {l.builder && <LuClipboard size={14} />}
+                        {l.label ||
+                          (l.builder ? t('systemDetail.characterBuilder') : t('systemDetail.link'))}
+                      </a>
+                    ))}
+                  </div>
+                )
+              })()}
               {/* Search bar */}
               <div style={{ position: 'relative' }}>
                 <LuSearch
@@ -464,7 +643,7 @@ export default function SystemDetailView() {
                   </button>
                 )}
               </div>
-              {/* Row 1: Favorite, Edit, Download All */}
+              {/* Group 1: Favorite, Edit, Select Multiple, Download All, Rescan */}
               <div
                 className="system-btn-row"
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
@@ -481,51 +660,31 @@ export default function SystemDetailView() {
                     borderRadius: 6,
                   }}
                 />
-                <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} style={toolBtnStyle} />
-                {isEditor && (
-                  <button
+                {canEditSystemMeta && (
+                  <ToolbarButton
+                    icon={<LuPencil size={13} />}
+                    label={editing ? t('systemDetail.done') : t('common.edit')}
                     onClick={() => setEditing(!editing)}
-                    style={{
-                      ...toolBtnStyle,
-                      color: editing ? 'var(--gold)' : 'var(--text-dim)',
-                      outline: editing ? '1px solid var(--gold-dim)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <LuPencil size={13} />
-                    {editing ? t('systemDetail.done') : t('common.edit')}
-                  </button>
+                    active={editing}
+                  />
                 )}
                 {isEditor && (
-                  <button
-                    onClick={bulkMode ? bulk.exit : bulk.enter}
-                    style={{
-                      ...toolBtnStyle,
-                      color: bulkMode ? 'var(--gold)' : 'var(--text-dim)',
-                      outline: bulkMode ? '1px solid var(--gold-dim)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <LuListChecks size={13} />
-                    {bulkMode ? t('systemDetail.done') : t('common.select')}
-                  </button>
+                  <BulkToggleButton
+                    active={bulkMode}
+                    onToggle={bulkMode ? bulk.exit : bulk.enter}
+                  />
                 )}
-                <button
+                <ToolbarButton
+                  icon={<LuDownload size={13} />}
+                  label={t('systemDetail.downloadAll')}
                   onClick={() =>
                     setDownloadModal({
                       title: t('systemDetail.downloadAllTitle'),
                       params: { type: 'system', id: system.id },
                     })
                   }
-                  style={{ ...toolBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   title={t('systemDetail.downloadAllTitle')}
-                >
-                  <LuDownload size={13} /> {t('systemDetail.downloadAll')}
-                </button>
+                />
                 {isEditor && (
                   <RescanButton
                     scope={systemScope(system.books)}
@@ -534,38 +693,28 @@ export default function SystemDetailView() {
                   />
                 )}
               </div>
-              {/* Row 2: Collapse / Expand */}
+              {/* Group 2: View switcher, Grouping toggle, Collapse / Expand all */}
               <div
                 className="system-btn-row"
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
-                <button
-                  onClick={collapseAll}
-                  disabled={!!searchResults || collapsedCats.size === allCatKeys.length}
-                  style={{
-                    ...toolBtnStyle,
-                    opacity: !!searchResults || collapsedCats.size === allCatKeys.length ? 0.4 : 1,
-                  }}
-                >
-                  {t('systemDetail.collapseAll')}
-                </button>
-                <button
-                  onClick={expandAll}
-                  disabled={!!searchResults || collapsedCats.size === 0}
-                  style={{
-                    ...toolBtnStyle,
-                    opacity: !!searchResults || collapsedCats.size === 0 ? 0.4 : 1,
-                  }}
-                >
-                  {t('systemDetail.expandAll')}
-                </button>
+                <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} style={toolBtnStyle} />
+                <CategoryGroupToggle grouped={grouped} onToggle={setGrouped} />
+                <CollapseExpandButtons
+                  onCollapseAll={collapseAll}
+                  onExpandAll={expandAll}
+                  collapseDisabled={
+                    !!searchResults || !grouped || collapsedCats.size === allCatKeys.length
+                  }
+                  expandDisabled={!!searchResults || !grouped || collapsedCats.size === 0}
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Edit Panel */}
-        {editing && (
+        {/* Edit Panel (system metadata) — never for special collections. */}
+        {editing && canEditSystemMeta && (
           <SystemEditor
             system={system}
             onSave={(updated) => {
@@ -575,135 +724,36 @@ export default function SystemDetailView() {
           />
         )}
 
-        {/* Tag filter row */}
-        {!searchResults && allTags.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 6,
-              marginBottom: 24,
-              alignItems: 'center',
-            }}
-          >
-            <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 4 }}>
-              {t('systemDetail.tagsLabel')}
-            </span>
-            {(showAllTags ? allTags : allTags.slice(0, 15)).map((tag) => (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                style={{
-                  fontSize: 13,
-                  padding: '3px 10px',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: selectedTags.has(tag) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
-                  color: selectedTags.has(tag) ? 'var(--gold)' : 'var(--text-dim)',
-                  outline: selectedTags.has(tag)
-                    ? '1px solid var(--gold-dim)'
-                    : '1px solid var(--tag-border)',
-                }}
-              >
-                {tag.charAt(0).toUpperCase() + tag.slice(1)}
-              </button>
-            ))}
-            {allTags.length > 15 && (
-              <button
-                onClick={() => setShowAllTags((v) => !v)}
-                style={{
-                  fontSize: 12,
-                  padding: '3px 8px',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                  background: 'none',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {showAllTags
-                  ? t('systemDetail.showLess')
-                  : t('common.showMore', { count: allTags.length - 15 })}
-              </button>
-            )}
-            {selectedTags.size > 0 && (
-              <button
-                onClick={() => setSelectedTags(new Set())}
-                style={{
-                  fontSize: 12,
-                  padding: '3px 8px',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 3,
-                }}
-              >
-                <LuX size={11} /> {t('systemDetail.clearTags')}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Sort bar */}
+        {/* Sort + filter toolbar (right-aligned), with server-backed presets. */}
         {!searchResults && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 16,
-              flexWrap: 'wrap',
-            }}
-          >
-            <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
-              {t('common.sort')}
-            </span>
-            {SORT_OPTIONS.map(([val, label]) => (
-              <button
-                key={val}
-                onClick={() => setBookSort(val)}
-                style={{
-                  fontSize: 12,
-                  padding: '3px 10px',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  background: bookSort === val ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  color: bookSort === val ? 'var(--gold)' : 'var(--text-dim)',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-            <div style={{ marginLeft: 'auto' }}>
-              <button
-                onClick={() => setFavOnly((v) => !v)}
-                aria-pressed={favOnly}
-                title={t('favorites.onlyFavorites')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '3px 10px',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                  background: favOnly ? 'rgba(180,120,60,0.15)' : 'var(--bg-card)',
-                  color: favOnly ? 'var(--gold)' : 'var(--text-muted)',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                <LuHeart size={12} fill={favOnly ? 'var(--gold)' : 'none'} />
-                {t('favorites.onlyFavorites')}
-              </button>
-            </div>
-          </div>
+          <SortFilterBar
+            state={bookFilter}
+            onChange={updateBookFilter}
+            sortOptions={bookSortOptions}
+            showSearch={false}
+            multiFilters={[
+              {
+                key: 'genres',
+                label: t('sortFilter.filterGenre'),
+                emptyLabel: t('sortFilter.noGenres'),
+                options: bookGenreOptions,
+              },
+              {
+                key: 'tags',
+                label: t('sortFilter.filterTags'),
+                emptyLabel: t('sortFilter.noTags'),
+                options: bookTagOptions,
+              },
+            ]}
+            toggleFilters={[
+              { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
+              { key: 'explicit', label: t('sortFilter.filterExplicit') },
+            ]}
+            saved={savedBookFilters}
+            onSavePreset={handleSaveBookPreset}
+            onSetDefault={setBookPresetDefault}
+            onDeletePreset={removeBookPreset}
+          />
         )}
 
         <SystemSearchResults
@@ -724,44 +774,73 @@ export default function SystemDetailView() {
           }
         />
 
-        {/* Books by category */}
+        {/* Books, grouped by category (default) or as one flat sorted list. */}
         {!searchResults &&
-          [...CATEGORY_ORDER, ...Object.keys(categories).filter((c) => !CATEGORY_ORDER.includes(c))]
-            .filter((cat) => categories[cat])
-            .map((cat) => (
-              <SystemCategorySection
-                key={cat}
-                cat={cat}
-                books={sortBooks(categories[cat])}
-                system={system}
-                isCollapsed={collapsedCats.has(cat)}
-                onToggleCat={() =>
-                  setCollapsedCats((prev) => {
-                    const next = new Set(prev)
-                    next.has(cat) ? next.delete(cat) : next.add(cat)
-                    return next
-                  })
-                }
-                collapsedSubfolders={collapsedSubfolders}
-                onToggleSubfolder={toggleSubfolder}
-                groupScope={groupScope}
+          grouped &&
+          orderedCatKeys.map((cat) => (
+            <SystemCategorySection
+              key={cat}
+              cat={cat}
+              books={sortBooks(categories[cat])}
+              system={system}
+              isCollapsed={collapsedCats.has(cat)}
+              onToggleCat={() =>
+                setCollapsedCats((prev) => {
+                  const next = new Set(prev)
+                  next.has(cat) ? next.delete(cat) : next.add(cat)
+                  return next
+                })
+              }
+              collapsedSubfolders={collapsedSubfolders}
+              onToggleSubfolder={toggleSubfolder}
+              groupScope={groupScope}
+              bookFolderTags={bookFolderTags}
+              editingFolderKey={editingFolderKey}
+              onEditFolder={setEditingFolderKey}
+              onSaveBookFolderTags={saveBookFolderTags}
+              editingBookId={editingBookId}
+              setEditingBookId={setEditingBookId}
+              allTags={allTags}
+              existingCategories={existingCategories}
+              systemGenres={system.genres || []}
+              card={card}
+              compact={compact}
+              list={list}
+              booksContainerStyle={booksContainerStyle}
+              isEditor={isEditor}
+              onOpenBook={openBook}
+              onSaveBook={saveBook}
+              onDownload={setDownloadModal}
+              bulkMode={bulkMode}
+              selectedBookIds={selectedBookIds}
+              onToggleBook={toggleBookSelect}
+            />
+          ))}
+
+        {!searchResults && !grouped && flatBooks.length > 0 && (
+          <div style={booksContainerStyle}>
+            {flatBooks.map((book) => (
+              <CategoryBookItem
+                key={book.id}
+                book={book}
+                card={card}
+                compact={compact}
+                list={list}
                 editingBookId={editingBookId}
                 setEditingBookId={setEditingBookId}
                 allTags={allTags}
                 existingCategories={existingCategories}
-                card={card}
-                compact={compact}
-                list={list}
-                booksContainerStyle={booksContainerStyle}
+                systemGenres={system.genres || []}
                 isEditor={isEditor}
                 onOpenBook={openBook}
                 onSaveBook={saveBook}
-                onDownload={setDownloadModal}
                 bulkMode={bulkMode}
                 selectedBookIds={selectedBookIds}
                 onToggleBook={toggleBookSelect}
               />
             ))}
+          </div>
+        )}
 
         {!searchResults && allCatKeys.length === 0 && (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
@@ -805,6 +884,8 @@ export default function SystemDetailView() {
         <BulkEditModal
           type="book"
           items={selectedBookObjects()}
+          existingCategories={existingCategories}
+          systemGenres={system.genres || []}
           onClose={() => setShowBulkEdit(false)}
           onSaved={(edited) => {
             applyBookEdits(edited)

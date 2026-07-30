@@ -10,10 +10,28 @@ from .constants import (
     CATEGORY_MAP,
     NO_AUTO_CATEGORY_MARKER,  # noqa: F401  (re-exported for callers)
     UNCATEGORIZED,
+    _ONE_PAGE_SLUGS,
     _SYSTEM_AGNOSTIC_SLUGS,
 )
 
 logger = logging.getLogger("grimoire.indexer")
+
+
+# Leading characters people prepend to system folders purely to steer the
+# alphabetical sort order of their file browser (e.g. "!!Dungeons & Dragons").
+# Only these three are recognized, and only as a contiguous leading run — once a
+# non-special character is read, the rest is the real name.
+_SORT_PREFIX_CHARS = "!$%"
+
+
+def strip_sort_prefix(name: str) -> str:
+    """Strip leading sort-order prefix characters (``!$%``) from a folder name.
+
+    Only the contiguous run of these characters at the very start is removed;
+    everything from the first non-prefix character onward is kept verbatim
+    (including internal ``!``/``$``/``%``). Surrounding whitespace is trimmed.
+    """
+    return name.lstrip(_SORT_PREFIX_CHARS).strip()
 
 
 def slugify(name: str) -> str:
@@ -28,6 +46,20 @@ def slugify(name: str) -> str:
 def is_system_agnostic_folder(folder_name: str) -> bool:
     """Return True if this top-level books folder should be treated as system-agnostic."""
     return slugify(folder_name) in _SYSTEM_AGNOSTIC_SLUGS
+
+
+def is_one_page_folder(folder_name: str) -> bool:
+    """Return True if this top-level books folder is the one-page / small-RPG collection."""
+    return slugify(folder_name) in _ONE_PAGE_SLUGS
+
+
+def is_special_collection_folder(folder_name: str) -> bool:
+    """Return True for any special collection folder (agnostic or one-page).
+
+    Both use their immediate subfolder name as the category label rather than
+    the normal CATEGORY_MAP inference.
+    """
+    return is_system_agnostic_folder(folder_name) or is_one_page_folder(folder_name)
 
 
 def _normalize_folder(name: str) -> str:

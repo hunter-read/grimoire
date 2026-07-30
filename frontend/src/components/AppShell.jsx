@@ -20,6 +20,7 @@ import AudioDetailView from './audio/AudioDetailView'
 import SearchView from '../views/SearchView'
 import SettingsView from '../views/SettingsView'
 import FavoritesView from '../views/FavoritesView'
+import TagsView from '../views/TagsView'
 import CampaignsView from '../views/CampaignsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
@@ -146,6 +147,7 @@ export default function AppShell() {
               <Route path="/audio/:audioId" element={<AudioDetailView />} />
               <Route path="/search" element={<SearchView />} />
               <Route path="/favorites" element={<FavoritesView />} />
+              <Route path="/tags" element={<TagsView />} />
               <Route path="/campaigns" element={<CampaignsView />} />
               <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />

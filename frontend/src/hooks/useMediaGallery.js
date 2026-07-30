@@ -3,14 +3,22 @@ import api from '../api'
 import useSessionState from './useSessionState'
 import useViewMode from './useViewMode'
 import useBulkSelection from './useBulkSelection'
-import { getUserPrefs } from './useUserPrefs'
+import useSavedFilters from './useSavedFilters'
 import { useFavorites } from '../context/FavoritesContext'
+// (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
 import { getFolderPath, getTopFolder, getSubPath } from '../components/media/mediaConfig'
+
+const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
 
 /**
  * All shared data, filtering, grouping, and bulk-edit logic for a media gallery
- * (maps, tokens, …). Driven by a `config` entry from mediaConfig.js so the
- * MapsView and TokensView reduce to thin wrappers around the returned state.
+ * (maps, tokens, audio). Driven by a `config` entry from mediaConfig.js so the
+ * MapsView / TokensView / AudioView reduce to thin wrappers around the returned
+ * state.
+ *
+ * Sort/filter flows through the shared SortFilterBar state (server-backed saved
+ * presets, scope = config.collection). `filters` holds search/tags/favorites;
+ * folder grouping is toggleable (flat list when off).
  */
 export default function useMediaGallery(config) {
   const { type, collection, foldersUrl, listUrl, itemUrl, sessionKey } = config
@@ -18,13 +26,42 @@ export default function useMediaGallery(config) {
 
   const [data, setData] = useState(null)
   const [folderTags, setFolderTags] = useState({})
-  const [filter, setFilter] = useState('')
-  const [selectedTags, setSelectedTags] = useState(new Set())
-  const [favOnly, setFavOnly] = useState(false)
+  const [sortFilter, setSortFilter] = useState(DEFAULT_SORT_FILTER)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  const [grouped, setGrouped] = useSessionState(`${sessionKey}:grouped`, true)
   const [viewMode, cycleViewMode] = useViewMode(type)
   const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [bulkApplying, setBulkApplying] = useState(false)
+
+  const savedFilters = useSavedFilters(collection)
+
+  // Apply the user's default preset for this scope once, after it loads.
+  useEffect(() => {
+    if (savedFilters.loaded && !defaultApplied) {
+      if (savedFilters.defaultFilter?.state) setSortFilter(savedFilters.defaultFilter.state)
+      setDefaultApplied(true)
+    }
+  }, [savedFilters.loaded, savedFilters.defaultFilter, defaultApplied])
+
+  // Backward-compatible derived filter values from the unified state.
+  const activeFilters = sortFilter.filters || {}
+  const filter = activeFilters.search || ''
+  const favOnly = activeFilters.favorites === true
+  const selectedTags = new Set((activeFilters.tags || []).map((tg) => tg.toLowerCase()))
+  const setFilter = (v) =>
+    setSortFilter((s) => ({ ...s, filters: { ...s.filters, search: v || undefined } }))
+  const toggleTag = (tag) =>
+    setSortFilter((s) => {
+      const cur = s.filters.tags || []
+      const lower = tag.toLowerCase()
+      const next = cur.some((tg) => tg.toLowerCase() === lower)
+        ? cur.filter((tg) => tg.toLowerCase() !== lower)
+        : [...cur, tag]
+      return { ...s, filters: { ...s.filters, tags: next.length ? next : undefined } }
+    })
+  const clearTags = () =>
+    setSortFilter((s) => ({ ...s, filters: { ...s.filters, tags: undefined } }))
 
   const bulk = useBulkSelection()
   const { selectedIds, selectedFolderPaths, count: totalSelected } = bulk
@@ -66,13 +103,6 @@ export default function useMediaGallery(config) {
     await api.patch(foldersUrl, { path, tags })
     setFolderTags((prev) => ({ ...prev, [path]: tags }))
   }
-
-  const toggleTag = (tag) =>
-    setSelectedTags((prev) => {
-      const next = new Set(prev)
-      next.has(tag) ? next.delete(tag) : next.add(tag)
-      return next
-    })
 
   const applyBulkTags = async (newTags) => {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
@@ -155,6 +185,18 @@ export default function useMediaGallery(config) {
     return textMatch && tagMatch && favMatch
   })
 
+  // Item comparator from the sort/order state. `name` sorts by filename; `size`
+  // by file size (audio also supports `duration` and `title`).
+  const { sort = 'name', order = 'asc' } = sortFilter
+  const dir = order === 'desc' ? -1 : 1
+  const itemCmp = {
+    name: (a, b) => (a.filename || '').localeCompare(b.filename || ''),
+    title: (a, b) => (a.title || a.filename || '').localeCompare(b.title || b.filename || ''),
+    size: (a, b) => (a.file_size || 0) - (b.file_size || 0),
+    duration: (a, b) => (a.duration || 0) - (b.duration || 0),
+  }
+  const sortItems = (arr) => [...arr].sort((a, b) => dir * (itemCmp[sort] || itemCmp.name)(a, b))
+
   const byFolder = {}
   filtered.forEach((item) => {
     const folder = getTopFolder(item)
@@ -164,16 +206,25 @@ export default function useMediaGallery(config) {
     byFolder[folder][subPath].push(item)
   })
 
-  const prefs = getUserPrefs()
-  const sort = prefs.librarySort || 'az'
-  const folderEntries = Object.entries(byFolder).sort(([a], [b]) =>
-    sort === 'za' ? b.localeCompare(a) : a.localeCompare(b)
-  )
+  // Folders are ordered by name/order; items within a subfolder use the sort.
+  const folderEntries = Object.entries(byFolder)
+    .map(([folder, subfolders]) => {
+      const sortedSubs = {}
+      for (const [sub, group] of Object.entries(subfolders)) sortedSubs[sub] = sortItems(group)
+      return [folder, sortedSubs]
+    })
+    .sort(([a], [b]) => dir * a.localeCompare(b))
 
-  // Flat ordered list of visible ids, for shift-range selection.
-  const orderedIds = folderEntries.flatMap(([, subfolders]) =>
-    Object.values(subfolders).flatMap((group) => group.map((i) => i.id))
-  )
+  // Flat sorted item list (used when folder grouping is turned off).
+  const flatItems = sortItems(filtered)
+
+  // Flat ordered list of visible ids, for shift-range selection. Matches the
+  // on-screen order: grouped → by folder; flat → the single sorted list.
+  const orderedIds = grouped
+    ? folderEntries.flatMap(([, subfolders]) =>
+        Object.values(subfolders).flatMap((group) => group.map((i) => i.id))
+      )
+    : flatItems.map((i) => i.id)
   const toggleSelect = (id, mods = {}) => bulk.toggleItem(id, { ...mods, orderedIds })
 
   // Collapse/expand-all affordance state.
@@ -195,14 +246,19 @@ export default function useMediaGallery(config) {
     // raw + status
     data,
     folderTags,
-    // filter state
+    // sort/filter state (shared SortFilterBar)
+    sortFilter,
+    setSortFilter,
+    savedFilters,
+    grouped,
+    setGrouped,
+    // backward-compatible derived filter values
     filter,
     setFilter,
     selectedTags,
     toggleTag,
-    clearTags: () => setSelectedTags(new Set()),
+    clearTags,
     favOnly,
-    setFavOnly,
     allTags,
     // view state
     viewMode,
@@ -215,8 +271,9 @@ export default function useMediaGallery(config) {
     editingFolder,
     setEditingFolder,
     saveFolderTags,
-    // grouped data
+    // grouped + flat data
     folderEntries,
+    flatItems,
     // collapse-all affordances
     allKeys,
     noFolders,

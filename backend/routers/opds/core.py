@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from ...config import get_db
 from ...models import Book, User
+from ...services import tag_service
 
 
 _ATOM_NS = 'xmlns="http://www.w3.org/2005/Atom"'
@@ -45,7 +46,7 @@ def _resolve_user(db, token: str) -> User:
     return user
 
 
-def _book_to_entry(book: Book, token: str, base_url: str) -> str:
+def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> str:
     """Render a single Book as an OPDS Atom <entry>."""
     title = escape(book.title or "Untitled")
     authors = book.authors or []
@@ -69,7 +70,7 @@ def _book_to_entry(book: Book, token: str, base_url: str) -> str:
         )
 
     tags_xml = "".join(
-        f"<category term={escape(repr(t))}/>" for t in (book.tags or [])
+        f"<category term={escape(repr(t))}/>" for t in tags
     )
 
     return (
@@ -150,7 +151,8 @@ def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
         f'<link rel="up" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
     )
 
-    entries = "".join(_book_to_entry(b, token, base_url) for b in books)
+    book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
+    entries = "".join(_book_to_entry(b, token, base_url, book_tags.get(b.id, [])) for b in books)
     body = _feed_wrapper("All Books", feed_url, updated, links, entries)
     return Response(content=body, media_type=_ACQUISITION_TYPE)
 
@@ -175,7 +177,9 @@ def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Respo
         f'<link rel="up" href="{escape(root_url)}/all" type="{_ACQUISITION_TYPE}"/>'
     )
 
-    entry = _book_to_entry(book, token, base_url)
+    entry = _book_to_entry(
+        book, token, base_url, tag_service.display_tags_for_resource(db, "book", book.id)
+    )
     body = _feed_wrapper(book.title or "Book", feed_url, updated, links, entry)
     return Response(content=body, media_type=_ACQUISITION_TYPE)
 

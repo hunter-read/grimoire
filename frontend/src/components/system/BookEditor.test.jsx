@@ -10,7 +10,12 @@ const mockPatch = vi.fn(() => Promise.resolve({}))
 vi.mock('../../api', () => ({
   default: {
     patch: (...args) => mockPatch(...args),
+    // useLookups loads the genre tree on mount.
+    get: (path) => Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] }),
+    post: () => Promise.resolve({}),
   },
+  // TagPicker loads the tag catalog.
+  tags: { list: () => Promise.resolve({ tags: [] }) },
 }))
 
 const mockGetBookPrefs = vi.fn(() => ({}))
@@ -18,17 +23,6 @@ const mockSaveBookPrefs = vi.fn()
 vi.mock('../../hooks/useBookPrefs', () => ({
   getBookPrefs: (...args) => mockGetBookPrefs(...args),
   saveBookPrefs: (...args) => mockSaveBookPrefs(...args),
-}))
-
-// InlineTagEditor is exercised elsewhere; render a minimal stub that lets us
-// drive its onSave/onCancel callbacks.
-vi.mock('../maps/InlineTagEditor', () => ({
-  default: ({ onSave, onCancel }) => (
-    <div>
-      <button onClick={() => onSave(['fantasy'])}>stub-save-tag</button>
-      <button onClick={onCancel}>stub-cancel-tag</button>
-    </div>
-  ),
 }))
 
 function makeBook(overrides = {}) {
@@ -66,36 +60,29 @@ describe('BookEditor category combobox', () => {
     mockSaveBookPrefs.mockClear()
   })
 
-  const categoryInput = () => screen.getByLabelText('bookEditor.categoryLabel')
+  const categoryInput = () => screen.getByRole('combobox', { name: 'bookEditor.categoryLabel' })
 
-  it('renders category as an editable combobox seeded with built-in and existing categories', () => {
+  it('renders category as a combobox showing the friendly label of the current slug', () => {
     renderEditor({ existingCategories: ['core', 'my-custom'] })
     const input = categoryInput()
     expect(input.tagName).toBe('INPUT')
-    expect(input).toHaveAttribute('list', 'book-category-options')
-    expect(input.value).toBe('core')
+    // Not editing → shows the friendly label for the "core" slug.
+    expect(input.value).toBe('Core Rulebooks')
 
-    const options = [...document.querySelectorAll('#book-category-options option')].map(
-      (o) => o.value
-    )
-    // Built-in defaults are present…
-    expect(options).toContain('core')
-    expect(options).toContain('homebrew')
-    // …and the custom category already in use is offered too, without duplicates.
-    expect(options).toContain('my-custom')
-    expect(options.filter((v) => v === 'core')).toHaveLength(1)
+    // Focusing opens the option list with built-in + custom categories.
+    fireEvent.focus(input)
+    const optionLabels = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(optionLabels).toContain('Core Rulebooks')
+    expect(optionLabels).toContain('Homebrew')
+    expect(optionLabels).toContain('my-custom')
   })
 
-  it('shows friendly labels for known categories in the datalist', () => {
-    renderEditor()
-    const coreOption = document.querySelector('#book-category-options option[value="core"]')
-    expect(coreOption.textContent).toBe('Core Rulebooks')
-  })
-
-  it('saves a selected default category as its slug', async () => {
+  it('saves a picked default category as its slug', async () => {
     const onSave = vi.fn()
     renderEditor({ onSave })
+    fireEvent.focus(categoryInput())
     fireEvent.change(categoryInput(), { target: { value: 'adventure' } })
+    fireEvent.click(screen.getByRole('option', { name: 'Adventures & Modules' }))
     fireEvent.click(screen.getByText('bookEditor.save'))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalled())
@@ -104,31 +91,27 @@ describe('BookEditor category combobox', () => {
     expect(onSave.mock.calls[0][0].category).toBe('adventure')
   })
 
-  it('saves a selected existing custom category', async () => {
+  it('saves a picked existing custom category', async () => {
     renderEditor({ existingCategories: ['screens'] })
+    fireEvent.focus(categoryInput())
     fireEvent.change(categoryInput(), { target: { value: 'screens' } })
+    fireEvent.click(screen.getByRole('option', { name: 'screens' }))
     fireEvent.click(screen.getByText('bookEditor.save'))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalled())
     expect(mockPatch.mock.calls[0][1].category).toBe('screens')
   })
 
-  it('slugifies a brand-new free-text category to match the backend', async () => {
+  it('creates a brand-new category, slugified to match the backend', async () => {
     renderEditor()
+    fireEvent.focus(categoryInput())
     fireEvent.change(categoryInput(), { target: { value: 'My Cool  Books!' } })
+    // The create row offers the free text; picking it stores the slug.
+    fireEvent.click(screen.getByRole('option', { name: /createCategory/ }))
     fireEvent.click(screen.getByText('bookEditor.save'))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalled())
     expect(mockPatch.mock.calls[0][1].category).toBe('my-cool-books')
-  })
-
-  it('falls back to core when the category is cleared', async () => {
-    renderEditor()
-    fireEvent.change(categoryInput(), { target: { value: '   ' } })
-    fireEvent.click(screen.getByText('bookEditor.save'))
-
-    await waitFor(() => expect(mockPatch).toHaveBeenCalled())
-    expect(mockPatch.mock.calls[0][1].category).toBe('core')
   })
 
   it('edits and persists the remaining metadata fields', async () => {
@@ -178,25 +161,29 @@ describe('BookEditor category combobox', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('edits tags through the inline editor and includes them on save', async () => {
+  it('adds tags via the tag picker and includes them on save', async () => {
     renderEditor({ book: { tags: ['existing'] } })
-    // Existing tag chip renders capitalized.
-    expect(screen.getByText('Existing')).toBeInTheDocument()
+    // Existing tag chip renders (as stored).
+    expect(screen.getByText('existing')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('bookEditor.editTags'))
-    fireEvent.click(screen.getByText('stub-save-tag'))
+    const tagInput = screen.getByRole('combobox', { name: 'tags.addTag' })
+    fireEvent.change(tagInput, { target: { value: 'fantasy' } })
+    fireEvent.keyDown(tagInput, { key: 'Enter' })
     fireEvent.click(screen.getByText('bookEditor.save'))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalled())
-    expect(mockPatch.mock.calls[0][1].tags).toEqual(['fantasy'])
+    expect(mockPatch.mock.calls[0][1].tags).toEqual(['existing', 'fantasy'])
   })
 
-  it('cancels tag editing without changing tags', () => {
+  it('does not save an uncommitted tag still in the input', async () => {
+    // The TagPicker commits on Enter; text left in the box is not persisted.
     renderEditor({ book: { tags: [] } })
-    fireEvent.click(screen.getByText('bookEditor.addTags'))
-    fireEvent.click(screen.getByText('stub-cancel-tag'))
-    // Back to the add-tags affordance.
-    expect(screen.getByText('bookEditor.addTags')).toBeInTheDocument()
+    const tagInput = screen.getByRole('combobox', { name: 'tags.addTag' })
+    fireEvent.change(tagInput, { target: { value: 'solo' } })
+    fireEvent.click(screen.getByText('bookEditor.save'))
+
+    await waitFor(() => expect(mockPatch).toHaveBeenCalled())
+    expect(mockPatch.mock.calls[0][1].tags).toEqual([])
   })
 
   it('resets reading progress when the book has progress', () => {

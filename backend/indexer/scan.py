@@ -30,13 +30,17 @@ from ..models import (
     GenericMap,
     Token,
 )
+from ..services import tag_service
 from ._subprocess import _run_with_timeout
 from .categories import (
     agnostic_category,
     folder_category_inference_disabled,
     guess_category,
+    is_one_page_folder,
+    is_special_collection_folder,
     is_system_agnostic_folder,
     slugify,
+    strip_sort_prefix,
 )
 from .constants import (
     ARCHIVE_EXTS,
@@ -177,6 +181,10 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
         raw_name = system_dir.name
         is_nsfw = bool(re.search(r"\(nsfw\)", raw_name, re.IGNORECASE))
         system_name = re.sub(r"\s*\(nsfw\)\s*", "", raw_name, flags=re.IGNORECASE).strip()
+        # Strip any leading sort-order prefix (!$%) people use to steer their file
+        # browser's alphabetical ordering — "!!Dungeons & Dragons" → "Dungeons & Dragons".
+        # This must happen before slug/name/special-collection derivation.
+        system_name = strip_sort_prefix(system_name)
         system_slug = slugify(system_name)
 
         logger.debug(f"DB: querying system '{system_slug}'")
@@ -191,6 +199,10 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             stats["errors"] += 1
             continue
         is_agnostic = is_system_agnostic_folder(system_name)
+        is_one_page = is_one_page_folder(system_name)
+        # Both special collections (agnostic + one-page) use immediate-subfolder
+        # names as category labels rather than CATEGORY_MAP inference.
+        is_special = is_special_collection_folder(system_name)
         # Per-system opt-out: a marker file at the system root disables
         # folder-name category inference for just this system.
         system_category_off = category_inference_off or (
@@ -202,6 +214,7 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
                 slug=system_slug,
                 is_explicit=is_nsfw,
                 is_system_agnostic=is_agnostic,
+                is_one_page=is_one_page,
             )
             session.add(system)
             logger.debug(f"DB: flushing new system '{system_name}'")
@@ -220,6 +233,16 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             system.is_explicit = True
         if is_agnostic and not system.is_system_agnostic:
             system.is_system_agnostic = True
+        if is_one_page and not system.is_one_page:
+            system.is_one_page = True
+
+        # Folder cover convention: a cover.*/folder.* image at the system root
+        # becomes the system's cover (precedence: folder > uploaded > book cover).
+        # Stored library-relative so it survives moves of the whole library dir.
+        artwork = _find_folder_artwork(str(system_dir))
+        new_folder_cover = os.path.relpath(artwork, ctx.library_path) if artwork else ""
+        if (system.folder_cover_path or "") != new_folder_cover:
+            system.folder_cover_path = new_folder_cover
 
         # When scoped to a path deeper than the system dir, walk only that
         # subtree; otherwise walk the whole system.
@@ -229,7 +252,7 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             else system_dir
         )
         stop = _scan_books_in_system(
-            ctx, system, system_name, system_category_off, is_agnostic, walk_root
+            ctx, system, system_name, system_category_off, is_special, walk_root
         )
         if stop:
             return
@@ -240,10 +263,14 @@ def _scan_books_in_system(
     system: GameSystem,
     system_name: str,
     system_category_off: bool,
-    is_agnostic: bool,
+    is_special_collection: bool,
     walk_root: Path,
 ) -> bool:
-    """Walk one system's tree and register its books. Returns True if stop requested."""
+    """Walk one system's tree and register its books. Returns True if stop requested.
+
+    ``is_special_collection`` is True for the system-agnostic and one-page
+    collections, which label categories by immediate subfolder name.
+    """
     session = ctx.session
     ignore = ctx.ignore
     stats = ctx.stats
@@ -309,7 +336,7 @@ def _scan_books_in_system(
                 system,
                 system_name,
                 system_category_off,
-                is_agnostic,
+                is_special_collection,
                 root,
                 filename,
                 filepath,
@@ -334,7 +361,7 @@ def _register_book(
     system: GameSystem,
     system_name: str,
     system_category_off: bool,
-    is_agnostic: bool,
+    is_special_collection: bool,
     root: str,
     filename: str,
     filepath: str,
@@ -354,7 +381,16 @@ def _register_book(
         # requested (modes "missing"/"replace") — see _apply_opf_to_book.
         if ctx.metadata_mode in ("missing", "replace"):
             opf_meta = _find_opf_meta(root, filename)
-            if _apply_opf_to_book(existing, opf_meta, ctx.metadata_mode):
+            changed = _apply_opf_to_book(existing, opf_meta, ctx.metadata_mode)
+            # OPF ``tags`` are shared tags (issue #235), applied via the service.
+            # In "missing" mode only fill when the book has no tags yet.
+            opf_tags = opf_meta.get("tags")
+            if opf_tags:
+                current = tag_service.display_tags_for_resource(session, "book", existing.id)
+                if ctx.metadata_mode == "replace" or not current:
+                    tag_service.set_resource_tags(session, "book", existing.id, opf_tags)
+                    changed = True
+            if changed:
                 logger.debug(f"Refreshing metadata for '{filename}' (mode={ctx.metadata_mode})")
                 try:
                     _run_with_timeout(
@@ -384,7 +420,7 @@ def _register_book(
 
     if system_category_off:
         category = UNCATEGORIZED
-    elif is_agnostic:
+    elif is_special_collection:
         category = agnostic_category(relative_path)
     else:
         category = guess_category(relative_path)
@@ -420,7 +456,6 @@ def _register_book(
         description=opf_meta.get("description"),
         publisher=opf_meta.get("publisher"),
         year=opf_meta.get("year"),
-        tags=opf_meta.get("tags"),
     )
 
     # Commit the book record first so that if a subsequent
@@ -430,6 +465,11 @@ def _register_book(
     logger.debug(f"DB: committing new book '{filename}'")
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
+        # OPF ``subjects`` become shared tags on the book (issue #235).
+        opf_tags = opf_meta.get("tags")
+        if opf_tags:
+            tag_service.set_resource_tags(session, "book", book.id, opf_tags)
+            session.commit()
         stats["new_books"] += 1
         logger.info(f"Added book: {title} ({category}) in {system_name}")
     except TimeoutError as e:

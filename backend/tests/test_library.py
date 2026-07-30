@@ -1,5 +1,28 @@
 """Tests for library stats and scan endpoints."""
+from unittest.mock import patch
+
+import httpx
+import pytest
+
+from backend.routers.library import core as library_core
 from backend.tests.conftest import make_game_system, make_book
+
+
+@pytest.fixture(autouse=True)
+def _reset_release_cache():
+    """Clear the module-level release cache so tests don't leak state."""
+    library_core._latest_release_cache = (0.0, None)
+    yield
+    library_core._latest_release_cache = (0.0, None)
+
+
+def _mock_github(status_code=200, tag_name="v2.0.0"):
+    """Build a fake httpx response for the GitHub releases endpoint."""
+    resp = httpx.Response(
+        status_code,
+        json={"tag_name": tag_name} if tag_name is not None else {},
+    )
+    return patch.object(library_core.httpx, "get", return_value=resp)
 
 
 class TestLibraryStats:
@@ -86,6 +109,47 @@ class TestAbout:
     def test_about_requires_auth(self, client):
         # No API-key fallback: the build info is login-only.
         assert client.get("/api/about").status_code == 401
+
+
+class TestLatestRelease:
+    def test_returns_version_from_github(self, client, player_headers):
+        with _mock_github(tag_name="v2.0.0"):
+            resp = client.get("/api/latest-release", headers=player_headers)
+        assert resp.status_code == 200
+        # Leading "v" is stripped for the frontend comparator.
+        assert resp.json() == {"latest_version": "2.0.0"}
+
+    def test_returns_null_on_github_404(self, client, player_headers):
+        # A repo with no published release returns 404 from GitHub.
+        with _mock_github(status_code=404, tag_name=None):
+            resp = client.get("/api/latest-release", headers=player_headers)
+        assert resp.status_code == 200
+        assert resp.json() == {"latest_version": None}
+
+    def test_returns_null_on_network_error(self, client, player_headers):
+        with patch.object(
+            library_core.httpx, "get", side_effect=httpx.ConnectError("boom")
+        ):
+            resp = client.get("/api/latest-release", headers=player_headers)
+        assert resp.status_code == 200
+        assert resp.json() == {"latest_version": None}
+
+    def test_result_is_cached(self, client, player_headers):
+        with _mock_github(tag_name="v2.0.0") as mock_get:
+            client.get("/api/latest-release", headers=player_headers)
+            client.get("/api/latest-release", headers=player_headers)
+        # Second call is served from the cache — GitHub hit only once.
+        assert mock_get.call_count == 1
+
+    def test_disabled_skips_github(self, client, player_headers):
+        with patch.object(library_core, "DISABLE_VERSION_CHECKING", True):
+            with _mock_github(tag_name="v2.0.0") as mock_get:
+                resp = client.get("/api/latest-release", headers=player_headers)
+        assert resp.json() == {"latest_version": None}
+        assert mock_get.call_count == 0
+
+    def test_requires_auth(self, client):
+        assert client.get("/api/latest-release").status_code == 401
 
 
 class TestScanStatus:

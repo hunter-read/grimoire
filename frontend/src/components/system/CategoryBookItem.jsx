@@ -29,6 +29,7 @@ export default function CategoryBookItem({
   setEditingBookId,
   allTags,
   existingCategories,
+  systemGenres,
   isEditor,
   onOpenBook,
   onSaveBook,
@@ -55,6 +56,7 @@ export default function CategoryBookItem({
           book={book}
           allTags={allTags}
           existingCategories={existingCategories}
+          systemGenres={systemGenres}
           onSave={(updated) => {
             onSaveBook(book.id, updated)
             setEditingBookId(null)

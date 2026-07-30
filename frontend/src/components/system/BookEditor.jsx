@@ -2,9 +2,15 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
-import InlineTagEditor from '../maps/InlineTagEditor'
 import { saveBookPrefs, getBookPrefs } from '../../hooks/useBookPrefs'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
+import GenrePicker from '../metadata/GenrePicker'
+import CategoryPicker from '../metadata/CategoryPicker'
+import LinkListEditor from '../metadata/LinkListEditor'
+import LookupCombobox from '../metadata/LookupCombobox'
+import TagPicker from '../metadata/TagPicker'
+import useLookups from '../metadata/useLookups'
+import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
 export default function BookEditor({
   book,
@@ -12,35 +18,51 @@ export default function BookEditor({
   onClose,
   allTags = [],
   existingCategories = [],
+  systemGenres = [],
 }) {
   const { t } = useTranslation()
+  const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
+  const licenseOptions = licenses.map((l) => l.name)
   const [form, setForm] = useState({
     title: book.title || '',
     description: book.description || '',
     authors: (book.authors || []).join(', '),
+    artists: (book.artists || []).join(', '),
+    genres: book.genres || [],
     publisher: book.publisher || '',
+    isbn: book.isbn || '',
+    version: book.version || '',
+    language: book.language || '',
+    license: book.license || '',
     year: book.year ? String(book.year) : '',
+    month: book.month ? String(book.month) : '',
+    day: book.day ? String(book.day) : '',
+    urls: linksForEditing(book.urls),
     category: book.category || 'core',
     is_explicit: book.is_explicit || false,
   })
   const [tags, setTags] = useState(book.tags || [])
-  const [editingTags, setEditingTags] = useState(false)
   const [saving, setSaving] = useState(false)
   const [progressReset, setProgressReset] = useState(false)
   const hasProgress = !!getBookPrefs(book.id).page
 
-  // Combobox options: built-in categories followed by any custom category slugs
-  // already used in the library (deduped, current value always included).
-  const categorySlugs = [
+  // Category combobox options: built-in categories (with friendly labels)
+  // followed by any custom category slugs already used in the library, deduped
+  // and always including the current value. `[{value, label}]`.
+  const categoryOptions = [
     ...new Set([...CATEGORY_ORDER, ...existingCategories, form.category].filter(Boolean)),
-  ]
+  ].map((slug) => ({ value: slug, label: categoryLabel(slug) }))
+
+  const fieldLabel = {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    display: 'block',
+    marginBottom: 3,
+  }
 
   const field = (label, key, opts = {}) => (
     <div style={{ marginBottom: 10 }}>
-      <label
-        htmlFor={`book-field-${key}`}
-        style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}
-      >
+      <label htmlFor={`book-field-${key}`} style={fieldLabel}>
         {label}
       </label>
       {opts.textarea ? (
@@ -63,45 +85,23 @@ export default function BookEditor({
     </div>
   )
 
-  // Editable combobox for Category: a text input backed by a <datalist> so users
-  // can pick a built-in/existing category (shown with its friendly label) or type
-  // a brand-new one. The typed value is slugified on save to match the backend.
-  const categoryField = () => (
-    <div style={{ marginBottom: 10 }}>
-      <label
-        htmlFor="book-field-category"
-        style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}
-      >
-        {t('bookEditor.categoryLabel')}
-      </label>
-      <input
-        id="book-field-category"
-        type="text"
-        list="book-category-options"
-        value={form.category}
-        onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-        style={{ width: '100%', fontSize: 13 }}
-      />
-      <datalist id="book-category-options">
-        {categorySlugs.map((slug) => (
-          <option key={slug} value={slug}>
-            {categoryLabel(slug)}
-          </option>
-        ))}
-      </datalist>
-    </div>
-  )
+  const splitCsv = (s) =>
+    s
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean)
 
   const handleSave = () => {
     setSaving(true)
     const payload = {
       ...form,
       category: slugify(form.category) || 'core',
-      authors: form.authors
-        .split(',')
-        .map((a) => a.trim())
-        .filter(Boolean),
+      authors: splitCsv(form.authors),
+      artists: splitCsv(form.artists),
+      urls: cleanLinks(form.urls),
       year: form.year ? parseInt(form.year) : null,
+      month: form.month ? parseInt(form.month) : null,
+      day: form.day ? parseInt(form.day) : null,
       tags,
     }
     api
@@ -148,28 +148,6 @@ export default function BookEditor({
         </button>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label
-          htmlFor="book-is-explicit"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            cursor: 'pointer',
-            width: 'fit-content',
-          }}
-        >
-          <input
-            id="book-is-explicit"
-            type="checkbox"
-            checked={form.is_explicit}
-            onChange={(e) => setForm((f) => ({ ...f, is_explicit: e.target.checked }))}
-            style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#e07070' }}
-          />
-          <span style={{ fontSize: 13, color: '#e07070' }}>{t('bookEditor.markExplicit')}</span>
-        </label>
-      </div>
-
       <div
         style={{
           display: 'grid',
@@ -180,61 +158,95 @@ export default function BookEditor({
         <div>
           {field(t('bookEditor.titleLabel'), 'title')}
           {field(t('bookEditor.descriptionLabel'), 'description', { textarea: true })}
+          {/* Category sits directly under the description. */}
+          <div style={{ marginBottom: 10 }}>
+            <label style={fieldLabel}>{t('bookEditor.categoryLabel')}</label>
+            <CategoryPicker
+              value={form.category}
+              onChange={(category) => setForm((f) => ({ ...f, category }))}
+              options={categoryOptions}
+            />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={fieldLabel}>{t('bookEditor.genresLabel')}</label>
+            <GenrePicker
+              genreTree={genreTree}
+              selected={form.genres}
+              onChange={(genres) => setForm((f) => ({ ...f, genres }))}
+              onGenreCreated={reloadLookups}
+              inheritGenres={systemGenres}
+            />
+          </div>
+          {/* Tags under genres, using the shared chip input. */}
+          <div style={{ marginBottom: 10 }}>
+            <label style={fieldLabel}>{t('bookEditor.tagsLabel')}</label>
+            <TagPicker
+              value={tags}
+              onChange={setTags}
+              resourceType="book"
+              placeholder={t('bookEditor.tagPlaceholder')}
+            />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={fieldLabel}>{t('bookEditor.urlsLabel')}</label>
+            <LinkListEditor
+              links={form.urls}
+              onChange={(urls) => setForm((f) => ({ ...f, urls }))}
+              addLabel={t('bookEditor.addUrl')}
+              labelPlaceholder={t('bookEditor.urlLabelPlaceholder')}
+              urlPlaceholder={t('bookEditor.urlPlaceholder')}
+              idPrefix="book-url"
+            />
+          </div>
         </div>
         <div>
-          {categoryField()}
           {field(t('bookEditor.authorsLabel'), 'authors')}
+          {field(t('bookEditor.artistsLabel'), 'artists')}
           {field(t('bookEditor.publisherLabel'), 'publisher')}
-          {field(t('bookEditor.yearLabel'), 'year')}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <label
-          style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}
-        >
-          {t('bookEditor.tagsLabel')}
-        </label>
-        {editingTags ? (
-          <InlineTagEditor
-            tags={tags}
-            onSave={setTags}
-            onCancel={() => setEditingTags(false)}
-            suggestions={allTags.filter((t) => !tags.includes(t))}
-          />
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontSize: 12,
-                  padding: '2px 8px',
-                  borderRadius: 10,
-                  background: 'rgba(201,168,76,0.15)',
-                  border: '1px solid var(--gold-dim)',
-                  color: 'var(--gold)',
-                }}
-              >
-                {tag.charAt(0).toUpperCase() + tag.slice(1)}
-              </span>
-            ))}
-            <button
-              onClick={() => setEditingTags(true)}
-              style={{
-                fontSize: 12,
-                padding: '2px 8px',
-                borderRadius: 10,
-                cursor: 'pointer',
-                background: 'none',
-                border: '1px solid var(--border)',
-                color: 'var(--text-muted)',
-              }}
-            >
-              {tags.length > 0 ? t('bookEditor.editTags') : t('bookEditor.addTags')}
-            </button>
+          {field(t('bookEditor.isbnLabel'), 'isbn')}
+          {field(t('bookEditor.versionLabel'), 'version')}
+          {field(t('bookEditor.languageLabel'), 'language')}
+          {/* Per-book license override (blank = inherit the system license). */}
+          <div style={{ marginBottom: 10 }}>
+            <label htmlFor="book-field-license" style={fieldLabel}>
+              {t('bookEditor.licenseLabel')}
+            </label>
+            <LookupCombobox
+              id="book-field-license"
+              value={form.license}
+              onChange={(v) => setForm((f) => ({ ...f, license: v }))}
+              options={licenseOptions}
+              placeholder={t('bookEditor.licensePlaceholder')}
+            />
           </div>
-        )}
+          {/* Flexible publication date: year (+ optional month/day). */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1 }}>{field(t('bookEditor.yearLabel'), 'year')}</div>
+            <div style={{ flex: 1 }}>{field(t('bookEditor.monthLabel'), 'month')}</div>
+            <div style={{ flex: 1 }}>{field(t('bookEditor.dayLabel'), 'day')}</div>
+          </div>
+          {/* Explicit flag lives here, in place of the former read-only file facts. */}
+          <label
+            htmlFor="book-is-explicit"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              width: 'fit-content',
+              marginTop: 4,
+            }}
+          >
+            <input
+              id="book-is-explicit"
+              type="checkbox"
+              checked={form.is_explicit}
+              onChange={(e) => setForm((f) => ({ ...f, is_explicit: e.target.checked }))}
+              style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#e07070' }}
+            />
+            <span style={{ fontSize: 13, color: '#e07070' }}>{t('bookEditor.markExplicit')}</span>
+          </label>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

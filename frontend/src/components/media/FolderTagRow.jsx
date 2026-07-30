@@ -24,6 +24,7 @@ export default function FolderTagRow({
   editing,
   canTag,
   i18n,
+  resourceType = null,
   fullLabels = false,
   onEdit,
   onSave,
@@ -31,7 +32,14 @@ export default function FolderTagRow({
 }) {
   const { t } = useTranslation()
   if (editing) {
-    return <InlineTagEditor tags={tags} onSave={onSave} onCancel={onCancel} />
+    return (
+      <InlineTagEditor
+        tags={tags}
+        onSave={onSave}
+        onCancel={onCancel}
+        resourceType={resourceType}
+      />
+    )
   }
   return (
     <>

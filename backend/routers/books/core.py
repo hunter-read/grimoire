@@ -15,6 +15,7 @@ from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...indexer import slugify
 from ...models import Book, GameSystem
+from ...services import tag_service
 from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
 from ._schemas import BookUpdate
 
@@ -89,9 +90,19 @@ def get_book(
         "page_count": book.page_count,
         "file_size": book.file_size,
         "authors": book.authors or [],
+        "artists": book.artists or [],
+        "genres": book.genres or [],
         "publisher": book.publisher,
         "publisher_url": book.publisher_url,
+        "urls": book.urls or [],
+        "isbn": book.isbn or "",
+        "version": book.version or "",
+        "language": book.language or "",
+        "license": book.license or "",
         "year": book.year,
+        "month": book.month,
+        "day": book.day,
+        "tags": tag_service.display_tags_for_resource(db, "book", book.id),
         "indexed": book.indexed,
         "index_failed": book.index_failed,
         "ocr_indexed": book.index_error == "ocr",
@@ -116,7 +127,12 @@ def update_book(
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    for field, value in data.model_dump(exclude_none=True).items():
+    payload = data.model_dump(exclude_none=True)
+    # Tags live in the shared-tag tables, not a column on the book (issue #235),
+    # so apply them via the service and keep them out of the setattr loop.
+    tag_service.sync_tags_from_payload(db, "book", book.id, payload)
+    payload.pop("tags", None)
+    for field, value in payload.items():
         setattr(book, field, value)
     db.commit()
     return {"status": "ok"}

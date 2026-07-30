@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import GenericMap, MapFolder
+from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
 from .._media_access import assert_media_access
@@ -45,6 +46,7 @@ def list_maps(
     else:
         total = q.count()
         maps = q.offset(offset).limit(limit).all()
+    map_tags = tag_service.display_tags_for_resources(db, "map", [m.id for m in maps])
     return {
         "total": total,
         "maps": [
@@ -53,7 +55,7 @@ def list_maps(
                 "filename": m.filename,
                 "relative_path": m.relative_path,
                 "description": m.description,
-                "tags": m.tags or [],
+                "tags": map_tags.get(m.id, []),
                 "map_type": m.map_type,
                 "file_size": m.file_size,
                 "has_thumbnail": m.has_thumbnail,
@@ -66,7 +68,12 @@ def list_maps(
 
 def list_map_folders(db: Session = Depends(get_db)):
     folders = db.query(MapFolder).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_map_folder(
@@ -74,13 +81,11 @@ def update_map_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    folder = db.query(MapFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = data.tags
-    else:
-        db.add(MapFolder(path=data.path, tags=data.tags))
+    # Register catalog rows (display casing lives there) and store internal keys
+    # on the folder, so a tags.json rescan can't revert user edits.
+    internals = tag_service.upsert_folder_tags(db, MapFolder, data.path, data.tags, category="map")
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def get_map(
@@ -100,9 +105,9 @@ def get_map(
         "filename": m.filename,
         "relative_path": m.relative_path,
         "folder_path": folder_path,
-        "folder_tags": folder.tags if folder else [],
+        "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
         "description": m.description,
-        "tags": m.tags or [],
+        "tags": tag_service.display_tags_for_resource(db, "map", m.id),
         "map_type": m.map_type,
         "grid_size": m.grid_size,
         "file_size": m.file_size,
@@ -200,7 +205,10 @@ def update_map(
     m = db.query(GenericMap).filter_by(id=map_id).first()
     if not m:
         raise HTTPException(404)
-    for field, value in data.model_dump(exclude_none=True).items():
+    payload = data.model_dump(exclude_none=True)
+    tag_service.sync_tags_from_payload(db, "map", m.id, payload)
+    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
+    for field, value in payload.items():
         setattr(m, field, value)
     db.commit()
     return {"status": "ok"}

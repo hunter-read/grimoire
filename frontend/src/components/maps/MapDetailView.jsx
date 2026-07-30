@@ -386,6 +386,7 @@ export default function MapDetailView() {
                   tags={currentFolderTags}
                   onSave={saveFolderTags}
                   onCancel={() => setEditingFolderTags(false)}
+                  resourceType="map"
                 />
               </div>
             ) : (
@@ -417,6 +418,7 @@ export default function MapDetailView() {
                 tags={map.tags}
                 onSave={saveMapTags}
                 onCancel={() => setEditingMapTags(false)}
+                resourceType="map"
               />
             </div>
           ) : (

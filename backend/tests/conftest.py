@@ -27,6 +27,20 @@ from backend.models import (  # noqa: E402
     Audio,
     Campaign,
 )
+from backend.services import tag_service  # noqa: E402
+
+
+def _sync_tags(resource_type: str, resource_id: str, tags) -> None:
+    """Mirror a factory's ``tags`` into the shared-tag tables, matching the app's
+    write path so join-table reads see them (tags now come from that table)."""
+    if not tags:
+        return
+    db = SessionLocal()
+    try:
+        tag_service.set_resource_tags(db, resource_type, resource_id, tags)
+        db.commit()
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -182,12 +196,14 @@ def make_game_system(**kwargs) -> GameSystem:
         description="",
     )
     defaults.update(kwargs)
+    tags = defaults.pop("tags", None)  # shared tags live in the join table now
     db = SessionLocal()
     system = GameSystem(**defaults)
     db.add(system)
     db.commit()
     db.refresh(system)
     db.close()
+    _sync_tags("system", system.id, tags)
     return system
 
 
@@ -202,12 +218,14 @@ def make_book(system_id: str, **kwargs) -> Book:
         category="core",
     )
     defaults.update(kwargs)
+    tags = defaults.pop("tags", None)
     db = SessionLocal()
     book = Book(**defaults)
     db.add(book)
     db.commit()
     db.refresh(book)
     db.close()
+    _sync_tags("book", book.id, tags)
     return book
 
 
@@ -219,12 +237,14 @@ def make_map(**kwargs) -> GenericMap:
         relative_path=f"map-{uid}.png",
     )
     defaults.update(kwargs)
+    tags = defaults.pop("tags", None)
     db = SessionLocal()
     m = GenericMap(**defaults)
     db.add(m)
     db.commit()
     db.refresh(m)
     db.close()
+    _sync_tags("map", m.id, tags)
     return m
 
 
@@ -236,12 +256,14 @@ def make_token(**kwargs) -> Token:
         relative_path=f"token-{uid}.png",
     )
     defaults.update(kwargs)
+    tags = defaults.pop("tags", None)
     db = SessionLocal()
     t = Token(**defaults)
     db.add(t)
     db.commit()
     db.refresh(t)
     db.close()
+    _sync_tags("token", t.id, tags)
     return t
 
 
@@ -255,12 +277,14 @@ def make_audio(**kwargs) -> Audio:
         title=f"Track {uid}",
     )
     defaults.update(kwargs)
+    tags = defaults.pop("tags", None)
     db = SessionLocal()
     a = Audio(**defaults)
     db.add(a)
     db.commit()
     db.refresh(a)
     db.close()
+    _sync_tags("audio", a.id, tags)
     return a
 
 

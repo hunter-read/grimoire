@@ -40,6 +40,21 @@ describe('WikiMarkdown', () => {
     expect(onOpenSlug).toHaveBeenCalledWith('the-castle')
   })
 
+  it('resolves links with German special characters (issue #252)', () => {
+    // ä/ö/ü/ß must survive slugification so the link matches the backend slug,
+    // which keeps Unicode letters (Python \w is Unicode-aware).
+    const onOpenSlug = vi.fn()
+    renderMd({
+      body: 'See [[Breitfuß]] and [[Zürich Straße]].',
+      pageSlugs: ['breitfuß', 'zürich-straße'],
+      onOpenSlug,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Breitfuß' }))
+    expect(onOpenSlug).toHaveBeenCalledWith('breitfuß')
+    fireEvent.click(screen.getByRole('button', { name: 'Zürich Straße' }))
+    expect(onOpenSlug).toHaveBeenCalledWith('zürich-straße')
+  })
+
   it('escapes backslashes in link text so they cannot break out of the link', () => {
     const onOpenSlug = vi.fn()
     // A trailing backslash in the label must not escape the closing bracket of

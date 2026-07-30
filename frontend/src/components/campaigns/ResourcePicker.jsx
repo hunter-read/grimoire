@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuSearch, LuBookOpen, LuTrash2 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { LuSearch, LuBookOpen, LuTrash2, LuTags } from 'react-icons/lu'
+import { campaigns, tags as tagsApi } from '../../api'
 import Spinner from '../Spinner'
 import ResourceGroup from './ResourceGroup'
 import { TYPE_ICONS, PICKER_TYPES, resourceKey, buildFolderTree } from './resourcesShared'
@@ -44,6 +44,10 @@ export default function ResourcePicker({
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('book')
   const [openKeys, setOpenKeys] = useState(() => new Set())
+  // "Add by tag" (issue #235.8): the loaded tag list and any add error.
+  const [tagList, setTagList] = useState([])
+  const [tagValue, setTagValue] = useState('')
+  const [tagAdding, setTagAdding] = useState(false)
 
   // Load books (optionally scoped to the campaign's system) plus every map,
   // token, and audio item, once. Empty query returns the full set per type; we
@@ -66,6 +70,53 @@ export default function ResourcePicker({
       cancelled = true
     }
   }, [systemId])
+
+  // Load the tag list once, for the "add by tag" picker.
+  useEffect(() => {
+    let cancelled = false
+    tagsApi
+      .list()
+      .then((r) => !cancelled && setTagList(r.tags || []))
+      .catch(() => !cancelled && setTagList([]))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Add every campaign-addable resource carrying the chosen tag to the selection
+  // (issue #235.8). Systems aren't campaign resources, so they're skipped; rows
+  // already selected or excluded are left as-is. Metadata (name) is enriched from
+  // the loaded resource set when available.
+  const addByTag = async (internal) => {
+    if (!internal || tagAdding) return
+    setTagAdding(true)
+    try {
+      const { items } = await tagsApi.items(internal)
+      const byKey = new Map((all || []).map((r) => [resourceKey(r), r]))
+      setSelected((prev) => {
+        const have = new Set(prev.map(resourceKey))
+        const additions = []
+        for (const it of items || []) {
+          if (!PICKER_TYPES.includes(it.item_type)) continue // skip systems
+          const key = `${it.item_type}:${it.item_id}`
+          if (have.has(key)) continue
+          if (excludeKeys && excludeKeys.has(key)) continue
+          const meta = byKey.get(key)
+          additions.push({
+            resource_type: it.item_type,
+            resource_id: it.item_id,
+            name: meta?.name || it.title || it.filename || it.item_id,
+            visibility: 'public',
+          })
+          have.add(key)
+        }
+        return additions.length ? [...prev, ...additions] : prev
+      })
+      setTagValue('')
+    } finally {
+      setTagAdding(false)
+    }
+  }
 
   // Pre-select core books for the campaign's system the first time resources
   // load (wizard only). Skipped once the user has picked anything.
@@ -180,6 +231,34 @@ export default function ResourcePicker({
           style={{ ...inputStyle, paddingLeft: 32 }}
         />
       </div>
+
+      {/* Add by tag (issue #235.8) */}
+      {tagList.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+          <LuTags size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <select
+            aria-label={t('campaignEditor.resources.addByTag')}
+            value={tagValue}
+            onChange={(e) => setTagValue(e.target.value)}
+            style={{ ...inputStyle, appearance: 'auto', flex: 1 }}
+          >
+            <option value="">{t('campaignEditor.resources.addByTag')}</option>
+            {tagList.map((tg) => (
+              <option key={tg.internal} value={tg.internal}>
+                {tg.display} ({tg.count})
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => addByTag(tagValue)}
+            disabled={!tagValue || tagAdding}
+            style={{ ...typeTab(false), opacity: !tagValue || tagAdding ? 0.5 : 1 }}
+          >
+            {t('campaignEditor.resources.addByTagButton')}
+          </button>
+        </div>
+      )}
 
       {/* Folder browser */}
       <div style={browserBox}>

@@ -183,9 +183,12 @@ def _files_for_system_category(
 def _files_for_book_folder(
     db, system_id: str, folder: str, see_explicit: bool
 ) -> tuple[list, str]:
-    """Books in a named subfolder within any category.
-    Path structure: books/{SystemName}/{categoryDir}/{folder}/...
-    The folder name is matched against path segment index 3 (0-based).
+    """Books in a nested subfolder within any category.
+    Path structure: books/{SystemName}/{categoryDir}/{folder...}/...
+    ``folder`` is the '/'-joined path of segments after the category dir (index 3
+    onward), so it matches arbitrarily deep nesting (e.g. "monsters/spelljammer").
+    Books deeper than the requested folder are included; their archive paths keep
+    the sub-hierarchy below ``folder`` so nesting is preserved on extraction.
     """
     system = db.query(GameSystem).filter_by(id=system_id).first()
     if not system:
@@ -195,14 +198,21 @@ def _files_for_book_folder(
     if not see_explicit:
         q = q.filter(Book.is_explicit != True)
 
-    def _in_folder(b: Book) -> bool:
+    target = [seg for seg in folder.replace("\\", "/").split("/") if seg]
+
+    def _subpath(b: Book) -> Optional[list[str]]:
+        """Segments after the category dir (parts[3:]), or None when the book
+        is not under ``folder``. Returns the arcname parts on a match."""
         parts = b.relative_path.replace("\\", "/").split("/")
-        return len(parts) > 4 and parts[3] == folder
+        sub = parts[3:]
+        if len(sub) <= len(target) or sub[: len(target)] != target:
+            return None
+        return sub[len(target):]
 
     files = [
-        (safe, _safe_arcname(b.filename))
+        (safe, _safe_arcname("/".join(rel)))
         for b in q.all()
-        if _in_folder(b) and (safe := _safe_filepath(b.filepath))
+        if (rel := _subpath(b)) is not None and (safe := _safe_filepath(b.filepath))
     ]
     return files, f"{_safe_name(system.name)}_{_safe_name(folder)}"
 

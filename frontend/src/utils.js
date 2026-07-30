@@ -15,6 +15,14 @@ export function formatDuration(seconds) {
   return `${m}:${ss}`
 }
 
+import { capitalizeWord } from './utils/acronyms'
+
+/**
+ * Humanize a slug/folder name for display: dashes/underscores become spaces and
+ * each word is capitalized, keeping well-known acronyms in canonical casing
+ * ("gm-tools" → "GM Tools").
+ */
 export function toTitleCase(str) {
-  return str.replace(/[-_]+/g, ' ').replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))
+  if (!str) return str
+  return str.replace(/[-_]+/g, ' ').replace(/\S+/g, capitalizeWord)
 }

@@ -6,7 +6,13 @@ import AudioView from './AudioView'
 import api from '../api'
 
 vi.mock('../api', () => ({
-  default: { get: vi.fn(), patch: vi.fn() },
+  default: {
+    get: vi.fn(),
+    patch: vi.fn(() => Promise.resolve({})),
+    post: vi.fn(() => Promise.resolve({})),
+    delete: vi.fn(() => Promise.resolve({})),
+  },
+  tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
@@ -71,6 +77,13 @@ function renderView() {
   )
 }
 
+// Favorites is now a checkbox inside the Filters modal (no toolbar button).
+async function toggleFavoritesFilter() {
+  await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+  await userEvent.click(screen.getByRole('checkbox', { name: /favorites/i }))
+  await userEvent.click(screen.getByRole('button', { name: /done/i }))
+}
+
 describe('AudioView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -118,7 +131,7 @@ describe('AudioView', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('fav.mp3')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText(/favorites only/i))
+    await toggleFavoritesFilter()
 
     expect(screen.getByText('fav.mp3')).toBeInTheDocument()
     expect(screen.queryByText('other.mp3')).not.toBeInTheDocument()

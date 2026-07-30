@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import get_db
 from ...models import Audio, AudioFolder
+from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import _extract_embedded_art, _find_folder_artwork
 from .._media_access import assert_media_access
@@ -25,13 +26,13 @@ _AUDIO_MIME = {
 }
 
 
-def _serialize(a: Audio) -> dict:
+def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
     return {
         "id": a.id,
         "filename": a.filename,
         "relative_path": a.relative_path,
         "description": a.description,
-        "tags": a.tags or [],
+        "tags": tags if tags is not None else [],
         "duration": a.duration or 0.0,
         "title": a.title or "",
         "artist": a.artist or "",
@@ -50,12 +51,21 @@ def list_audio(
     q = db.query(Audio)
     total = q.count()
     tracks = q.order_by(Audio.filename).offset(offset).limit(limit).all()
-    return {"total": total, "audio": [_serialize(a) for a in tracks]}
+    audio_tags = tag_service.display_tags_for_resources(db, "audio", [a.id for a in tracks])
+    return {
+        "total": total,
+        "audio": [_serialize(a, tags=audio_tags.get(a.id, [])) for a in tracks],
+    }
 
 
 def list_audio_folders(db: Session = Depends(get_db)):
     folders = db.query(AudioFolder).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_audio_folder(
@@ -63,13 +73,11 @@ def update_audio_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    folder = db.query(AudioFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = data.tags
-    else:
-        db.add(AudioFolder(path=data.path, tags=data.tags))
+    internals = tag_service.upsert_folder_tags(
+        db, AudioFolder, data.path, data.tags, category="audio"
+    )
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def get_audio(
@@ -84,9 +92,9 @@ def get_audio(
     folder_path = "/".join(Path(a.relative_path).parts[1:-1])
     folder = db.query(AudioFolder).filter_by(path=folder_path).first()
     return {
-        **_serialize(a),
+        **_serialize(a, tags=tag_service.display_tags_for_resource(db, "audio", a.id)),
         "folder_path": folder_path,
-        "folder_tags": folder.tags if folder else [],
+        "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
     }
 
 
@@ -140,7 +148,10 @@ def update_audio(
     a = db.query(Audio).filter_by(id=audio_id).first()
     if not a:
         raise HTTPException(404)
-    for field, value in data.model_dump(exclude_none=True).items():
+    payload = data.model_dump(exclude_none=True)
+    tag_service.sync_tags_from_payload(db, "audio", a.id, payload)
+    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
+    for field, value in payload.items():
         setattr(a, field, value)
     db.commit()
     return {"status": "ok"}

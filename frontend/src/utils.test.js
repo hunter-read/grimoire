@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatSize, formatDuration } from './utils'
+import { formatSize, formatDuration, toTitleCase } from './utils'
 
 describe('formatSize', () => {
   it('returns bytes for values under 1 KB', () => {
@@ -43,5 +43,23 @@ describe('formatDuration', () => {
     expect(formatDuration(null)).toBe('0:00')
     expect(formatDuration(undefined)).toBe('0:00')
     expect(formatDuration(59.6)).toBe('1:00')
+  })
+})
+
+describe('toTitleCase', () => {
+  it('replaces dashes/underscores and capitalizes words', () => {
+    expect(toTitleCase('battle-maps')).toBe('Battle Maps')
+    expect(toTitleCase('sound_effects')).toBe('Sound Effects')
+  })
+
+  it('keeps well-known acronyms in canonical casing', () => {
+    expect(toTitleCase('gm-tools')).toBe('GM Tools')
+    expect(toTitleCase('npc-portraits')).toBe('NPC Portraits')
+    expect(toTitleCase('one-page-rpgs')).toBe('One Page RPGs')
+  })
+
+  it('leaves an empty/falsey input untouched', () => {
+    expect(toTitleCase('')).toBe('')
+    expect(toTitleCase(undefined)).toBe(undefined)
   })
 })

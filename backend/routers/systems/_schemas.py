@@ -3,11 +3,18 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-from ._helpers import _normalize_tags
+from ...services import tag_service
 
 
 class PublisherEntry(BaseModel):
     name: str
+    url: str = ""
+
+
+class LinkEntry(BaseModel):
+    """A labeled link (generic URL or character-builder URL)."""
+
+    label: str = ""
     url: str = ""
 
 
@@ -17,21 +24,50 @@ class BookFolderUpdate(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v)
+    def dedupe_tags(cls, v):
+        # Keep the entered casing (dedupe by key); the book-folder handler
+        # registers catalog rows with this casing and stores internal keys.
+        return tag_service.dedupe_tags(v)
 
 
 class GameSystemUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     publishers: Optional[list[PublisherEntry]] = None
+    # Legacy single-value URL; still accepted for backward compatibility.
     character_builder_url: Optional[str] = None
+    character_builder_urls: Optional[list[LinkEntry]] = None
+    urls: Optional[list[LinkEntry]] = None
     tags: Optional[list[str]] = None
+    # Legacy single-value genre; still accepted. New clients send ``genres``.
     genre: Optional[str] = None
+    genres: Optional[list[str]] = None
+    dice_materials: Optional[list[str]] = None
+    system_family: Optional[str] = None
+    parent_system: Optional[str] = None
+    edition: Optional[str] = None
+    license: Optional[str] = None
+    year: Optional[int] = None
     cover_book_id: Optional[str] = None
     is_explicit: Optional[bool] = None
 
     @field_validator("tags", mode="before")
     @classmethod
-    def lowercase_tags(cls, v):
-        return _normalize_tags(v) if v is not None else v
+    def dedupe_tags(cls, v):
+        return tag_service.dedupe_tags(v) if v is not None else v
+
+    @field_validator("genres", "dice_materials", mode="before")
+    @classmethod
+    def strip_list(cls, v):
+        """Trim and drop empties, preserving case (genres are display values)."""
+        if v is None:
+            return v
+        seen: set[str] = set()
+        out: list[str] = []
+        for item in v:
+            s = str(item).strip()
+            key = s.lower()
+            if s and key not in seen:
+                seen.add(key)
+                out.append(s)
+        return out

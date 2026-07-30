@@ -14,7 +14,6 @@ class GenericMap(Base):
     filepath = Column(String(1000), nullable=False, unique=True)
     relative_path = Column(String(1000), nullable=False)
     description = Column(Text, default="")
-    tags = Column(JSON, default=list)
     map_type = Column(String(100), default="")
     grid_size = Column(String(50), default="")
     file_size = Column(Integer, default=0)
@@ -43,7 +42,6 @@ class Token(Base):
     filepath = Column(String(1000), nullable=False, unique=True)
     relative_path = Column(String(1000), nullable=False)
     description = Column(Text, default="")
-    tags = Column(JSON, default=list)
     is_explicit = Column(Boolean, default=False)
     file_size = Column(Integer, default=0)
     has_thumbnail = Column(Boolean, default=False)
@@ -71,7 +69,6 @@ class Audio(Base):
     filepath = Column(String(1000), nullable=False, unique=True)
     relative_path = Column(String(1000), nullable=False)
     description = Column(Text, default="")
-    tags = Column(JSON, default=list)
     # Embedded metadata (best-effort; populated by the indexer via mutagen).
     duration = Column(Float, default=0.0)  # seconds
     title = Column(String(500), default="")

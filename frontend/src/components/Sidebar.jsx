@@ -10,14 +10,15 @@ import {
   LuLogOut,
   LuUser,
   LuHeart,
+  LuTags,
   LuScroll,
   LuX,
   LuPanelLeftClose,
   LuPanelLeftOpen,
 } from 'react-icons/lu'
+import api from '../api'
 import AboutModal from './AboutModal'
 
-const GITHUB_REPO = 'hunter-read/grimoire'
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
 function useLatestRelease() {
@@ -25,14 +26,14 @@ function useLatestRelease() {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json' },
-      signal: AbortSignal.timeout(5000),
-    })
-      .then((r) => (r.ok ? r.json() : null))
+    // Proxied through our backend (same-origin) so privacy browsers and
+    // request blockers don't kill the update check. Returns null when version
+    // checking is disabled or GitHub is unreachable.
+    api
+      .get('/latest-release')
       .then((data) => {
-        if (!cancelled && data?.tag_name) {
-          setLatest(data.tag_name.replace(/^v/, ''))
+        if (!cancelled && data?.latest_version) {
+          setLatest(data.latest_version)
         }
       })
       .catch(() => {
@@ -188,17 +189,26 @@ export default function Sidebar({
         aria-label="Main navigation"
         style={{ padding: collapsed ? '12px 8px' : '12px 8px', flex: 1 }}
       >
+        {/* Group 1: library content (Library, Maps, Tokens, Audio) */}
         {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
         {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
         {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
-        {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
 
         {!isGuest && (
           <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
         )}
 
+        {/* Group 2: discovery (Search, Tags, Favorites) */}
+        {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
+        {!isGuest && navItem('/tags', <LuTags size={16} />, t('nav.tags'))}
         {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
+
+        {!isGuest && !hide_campaigns && (
+          <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
+        )}
+
+        {/* Group 3: campaigns (more items to be grouped here later) */}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
       </nav>
 

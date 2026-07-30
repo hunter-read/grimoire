@@ -10,7 +10,17 @@ vi.mock('./CategoryBookItem', () => ({
   default: ({ book }) => <div data-testid="book-item">{book.id}</div>,
 }))
 vi.mock('./BookFolderGroup', () => ({
-  default: ({ folder }) => <div data-testid="folder-group">{folder}</div>,
+  // Expose the immediate child folder names + path so tests can assert that a
+  // nested tree (not a flattened key) is built for the top-level group.
+  default: ({ folder, path, node }) => (
+    <div
+      data-testid="folder-group"
+      data-path={(path || []).join('/')}
+      data-children={Object.keys(node?.folders || {}).join(',')}
+    >
+      {folder}
+    </div>
+  ),
 }))
 
 const system = { id: 'sys1', name: 'D&D 5e' }
@@ -22,6 +32,10 @@ function flatBook(id) {
 function subfolderBook(id, folder) {
   // 5 segments → parts[3] is the subfolder
   return { id, title: id, relative_path: `books/D&D 5e/adventure/${folder}/${id}.pdf` }
+}
+function nestedBook(id, ...segs) {
+  // Arbitrary depth: books/D&D 5e/adventure/<seg1>/<seg2>/.../id.pdf
+  return { id, title: id, relative_path: `books/D&D 5e/adventure/${segs.join('/')}/${id}.pdf` }
 }
 
 function baseProps(overrides = {}) {
@@ -61,6 +75,45 @@ describe('SystemCategorySection', () => {
     expect(screen.getByText('(2)')).toBeInTheDocument()
   })
 
+  it('uses the original folder name for a custom category (not the slug)', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          cat: 'gm-tools',
+          books: [{ id: 'b1', title: 'b1', relative_path: 'books/D&D 5e/GM Tools/screen.pdf' }],
+        })}
+      />
+    )
+    expect(screen.getByText('GM Tools')).toBeInTheDocument()
+    expect(screen.queryByText(/gm-tools/i)).not.toBeInTheDocument()
+  })
+
+  it('humanizes the slug when the book path has no category folder', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          cat: 'gm-tools',
+          // relative_path with no category dir → fall back to a humanized slug.
+          books: [{ id: 'b1', title: 'b1', relative_path: 'books/D&D 5e/screen.pdf' }],
+        })}
+      />
+    )
+    expect(screen.getByText('GM Tools')).toBeInTheDocument()
+  })
+
+  it('labels the section "Books" for one-page RPG systems (ignoring the category)', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          cat: 'uncategorized',
+          system: { id: 'op', name: 'One-Page RPGs', is_one_page: true },
+        })}
+      />
+    )
+    expect(screen.getByText('Books')).toBeInTheDocument()
+    expect(screen.queryByText(/uncategorized/i)).not.toBeInTheDocument()
+  })
+
   it('renders a flat book list when no book has a subfolder', () => {
     render(<SystemCategorySection {...baseProps()} />)
     expect(screen.getAllByTestId('book-item')).toHaveLength(2)
@@ -78,6 +131,37 @@ describe('SystemCategorySection', () => {
     // The loose book renders as an ungrouped item; the subfolder as a group.
     expect(screen.getByTestId('folder-group')).toHaveTextContent('Monsters')
     expect(screen.getByTestId('book-item')).toHaveTextContent('loose')
+  })
+
+  it('builds one top-level group with a nested child folder for deeply nested books (issue #189)', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          books: [nestedBook('deep', 'Monsters', 'Spelljammer')],
+        })}
+      />
+    )
+    // A single top-level "Monsters" group, keyed by path, with "Spelljammer" nested
+    // beneath it — the deep segment is no longer flattened away.
+    const group = screen.getByTestId('folder-group')
+    expect(group).toHaveTextContent('Monsters')
+    expect(group).toHaveAttribute('data-path', 'Monsters')
+    expect(group).toHaveAttribute('data-children', 'Spelljammer')
+  })
+
+  it('groups books sharing a top-level folder under one group', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          books: [nestedBook('a', 'Monsters', 'Spelljammer'), subfolderBook('b', 'Monsters')],
+        })}
+      />
+    )
+    // Both books live under "Monsters", so there is exactly one top-level group.
+    const groups = screen.getAllByTestId('folder-group')
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toHaveTextContent('Monsters')
+    expect(groups[0]).toHaveAttribute('data-children', 'Spelljammer')
   })
 
   it('hides the body when collapsed', () => {

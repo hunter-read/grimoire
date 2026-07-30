@@ -91,6 +91,7 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 |----------|--------|------|-------------|
 | `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size |
 | `/api/about` | GET | any (JWT) | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so these details aren't readable via the `X-API-Key` fallback. |
+| `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
 | `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. |
 | `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode) |
 | `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job |
@@ -209,13 +210,19 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/systems` | GET | any | List all systems with book counts |
-| `/api/systems/:id` | GET | any | System detail + full book list |
+| `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool) |
+| `/api/systems/:id` | GET | any | System detail + full book list. Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books |
 | `/api/systems/:id` | PATCH | gm/admin | Update metadata (see fields below) |
 
-**PATCH fields:** `name`, `slug`, `description`, `publishers`, `character_builder_url`, `cover_image`, `cover_book_id`, `tags`, `genre`, `is_explicit`
+**PATCH fields:** `name`, `slug`, `description`, `publishers`, `character_builder_url` (legacy), `character_builder_urls`, `urls`, `cover_image`, `cover_book_id`, `tags`, `genre` (legacy), `genres`, `dice_materials`, `system_family`, `parent_system`, `edition`, `license`, `year`, `is_explicit`
 
 **Publishers format:** `[{"name": "Publisher Name", "url": "https://..."}]`
+
+**Link-list format** (`urls`, `character_builder_urls`): `[{"label": "DriveThruRPG", "url": "https://..."}]`
+
+**Multi-value metadata** (issue #202): `genres` and `dice_materials` are string arrays; `genres` supersedes the legacy single `genre`, and `urls`/`character_builder_urls` supersede the legacy single-URL fields (the legacy fields remain accepted for backward compatibility). Systems in the special one-page collection carry `is_one_page: true` (grouped with `is_system_agnostic` in the library UI).
+
+**Parent system / edition:** `parent_system` (e.g. `"Dungeons & Dragons"`) is the mid-tier grouping between the broad `system_family` (`"d20 System"`) and a concrete system; `edition` (`"5e"`, `"Red"`, `"2020"`) combines with it for display (`"Cyberpunk Red"`). Both are free-text; `parent_system` values are curated via the `/api/parent-systems` lookup. Both are filterable on `/api/systems`.
 
 ### Books
 
@@ -223,7 +230,7 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 |----------|--------|------|-------------|
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
 | `/api/books/:id` | GET | any | Book detail with game system |
-| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `publisher`, `publisher_url`, `year`, `is_explicit` |
+| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`. `license` overrides the system license for this book (blank inherits it). `file_size`/`page_count`/`mime_type` are read-only. |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background — poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
 | `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any PDF: a text-layer book is re-extracted and its FTS rows rebuilt; an image-only book is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed. Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for non-PDFs, 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
@@ -238,6 +245,34 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 **Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled — the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
 
 **Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
+
+### Metadata lookups (genres, families, parent systems, licenses, dice/materials)
+
+Curated reference values that power the editor pickers/comboboxes and the
+"Metadata" settings tab (issue #202). Reads are open to any authenticated user;
+mutations require admin. Every list is managed in **Settings → Metadata**, where
+each section is collapsible.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/genres` | GET | any | `{"genres": [{id, name, parent_id, is_default, sort_order}]}`. Tiered via `parent_id` (e.g. Cyberpunk → Science Fiction). |
+| `/api/genres` | POST | admin | Create a genre. Body `{name, parent_id?}`. 409 if the name exists. |
+| `/api/genres/:id` | DELETE | admin | Delete a genre (and its children). 409 with `{detail: {message, name, usage_count}}` if attached to a system/book, unless `?force=true`. |
+| `/api/system-families` | GET | any | `{"families": [{id, name, is_default, sort_order}]}` |
+| `/api/system-families` | POST | admin | Create a family. Body `{name}`. 409 if the name exists. |
+| `/api/system-families/:id` | DELETE | admin | Delete a family. 409 if in use unless `?force=true`. |
+| `/api/parent-systems` | GET | any | `{"parent_systems": [{id, name, is_default, sort_order}]}`. Empty by default (library-specific). |
+| `/api/parent-systems` | POST | admin | Create a parent system. Body `{name}`. 409 if the name exists. |
+| `/api/parent-systems/:id` | DELETE | admin | Delete a parent system. 409 if in use unless `?force=true`. |
+| `/api/licenses` | GET | any | `{"licenses": [{id, name, is_default, sort_order}]}`. Seeded with common TTRPG licenses (OGL, ORC, CC-BY, Proprietary, …). |
+| `/api/licenses` | POST | admin | Create a license. Body `{name}`. 409 if the name exists. |
+| `/api/licenses/:id` | DELETE | admin | Delete a license. 409 if used by a system or book unless `?force=true`. |
+| `/api/dice-materials` | GET | any | `{"dice_materials": [{id, name, group, is_default, sort_order}]}`. `group` is one of `Dice`\|`Cards`\|`Other`\|`Custom`. Sources the editor's dice/materials picker options. |
+| `/api/dice-materials` | POST | admin | Create a dice/material. Body `{name, group?}` (defaults to `Custom`). 409 if the name exists. The editor picker best-effort POSTs here (as group `Custom`) when an admin types a new value, so it becomes reusable. |
+| `/api/dice-materials/:id` | DELETE | admin | Delete a dice/material. 409 if in use unless `?force=true`. |
+
+Defaults for both tables are seeded on migration and are removable. A genre or
+family removed while attached to systems/books is detached from them (`?force=true`).
 
 ### Maps
 
@@ -288,7 +323,65 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/favorites` | POST | any | Add a favorite (idempotent). Body: `{item_type, item_id}` |
 | `/api/favorites/:type/:id` | DELETE | any | Remove a favorite (silent 204 if not found) |
 
-Item types: `book`, `map`, `token`, `audio`, `system`
+Item types: `book`, `map`, `token`, `audio`, `system`, `tag` (a `tag` favorite's
+`item_id` is the tag's internal key; it enriches to `{internal, display, count}`).
+
+### Tags
+
+Application-wide tags shared across systems, books, maps, tokens, and audio. Each
+tag has a lowercased **internal** key (used for matching/dedup) and an editable
+**display** value (the casing first entered). The internal key normally stays put,
+but a rename that changes the display's normalized form re-keys it (a typo fix like
+`freinds` → `friends`), merging into an existing tag if one already owns the new key.
+A resource's tags are set through its own update endpoint (e.g. `PATCH /api/books/:id`
+with `tags`); these endpoints manage the shared tag catalog and browse items by tag.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/tags` | GET | any | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
+| `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}` |
+| `/api/tags/:internal/items` | GET | any | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived — each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
+| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists — no 404). Body: `{display}` |
+| `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}` |
+| `/api/tags/:internal` | DELETE | gm/admin | Delete a tag and unlink it from every resource |
+
+Tag object shape: `{internal, display, category}` (list/item endpoints also include
+`count`; the list adds `is_favorite`). A tag's **category** is the single resource
+type it is used on (`system`/`book`/`map`/`token`/`audio`), or `shared` once it spans
+more than one type. The reported category is *effective*: it reconciles the tag's
+stored category (direct usage) with every resource type it appears on via folder tags,
+so a tag on a book plus a map folder resolves to `shared` even though folder tags never
+rewrite the stored row. Migrated tag displays default to Title Case; users favorite
+tags via the favorites endpoints (`item_type: "tag"`). Resource types: `system`,
+`book`, `map`, `token`, `audio`.
+
+Book subcategory folders are tagged via `PATCH /api/systems/:id/book-folders` (path
+`{system_id}/{category}/{subfolder…}`) and surface on the tags page under **Books**,
+alongside the `tags.json`-style folder tags on maps/tokens/audio.
+
+**Folder tags** (the JSON `tags` lists on `*_folders`/`book_folders`) store tag
+**internal keys**; their display casing comes from the tag catalog (folder read
+endpoints resolve them back to display strings). Saving folder tags registers a
+catalog row for each (new tags take the entered casing as their default display;
+existing tags keep theirs). Because the library is read-only, `tags.json` is an
+**additive** input: on rescan it only *adds* tags — it never removes a folder or
+item tag set/removed in the UI, and never overwrites an existing tag's display.
+
+### Saved filters
+
+Per-user named sort/filter presets for a library scope. At most one preset per
+(user, scope) may be the **default** — the view the user lands on. Setting a
+preset default clears the flag on any sibling in the same scope.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/saved-filters` | GET | any | List the user's saved filters. Optional query `scope` limits to one scope. Returns `{filters: [{id, scope, name, state, is_default}]}` |
+| `/api/saved-filters` | POST | any | Create a preset. Body `{scope, name, state, is_default?}`. Re-saving an existing `(scope, name)` overwrites its `state`. |
+| `/api/saved-filters/:id` | PATCH | any | Rename, replace `state`, and/or set as the scope default. Body `{name?, state?, is_default?}` |
+| `/api/saved-filters/:id` | DELETE | any | Delete one of the user's saved filters |
+
+Scopes: `systems`, `books`, `maps`, `tokens`, `audio`. `state` is an opaque
+sort/filter object the client interprets (e.g. `{sort, order, filters}`).
 
 ### Bookmarks
 

@@ -348,6 +348,21 @@ def core_subfolder_book(adventure_system):
     )
 
 
+@pytest.fixture(scope="module")
+def deep_nested_book(adventure_system):
+    """A book nested 2 levels deep: core/monsters/spelljammer/book.pdf (issue #189)."""
+    uid = uuid.uuid4().hex[:6]
+    path = _real_file(f"spelljammer_{uid}.pdf", b"%PDF-1.4 spelljammer")
+    return make_book(
+        system_id=adventure_system.id,
+        title=f"Spelljammer Monsters {uid}",
+        filename=os.path.basename(path),
+        filepath=path,
+        relative_path=f"books/AdventureSystem/core/monsters/spelljammer/{os.path.basename(path)}",
+        category="core",
+    )
+
+
 class TestDownloadValidation:
     def test_unknown_type_returns_400(self, client, admin_headers):
         resp = client.get(
@@ -749,6 +764,41 @@ class TestDownloadBookFolderZip:
             params={"type": "book_folder", "id": "no-such-system", "folder": "anything"},
         )
         assert resp.status_code == 404
+
+    def test_nested_folder_path_scopes_to_deep_folder(
+        self, client, admin_headers, adventure_system, deep_nested_book, core_subfolder_book
+    ):
+        """A '/'-joined nested folder path matches books 2+ levels deep (issue #189)."""
+        content = _get_archive(
+            client,
+            admin_headers,
+            {
+                "type": "book_folder",
+                "id": adventure_system.id,
+                "folder": "monsters/spelljammer",
+            },
+        )
+        names = _zip_names(content)
+        assert any(deep_nested_book.filename in n for n in names)
+        # The shallower monsters/ sibling must not be pulled in.
+        assert core_subfolder_book.filename not in names
+
+    def test_parent_folder_includes_nested_descendants(
+        self, client, admin_headers, adventure_system, deep_nested_book, core_subfolder_book
+    ):
+        """Downloading a parent folder includes books nested beneath it, and their
+        archive paths preserve the sub-hierarchy below the requested folder."""
+        content = _get_archive(
+            client,
+            admin_headers,
+            {"type": "book_folder", "id": adventure_system.id, "folder": "monsters"},
+        )
+        names = _zip_names(content)
+        assert any(core_subfolder_book.filename in n for n in names)
+        # Nested descendant is present and keeps its "spelljammer/" prefix.
+        assert any(
+            n.endswith(f"spelljammer/{deep_nested_book.filename}") for n in names
+        )
 
 
 # ---------------------------------------------------------------------------

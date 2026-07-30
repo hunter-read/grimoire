@@ -3,10 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ResourcePicker from './ResourcePicker'
-import { campaigns } from '../../api'
+import { campaigns, tags } from '../../api'
 
 vi.mock('../../api', () => ({
   campaigns: { searchResources: vi.fn() },
+  tags: {
+    list: vi.fn(() => Promise.resolve({ tags: [] })),
+    items: vi.fn(() => Promise.resolve({ items: [] })),
+  },
 }))
 
 // searchResources is called once per type (book, map, token, audio). Resolve
@@ -123,5 +127,66 @@ describe('ResourcePicker', () => {
     expect(screen.getByText('adventures')).toBeInTheDocument()
     expect(screen.queryByText('core')).not.toBeInTheDocument()
     expect(screen.queryByText("Player's Handbook")).not.toBeInTheDocument()
+  })
+
+  // --- Add by tag (issue #235.8) ---
+
+  describe('add by tag', () => {
+    beforeEach(() => {
+      tags.list.mockResolvedValue({
+        tags: [{ internal: 'strahd', display: 'Strahd', count: 2 }],
+      })
+    })
+
+    it('shows the tag picker only when tags exist', async () => {
+      tags.list.mockResolvedValueOnce({ tags: [] })
+      render(<Harness />)
+      await screen.findByRole('button', { name: 'Books' })
+      expect(screen.queryByLabelText(/add all with tag/i)).not.toBeInTheDocument()
+    })
+
+    it('adds every campaign-addable resource carrying the chosen tag', async () => {
+      tags.items.mockResolvedValue({
+        internal: 'strahd',
+        display: 'Strahd',
+        items: [
+          { item_type: 'book', item_id: 'b2' },
+          { item_type: 'map', item_id: 'm1' },
+          // A system is not a campaign resource and must be skipped.
+          { item_type: 'system', item_id: 's9' },
+        ],
+      })
+      render(<Harness />)
+      const select = await screen.findByLabelText(/add all with tag/i)
+      await userEvent.selectOptions(select, 'strahd')
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+      // Two addable resources land in the selection (the system is skipped).
+      expect(await screen.findByText('Selected (2)')).toBeInTheDocument()
+      expect(tags.items).toHaveBeenCalledWith('strahd')
+      // The book's real name is enriched from the loaded resource set.
+      expect(screen.getByText('Curse of Strahd')).toBeInTheDocument()
+    })
+
+    it('does not duplicate a resource already selected', async () => {
+      tags.items.mockResolvedValue({
+        internal: 'strahd',
+        display: 'Strahd',
+        items: [{ item_type: 'map', item_id: 'm1' }],
+      })
+      render(
+        <Harness
+          initial={[
+            { resource_type: 'map', resource_id: 'm1', name: 'Tavern', visibility: 'public' },
+          ]}
+        />
+      )
+      expect(await screen.findByText('Selected (1)')).toBeInTheDocument()
+      const select = await screen.findByLabelText(/add all with tag/i)
+      await userEvent.selectOptions(select, 'strahd')
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+      // Still exactly one selected map (no duplicate).
+      await waitFor(() => expect(tags.items).toHaveBeenCalled())
+      expect(screen.getByText('Selected (1)')).toBeInTheDocument()
+    })
   })
 })

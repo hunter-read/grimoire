@@ -3,7 +3,36 @@ from html import escape
 
 from sqlalchemy import String, cast, or_
 
-from ...models import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
+from ...models import (
+    Audio,
+    AudioFolder,
+    GenericMap,
+    MapFolder,
+    ResourceTag,
+    Tag,
+    Token,
+    TokenFolder,
+)
+from ...services import tag_service
+
+
+def _ids_matching_tag(db, resource_type: str, term: str) -> set:
+    """Ids of resources of ``resource_type`` whose shared tag matches ``term``.
+
+    Matches the tag's display OR internal value against the ILIKE ``term``
+    (``%q%``), so tag search works off the join table rather than the legacy JSON
+    column.
+    """
+    rows = (
+        db.query(ResourceTag.resource_id)
+        .join(Tag, Tag.id == ResourceTag.tag_id)
+        .filter(
+            ResourceTag.resource_type == resource_type,
+            or_(Tag.display.ilike(term), Tag.internal.ilike(term)),
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
 
 
 # FTS5 snippet() wraps matches in these sentinels rather than literal <mark>
@@ -55,14 +84,11 @@ _CATEGORY_PRIORITY = {
 
 def _search_maps(db, q: str) -> list:
     term = f"%{q}%"
+    # Filename matches, plus items whose shared tag matches the term.
+    tag_ids = _ids_matching_tag(db, "map", term)
     direct = (
         db.query(GenericMap)
-        .filter(
-            or_(
-                GenericMap.filename.ilike(term),
-                cast(GenericMap.tags, String).ilike(term),
-            )
-        )
+        .filter(or_(GenericMap.filename.ilike(term), GenericMap.id.in_(tag_ids)))
         .limit(50)
         .all()
     )
@@ -89,22 +115,25 @@ def _search_maps(db, q: str) -> list:
                 seen.add(m.id)
                 extra.append(m)
 
+    results = (direct + extra)[:50]
+    tags = tag_service.display_tags_for_resources(db, "map", [m.id for m in results])
     return [
-        {"id": m.id, "filename": m.filename, "relative_path": m.relative_path, "tags": m.tags}
-        for m in (direct + extra)[:50]
+        {
+            "id": m.id,
+            "filename": m.filename,
+            "relative_path": m.relative_path,
+            "tags": tags.get(m.id, []),
+        }
+        for m in results
     ]
 
 
 def _search_tokens(db, q: str) -> list:
     term = f"%{q}%"
+    tag_ids = _ids_matching_tag(db, "token", term)
     direct = (
         db.query(Token)
-        .filter(
-            or_(
-                Token.filename.ilike(term),
-                cast(Token.tags, String).ilike(term),
-            )
-        )
+        .filter(or_(Token.filename.ilike(term), Token.id.in_(tag_ids)))
         .limit(50)
         .all()
     )
@@ -127,14 +156,22 @@ def _search_tokens(db, q: str) -> list:
                 seen.add(t.id)
                 extra.append(t)
 
+    results = (direct + extra)[:50]
+    tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in results])
     return [
-        {"id": t.id, "filename": t.filename, "relative_path": t.relative_path, "tags": t.tags}
-        for t in (direct + extra)[:50]
+        {
+            "id": t.id,
+            "filename": t.filename,
+            "relative_path": t.relative_path,
+            "tags": tags.get(t.id, []),
+        }
+        for t in results
     ]
 
 
 def _search_audio(db, q: str) -> list:
     term = f"%{q}%"
+    tag_ids = _ids_matching_tag(db, "audio", term)
     direct = (
         db.query(Audio)
         .filter(
@@ -143,7 +180,7 @@ def _search_audio(db, q: str) -> list:
                 Audio.title.ilike(term),
                 Audio.artist.ilike(term),
                 Audio.album.ilike(term),
-                cast(Audio.tags, String).ilike(term),
+                Audio.id.in_(tag_ids),
             )
         )
         .limit(50)
@@ -168,13 +205,15 @@ def _search_audio(db, q: str) -> list:
                 seen.add(a.id)
                 extra.append(a)
 
+    results = (direct + extra)[:50]
+    tags = tag_service.display_tags_for_resources(db, "audio", [a.id for a in results])
     return [
         {
             "id": a.id,
             "filename": a.filename,
             "relative_path": a.relative_path,
             "title": a.title,
-            "tags": a.tags,
+            "tags": tags.get(a.id, []),
         }
-        for a in (direct + extra)[:50]
+        for a in results
     ]

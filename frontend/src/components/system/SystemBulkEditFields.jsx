@@ -3,15 +3,35 @@ import { useTranslation } from 'react-i18next'
 import { LuImage, LuX, LuPlus } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import LazyImg from '../LazyImg'
+import GenrePicker from '../metadata/GenrePicker'
+import LinkListEditor from '../metadata/LinkListEditor'
+import LookupCombobox from '../metadata/LookupCombobox'
+import TagPicker from '../metadata/TagPicker'
+import SingleSelectCombobox from '../metadata/SingleSelectCombobox'
+import DiceMaterialsPicker from '../metadata/DiceMaterialsPicker'
+import { groupsFromManaged } from '../metadata/diceMaterials'
+import useLookups from '../metadata/useLookups'
+import { linksForEditing } from '../metadata/metadataUtils'
 
 // Rich editor body for one system inside the bulk-edit carousel. Mirrors the
-// single-system SystemEditor: description, tag chips, publisher rows, character
-// builder URL, genre, explicit flag, and a cover picker sourced from the
-// system's own books (lazy-fetched, since the systems list doesn't carry them).
+// single-system SystemEditor so every field is editable in bulk: description,
+// system family, dice/materials, genres, tags, license, year, publishers,
+// generic + character-builder links, explicit flag, and a per-system cover
+// picker sourced from that system's own books (lazy-fetched, since the systems
+// list doesn't carry them).
 export default function SystemBulkEditFields({ system, draft, setField }) {
   const { t } = useTranslation()
-  const [tagInput, setTagInput] = useState('')
-  const tagInputRef = useRef(null)
+  const {
+    genres: genreTree,
+    families,
+    parentSystems,
+    licenses,
+    diceMaterials,
+    reload: reloadLookups,
+  } = useLookups()
+  const parentSystemOptions = parentSystems.map((p) => p.name)
+  const licenseOptions = licenses.map((l) => l.name)
+  const diceGroups = diceMaterials.length ? groupsFromManaged(diceMaterials) : undefined
   const [books, setBooks] = useState(system.books || null)
 
   // The systems list endpoint omits per-system books, so fetch them the first
@@ -38,21 +58,7 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
 
   const tags = draft.tags || []
   const publishers = draft.publishers || []
-
-  const commitTag = () => {
-    const tag = tagInput.trim().toLowerCase().replace(/,+$/, '')
-    if (tag && !tags.includes(tag)) setField('tags', [...tags, tag])
-    setTagInput('')
-  }
-
-  const handleTagKey = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      commitTag()
-    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-      setField('tags', tags.slice(0, -1))
-    }
-  }
+  const familyOptions = families.map((f) => f.name)
 
   const setPublisher = (idx, key, value) =>
     setField(
@@ -83,35 +89,100 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
         />
       </div>
 
+      {/* System Family under description. */}
+      <div>
+        <label style={label}>{t('systemEditor.systemFamily')}</label>
+        <LookupCombobox
+          id="sys-bulk-family"
+          value={draft.system_family || ''}
+          onChange={(v) => setField('system_family', v)}
+          options={familyOptions}
+          placeholder={t('systemEditor.systemFamilyPlaceholder')}
+        />
+      </div>
+
+      {/* Dice / Materials under System Family. */}
+      <div>
+        <label style={label}>{t('systemEditor.diceMaterials')}</label>
+        <DiceMaterialsPicker
+          selected={draft.dice_materials || []}
+          onChange={(v) => setField('dice_materials', v)}
+          groups={diceGroups}
+          onCreate={reloadLookups}
+        />
+      </div>
+
+      {/* Genres (shown before tags). */}
+      <div>
+        <label style={label}>{t('systemEditor.genres')}</label>
+        <GenrePicker
+          genreTree={genreTree}
+          selected={draft.genres || []}
+          onChange={(v) => setField('genres', v)}
+          onGenreCreated={reloadLookups}
+        />
+      </div>
+
       <div>
         <label style={label}>{t('systemEditor.tags')}</label>
-        <div onClick={() => tagInputRef.current?.focus()} style={tagBox}>
-          {tags.map((tag) => (
-            <span key={tag} style={tagChip}>
-              {tag}
-              <button
-                type="button"
-                onClick={() =>
-                  setField(
-                    'tags',
-                    tags.filter((x) => x !== tag)
-                  )
-                }
-                style={tagChipRemove}
-                aria-label={t('common.remove')}
-              >
-                <LuX size={10} />
-              </button>
-            </span>
-          ))}
+        <TagPicker
+          value={tags}
+          onChange={(v) => setField('tags', v)}
+          resourceType="system"
+          placeholder={t('systemEditor.tagPlaceholder')}
+        />
+      </div>
+
+      {/* Parent System (75%) + Edition (25%) above License + Year. */}
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ flex: 3 }}>
+          <label style={label}>{t('systemEditor.parentSystem')}</label>
+          <SingleSelectCombobox
+            id="sys-bulk-parent"
+            value={draft.parent_system || ''}
+            onChange={(v) => setField('parent_system', v)}
+            options={parentSystemOptions}
+            placeholder={t('systemEditor.parentSystemPlaceholder')}
+            createEndpoint="/parent-systems"
+            onCreate={reloadLookups}
+            createLabel={(name) => t('systemEditor.createParentSystem', { name })}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label htmlFor="sys-bulk-edition" style={label}>
+            {t('systemEditor.edition')}
+          </label>
           <input
-            ref={tagInputRef}
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={handleTagKey}
-            onBlur={commitTag}
-            placeholder={tags.length === 0 ? t('systemEditor.tagPlaceholder') : ''}
-            style={tagBoxInput}
+            id="sys-bulk-edition"
+            value={draft.edition || ''}
+            onChange={(e) => setField('edition', e.target.value)}
+            placeholder={t('systemEditor.editionPlaceholder')}
+            style={input}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label style={label}>{t('systemEditor.license')}</label>
+          <LookupCombobox
+            id="sys-bulk-license"
+            value={draft.license || ''}
+            onChange={(v) => setField('license', v)}
+            options={licenseOptions}
+            placeholder={t('systemEditor.licensePlaceholder')}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label htmlFor="sys-bulk-year" style={label}>
+            {t('systemEditor.year')}
+          </label>
+          <input
+            id="sys-bulk-year"
+            type="number"
+            value={draft.year ?? ''}
+            onChange={(e) => setField('year', e.target.value)}
+            style={input}
           />
         </div>
       </div>
@@ -157,28 +228,26 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
       </div>
 
       <div>
-        <label htmlFor="sys-bulk-cbuilder" style={label}>
-          {t('systemEditor.characterBuilderUrl')}
-        </label>
-        <input
-          id="sys-bulk-cbuilder"
-          type="text"
-          value={draft.character_builder_url || ''}
-          onChange={(e) => setField('character_builder_url', e.target.value)}
-          style={input}
+        <label style={label}>{t('systemEditor.urls')}</label>
+        <LinkListEditor
+          links={linksForEditing(draft.urls)}
+          onChange={(v) => setField('urls', v)}
+          addLabel={t('systemEditor.addUrl')}
+          labelPlaceholder={t('systemEditor.urlLabelPlaceholder')}
+          urlPlaceholder={t('systemEditor.urlPlaceholder')}
+          idPrefix="sys-bulk-url"
         />
       </div>
 
       <div>
-        <label htmlFor="sys-bulk-genre" style={label}>
-          {t('systemEditor.genre')}
-        </label>
-        <input
-          id="sys-bulk-genre"
-          type="text"
-          value={draft.genre || ''}
-          onChange={(e) => setField('genre', e.target.value)}
-          style={input}
+        <label style={label}>{t('systemEditor.characterBuilderUrls')}</label>
+        <LinkListEditor
+          links={linksForEditing(draft.character_builder_urls)}
+          onChange={(v) => setField('character_builder_urls', v)}
+          addLabel={t('systemEditor.addCharacterBuilder')}
+          labelPlaceholder={t('systemEditor.characterBuilderLabelPlaceholder')}
+          urlPlaceholder={t('systemEditor.urlPlaceholder')}
+          idPrefix="sys-bulk-cb-url"
         />
       </div>
 

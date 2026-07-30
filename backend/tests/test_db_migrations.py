@@ -61,20 +61,23 @@ class TestInitDb:
 
 
 class TestNormalizeTags:
-    def test_normalizes_audio_table_tags(self):
+    # Item tables no longer carry a JSON ``tags`` column (issue #235 moved item
+    # tags to the shared-tag tables), so normalization now only runs on the
+    # folder tables — these tests exercise that via ``audio_folders``.
+
+    def test_normalizes_folder_table_tags(self):
         path = _fresh_db()
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
                 text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a1', 'x.mp3', '/x.mp3', 'audio/x.mp3', :tags)"
+                    "INSERT INTO audio_folders (id, path, tags) VALUES ('n1', 'Sfx', :tags)"
                 ),
                 {"tags": json.dumps(["Ambient", "AMBIENT", "  Tavern  "])},
             )
             conn.commit()
             _normalize_tags_in_db(conn)
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a1'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n1'")).scalar()
         assert json.loads(raw) == ["ambient", "tavern"]
 
     def test_normalizes_audio_folder_tags(self):
@@ -99,15 +102,12 @@ class TestNormalizeTags:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a2', 'y.mp3', '/y.mp3', 'audio/y.mp3', :tags)"
-                ),
+                text("INSERT INTO audio_folders (id, path, tags) VALUES ('n2', 'A2', :tags)"),
                 {"tags": json.dumps({"not": "a list"})},
             )
             conn.commit()
             _normalize_tags_in_db(conn)  # must not raise
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a2'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n2'")).scalar()
         assert json.loads(raw) == {"not": "a list"}
 
     def test_already_normalized_tags_unchanged(self):
@@ -115,15 +115,12 @@ class TestNormalizeTags:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a3', 'z.mp3', '/z.mp3', 'audio/z.mp3', :tags)"
-                ),
+                text("INSERT INTO audio_folders (id, path, tags) VALUES ('n3', 'A3', :tags)"),
                 {"tags": json.dumps(["already", "clean"])},
             )
             conn.commit()
             _normalize_tags_in_db(conn)
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a3'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n3'")).scalar()
         assert json.loads(raw) == ["already", "clean"]
 
     def test_malformed_json_tags_are_skipped(self, caplog):
@@ -134,15 +131,12 @@ class TestNormalizeTags:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "INSERT INTO audio (id, filename, filepath, relative_path, tags) "
-                    "VALUES ('a4', 'b.mp3', '/b.mp3', 'audio/b.mp3', 'not-json{')"
-                )
+                text("INSERT INTO audio_folders (id, path, tags) VALUES ('n4', 'A4', 'not-json{')")
             )
             conn.commit()
             with caplog.at_level("WARNING", logger="grimoire.db"):
                 _normalize_tags_in_db(conn)  # must not raise
-            raw = conn.execute(text("SELECT tags FROM audio WHERE id='a4'")).scalar()
+            raw = conn.execute(text("SELECT tags FROM audio_folders WHERE id='n4'")).scalar()
         assert raw == "not-json{"
         assert any(
             "skipping tag normalization" in r.message.lower() for r in caplog.records
@@ -432,3 +426,80 @@ class TestOcrQueueMigration:
         init_db(path)  # must be a clean no-op, not "duplicate column" error
 
         assert _stamped_revision(path) == _alembic_head(path)
+
+
+class TestExpandMetadataMigration:
+    """Migration 0004: new columns, lookup seeds, and legacy backfill (#202)."""
+
+    def test_new_columns_present(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        insp = inspect(engine)
+        sys_cols = {c["name"] for c in insp.get_columns("game_systems")}
+        book_cols = {c["name"] for c in insp.get_columns("books")}
+        assert {
+            "genres",
+            "dice_materials",
+            "system_family",
+            "license",
+            "year",
+            "urls",
+            "character_builder_urls",
+            "is_one_page",
+        } <= sys_cols
+        assert {"artists", "genres", "isbn", "version", "language", "month", "day", "urls"} <= book_cols
+
+    def test_lookup_tables_seeded(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            genre_count = conn.execute(text("SELECT count(*) FROM genres")).scalar()
+            fam_count = conn.execute(text("SELECT count(*) FROM system_families")).scalar()
+            cyber = conn.execute(
+                text(
+                    "SELECT p.name FROM genres g JOIN genres p ON g.parent_id=p.id "
+                    "WHERE g.name='Cyberpunk'"
+                )
+            ).scalar()
+        assert genre_count > 0
+        assert fam_count > 0
+        assert cyber == "Science Fiction"
+
+    def test_legacy_backfill(self):
+        """genre → genres, character_builder_url → list, publisher_url → book urls."""
+        path = os.path.join(tempfile.mkdtemp(), "legacy.db")
+        engine = create_engine(f"sqlite:///{path}")
+        # Migrate up to the pre-0004 revision, insert legacy rows, then finish.
+        with engine.connect() as conn:
+            from alembic import command
+
+            cfg = _alembic_config(conn)
+            command.upgrade(cfg, "b2e5d3f0c8a1")
+            conn.commit()
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug, genre, character_builder_url) "
+                    "VALUES ('s1','S','s','Fantasy','http://b')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO books (id, title, filename, filepath, relative_path, publisher_url) "
+                    "VALUES ('b1','B','b.pdf','/b.pdf','b.pdf','http://p')"
+                )
+            )
+            conn.commit()
+        engine.dispose()
+
+        init_db(path)  # runs 0004 including backfill
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            g = conn.execute(
+                text("SELECT genres, character_builder_urls FROM game_systems WHERE id='s1'")
+            ).fetchone()
+            b = conn.execute(text("SELECT urls FROM books WHERE id='b1'")).fetchone()
+        assert json.loads(g[0]) == ["Fantasy"]
+        assert json.loads(g[1])[0]["url"] == "http://b"
+        assert json.loads(b[0])[0]["url"] == "http://p"

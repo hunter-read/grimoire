@@ -1,12 +1,20 @@
 """Library scan-status, rescan, and stats endpoints."""
 import sys
+import time
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from ...config import LIBRARY_PATH, VERSION, COMMIT_HASH, get_db
+from ...config import (
+    LIBRARY_PATH,
+    VERSION,
+    COMMIT_HASH,
+    DISABLE_VERSION_CHECKING,
+    get_db,
+)
 from ...models import GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
 from ...indexer import resolve_scope
@@ -89,6 +97,7 @@ def get_stats(
     return {
         "game_systems": db.query(GameSystem)
         .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
+        .filter(GameSystem.is_one_page != True)  # noqa: E712
         .count(),
         "books": db.query(Book).count(),
         "maps": db.query(GenericMap).count(),
@@ -115,3 +124,54 @@ def get_about(_: CurrentUser = Depends(get_current_user)):
         "commit_hash": COMMIT_HASH,
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
     }
+
+
+GITHUB_REPO = "hunter-read/grimoire"
+_LATEST_RELEASE_TTL = 3600  # seconds
+# (fetched_at, latest_version) — module-level cache so we proxy GitHub at most
+# once an hour regardless of how many clients poll.
+_latest_release_cache: tuple[float, Optional[str]] = (0.0, None)
+
+
+def _fetch_latest_release() -> Optional[str]:
+    """Return the newest release tag (without a leading ``v``), or ``None``.
+
+    Proxies GitHub's releases API server-side so the browser makes only a
+    same-origin request — third-party request blockers can't break the update
+    check. Any failure (network, rate limit, no releases) yields ``None``.
+    """
+    if DISABLE_VERSION_CHECKING:
+        return None
+    global _latest_release_cache
+    now = time.monotonic()
+    fetched_at, cached = _latest_release_cache
+    if cached is not None and now - fetched_at < _LATEST_RELEASE_TTL:
+        return cached
+    latest: Optional[str] = None
+    try:
+        resp = httpx.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=5.0,
+        )
+        if resp.status_code == 200:
+            tag = resp.json().get("tag_name")
+            if isinstance(tag, str) and tag:
+                latest = tag.lstrip("v")
+    except httpx.HTTPError:
+        latest = None
+    _latest_release_cache = (now, latest)
+    return latest
+
+
+@router.get(
+    "/latest-release",
+    summary="Latest published release",
+    description=(
+        "Returns the latest GitHub release version for the update-available check. "
+        "Proxied server-side (and cached) so the browser makes a same-origin request "
+        "that privacy browsers and request blockers won't block. Login required."
+    ),
+)
+def get_latest_release(_: CurrentUser = Depends(get_current_user)):
+    return {"latest_version": _fetch_latest_release()}

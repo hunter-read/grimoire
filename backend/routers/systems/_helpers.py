@@ -27,14 +27,3 @@ def resolve_cover_book_id(db, system) -> str | None:
         if auto:
             cover_book_id = auto.id
     return cover_book_id
-
-
-def _normalize_tags(tags: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for t in tags:
-        lowered = t.strip().lower()
-        if lowered and lowered not in seen:
-            seen.add(lowered)
-            result.append(lowered)
-    return result

@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 
 from ...config import THUMB_DIR, get_db
 from ...models import Token, TokenFolder
+from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import slugify
 from .._media_access import assert_media_access
@@ -32,6 +33,7 @@ def list_tokens(
         q = q.filter(Token.is_explicit != True)
     total = q.count()
     tokens = q.order_by(Token.filename).offset(offset).limit(limit).all()
+    token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
     return {
         "total": total,
         "tokens": [
@@ -40,7 +42,7 @@ def list_tokens(
                 "filename": t.filename,
                 "relative_path": t.relative_path,
                 "description": t.description,
-                "tags": t.tags or [],
+                "tags": token_tags.get(t.id, []),
                 "file_size": t.file_size,
                 "has_thumbnail": t.has_thumbnail,
                 "is_explicit": bool(t.is_explicit),
@@ -53,7 +55,12 @@ def list_tokens(
 
 def list_token_folders(db: Session = Depends(get_db)):
     folders = db.query(TokenFolder).all()
-    return {"folders": [{"path": f.path, "tags": f.tags or []} for f in folders]}
+    return {
+        "folders": [
+            {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
+            for f in folders
+        ]
+    }
 
 
 def update_token_folder(
@@ -61,13 +68,11 @@ def update_token_folder(
     _: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    folder = db.query(TokenFolder).filter_by(path=data.path).first()
-    if folder:
-        folder.tags = data.tags
-    else:
-        db.add(TokenFolder(path=data.path, tags=data.tags))
+    internals = tag_service.upsert_folder_tags(
+        db, TokenFolder, data.path, data.tags, category="token"
+    )
     db.commit()
-    return {"path": data.path, "tags": data.tags}
+    return {"path": data.path, "tags": internals}
 
 
 def get_token(
@@ -94,9 +99,9 @@ def get_token(
         "filename": t.filename,
         "relative_path": t.relative_path,
         "folder_path": folder_path,
-        "folder_tags": folder.tags if folder else [],
+        "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
         "description": t.description,
-        "tags": t.tags or [],
+        "tags": tag_service.display_tags_for_resource(db, "token", t.id),
         "file_size": t.file_size,
         "has_thumbnail": t.has_thumbnail,
         "is_explicit": bool(t.is_explicit),
@@ -152,7 +157,10 @@ def update_token(
     t = db.query(Token).filter_by(id=token_id).first()
     if not t:
         raise HTTPException(404)
-    for field, value in data.model_dump(exclude_none=True).items():
+    payload = data.model_dump(exclude_none=True)
+    tag_service.sync_tags_from_payload(db, "token", t.id, payload)
+    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
+    for field, value in payload.items():
         setattr(t, field, value)
     db.commit()
     return {"status": "ok"}

@@ -24,6 +24,7 @@ DB_PATH = os.path.join(DATA_PATH, "grimoire.db")
 THUMB_DIR = os.path.join(DATA_PATH, "thumbnails")
 PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 CAMPAIGN_UPLOAD_DIR = os.path.join(DATA_PATH, "campaign_uploads")
+SYSTEM_COVER_DIR = os.path.join(DATA_PATH, "system_covers")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
 
 # OCR: image-only PDFs (scanned pages with no embedded text layer) can be run
@@ -43,6 +44,13 @@ VALKEY_URL = os.environ.get("VALKEY_URL", "")
 #                     repeated OCR errors or OOMs, without pulling the slim image.
 OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
 OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
+
+# Set true to disable the "update available" check that proxies GitHub's
+# releases API. When disabled, /api/latest-release always returns null and no
+# outbound request to GitHub is ever made.
+DISABLE_VERSION_CHECKING = (
+    os.environ.get("DISABLE_VERSION_CHECKING", "false").lower() == "true"
+)
 
 
 def _read_ocr_concurrency() -> int:
@@ -307,6 +315,7 @@ os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "banners"), exist_ok=True)
 os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "art"), exist_ok=True)
 os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "sheets"), exist_ok=True)
 os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "files"), exist_ok=True)
+os.makedirs(SYSTEM_COVER_DIR, exist_ok=True)
 
 engine, SessionLocal = init_db(DB_PATH)
 
