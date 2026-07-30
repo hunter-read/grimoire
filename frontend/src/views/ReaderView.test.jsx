@@ -117,11 +117,13 @@ describe('ReaderView — jump navigation history behaviour', () => {
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
     })
+    // Page navigation persists the page via setSearchParams. Wait for the
+    // page-change effect to flush rather than asserting synchronously, since
+    // the keydown handler re-registers on each currentPage render.
+    await waitFor(() => expect(mockSetSearchParams).toHaveBeenCalled())
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
     })
-    // Page navigation persists the page via setSearchParams.
-    expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
   it('the "?" key toggles the shortcuts overlay', async () => {
