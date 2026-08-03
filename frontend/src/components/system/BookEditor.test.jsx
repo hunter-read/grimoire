@@ -7,11 +7,14 @@ vi.mock('react-i18next', () => ({
 }))
 
 const mockPatch = vi.fn(() => Promise.resolve({}))
+const mockGet = vi.fn((path) =>
+  Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+)
 vi.mock('../../api', () => ({
   default: {
     patch: (...args) => mockPatch(...args),
     // useLookups loads the genre tree on mount.
-    get: (path) => Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] }),
+    get: (...args) => mockGet(...args),
     post: () => Promise.resolve({}),
   },
   // TagPicker loads the tag catalog.
@@ -56,6 +59,12 @@ describe('BookEditor category combobox', () => {
   beforeEach(() => {
     mockPatch.mockClear()
     mockPatch.mockResolvedValue({})
+    // Reset to the default lookup responses; the metadata-source tests below
+    // override this per case.
+    mockGet.mockReset()
+    mockGet.mockImplementation((path) =>
+      Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+    )
     mockGetBookPrefs.mockReturnValue({})
     mockSaveBookPrefs.mockClear()
   })
@@ -192,5 +201,44 @@ describe('BookEditor category combobox', () => {
     fireEvent.click(screen.getByText('bookEditor.resetProgress'))
     expect(mockSaveBookPrefs).toHaveBeenCalledWith('book-9', { page: null })
     expect(screen.getByText(/bookEditor.progressReset/)).toBeInTheDocument()
+  })
+
+  describe('fetch metadata trigger', () => {
+    const withSources = (sources) =>
+      mockGet.mockImplementation((path) => {
+        if (path.includes('metadata-sources')) return Promise.resolve({ sources })
+        return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+      })
+
+    it('is hidden when no metadata source is installed', async () => {
+      withSources([])
+      renderEditor()
+      await waitFor(() => expect(mockGet).toHaveBeenCalled())
+      expect(screen.queryByText('bookEditor.fetchMetadata')).toBeNull()
+    })
+
+    it('appears once a source is available', async () => {
+      withSources([{ id: 'drivethrurpg', name: 'DriveThruRPG' }])
+      renderEditor()
+      expect(await screen.findByText('bookEditor.fetchMetadata')).toBeInTheDocument()
+    })
+
+    it('stays hidden when the sources lookup fails', async () => {
+      // A backend without the add-on routes must not break the editor.
+      mockGet.mockImplementation((path) => {
+        if (path.includes('metadata-sources')) return Promise.reject(new Error('nope'))
+        return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+      })
+      renderEditor()
+      await waitFor(() => expect(mockGet).toHaveBeenCalled())
+      expect(screen.queryByText('bookEditor.fetchMetadata')).toBeNull()
+    })
+
+    it('opens the fetch dialog', async () => {
+      withSources([{ id: 'drivethrurpg', name: 'DriveThruRPG' }])
+      renderEditor()
+      fireEvent.click(await screen.findByText('bookEditor.fetchMetadata'))
+      expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    })
   })
 })

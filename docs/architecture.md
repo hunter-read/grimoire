@@ -32,6 +32,8 @@ backend on port 9481.
 | [`backend/auth.py`](../backend/auth.py) | JWT creation/validation, password hashing (`bcrypt_sha256`), the `get_current_user` dependency, and the role-guard dependencies (`require_admin`, `require_gm_or_admin`, `require_not_guest`). |
 | [`backend/indexer.py`](../backend/indexer.py) | Library scanning, PDF FTS5 indexing, thumbnail generation, and OPF/metadata parsing. PDF text extraction runs in an isolated subprocess (see below). |
 | [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs - never `backend.config` - so a throwaway extraction child does not open the DB or run migrations. |
+| [`backend/addons/`](../backend/addons/) | Community add-ons: installable metadata scrapers. Manifest validation, on-disk discovery and install state, integrity-verified installation, HTTP fetching with a response cache, the declarative interpreter (records → ranked search → mapped fields), the isolated script runner, and the fetched-vs-current diff. See [`docs/addons.md`](addons.md). |
+| [`backend/addon_worker.py`](../backend/addon_worker.py) | Standalone entry point for the spawned add-on script process. Like `pdf_worker`, imports nothing from `backend` - a child running third-party code must not reach the DB or our internals. |
 | [`backend/routers/`](../backend/routers/) | One package per feature area (see the router shape below). |
 | [`backend/scheduler.py`](../backend/scheduler.py), [`backend/session_creator.py`](../backend/session_creator.py) | Campaign session scheduling - apply recurrence on startup and auto-create upcoming sessions. |
 | [`backend/seed_users.py`](../backend/seed_users.py) | First-run / env-driven user pre-seeding. |

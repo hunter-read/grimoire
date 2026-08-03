@@ -30,6 +30,28 @@ class BookFolderUpdate(BaseModel):
         return tag_service.dedupe_tags(v)
 
 
+class MetadataSearch(BaseModel):
+    """Search an installed add-on for candidates matching this system."""
+
+    source_id: str
+    # Blank means "use the system's own name", which is the common case.
+    query: str = ""
+
+
+class MetadataFetch(BaseModel):
+    """Fetch one candidate's fields for review."""
+
+    source_id: str
+    # Empty when `paste` is supplied instead.
+    identity: str = ""
+    # Search-backed sources answer per query rather than serving a whole
+    # catalogue, so the client echoes back the query its candidate came from.
+    query: str = ""
+    # A source URL or bare ID pasted by the user, used instead of `identity`
+    # when they already know exactly which item they want.
+    paste: str = ""
+
+
 class GameSystemUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None

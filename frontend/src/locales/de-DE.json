@@ -384,7 +384,8 @@
       "application": "Anwendung",
       "maintenance": "Wartung",
       "logs": "Protokoll",
-      "metadata": "Metadata"
+      "metadata": "Metadata",
+      "addons": "Add-ons"
     }
   },
   "authSettings": {
@@ -1129,7 +1130,7 @@
     "addUrl": "Add Link",
     "urlLabelPlaceholder": "Label (e.g. DriveThruRPG)",
     "urlPlaceholder": "URL",
-    "characterBuilderUrls": "Character Builder Links",
+    "characterBuilderUrls": "Charakter-Baukästen",
     "addCharacterBuilder": "Add Character Builder",
     "characterBuilderLabelPlaceholder": "Label (e.g. D&D Beyond)",
     "parentSystem": "Übergeordnetes System",
@@ -1137,7 +1138,10 @@
     "edition": "Edition",
     "editionPlaceholder": "e.g. 5e, Red, 2020",
     "licensePlaceholder": "e.g. OGL 1.0a",
-    "createParentSystem": "Übergeordnetes System „{{name}}\" erstellen"
+    "createParentSystem": "Übergeordnetes System „{{name}}\" erstellen",
+    "fetchMetadata": "Metadaten abrufen",
+    "loadMoreCovers_one": "1 weiteres anzeigen",
+    "loadMoreCovers_other": "{{count}} weitere anzeigen"
   },
   "bookEditor": {
     "title": "Buch bearbeiten",
@@ -1176,7 +1180,8 @@
     "categoryPlaceholder": "Search or create a category…",
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Lizenz",
-    "licensePlaceholder": "Inherit system license"
+    "licensePlaceholder": "Inherit system license",
+    "fetchMetadata": "Metadaten abrufen"
   },
   "reocr": {
     "button": "OCR wiederholen",
@@ -1196,7 +1201,8 @@
     "reocr": "Re-OCR…",
     "rescan": "Re-scan & re-index",
     "rescanQueued": "Re-scan queued",
-    "rescanError": "Failed to queue re-scan"
+    "rescanError": "Failed to queue re-scan",
+    "details": "Details anzeigen"
   },
   "bookRow": {
     "missingFile": "Fehlend",
@@ -1567,5 +1573,75 @@
       "other": "Other",
       "custom": "Custom"
     }
+  },
+  "addons": {
+    "title": "Community-Add-ons",
+    "description": "Installiere von der Community beigesteuerte Metadaten-Scraper. Add-ons können Spielsystem-Details aus externen Quellen ergänzen.",
+    "indexUrl": "Add-on-Index-URL",
+    "refresh": "Aktualisieren",
+    "refreshed": "Add-on-Index aktualisiert.",
+    "installedHeading": "Installiert",
+    "availableHeading": "Verfügbar",
+    "noneInstalled": "Noch keine Add-ons installiert.",
+    "noneAvailable": "Nichts Neues im Index. Versuche zu aktualisieren.",
+    "install": "Installieren",
+    "installed": "{{name}} installiert.",
+    "remove": "Entfernen",
+    "removed": "{{name}} entfernt.",
+    "enabled": "Aktiviert",
+    "runsCode": "Führt Code aus",
+    "installTitle": "{{name}} installieren?",
+    "scriptWarning": "Dieses Add-on führt Python-Code mit Netzwerkzugriff auf deinem Server aus. Installiere nur Add-ons aus vertrauenswürdigen Quellen und lies das Skript zuvor.",
+    "scriptAcknowledge": "Mir ist bewusst, dass dieses Add-on Code auf meinem Server ausführt.",
+    "allowScripts": "Add-on-Skripte erlauben",
+    "allowScriptsDesc": "Standardmäßig aus. Auch wenn aktiviert, muss jedes skriptbasierte Add-on bei der Installation einzeln bestätigt werden.",
+    "update": "Aktualisieren",
+    "updateAll": "Alle aktualisieren ({{count}})",
+    "updateBadge": "v{{version}} verfügbar",
+    "updated": "{{name}} aktualisiert.",
+    "updatedCount_one": "{{count}} Add-on aktualisiert.",
+    "updatedCount_other": "{{count}} Add-ons aktualisiert.",
+    "alreadyUpToDate": "Alles ist bereits aktuell.",
+    "updateTitle": "{{name}} aktualisieren?",
+    "scriptUpdateWarning": "Diese Aktualisierung ändert das Skript des Add-ons. Da sich der Code geändert hat, ist deine Zustimmung erneut erforderlich, bevor Grimoire es ausführt."
+  },
+  "metadataFetch": {
+    "title": "Metadaten abrufen",
+    "source": "Quelle",
+    "search": "Suchen",
+    "searchPlaceholder": "Systemname",
+    "noSources": "Es sind keine Metadatenquellen installiert. Ein Administrator kann unter Einstellungen → Add-ons eine hinzufügen.",
+    "noMatches": "Keine Treffer gefunden. Versuche einen anderen Suchbegriff.",
+    "nothingToApply": "Dieses Ergebnis enthält nichts zum Hinzufügen.",
+    "statusNew": "neu",
+    "statusDiffers": "abweichend",
+    "statusSame": "bereits gesetzt",
+    "apply": "{{count}} Feld übernehmen",
+    "apply_other": "{{count}} Felder übernehmen",
+    "back": "Zurück",
+    "viewSource": "Quelle ansehen",
+    "pasteToggle": "Genau bekannt? Link oder ID einfügen",
+    "pasteLabel": "Quell-Link oder ID",
+    "pastePlaceholder": "Link oder ID dieser Quelle einfügen",
+    "pasteUse": "Nachschlagen",
+    "pasteHint": "Füge die Seiten-URL des Eintrags aus der Quelle ein — oder einfach dessen ID.",
+    "keepsExisting_one": "Dein vorhandener Link bleibt erhalten.",
+    "keepsExisting_other": "Deine {{count}} vorhandenen Links bleiben erhalten."
+  },
+  "bookDetails": {
+    "category": "Kategorie",
+    "authors": "Autoren",
+    "artists": "Künstler",
+    "publisher": "Verlag",
+    "published": "Veröffentlicht",
+    "genres": "Genres",
+    "license": "Lizenz",
+    "isbn": "ISBN",
+    "version": "Version",
+    "language": "Sprache",
+    "pages": "Seiten",
+    "fileSize": "Dateigröße",
+    "format": "Format",
+    "path": "Pfad"
   }
 }

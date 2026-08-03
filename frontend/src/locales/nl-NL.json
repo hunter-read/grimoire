@@ -384,7 +384,8 @@
       "application": "Applicatie",
       "maintenance": "Onderhoud",
       "logs": "Logboeken",
-      "metadata": "Metadata"
+      "metadata": "Metadata",
+      "addons": "Add-ons"
     }
   },
   "authSettings": {
@@ -1129,7 +1130,7 @@
     "addUrl": "Add Link",
     "urlLabelPlaceholder": "Label (e.g. DriveThruRPG)",
     "urlPlaceholder": "URL",
-    "characterBuilderUrls": "Character Builder Links",
+    "characterBuilderUrls": "Personagebouwers",
     "addCharacterBuilder": "Add Character Builder",
     "characterBuilderLabelPlaceholder": "Label (e.g. D&D Beyond)",
     "parentSystem": "Oudersysteem",
@@ -1137,7 +1138,10 @@
     "edition": "Editie",
     "editionPlaceholder": "e.g. 5e, Red, 2020",
     "licensePlaceholder": "e.g. OGL 1.0a",
-    "createParentSystem": "Oudersysteem \"{{name}}\" aanmaken"
+    "createParentSystem": "Oudersysteem \"{{name}}\" aanmaken",
+    "fetchMetadata": "Metadata ophalen",
+    "loadMoreCovers_one": "Nog 1 tonen",
+    "loadMoreCovers_other": "Nog {{count}} tonen"
   },
   "bookEditor": {
     "title": "Boek bewerken",
@@ -1176,7 +1180,8 @@
     "categoryPlaceholder": "Search or create a category…",
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licentie",
-    "licensePlaceholder": "Inherit system license"
+    "licensePlaceholder": "Inherit system license",
+    "fetchMetadata": "Metadata ophalen"
   },
   "reocr": {
     "button": "OCR opnieuw",
@@ -1196,7 +1201,8 @@
     "reocr": "Re-OCR…",
     "rescan": "Re-scan & re-index",
     "rescanQueued": "Re-scan queued",
-    "rescanError": "Failed to queue re-scan"
+    "rescanError": "Failed to queue re-scan",
+    "details": "Details bekijken"
   },
   "bookRow": {
     "missingFile": "Ontbreekt",
@@ -1567,5 +1573,75 @@
       "other": "Other",
       "custom": "Custom"
     }
+  },
+  "addons": {
+    "title": "Community-add-ons",
+    "description": "Installeer metadata-scrapers die door de community zijn gemaakt. Add-ons kunnen details van spelsystemen aanvullen uit externe bronnen.",
+    "indexUrl": "URL van add-on-index",
+    "refresh": "Vernieuwen",
+    "refreshed": "Add-on-index vernieuwd.",
+    "installedHeading": "Geïnstalleerd",
+    "availableHeading": "Beschikbaar",
+    "noneInstalled": "Nog geen add-ons geïnstalleerd.",
+    "noneAvailable": "Niets nieuws in de index. Probeer te vernieuwen.",
+    "install": "Installeren",
+    "installed": "{{name}} geïnstalleerd.",
+    "remove": "Verwijderen",
+    "removed": "{{name}} verwijderd.",
+    "enabled": "Ingeschakeld",
+    "runsCode": "Voert code uit",
+    "installTitle": "{{name}} installeren?",
+    "scriptWarning": "Deze add-on voert Python-code uit op je server met netwerktoegang. Installeer alleen add-ons uit bronnen die je vertrouwt en lees eerst het script.",
+    "scriptAcknowledge": "Ik begrijp dat deze add-on code uitvoert op mijn server.",
+    "allowScripts": "Add-on-scripts toestaan",
+    "allowScriptsDesc": "Standaard uit. Zelfs indien ingeschakeld moet elke add-on met script bij installatie afzonderlijk worden goedgekeurd.",
+    "update": "Bijwerken",
+    "updateAll": "Alles bijwerken ({{count}})",
+    "updateBadge": "v{{version}} beschikbaar",
+    "updated": "{{name}} bijgewerkt.",
+    "updatedCount_one": "{{count}} add-on bijgewerkt.",
+    "updatedCount_other": "{{count}} add-ons bijgewerkt.",
+    "alreadyUpToDate": "Alles is al up-to-date.",
+    "updateTitle": "{{name}} bijwerken?",
+    "scriptUpdateWarning": "Deze update wijzigt het script van de add-on. Omdat de code is veranderd, is je goedkeuring opnieuw nodig voordat Grimoire het uitvoert."
+  },
+  "metadataFetch": {
+    "title": "Metadata ophalen",
+    "source": "Bron",
+    "search": "Zoeken",
+    "searchPlaceholder": "Systeemnaam",
+    "noSources": "Er zijn geen metadatabronnen geïnstalleerd. Een beheerder kan er een toevoegen via Instellingen → Add-ons.",
+    "noMatches": "Geen resultaten gevonden. Probeer een andere zoekterm.",
+    "nothingToApply": "Dit resultaat voegt niets toe.",
+    "statusNew": "nieuw",
+    "statusDiffers": "wijkt af",
+    "statusSame": "al ingesteld",
+    "apply": "{{count}} veld toepassen",
+    "apply_other": "{{count}} velden toepassen",
+    "back": "Terug",
+    "viewSource": "Bron bekijken",
+    "pasteToggle": "Weet je welke? Plak een link of ID",
+    "pasteLabel": "Bronlink of ID",
+    "pastePlaceholder": "Plak een link of ID van deze bron",
+    "pasteUse": "Opzoeken",
+    "pasteHint": "Plak de pagina-URL van het item op de bron, of alleen het ID.",
+    "keepsExisting_one": "Je bestaande link blijft behouden.",
+    "keepsExisting_other": "Je {{count}} bestaande links blijven behouden."
+  },
+  "bookDetails": {
+    "category": "Categorie",
+    "authors": "Auteurs",
+    "artists": "Artiesten",
+    "publisher": "Uitgever",
+    "published": "Gepubliceerd",
+    "genres": "Genres",
+    "license": "Licentie",
+    "isbn": "ISBN",
+    "version": "Versie",
+    "language": "Taal",
+    "pages": "Pagina's",
+    "fileSize": "Bestandsgrootte",
+    "format": "Formaat",
+    "path": "Pad"
   }
 }

@@ -1,0 +1,433 @@
+[
+  {
+    "name": "Dungeons & Dragons",
+    "edition": "5th Edition",
+    "editionLabel": "5.5e",
+    "tagline": "The world's most popular roleplaying game",
+    "genre": [
+      "fantasy"
+    ],
+    "tags": [
+      "Tactical",
+      "Heroic",
+      "Dungeon Crawl",
+      "Character Building",
+      "High-Fantasy",
+      "Beginner-Friendly",
+      "Classic Fantasy",
+      "Lore-Heavy",
+      "Ascending AC"
+    ],
+    "family": "d20 System",
+    "dice": "d20",
+    "complexity": 50,
+    "complexityNote": "A handful of subsystems sit on a simple core: classes, spellcasting, and the action economy, each shallow on its own. The study load is the breadth of class and spell options, not the d20 math. Every action is the same roll against a target number, learnable in a session.",
+    "license": "CC BY 4.0 (SRD); core books proprietary",
+    "cost": "$$$",
+    "publisher": "Wizards of the Coast",
+    "year": 2024,
+    "relatedEditions": [
+      "dungeons-dragons",
+      "dungeons-dragons-4th-edition"
+    ],
+    "languages": [
+      "English",
+      "French",
+      "Italian",
+      "German",
+      "Spanish"
+    ],
+    "bestFor": "Groups who want heroic fantasy combining tactical grid combat with deep character-build options, scaling from one-shots up through long multi-tier campaigns.",
+    "coreMechanic": "Roll d20 + modifier against a target DC (for ability checks and saving throws) or AC (for attacks). Meeting or exceeding the target succeeds. Advantage rolls 2d20 and takes the higher; disadvantage takes the lower, replacing most situational modifiers.",
+    "accessibility": 88,
+    "runnability": 72,
+    "highlights": "Advantage and disadvantage collapse most situational modifiers into one mechanic: roll a second d20 and keep the higher or lower, so play rarely stops to total small bonuses. Each of the 12 classes offers four subclasses in the 2024 Player's Handbook, letting players reshape a class's role without multiclassing. Bounded accuracy keeps proficiency bonuses small, so low-level threats stay relevant in numbers and DCs read consistently across all tiers.",
+    "considerations": "High-level play (tier 3–4) introduces significant spell interaction complexity and encounter balancing challenges for GMs. No official rules for non-fantasy genres. Three core books at $50 each represent a significant investment for the full rules.",
+    "officialUrl": "https://www.dndbeyond.com/sources/dnd/free-rules",
+    "accessibilityFeatures": {
+      "freeCompleteRules": true,
+      "freeQuickstart": false,
+      "inPrint": true,
+      "budgetFriendly": false
+    },
+    "bookFeatures": {
+      "index": true,
+      "gmGuidance": true,
+      "examplesOfPlay": true,
+      "quickReference": true,
+      "crossReferences": false
+    }
+  },
+  {
+    "name": "Blades in the Dark",
+    "edition": "1st Edition",
+    "tagline": "Daring heists in a haunted industrial-fantasy city",
+    "genre": [
+      "fantasy"
+    ],
+    "tags": [
+      "Heist",
+      "Faction Play",
+      "Playbook-Driven",
+      "Fiction-First",
+      "Dark Fantasy",
+      "Collaborative",
+      "Open Source"
+    ],
+    "family": "FitD",
+    "dice": "d6 dice pool",
+    "complexity": 38,
+    "license": "CC BY 3.0",
+    "cost": "$$",
+    "publisher": "Evil Hat Productions",
+    "year": 2017,
+    "languages": [
+      "English",
+      "French",
+      "Hungarian",
+      "Ukrainian"
+    ],
+    "bestFor": "Groups who want structured criminal heists with shared narrative authority, where the crew's reputation and entanglements matter as much as individual characters.",
+    "coreMechanic": "Roll a pool of d6s equal to your action rating; keep the highest. 1–3 is a bad outcome, 4–5 is a partial success with consequences, 6 is a full success, and multiple 6s are a critical with additional advantage. Before rolling, the GM sets position (controlled, risky, or desperate) and effect level, which determine the severity of consequences and the impact of success. Players can spend stress to resist consequences or trigger flashbacks to retroactively establish preparation.",
+    "dtrpgUrl": "https://www.drivethrurpg.com/en/product/170689/blades-in-the-dark?affiliate_id=715880",
+    "accessibility": 95,
+    "runnability": 89,
+    "highlights": "Flashback system lets players establish preparations retroactively instead of planning before a score. Position and effect framework gives the GM a structured way to set stakes on every roll. Detailed faction game tracks rival gangs, noble families, and institutions with their own agendas and territory.",
+    "considerations": "Stress is the currency for flashbacks, resistance rolls, and special abilities, so characters who use these tools heavily accumulate trauma faster. The faction tracking layer between sessions requires more GM bookkeeping than the score phase itself. Downtime phase has several interlocking subsystems (payoff, heat, entanglements, vice, projects) that take time to internalize.",
+    "accessibilityFeatures": {
+      "freeCompleteRules": true,
+      "freeQuickstart": false,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "bookFeatures": {
+      "index": true,
+      "gmGuidance": true,
+      "examplesOfPlay": true,
+      "quickReference": true,
+      "crossReferences": true
+    },
+    "complexityNote": "The core rolls a d6 pool and reads the highest for full, partial, or failed results, with position and effect framing the stakes. Its real character is structural: flashbacks replace planning, and downtime handles stress and a crew's projects. The dice are simple, but the loop takes a session to click."
+  },
+  {
+    "name": "Call of Cthulhu",
+    "edition": "7th Edition",
+    "tagline": "Investigate cosmic horrors and try to keep your sanity",
+    "genre": [
+      "horror",
+      "modern"
+    ],
+    "tags": [
+      "Investigation",
+      "Deadly",
+      "One-Shot Friendly",
+      "Atmospheric",
+      "Roleplay-Heavy",
+      "Mystery",
+      "Horror",
+      "Corruption",
+      "Skill-Based"
+    ],
+    "family": "BRP",
+    "dice": "d100",
+    "complexity": 43,
+    "license": "Chaosium Fan Material Policy",
+    "cost": "$$",
+    "publisher": "Chaosium",
+    "year": 2014,
+    "languages": [
+      "English",
+      "French",
+      "German",
+      "Italian",
+      "Japanese",
+      "Korean",
+      "Spanish",
+      "Polish",
+      "Portuguese",
+      "Russian",
+      "Swedish"
+    ],
+    "bestFor": "Investigation-driven horror where combat is deadly and sanity is fragile. Great for one-shots.",
+    "coreMechanic": "Roll d100 equal to or under your skill percentage. Success tiers at half (Hard) and one-fifth (Extreme) of the skill value. Bonus and penalty dice adjust the tens digit. Failed rolls can be pushed for a second attempt at greater risk.",
+    "dtrpgUrl": "https://www.drivethrurpg.com/en/product/150997/call-of-cthulhu-7th-edition-keeper-rulebook?affiliate_id=715880",
+    "accessibility": 65,
+    "runnability": 89,
+    "highlights": "Tracking Sanity as a depletable score ties mental erosion to the fiction, so confronting cosmic horror mechanically wears characters down. The percentile skills resolve on a d100 roll-under, with Hard and Extreme bands at half and one-fifth of the rating. Bouts of Madness convert failed Sanity checks into temporary phobias, manias, or loss of character control.",
+    "considerations": "The chase rules add a detailed positioning subsystem whose complexity outweighs how often it sees use. Character creation allocates points across a long list of skills, a slow first step for new players. In long campaigns the sanity spiral can strip a character of player control as madness accumulates.",
+    "accessibilityFeatures": {
+      "freeCompleteRules": false,
+      "freeQuickstart": true,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "bookFeatures": {
+      "index": true,
+      "gmGuidance": true,
+      "examplesOfPlay": true,
+      "quickReference": true,
+      "crossReferences": true
+    },
+    "complexityNote": "The d100 roll-under core is immediate: roll under a skill, and push a failed roll for a second try at greater risk. The signature subsystem is Sanity, a track that erodes as investigators face the Mythos. Character creation and a broad skill list carry the rest."
+  },
+  {
+    "name": "Fate Core",
+    "edition": "Core System",
+    "tagline": "Fiction-first gameplay driven by dramatic aspects",
+    "genre": [
+      "universal"
+    ],
+    "tags": [
+      "Narrative",
+      "Rules-Light",
+      "Tag-Based",
+      "Freeform Magic",
+      "Social Combat",
+      "Improvisation",
+      "Open Source"
+    ],
+    "family": "Fate",
+    "dice": "4dF (Fudge dice)",
+    "complexity": 25,
+    "license": "CC BY 3.0",
+    "cost": "Free (SRD)",
+    "publisher": "Evil Hat Productions",
+    "year": 2013,
+    "languages": [
+      "English",
+      "French",
+      "German",
+      "Spanish",
+      "Portuguese"
+    ],
+    "bestFor": "Narrative-focused groups who want to tell collaborative stories in any genre with minimal rules.",
+    "coreMechanic": "Roll 4 Fudge dice + skill vs. difficulty. Spend/earn Fate points to invoke aspects.",
+    "dtrpgUrl": "https://www.drivethrurpg.com/en/product/114903/fate-core-system?affiliate_id=715880",
+    "accessibility": 95,
+    "runnability": 89,
+    "highlights": "Genre-agnostic, encourages narrative play, free rules",
+    "considerations": "Aspect economy demands constant creative input which can exhaust players, character differentiation can blur with freeform aspects, requires system mastery from the GM to run smoothly",
+    "accessibilityFeatures": {
+      "freeCompleteRules": true,
+      "freeQuickstart": false,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "bookFeatures": {
+      "index": true,
+      "gmGuidance": true,
+      "examplesOfPlay": true,
+      "quickReference": true,
+      "crossReferences": true
+    },
+    "complexityNote": "Roll four Fudge dice plus a skill against a difficulty. The heart of it is aspects: invoke them with Fate points to bend outcomes, or get compelled for more points. The system is light but asks players to think in fiction."
+  },
+  {
+    "name": "Pathfinder",
+    "edition": "2nd Edition (Remastered)",
+    "tagline": "A deeply tactical fantasy RPG with unmatched character building",
+    "genre": [
+      "fantasy"
+    ],
+    "tags": [
+      "Tactical",
+      "Crunchy",
+      "Character Building",
+      "High-Fantasy",
+      "Dungeon Crawl",
+      "Lore-Heavy"
+    ],
+    "family": "d20 System",
+    "dice": "d20",
+    "complexity": 80,
+    "license": "ORC",
+    "cost": "Free (ORC)",
+    "publisher": "Paizo",
+    "year": 2023,
+    "languages": [
+      "English",
+      "French",
+      "German",
+      "Italian",
+      "Spanish",
+      "Portuguese"
+    ],
+    "bestFor": "Groups who want deep character customization, tactical grid combat with meaningful turn-by-turn decisions, and a richly detailed fantasy setting with free rules.",
+    "coreMechanic": "Roll d20 + modifier against a DC. Four degrees of success: critical success (beat DC by 10+), success, failure, and critical failure (miss by 10+). Each turn grants three actions to spend freely on strikes, movement, spellcasting, or other activities. Multi-attack penalty (-5/-10) discourages repeated strikes and encourages tactical variety.",
+    "accessibility": 95,
+    "runnability": 89,
+    "highlights": "The three-action economy gives every turn the same three actions to spend on strikes, movement, or spells, so each turn is a fresh tactical decision. Characters customize through ancestry, class, skill, and general feats gained at nearly every level, letting builds diverge sharply within a single class. Four degrees of success, set by beating or missing the DC by 10, turn each roll into a range of outcomes rather than a binary result.",
+    "considerations": "New players must learn the trait system, conditions, and four degrees of success before combat runs smoothly. Multi-attack penalty and numerous combat actions can slow turns for indecisive players. Character creation draws feats from ancestry, class, skill, and general pools at every level, making each build a slow step.",
+    "accessibilityFeatures": {
+      "freeCompleteRules": true,
+      "freeQuickstart": false,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "bookFeatures": {
+      "index": true,
+      "gmGuidance": true,
+      "examplesOfPlay": true,
+      "quickReference": true,
+      "crossReferences": true
+    },
+    "complexityNote": "The d20 core is approachable: roll against a DC across four degrees of success, with three actions a turn. The complexity is sheer breadth and interlock. Proficiency scales nearly every number, while ancestry, background, class, and frequent feats build a wide web of options. Spells and conditions thread through all of it, and the game rewards study before the first fight."
+  },
+  {
+    "name": "Mothership",
+    "edition": "1st Edition",
+    "tagline": "Sci-fi survival horror: in space, everyone can hear you scream",
+    "genre": [
+      "scifi",
+      "horror"
+    ],
+    "tags": [
+      "Rules-Light",
+      "Deadly",
+      "One-Shot Friendly",
+      "Survival",
+      "Atmospheric",
+      "Low-Prep",
+      "Cinematic",
+      "Fast-Paced"
+    ],
+    "family": "Standalone",
+    "dice": "d100",
+    "complexity": 30,
+    "license": "3rd Party License",
+    "cost": "$",
+    "publisher": "Tuesday Knight Games",
+    "year": 2022,
+    "languages": [
+      "English"
+    ],
+    "bestFor": "Terrifying sci-fi horror one-shots and short campaigns. Panic table creates unforgettable moments.",
+    "coreMechanic": "Roll d100 under stat/skill. Stress and panic mechanics escalate tension.",
+    "dtrpgUrl": "https://www.drivethrurpg.com/en/product/484222/mothership-player-s-survival-guide?affiliate_id=715880",
+    "accessibility": 65,
+    "runnability": 56,
+    "highlights": "Rules-light, well-regarded module library, panic system creates mechanical tension",
+    "considerations": "Panic table can cascade and end sessions abruptly, limited long-campaign support in core rules, stress mechanics can feel repetitive over extended play",
+    "accessibilityFeatures": {
+      "freeCompleteRules": false,
+      "freeQuickstart": true,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "bookFeatures": {
+      "index": false,
+      "gmGuidance": true,
+      "examplesOfPlay": true,
+      "quickReference": true,
+      "crossReferences": true
+    },
+    "complexityNote": "The d100 core rolls under a stat or skill. Stress and panic are the heart of it, escalating dread that can break a character at the wrong moment. Everything else stays lean and deadly."
+  },
+  {
+    "name": "Cairn",
+    "edition": "2nd Edition",
+    "editionLabel": "2e",
+    "tagline": "Explore a dark and mysterious Wood filled with strange folk, hidden treasure, and unspeakable monstrosities",
+    "genre": [
+      "fantasy"
+    ],
+    "tags": [
+      "Rules-Light",
+      "Classless",
+      "Deadly",
+      "Dungeon Crawl",
+      "Attacks Always Hit",
+      "Inventory Management",
+      "Open Source"
+    ],
+    "family": "OSR",
+    "dice": "d20, d4–d12",
+    "complexity": 15,
+    "license": "CC BY-SA 4.0",
+    "cost": "Free / $",
+    "publisher": "Cairn Press",
+    "year": 2024,
+    "relatedEditions": [
+      "cairn",
+      "cairn-1st-edition"
+    ],
+    "languages": [
+      "English"
+    ],
+    "bestFor": "Groups who want a fast, classless fantasy game where equipment defines the character, expeditions into the Wood are tense and lethal, and the GM can roll most of their prep from tables.",
+    "coreMechanic": "Roll d20 equal to or under one of three attributes (STR, DEX, WIL) to make a save; 1 always succeeds, 20 always fails. Combat is simultaneous and attacks always hit: the attacker rolls a weapon die, subtracts armor, and applies the rest to HP. When HP reaches 0, damage spills into STR and triggers a Critical Damage save.",
+    "dtrpgUrl": "https://www.drivethrurpg.com/en/product/500476/cairn-player-s-guide-2nd-edition?affiliate_id=715880",
+    "accessibility": 95,
+    "runnability": 17,
+    "highlights": "Inventory and Fatigue share the same 10 slots, so every spell cast, wound, or burden taken on competes with the equipment that defines a classless character. The Scars table turns surviving a near-death hit into permanent character development: a hit that drops a PC to exactly 0 HP rolls a unique injury or trait that often raises an attribute, making advancement a consequence of surviving danger rather than an XP track. Dungeon turns and three-watch wilderness travel each have their own resolution loop and event table, giving the Warden a structured procedure for both exploration modes instead of freeform improv. The Warden's Guide bundles procedural setting, faction, dungeon, and forest generators alongside the bestiary, so prep can be rolled rather than authored.",
+    "considerations": "Starting HP is rolled on 1d6, so first-session characters can be killed by a single hit: Cairn assumes attrition and replacement rather than long heroic arcs. Combat is deterministic: attacks always hit and damage is rolled by the attacker, removing the to-hit decision space some tactical players want. There is no Charisma or Intelligence attribute and no fixed spell list: social conflict resolves through WIL saves, and a character's magical capability is shaped by which spellbooks the party finds rather than choices made at creation. Advancement comes through the Scars table rather than XP or milestones, so growth is a byproduct of surviving damage rather than a steady level-up curve.",
+    "accessibilityFeatures": {
+      "freeCompleteRules": true,
+      "freeQuickstart": false,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "bookFeatures": {
+      "index": false,
+      "gmGuidance": false,
+      "examplesOfPlay": false,
+      "quickReference": false,
+      "crossReferences": true
+    },
+    "complexityNote": "Roll a d20 under one of three attributes to save, with attacks dealing damage directly. The whole game fits a couple of pages and runs immediately."
+  },
+  {
+    "name": "Dungeons & Dragons 4th Edition",
+    "edition": "Core Rulebooks",
+    "editionLabel": "4e",
+    "hidden": true,
+    "tagline": "Heroic fantasy reimagined as deeply tactical grid combat with role-based classes",
+    "genre": [
+      "fantasy"
+    ],
+    "tags": [
+      "Tactical",
+      "Heroic",
+      "Combat-Heavy",
+      "Grid-Based",
+      "Miniatures",
+      "Character Building",
+      "High-Fantasy",
+      "Classic Fantasy",
+      "Crunchy",
+      "Ascending AC",
+      "Lore-Heavy"
+    ],
+    "family": "d20 System",
+    "dice": "d20",
+    "complexity": 65,
+    "license": "Proprietary (GSL for third-party content)",
+    "cost": "$$",
+    "publisher": "Wizards of the Coast",
+    "year": 2008,
+    "relatedEditions": [
+      "dungeons-dragons",
+      "dungeons-dragons-4th-edition"
+    ],
+    "languages": [
+      "English",
+      "French",
+      "German",
+      "Italian",
+      "Spanish"
+    ],
+    "bestFor": "Groups who prioritize tactical grid combat with miniatures, want every class to feel mechanically distinct through roles (Defender, Striker, Leader, Controller), and enjoy heavy character optimization across 30 levels of structured advancement.",
+    "coreMechanic": "Roll d20 + modifier against a target DC or defense (AC, Fortitude, Reflex, or Will). Every class has powers organized as At-Will (usable any turn), Encounter (once per short rest), and Daily (once per extended rest), plus Utility powers. Healing surges are a daily hit point pool that characters spend during short rests or when healed in combat. Combat assumes a square grid with miniatures: positioning, marks, opportunity attacks, and forced movement are central. Skill challenges resolve non-combat encounters by accumulating a target number of successes before three failures.",
+    "accessibility": 65,
+    "runnability": 80,
+    "highlights": "Standardized math across all 30 levels means encounter design and DC setting follow consistent formulas. Four combat roles (Defender, Striker, Leader, Controller) give every class a defined team function. Skill challenges provide a structured framework for resolving non-combat encounters. The Essentials line (2010) offers simplified classes with fewer per-level choices as an alternative entry point.",
+    "considerations": "Miniatures and a battle grid are effectively required; combat does not function in theater of the mind. High-level combat can run long due to the volume of conditions, statuses, and triggered actions to track per turn. The At-Will/Encounter/Daily power structure is a significant departure from earlier editions and from 5e, which can frustrate players expecting a traditional D&D feel.",
+    "accessibilityFeatures": {
+      "freeCompleteRules": false,
+      "freeQuickstart": true,
+      "inPrint": true,
+      "budgetFriendly": true
+    },
+    "complexityNote": "The d20 core hits a target or a defense, familiar to any 5e player. The defining structure is powers, with every class drawing on At-Will, Encounter, and Daily options each turn. Combat is deeply tactical and grid-based, thick with conditions and triggered actions. That tactical layer is what rewards study and slows high-level play."
+  }
+]

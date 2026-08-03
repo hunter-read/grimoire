@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuImage, LuX, LuPlus } from 'react-icons/lu'
-import api, { mediaUrl } from '../../api'
-import LazyImg from '../LazyImg'
+import { LuDownload, LuX, LuPlus } from 'react-icons/lu'
+import api from '../../api'
+import CoverPicker from './CoverPicker'
+import MetadataFetchDialog from './MetadataFetchDialog'
 import GenrePicker from '../metadata/GenrePicker'
 import TagPicker from '../metadata/TagPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -41,6 +42,25 @@ export default function SystemEditor({ system, onSave }) {
     cover_book_id: system.cover_book_id || null,
     is_explicit: system.is_explicit || false,
   })
+  // "Fetch metadata" only appears when a source is actually available, so the
+  // button never promises something the server cannot do.
+  const [hasSources, setHasSources] = useState(false)
+  const [fetching, setFetching] = useState(false)
+
+  useEffect(() => {
+    api
+      .get(`/systems/${system.id}/metadata-sources`)
+      .then((data) => setHasSources((data.sources || []).length > 0))
+      .catch(() => setHasSources(false))
+  }, [system.id])
+
+  // Merge applied fields into the form so the editor reflects them immediately,
+  // and tell the parent so its copy of the system stays in step.
+  const handleFetched = (fields) => {
+    setForm((f) => ({ ...f, ...fields }))
+    onSave(fields)
+  }
+
   const familyOptions = families.map((f) => f.name)
   const parentSystemOptions = parentSystems.map((p) => p.name)
   const licenseOptions = licenses.map((l) => l.name)
@@ -71,8 +91,6 @@ export default function SystemEditor({ system, onSave }) {
 
   const removePublisher = (idx) =>
     setForm((f) => ({ ...f, publishers: f.publishers.filter((_, i) => i !== idx) }))
-
-  const booksWithThumbnails = (system.books || []).filter((b) => b.has_thumbnail)
 
   const labeledBlock = (label, node) => (
     <div style={{ marginBottom: 12 }}>
@@ -382,85 +400,59 @@ export default function SystemEditor({ system, onSave }) {
           </div>
         </div>
       </div>
-      {booksWithThumbnails.length > 0 && (
-        <div style={{ marginTop: 8, marginBottom: 8 }}>
-          <label
+      <CoverPicker
+        books={system.books}
+        value={form.cover_book_id}
+        onChange={(id) => setForm((f) => ({ ...f, cover_book_id: id }))}
+      />
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={handleSave}
+          style={{
+            padding: '10px 24px',
+            borderRadius: 6,
+            background: 'var(--gold-dim)',
+            color: 'var(--bg-deep)',
+            fontSize: 16,
+            fontWeight: 600,
+            marginTop: 8,
+          }}
+        >
+          {t('systemEditor.saveChanges')}
+        </button>
+
+        {hasSources && (
+          <button
+            onClick={() => setFetching(true)}
             style={{
-              fontSize: 14,
-              color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              marginBottom: 10,
+              padding: '10px 18px',
+              borderRadius: 6,
+              background: 'none',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              fontSize: 14,
+              marginTop: 8,
+              cursor: 'pointer',
             }}
           >
-            <LuImage size={14} /> {t('systemEditor.coverImage')}
-          </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {booksWithThumbnails.map((b) => (
-              <button
-                key={b.id}
-                onClick={() =>
-                  setForm((f) => ({ ...f, cover_book_id: f.cover_book_id === b.id ? null : b.id }))
-                }
-                title={b.title}
-                style={{
-                  padding: 0,
-                  border: `2px solid ${form.cover_book_id === b.id ? 'var(--gold)' : 'var(--border)'}`,
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  background: 'none',
-                  width: 60,
-                  height: 80,
-                  flexShrink: 0,
-                  boxShadow: form.cover_book_id === b.id ? '0 0 0 2px var(--gold-dim)' : 'none',
-                }}
-              >
-                <LazyImg
-                  src={mediaUrl(`/books/${b.id}/thumbnail`)}
-                  alt={b.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              </button>
-            ))}
-          </div>
-          {form.cover_book_id && (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
-              {t('systemEditor.selected', {
-                title: booksWithThumbnails.find((b) => b.id === form.cover_book_id)?.title,
-              })}
-              <button
-                onClick={() => setForm((f) => ({ ...f, cover_book_id: null }))}
-                style={{
-                  background: 'none',
-                  color: 'var(--text-muted)',
-                  fontSize: 13,
-                  marginLeft: 8,
-                  textDecoration: 'underline',
-                }}
-              >
-                {t('systemEditor.clearCover')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            <LuDownload size={14} />
+            {t('systemEditor.fetchMetadata')}
+          </button>
+        )}
+      </div>
 
-      <button
-        onClick={handleSave}
-        style={{
-          padding: '10px 24px',
-          borderRadius: 6,
-          background: 'var(--gold-dim)',
-          color: 'var(--bg-deep)',
-          fontSize: 16,
-          fontWeight: 600,
-          marginTop: 8,
-        }}
-      >
-        {t('systemEditor.saveChanges')}
-      </button>
+      {fetching && (
+        <MetadataFetchDialog
+          resource={system}
+          kind="systems"
+          onApply={handleFetched}
+          onClose={() => setFetching(false)}
+        />
+      )}
     </div>
   )
 }

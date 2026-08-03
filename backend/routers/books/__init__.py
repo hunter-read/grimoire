@@ -11,6 +11,11 @@ from .core import (
     serve_book_file,
     serve_book_thumbnail,
 )
+from .metadata import (
+    fetch_metadata,
+    list_metadata_sources,
+    search_metadata,
+)
 from .pages import get_book_toc, serve_book_page, get_page_text, get_page_words
 from ._helpers import _invalidate_book_cache  # re-exported for library.py
 
@@ -63,4 +68,38 @@ router.add_api_route(
     get_page_words,
     methods=["GET"],
     summary="Get page word bounding boxes",
+)
+
+# Add-on metadata lookup (issue #203).  Read-only — they report what a source
+# offers and how it compares to the book's current values, never writing.
+# Applying goes through PATCH /books/{id} above.
+router.add_api_route(
+    "/{book_id}/metadata-sources",
+    list_metadata_sources,
+    methods=["GET"],
+    summary="List metadata sources",
+    description=(
+        "Returns installed, enabled add-ons that can supply book metadata. "
+        "GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/{book_id}/metadata-search",
+    search_metadata,
+    methods=["POST"],
+    summary="Search a metadata source",
+    description=(
+        "Returns ranked candidate matches for this book from one add-on. An "
+        "empty query defaults to the book's title. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/{book_id}/metadata-fetch",
+    fetch_metadata,
+    methods=["POST"],
+    summary="Fetch metadata for review",
+    description=(
+        "Fetches one candidate's fields and diffs them against the book's "
+        "current values. Writes nothing. GM or admin role required."
+    ),
 )

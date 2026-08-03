@@ -199,4 +199,43 @@ describe('SystemEditor', () => {
     )
     expect(screen.queryByTitle('No Thumb')).toBeNull()
   })
+
+  describe('fetch metadata trigger', () => {
+    const withSources = (sources) =>
+      api.get.mockImplementation((path) => {
+        if (path.includes('metadata-sources')) return Promise.resolve({ sources })
+        return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+      })
+
+    it('is hidden when no metadata source is installed', async () => {
+      withSources([])
+      render(<SystemEditor system={system()} onSave={vi.fn()} />)
+      await waitFor(() => expect(api.get).toHaveBeenCalled())
+      expect(screen.queryByText(/fetch metadata/i)).toBeNull()
+    })
+
+    it('appears once a source is available', async () => {
+      withSources([{ id: 'ttrpg-wiki', name: 'TTRPG Wiki' }])
+      render(<SystemEditor system={system()} onSave={vi.fn()} />)
+      expect(await screen.findByText(/fetch metadata/i)).toBeInTheDocument()
+    })
+
+    it('stays hidden when the sources lookup fails', async () => {
+      // A backend without the add-on routes must not break the editor.
+      api.get.mockImplementation((path) => {
+        if (path.includes('metadata-sources')) return Promise.reject(new Error('nope'))
+        return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+      })
+      render(<SystemEditor system={system()} onSave={vi.fn()} />)
+      await waitFor(() => expect(api.get).toHaveBeenCalled())
+      expect(screen.queryByText(/fetch metadata/i)).toBeNull()
+    })
+
+    it('opens the fetch dialog', async () => {
+      withSources([{ id: 'ttrpg-wiki', name: 'TTRPG Wiki' }])
+      render(<SystemEditor system={system()} onSave={vi.fn()} />)
+      await userEvent.click(await screen.findByText(/fetch metadata/i))
+      expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    })
+  })
 })

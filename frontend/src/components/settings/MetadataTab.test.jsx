@@ -22,6 +22,11 @@ describe('MetadataTab', () => {
     expect(screen.getByText('dice-manager')).toBeInTheDocument()
   })
 
+  it('does not host the add-ons manager (it has its own tab)', () => {
+    render(<MetadataTab />)
+    expect(screen.queryByRole('button', { name: /addons.title/i })).toBeNull()
+  })
+
   it('collapses a section when its header is clicked', async () => {
     const { default: userEvent } = await import('@testing-library/user-event')
     render(<MetadataTab />)

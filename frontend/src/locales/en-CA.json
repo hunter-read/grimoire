@@ -384,7 +384,8 @@
       "application": "Application",
       "maintenance": "Maintenance",
       "logs": "Logs",
-      "metadata": "Metadata"
+      "metadata": "Metadata",
+      "addons": "Add-ons"
     }
   },
   "authSettings": {
@@ -1129,7 +1130,7 @@
     "addUrl": "Add Link",
     "urlLabelPlaceholder": "Label (e.g. DriveThruRPG)",
     "urlPlaceholder": "URL",
-    "characterBuilderUrls": "Character Builder Links",
+    "characterBuilderUrls": "Character Builders",
     "addCharacterBuilder": "Add Character Builder",
     "characterBuilderLabelPlaceholder": "Label (e.g. D&D Beyond)",
     "parentSystem": "Parent System",
@@ -1137,7 +1138,10 @@
     "edition": "Edition",
     "editionPlaceholder": "e.g. 5e, Red, 2020",
     "licensePlaceholder": "e.g. OGL 1.0a",
-    "createParentSystem": "Create parent system \"{{name}}\""
+    "createParentSystem": "Create parent system \"{{name}}\"",
+    "fetchMetadata": "Fetch metadata",
+    "loadMoreCovers_one": "Show 1 more",
+    "loadMoreCovers_other": "Show {{count}} more"
   },
   "bookEditor": {
     "title": "Edit Book",
@@ -1176,7 +1180,8 @@
     "categoryPlaceholder": "Search or create a category…",
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "License",
-    "licensePlaceholder": "Inherit system license"
+    "licensePlaceholder": "Inherit system license",
+    "fetchMetadata": "Fetch metadata"
   },
   "reocr": {
     "button": "Re-OCR",
@@ -1196,7 +1201,8 @@
     "reocr": "Re-OCR…",
     "rescan": "Re-scan & re-index",
     "rescanQueued": "Re-scan queued",
-    "rescanError": "Failed to queue re-scan"
+    "rescanError": "Failed to queue re-scan",
+    "details": "View details"
   },
   "bookRow": {
     "missingFile": "Missing",
@@ -1567,5 +1573,75 @@
       "other": "Other",
       "custom": "Custom"
     }
+  },
+  "addons": {
+    "title": "Community add-ons",
+    "description": "Install metadata scrapers contributed by the community. Add-ons can fill in game system details from external sources.",
+    "indexUrl": "Add-on index URL",
+    "refresh": "Refresh",
+    "refreshed": "Add-on index refreshed.",
+    "installedHeading": "Installed",
+    "availableHeading": "Available",
+    "noneInstalled": "No add-ons installed yet.",
+    "noneAvailable": "Nothing new in the index. Try refreshing.",
+    "install": "Install",
+    "installed": "Installed {{name}}.",
+    "remove": "Remove",
+    "removed": "Removed {{name}}.",
+    "enabled": "Enabled",
+    "runsCode": "Runs code",
+    "installTitle": "Install {{name}}?",
+    "scriptWarning": "This add-on runs Python code on your server with network access. Only install add-ons from sources you trust, and read the script first.",
+    "scriptAcknowledge": "I understand this add-on runs code on my server.",
+    "allowScripts": "Allow add-on scripts",
+    "allowScriptsDesc": "Off by default. Even when enabled, each script-backed add-on must also be approved individually when you install it.",
+    "update": "Update",
+    "updateAll": "Update all ({{count}})",
+    "updateBadge": "v{{version}} available",
+    "updated": "Updated {{name}}.",
+    "updatedCount_one": "Updated {{count}} add-on.",
+    "updatedCount_other": "Updated {{count}} add-ons.",
+    "alreadyUpToDate": "Everything is already up to date.",
+    "updateTitle": "Update {{name}}?",
+    "scriptUpdateWarning": "This update changes the add-on's script. Because the code has changed, it needs your approval again before Grimoire will run it."
+  },
+  "metadataFetch": {
+    "title": "Fetch metadata",
+    "source": "Source",
+    "search": "Search",
+    "searchPlaceholder": "System name",
+    "noSources": "No metadata sources are installed. An admin can add one under Settings → Add-ons.",
+    "noMatches": "No matches found. Try a different search term.",
+    "nothingToApply": "This result has nothing to add.",
+    "statusNew": "new",
+    "statusDiffers": "differs",
+    "statusSame": "already set",
+    "apply": "Apply {{count}} field",
+    "apply_other": "Apply {{count}} fields",
+    "back": "Back",
+    "viewSource": "View source",
+    "pasteToggle": "Know the exact one? Paste a link or ID",
+    "pasteLabel": "Source link or ID",
+    "pastePlaceholder": "Paste a link or ID from this source",
+    "pasteUse": "Look up",
+    "pasteHint": "Paste the item's page URL from the source, or just its ID.",
+    "keepsExisting_one": "Your existing link is kept.",
+    "keepsExisting_other": "Your {{count}} existing links are kept."
+  },
+  "bookDetails": {
+    "category": "Category",
+    "authors": "Authors",
+    "artists": "Artists",
+    "publisher": "Publisher",
+    "published": "Published",
+    "genres": "Genres",
+    "license": "Licence",
+    "isbn": "ISBN",
+    "version": "Version",
+    "language": "Language",
+    "pages": "Pages",
+    "fileSize": "File size",
+    "format": "Format",
+    "path": "Path"
   }
 }

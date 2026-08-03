@@ -19,6 +19,7 @@ export default function BookRow({
   book,
   onOpen,
   onEdit,
+  onDetails,
   editing,
   bulkMode,
   selected,
@@ -112,7 +113,7 @@ export default function BookRow({
           fill={fav ? 'var(--gold)' : 'none'}
         />
       </button>
-      <BookActionsMenu book={book} onEdit={onEdit} editing={editing} />
+      <BookActionsMenu book={book} onEdit={onEdit} onDetails={onDetails} editing={editing} />
     </div>
   )
 
@@ -222,7 +223,14 @@ export default function BookRow({
             >
               {book.page_count > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
             </span>
-            {!bulkMode && <BookActionsMenu book={book} onEdit={onEdit} editing={editing} />}
+            {!bulkMode && (
+              <BookActionsMenu
+                book={book}
+                onEdit={onEdit}
+                onDetails={onDetails}
+                editing={editing}
+              />
+            )}
           </div>
           {/* Genres on full cards only (not compact). */}
           {!compact && (book.genres || []).length > 0 && (

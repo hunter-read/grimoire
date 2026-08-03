@@ -384,7 +384,8 @@
       "application": "Aplicación",
       "maintenance": "Mantenimiento",
       "logs": "Registros",
-      "metadata": "Metadata"
+      "metadata": "Metadata",
+      "addons": "Complementos"
     }
   },
   "authSettings": {
@@ -1129,7 +1130,7 @@
     "addUrl": "Add Link",
     "urlLabelPlaceholder": "Label (e.g. DriveThruRPG)",
     "urlPlaceholder": "URL",
-    "characterBuilderUrls": "Character Builder Links",
+    "characterBuilderUrls": "Creadores de personajes",
     "addCharacterBuilder": "Add Character Builder",
     "characterBuilderLabelPlaceholder": "Label (e.g. D&D Beyond)",
     "parentSystem": "Sistema padre",
@@ -1137,7 +1138,10 @@
     "edition": "Edición",
     "editionPlaceholder": "e.g. 5e, Red, 2020",
     "licensePlaceholder": "e.g. OGL 1.0a",
-    "createParentSystem": "Crear sistema padre «{{name}}»"
+    "createParentSystem": "Crear sistema padre «{{name}}»",
+    "fetchMetadata": "Obtener metadatos",
+    "loadMoreCovers_one": "Mostrar 1 más",
+    "loadMoreCovers_other": "Mostrar {{count}} más"
   },
   "bookEditor": {
     "title": "Editar libro",
@@ -1176,7 +1180,8 @@
     "categoryPlaceholder": "Search or create a category…",
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licencia",
-    "licensePlaceholder": "Inherit system license"
+    "licensePlaceholder": "Inherit system license",
+    "fetchMetadata": "Obtener metadatos"
   },
   "reocr": {
     "button": "Repetir OCR",
@@ -1196,7 +1201,8 @@
     "reocr": "Re-OCR…",
     "rescan": "Re-scan & re-index",
     "rescanQueued": "Re-scan queued",
-    "rescanError": "Failed to queue re-scan"
+    "rescanError": "Failed to queue re-scan",
+    "details": "Ver detalles"
   },
   "bookRow": {
     "missingFile": "Ausente",
@@ -1567,5 +1573,75 @@
       "other": "Other",
       "custom": "Custom"
     }
+  },
+  "addons": {
+    "title": "Complementos de la comunidad",
+    "description": "Instala recopiladores de metadatos aportados por la comunidad. Los complementos pueden rellenar los detalles del sistema de juego desde fuentes externas.",
+    "indexUrl": "URL del índice de complementos",
+    "refresh": "Actualizar",
+    "refreshed": "Índice de complementos actualizado.",
+    "installedHeading": "Instalados",
+    "availableHeading": "Disponibles",
+    "noneInstalled": "Aún no hay complementos instalados.",
+    "noneAvailable": "Nada nuevo en el índice. Prueba a actualizar.",
+    "install": "Instalar",
+    "installed": "{{name}} instalado.",
+    "remove": "Eliminar",
+    "removed": "{{name}} eliminado.",
+    "enabled": "Activado",
+    "runsCode": "Ejecuta código",
+    "installTitle": "¿Instalar {{name}}?",
+    "scriptWarning": "Este complemento ejecuta código Python en tu servidor con acceso a la red. Instala solo complementos de fuentes en las que confíes y lee antes el script.",
+    "scriptAcknowledge": "Entiendo que este complemento ejecuta código en mi servidor.",
+    "allowScripts": "Permitir scripts de complementos",
+    "allowScriptsDesc": "Desactivado por defecto. Incluso activado, cada complemento con script debe aprobarse individualmente al instalarlo.",
+    "update": "Actualizar",
+    "updateAll": "Actualizar todo ({{count}})",
+    "updateBadge": "v{{version}} disponible",
+    "updated": "{{name}} actualizado.",
+    "updatedCount_one": "{{count}} complemento actualizado.",
+    "updatedCount_other": "{{count}} complementos actualizados.",
+    "alreadyUpToDate": "Todo está ya actualizado.",
+    "updateTitle": "¿Actualizar {{name}}?",
+    "scriptUpdateWarning": "Esta actualización cambia el script del complemento. Como el código ha cambiado, necesita tu aprobación de nuevo antes de que Grimoire lo ejecute."
+  },
+  "metadataFetch": {
+    "title": "Obtener metadatos",
+    "source": "Fuente",
+    "search": "Buscar",
+    "searchPlaceholder": "Nombre del sistema",
+    "noSources": "No hay fuentes de metadatos instaladas. Un administrador puede añadir una en Ajustes → Complementos.",
+    "noMatches": "No se han encontrado coincidencias. Prueba otro término de búsqueda.",
+    "nothingToApply": "Este resultado no aporta nada nuevo.",
+    "statusNew": "nuevo",
+    "statusDiffers": "difiere",
+    "statusSame": "ya establecido",
+    "apply": "Aplicar {{count}} campo",
+    "apply_other": "Aplicar {{count}} campos",
+    "back": "Atrás",
+    "viewSource": "Ver fuente",
+    "pasteToggle": "¿Sabes cuál es? Pega un enlace o ID",
+    "pasteLabel": "Enlace o ID de la fuente",
+    "pastePlaceholder": "Pega un enlace o ID de esta fuente",
+    "pasteUse": "Buscar",
+    "pasteHint": "Pega la URL de la página del elemento en la fuente, o solo su ID.",
+    "keepsExisting_one": "Se conserva tu enlace existente.",
+    "keepsExisting_other": "Se conservan tus {{count}} enlaces existentes."
+  },
+  "bookDetails": {
+    "category": "Categoría",
+    "authors": "Autores",
+    "artists": "Artistas",
+    "publisher": "Editorial",
+    "published": "Publicado",
+    "genres": "Géneros",
+    "license": "Licencia",
+    "isbn": "ISBN",
+    "version": "Versión",
+    "language": "Idioma",
+    "pages": "Páginas",
+    "fileSize": "Tamaño del archivo",
+    "format": "Formato",
+    "path": "Ruta"
   }
 }

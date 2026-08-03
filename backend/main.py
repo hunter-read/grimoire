@@ -24,6 +24,7 @@ from .config import (
     logger,
 )
 from .routers import (
+    addons as addons_router,
     audio as audio_router,
     auth as auth_router,
     bookmarks as bookmarks_router,
@@ -245,6 +246,7 @@ api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
 api.include_router(export_router.router)
 api.include_router(settings_router.router)
+api.include_router(addons_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(logs_router.router)
 app.include_router(api)
