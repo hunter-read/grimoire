@@ -1379,7 +1379,16 @@
     "previous": "Anterior",
     "next": "Próximo",
     "field_genre": "Gênero",
-    "field_characterBuilderUrl": "URL do criador de personagens"
+    "field_characterBuilderUrl": "URL do criador de personagens",
+    "applyToAll": "Aplicar a todos os {{count}}",
+    "applyToAllTitle": "Aplicar a todos os {{count}} itens",
+    "applyToAllHint": "Copiar os valores deste item para todos os itens selecionados. Apenas os campos marcados são copiados; nada é salvo até «Salvar tudo».",
+    "applySelected_zero": "Aplicar",
+    "applySelected_one": "Aplicar 1 campo",
+    "applySelected_other": "Aplicar {{count}} campos",
+    "selectAll": "Selecionar tudo",
+    "selectNone": "Não selecionar nada",
+    "emptyValue": "vazio"
   },
   "guests": {
     "guests": "Convidados",
