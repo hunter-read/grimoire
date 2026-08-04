@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
+import { LuX, LuChevronLeft, LuChevronRight, LuDownload, LuCopy } from 'react-icons/lu'
 import api from '../api'
 import SystemBulkEditFields from './system/SystemBulkEditFields'
 import BookBulkEditFields from './system/BookBulkEditFields'
+import ApplyToAllDialog from './system/ApplyToAllDialog'
+import MetadataFetchDialog from './system/MetadataFetchDialog'
+import { intoBookForm } from './system/metadataFieldValue'
 import { cleanLinks } from './metadata/metadataUtils'
 
 // Per-type editable fields and the PATCH endpoint they save to. Tags are edited
@@ -23,6 +26,9 @@ const CONFIG = {
   },
   book: {
     endpoint: (id) => `/books/${id}`,
+    // Metadata add-ons serve books and systems; the carousel offers the same
+    // "Fetch metadata" step the single-item editors do (issue #260).
+    metadataKind: 'books',
     // Books use a bespoke editor body (BookBulkEditFields) mirroring the full
     // single-book editor, so genres/tags/authors/artists/links stay native
     // arrays and category uses the shared combobox.
@@ -39,6 +45,9 @@ const CONFIG = {
       'isbn',
       'version',
       'language',
+      // BookBulkEditFields renders a license combobox; without it here the
+      // draft was built and edited but never diffed, so the edit was dropped.
+      'license',
       'year',
       'month',
       'day',
@@ -48,6 +57,7 @@ const CONFIG = {
   },
   system: {
     endpoint: (id) => `/systems/${id}`,
+    metadataKind: 'systems',
     // Systems use a bespoke editor body (SystemBulkEditFields) that mirrors the
     // full single-system editor, so tags/publishers/genres/links stay native
     // arrays and the cover image can be picked from each system's own books.
@@ -57,6 +67,10 @@ const CONFIG = {
       'genres',
       'dice_materials',
       'system_family',
+      // Rendered by SystemBulkEditFields; without them here the edits were
+      // built into the draft but never diffed, so they were silently dropped.
+      'parent_system',
+      'edition',
       'license',
       'year',
       'publishers',
@@ -99,6 +113,57 @@ const cleanStructured = (field, value) => {
   if (field === 'urls' || field === 'character_builder_urls') return cleanLinks(list)
   // genres / dice_materials are plain string arrays, already trimmed in the UI.
   return list
+}
+
+// i18n keys for the "apply to all" checklist. The single-item editors already
+// label every one of these fields, so their keys are reused rather than adding
+// a parallel set of bulkEdit.* strings to all ten locales.
+const BOOK_LABEL_KEYS = {
+  title: 'titleLabel',
+  description: 'descriptionLabel',
+  category: 'categoryLabel',
+  genres: 'genresLabel',
+  tags: 'tagsLabel',
+  urls: 'urlsLabel',
+  authors: 'authorsLabel',
+  artists: 'artistsLabel',
+  publisher: 'publisherLabel',
+  isbn: 'isbnLabel',
+  version: 'versionLabel',
+  language: 'languageLabel',
+  license: 'licenseLabel',
+  year: 'yearLabel',
+  month: 'monthLabel',
+  day: 'dayLabel',
+}
+const SYSTEM_LABEL_KEYS = {
+  description: 'description',
+  tags: 'tags',
+  genres: 'genres',
+  dice_materials: 'diceMaterials',
+  system_family: 'systemFamily',
+  parent_system: 'parentSystem',
+  edition: 'edition',
+  license: 'license',
+  year: 'year',
+  publishers: 'publishers',
+  urls: 'urls',
+  character_builder_urls: 'characterBuilderUrls',
+}
+
+// Fields excluded from "apply to all" because copying them across the selection
+// is never meaningful: a cover book id only belongs to its own system, and an
+// ISBN identifies one specific book.
+const NOT_COPYABLE = new Set(['cover_book_id', 'isbn'])
+
+// One entry of a list-valued field, flattened for the checklist preview.
+// Publishers are {name, url}; link lists are {label, url}.
+const previewEntry = (entry) => {
+  if (entry === null || entry === undefined) return ''
+  if (typeof entry !== 'object') return String(entry)
+  if (entry.name) return String(entry.name)
+  if (entry.label && entry.url) return `${entry.label}: ${entry.url}`
+  return String(entry.url || entry.label || '')
 }
 
 const tagsToString = (tags) => (Array.isArray(tags) ? tags.join(', ') : '')
@@ -168,7 +233,90 @@ export default function BulkEditModal({
   const setField = (field, value) =>
     setDrafts((prev) => ({ ...prev, [current.id]: { ...prev[current.id], [field]: value } }))
 
+  // Copy the current item's values for the chosen fields onto every other
+  // selected item's draft (issue #260). Nothing is written until "Save all", so
+  // this stays reviewable — step through the carousel and the change is visible
+  // on each item. Arrays/objects are cloned so drafts don't share a reference.
+  const applyFieldsToAll = (fields) => {
+    const source = drafts[current.id] || {}
+    setDrafts((prev) => {
+      const next = { ...prev }
+      for (const it of items) {
+        const d = { ...next[it.id] }
+        for (const f of fields) {
+          const v = source[f]
+          d[f] = v && typeof v === 'object' ? structuredClone(v) : v
+        }
+        next[it.id] = d
+      }
+      return next
+    })
+  }
+
+  // The checklist rows: every copyable field for this type, with a label and a
+  // preview of the value that would be pushed to the rest of the selection.
+  const copyableFields = useMemo(() => {
+    const labelFor = (f) => {
+      if (type === 'book' && BOOK_LABEL_KEYS[f]) return t(`bookEditor.${BOOK_LABEL_KEYS[f]}`)
+      if (type === 'system' && SYSTEM_LABEL_KEYS[f])
+        return t(`systemEditor.${SYSTEM_LABEL_KEYS[f]}`)
+      if (f === 'is_explicit') return t('bulkEdit.field_explicit')
+      return fieldLabels[f] || f
+    }
+    return cfg.fields
+      .filter((f) => !NOT_COPYABLE.has(f))
+      .map((f) => ({ field: f, label: labelFor(f) }))
+  }, [cfg.fields, type, t, fieldLabels])
+
+  // One-line renderings of the current draft's values, shown beside each row so
+  // the choice is informed — particularly for fields that are currently empty.
+  const fieldPreviews = useMemo(() => {
+    const out = {}
+    for (const { field: f } of copyableFields) {
+      const v = draft?.[f]
+      if (f === 'is_explicit') out[f] = v ? t('common.yes') : t('common.no')
+      else if (Array.isArray(v)) out[f] = v.map(previewEntry).filter(Boolean).join(', ')
+      else out[f] = v == null ? '' : String(v)
+    }
+    return out
+  }, [copyableFields, draft, t])
+
   const go = (delta) => setIndex((i) => Math.min(items.length - 1, Math.max(0, i + delta)))
+
+  // "Fetch metadata", mirroring the single-item editors. Only offered when the
+  // current item actually has an add-on source, so the button never promises
+  // something the server cannot do.
+  const [hasSources, setHasSources] = useState(false)
+  const [fetching, setFetching] = useState(false)
+  const [applyingAll, setApplyingAll] = useState(false)
+  const metadataKind = cfg.metadataKind
+
+  useEffect(() => {
+    if (!metadataKind) return undefined
+    let active = true
+    api
+      .get(`/${metadataKind}/${current.id}/metadata-sources`)
+      .then((data) => active && setHasSources((data.sources || []).length > 0))
+      .catch(() => active && setHasSources(false))
+    return () => {
+      active = false
+    }
+  }, [metadataKind, current.id])
+
+  // The fetch dialog PATCHes the fields it applies, so the draft is refreshed
+  // to match rather than left holding pre-fetch values that "Save all" would
+  // then write back over the top.
+  const handleFetched = (fields) => {
+    const applied = type === 'book' ? intoBookForm(fields) : fields
+    setDrafts((prev) => {
+      const d = { ...prev[current.id] }
+      for (const [key, value] of Object.entries(applied)) {
+        if (!cfg.fields.includes(key)) continue
+        d[key] = key === 'tags' && !cfg.custom ? tagsToString(value) : value
+      }
+      return { ...prev, [current.id]: d }
+    })
+  }
 
   const saveAll = async () => {
     if (saving) return
@@ -311,8 +459,28 @@ export default function BulkEditModal({
           <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} style={cancelBtn}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            marginTop: 20,
+          }}
+        >
+          {items.length > 1 && (
+            <button onClick={() => setApplyingAll(true)} style={fetchBtn}>
+              <LuCopy size={13} />
+              {t('bulkEdit.applyToAll', { count: items.length })}
+            </button>
+          )}
+          {hasSources && (
+            <button onClick={() => setFetching(true)} style={fetchBtn}>
+              <LuDownload size={13} />
+              {t('bookEditor.fetchMetadata')}
+            </button>
+          )}
+          <button onClick={onClose} style={{ ...cancelBtn, marginLeft: 'auto' }}>
             {t('common.cancel')}
           </button>
           <button
@@ -324,6 +492,25 @@ export default function BulkEditModal({
           </button>
         </div>
       </div>
+
+      {applyingAll && (
+        <ApplyToAllDialog
+          fields={copyableFields}
+          count={items.length}
+          values={fieldPreviews}
+          onApply={applyFieldsToAll}
+          onClose={() => setApplyingAll(false)}
+        />
+      )}
+
+      {fetching && (
+        <MetadataFetchDialog
+          resource={current}
+          kind={metadataKind}
+          onApply={handleFetched}
+          onClose={() => setFetching(false)}
+        />
+      )}
     </div>
   )
 }
@@ -348,8 +535,10 @@ const panel = {
   border: '1px solid var(--border)',
   borderRadius: 10,
   padding: 24,
-  width: 460,
-  maxWidth: '92vw',
+  // Matches the metadata fetch dialog and gives the book/system bodies room for
+  // the same two-up field layout the single-item editors use (issue #260).
+  width: 640,
+  maxWidth: '94vw',
   maxHeight: '90vh',
   overflowY: 'auto',
   boxSizing: 'border-box',
@@ -412,6 +601,18 @@ const cancelBtn = {
   border: '1px solid var(--border)',
   color: 'var(--text-dim)',
   fontSize: 14,
+  cursor: 'pointer',
+}
+const fetchBtn = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '7px 14px',
+  borderRadius: 6,
+  background: 'none',
+  border: '1px solid var(--border)',
+  color: 'var(--text-dim)',
+  fontSize: 13,
   cursor: 'pointer',
 }
 const goldBtn = {

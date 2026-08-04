@@ -1379,7 +1379,16 @@
     "previous": "Zurück",
     "next": "Weiter",
     "field_genre": "Genre",
-    "field_characterBuilderUrl": "Charaktergenerator-URL"
+    "field_characterBuilderUrl": "Charaktergenerator-URL",
+    "applyToAll": "Auf alle {{count}} anwenden",
+    "applyToAllTitle": "Auf alle {{count}} Einträge anwenden",
+    "applyToAllHint": "Werte dieses Eintrags auf alle ausgewählten Einträge übertragen. Nur angehakte Felder werden kopiert; gespeichert wird erst mit „Alle speichern“.",
+    "applySelected_zero": "Anwenden",
+    "applySelected_one": "1 Feld anwenden",
+    "applySelected_other": "{{count}} Felder anwenden",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Keine auswählen",
+    "emptyValue": "leer"
   },
   "guests": {
     "guests": "Gäste",

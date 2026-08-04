@@ -1379,7 +1379,16 @@
     "previous": "Vorige",
     "next": "Volgende",
     "field_genre": "Genre",
-    "field_characterBuilderUrl": "URL van personagebouwer"
+    "field_characterBuilderUrl": "URL van personagebouwer",
+    "applyToAll": "Op alle {{count}} toepassen",
+    "applyToAllTitle": "Op alle {{count}} items toepassen",
+    "applyToAllHint": "Waarden van dit item naar alle geselecteerde items kopiëren. Alleen aangevinkte velden worden gekopieerd; er wordt pas opgeslagen met 'Alles opslaan'.",
+    "applySelected_zero": "Toepassen",
+    "applySelected_one": "1 veld toepassen",
+    "applySelected_other": "{{count}} velden toepassen",
+    "selectAll": "Alles selecteren",
+    "selectNone": "Niets selecteren",
+    "emptyValue": "leeg"
   },
   "guests": {
     "guests": "Gasten",

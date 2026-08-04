@@ -1379,7 +1379,16 @@
     "previous": "Previous",
     "next": "Next",
     "field_genre": "Genre",
-    "field_characterBuilderUrl": "Character Builder URL"
+    "field_characterBuilderUrl": "Character Builder URL",
+    "applyToAll": "Apply to all {{count}}",
+    "applyToAllTitle": "Apply to all {{count}} items",
+    "applyToAllHint": "Copy this item's values to every selected item. Only ticked fields are copied; nothing is saved until you choose Save all.",
+    "applySelected_zero": "Apply",
+    "applySelected_one": "Apply 1 field",
+    "applySelected_other": "Apply {{count}} fields",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "emptyValue": "empty"
   },
   "guests": {
     "guests": "Guests",
