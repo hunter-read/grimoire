@@ -135,4 +135,44 @@ describe('WikiMarkdown', () => {
     // A file embed is a button (opens the file), not an inline image.
     expect(screen.getByRole('button')).toBeTruthy()
   })
+
+  // List indentation is styling (index.css scopes it to .wiki-markdown, since the
+  // global `*` reset zeroes list padding). jsdom doesn't load that stylesheet, so
+  // these lock in the markup contract those rules hang off instead.
+  it('wraps rendered markdown in the .wiki-markdown scope the list styles target', () => {
+    const { container } = renderMd({ body: '- one\n- two' })
+    const scope = container.querySelector('.wiki-markdown')
+    expect(scope).toBeTruthy()
+    expect(scope.querySelector('ul')).toBeTruthy()
+  })
+
+  it('nests a sub-list inside its parent list item', () => {
+    const { container } = renderMd({ body: '- one\n  - nested\n- two' })
+    const top = container.querySelector('.wiki-markdown > ul')
+    expect(top.children).toHaveLength(2)
+    // The nested <ul> lives inside the first <li>, so `li > ul` indents it.
+    expect(top.children[0].querySelector('ul')).toBeTruthy()
+    expect(screen.getByText('nested')).toBeTruthy()
+  })
+
+  it('renders an ordered list as <ol>', () => {
+    const { container } = renderMd({ body: '1. first\n2. second' })
+    const ol = container.querySelector('.wiki-markdown ol')
+    expect(ol).toBeTruthy()
+    expect(ol.children).toHaveLength(2)
+  })
+
+  it('tags task-list items so the bullet can be suppressed', () => {
+    const { container } = renderMd({ body: '- [ ] todo\n- [x] done' })
+    const items = container.querySelectorAll('li.task-list-item')
+    expect(items).toHaveLength(2)
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2)
+  })
+
+  it('keeps lists indented inside a multiline GM secret block', () => {
+    const { container } = renderMd({ body: '||Secret:\n\n- hidden one\n- hidden two||' })
+    // The secret block renders its own WikiMarkdown pass, still under the scope.
+    expect(container.querySelector('.wiki-markdown ul')).toBeTruthy()
+    expect(screen.getByText('hidden one')).toBeTruthy()
+  })
 })
