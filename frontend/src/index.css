@@ -160,3 +160,51 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
     flex: 1 1 auto;
   }
 }
+
+/* Campaign wiki / notes markdown. The global `* { margin: 0; padding: 0 }`
+   reset strips list indentation, so restore it here rather than globally —
+   the app's own <ul>s are unstyled layout lists that must stay flush. */
+.wiki-markdown ul,
+.wiki-markdown ol {
+  padding-left: 1.75em;
+  margin: 8px 0;
+}
+.wiki-markdown ul {
+  list-style: disc;
+}
+.wiki-markdown ol {
+  list-style: decimal;
+}
+/* Nested lists alternate markers and indent under their parent item without
+   the extra vertical gap a top-level list gets. */
+.wiki-markdown ul ul {
+  list-style: circle;
+}
+.wiki-markdown ul ul ul {
+  list-style: square;
+}
+.wiki-markdown ol ol {
+  list-style: lower-alpha;
+}
+.wiki-markdown ol ol ol {
+  list-style: lower-roman;
+}
+.wiki-markdown li > ul,
+.wiki-markdown li > ol {
+  margin: 4px 0;
+}
+.wiki-markdown li {
+  margin: 2px 0;
+}
+/* GFM task lists render their own checkbox, so no bullet. mdast-util-to-hast
+   tags those items with .task-list-item. */
+.wiki-markdown li.task-list-item {
+  list-style: none;
+}
+.wiki-markdown li > input[type='checkbox'] {
+  margin-right: 6px;
+}
+/* Loose lists wrap each item's content in <p>; keep those tight. */
+.wiki-markdown li > p {
+  margin: 0;
+}
