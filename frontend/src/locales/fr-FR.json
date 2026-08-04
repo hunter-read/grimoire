@@ -1302,7 +1302,9 @@
     "noLinkedResources": "Aucune ressource liée pour le moment. Liez d’abord des livres, cartes ou jetons dans le panneau Ressources.",
     "imageCategory": "Classer l’image dans une catégorie",
     "newCategoryPlaceholder": "Nom de la nouvelle catégorie",
-    "chooseImage": "Choisir une image"
+    "chooseImage": "Choisir une image",
+    "visibilityIs": "Visibilité : {{level}}",
+    "changeVisibilityFrom": "Modifier la visibilité (actuellement {{level}})"
   },
   "campaignNotes": {
     "backToOverview": "Retour à l'aperçu"
@@ -1324,7 +1326,25 @@
   },
   "iconPicker": {
     "label": "Choisir une icône",
-    "none": "Aucune icône"
+    "none": "Aucune icône",
+    "tab_icons": "Icônes",
+    "tab_emoji": "Émoji",
+    "searchPlaceholder": "Rechercher des icônes…",
+    "searchLabel": "Rechercher des icônes",
+    "noResults": "Aucune icône correspondante",
+    "colorLabel": "Couleur",
+    "colorDefault": "Couleur par défaut",
+    "colorCustom": "Couleur personnalisée",
+    "color_red": "Rouge",
+    "color_orange": "Orange",
+    "color_gold": "Or",
+    "color_green": "Vert",
+    "color_teal": "Sarcelle",
+    "color_blue": "Bleu",
+    "color_purple": "Violet",
+    "color_pink": "Rose",
+    "color_brown": "Marron",
+    "color_gray": "Gris"
   },
   "bulk": {
     "hint": "Cliquez sur des éléments ou des dossiers pour les sélectionner. Maj-clic pour une plage, ⌘/Ctrl-clic pour basculer.",

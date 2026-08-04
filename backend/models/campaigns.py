@@ -258,8 +258,13 @@ class WikiPage(Base):
     # Deprecated: legacy flat note-category grouping. Retained only so the one-time
     # note-category -> parent-page migration can read it; new code uses parent_id.
     category_id = Column(String(36), ForeignKey("campaign_categories.id"), nullable=True)
-    # Optional Lucide icon name (e.g. "user", "swords") shown in the page list.
+    # Optional icon shown in the page list: either a curated Lucide key (e.g.
+    # "user", "swords") or a literal emoji. Emoji are stored as-is and rendered
+    # as text; anything else is resolved against the curated Lucide set.
     icon = Column(String(50), nullable=True)
+    # Optional icon tint: a preset palette token (e.g. "red") or a "#rrggbb"
+    # literal. Null means "inherit the row's text colour".
+    icon_color = Column(String(20), nullable=True)
     # Manual ordering within the page list (drag-and-drop).
     sort_order = Column(Integer, default=0)
 
@@ -317,8 +322,10 @@ class CampaignCategory(Base):
     campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=False, index=True)
     kind = Column(String(20), nullable=False)  # note | resource
     name = Column(String(255), nullable=False)
-    # Optional Lucide icon name shown beside the category.
+    # Optional icon shown beside the category — a curated Lucide key or an emoji.
     icon = Column(String(50), nullable=True)
+    # Optional icon tint: a preset palette token or a "#rrggbb" literal.
+    icon_color = Column(String(20), nullable=True)
     sort_order = Column(Integer, default=0)
 
     created_at = Column(DateTime, default=_utcnow)

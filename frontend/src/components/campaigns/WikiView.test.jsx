@@ -171,23 +171,30 @@ describe('WikiView visibility editor', () => {
     expect(screen.queryByRole('button', { name: 'Change visibility' })).toBeNull()
   })
 
-  it('colour-codes the page-title icon by visibility', async () => {
-    const cases = [
-      ['gm', 'var(--red)'],
-      ['group', 'var(--text)'],
-      ['members', 'var(--gold)'],
-    ]
-    for (const [visibility, color] of cases) {
-      campaigns.getWikiPage.mockResolvedValue({ ...page, visibility, shared_user_ids: [] })
+  it('tints the page-title icon with the page’s own colour, not its visibility', async () => {
+    // Visibility is carried by its own glyph now; the icon colour is a user
+    // choice, so it must be identical across visibility levels.
+    for (const visibility of ['gm', 'group', 'members']) {
+      campaigns.getWikiPage.mockResolvedValue({
+        ...page,
+        visibility,
+        icon_color: 'blue',
+        shared_user_ids: [],
+      })
       const { unmount } = renderView()
-      const badge = await screen.findByRole('button', { name: 'Change visibility' })
-      // The icon trigger sits just before the title; its colour matches the level.
+      await screen.findByRole('button', { name: 'Change visibility' })
       const iconBtn = screen.getAllByRole('button', { name: 'Icon' }).at(-1)
-      expect(iconBtn.style.color).toBe(color)
-      // The badge itself is tinted to match.
-      expect(badge.style.color).toBe(color)
+      expect(iconBtn.style.color).toBe('rgb(85, 144, 212)') // preset "blue"
       unmount()
     }
+  })
+
+  it('leaves the page-title icon untinted when no colour is set', async () => {
+    campaigns.getWikiPage.mockResolvedValue({ ...page, icon_color: null, shared_user_ids: [] })
+    renderView()
+    await screen.findByRole('button', { name: 'Change visibility' })
+    const iconBtn = screen.getAllByRole('button', { name: 'Icon' }).at(-1)
+    expect(iconBtn.style.color).toBe('var(--text-dim)')
   })
 })
 
@@ -435,5 +442,89 @@ describe('WikiView create / delete / search', () => {
     campaigns.getWikiPage.mockClear()
     fireEvent.click(screen.getByText('Kobolds'))
     await waitFor(() => expect(campaigns.getWikiPage).toHaveBeenCalledWith('c1', 'p2'))
+  })
+})
+
+describe('WikiView tree row chrome', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.updateWikiPage.mockResolvedValue(page)
+  })
+
+  const renderRow = async (over = {}) => {
+    const row = { ...page, ...over }
+    campaigns.listWikiPages.mockResolvedValue([row])
+    campaigns.getWikiPage.mockResolvedValue(row)
+    renderView()
+    return await screen.findByText(row.title)
+  }
+
+  // The plus button is hover-only so a long page list stays uncluttered. It
+  // stays mounted (opacity 0) rather than unmounting, so rows don't reflow.
+  it('reveals the add-subpage button only while the row is hovered', async () => {
+    const title = await renderRow()
+    const rowEl = title.closest('div')
+    const plus = screen.getByRole('button', { name: 'Add subpage' })
+    expect(plus.style.opacity).toBe('0')
+
+    fireEvent.mouseEnter(rowEl)
+    expect(screen.getByRole('button', { name: 'Add subpage' }).style.opacity).toBe('1')
+
+    fireEvent.mouseLeave(rowEl)
+    expect(screen.getByRole('button', { name: 'Add subpage' }).style.opacity).toBe('0')
+  })
+
+  it('keeps the add-subpage button reachable by keyboard', async () => {
+    const title = await renderRow()
+    const plus = screen.getByRole('button', { name: 'Add subpage' })
+    fireEvent.focus(plus)
+    expect(screen.getByRole('button', { name: 'Add subpage' }).style.opacity).toBe('1')
+    expect(title).toBeInTheDocument()
+  })
+
+  // Restricted pages read dimmer than public ones, so limited access is legible
+  // without relying on the icon's colour.
+  it('dims the title of a restricted page relative to a public one', async () => {
+    campaigns.listWikiPages.mockResolvedValue([
+      { ...page, id: 'pub', title: 'Public page', visibility: 'group' },
+      { ...page, id: 'sec', title: 'Secret page', visibility: 'gm' },
+    ])
+    campaigns.getWikiPage.mockResolvedValue({ ...page, id: 'pub', visibility: 'group' })
+    renderView()
+
+    const publicTitle = await screen.findByText('Public page')
+    const secretTitle = screen.getByText('Secret page')
+    const opacityOf = (el) => Number(el.style.opacity || '1')
+    expect(opacityOf(secretTitle)).toBeLessThan(1)
+    // The selected row keeps full contrast, so compare against an unselected one.
+    expect(opacityOf(secretTitle)).toBeLessThan(opacityOf(publicTitle))
+  })
+
+  it('tints a read-only row icon with the stored colour', async () => {
+    await renderRow({
+      icon: 'castle',
+      icon_color: 'red',
+      can_edit: false,
+      visibility: 'gm',
+    })
+    const tinted = [...document.querySelectorAll('svg')].some(
+      (el) => el.style.color === 'rgb(224, 82, 82)' // preset "red"
+    )
+    expect(tinted).toBe(true)
+  })
+
+  it('changes visibility from the row glyph', async () => {
+    const title = await renderRow({ visibility: 'gm' })
+    const rowEl = title.closest('div')
+    fireEvent.mouseEnter(rowEl)
+    const glyph = screen.getByRole('button', { name: /change visibility \(currently/i })
+    fireEvent.click(glyph)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /public/i }))
+    await waitFor(() =>
+      expect(campaigns.updateWikiPage).toHaveBeenCalledWith('c1', 'p1', {
+        visibility: 'group',
+        shared_user_ids: [],
+      })
+    )
   })
 })

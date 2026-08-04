@@ -37,6 +37,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import WikiPage
 from ._helpers import assert_can_manage, get_campaign_or_404
+from ._schemas import clean_icon_color
 from .wiki import (
     _ensure_unique_slug,
     _page_summary,
@@ -57,8 +58,20 @@ _LK_SPECIAL_RE = re.compile(r"<div data-node-type[^>]*>.*?</div>", re.DOTALL)
 _MD_LK_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]*?)\.html\)")
 
 # Frontmatter keys we read/write. Anything else in a foreign file is ignored.
-_FM_KEYS = ("title", "visibility", "parent", "icon", "page_type", "session_date")
+_FM_KEYS = (
+    "title", "visibility", "parent", "icon", "icon_color", "page_type", "session_date",
+)
 _VALID_VIS = ("gm", "group", "members")
+
+
+def _safe_icon_color(value) -> str | None:
+    """An imported icon tint, or None when absent/not an accepted value."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return clean_icon_color(value) or None
+    except ValueError:
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -72,7 +85,9 @@ def _frontmatter(page: WikiPage, parent_slug) -> str:
     if parent_slug:
         lines.append(f"parent: {_yaml_scalar(parent_slug)}")
     if page.icon:
-        lines.append(f"icon: {page.icon}")
+        lines.append(f"icon: {_yaml_scalar(page.icon)}")
+    if page.icon_color:
+        lines.append(f"icon_color: {page.icon_color}")
     if page.page_type and page.page_type != "note":
         lines.append(f"page_type: {page.page_type}")
     if page.session_date:
@@ -121,6 +136,7 @@ def export_wiki(
                     "page_type": p.page_type,
                     "session_date": p.session_date,
                     "icon": p.icon,
+                    "icon_color": p.icon_color,
                     "parent": parent_slug[p.id],
                 }
                 for p in pages
@@ -156,13 +172,14 @@ def export_wiki(
 
 # --------------------------------------------------------------------------- #
 # Format parsers — each returns a list of records:
-#   {title, body, visibility, icon, page_type, session_date, source_key, parent_key}
+#   {title, body, visibility, icon, icon_color, page_type, session_date,
+#    source_key, parent_key}
 # `source_key` is whatever foreign id/title other records link to, used to remap
 # internal links to the slugs we assign on import.
 # --------------------------------------------------------------------------- #
 
 
-def _record(title, body, *, visibility="gm", icon=None, page_type="note",
+def _record(title, body, *, visibility="gm", icon=None, icon_color=None, page_type="note",
             session_date=None, source_key=None, parent_key=None):
     if visibility not in _VALID_VIS:
         visibility = "gm"
@@ -174,6 +191,9 @@ def _record(title, body, *, visibility="gm", icon=None, page_type="note",
         "body": body or "",
         "visibility": visibility,
         "icon": (icon or None),
+        # Imported files are untrusted: drop a tint we wouldn't accept over the
+        # API rather than letting it reach the DB (and then a style attribute).
+        "icon_color": _safe_icon_color(icon_color),
         "page_type": page_type,
         "session_date": session_date or None,
         "source_key": source_key if source_key is not None else title,
@@ -222,6 +242,7 @@ def parse_markdown_file(name: str, text: str) -> dict:
         visibility=fm.get("visibility", "gm"),
         parent_key=fm.get("parent"),
         icon=fm.get("icon"),
+        icon_color=fm.get("icon_color"),
         page_type=fm.get("page_type", "note"),
         session_date=fm.get("session_date"),
     )
@@ -237,6 +258,7 @@ def parse_grimoire_bundle(obj: dict) -> list:
                 visibility=p.get("visibility", "gm"),
                 parent_key=p.get("parent"),
                 icon=p.get("icon"),
+                icon_color=p.get("icon_color"),
                 page_type=p.get("page_type", "note"),
                 session_date=p.get("session_date"),
                 source_key=p.get("slug") or p.get("title"),
@@ -647,6 +669,7 @@ def import_wiki(
             page_type=rec["page_type"],
             session_date=rec["session_date"],
             icon=rec["icon"],
+            icon_color=rec["icon_color"],
             parent_id=parent_id,
             created_by_id=current_user.id,
         )

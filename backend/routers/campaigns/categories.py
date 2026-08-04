@@ -33,6 +33,7 @@ def _serialize(cat: CampaignCategory) -> dict:
         "name": cat.name,
         "kind": cat.kind,
         "icon": cat.icon,
+        "icon_color": cat.icon_color,
         "sort_order": cat.sort_order,
     }
 
@@ -83,6 +84,7 @@ def create_category(
         kind=data.kind,
         name=name,
         icon=(data.icon or None),
+        icon_color=(data.icon_color or None),
         sort_order=max_order,
     )
     db.add(cat)
@@ -114,6 +116,8 @@ def update_category(
         cat.name = name
     if data.icon is not None:
         cat.icon = data.icon or None
+    if data.icon_color is not None:
+        cat.icon_color = data.icon_color or None
     db.commit()
     return _serialize(cat)
 

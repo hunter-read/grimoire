@@ -1302,7 +1302,9 @@
     "noLinkedResources": "Nog geen gekoppelde bronnen. Koppel eerst boeken, kaarten of tokens in het paneel Bronnen.",
     "imageCategory": "Plaats de afbeelding onder een categorie",
     "newCategoryPlaceholder": "Naam van nieuwe categorie",
-    "chooseImage": "Kies een afbeelding"
+    "chooseImage": "Kies een afbeelding",
+    "visibilityIs": "Zichtbaarheid: {{level}}",
+    "changeVisibilityFrom": "Zichtbaarheid wijzigen (nu {{level}})"
   },
   "campaignNotes": {
     "backToOverview": "Terug naar overzicht"
@@ -1324,7 +1326,25 @@
   },
   "iconPicker": {
     "label": "Kies een pictogram",
-    "none": "Geen pictogram"
+    "none": "Geen pictogram",
+    "tab_icons": "Pictogrammen",
+    "tab_emoji": "Emoji",
+    "searchPlaceholder": "Pictogrammen zoeken…",
+    "searchLabel": "Pictogrammen zoeken",
+    "noResults": "Geen overeenkomende pictogrammen",
+    "colorLabel": "Kleur",
+    "colorDefault": "Standaardkleur",
+    "colorCustom": "Aangepaste kleur",
+    "color_red": "Rood",
+    "color_orange": "Oranje",
+    "color_gold": "Goud",
+    "color_green": "Groen",
+    "color_teal": "Turquoise",
+    "color_blue": "Blauw",
+    "color_purple": "Paars",
+    "color_pink": "Roze",
+    "color_brown": "Bruin",
+    "color_gray": "Grijs"
   },
   "bulk": {
     "hint": "Klik op items of mapkoppen om ze te selecteren. Shift+klik voor een bereik, ⌘/Ctrl+klik om te wisselen.",

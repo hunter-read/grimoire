@@ -17,6 +17,7 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import Spinner from '../Spinner'
 import CategoryManager from './CategoryManager'
 import { CampaignIcon } from './campaignIcons'
+import { resolveIconColor } from './iconColors'
 import ResourceRow from './ResourceRow'
 import ResourcePickerModal from './ResourcePickerModal'
 import { TYPE_ICONS } from './resourcesShared'
@@ -184,6 +185,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
       label: cat.name,
       custom: true,
       icon: cat.icon,
+      iconColor: cat.icon_color,
       items,
     })
   }
@@ -326,8 +328,13 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
                     ) : (
                       <LuChevronDown size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
                     )}
-                    <CampaignIcon name={g.icon} fallback={TypeIcon} size={12} /> {g.label} (
-                    {g.items.length})
+                    <CampaignIcon
+                      name={g.icon}
+                      fallback={TypeIcon}
+                      size={12}
+                      style={{ color: resolveIconColor(g.iconColor) }}
+                    />{' '}
+                    {g.label} ({g.items.length})
                   </button>
                   {isOwner && audioItems.length > 0 && (
                     <button

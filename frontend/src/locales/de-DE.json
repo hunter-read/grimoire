@@ -1302,7 +1302,9 @@
     "noLinkedResources": "Noch keine verknüpften Ressourcen. Verknüpfe zuerst Bücher, Karten oder Tokens im Ressourcen-Bereich.",
     "imageCategory": "Bild einer Kategorie zuordnen",
     "newCategoryPlaceholder": "Name der neuen Kategorie",
-    "chooseImage": "Bild auswählen"
+    "chooseImage": "Bild auswählen",
+    "visibilityIs": "Sichtbarkeit: {{level}}",
+    "changeVisibilityFrom": "Sichtbarkeit ändern (derzeit {{level}})"
   },
   "campaignNotes": {
     "backToOverview": "Zurück zur Übersicht"
@@ -1324,7 +1326,25 @@
   },
   "iconPicker": {
     "label": "Symbol auswählen",
-    "none": "Kein Symbol"
+    "none": "Kein Symbol",
+    "tab_icons": "Symbole",
+    "tab_emoji": "Emoji",
+    "searchPlaceholder": "Symbole suchen…",
+    "searchLabel": "Symbole suchen",
+    "noResults": "Keine passenden Symbole",
+    "colorLabel": "Farbe",
+    "colorDefault": "Standardfarbe",
+    "colorCustom": "Eigene Farbe",
+    "color_red": "Rot",
+    "color_orange": "Orange",
+    "color_gold": "Gold",
+    "color_green": "Grün",
+    "color_teal": "Blaugrün",
+    "color_blue": "Blau",
+    "color_purple": "Lila",
+    "color_pink": "Rosa",
+    "color_brown": "Braun",
+    "color_gray": "Grau"
   },
   "bulk": {
     "hint": "Klicke auf Elemente oder Ordner, um sie auszuwählen. Umschalt-Klick für einen Bereich, ⌘/Strg-Klick zum Umschalten.",
