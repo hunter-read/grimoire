@@ -1,7 +1,27 @@
 """Pydantic request schemas for the campaigns package."""
 
+import re
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+# Icon tint accepted from clients: a preset palette token (resolved to a themed
+# CSS variable in the UI) or a "#rrggbb" literal. "" clears the tint.
+ICON_COLOR_PRESETS = frozenset(
+    {"red", "orange", "gold", "green", "teal", "blue", "purple", "pink", "brown", "gray"}
+)
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-f]{6}$")
+
+
+def clean_icon_color(v: Optional[str]) -> Optional[str]:
+    """Normalize/validate an icon tint; ``None``/``""`` mean "no tint"."""
+    if v is None:
+        return v
+    v = v.strip().lower()
+    if not v:
+        return ""
+    if v in ICON_COLOR_PRESETS or _HEX_COLOR_RE.match(v):
+        return v
+    raise ValueError("icon_color must be a preset name or a #rrggbb hex colour")
 
 
 class CampaignResourceInput(BaseModel):
@@ -73,12 +93,18 @@ class ResourceReorder(BaseModel):
 class CategoryCreate(BaseModel):
     name: str
     kind: str  # note | resource
-    icon: Optional[str] = None  # Lucide icon name
+    icon: Optional[str] = None  # curated Lucide key or an emoji
+    icon_color: Optional[str] = None  # preset token or "#rrggbb"
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
 
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     icon: Optional[str] = None  # "" clears it
+    icon_color: Optional[str] = None  # "" clears it
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
 
 
 class CategoryReorder(BaseModel):
@@ -134,7 +160,10 @@ class WikiPageCreate(BaseModel):
     session_date: Optional[str] = None  # YYYY-MM-DD for session pages
     shared_user_ids: Optional[List[str]] = None  # for members visibility
     parent_id: Optional[str] = None  # nest under another page; null/"" = top level
-    icon: Optional[str] = None  # Lucide icon name
+    icon: Optional[str] = None  # curated Lucide key or an emoji
+    icon_color: Optional[str] = None  # preset token or "#rrggbb"
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
 
 
 class WikiPageUpdate(BaseModel):
@@ -147,6 +176,9 @@ class WikiPageUpdate(BaseModel):
     # Use the sentinel "" to move the page back to the top level (no parent).
     parent_id: Optional[str] = None
     icon: Optional[str] = None  # "" clears it
+    icon_color: Optional[str] = None  # "" clears it
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
 
 
 class WikiReorder(BaseModel):

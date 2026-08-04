@@ -171,6 +171,7 @@ def _page_summary(p: WikiPage) -> dict:
         "session_date": p.session_date,
         "parent_id": p.parent_id,
         "icon": p.icon,
+        "icon_color": p.icon_color,
         "sort_order": p.sort_order,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     }
@@ -262,6 +263,7 @@ def get_page(
         "session_date": page.session_date,
         "parent_id": page.parent_id,
         "icon": page.icon,
+        "icon_color": page.icon_color,
         "created_by_id": page.created_by_id,
         "created_by_name": (author.display_name or author.username) if author else None,
         "can_edit": can_edit_page(page, c, current_user),
@@ -317,6 +319,7 @@ def create_page(
         created_by_id=current_user.id,
         parent_id=parent_id,
         icon=(data.icon or None),
+        icon_color=(data.icon_color or None),
     )
     db.add(page)
     db.flush()
@@ -371,6 +374,8 @@ def update_page(
         page.parent_id = _resolve_parent(db, campaign_id, data.parent_id, page_id=page.id)
     if data.icon is not None:
         page.icon = data.icon or None
+    if data.icon_color is not None:
+        page.icon_color = data.icon_color or None
 
     if data.shared_user_ids is not None and is_owner:
         _apply_shares(db, page, data.shared_user_ids)

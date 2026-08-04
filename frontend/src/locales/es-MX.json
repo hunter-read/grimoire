@@ -1302,7 +1302,9 @@
     "noLinkedResources": "Aún no hay recursos vinculados. Vincula primero libros, mapas o fichas en el panel de Recursos.",
     "imageCategory": "Archivar la imagen en una categoría",
     "newCategoryPlaceholder": "Nombre de la nueva categoría",
-    "chooseImage": "Elegir una imagen"
+    "chooseImage": "Elegir una imagen",
+    "visibilityIs": "Visibilidad: {{level}}",
+    "changeVisibilityFrom": "Cambiar visibilidad (actualmente {{level}})"
   },
   "campaignNotes": {
     "backToOverview": "Volver al resumen"
@@ -1324,7 +1326,25 @@
   },
   "iconPicker": {
     "label": "Elegir un icono",
-    "none": "Sin icono"
+    "none": "Sin icono",
+    "tab_icons": "Iconos",
+    "tab_emoji": "Emoji",
+    "searchPlaceholder": "Buscar iconos…",
+    "searchLabel": "Buscar iconos",
+    "noResults": "No hay iconos coincidentes",
+    "colorLabel": "Color",
+    "colorDefault": "Color predeterminado",
+    "colorCustom": "Color personalizado",
+    "color_red": "Rojo",
+    "color_orange": "Naranja",
+    "color_gold": "Dorado",
+    "color_green": "Verde",
+    "color_teal": "Turquesa",
+    "color_blue": "Azul",
+    "color_purple": "Morado",
+    "color_pink": "Rosa",
+    "color_brown": "Café",
+    "color_gray": "Gris"
   },
   "bulk": {
     "hint": "Haz clic en elementos o encabezados de carpeta para seleccionarlos. Mayús+clic para un rango, ⌘/Ctrl+clic para alternar.",

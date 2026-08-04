@@ -51,6 +51,7 @@ export default function CategoryManager({
         id: c.id,
         name: c.name,
         icon: c.icon,
+        icon_color: c.icon_color,
         sort_order: c.sort_order,
       }))
       const typeRows = typeGroups.map((g) => ({ key: g.key, kind: 'type', name: g.label }))
@@ -113,10 +114,11 @@ export default function CategoryManager({
     }
   }
 
-  const setIcon = async (id, icon) => {
-    setCats((prev) => prev.map((c) => (c.id === id ? { ...c, icon } : c)))
-    if (hasTypeGroups) setRows((prev) => prev.map((r) => (r.id === id ? { ...r, icon } : r)))
-    await campaigns.updateCategory(campaignId, id, { icon: icon || '' })
+  // Patch a category's icon and/or tint, optimistically then on the server.
+  const patchIcon = async (id, patch) => {
+    setCats((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+    if (hasTypeGroups) setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+    await campaigns.updateCategory(campaignId, id, patch)
     onChanged?.()
   }
 
@@ -190,7 +192,9 @@ export default function CategoryManager({
     <>
       <IconPicker
         value={c.icon}
-        onChange={(icon) => setIcon(c.id, icon)}
+        onChange={(icon) => patchIcon(c.id, { icon: icon || '' })}
+        color={c.icon_color}
+        onColorChange={(color) => patchIcon(c.id, { icon_color: color || '' })}
         fallback={<LuFolder size={15} aria-hidden="true" />}
         ariaLabel={t('campaignCategories.iconLabel')}
       />

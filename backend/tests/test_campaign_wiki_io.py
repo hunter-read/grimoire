@@ -446,3 +446,102 @@ class TestImportConflicts:
             client, gm_headers, c["id"], "bad.json", "not json at all", "application/json"
         )
         assert resp.status_code == 400
+
+
+class TestImportExportIconColor:
+    def test_markdown_round_trip_preserves_icon_and_color(self, client, gm_headers):
+        """A tinted emoji icon survives export → import unchanged."""
+        src = _campaign(client, gm_headers)
+        _create(
+            client,
+            gm_headers,
+            src["id"],
+            title="Dragon Lair",
+            body="Deep below.",
+            icon="🐉",
+            icon_color="red",
+        )
+        export = client.get(
+            f"/api/campaigns/{src['id']}/wiki/export?format=md", headers=gm_headers
+        )
+        assert export.status_code == 200
+
+        dest = _campaign(client, gm_headers)
+        resp = _import(
+            client, gm_headers, dest["id"], "wiki.zip", export.content, "application/zip"
+        )
+        assert resp.status_code == 201, resp.text
+        pages = client.get(f"/api/campaigns/{dest['id']}/wiki", headers=gm_headers).json()
+        page = next(p for p in pages if p["title"] == "Dragon Lair")
+        assert page["icon"] == "🐉"
+        assert page["icon_color"] == "red"
+
+    def test_json_round_trip_preserves_icon_color(self, client, gm_headers):
+        src = _campaign(client, gm_headers)
+        _create(
+            client, gm_headers, src["id"], title="Tinted", icon="castle", icon_color="#a1b2c3"
+        )
+        export = client.get(
+            f"/api/campaigns/{src['id']}/wiki/export?format=json", headers=gm_headers
+        )
+        bundle = json.loads(export.content)
+        assert bundle["pages"][0]["icon_color"] == "#a1b2c3"
+
+        dest = _campaign(client, gm_headers)
+        resp = _import(
+            client, gm_headers, dest["id"], "wiki.json", export.content, "application/json"
+        )
+        assert resp.status_code == 201
+        pages = client.get(f"/api/campaigns/{dest['id']}/wiki", headers=gm_headers).json()
+        page = next(p for p in pages if p["title"] == "Tinted")
+        assert page["icon_color"] == "#a1b2c3"
+
+    def test_import_drops_unacceptable_icon_color(self, client, gm_headers):
+        """Imported files are untrusted: a tint we'd reject over the API is dropped,
+        not stored, since it ends up in a style attribute."""
+        c = _campaign(client, gm_headers)
+        md = (
+            "---\n"
+            "title: Sneaky\n"
+            "visibility: gm\n"
+            "icon: castle\n"
+            "icon_color: red; background: url(evil)\n"
+            "---\n\n"
+            "Body.\n"
+        )
+        resp = _import(client, gm_headers, c["id"], "sneaky.md", md, "text/markdown")
+        assert resp.status_code == 201
+        pages = client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json()
+        page = next(p for p in pages if p["title"] == "Sneaky")
+        assert page["icon_color"] is None
+        # The rest of the frontmatter still imports.
+        assert page["icon"] == "castle"
+
+    def test_import_json_bundle_ignores_non_string_icon_color(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        bundle = {
+            "grimoire_wiki_version": 1,
+            "campaign": "X",
+            "pages": [
+                {
+                    "title": "Weird",
+                    "slug": "weird",
+                    "body": "b",
+                    "visibility": "gm",
+                    "icon": "castle",
+                    "icon_color": {"nope": True},
+                    "parent": None,
+                }
+            ],
+        }
+        resp = _import(
+            client,
+            gm_headers,
+            c["id"],
+            "wiki.json",
+            json.dumps(bundle),
+            "application/json",
+        )
+        assert resp.status_code == 201
+        pages = client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json()
+        assert next(p for p in pages if p["title"] == "Weird")["icon_color"] is None

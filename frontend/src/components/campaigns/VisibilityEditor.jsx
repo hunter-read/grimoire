@@ -108,6 +108,9 @@ export default function VisibilityEditor({
               const m = VIS_META[v]
               const OptIcon = m.Icon
               const selected = page.visibility === v
+              // Restore to the item's own resting background, so leaving the
+              // selected row doesn't strip the highlight marking it as current.
+              const restingBg = selected ? 'var(--bg-card)' : 'transparent'
               return (
                 <button
                   key={v}
@@ -117,12 +120,16 @@ export default function VisibilityEditor({
                   onClick={() => {
                     if (!selected) onSetVisibility(v)
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = restingBg)}
+                  onFocus={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+                  onBlur={(e) => (e.currentTarget.style.background = restingBg)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
                     padding: '6px 8px',
-                    background: selected ? 'var(--bg-card)' : 'transparent',
+                    background: restingBg,
                     border: '1px solid transparent',
                     borderRadius: 6,
                     color: selected ? 'var(--text)' : 'var(--text-dim)',
@@ -174,6 +181,12 @@ export default function VisibilityEditor({
                         role="menuitemcheckbox"
                         aria-checked={checked}
                         onClick={() => toggleMember(mb.user_id)}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
+                        }
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        onFocus={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+                        onBlur={(e) => (e.currentTarget.style.background = 'transparent')}
                         style={{
                           display: 'flex',
                           alignItems: 'center',

@@ -22,10 +22,12 @@ import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
 import IconPicker from './IconPicker'
 import { CampaignIcon } from './campaignIcons'
+import { resolveIconColor } from './iconColors'
 import VisibilityBadge from './VisibilityBadge'
 import VisibilityEditor from './VisibilityEditor'
+import RowVisibilityControl from './RowVisibilityControl'
 import PageEditor from './PageEditor'
-import { descendantIds, VIS_META, ghostBtn, goldBtn } from './wikiShared'
+import { descendantIds, ghostBtn, goldBtn } from './wikiShared'
 
 // Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
 const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
@@ -59,6 +61,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const dragId = useRef(null)
   // Live drop indicator: { id, where: 'before' | 'after' | 'inside' }.
   const [dropTarget, setDropTarget] = useState(null)
+  // Id of the tree row under the cursor — drives the hover-only row controls
+  // (add-subpage, and the visibility glyph on fully-visible pages).
+  const [hoveredRow, setHoveredRow] = useState(null)
 
   const exportWiki = async (format) => {
     try {
@@ -145,28 +150,34 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     loadList()
   }
 
-  // Quick icon change without entering the full editor. Updates the list (and the
-  // open page, if it's the one changed) so the new icon shows immediately.
-  const changeIcon = async (pageId, icon) => {
-    await campaigns.updateWikiPage(campaign.id, pageId, { icon: icon || '' })
+  // Quick icon/tint change without entering the full editor. Updates the list
+  // (and the open page, if it's the one changed) so the change shows immediately.
+  const patchPage = async (pageId, patch) => {
+    await campaigns.updateWikiPage(campaign.id, pageId, patch)
     loadList(selectedId)
-    if (page?.id === pageId) setPage((p) => (p ? { ...p, icon: icon || '' } : p))
+    if (page?.id === pageId) setPage((p) => (p ? { ...p, ...patch } : p))
   }
+  const changeIcon = (pageId, icon) => patchPage(pageId, { icon: icon || '' })
+  const changeIconColor = (pageId, iconColor) => patchPage(pageId, { icon_color: iconColor || '' })
 
-  // Change the open page's visibility from its badge. Switching away from
-  // "members" clears the share list to mirror PageEditor's save behaviour.
-  const changeVisibility = async (visibility) => {
-    if (!page) return
+  // Change a page's visibility from its row glyph or the header badge. Switching
+  // away from "members" clears the share list to mirror PageEditor's save
+  // behaviour.
+  const changePageVisibility = async (pageId, visibility) => {
     const payload = { visibility }
     if (visibility !== 'members') payload.shared_user_ids = []
-    await campaigns.updateWikiPage(campaign.id, page.id, payload)
-    setPage((p) =>
-      p
-        ? { ...p, visibility, shared_user_ids: visibility === 'members' ? p.shared_user_ids : [] }
-        : p
-    )
+    await campaigns.updateWikiPage(campaign.id, pageId, payload)
+    if (page?.id === pageId) {
+      setPage((p) =>
+        p
+          ? { ...p, visibility, shared_user_ids: visibility === 'members' ? p.shared_user_ids : [] }
+          : p
+      )
+    }
     loadList(selectedId)
   }
+  const changeVisibility = (visibility) =>
+    page ? changePageVisibility(page.id, visibility) : undefined
 
   // Toggle which members can access the open Private page.
   const changeShares = async (sharedIds) => {
@@ -314,8 +325,6 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   const renderRow = (p, depth, flat = false) => {
     const active = p.id === selectedId && !creating
-    const meta = VIS_META[p.visibility] || VIS_META.gm
-    const { Icon } = meta
     // In the flat search view, nesting and chevrons are suppressed.
     const kids = flat ? [] : (childrenOf[p.id] || []).filter((c) => idSet.has(c.id))
     const hasKids = kids.length > 0
@@ -327,6 +336,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     // Reordering only applies in the nested tree, not the flattened search view.
     const canDrag = isOwner && !flat
     const indicator = dropTarget?.id === p.id ? dropTarget.where : null
+    const hovered = hoveredRow === p.id
+    // Restricted pages read slightly dimmer than fully-visible ones, so limited
+    // access is legible without relying on the icon's colour.
+    const restricted = p.visibility !== 'group'
     return (
       <div key={p.id}>
         <div
@@ -335,6 +348,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           onDragOver={canDrag ? (e) => onPageDragOver(e, p) : undefined}
           onDragLeave={canDrag ? () => setDropTarget(null) : undefined}
           onDrop={canDrag ? (e) => onDropOnPage(e, p) : undefined}
+          onMouseEnter={() => setHoveredRow(p.id)}
+          onMouseLeave={() => setHoveredRow((id) => (id === p.id ? null : id))}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -403,18 +418,19 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               <IconPicker
                 value={p.icon}
                 onChange={(icon) => changeIcon(p.id, icon)}
-                fallback={<Icon size={14} aria-hidden="true" />}
+                color={p.icon_color}
+                onColorChange={(c) => changeIconColor(p.id, c)}
+                fallback={<LuFileText size={14} aria-hidden="true" />}
                 ariaLabel={t('wiki.iconLabel')}
                 compact
-                color={meta.color}
               />
             </div>
           ) : (
             <CampaignIcon
               name={p.icon}
-              fallback={Icon}
+              fallback={LuFileText}
               size={12}
-              style={{ flexShrink: 0, color: meta.color }}
+              style={{ flexShrink: 0, color: resolveIconColor(p.icon_color) }}
             />
           )}
           <button
@@ -427,6 +443,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               background: 'transparent',
               border: 'none',
               color: 'inherit',
+              opacity: restricted && !active ? 0.72 : 1,
               cursor: 'pointer',
               font: 'inherit',
               padding: 0,
@@ -444,6 +461,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                 e.stopPropagation()
                 startCreate(p.id)
               }}
+              onFocus={() => setHoveredRow(p.id)}
               aria-label={t('wiki.addSubpage')}
               title={t('wiki.addSubpage')}
               style={{
@@ -454,11 +472,23 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                 padding: 0,
                 cursor: 'pointer',
                 color: 'var(--text-muted)',
+                // Hover-only, to keep the resting list uncluttered. Kept in the
+                // layout (not unmounted) so rows don't reflow on hover.
+                opacity: hovered ? 1 : 0,
+                transition: 'opacity 120ms ease',
               }}
             >
               <LuPlus size={13} />
             </button>
           )}
+          {/* Visibility lives at the far right of the row. */}
+          <RowVisibilityControl
+            visibility={p.visibility}
+            canEdit={p.can_edit}
+            isOwner={isOwner}
+            rowHovered={hovered}
+            onSetVisibility={(v) => changePageVisibility(p.id, v)}
+          />
         </div>
         {hasKids && !isCollapsed && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
@@ -639,27 +669,25 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 6px' }}
                   >
-                    {(() => {
-                      const visColor = (VIS_META[page.visibility] || VIS_META.gm).color
-                      return page.can_edit ? (
-                        <IconPicker
-                          value={page.icon}
-                          onChange={(icon) => changeIcon(page.id, icon)}
-                          fallback={<LuFileText size={20} aria-hidden="true" />}
-                          ariaLabel={t('wiki.iconLabel')}
-                          compact
-                          size={20}
-                          color={visColor}
-                        />
-                      ) : (
-                        <CampaignIcon
-                          name={page.icon}
-                          fallback={LuFileText}
-                          size={20}
-                          style={{ color: visColor }}
-                        />
-                      )
-                    })()}
+                    {page.can_edit ? (
+                      <IconPicker
+                        value={page.icon}
+                        onChange={(icon) => changeIcon(page.id, icon)}
+                        color={page.icon_color}
+                        onColorChange={(c) => changeIconColor(page.id, c)}
+                        fallback={<LuFileText size={20} aria-hidden="true" />}
+                        ariaLabel={t('wiki.iconLabel')}
+                        compact
+                        size={20}
+                      />
+                    ) : (
+                      <CampaignIcon
+                        name={page.icon}
+                        fallback={LuFileText}
+                        size={20}
+                        style={{ color: resolveIconColor(page.icon_color) }}
+                      />
+                    )}
                     <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{page.title}</h2>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

@@ -568,6 +568,18 @@ Resource **visibility** is one of: `public` (every accepted member), `private` (
 
 App-wide admin settings gate campaign file uploads (admins are exempt): `campaign_uploads_disabled` (bool), `campaign_upload_max_file_mb` (int, 0 = unlimited), `campaign_upload_max_total_mb` (int, 0 = unlimited). They are settable via `PATCH /api/settings` and exposed on `GET /api/settings/ui`.
 
+#### Entry icons
+
+Wiki pages and campaign categories each carry an optional `icon` and `icon_color`, used to make entries distinguishable at a glance in the campaign tree.
+
+`icon` is either a **built-in icon key** (a short name from the app's curated Lucide set, e.g. `swords`, `castle`, `mask`) or an **emoji character** stored verbatim (e.g. `🐉`). Values are not validated against the curated set, so a key the frontend doesn't recognise simply renders as the default icon rather than erroring.
+
+`icon_color` tints the icon. It is either a **preset token** — `red`, `orange`, `gold`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `gray` — or a **`#rrggbb` hex literal**. Values are normalised to lowercase, and anything else is rejected with 422 (the value reaches a CSS style attribute, so the accepted shapes are deliberately narrow). Null or `""` means the icon inherits its row's text colour.
+
+Both fields round-trip through wiki export/import. On import the file is untrusted, so an `icon_color` that would fail validation is dropped rather than stored.
+
+Visibility is **not** encoded in the icon colour: it has its own indicator in the UI, so the colour is free to be a user choice.
+
 #### Categories
 
 GM-defined groupings for linked **resources**, scoped per campaign. Resources carry an optional `category_id` (null = grouped under their built-in type group: Books / Maps / Tokens / Files), set via the resource PATCH endpoint (`category_id`), using `""` to clear it. Wiki pages no longer use categories - they nest under parent pages instead (see Wiki). `kind` `note` is retired: `POST` with `kind: "note"` returns 400, and legacy note categories are converted to parent pages on startup.
@@ -577,10 +589,10 @@ The resource panel's **group display order** (custom categories interleaved with
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/campaigns/:id/categories` | GET | member or owner | List categories. Query: `kind?` (`resource`) |
-| `/api/campaigns/:id/categories` | POST | owner | Create. Body: `{name, kind, icon?}` (`kind` must be `resource`; `icon` = a Lucide icon name) |
+| `/api/campaigns/:id/categories` | POST | owner | Create. Body: `{name, kind, icon?, icon_color?}` (`kind` must be `resource`; see [Entry icons](#entry-icons) for `icon`/`icon_color`) |
 | `/api/campaigns/:id/categories/reorder` | PUT | owner | Set category sort order. Body: `{ordered_ids}` |
 | `/api/campaigns/:id/resource-group-order` | PUT | owner | Set the resource panel's group display order (categories + type groups). Body: `{ordered_keys}` (keys `type:book`/`type:map`/`type:token`/`type:file`/`cat:<id>`; unknown or duplicate keys are dropped) |
-| `/api/campaigns/:id/categories/:cat_id` | PATCH | owner | Rename / set icon. Body: `{name?, icon?}` (`icon: ""` clears it) |
+| `/api/campaigns/:id/categories/:cat_id` | PATCH | owner | Rename / set icon. Body: `{name?, icon?, icon_color?}` (`""` clears either icon field) |
 | `/api/campaigns/:id/categories/:cat_id` | DELETE | owner | Delete. Query: `mode` = `uncategorize` (default; resources kept, moved out of the category) or `delete_items` (resources unlinked) |
 
 #### Wiki (notes)
@@ -597,15 +609,15 @@ Because a non-owner edits this stripped body, a player saving an edit to a page 
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/campaigns/:id/wiki` | GET | member or owner | List pages the caller can see (`id, title, slug, visibility, page_type, session_date, parent_id, icon, sort_order, updated_at, can_edit`), ordered by `sort_order`. Build the page tree client-side from `parent_id` |
-| `/api/campaigns/:id/wiki` | POST | member or owner | Create a page. Body: `{title?, body?, visibility?, page_type?, session_date?, shared_user_ids?, parent_id?, icon?}` (`parent_id` nests the page; `icon` = a Lucide icon name) |
+| `/api/campaigns/:id/wiki` | GET | member or owner | List pages the caller can see (`id, title, slug, visibility, page_type, session_date, parent_id, icon, icon_color, sort_order, updated_at, can_edit`), ordered by `sort_order`. Build the page tree client-side from `parent_id` |
+| `/api/campaigns/:id/wiki` | POST | member or owner | Create a page. Body: `{title?, body?, visibility?, page_type?, session_date?, shared_user_ids?, parent_id?, icon?, icon_color?}` (`parent_id` nests the page; see [Entry icons](#entry-icons)) |
 | `/api/campaigns/:id/wiki/search` | GET | member or owner | Search visible pages by title/body. Query: `q` |
 | `/api/campaigns/:id/wiki/titles` | GET | member or owner | `{title, slug}` list for `[[link]]` autocomplete |
 | `/api/campaigns/:id/wiki/reorder` | PUT | owner | Drag-and-drop order. Body: `{ordered_ids}` |
 | `/api/campaigns/:id/wiki/export` | GET | owner | Export all pages. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly) or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
 | `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
-| `/api/campaigns/:id/wiki/:page_id` | GET | per visibility | Page detail incl. `body`, `backlinks`, `shared_user_ids`, `icon`, `can_edit` |
-| `/api/campaigns/:id/wiki/:page_id` | PATCH | owner or page author | Update fields (each optional; `icon: ""` clears it) |
+| `/api/campaigns/:id/wiki/:page_id` | GET | per visibility | Page detail incl. `body`, `backlinks`, `shared_user_ids`, `icon`, `icon_color`, `can_edit` |
+| `/api/campaigns/:id/wiki/:page_id` | PATCH | owner or page author | Update fields (each optional; `icon: ""` / `icon_color: ""` clear those fields) |
 | `/api/campaigns/:id/wiki/:page_id` | DELETE | owner or page author | Delete the page and its link rows |
 
 #### Sessions (legacy)

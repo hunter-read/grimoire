@@ -47,6 +47,7 @@ export default function PageEditor({
   const [sharedIds, setSharedIds] = useState(page?.shared_user_ids ?? [])
   const [parentId, setParentId] = useState(page?.parent_id ?? defaultParentId ?? '')
   const [icon, setIcon] = useState(page?.icon ?? '')
+  const [iconColor, setIconColor] = useState(page?.icon_color ?? '')
 
   // Pages eligible as a parent: every page except this one and its descendants.
   const excluded = page?.id ? descendantIds(page.id, allPages) : new Set()
@@ -137,6 +138,7 @@ export default function PageEditor({
         shared_user_ids: visibility === 'members' ? sharedIds : [],
         parent_id: parentId || '',
         icon: icon || '',
+        icon_color: iconColor || '',
       }
       const result = isNew
         ? await campaigns.createWikiPage(campaign.id, payload)
@@ -159,6 +161,8 @@ export default function PageEditor({
         <IconPicker
           value={icon}
           onChange={setIcon}
+          color={iconColor}
+          onColorChange={setIconColor}
           fallback={<LuFileText size={16} aria-hidden="true" />}
           ariaLabel={t('wiki.iconLabel')}
         />

@@ -1302,7 +1302,9 @@
     "noLinkedResources": "No linked resources yet. Link books, maps, or tokens in the Resources panel first.",
     "imageCategory": "File the image under a category",
     "newCategoryPlaceholder": "New category name",
-    "chooseImage": "Choose an image"
+    "chooseImage": "Choose an image",
+    "visibilityIs": "Visibility: {{level}}",
+    "changeVisibilityFrom": "Change visibility (currently {{level}})"
   },
   "campaignNotes": {
     "backToOverview": "Back to overview"
@@ -1324,7 +1326,25 @@
   },
   "iconPicker": {
     "label": "Choose an icon",
-    "none": "No icon"
+    "none": "No icon",
+    "tab_icons": "Icons",
+    "tab_emoji": "Emoji",
+    "searchPlaceholder": "Search icons…",
+    "searchLabel": "Search icons",
+    "noResults": "No matching icons",
+    "colorLabel": "Colour",
+    "colorDefault": "Default colour",
+    "colorCustom": "Custom colour",
+    "color_red": "Red",
+    "color_orange": "Orange",
+    "color_gold": "Gold",
+    "color_green": "Green",
+    "color_teal": "Teal",
+    "color_blue": "Blue",
+    "color_purple": "Purple",
+    "color_pink": "Pink",
+    "color_brown": "Brown",
+    "color_gray": "Grey"
   },
   "bulk": {
     "hint": "Click items or folder headers to select them. Shift-click for a range, ⌘/Ctrl-click to toggle.",

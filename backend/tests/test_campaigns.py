@@ -1724,6 +1724,35 @@ class TestCategories:
         assert ren.json()["name"] == "Villains"
         assert ren.json()["icon"] == "swords"
 
+    def test_create_with_icon_color_and_update(self, client, gm_headers, campaign):
+        cid = campaign["id"]
+        cat = client.post(
+            f"/api/campaigns/{cid}/categories",
+            json={"name": "NPCs", "kind": "resource", "icon": "user", "icon_color": "teal"},
+            headers=gm_headers,
+        ).json()
+        assert cat["icon_color"] == "teal"
+        upd = client.patch(
+            f"/api/campaigns/{cid}/categories/{cat['id']}",
+            json={"icon_color": "#ABCDEF"},
+            headers=gm_headers,
+        )
+        assert upd.json()["icon_color"] == "#abcdef"
+        cleared = client.patch(
+            f"/api/campaigns/{cid}/categories/{cat['id']}",
+            json={"icon_color": ""},
+            headers=gm_headers,
+        )
+        assert cleared.json()["icon_color"] is None
+
+    def test_rejects_invalid_category_icon_color(self, client, gm_headers, campaign):
+        resp = client.post(
+            f"/api/campaigns/{campaign['id']}/categories",
+            json={"name": "Bad", "kind": "resource", "icon_color": "red; background: url(x)"},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 422
+
     def test_reorder(self, client, gm_headers, campaign):
         cid = campaign["id"]
         a = client.post(

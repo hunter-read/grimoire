@@ -451,6 +451,65 @@ class TestWikiIcons:
         )
         assert cleared.json()["icon"] is None
 
+    def test_emoji_icon_round_trips(self, client, gm_headers, gm_campaign):
+        """An emoji is stored verbatim — the picker's emoji tab needs no key mapping."""
+        resp = _create(client, gm_headers, gm_campaign["id"], title="Dragon", icon="🐉")
+        assert resp.status_code == 201
+        assert resp.json()["icon"] == "🐉"
+        got = client.get(
+            f"/api/campaigns/{gm_campaign['id']}/wiki/{resp.json()['id']}", headers=gm_headers
+        )
+        assert got.json()["icon"] == "🐉"
+
+    def test_create_with_icon_color(self, client, gm_headers, gm_campaign):
+        resp = _create(
+            client, gm_headers, gm_campaign["id"], title="NPC", icon="user", icon_color="red"
+        )
+        assert resp.status_code == 201
+        assert resp.json()["icon_color"] == "red"
+
+    def test_update_and_clear_icon_color(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        page = _create(client, gm_headers, cid, title="Lore").json()
+        assert page["icon_color"] is None
+        upd = client.patch(
+            f"/api/campaigns/{cid}/wiki/{page['id']}",
+            json={"icon_color": "#A1B2C3"},
+            headers=gm_headers,
+        )
+        # Hex is normalized to lowercase on the way in.
+        assert upd.json()["icon_color"] == "#a1b2c3"
+        cleared = client.patch(
+            f"/api/campaigns/{cid}/wiki/{page['id']}",
+            json={"icon_color": ""},
+            headers=gm_headers,
+        )
+        assert cleared.json()["icon_color"] is None
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "notacolour",
+            "#abc",
+            "#12345g",
+            "red; background: url(x)",
+            "url(javascript:alert(1))",
+            "var(--red)",
+        ],
+    )
+    def test_rejects_invalid_icon_color(self, client, gm_headers, gm_campaign, bad):
+        """The tint lands in a style attribute, so only presets/#rrggbb are accepted."""
+        resp = _create(client, gm_headers, gm_campaign["id"], title="Bad", icon_color=bad)
+        assert resp.status_code == 422
+
+    def test_icon_color_appears_in_list(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        _create(client, gm_headers, cid, title="Tinted", icon="castle", icon_color="blue")
+        listing = client.get(f"/api/campaigns/{cid}/wiki", headers=gm_headers).json()
+        row = next(p for p in listing if p["title"] == "Tinted")
+        assert row["icon_color"] == "blue"
+        assert row["icon"] == "castle"
+
 
 class TestWikiReorder:
     def test_reorder_pages(self, client, gm_headers):
