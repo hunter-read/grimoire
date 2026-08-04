@@ -60,3 +60,26 @@ class BookUpdate(BaseModel):
         if v is not None and not (1 <= v <= 31):
             raise ValueError("day must be between 1 and 31")
         return v
+
+
+class MetadataSearch(BaseModel):
+    """Search an installed add-on for candidates matching this book."""
+
+    source_id: str
+    # Blank means "use the book's own title", which is the common case.
+    query: str = ""
+
+
+class MetadataFetch(BaseModel):
+    """Fetch one candidate's fields for review."""
+
+    source_id: str
+    # Empty when `paste` is supplied instead.
+    identity: str = ""
+    # Search-backed sources answer per query rather than serving a whole
+    # catalogue, so the client echoes back the query its candidate came from.
+    query: str = ""
+    # A source URL or bare ID pasted by the user, used instead of `identity`
+    # when they already know exactly which item they want.
+    paste: str = ""
+

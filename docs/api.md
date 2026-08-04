@@ -224,6 +224,51 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 
 **Parent system / edition:** `parent_system` (e.g. `"Dungeons & Dragons"`) is the mid-tier grouping between the broad `system_family` (`"d20 System"`) and a concrete system; `edition` (`"5e"`, `"Red"`, `"2020"`) combines with it for display (`"Cyberpunk Red"`). Both are free-text; `parent_system` values are curated via the `/api/parent-systems` lookup. Both are filterable on `/api/systems`.
 
+#### Metadata lookup from add-ons (issue #203)
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/systems/:id/metadata-sources` | GET | gm/admin | Installed, enabled add-ons that can supply game system metadata. Returns `{sources: [{id, name, description, homepage, attribution, supports_paste}]}` |
+| `/api/systems/:id/metadata-search` | POST | gm/admin | Ranked candidates from one source. Body `{source_id, query?}` — a blank `query` defaults to the system's own name. Returns `{query, results: [{identity, label, score, url}]}` |
+| `/api/systems/:id/metadata-fetch` | POST | gm/admin | One candidate's fields, diffed against the system. Body `{source_id, identity?, query?, paste?}`. Returns `{source_id, identity, url, attribution, fields}` |
+
+All three are **read-only** — they never write to `game_systems`. Applying goes
+through `PATCH /api/systems/:id` with only the fields the user selected, so a
+fetch can never overwrite a value on its own.
+
+**Diff rows** (`fields`) carry `{field, current, incoming, status}`, where `status` is:
+
+| Status | Meaning |
+|--------|---------|
+| `only_incoming` | The system has no value yet — safe to fill in (pre-selected in the UI) |
+| `differs` | Both have a value and they disagree — needs a human decision |
+| `same` | Already matches; nothing to apply |
+
+Rows are ordered `only_incoming` → `differs` → `same`. Fields the source has no
+data for are omitted entirely rather than offered as empty, so a sparse source
+never proposes blanking something the user filled in.
+
+**Link lists merge, they do not replace.** For `urls` and
+`character_builder_urls`, `incoming` is the **union** of the resource's current
+links and the source's, de-duplicated by URL (case-insensitively), with the
+user's own entries first and their labels winning. Applying therefore adds the
+source's link without discarding anything the user collected, and the row is
+`only_incoming` (so it is pre-selected) whenever the union differs from what is
+already stored — `same` when the source adds nothing new. Every other field
+still replaces.
+
+**Skipping the search (`paste`):** instead of an `identity` from a previous
+search, the client may send `paste` — a source URL or bare ID the user supplied
+directly. Grimoire resolves it via the add-on's `identity_pattern` and fetches
+that item, returning the resolved value in `identity` so the client can show
+what it actually looked up. Only offered by sources whose
+`supports_paste` is true. Exactly one of `identity` or `paste` is required.
+
+**Errors:** an unreachable or malformed source returns **502** with a message
+safe to display. **400** covers a disabled/unapproved add-on, an unknown
+`identity`, pasted text that does not match the source's pattern, a source that
+does not support pasting, and a request with neither `identity` nor `paste`.
+
 ### Books
 
 | Endpoint | Method | Auth | Description |
@@ -245,6 +290,27 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 **Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled — the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
 
 **Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
+
+#### Metadata lookup from add-ons (issue #203)
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/books/:id/metadata-sources` | GET | gm/admin | Installed, enabled add-ons that can supply book metadata |
+| `/api/books/:id/metadata-search` | POST | gm/admin | Ranked candidates. Body `{source_id, query?}` — a blank `query` defaults to the book's title |
+| `/api/books/:id/metadata-fetch` | POST | gm/admin | One candidate's fields, diffed against the book. Body `{source_id, identity?, query?, paste?}` |
+
+Identical in shape and semantics to the game-system endpoints above (same
+`status` values, same ordering, same read-only guarantee); only the target
+differs. Applying goes through `PATCH /api/books/:id`.
+
+Book scrapers may map: `title`, `description`, `authors`, `artists`,
+`publisher`, `publisher_url`, `urls`, `genres`, `isbn`, `version`, `language`,
+`license`, `year`, `month`, `day`, `tags`.
+
+**`query` on fetch:** sources that answer per query (a search endpoint) rather
+than serving a whole catalogue need the query to re-find the chosen candidate,
+so clients echo back the query the candidate came from. Catalogue-backed sources
+ignore it.
 
 ### Metadata lookups (genres, families, parent systems, licenses, dice/materials)
 
@@ -649,6 +715,56 @@ Availability statuses: `available`, `tentative`, `unavailable`
 | `oidc_auto_register` | bool | Auto-create local accounts on first OIDC login. |
 
 GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`.
+
+### Add-ons *(admin only)*
+
+Community add-ons are installable metadata scrapers, authored in the separate
+[`grimoire-codex/community-add-ons`](https://github.com/grimoire-codex/community-add-ons)
+repo. See [`docs/addons.md`](addons.md) for the full picture.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/addons` | GET | admin | Installed add-ons, everything in the cached index, and add-on settings |
+| `/api/addons/refresh` | POST | admin | Re-fetch the community index. Returns `{status, count}` |
+| `/api/addons/update-all` | POST | admin | Refresh the index, then update every installed add-on with a newer version. Returns `{status, updated: [{id, from, to}], failed: [{id, error}]}` |
+| `/api/addons/settings` | PATCH | admin | Set `index_url` and/or `allow_scripts` |
+| `/api/addons/:id/install` | POST | admin | Install or update from the index. Body `{approve_script: bool}` |
+| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` |
+| `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |
+
+**Installed add-on fields:** `id`, `name`, `version`, `kind`, `target`,
+`description`, `homepage`, `attribution`, `requires_script`, `script_approved`,
+`enabled`, `runnable`, `blocked_reason`, `source`, `available_version`,
+`update_available`. `runnable` is false (with a
+human-readable `blocked_reason`) when an add-on is disabled, or is script-backed
+and lacks either consent.
+
+**Available add-on fields:** the index entry plus `installed` and
+`update_available`.
+
+**Updates:** a scraper definition is expected to change whenever its source
+does, so `available_version` and `update_available` are reported on each
+*installed* add-on (not just the available list) — an update is only actionable
+if it is visible on the row the admin is looking at. Versions compare as semver,
+so `1.10.0` is correctly newer than `1.9.0` and a downgrade in the index is
+never offered as an update. Applying an update is the same
+`POST /api/addons/:id/install` call. `update-all` continues past individual
+failures rather than aborting the batch. An add-on installed by hand has no
+index entry and therefore never reports an update.
+
+**Script safety:** an add-on may ship a Python script for sources YAML cannot
+express. Grimoire runs one only when `allow_scripts` is on **and** that add-on
+was approved at install time (`approve_script: true`). Scripts execute in an
+isolated subprocess with a timeout and no database access. Approval is tied to
+the script's digest, so an update that changes the script drops back to
+unapproved — including via `update-all`, which never silently re-grants consent.
+Downloads are verified against the SHA-256 the index declares and refused on
+mismatch.
+
+**Storage:** installed add-ons live in `DATA_PATH/add-ons/<id>/`; a directory
+placed there by hand works without any UI step. Config and install state ride in
+the generic `app_settings` table under `addons.*` keys, so this feature adds no
+schema.
 
 ### Maintenance *(admin only)*
 

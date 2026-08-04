@@ -5,14 +5,24 @@ import CategoryBookItem from './CategoryBookItem'
 // BookRow / BookEditor have their own coverage; stub them to keep this focused
 // on CategoryBookItem's wiring (edit toggle, save/close, selection).
 vi.mock('./BookRow', () => ({
-  default: ({ book, editing, onOpen, onEdit, onToggle, selected }) => (
+  default: ({ book, editing, onOpen, onEdit, onDetails, onToggle, selected }) => (
     <div data-testid="book-row">
       <span>{book.title}</span>
       <span data-testid="editing">{String(editing)}</span>
       <span data-testid="selected">{String(selected)}</span>
       <button onClick={onOpen}>open</button>
       {onEdit && <button onClick={onEdit}>edit</button>}
+      {onDetails && <button onClick={onDetails}>details</button>}
       <button onClick={() => onToggle({ shift: true })}>toggle</button>
+    </div>
+  ),
+}))
+
+vi.mock('./BookDetailsModal', () => ({
+  default: ({ book, onClose }) => (
+    <div data-testid="book-details">
+      <span>{book.title}</span>
+      <button onClick={onClose}>close-details</button>
     </div>
   ),
 }))
@@ -93,6 +103,33 @@ describe('CategoryBookItem', () => {
     fireEvent.click(screen.getByText('save'))
     expect(onSaveBook).toHaveBeenCalledWith('b1', { title: 'Saved' })
     expect(setEditingBookId).toHaveBeenCalledWith(null)
+  })
+
+  describe('details modal', () => {
+    it('is closed until asked for', () => {
+      render(<CategoryBookItem {...baseProps()} />)
+      expect(screen.queryByTestId('book-details')).not.toBeInTheDocument()
+    })
+
+    it('opens on the details action', () => {
+      render(<CategoryBookItem {...baseProps()} />)
+      fireEvent.click(screen.getByText('details'))
+      expect(screen.getByTestId('book-details')).toBeInTheDocument()
+    })
+
+    it('closes again', () => {
+      render(<CategoryBookItem {...baseProps()} />)
+      fireEvent.click(screen.getByText('details'))
+      fireEvent.click(screen.getByText('close-details'))
+      expect(screen.queryByTestId('book-details')).not.toBeInTheDocument()
+    })
+
+    it('is offered to non-editors too', () => {
+      // Viewing metadata is read-only; only editing is gm/admin.
+      render(<CategoryBookItem {...baseProps({ isEditor: false })} />)
+      fireEvent.click(screen.getByText('details'))
+      expect(screen.getByTestId('book-details')).toBeInTheDocument()
+    })
   })
 
   it('reflects selection state and forwards toggle mods', () => {

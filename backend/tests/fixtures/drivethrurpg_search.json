@@ -1,0 +1,317 @@
+[
+  {
+    "image": "7070/170689.jpg",
+    "thumbnail": "7070/170689-thumb140.jpg",
+    "thumbnail200": "7070/170689-thumb200.webp",
+    "thumbnail100": "7070/170689-thumb100.jpg",
+    "thumbnail80": "7070/170689-thumb80.jpg",
+    "thumbnail40": "7070/170689-thumb40.jpg",
+    "price": 20.0,
+    "dateAvailable": "1969-12-31T18:00:00-06:00",
+    "status": 1,
+    "workflowStatus": "created",
+    "sortPriority": 0,
+    "publisherId": 7070,
+    "specialPrice": 0,
+    "sku": "",
+    "authors": [
+      "John Harper"
+    ],
+    "artists": [
+      "John Harper"
+    ],
+    "editors": [],
+    "contributors": [],
+    "promoText": "",
+    "contentRating": 0,
+    "rating": 4.8,
+    "isAudio": false,
+    "isVideo": false,
+    "isPwyw": false,
+    "isCommunityContent": false,
+    "isAi": false,
+    "isHandmade": true,
+    "isGiftCert": false,
+    "lowestDigitalPrice": 20.0,
+    "lowestPrintPrice": 30.0,
+    "lowestAnyPrice": 20.0,
+    "dateCreated": "2016-01-10T18:31:21-06:00",
+    "productId": 170689,
+    "description": {
+      "name": "Blades in the Dark",
+      "slug": "blades-in-the-dark",
+      "shortDescription": "Winner: 2015 Golden Geek, RPG of the Year\nWinner: 2016 Indie RPG Award, Game of the Year (also Best Production and Best Support)\nBlades in the Dark is a tabletop role-playing game about a crew of daring scoundrels seeking their fortunes on the haunted streets of an industrial-fantasy city. There are heists, chases, occult mysteries, dangerous bargains, bloody skirmishes, and, above all, riches to be had — if you’re bold enough to seize them.\nYou and your fledgling crew must thrive amidst the..."
+    },
+    "publisher": {
+      "name": "One Seven",
+      "publisherId": 7070,
+      "slug": "one-seven",
+      "averageRating": null
+    },
+    "onSale": false,
+    "options": [
+      {
+        "productAttributeId": 1490143,
+        "optionId": 1,
+        "optionValueId": 8,
+        "optionValueName": "PDF",
+        "description": "PDF",
+        "type": "digital",
+        "price": 20.0,
+        "priceToAdd": "0.0000",
+        "msrp": 0.0,
+        "enabled": 1,
+        "taxClassId": 0
+      },
+      {
+        "productAttributeId": 1582813,
+        "optionId": 2,
+        "optionValueId": 71,
+        "optionValueName": "Softcover, B&W Book",
+        "description": "Softcover, B&W Book",
+        "type": "book",
+        "price": 30.0,
+        "priceToAdd": "10.0000",
+        "msrp": "35.0000",
+        "enabled": 1,
+        "taxClassId": 1
+      }
+    ],
+    "ranking": {
+      "humanName": "adamantine",
+      "imageUrl": "medals/adamantine.png"
+    },
+    "ratingCount": "404",
+    "storefrontPrimaryFilterValues": [],
+    "isBundle": false,
+    "oneTimeCode": null
+  },
+  {
+    "image": "5544/172348.jpg",
+    "thumbnail": "5544/172348-thumb140.jpg",
+    "thumbnail200": "5544/172348-thumb200.webp",
+    "thumbnail100": "5544/172348-thumb100.jpg",
+    "thumbnail80": "5544/172348-thumb80.jpg",
+    "thumbnail40": "5544/172348-thumb40.jpg",
+    "price": 8.4,
+    "dateAvailable": "1969-12-31T18:00:00-06:00",
+    "status": 1,
+    "workflowStatus": "created",
+    "sortPriority": 9999,
+    "publisherId": 5544,
+    "specialPrice": 0,
+    "sku": "",
+    "authors": [
+      "Andrew Shields"
+    ],
+    "artists": [
+      "Miller Ramos"
+    ],
+    "editors": [],
+    "contributors": [],
+    "promoText": "",
+    "contentRating": 0,
+    "rating": 4.6,
+    "isAudio": false,
+    "isVideo": false,
+    "isPwyw": false,
+    "isCommunityContent": false,
+    "isAi": false,
+    "isHandmade": true,
+    "isGiftCert": false,
+    "lowestDigitalPrice": 8.4,
+    "lowestPrintPrice": null,
+    "lowestAnyPrice": 8.4,
+    "dateCreated": "2016-01-29T12:35:28-06:00",
+    "productId": 172348,
+    "description": {
+      "name": "Blades in the Dark Heist Deck, Print and Play",
+      "slug": "blades-in-the-dark-heist-deck-print-and-play",
+      "shortDescription": "Blades in the Dark is a game of scoundrels pulling heists in the haunted city of Duskwall. This print and play deck of cards is designed to help game masters put together a heist on the fly.\nWith 50 obstacles, 40 important people, and 40 treasures, the game master's creativity can be inspired with Duskwall-flavored possibilities. Draw two people cards, a treasure card, and three obstacle cards, then figure out which person is hiring the crew and which is the target. Decide on an objective..."
+    },
+    "publisher": {
+      "name": "Shields Up! Publishing",
+      "publisherId": 5544,
+      "slug": "shields-up-publishing",
+      "averageRating": null
+    },
+    "onSale": false,
+    "options": [
+      {
+        "productAttributeId": 1492649,
+        "optionId": 1,
+        "optionValueId": 42,
+        "optionValueName": "Print-and-Play PDF",
+        "description": "Print-and-Play PDF",
+        "type": "digital",
+        "price": 8.4,
+        "priceToAdd": "0.0000",
+        "msrp": "12.0000",
+        "enabled": 1,
+        "taxClassId": 0
+      }
+    ],
+    "ranking": {
+      "humanName": "mithral",
+      "imageUrl": "medals/mithral.png"
+    },
+    "ratingCount": "49",
+    "storefrontPrimaryFilterValues": [],
+    "isBundle": false,
+    "oneTimeCode": null
+  },
+  {
+    "image": "26272/469619.jpg",
+    "thumbnail": "26272/469619-thumb140.jpg",
+    "thumbnail200": "26272/469619-thumb200.webp",
+    "thumbnail100": "26272/469619-thumb100.jpg",
+    "thumbnail80": "26272/469619-thumb80.jpg",
+    "thumbnail40": "26272/469619-thumb40.jpg",
+    "price": 13.741,
+    "dateAvailable": "1969-12-31T18:00:00-06:00",
+    "status": 1,
+    "workflowStatus": "created",
+    "sortPriority": 9999,
+    "publisherId": 26272,
+    "specialPrice": 0,
+    "sku": "",
+    "authors": [],
+    "artists": [],
+    "editors": [],
+    "contributors": [],
+    "promoText": "",
+    "contentRating": 0,
+    "rating": 5.0,
+    "isAudio": false,
+    "isVideo": false,
+    "isPwyw": false,
+    "isCommunityContent": false,
+    "isAi": false,
+    "isHandmade": false,
+    "isGiftCert": false,
+    "lowestDigitalPrice": 13.741,
+    "lowestPrintPrice": null,
+    "lowestAnyPrice": 13.741,
+    "dateCreated": "2024-03-13T10:35:29-05:00",
+    "productId": 469619,
+    "description": {
+      "name": "Blades in the Dark",
+      "slug": "blades-in-the-dark",
+      "shortDescription": "Blades in the Dark est un jeu de rôle qui met en scène un gang de criminels en quête de fortune dans les rues hantées de Duskvol. Vous y trouverez braquages, poursuites, mystères occultes, marchandages dangereux, escarmouches sanglantes et, surtout, surtout, des richesses à prendre si vous êtes assez audacieux pour cela.\nVous jouez à ce jeu pour savoir si votre bande fraichement constituée peut prospérer parmi les gangs rivaux, les puissantes familles nobles, les fantômes malveillants, sans..."
+    },
+    "publisher": {
+      "name": "500 Nuances de Geek  La Caravelle",
+      "publisherId": 26272,
+      "slug": "500-nuances-de-geek-la-caravelle",
+      "averageRating": null
+    },
+    "onSale": false,
+    "options": [
+      {
+        "productAttributeId": 1991199,
+        "optionId": 1,
+        "optionValueId": 1,
+        "optionValueName": "Watermarked PDF",
+        "description": "Watermarked PDF",
+        "type": "digital",
+        "price": 13.74,
+        "priceToAdd": "0.0000",
+        "msrp": 0.0,
+        "enabled": 1,
+        "taxClassId": 0
+      }
+    ],
+    "ranking": null,
+    "ratingCount": "1",
+    "storefrontPrimaryFilterValues": [],
+    "isBundle": false,
+    "oneTimeCode": null
+  },
+  {
+    "image": "7070/500978.jpg",
+    "thumbnail": "7070/500978-thumb140.jpg",
+    "thumbnail200": "7070/500978-thumb200.webp",
+    "thumbnail100": "7070/500978-thumb100.jpg",
+    "thumbnail80": "7070/500978-thumb80.jpg",
+    "thumbnail40": "7070/500978-thumb40.jpg",
+    "price": 12.0,
+    "dateAvailable": "1969-12-31T18:00:00-06:00",
+    "status": 1,
+    "workflowStatus": "created",
+    "sortPriority": 9999,
+    "publisherId": 7070,
+    "specialPrice": 0,
+    "sku": "",
+    "authors": [
+      "John Harper"
+    ],
+    "artists": [
+      "John Harper"
+    ],
+    "editors": [],
+    "contributors": [],
+    "promoText": "",
+    "contentRating": 0,
+    "rating": 5.0,
+    "isAudio": false,
+    "isVideo": false,
+    "isPwyw": false,
+    "isCommunityContent": false,
+    "isAi": false,
+    "isHandmade": true,
+    "isGiftCert": false,
+    "lowestDigitalPrice": 12.0,
+    "lowestPrintPrice": 26.0,
+    "lowestAnyPrice": 12.0,
+    "dateCreated": "2024-11-02T18:02:03-05:00",
+    "productId": 500978,
+    "description": {
+      "name": "Blades in the Dark: Deep Cuts",
+      "slug": "blades-in-the-dark-deep-cuts",
+      "shortDescription": "Blades in the Dark: Deep Cuts is a 118-page expansion for the Blades in the Dark roleplaying game — containing a treasure trove of lore, setting material, and alternative mechanics I've developed over the years for use in Blades campaigns.\nThe first part expands on the setting of the game, including:\n27 factions, providing new lore and crew opportunities\nOver 100 heritage and background packages to flesh out the characters and the setting even more\n13 new innovations in technology to reflect..."
+    },
+    "publisher": {
+      "name": "One Seven",
+      "publisherId": 7070,
+      "slug": "one-seven",
+      "averageRating": null
+    },
+    "onSale": false,
+    "options": [
+      {
+        "productAttributeId": 2041777,
+        "optionId": 1,
+        "optionValueId": 8,
+        "optionValueName": "PDF",
+        "description": "PDF",
+        "type": "digital",
+        "price": 12.0,
+        "priceToAdd": "0.0000",
+        "msrp": 0.0,
+        "enabled": 1,
+        "taxClassId": 0
+      },
+      {
+        "productAttributeId": 2107562,
+        "optionId": 2,
+        "optionValueId": 64,
+        "optionValueName": "Softcover, Standard Color Book",
+        "description": "Softcover, Standard Color Book",
+        "type": "book",
+        "price": 26.0,
+        "priceToAdd": "14.0000",
+        "msrp": 0.0,
+        "enabled": 1,
+        "taxClassId": 1
+      }
+    ],
+    "ranking": {
+      "humanName": "adamantine",
+      "imageUrl": "medals/adamantine.png"
+    },
+    "ratingCount": "20",
+    "storefrontPrimaryFilterValues": [],
+    "isBundle": false,
+    "oneTimeCode": null
+  }
+]

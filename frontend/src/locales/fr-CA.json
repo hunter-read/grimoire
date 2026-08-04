@@ -384,7 +384,8 @@
       "application": "Application",
       "maintenance": "Maintenance",
       "logs": "Journaux",
-      "metadata": "Metadata"
+      "metadata": "Metadata",
+      "addons": "Modules"
     }
   },
   "authSettings": {
@@ -1129,7 +1130,7 @@
     "addUrl": "Add Link",
     "urlLabelPlaceholder": "Label (e.g. DriveThruRPG)",
     "urlPlaceholder": "URL",
-    "characterBuilderUrls": "Character Builder Links",
+    "characterBuilderUrls": "Créateurs de personnages",
     "addCharacterBuilder": "Add Character Builder",
     "characterBuilderLabelPlaceholder": "Label (e.g. D&D Beyond)",
     "parentSystem": "Système parent",
@@ -1137,7 +1138,10 @@
     "edition": "Édition",
     "editionPlaceholder": "e.g. 5e, Red, 2020",
     "licensePlaceholder": "e.g. OGL 1.0a",
-    "createParentSystem": "Créer le système parent « {{name}} »"
+    "createParentSystem": "Créer le système parent « {{name}} »",
+    "fetchMetadata": "Récupérer les métadonnées",
+    "loadMoreCovers_one": "Afficher 1 de plus",
+    "loadMoreCovers_other": "Afficher {{count}} de plus"
   },
   "bookEditor": {
     "title": "Modifier le livre",
@@ -1176,7 +1180,8 @@
     "categoryPlaceholder": "Search or create a category…",
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licence",
-    "licensePlaceholder": "Inherit system license"
+    "licensePlaceholder": "Inherit system license",
+    "fetchMetadata": "Récupérer les métadonnées"
   },
   "reocr": {
     "button": "Relancer l'OCR",
@@ -1196,7 +1201,8 @@
     "reocr": "Re-OCR…",
     "rescan": "Re-scan & re-index",
     "rescanQueued": "Re-scan queued",
-    "rescanError": "Failed to queue re-scan"
+    "rescanError": "Failed to queue re-scan",
+    "details": "Voir les détails"
   },
   "bookRow": {
     "missingFile": "Manquant",
@@ -1567,5 +1573,75 @@
       "other": "Other",
       "custom": "Custom"
     }
+  },
+  "addons": {
+    "title": "Modules communautaires",
+    "description": "Installez des collecteurs de métadonnées proposés par la communauté. Les modules peuvent compléter les détails des systèmes de jeu depuis des sources externes.",
+    "indexUrl": "URL de l'index des modules",
+    "refresh": "Actualiser",
+    "refreshed": "Index des modules actualisé.",
+    "installedHeading": "Installés",
+    "availableHeading": "Disponibles",
+    "noneInstalled": "Aucun module installé pour l'instant.",
+    "noneAvailable": "Rien de nouveau dans l'index. Essayez d'actualiser.",
+    "install": "Installer",
+    "installed": "{{name}} installé.",
+    "remove": "Supprimer",
+    "removed": "{{name}} supprimé.",
+    "enabled": "Activé",
+    "runsCode": "Exécute du code",
+    "installTitle": "Installer {{name}} ?",
+    "scriptWarning": "Ce module exécute du code Python sur votre serveur avec un accès réseau. N'installez que des modules provenant de sources de confiance, et lisez d'abord le script.",
+    "scriptAcknowledge": "Je comprends que ce module exécute du code sur mon serveur.",
+    "allowScripts": "Autoriser les scripts de modules",
+    "allowScriptsDesc": "Désactivé par défaut. Même activé, chaque module utilisant un script doit être approuvé individuellement lors de son installation.",
+    "update": "Mettre à jour",
+    "updateAll": "Tout mettre à jour ({{count}})",
+    "updateBadge": "v{{version}} disponible",
+    "updated": "{{name}} mis à jour.",
+    "updatedCount_one": "{{count}} module mis à jour.",
+    "updatedCount_other": "{{count}} modules mis à jour.",
+    "alreadyUpToDate": "Tout est déjà à jour.",
+    "updateTitle": "Mettre à jour {{name}} ?",
+    "scriptUpdateWarning": "Cette mise à jour modifie le script du module. Le code ayant changé, votre approbation est de nouveau requise avant que Grimoire ne l'exécute."
+  },
+  "metadataFetch": {
+    "title": "Récupérer les métadonnées",
+    "source": "Source",
+    "search": "Rechercher",
+    "searchPlaceholder": "Nom du système",
+    "noSources": "Aucune source de métadonnées n'est installée. Un administrateur peut en ajouter une dans Paramètres → Modules.",
+    "noMatches": "Aucun résultat. Essayez un autre terme de recherche.",
+    "nothingToApply": "Ce résultat n'apporte rien de nouveau.",
+    "statusNew": "nouveau",
+    "statusDiffers": "différent",
+    "statusSame": "déjà défini",
+    "apply": "Appliquer {{count}} champ",
+    "apply_other": "Appliquer {{count}} champs",
+    "back": "Retour",
+    "viewSource": "Voir la source",
+    "pasteToggle": "Vous savez lequel ? Collez un lien ou un ID",
+    "pasteLabel": "Lien ou ID de la source",
+    "pastePlaceholder": "Collez un lien ou un ID de cette source",
+    "pasteUse": "Rechercher",
+    "pasteHint": "Collez l'URL de la page de l'élément sur la source, ou simplement son ID.",
+    "keepsExisting_one": "Votre lien existant est conservé.",
+    "keepsExisting_other": "Vos {{count}} liens existants sont conservés."
+  },
+  "bookDetails": {
+    "category": "Catégorie",
+    "authors": "Auteurs",
+    "artists": "Artistes",
+    "publisher": "Éditeur",
+    "published": "Publié",
+    "genres": "Genres",
+    "license": "Licence",
+    "isbn": "ISBN",
+    "version": "Version",
+    "language": "Langue",
+    "pages": "Pages",
+    "fileSize": "Taille du fichier",
+    "format": "Format",
+    "path": "Chemin"
   }
 }

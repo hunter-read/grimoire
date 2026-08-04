@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX } from 'react-icons/lu'
+import { LuDownload, LuX } from 'react-icons/lu'
 import api from '../../api'
 import { saveBookPrefs, getBookPrefs } from '../../hooks/useBookPrefs'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
@@ -11,6 +11,8 @@ import LookupCombobox from '../metadata/LookupCombobox'
 import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
+import MetadataFetchDialog from './MetadataFetchDialog'
+import { intoBookForm } from './metadataFieldValue'
 
 export default function BookEditor({
   book,
@@ -42,6 +44,26 @@ export default function BookEditor({
     is_explicit: book.is_explicit || false,
   })
   const [tags, setTags] = useState(book.tags || [])
+  // "Fetch metadata" only appears when a source is actually available, so the
+  // button never promises something the server cannot do.
+  const [hasSources, setHasSources] = useState(false)
+  const [fetching, setFetching] = useState(false)
+
+  useEffect(() => {
+    api
+      .get(`/books/${book.id}/metadata-sources`)
+      .then((data) => setHasSources((data.sources || []).length > 0))
+      .catch(() => setHasSources(false))
+  }, [book.id])
+
+  // Applied fields arrive in API shape (arrays, numbers); the form holds some
+  // of them as text, so they are converted before merging in. Tags live in
+  // their own state.
+  const handleFetched = (fields) => {
+    const { tags: fetchedTags, ...rest } = fields
+    setForm((f) => ({ ...f, ...intoBookForm(rest) }))
+    if (fetchedTags) setTags(fetchedTags)
+  }
   const [saving, setSaving] = useState(false)
   const [progressReset, setProgressReset] = useState(false)
   const hasProgress = !!getBookPrefs(book.id).page
@@ -280,6 +302,26 @@ export default function BookEditor({
         >
           {saving ? t('bookEditor.saving') : t('bookEditor.save')}
         </button>
+        {hasSources && (
+          <button
+            onClick={() => setFetching(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              borderRadius: 5,
+              background: 'none',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            <LuDownload size={13} />
+            {t('bookEditor.fetchMetadata')}
+          </button>
+        )}
         {(hasProgress || progressReset) && (
           <button
             onClick={() => {
@@ -302,6 +344,15 @@ export default function BookEditor({
           </button>
         )}
       </div>
+
+      {fetching && (
+        <MetadataFetchDialog
+          resource={book}
+          kind="books"
+          onApply={handleFetched}
+          onClose={() => setFetching(false)}
+        />
+      )}
     </div>
   )
 }

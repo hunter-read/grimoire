@@ -15,6 +15,7 @@ vi.mock('../components/settings/AppSettingsTab', () => ({ default: () => <div>ap
 vi.mock('../components/settings/AuthenticationTab', () => ({ default: () => <div>auth-tab</div> }))
 vi.mock('../components/settings/LogsTab', () => ({ default: () => <div>logs-tab</div> }))
 vi.mock('../components/settings/MetadataTab', () => ({ default: () => <div>metadata-tab</div> }))
+vi.mock('../components/settings/AddonsTab', () => ({ default: () => <div>addons-tab</div> }))
 
 function renderAt(tab, user) {
   return render(
@@ -35,6 +36,22 @@ describe('SettingsView', () => {
   it('renders the metadata tab content when selected', () => {
     renderAt('metadata', { role: 'admin' })
     expect(screen.getByText('metadata-tab')).toBeInTheDocument()
+  })
+
+  it('shows the add-ons tab link for admins', () => {
+    renderAt('metadata', { role: 'admin' })
+    expect(screen.getByText('settings.tabs.addons')).toBeInTheDocument()
+  })
+
+  it('renders the add-ons tab content when selected', () => {
+    renderAt('addons', { role: 'admin' })
+    expect(screen.getByText('addons-tab')).toBeInTheDocument()
+  })
+
+  it('hides the add-ons tab from non-admins', () => {
+    renderAt('addons', { role: 'player' })
+    expect(screen.queryByText('addons-tab')).toBeNull()
+    expect(screen.queryByText('settings.tabs.addons')).toBeNull()
   })
 
   it('hides admin tabs (incl. metadata) from non-admins', () => {

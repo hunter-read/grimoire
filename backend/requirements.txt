@@ -22,3 +22,4 @@ py7zr==1.1.3
 pytesseract==0.3.13
 pathspec==1.1.1
 tzdata==2025.2
+PyYAML==6.0.3

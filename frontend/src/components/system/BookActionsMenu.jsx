@@ -1,14 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { LuEllipsisVertical, LuPencil, LuDownload, LuScanText, LuRefreshCw } from 'react-icons/lu'
+import {
+  LuEllipsisVertical,
+  LuInfo,
+  LuPencil,
+  LuDownload,
+  LuScanText,
+  LuRefreshCw,
+} from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 
 const MENU_WIDTH = 220
 
 /**
- * Consolidated per-book actions dropdown (kebab): Edit, Download, and a
- * context-aware re-index item. Favorite is deliberately left out — it stays a
+ * Consolidated per-book actions dropdown (kebab): View details, Edit,
+ * Download, and a context-aware re-index item. Details is available to every
+ * user; Edit and re-index are gm/admin only. Favorite is deliberately left out — it stays a
  * standalone always-visible control on the row.
  *
  * The re-index item adapts to the book:
@@ -24,7 +32,7 @@ const MENU_WIDTH = 220
  * The menu is portalled to document.body at fixed coordinates so it isn't
  * clipped by the book row's `overflow: hidden`.
  */
-export default function BookActionsMenu({ book, onEdit, editing }) {
+export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
@@ -165,6 +173,20 @@ export default function BookActionsMenu({ book, onEdit, editing }) {
               overflow: 'hidden',
             }}
           >
+            {onDetails && (
+              <button
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                  onDetails()
+                }}
+                style={itemStyle}
+              >
+                <LuInfo size={15} aria-hidden="true" />
+                {t('bookActions.details')}
+              </button>
+            )}
             {onEdit && (
               <button
                 role="menuitem"

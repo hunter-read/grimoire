@@ -8,6 +8,7 @@ import AppSettingsTab from '../components/settings/AppSettingsTab'
 import AuthenticationTab from '../components/settings/AuthenticationTab'
 import LogsTab from '../components/settings/LogsTab'
 import MetadataTab from '../components/settings/MetadataTab'
+import AddonsTab from '../components/settings/AddonsTab'
 
 export default function SettingsView({ user, onLogout }) {
   const { t } = useTranslation()
@@ -20,6 +21,7 @@ export default function SettingsView({ user, onLogout }) {
     { key: 'authentication', label: t('settings.tabs.authentication') },
     { key: 'application', label: t('settings.tabs.application') },
     { key: 'metadata', label: t('settings.tabs.metadata') },
+    { key: 'addons', label: t('settings.tabs.addons') },
     { key: 'maintenance', label: t('settings.tabs.maintenance') },
     { key: 'logs', label: t('settings.tabs.logs') },
   ]
@@ -82,6 +84,7 @@ export default function SettingsView({ user, onLogout }) {
       {tab === 'authentication' && isAdmin && <AuthenticationTab />}
       {tab === 'application' && isAdmin && <AppSettingsTab />}
       {tab === 'metadata' && isAdmin && <MetadataTab />}
+      {tab === 'addons' && isAdmin && <AddonsTab />}
       {tab === 'maintenance' && isAdmin && <MaintenanceTab />}
       {tab === 'logs' && isAdmin && <LogsTab />}
     </div>

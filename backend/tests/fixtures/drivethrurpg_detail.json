@@ -1,0 +1,1520 @@
+{
+  "dateAvailable": "2016-01-10T18:31:21-06:00",
+  "authors": [
+    "John Harper"
+  ],
+  "artists": [
+    "John Harper"
+  ],
+  "edition": null,
+  "productId": 170689,
+  "description": {
+    "name": "Blades in the Dark",
+    "description": "<p>Winner: <a>2015 Golden Geek, <strong>RPG of the Year</strong></a></p>\n<p>Winner: <a>2016 Indie RPG Award, <strong>Game of the Year</strong></a> (also Best Production and Best Support)</p>\n<p><em>Blades in the Dark</em> is a tabletop role-playing game about a crew of daring scoundrels seeking their fortunes on the haunted streets of an industrial-fantasy city. There are heists, chases, occult mysteries, dangerous bargains, bloody skirmishes, and, above all, riches to be had — if you’re bold enough to seize them.</p>\n<p>You and your fledgling crew must thrive amidst the threats of rival gangs, powerful noble families, vengeful ghosts, the Bluecoats of the city watch, and the siren song of your scoundrel’s own vices. Will you rise to power in the criminal underworld? What are you willing to do to get to the top?</p>\n<p>In this stand-alone game, you’ll find:</p>\n<ul><li>Rules to create your scoundrel using the following character archetypes: the <strong>Cutter</strong>, the <strong>Hound</strong>, the <strong>Leech</strong>, the <strong>Lurk</strong>, the <strong>Slide</strong>, the <strong>Spider</strong>, or the <strong>Whisper</strong>.</li>\n<li>Rules to create your crew, built from types like <strong>Assassins</strong>, <strong>Bravos</strong>, a <strong>Cult</strong>, <strong>Hawkers</strong>, <strong>Shadows</strong>, or <strong>Smugglers</strong>.</li>\n<li>A robust core mechanic which puts the fiction first—the strength of a character’s position (desperate, risky, or controlled) matters just as much as the character’s ability scores.</li>\n<li>A lightning-fast mechanic for planning criminal operations to cut through the usual slog of planning at the game table.</li>\n<li>Rules for alchemical experiments, gadget tinkering, and weird occult powers—including rules for playing Ghosts and other strange beings.</li>\n<li>A setting guide to the haunted city of Doskvol, with all the maps, factions, NPCs, schemes, and opportunities you need to run an exciting sandbox game.</li>\n</ul><p><strong>GAME INFORMATION</strong><br />Number of players: 3-6<br />Age of players: 13+<br />Length: 2-6 hours<br />Type of Game: Roleplaying Game<br />Page Count: 336</p>\n<p></p>\n<p class=\"h3\"><img src=\"/images/site_resources/OBS_mere.png\" style=\"float:left;border:5px solid #000000;margin-left:5px;margin-right:5px;\" alt=\"OBS_mere.png\" width=\"85\" height=\"85\" />Staff Pick</p>\n<p>Open to the <span>fantasy city of Duskvol, haunted by ghosts and other terrors while a criminal empire is being built in the background. This game is all about choosing on the fly which makes the risk and adventure more real. There is less prep and more of a focus on making fast decisions with plenty of very cool character \"classes\" to take on. You'll need a GM that is quick on their feet and invested but once you find that, then the game will start to click. There are so many awesome aspects, including the combat system which seems clunky at first but once you get to play it, it runs so smoothly. The setting gives plenty of room for exploration and gives players the opportunity to dabble in all types of adventures (especially ones that lean more into the occult, which I love!). Players will feel that the game is all about teamwork and you are rewarded and encouraged to continue as a unit. Even the battle system requires operating as a unit, through the progress clock where the GM chooses the difficulty and players fill the clock with successful rolls to determine the outcome.</span></p>\n<p><span>My favorite mechanic is the Devil's Bargain (if you want that important roll to go well and need some bonuses, it'll be at a negative cost).</span><br />-- Meredith Gerber, Maven of Mythology (DriveThruRPG Publisher Service)</p>",
+    "url": "https://youtu.be/VT04k7d74yg",
+    "slug": "blades-in-the-dark",
+    "shortDescription": "Winner: 2015 Golden Geek, RPG of the Year\nWinner: 2016 Indie RPG Award, Game of the Year (also Best Production and Best Support)\nBlades in the Dark is a tabletop role-playing game about a crew of daring scoundrels seeking their fortunes on the haunted streets of an industrial-fantasy city. There are heists, chases, occult mysteries, dangerous bargains, bloody skirmishes, and, above all, riches to be had — if you’re bold enough to seize them.\nYou and your fledgling crew must thrive amidst the...",
+    "videoPreviewUrl": "https://www.youtube.com/embed/VT04k7d74yg"
+  },
+  "publisher": {
+    "name": "One Seven",
+    "thumbnail": "7070/oneseven_logo.jpg",
+    "publisherId": 7070,
+    "descriptions": [
+      {
+        "url": "http://www.onesevendesign.com"
+      }
+    ],
+    "slug": "one-seven",
+    "averageRating": null,
+    "productCount": null,
+    "ccProgramDetails": [],
+    "reviewCount": null,
+    "reviewRatings": {
+      "average": 0.0,
+      "countOne": 0,
+      "countTwo": 0,
+      "countThree": 0,
+      "countFour": 0,
+      "countFive": 0
+    }
+  },
+  "isbn": "",
+  "pagecount": "328",
+  "filters": [
+    {
+      "image": null,
+      "parentId": 10,
+      "sortOrder": 10,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 100,
+      "descriptions": [
+        {
+          "name": "Fantasy",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "fantasy"
+        },
+        {
+          "name": "Fantasy",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "fantasy"
+        },
+        {
+          "name": "Fantasy",
+          "header": "",
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "fantasy"
+        },
+        {
+          "name": "Fantasía",
+          "header": "",
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "fantasia"
+        },
+        {
+          "name": "Fantasia",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "fantasia"
+        },
+        {
+          "name": "Fantasy",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "fantasy"
+        },
+        {
+          "name": "Fantasy",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "fantasy"
+        },
+        {
+          "name": "ファンタジー",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "판타지",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Fantasy",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "fantasy"
+        }
+      ],
+      "ancestors": [
+        10
+      ]
+    },
+    {
+      "image": null,
+      "parentId": 100,
+      "sortOrder": null,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 120,
+      "descriptions": [
+        {
+          "name": "Dark Fantasy",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "dark-fantasy"
+        },
+        {
+          "name": "Dark Fantasy",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "dark-fantasy"
+        },
+        {
+          "name": "Dark Fantasy",
+          "header": "",
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "dark-fantasy"
+        },
+        {
+          "name": "Fantasía Oscura",
+          "header": "",
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "fantasia-oscura"
+        },
+        {
+          "name": "Fantasia Tenebrosa",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "fantasia-tenebrosa"
+        },
+        {
+          "name": "Dark Fantasy",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "dark-fantasy"
+        },
+        {
+          "name": "Dark fantasy",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "dark-fantasy"
+        },
+        {
+          "name": "ダーク・ファンタジー",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "다크 판타지",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Dark Fantasy",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "dark-fantasy"
+        }
+      ],
+      "ancestors": [
+        100,
+        10
+      ]
+    },
+    {
+      "image": null,
+      "parentId": 100,
+      "sortOrder": null,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 170,
+      "descriptions": [
+        {
+          "name": "Steampunk",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "steampunk"
+        },
+        {
+          "name": "Steampunk",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "steampunk"
+        },
+        {
+          "name": "Steampunk",
+          "header": "",
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "steampunk"
+        },
+        {
+          "name": "Retrofuturista",
+          "header": "",
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "retrofuturista"
+        },
+        {
+          "name": "Steampunk",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "steampunk"
+        },
+        {
+          "name": "Steampunk",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "steampunk"
+        },
+        {
+          "name": "Steampunk",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "steampunk"
+        },
+        {
+          "name": "スチームパンク",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "스팀펑크",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Steampunk",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "steampunk"
+        }
+      ],
+      "ancestors": [
+        100,
+        10
+      ]
+    },
+    {
+      "image": null,
+      "parentId": 20,
+      "sortOrder": 1,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 2140,
+      "descriptions": [
+        {
+          "name": "Core Rulebooks",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "core-rulebooks"
+        },
+        {
+          "name": "Grundregelwerke",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "grundregelwerke"
+        },
+        {
+          "name": "Livres de base",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "livres-de-base"
+        },
+        {
+          "name": "Libros de reglas base",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "libros-de-reglas-base"
+        },
+        {
+          "name": "Livros de regras fundamentais",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "livros-de-regras-fundamentais"
+        },
+        {
+          "name": "Core Rulebooks",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "core-rulebooks"
+        },
+        {
+          "name": "Manuali di base",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "manuali-di-base"
+        },
+        {
+          "name": "コア（基本）ルールブック",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "코어 룰북",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Podręczniki podstawowe",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "podreczniki-podstawowe"
+        }
+      ],
+      "ancestors": [
+        20
+      ]
+    },
+    {
+      "image": null,
+      "parentId": 2140,
+      "sortOrder": 1,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 2141,
+      "descriptions": [
+        {
+          "name": "All-in-One Rulebooks",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "all-in-one-rulebooks"
+        },
+        {
+          "name": "Komplett-Regelwerke",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "komplett-regelwerke"
+        },
+        {
+          "name": "Livres de règles tout-en-un",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "livres-de-regles-tout-en-un"
+        },
+        {
+          "name": "Manual completo",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "manual-completo"
+        },
+        {
+          "name": "Livros de regras tudo-em-um",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "livros-de-regras-tudo-em-um"
+        },
+        {
+          "name": "All-in-One Rulebooks",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "all-in-one-rulebooks"
+        },
+        {
+          "name": "Regolamenti completi",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "regolamenti-completi"
+        },
+        {
+          "name": "オールインワンルールブック",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "올인원 룰북",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Kompletne podręczniki",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "kompletne-podreczniki"
+        }
+      ],
+      "ancestors": [
+        2140,
+        20
+      ]
+    },
+    {
+      "image": "",
+      "parentId": 44498,
+      "sortOrder": 10,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 44294,
+      "descriptions": [
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "physical-products"
+        },
+        {
+          "name": "Physical Products",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "physical-products"
+        }
+      ],
+      "ancestors": [
+        44498
+      ]
+    },
+    {
+      "image": "",
+      "parentId": 1000031,
+      "sortOrder": 10,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 44499,
+      "descriptions": [
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "pdf"
+        },
+        {
+          "name": "PDF",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "pdf"
+        }
+      ],
+      "ancestors": [
+        1000031,
+        44498
+      ]
+    },
+    {
+      "image": null,
+      "parentId": 40,
+      "sortOrder": 12,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 45208,
+      "descriptions": [
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "english"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "english"
+        },
+        {
+          "name": "Anglais",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "anglais"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "english"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "english"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "english"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "english"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "english"
+        },
+        {
+          "name": "English",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "english"
+        },
+        {
+          "name": "Angielski",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "angielski"
+        }
+      ],
+      "ancestors": [
+        40
+      ]
+    },
+    {
+      "image": "",
+      "parentId": 999999,
+      "sortOrder": 1,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 45834,
+      "descriptions": [
+        {
+          "name": "Staff Picks",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "staff-picks"
+        },
+        {
+          "name": "Mitarbeiter-Favoriten",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "mitarbeiter-favoriten"
+        },
+        {
+          "name": "Nos coups de cœur",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "nos-coups-de-coeur"
+        },
+        {
+          "name": "Selecciones del personal",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "selecciones-del-personal"
+        },
+        {
+          "name": "Escolhas dos funcionários",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "escolhas-dos-funcionarios"
+        },
+        {
+          "name": "Staff Picks",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "staff-picks"
+        },
+        {
+          "name": "Selezione dello staff",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "selezione-dello-staff"
+        },
+        {
+          "name": "スタッフのお勧め",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "스태프 추천",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Wybór personelu",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "wybor-personelu"
+        }
+      ],
+      "ancestors": []
+    },
+    {
+      "image": null,
+      "parentId": 30,
+      "sortOrder": null,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 100226,
+      "descriptions": [
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "forged-in-the-dark"
+        },
+        {
+          "name": "Forged in the Dark",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "forged-in-the-dark"
+        }
+      ],
+      "ancestors": [
+        30
+      ]
+    },
+    {
+      "image": null,
+      "parentId": 44498,
+      "sortOrder": 1,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 1000031,
+      "descriptions": [
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "digital"
+        },
+        {
+          "name": "Digital",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "digital"
+        }
+      ],
+      "ancestors": [
+        44498
+      ]
+    },
+    {
+      "image": "",
+      "parentId": 44498,
+      "sortOrder": 100,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 1000032,
+      "descriptions": [
+        {
+          "name": "Creation Method",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "creation-method"
+        },
+        {
+          "name": "Erstellungsmethode",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "erstellungsmethode"
+        },
+        {
+          "name": "Méthode de création",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "methode-de-creation"
+        },
+        {
+          "name": "Método de creación",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "metodo-de-creacion"
+        },
+        {
+          "name": "Método de criação",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "metodo-de-criacao"
+        },
+        {
+          "name": "Creation Method",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "creation-method"
+        },
+        {
+          "name": "Metodo di creazione",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "metodo-di-creazione"
+        },
+        {
+          "name": "作成方法",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": ""
+        },
+        {
+          "name": "제작 방법",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": ""
+        },
+        {
+          "name": "Metoda tworzenia",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "metoda-tworzenia"
+        }
+      ],
+      "ancestors": [
+        44498
+      ]
+    },
+    {
+      "image": "",
+      "parentId": 1000032,
+      "sortOrder": 10,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 1000033,
+      "descriptions": [
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "human-created-without-ai"
+        },
+        {
+          "name": "Human-Created Without AI",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "human-created-without-ai"
+        }
+      ],
+      "ancestors": [
+        1000032,
+        44498
+      ]
+    },
+    {
+      "image": "",
+      "parentId": 44294,
+      "sortOrder": 10,
+      "groupId": 1,
+      "active": true,
+      "showMain": false,
+      "showMainSites": false,
+      "filterId": 1000625,
+      "descriptions": [
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 1,
+          "languageName": "English",
+          "languageCode": "en",
+          "languageISOCode": "en_EN",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 2,
+          "languageName": "Deutsch",
+          "languageCode": "de",
+          "languageISOCode": "de_DE",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 3,
+          "languageName": "Français",
+          "languageCode": "fr",
+          "languageISOCode": "fr_FR",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 4,
+          "languageName": "Español",
+          "languageCode": "es",
+          "languageISOCode": "es_ES",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 5,
+          "languageName": "Português",
+          "languageCode": "pt",
+          "languageISOCode": "pt_PT",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 6,
+          "languageName": "Russian",
+          "languageCode": "ru",
+          "languageISOCode": "en_EN",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 7,
+          "languageName": "Italiano",
+          "languageCode": "it",
+          "languageISOCode": "it_IT",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 8,
+          "languageName": "日本語",
+          "languageCode": "ja",
+          "languageISOCode": "ja_JP",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 9,
+          "languageName": "한국인",
+          "languageCode": "ko",
+          "languageISOCode": "ko_KR",
+          "slug": "print-on-demand"
+        },
+        {
+          "name": "Print-on-Demand",
+          "header": null,
+          "languageId": 10,
+          "languageName": "Polski",
+          "languageCode": "pl",
+          "languageISOCode": "pl_PL",
+          "slug": "print-on-demand"
+        }
+      ],
+      "ancestors": [
+        44294,
+        44498
+      ]
+    }
+  ]
+}

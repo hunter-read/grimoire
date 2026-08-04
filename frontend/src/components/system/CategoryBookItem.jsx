@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import BookRow from './BookRow'
 import BookEditor from './BookEditor'
+import BookDetailsModal from './BookDetailsModal'
 
 /**
  * A single book in a category grid: its BookRow plus the inline BookEditor when
@@ -38,6 +40,9 @@ export default function CategoryBookItem({
   onToggleBook,
 }) {
   const editing = editingBookId === book.id
+  // Read-only metadata view, available to every user (editing is gm/admin only).
+  const [showDetails, setShowDetails] = useState(false)
+
   return (
     <div style={!list && editing ? { gridColumn: '1 / -1' } : undefined}>
       <BookRow
@@ -46,11 +51,13 @@ export default function CategoryBookItem({
         compact={compact}
         onOpen={() => onOpenBook(book)}
         onEdit={isEditor ? () => setEditingBookId((id) => (id === book.id ? null : book.id)) : null}
+        onDetails={() => setShowDetails(true)}
         editing={editing}
         bulkMode={bulkMode}
         selected={selectedBookIds.has(book.id)}
         onToggle={(mods) => onToggleBook(book.id, mods)}
       />
+      {showDetails && <BookDetailsModal book={book} onClose={() => setShowDetails(false)} />}
       {editing && (
         <BookEditor
           book={book}
