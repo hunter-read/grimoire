@@ -143,6 +143,13 @@
     "noTagMatch": "Geen systemen komen overeen met de geselecteerde labels.",
     "filterByTag": "Filteren op {{tag}}"
   },
+  "systemContainer": {
+    "subtitle_one": "{{count}} systeem in deze collectie",
+    "subtitle_other": "{{count}} systemen in deze collectie",
+    "empty": "Nog geen systemen gevonden in deze collectie.",
+    "count_one": "{{count}} systeem",
+    "count_other": "{{count}} systemen"
+  },
   "systemDetail": {
     "backToLibrary": "Terug naar bibliotheek",
     "publishedBy": "Uitgegeven door",
@@ -178,7 +185,8 @@
     "parentSystemLabel": "Oudersysteem",
     "addTags": "Labels toevoegen",
     "editTags": "Bewerken",
-    "editTagsFull": "Labels bewerken"
+    "editTagsFull": "Labels bewerken",
+    "backTo": "Terug naar {{name}}"
   },
   "reader": {
     "back": "Terug",
@@ -1105,6 +1113,9 @@
     "removeTag": "Label {{tag}} verwijderen"
   },
   "systemEditor": {
+    "name": "Naam",
+    "nameDerivedHint": "Gegenereerd op basis van de mappenstructuur. Hernoem hier en je naam blijft behouden bij volgende scans.",
+    "nameCustomHint": "Aangepaste naam — scans overschrijven deze niet.",
     "title": "Systeemmetadata bewerken",
     "description": "Beschrijving",
     "tags": "Labels",
@@ -1143,7 +1154,13 @@
     "createParentSystem": "Oudersysteem \"{{name}}\" aanmaken",
     "fetchMetadata": "Metadata ophalen",
     "loadMoreCovers_one": "Nog 1 tonen",
-    "loadMoreCovers_other": "Nog {{count}} tonen"
+    "loadMoreCovers_other": "Nog {{count}} tonen",
+    "uploadCover": "Omslagafbeelding",
+    "chooseImage": "Afbeelding kiezen",
+    "replaceCover": "Afbeelding vervangen",
+    "removeCover": "Verwijderen",
+    "coverUploadFailed": "Uploaden mislukt",
+    "folderCoverInUse": "Er wordt een omslagafbeelding uit de bibliotheekmap van dit systeem gebruikt. Verwijder deze uit de map om in plaats daarvan een upload te gebruiken."
   },
   "bookEditor": {
     "title": "Boek bewerken",

@@ -143,6 +143,13 @@
     "noTagMatch": "No systems match the selected tags.",
     "filterByTag": "Filter by {{tag}}"
   },
+  "systemContainer": {
+    "subtitle_one": "{{count}} system in this collection",
+    "subtitle_other": "{{count}} systems in this collection",
+    "empty": "No systems found in this collection yet.",
+    "count_one": "{{count}} system",
+    "count_other": "{{count}} systems"
+  },
   "systemDetail": {
     "backToLibrary": "Back to Library",
     "publishedBy": "Published by",
@@ -178,7 +185,8 @@
     "parentSystemLabel": "Parent system",
     "addTags": "Add Tags",
     "editTags": "Edit",
-    "editTagsFull": "Edit tags"
+    "editTagsFull": "Edit tags",
+    "backTo": "Back to {{name}}"
   },
   "reader": {
     "back": "Back",
@@ -1105,6 +1113,9 @@
     "removeTag": "Remove tag {{tag}}"
   },
   "systemEditor": {
+    "name": "Name",
+    "nameDerivedHint": "Generated from the folder structure. Rename it here and your name is kept on future rescans.",
+    "nameCustomHint": "Custom name — rescans will not overwrite it.",
     "title": "Edit System Metadata",
     "description": "Description",
     "tags": "Tags",
@@ -1143,7 +1154,13 @@
     "createParentSystem": "Create parent system \"{{name}}\"",
     "fetchMetadata": "Fetch metadata",
     "loadMoreCovers_one": "Show 1 more",
-    "loadMoreCovers_other": "Show {{count}} more"
+    "loadMoreCovers_other": "Show {{count}} more",
+    "uploadCover": "Cover image",
+    "chooseImage": "Choose image",
+    "replaceCover": "Replace image",
+    "removeCover": "Remove",
+    "coverUploadFailed": "Upload failed",
+    "folderCoverInUse": "A cover image found in this system's library folder is being used. Remove it from the folder to use an upload instead."
   },
   "bookEditor": {
     "title": "Edit Book",

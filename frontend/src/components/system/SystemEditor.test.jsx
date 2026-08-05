@@ -239,3 +239,82 @@ describe('SystemEditor', () => {
     })
   })
 })
+
+describe('SystemEditor — renaming (issues #261, #262)', () => {
+  it('offers a name field seeded with the current name', () => {
+    render(<SystemEditor system={system({ name: 'Dungeons & Dragons 2e' })} onSave={vi.fn()} />)
+    expect(screen.getByLabelText('Name')).toHaveValue('Dungeons & Dragons 2e')
+  })
+
+  it('saves a rename', async () => {
+    const onSave = vi.fn()
+    render(
+      <SystemEditor
+        system={system({ name: 'Dungeons & Dragons 2e', parent_id: 'c1' })}
+        onSave={onSave}
+      />
+    )
+    const input = screen.getByLabelText('Name')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Advanced Dungeons & Dragons')
+    await userEvent.click(screen.getByText(/save changes/i))
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalled())
+    expect(api.patch.mock.calls[0][1].name).toBe('Advanced Dungeons & Dragons')
+  })
+
+  it('marks the name as custom once renamed so the hint updates immediately', async () => {
+    const onSave = vi.fn()
+    render(
+      <SystemEditor
+        system={system({ name: 'Dungeons & Dragons 2e', parent_id: 'c1' })}
+        onSave={onSave}
+      />
+    )
+    const input = screen.getByLabelText('Name')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Advanced Dungeons & Dragons')
+    await userEvent.click(screen.getByText(/save changes/i))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][0].name_is_custom).toBe(true)
+  })
+
+  it('does not flag an unchanged name as custom', async () => {
+    const onSave = vi.fn()
+    render(<SystemEditor system={system({ name: 'Shadowrun', parent_id: 'c1' })} onSave={onSave} />)
+    await userEvent.click(screen.getByText(/save changes/i))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][0].name_is_custom).toBeUndefined()
+  })
+
+  it('explains that a generated name can be overridden', () => {
+    render(
+      <SystemEditor
+        system={system({ name: 'Dungeons & Dragons 2e', parent_id: 'c1' })}
+        onSave={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/kept on future rescans/i)).toBeInTheDocument()
+  })
+
+  it('confirms when a custom name is already in effect', () => {
+    render(
+      <SystemEditor
+        system={system({
+          name: 'Advanced Dungeons & Dragons',
+          parent_id: 'c1',
+          name_is_custom: true,
+        })}
+        onSave={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/will not overwrite/i)).toBeInTheDocument()
+  })
+
+  it('shows no rescan hint for a top-level system', () => {
+    render(<SystemEditor system={system({ name: 'Shadowrun' })} onSave={vi.fn()} />)
+    expect(screen.queryByText(/rescans/i)).not.toBeInTheDocument()
+  })
+})

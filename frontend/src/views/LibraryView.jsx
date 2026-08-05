@@ -86,10 +86,14 @@ export default function LibraryView() {
   const favOnly = activeFilters.favorites === true
   const isFavSystem = (id) => isFavorite('system', id)
 
-  const visible = (s) => s.book_count > 0
+  // A container folder holds systems rather than books of its own, so it stays
+  // visible on the strength of its children (issues #261, #262).
+  const visible = (s) => s.book_count > 0 || (s.container_kind && s.child_count > 0)
 
   // "Special" collections (system-agnostic + one-page/small RPGs) are grouped
   // together above the regular game systems and shown as compact chips.
+  // Parent-system containers ("Dungeons & Dragons" holding its editions) are
+  // ordinary library entries and stay in the main grid.
   const isSpecial = (s) => s.is_system_agnostic || s.is_one_page
 
   // The bar filters (genre/family/explicit/favorites/tags), then sorts.
@@ -140,9 +144,9 @@ export default function LibraryView() {
   // all, ignoring the favorites/tag filters — drives the "Game Systems" section
   // (its toolbar, tag filter, and empty states). Special-only libraries skip it
   // and rely on the special-collection chips section above.
-  const hasNormalSystems = systems.some((s) => s.book_count > 0 && !isSpecial(s))
+  const hasNormalSystems = systems.some((s) => visible(s) && !isSpecial(s))
   // Whether the library is completely empty (no browsable systems of any kind).
-  const isEmptyLibrary = !systems.some((s) => s.book_count > 0)
+  const isEmptyLibrary = !systems.some(visible)
 
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'

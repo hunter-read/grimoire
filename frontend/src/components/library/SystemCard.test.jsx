@@ -186,4 +186,108 @@ describe('SystemCard', () => {
       expect(onToggleSelect).toHaveBeenCalled()
     })
   })
+  describe('system containers (issues #261, #262)', () => {
+    it('counts nested systems instead of books for a container', () => {
+      render(
+        <SystemCard
+          system={makeSystem({
+            name: 'one-page-rpgs',
+            container_kind: 'one-page',
+            book_count: 0,
+            child_count: 12,
+          })}
+          onClick={vi.fn()}
+        />
+      )
+      expect(screen.getByText(/12 systems/i)).toBeInTheDocument()
+    })
+
+    it('prettifies a slug-like container name', () => {
+      render(
+        <SystemCard
+          system={makeSystem({
+            name: 'one-page-rpgs',
+            is_one_page: true,
+            container_kind: 'one-page',
+            child_count: 3,
+          })}
+          onClick={vi.fn()}
+        />
+      )
+      expect(screen.getByText('One Page RPGs')).toBeInTheDocument()
+    })
+
+    it('keeps the book count for ordinary systems', () => {
+      render(<SystemCard system={makeSystem()} onClick={vi.fn()} />)
+      expect(screen.getByText(/5 books/i)).toBeInTheDocument()
+    })
+
+    it('shows the nested-system count in list mode too', () => {
+      render(
+        <SystemCard
+          system={makeSystem({
+            name: 'Dungeons & Dragons',
+            container_kind: 'parent',
+            book_count: 0,
+            child_count: 4,
+          })}
+          onClick={vi.fn()}
+          list
+        />
+      )
+      expect(screen.getByText(/4 systems/i)).toBeInTheDocument()
+    })
+  })
+  describe('parent-system border', () => {
+    const borderOf = (container) => container.firstChild.style.border
+
+    it('gives a parent-system container a gold border', () => {
+      const { container } = render(
+        <SystemCard
+          system={makeSystem({ container_kind: 'parent', child_count: 3 })}
+          onClick={vi.fn()}
+        />
+      )
+      expect(borderOf(container)).toContain('var(--gold)')
+    })
+
+    it('leaves one-page collections with the default border', () => {
+      const { container } = render(
+        <SystemCard
+          system={makeSystem({ container_kind: 'one-page', child_count: 9 })}
+          onClick={vi.fn()}
+        />
+      )
+      expect(borderOf(container)).toContain('var(--border)')
+      expect(borderOf(container)).not.toContain('var(--gold)')
+    })
+
+    it('leaves ordinary systems with the default border', () => {
+      const { container } = render(<SystemCard system={makeSystem()} onClick={vi.fn()} />)
+      expect(borderOf(container)).toContain('var(--border)')
+    })
+
+    it('applies the gold border in compact and list layouts too', () => {
+      const parent = makeSystem({ container_kind: 'parent', child_count: 3 })
+      const { container: compactEl } = render(
+        <SystemCard system={parent} onClick={vi.fn()} compact />
+      )
+      expect(borderOf(compactEl)).toContain('var(--gold)')
+
+      const { container: listEl } = render(<SystemCard system={parent} onClick={vi.fn()} list />)
+      expect(borderOf(listEl)).toContain('var(--gold)')
+    })
+
+    it('selection styling still wins over the container border', () => {
+      const { container } = render(
+        <SystemCard
+          system={makeSystem({ container_kind: 'parent', child_count: 3 })}
+          onClick={vi.fn()}
+          selectable
+          selected
+        />
+      )
+      expect(borderOf(container)).toContain('var(--gold-dim)')
+    })
+  })
 })

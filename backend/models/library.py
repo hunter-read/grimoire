@@ -10,7 +10,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 from .base import Base, _utcnow, _uuid
 
@@ -59,10 +59,32 @@ class GameSystem(Base):
     # in the library view. Set by the indexer from the folder name.
     is_one_page = Column(Boolean, default=False)
 
+    # System containers (issues #261, #262). A container is a folder whose
+    # immediate children are systems in their own right rather than categories:
+    #   ""          - an ordinary system (the default; unchanged behaviour)
+    #   "parent"    - a parent system whose subfolders are editions
+    #                 (books/Dungeons & Dragons/5e/core/ -> system "D&D 5e")
+    #   "one-page"  - the one-page/micro-RPG collection, where each subfolder AND
+    #                 each loose file at the root is its own small system
+    container_kind = Column(String(20), default="")
+    # Set on the *children* of a container, pointing at the container row.
+    parent_id = Column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)
+    # True once a user has renamed the system through the UI. The scanner keys
+    # systems off their folder-derived slug and only writes ``name`` while this
+    # is false, so a rename ("Dungeons & Dragons 2e" -> "Advanced Dungeons &
+    # Dragons") survives every subsequent rescan.
+    name_is_custom = Column(Boolean, default=False)
+
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     books = relationship("Book", back_populates="game_system", cascade="all, delete-orphan")
+    children = relationship(
+        "GameSystem",
+        backref=backref("parent", remote_side=[id]),
+        cascade="all, delete-orphan",
+        single_parent=True,
+    )
 
 
 class Book(Base):

@@ -78,6 +78,17 @@ class GameSystemUpdate(BaseModel):
     def dedupe_tags(cls, v):
         return tag_service.dedupe_tags(v) if v is not None else v
 
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v):
+        """``name`` is NOT NULL and is the system's identity — reject a blank rename."""
+        if v is None:
+            return v
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("Name cannot be empty")
+        return trimmed
+
     @field_validator("genres", "dice_materials", mode="before")
     @classmethod
     def strip_list(cls, v):

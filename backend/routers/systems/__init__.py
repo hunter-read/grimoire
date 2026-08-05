@@ -9,6 +9,7 @@ from .core import (
     update_book_folder,
     update_system,
 )
+from .covers import delete_system_cover, serve_system_cover, upload_system_cover
 from .metadata import fetch_metadata, list_metadata_sources, search_metadata
 
 router = APIRouter(prefix="/systems", tags=["systems"])
@@ -19,7 +20,12 @@ router.add_api_route(
     list_systems,
     methods=["GET"],
     summary="List all game systems",
-    description="Returns all game systems with book counts, tags, genre, and mechanics.",
+    description=(
+        "Returns all game systems with book counts, tags, genre, and mechanics. "
+        "Systems nested inside a container folder are omitted by default; pass "
+        "`parent_id` to list one container's children, or `include_children=true` "
+        "for a flat list of everything."
+    ),
     dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(
@@ -29,7 +35,8 @@ router.add_api_route(
     summary="Get a game system",
     description=(
         "Returns full details for a game system including all associated books "
-        "grouped by category."
+        "grouped by category. For a container folder, `children` holds the "
+        "systems nested inside it."
     ),
     dependencies=[Depends(require_not_guest)],
 )
@@ -59,6 +66,41 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update game system metadata",
     description="Updates editable fields on a game system. GM or admin role required.",
+)
+
+# Cover art. A ``cover.*``/``folder.*`` image in the system's library folder wins
+# over an upload; container folders (issues #261/#262) hold no books to derive a
+# thumbnail from, so these are their only source of art.
+router.add_api_route(
+    "/{system_id}/cover",
+    serve_system_cover,
+    methods=["GET"],
+    summary="System cover image",
+    description=(
+        "Serves the system's folder cover art or uploaded cover image. 404 when "
+        "the system has neither (clients fall back to `cover_book_id`)."
+    ),
+)
+router.add_api_route(
+    "/{system_id}/cover",
+    upload_system_cover,
+    methods=["POST"],
+    summary="Upload a system cover",
+    description=(
+        "Stores a cover image for the system. PNG/JPEG/WebP/GIF, max 10 MB. A "
+        "`cover.*` file in the system's library folder still takes precedence. "
+        "GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/{system_id}/cover",
+    delete_system_cover,
+    methods=["DELETE"],
+    summary="Remove an uploaded system cover",
+    description=(
+        "Deletes the uploaded cover image. Folder cover art is library-managed "
+        "and is not affected. GM or admin role required."
+    ),
 )
 
 # Add-on metadata lookup (issue #203).  All three are read-only — they report

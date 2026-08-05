@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuCheck } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
+import { systemDisplayName } from '../../utils/systemDisplayName'
+import { systemCoverUrl } from '../../utils/systemCoverUrl'
 
 /**
  * Game-system card for the library grid. Renders one of three layouts —
@@ -26,6 +27,25 @@ export default function SystemCard({
 }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
+  // Containers are stored under their raw folder slug ("one-page-rpgs"), so
+  // they need prettifying; ordinary systems pass through unchanged.
+  const displayName = systemDisplayName(system)
+  const coverUrl = systemCoverUrl(system)
+  // Container folders (issues #261, #262) hold systems rather than books of
+  // their own, so their count badge reports the games nested inside. The badge
+  // sits beside the title, so it uses the short form ("4 systems").
+  const countLabel = system.container_kind
+    ? t('systemContainer.count', { count: system.child_count || 0 })
+    : t('library.bookCount', { count: system.book_count })
+  // Parent systems sit in the main grid alongside ordinary systems, so they get
+  // a gold border to signal "this opens onto more systems". One-page collections
+  // don't need it — they already live in their own Special Collections strip.
+  const isParentContainer = system.container_kind === 'parent'
+  const borderColor = selected
+    ? 'var(--gold-dim)'
+    : isParentContainer
+      ? 'var(--gold)'
+      : 'var(--border)'
 
   const handleClick = (e) => {
     if (selectable) {
@@ -73,7 +93,7 @@ export default function SystemCard({
           gap: 16,
           padding: '12px 16px',
           background: selected || hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-          border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
+          border: `1px solid ${borderColor}`,
           borderRadius: 8,
           cursor: 'pointer',
           transition: 'background 0.15s',
@@ -94,9 +114,9 @@ export default function SystemCard({
             justifyContent: 'center',
           }}
         >
-          {system.cover_book_id ? (
+          {coverUrl ? (
             <LazyImg
-              src={mediaUrl(`/books/${system.cover_book_id}/thumbnail`)}
+              src={coverUrl}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
@@ -114,7 +134,7 @@ export default function SystemCard({
               whiteSpace: 'nowrap',
             }}
           >
-            {system.name}
+            {displayName}
           </div>
           <div
             style={{
@@ -127,7 +147,7 @@ export default function SystemCard({
               flexWrap: 'wrap',
             }}
           >
-            <span>{t('library.bookCount', { count: system.book_count })}</span>
+            <span>{countLabel}</span>
             {system.system_family && <span>· {system.system_family}</span>}
             {(system.genres || []).length > 0 && (
               <span style={{ color: 'var(--green, #5a9a5a)' }}>
@@ -162,7 +182,7 @@ export default function SystemCard({
         onMouseLeave={() => setHovered(false)}
         style={{
           background: selected || hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-          border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
+          border: `1px solid ${borderColor}`,
           borderRadius: 8,
           cursor: 'pointer',
           transition: 'background 0.15s',
@@ -188,13 +208,15 @@ export default function SystemCard({
             justifyContent: 'center',
           }}
         >
-          {system.cover_book_id ? (
+          {coverUrl ? (
             <LazyImg
-              src={mediaUrl(`/books/${system.cover_book_id}/thumbnail`)}
+              src={coverUrl}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
-          ) : null}
+          ) : (
+            <LuLibrary size={22} color="var(--text-muted)" />
+          )}
         </div>
         <div style={{ padding: '8px 10px' }}>
           <div
@@ -207,7 +229,7 @@ export default function SystemCard({
               whiteSpace: 'nowrap',
             }}
           >
-            {system.name}
+            {displayName}
           </div>
           {system.is_explicit && (
             <div style={{ fontSize: 10, color: '#e07070', marginTop: 2 }}>18+</div>
@@ -224,7 +246,7 @@ export default function SystemCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         background: selected || hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-        border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
+        border: `1px solid ${borderColor}`,
         borderRadius: 12,
         cursor: 'pointer',
         transition: 'all 0.2s',
@@ -237,7 +259,7 @@ export default function SystemCard({
       }}
     >
       {selectable && checkbox(true)}
-      {system.cover_book_id && (
+      {coverUrl ? (
         <div
           style={{
             width: '100%',
@@ -251,10 +273,26 @@ export default function SystemCard({
           }}
         >
           <LazyImg
-            src={mediaUrl(`/books/${system.cover_book_id}/thumbnail`)}
+            src={coverUrl}
             alt=""
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
           />
+        </div>
+      ) : (
+        // Without art the card would be a tall empty box, so a short banner
+        // keeps the grid's rhythm without pretending to be a cover.
+        <div
+          style={{
+            width: '100%',
+            height: 72,
+            background: 'var(--bg-deep)',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <LuLibrary size={26} color="var(--text-muted)" />
         </div>
       )}
 
@@ -268,7 +306,20 @@ export default function SystemCard({
             marginBottom: 8,
           }}
         >
-          <h3 style={{ fontSize: 18, lineHeight: 1.3, flex: 1 }}>{system.name}</h3>
+          {/* minWidth:0 lets this flex item shrink below its longest word.
+              Without it a long name next to the count badge wraps one or two
+              characters per line instead of breaking at spaces. */}
+          <h3
+            style={{
+              fontSize: 18,
+              lineHeight: 1.3,
+              flex: 1,
+              minWidth: 0,
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {displayName}
+          </h3>
           <div
             style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 10 }}
           >
@@ -297,7 +348,7 @@ export default function SystemCard({
                 whiteSpace: 'nowrap',
               }}
             >
-              {t('library.bookCount', { count: system.book_count })}
+              {countLabel}
             </span>
           </div>
         </div>

@@ -45,6 +45,28 @@ UNCATEGORIZED = "uncategorized"
 # disable folder-name category inference for just that system.
 NO_AUTO_CATEGORY_MARKER = ".no-auto-category"
 
+# Marker files declaring a folder to be a *system container* — a folder whose
+# immediate children are systems rather than categories (issues #261, #262).
+# Each has an equivalent folder-name suffix (see _CONTAINER_SUFFIXES) so the
+# convention works for users who can't easily create dotfiles.
+PARENT_SYSTEM_MARKER = ".parent-system-container"
+ONE_PAGE_MARKER = ".one-page-container"
+
+# Marker file equivalent to the ``(nsfw)`` folder-name suffix, for parity with
+# the other folder-level indicators.
+NSFW_MARKER = ".nsfw"
+
+# Container kinds stored in ``GameSystem.container_kind``.
+CONTAINER_PARENT = "parent"
+CONTAINER_ONE_PAGE = "one-page"
+
+# Folder-name suffixes (matched case-insensitively, like ``(nsfw)``) that
+# declare a container without needing a marker file.
+_CONTAINER_SUFFIXES = {
+    "parent-system": CONTAINER_PARENT,
+    "one-page": CONTAINER_ONE_PAGE,
+}
+
 CATEGORY_MAP = {
     "core": ["core", "rulebook", "rules", "phb", "dmg", "mm", "basic"],
     "supplement": ["supplement", "expansion", "sourcebook", "guide", "companion"],
@@ -75,6 +97,10 @@ _ONE_PAGE_SLUGS = frozenset(
         "one-page-rpgs",
         "single-page-rpgs",
         "one-shot-rpgs",
+        # Not literally one page, but the same organizing problem: a pile of
+        # tiny single-book games that each deserve to be their own system
+        # without cluttering the main grid (issue #262).
+        "micro-rpgs",
     }
 )
 

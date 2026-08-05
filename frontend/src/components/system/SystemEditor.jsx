@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuDownload, LuX, LuPlus } from 'react-icons/lu'
 import api from '../../api'
 import CoverPicker from './CoverPicker'
+import CoverUpload from './CoverUpload'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import GenrePicker from '../metadata/GenrePicker'
 import TagPicker from '../metadata/TagPicker'
@@ -14,7 +15,7 @@ import { groupsFromManaged } from '../metadata/diceMaterials'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
-export default function SystemEditor({ system, onSave }) {
+export default function SystemEditor({ system, onSave, onCoverChange }) {
   const { t } = useTranslation()
   const {
     genres: genreTree,
@@ -27,6 +28,7 @@ export default function SystemEditor({ system, onSave }) {
   // Managed dice/materials groups (undefined until loaded → picker falls back to defaults).
   const diceGroups = diceMaterials.length ? groupsFromManaged(diceMaterials) : undefined
   const [form, setForm] = useState({
+    name: system.name || '',
     description: system.description || '',
     publishers: system.publishers?.length ? system.publishers : [{ name: '', url: '' }],
     urls: linksForEditing(system.urls),
@@ -61,6 +63,15 @@ export default function SystemEditor({ system, onSave }) {
     onSave(fields)
   }
 
+  // Only systems whose name the scanner derives from folder structure — the
+  // children of a container (issues #261, #262) — can have it diverge, so the
+  // explanatory hint is shown just for them.
+  const nameHint = system.parent_id
+    ? system.name_is_custom
+      ? t('systemEditor.nameCustomHint')
+      : t('systemEditor.nameDerivedHint')
+    : null
+
   const familyOptions = families.map((f) => f.name)
   const parentSystemOptions = parentSystems.map((p) => p.name)
   const licenseOptions = licenses.map((l) => l.name)
@@ -77,7 +88,12 @@ export default function SystemEditor({ system, onSave }) {
       character_builder_urls: cleanLinks(form.character_builder_urls),
       year,
     }
-    api.patch(`/systems/${system.id}`, data).then(() => onSave(data))
+    // A rename makes the name sticky server-side (issues #261/#262), so mirror
+    // that locally rather than waiting for a reload to reflect it.
+    const renamed = data.name !== system.name
+    api
+      .patch(`/systems/${system.id}`, data)
+      .then(() => onSave(renamed ? { ...data, name_is_custom: true } : data))
   }
 
   const setPublisher = (idx, key, value) =>
@@ -151,6 +167,16 @@ export default function SystemEditor({ system, onSave }) {
         }}
       >
         <div>
+          {field(t('systemEditor.name'), 'name')}
+          {/* Systems derived from a container folder get a generated name
+              ("Dungeons & Dragons 2e"); renaming here sticks across rescans. */}
+          {nameHint && (
+            <div
+              style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -6, marginBottom: 12 }}
+            >
+              {nameHint}
+            </div>
+          )}
           {field(t('systemEditor.description'), 'description', 'textarea')}
           {/* System Family sits directly under the description. */}
           {labeledBlock(
@@ -405,6 +431,10 @@ export default function SystemEditor({ system, onSave }) {
         value={form.cover_book_id}
         onChange={(id) => setForm((f) => ({ ...f, cover_book_id: id }))}
       />
+      {/* Uploads apply immediately (they're file operations, not part of the
+          form payload), so this sits outside the save flow. It is the only way
+          to give a container folder art, since it has no books to pick from. */}
+      <CoverUpload system={system} onChange={onCoverChange} />
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button

@@ -6,6 +6,7 @@ endpoint emit the same shape.
 from typing import Any
 
 from ...models import Book, GameSystem
+from .covers import has_cover_file
 
 
 def serialize_book(book: Book, tags: list[str] | None = None) -> dict[str, Any]:
@@ -55,10 +56,13 @@ def serialize_system_summary(
     total_page_count: int,
     cover_book_id: str | None,
     tags: list[str] | None = None,
+    child_count: int = 0,
 ) -> dict[str, Any]:
     """Serialize a GameSystem for the systems list (no book payload).
 
     ``tags`` are the system's shared tags (display strings) from a batch lookup.
+    ``child_count`` is the number of systems nested inside this one when it is a
+    container folder (issues #261/#262); zero for ordinary systems.
     """
     return {
         "id": system.id,
@@ -82,7 +86,23 @@ def serialize_system_summary(
         "total_page_count": total_page_count,
         "cover_image": system.cover_image,
         "cover_book_id": cover_book_id,
+        # Whether GET /systems/{id}/cover will serve something — folder art or an
+        # upload. Lets the client pick a cover source without a speculative 404.
+        "has_cover": has_cover_file(system),
         "is_explicit": bool(system.is_explicit),
         "is_system_agnostic": bool(system.is_system_agnostic),
         "is_one_page": bool(system.is_one_page),
+        # System containers (issues #261, #262).
+        "container_kind": system.container_kind or "",
+        "parent_id": system.parent_id,
+        # The container's name and one-page flag, so a child can offer "back to
+        # <container>" without a second request to resolve the id. The flag is
+        # needed because one-page collections are stored under a raw folder slug
+        # and the client prettifies those for display.
+        "parent_name": system.parent.name if system.parent_id and system.parent else "",
+        "parent_is_one_page": bool(
+            system.parent.is_one_page if system.parent_id and system.parent else False
+        ),
+        "name_is_custom": bool(system.name_is_custom),
+        "child_count": child_count,
     }

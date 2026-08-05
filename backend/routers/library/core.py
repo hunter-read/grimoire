@@ -95,9 +95,13 @@ def get_stats(
         if not stored_key or x_api_key != stored_key:
             raise HTTPException(401, "Authentication required")
     return {
+        # Container folders are shelves, not systems, so they are excluded — but
+        # the systems nested inside them do count (issues #261/#262). A one-page
+        # container carries both flags; its children carry neither.
         "game_systems": db.query(GameSystem)
         .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
         .filter(GameSystem.is_one_page != True)  # noqa: E712
+        .filter(func.coalesce(GameSystem.container_kind, "") == "")
         .count(),
         "books": db.query(Book).count(),
         "maps": db.query(GenericMap).count(),

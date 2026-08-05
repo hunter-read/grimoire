@@ -151,7 +151,7 @@ is rate limited.
 
 | Field | Meaning | Suggested `format` |
 |-------|---------|--------------------|
-| `game_systems` | Number of game systems (top-level library folders) | `number` |
+| `game_systems` | Number of game systems. Excludes special collections and container folders, but *includes* the systems nested inside a container | `number` |
 | `books` | Total books (PDFs) | `number` |
 | `maps` | Total maps | `number` |
 | `tokens` | Total tokens | `number` |
@@ -210,9 +210,12 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool) |
-| `/api/systems/:id` | GET | any | System detail + full book list. Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books |
+| `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool), `parent_id` (list one container's children), `include_children` (bool; flat list including nested systems) |
+| `/api/systems/:id` | GET | any | System detail + full book list, plus `children` (the nested systems when this is a container). Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books |
 | `/api/systems/:id` | PATCH | gm/admin | Update metadata (see fields below) |
+| `/api/systems/:id/cover` | GET | any | Serves the system's folder cover art or uploaded cover image. 404 when it has neither |
+| `/api/systems/:id/cover` | POST | gm/admin | Upload a cover image (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB |
+| `/api/systems/:id/cover` | DELETE | gm/admin | Remove the uploaded cover. Folder art is library-managed and unaffected |
 
 **PATCH fields:** `name`, `slug`, `description`, `publishers`, `character_builder_url` (legacy), `character_builder_urls`, `urls`, `cover_image`, `cover_book_id`, `tags`, `genre` (legacy), `genres`, `dice_materials`, `system_family`, `parent_system`, `edition`, `license`, `year`, `is_explicit`
 
@@ -221,6 +224,10 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 **Link-list format** (`urls`, `character_builder_urls`): `[{"label": "DriveThruRPG", "url": "https://..."}]`
 
 **Multi-value metadata** (issue #202): `genres` and `dice_materials` are string arrays; `genres` supersedes the legacy single `genre`, and `urls`/`character_builder_urls` supersede the legacy single-URL fields (the legacy fields remain accepted for backward compatibility). Systems in the special one-page collection carry `is_one_page: true` (grouped with `is_system_agnostic` in the library UI).
+
+**Cover art:** a system's cover resolves in precedence order — a `cover.*`/`folder.*` image at its library folder root, then an uploaded image, then a book thumbnail. The first two are served by `/api/systems/:id/cover`; the third is a plain `/api/books/:cover_book_id/thumbnail` URL. The `has_cover` field says whether the cover endpoint will return an image, so clients can pick a source without a speculative 404. Container folders hold no books, so the endpoint is their only source of art.
+
+**System containers:** a books folder can hold *systems* rather than categories (issues #261/#262) — a parent system with its editions (`books/Dungeons & Dragons/5e/…`), or a one-page/micro-RPG collection where each subfolder and loose file is its own small game. Every system summary carries `container_kind` (`""`, `"parent"`, `"one-page"`), `parent_id`, `child_count`, and `name_is_custom`. Container children are omitted from `GET /api/systems` unless `parent_id` or `include_children` is passed, and `GET /api/systems/:id` returns them in `children`. Renaming a system via `PATCH` sets `name_is_custom`, which stops the scanner reverting the name on the next rescan.
 
 **Parent system / edition:** `parent_system` (e.g. `"Dungeons & Dragons"`) is the mid-tier grouping between the broad `system_family` (`"d20 System"`) and a concrete system; `edition` (`"5e"`, `"Red"`, `"2020"`) combines with it for display (`"Cyberpunk Red"`). Both are free-text; `parent_system` values are curated via the `/api/parent-systems` lookup. Both are filterable on `/api/systems`.
 

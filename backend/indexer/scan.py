@@ -34,17 +34,23 @@ from ..services import tag_service
 from ._subprocess import _run_with_timeout
 from .categories import (
     agnostic_category,
+    detect_container_kind,
     folder_category_inference_disabled,
     guess_category,
+    has_nsfw_marker,
     is_one_page_folder,
     is_special_collection_folder,
     is_system_agnostic_folder,
+    prettify_collection_name,
     slugify,
+    strip_container_suffix,
     strip_sort_prefix,
 )
 from .constants import (
     ARCHIVE_EXTS,
     AUDIO_EXTS,
+    CONTAINER_ONE_PAGE,
+    CONTAINER_PARENT,
     DOC_EXTS,
     IMAGE_EXTS,
     MAP_IMAGE_EXTS,
@@ -154,13 +160,225 @@ def _title_from_filename(filename: str) -> str:
     return Path(filename).stem.replace("_", " ").replace("-", " ").strip()
 
 
+@dataclass
+class _SystemFolder:
+    """A books folder resolved into the system row it should map to."""
+
+    path: Path
+    name: str
+    slug: str
+    is_nsfw: bool
+    container_kind: str
+
+
+def _resolve_system_folder(system_dir: Path, slug_prefix: str = "") -> _SystemFolder:
+    """Interpret a books folder name into the system it describes.
+
+    Peels off, in order: the ``(nsfw)`` suffix (or ``.nsfw`` marker), the
+    ``(parent-system)``/``(one-page)`` container suffix, and any leading
+    sort-order prefix (``!$%``). ``slug_prefix`` namespaces the slug for a
+    container's children so two containers can both hold a ``core`` folder
+    without colliding on the unique ``slug`` column.
+    """
+    raw_name = system_dir.name
+    is_nsfw = bool(re.search(r"\(nsfw\)", raw_name, re.IGNORECASE)) or has_nsfw_marker(system_dir)
+    name = re.sub(r"\s*\(nsfw\)\s*", "", raw_name, flags=re.IGNORECASE).strip()
+    name, suffix_kind = strip_container_suffix(name)
+    # Must happen before slug/name/special-collection derivation.
+    name = strip_sort_prefix(name)
+    container_kind = suffix_kind or detect_container_kind(system_dir, name)
+    slug = slugify(name)
+    return _SystemFolder(
+        path=system_dir,
+        name=name,
+        slug=f"{slug_prefix}{slug}" if slug_prefix else slug,
+        is_nsfw=is_nsfw,
+        container_kind=container_kind,
+    )
+
+
+def _adopt_existing_system(
+    ctx: _ScanContext, name: str, new_slug: str
+) -> Optional[GameSystem]:
+    """Claim a pre-existing flat system for a container, or return None.
+
+    Reorganising ``books/Dungeons & Dragons 5e/`` into
+    ``books/Dungeons & Dragons/5e/`` changes a system's derived slug but not the
+    name the scanner generates for it. Rather than orphan the old row (and trip
+    the unique ``name`` constraint inserting a new one), re-slug the existing
+    system so its books, metadata, and tags follow it into the container.
+
+    Only unclaimed systems are adopted: a row already sitting inside another
+    container belongs to that one, and is left alone.
+    """
+    session = ctx.session
+    try:
+        existing = _run_with_timeout(
+            lambda: session.query(GameSystem).filter_by(name=name).first(),
+            _DB_TIMEOUT,
+            f"query system by name '{name}'",
+        )
+    except TimeoutError as e:
+        logger.error(f"DB hang: {e} — cannot adopt system '{name}'")
+        return None
+    if existing is None or existing.parent_id or existing.container_kind:
+        return None
+    logger.info(f"Adopting existing system '{name}' into its container (slug -> {new_slug})")
+    existing.slug = new_slug
+    return existing
+
+
+def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
+    """Return ``name``, or a suffixed variant when the name is already taken.
+
+    ``game_systems.name`` is unique. A folder layout can legitimately generate a
+    name that collides with an unrelated existing system, and a scan must not die
+    on that — so disambiguate with the slug, then a counter.
+    """
+    session = ctx.session
+    try:
+        taken = _run_with_timeout(
+            lambda: session.query(GameSystem).filter_by(name=name).first(),
+            _DB_TIMEOUT,
+            f"query system by name '{name}'",
+        )
+    except TimeoutError as e:
+        logger.error(f"DB hang: {e} — using name '{name}' as-is")
+        return name
+    if taken is None:
+        return name
+    candidate = f"{name} ({slug})"
+    suffix = 2
+    while True:
+        try:
+            clash = _run_with_timeout(
+                lambda c=candidate: session.query(GameSystem).filter_by(name=c).first(),
+                _DB_TIMEOUT,
+                f"query system by name '{candidate}'",
+            )
+        except TimeoutError:
+            return candidate
+        if clash is None:
+            logger.warning(
+                f"System name '{name}' is already in use; registering this folder as "
+                f"'{candidate}'. Rename it in the UI to something clearer."
+            )
+            return candidate
+        candidate = f"{name} ({slug}-{suffix})"
+        suffix += 1
+
+
+def _register_system(
+    ctx: _ScanContext,
+    folder: _SystemFolder,
+    *,
+    display_name: str | None = None,
+    parent: Optional[GameSystem] = None,
+    edition: str = "",
+) -> Optional[GameSystem]:
+    """Insert or update the GameSystem row for one folder. None on DB failure.
+
+    ``display_name`` overrides the stored name for a container's children (e.g.
+    "Dungeons & Dragons 5e" for the ``5e`` folder). It is only ever applied to a
+    freshly created row or one whose ``name_is_custom`` is false, so a user's
+    rename survives every subsequent rescan.
+    """
+    session = ctx.session
+    stats = ctx.stats
+    name = display_name or folder.name
+    logger.debug(f"DB: querying system '{folder.slug}'")
+    try:
+        system = _run_with_timeout(
+            lambda slug=folder.slug: session.query(GameSystem).filter_by(slug=slug).first(),
+            _DB_TIMEOUT,
+            f"query system '{folder.slug}'",
+        )
+    except TimeoutError as e:
+        logger.error(f"DB hang: {e} — skipping system '{name}'")
+        stats["errors"] += 1
+        return None
+
+    if system is None and parent is not None:
+        # Adopting an existing flat system into a container. Someone who
+        # reorganised books/Dungeons & Dragons 5e/ into
+        # books/Dungeons & Dragons/5e/ already has a "Dungeons & Dragons 5e" row
+        # holding all their books, metadata, and tags; ``name`` is unique, so
+        # inserting a second one would fail. Re-point the existing row at its new
+        # container instead, keeping everything attached to it.
+        system = _adopt_existing_system(ctx, name, folder.slug)
+
+    if system is None:
+        # ``name`` is unique and may still be taken by an unrelated system (or one
+        # already owned by a different container), so fall back to a suffixed name
+        # rather than crashing the whole scan.
+        name = _unique_system_name(ctx, name, folder.slug)
+
+    is_agnostic = is_system_agnostic_folder(folder.name)
+    # The one-page flag marks the *collection*, not its children: a child of a
+    # one-page container is an ordinary small system and counts toward the
+    # library's system total (issue #262).
+    is_one_page = folder.container_kind == CONTAINER_ONE_PAGE or (
+        parent is None and is_one_page_folder(folder.name)
+    )
+    if not system:
+        system = GameSystem(
+            name=name,
+            slug=folder.slug,
+            is_explicit=folder.is_nsfw,
+            is_system_agnostic=is_agnostic,
+            is_one_page=is_one_page,
+            container_kind=folder.container_kind,
+            parent_id=parent.id if parent else None,
+            parent_system=parent.name if parent else "",
+            edition=edition,
+        )
+        session.add(system)
+        logger.debug(f"DB: flushing new system '{name}'")
+        try:
+            _run_with_timeout(session.flush, _DB_TIMEOUT, f"flush system '{name}'")
+        except TimeoutError as e:
+            logger.error(f"DB hang: {e} — skipping system '{name}'")
+            session.rollback()
+            stats["errors"] += 1
+            return None
+        stats["new_systems"] += 1
+        logger.info(f"Found a new game system: {name}" + (" (mature)" if folder.is_nsfw else ""))
+    else:
+        if folder.is_nsfw and not system.is_explicit:
+            system.is_explicit = True
+        if is_agnostic and not system.is_system_agnostic:
+            system.is_system_agnostic = True
+        if is_one_page and not system.is_one_page:
+            system.is_one_page = True
+        if (system.container_kind or "") != folder.container_kind:
+            system.container_kind = folder.container_kind
+        if parent is not None and system.parent_id != parent.id:
+            system.parent_id = parent.id
+        # Folder-derived name/parentage refresh, unless the user has renamed it.
+        if not system.name_is_custom and system.name != name:
+            system.name = name
+        if parent is not None:
+            if not system.parent_system:
+                system.parent_system = parent.name
+            if edition and not system.edition:
+                system.edition = edition
+
+    # Folder cover convention: a cover.*/folder.* image at the system root
+    # becomes the system's cover (precedence: folder > uploaded > book cover).
+    # Stored library-relative so it survives moves of the whole library dir.
+    artwork = _find_folder_artwork(str(folder.path))
+    new_folder_cover = os.path.relpath(artwork, ctx.library_path) if artwork else ""
+    if (system.folder_cover_path or "") != new_folder_cover:
+        system.folder_cover_path = new_folder_cover
+    return system
+
+
 def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
     """Walk the books tree, registering systems and their books.
 
     Returns early (leaving ``ctx.stats`` as-is) if a stop is requested mid-walk.
     """
     session = ctx.session
-    stats = ctx.stats
 
     # Global kill-switch for folder-name category inference (env-over-DB).
     # When on, every book falls back to the neutral UNCATEGORIZED category.
@@ -170,7 +388,8 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
     scope_parts = (
         Path(ctx.scope_path.replace("\\", "/").strip("/")).parts if ctx.scope_path else ()
     )
-    if ctx.scope_section == "books" and len(scope_parts) > 1:
+    scoped = ctx.scope_section == "books" and len(scope_parts) > 1
+    if scoped:
         system_dirs = [books_dir / scope_parts[1]]
     else:
         # Whole library, or scope == "books" root: iterate every system.
@@ -179,84 +398,175 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
         if not system_dir.is_dir() or system_dir.name.startswith("."):
             continue
 
-        raw_name = system_dir.name
-        is_nsfw = bool(re.search(r"\(nsfw\)", raw_name, re.IGNORECASE))
-        system_name = re.sub(r"\s*\(nsfw\)\s*", "", raw_name, flags=re.IGNORECASE).strip()
-        # Strip any leading sort-order prefix (!$%) people use to steer their file
-        # browser's alphabetical ordering — "!!Dungeons & Dragons" → "Dungeons & Dragons".
-        # This must happen before slug/name/special-collection derivation.
-        system_name = strip_sort_prefix(system_name)
-        system_slug = slugify(system_name)
-
-        logger.debug(f"DB: querying system '{system_slug}'")
-        try:
-            system = _run_with_timeout(
-                lambda slug=system_slug: session.query(GameSystem).filter_by(slug=slug).first(),
-                _DB_TIMEOUT,
-                f"query system '{system_slug}'",
-            )
-        except TimeoutError as e:
-            logger.error(f"DB hang: {e} — skipping system '{system_name}'")
-            stats["errors"] += 1
+        folder = _resolve_system_folder(system_dir)
+        system = _register_system(ctx, folder)
+        if system is None:
             continue
-        is_agnostic = is_system_agnostic_folder(system_name)
-        is_one_page = is_one_page_folder(system_name)
-        # Both special collections (agnostic + one-page) use immediate-subfolder
-        # names as category labels rather than CATEGORY_MAP inference.
-        is_special = is_special_collection_folder(system_name)
+
+        if folder.container_kind:
+            # The folder holds systems, not categories — recurse one level.
+            if _scan_container(ctx, system, folder, category_inference_off, scope_parts):
+                return
+            continue
+
         # Per-system opt-out: a marker file at the system root disables
         # folder-name category inference for just this system.
         system_category_off = category_inference_off or (
             system_dir / NO_AUTO_CATEGORY_MARKER
         ).exists()
-        if not system:
-            system = GameSystem(
-                name=system_name,
-                slug=system_slug,
-                is_explicit=is_nsfw,
-                is_system_agnostic=is_agnostic,
-                is_one_page=is_one_page,
-            )
-            session.add(system)
-            logger.debug(f"DB: flushing new system '{system_name}'")
-            try:
-                _run_with_timeout(session.flush, _DB_TIMEOUT, f"flush system '{system_name}'")
-            except TimeoutError as e:
-                logger.error(f"DB hang: {e} — skipping system '{system_name}'")
-                session.rollback()
-                stats["errors"] += 1
-                continue
-            stats["new_systems"] += 1
-            logger.info(
-                f"Found a new game system: {system_name}" + (" (mature)" if is_nsfw else "")
-            )
-        elif is_nsfw and not system.is_explicit:
-            system.is_explicit = True
-        if is_agnostic and not system.is_system_agnostic:
-            system.is_system_agnostic = True
-        if is_one_page and not system.is_one_page:
-            system.is_one_page = True
-
-        # Folder cover convention: a cover.*/folder.* image at the system root
-        # becomes the system's cover (precedence: folder > uploaded > book cover).
-        # Stored library-relative so it survives moves of the whole library dir.
-        artwork = _find_folder_artwork(str(system_dir))
-        new_folder_cover = os.path.relpath(artwork, ctx.library_path) if artwork else ""
-        if (system.folder_cover_path or "") != new_folder_cover:
-            system.folder_cover_path = new_folder_cover
-
+        # Both special collections (agnostic + one-page) use immediate-subfolder
+        # names as category labels rather than CATEGORY_MAP inference.
+        is_special = is_special_collection_folder(folder.name)
         # When scoped to a path deeper than the system dir, walk only that
         # subtree; otherwise walk the whole system.
-        walk_root = (
-            ctx.scope_dir
-            if (ctx.scope_section == "books" and len(scope_parts) > 1)
-            else system_dir
-        )
-        stop = _scan_books_in_system(
-            ctx, system, system_name, system_category_off, is_special, walk_root
-        )
-        if stop:
+        walk_root = ctx.scope_dir if scoped else system_dir
+        if _scan_books_in_system(
+            ctx, system, folder.name, system_category_off, is_special, walk_root
+        ):
             return
+
+
+def _child_display_name(container: GameSystem, folder: _SystemFolder, kind: str) -> str:
+    """Default display name for a container's child system.
+
+    Parent-system containers name their editions after the pair, since an
+    edition folder alone ("5e") is meaningless out of context:
+    "Dungeons & Dragons" + "5e" → "Dungeons & Dragons 5e". One-page children are
+    standalone games, so their folder/file name is prettified and used as-is
+    ("honey-heist" → "Honey Heist").
+
+    Either way this is only a *default* — the name is user-editable afterwards,
+    which is how irregular cases get handled (D&D's "2e" folder renamed to
+    "Advanced Dungeons & Dragons").
+    """
+    if kind == CONTAINER_PARENT:
+        return f"{container.name} {folder.name}".strip()
+    return prettify_collection_name(folder.name)
+
+
+def _scan_container(
+    ctx: _ScanContext,
+    container: GameSystem,
+    container_folder: _SystemFolder,
+    category_inference_off: bool,
+    scope_parts: tuple[str, ...],
+) -> bool:
+    """Register a container folder's children as systems. True if stop requested.
+
+    Each immediate subdirectory becomes a system whose own tree is then scanned
+    with ordinary category inference (so ``cbr+pnk/core/`` and
+    ``cbr+pnk/character-sheets/`` land in the right categories). For a one-page
+    container, each loose file at the container root additionally becomes a
+    single-book system of its own — ``honey-heist.pdf`` is a whole game, not a
+    stray file (issue #262).
+
+    Loose files at a *parent-system* container's root have no such meaning, so
+    they stay attached to the container row as ordinary books rather than being
+    silently dropped.
+    """
+    kind = container_folder.container_kind
+    container_dir = container_folder.path
+    # A rescan scoped inside the container (books/<container>/<child>/…) should
+    # only touch that child.
+    scoped_child = scope_parts[2] if len(scope_parts) > 2 else None
+
+    try:
+        entries = sorted(container_dir.iterdir())
+    except OSError as e:
+        logger.error(f"Cannot read container folder '{container_dir}': {e}")
+        ctx.stats["errors"] += 1
+        return False
+
+    child_dirs = [d for d in entries if d.is_dir() and not d.name.startswith(".")]
+    for child_dir in child_dirs:
+        if scoped_child and child_dir.name != scoped_child:
+            continue
+        child_folder = _resolve_system_folder(child_dir, slug_prefix=f"{container_folder.slug}--")
+        child = _register_system(
+            ctx,
+            child_folder,
+            display_name=_child_display_name(container, child_folder, kind),
+            parent=container,
+            edition=child_folder.name if kind == CONTAINER_PARENT else "",
+        )
+        if child is None:
+            continue
+        child_category_off = category_inference_off or (
+            child_dir / NO_AUTO_CATEGORY_MARKER
+        ).exists()
+        if _scan_books_in_system(
+            ctx,
+            child,
+            child_folder.name,
+            child_category_off,
+            False,
+            child_dir,
+            system_depth=3,
+        ):
+            return True
+
+    if scoped_child:
+        return False
+
+    loose_files = [f for f in entries if f.is_file() and not f.name.startswith(".")]
+    if kind == CONTAINER_ONE_PAGE:
+        return _scan_one_page_loose_files(ctx, container, container_folder, loose_files)
+    # Parent-system container: loose files belong to the container itself.
+    return _scan_books_in_system(
+        ctx,
+        container,
+        container_folder.name,
+        category_inference_off,
+        False,
+        container_dir,
+        recurse=False,
+    )
+
+
+def _scan_one_page_loose_files(
+    ctx: _ScanContext,
+    container: GameSystem,
+    container_folder: _SystemFolder,
+    loose_files: list[Path],
+) -> bool:
+    """Register each loose file under a one-page container as its own system.
+
+    ``one-page-rpgs/honey-heist.pdf`` becomes the system "Honey Heist" holding
+    that single book, so it carries its own metadata, tags, and system filters
+    exactly like a folder-backed game.
+    """
+    for path in loose_files:
+        ext = path.suffix.lower()
+        if ext not in DOC_EXTS and ext not in IMAGE_EXTS and not archive_ext(path.name):
+            continue
+        stem = _title_from_filename(path.name)
+        child_folder = _SystemFolder(
+            path=path.parent,
+            name=stem,
+            slug=f"{container_folder.slug}--{slugify(stem)}",
+            is_nsfw=container.is_explicit,
+            container_kind="",
+        )
+        child = _register_system(
+            ctx,
+            child_folder,
+            display_name=prettify_collection_name(stem),
+            parent=container,
+        )
+        if child is None:
+            continue
+        if _scan_books_in_system(
+            ctx,
+            child,
+            child_folder.name,
+            False,
+            False,
+            path.parent,
+            recurse=False,
+            only_filename=path.name,
+        ):
+            return True
+    return False
 
 
 def _scan_books_in_system(
@@ -266,17 +576,30 @@ def _scan_books_in_system(
     system_category_off: bool,
     is_special_collection: bool,
     walk_root: Path,
+    recurse: bool = True,
+    only_filename: str | None = None,
+    system_depth: int = 2,
 ) -> bool:
     """Walk one system's tree and register its books. Returns True if stop requested.
 
     ``is_special_collection`` is True for the system-agnostic and one-page
     collections, which label categories by immediate subfolder name.
+
+    ``recurse=False`` limits the walk to files sitting directly in ``walk_root``
+    (its subdirectories are separate systems, handled by ``_scan_container``).
+    ``only_filename`` further narrows it to a single file, for the one-page
+    container's loose-file-as-a-system case. ``system_depth`` tells category
+    inference how deep the system root sits (3 for a container's children).
     """
     session = ctx.session
     ignore = ctx.ignore
     stats = ctx.stats
     for root, dirs, files in os.walk(walk_root):
         dirs[:] = _prune_dirs(root, dirs, ignore)
+        if not recurse:
+            dirs[:] = []
+        if only_filename is not None:
+            files = [f for f in files if f == only_filename]
 
         # Collect cover image filenames declared in any OPF files in this
         # directory so we can skip them — Calibre exports a cover JPG that
@@ -344,6 +667,7 @@ def _scan_books_in_system(
                 relative_path,
                 ext,
                 arc_ext,
+                system_depth,
             )
             if book is None:
                 continue
@@ -354,6 +678,20 @@ def _scan_books_in_system(
             if needs_page_count:
                 _do_book_page_count(ctx, book, filepath, filename)
     return False
+
+
+def _derive_category(
+    system_category_off: bool,
+    is_special_collection: bool,
+    relative_path: str,
+    system_depth: int,
+) -> str:
+    """The category slug for a book, given how its owning system infers them."""
+    if system_category_off:
+        return UNCATEGORIZED
+    if is_special_collection:
+        return agnostic_category(relative_path)
+    return guess_category(relative_path, system_depth)
 
 
 def _register_book(
@@ -369,6 +707,7 @@ def _register_book(
     relative_path: str,
     ext: str,
     arc_ext: str,
+    system_depth: int = 2,
 ) -> tuple[Optional[Book], bool, bool]:
     """Insert or resume a single book row.
 
@@ -378,6 +717,27 @@ def _register_book(
     session = ctx.session
     stats = ctx.stats
     if existing:
+        # A book's owning system can change without the file moving: turning a
+        # folder into a container (issues #261/#262) re-homes its contents from
+        # the container row onto the new per-game child systems. Books are keyed
+        # by filepath, so without this they would stay attached to the old system
+        # and simply vanish from the UI.
+        if existing.game_system_id != system.id:
+            logger.info(
+                f"Re-homing '{filename}' from its previous system to '{system_name}'"
+            )
+            existing.game_system_id = system.id
+            existing.category = _derive_category(
+                system_category_off, is_special_collection, relative_path, system_depth
+            )
+            try:
+                _run_with_timeout(
+                    session.commit, _DB_TIMEOUT, f"commit re-home '{filepath}'"
+                )
+                stats["updated_books"] += 1
+            except (TimeoutError, IntegrityError) as e:
+                logger.error(f"DB error re-homing '{filename}': {e}")
+                session.rollback()
         # Re-apply sidecar metadata to already-indexed books when
         # requested (modes "missing"/"replace") — see _apply_opf_to_book.
         if ctx.metadata_mode in ("missing", "replace"):
@@ -419,12 +779,9 @@ def _register_book(
         logger.debug(f"Resuming incomplete scan for: {filename}")
         return existing, needs_thumbnail, needs_page_count
 
-    if system_category_off:
-        category = UNCATEGORIZED
-    elif is_special_collection:
-        category = agnostic_category(relative_path)
-    else:
-        category = guess_category(relative_path)
+    category = _derive_category(
+        system_category_off, is_special_collection, relative_path, system_depth
+    )
     title = _title_from_filename(filename)
 
     try:
