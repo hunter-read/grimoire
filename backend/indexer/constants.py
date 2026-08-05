@@ -104,6 +104,14 @@ ARCHIVE_EXTS = {
 }
 # Comic-book archives whose first image is used as a cover thumbnail.
 _COMIC_ARCHIVE_EXTS = {".cbz", ".cbr", ".cb7", ".cbt"}
+
+# Archives recognised in the maps/tokens/audio trees (issue #250).  Map packs and
+# art collections ship supplementary files (PSD, STL, …) bundled next to the
+# images; the archive is registered as an opaque item so it stays visible and
+# downloadable in the gallery.  Comic-book variants are books-only — a .cbz in
+# the maps tree is a book that has been misfiled, not a map pack — so this is
+# ARCHIVE_EXTS minus the comic extensions.
+MEDIA_ARCHIVE_EXTS = ARCHIVE_EXTS - _COMIC_ARCHIVE_EXTS
 # Basenames (sans extension) treated as folder cover art for audio tracks.
 _AUDIO_COVER_STEMS = {"cover", "folder"}
 

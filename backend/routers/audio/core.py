@@ -10,7 +10,7 @@ from ...config import get_db
 from ...models import Audio, AudioFolder
 from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
-from ...indexer import _extract_embedded_art, _find_folder_artwork
+from ...indexer import _extract_embedded_art, _find_folder_artwork, archive_ext, archive_mime
 from .._media_access import assert_media_access
 from ._schemas import AudioUpdate, FolderTagsUpdate
 
@@ -40,6 +40,7 @@ def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
         "has_artwork": bool(a.has_artwork),
         "file_size": a.file_size,
         "is_missing": bool(a.is_missing),
+        "is_archive": bool(archive_ext(a.filename)),
     }
 
 
@@ -112,8 +113,12 @@ def serve_audio_file(
             a.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
-    ext = Path(a.filepath).suffix.lower()
-    media = _AUDIO_MIME.get(ext, "application/octet-stream")
+    arc_ext = archive_ext(a.filename)
+    if arc_ext:
+        media = archive_mime(arc_ext)
+    else:
+        ext = Path(a.filepath).suffix.lower()
+        media = _AUDIO_MIME.get(ext, "application/octet-stream")
     # FileResponse honours HTTP Range requests, so browsers can seek/stream.
     return FileResponse(a.filepath, media_type=media, filename=a.filename)
 

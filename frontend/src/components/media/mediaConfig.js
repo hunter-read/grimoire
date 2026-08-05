@@ -44,6 +44,15 @@ export const MEDIA_CONFIGS = {
     // thumbnail; `inline` badges render in the list-mode metadata row.
     badges: [
       {
+        flag: 'is_archive',
+        // Absolute i18n key — the archive label is shared, not per-collection.
+        labelKey: 'common.archive',
+        label: 'archive',
+        color: 'rgba(90,110,160,0.9)',
+        corner: 'top-left',
+        inlineColor: '#8fa3cc',
+      },
+      {
         flag: 'is_missing',
         label: 'missing',
         color: 'rgba(200,134,10,0.9)',
@@ -75,6 +84,15 @@ export const MEDIA_CONFIGS = {
     gridGap: 12,
     thumb: { kind: 'square' },
     badges: [
+      {
+        flag: 'is_archive',
+        // Absolute i18n key — the archive label is shared, not per-collection.
+        labelKey: 'common.archive',
+        label: 'archive',
+        color: 'rgba(90,110,160,0.9)',
+        corner: 'top-left',
+        inlineColor: '#8fa3cc',
+      },
       {
         flag: 'is_explicit',
         label: 'explicit',
@@ -118,6 +136,15 @@ export const MEDIA_CONFIGS = {
     // Inline play/pause button overlaid on the card artwork.
     audioFileUrl: (id) => `/audio/${id}/file`,
     badges: [
+      {
+        flag: 'is_archive',
+        // Absolute i18n key — the archive label is shared, not per-collection.
+        labelKey: 'common.archive',
+        label: 'archive',
+        color: 'rgba(90,110,160,0.9)',
+        corner: 'top-left',
+        inlineColor: '#8fa3cc',
+      },
       {
         flag: 'is_missing',
         label: 'missing',

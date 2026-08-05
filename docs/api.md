@@ -342,13 +342,20 @@ family removed while attached to systems/books is detached from them (`?force=tr
 
 ### Maps
 
+Archive files (`.zip`, `.rar`, `.7z`, `.tar`, `.tar.gz`, …) under `maps/`, `tokens/`,
+and `audio/` are indexed as opaque items in their collection and carry
+`is_archive: true` in both list and detail payloads. They have no thumbnail,
+no dimensions, and no embedded metadata — clients should offer a download rather
+than a preview. The comic-book extensions (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are
+books-only and are not indexed here.
+
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/maps` | GET | any | Paginated map list. Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level) |
-| `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
+| `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level) |
+| `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_archive`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size` |
-| `/api/maps/:id/file` | GET | any | Download/stream the original map image or PDF |
-| `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1 |
+| `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
+| `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
 | `/api/maps/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/map-folders` | GET | any | List folder tag assignments |
 | `/api/map-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
@@ -357,10 +364,10 @@ family removed while attached to systems/books is detached from them (`?force=tr
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/tokens` | GET | any | Paginated token list. Query: `limit`, `offset`, `tag` |
-| `/api/tokens/:id` | GET | any | Token detail |
+| `/api/tokens` | GET | any | Paginated token list (items include `is_archive`). Query: `limit`, `offset`, `tag` |
+| `/api/tokens/:id` | GET | any | Token detail incl. `is_archive` (`pixel_width`/`pixel_height` are `null` for archives) |
 | `/api/tokens/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit` |
-| `/api/tokens/:id/file` | GET | any | Download the token image |
+| `/api/tokens/:id/file` | GET | any | Download the token image, or the archive (served with the archive's MIME type) |
 | `/api/tokens/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/token-folders` | GET | any | List folder tag assignments |
 | `/api/token-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
@@ -371,10 +378,10 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`. Items include `duration`, `title`, `artist`, `album`, `has_artwork` |
+| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`. Items include `duration`, `title`, `artist`, `album`, `has_artwork`, `is_archive` |
 | `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
-| `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests) |
+| `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
 | `/api/audio/:id/artwork` | GET | any | Folder cover art or embedded album art. 404 if none |
 | `/api/audio-folders` | GET | any | List folder tag assignments |
 | `/api/audio-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |

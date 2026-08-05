@@ -48,6 +48,7 @@ from .constants import (
     DOC_EXTS,
     IMAGE_EXTS,
     MAP_IMAGE_EXTS,
+    MEDIA_ARCHIVE_EXTS,
     NO_AUTO_CATEGORY_MARKER,
     UNCATEGORIZED,
     _COMIC_ARCHIVE_EXTS,
@@ -560,6 +561,10 @@ def _scan_media(
 ) -> None:
     """Shared walk for maps and tokens (image files → thumbnailed records).
 
+    Archives (zip/rar/7z/tar) are registered too (issue #250) — map packs and art
+    collections are often distributed zipped alongside supplementary files. They
+    are opaque: no thumbnail is generated, since there is no image to render.
+
     Returns early if a stop is requested mid-walk.
     """
     session = ctx.session
@@ -574,8 +579,11 @@ def _scan_media(
 
             filepath = os.path.join(root, filename)
             ext = Path(filename).suffix.lower()
+            # archive_ext handles two-part suffixes (.tar.gz) that Path.suffix
+            # cannot, so match on it rather than on `ext`.
+            arc_ext = archive_ext(filename)
 
-            if ext not in exts:
+            if ext not in exts and arc_ext not in MEDIA_ARCHIVE_EXTS:
                 continue
 
             if ignore.is_ignored(filepath, is_dir=False):
@@ -624,12 +632,14 @@ def _scan_media(
                 file_size=file_size,
             )
 
-            thumb_path = ctx.thumb_path(section, title, filepath)
-            logger.debug(f"Generating thumbnail: {filepath}")
-            if indexer.generate_thumbnail(
-                filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
-            ):
-                record.has_thumbnail = True
+            # Archives are opaque blobs — nothing to render a thumbnail from.
+            if not arc_ext:
+                thumb_path = ctx.thumb_path(section, title, filepath)
+                logger.debug(f"Generating thumbnail: {filepath}")
+                if indexer.generate_thumbnail(
+                    filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
+                ):
+                    record.has_thumbnail = True
 
             session.add(record)
             logger.debug(f"DB: committing new {singular} '{filename}'")
@@ -660,8 +670,9 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
 
             filepath = os.path.join(root, filename)
             ext = Path(filename).suffix.lower()
+            arc_ext = archive_ext(filename)
 
-            if ext not in AUDIO_EXTS:
+            if ext not in AUDIO_EXTS and arc_ext not in MEDIA_ARCHIVE_EXTS:
                 continue
 
             if ignore.is_ignored(filepath, is_dir=False):
@@ -700,8 +711,14 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 logger.warning(f"Cannot stat file, skipping: {filepath}")
                 continue
 
-            meta = _read_audio_metadata(filepath)
-            has_artwork = bool(meta["embedded_art"]) or _find_folder_artwork(root) is not None
+            # Archives carry no tags/duration and no embedded art (issue #250):
+            # register them as opaque, downloadable items with empty metadata.
+            if arc_ext:
+                meta = {"duration": 0.0, "title": "", "artist": "", "album": "", "embedded_art": None}
+                has_artwork = False
+            else:
+                meta = _read_audio_metadata(filepath)
+                has_artwork = bool(meta["embedded_art"]) or _find_folder_artwork(root) is not None
 
             track = Audio(
                 filename=filename,
@@ -875,17 +892,17 @@ def scan_library(
             else 0
         ),
         "maps": (
-            _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS, ignore)
+            _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
             if scan_maps and maps_walk_dir.exists()
             else 0
         ),
         "tokens": (
-            _count_eligible_files(tokens_walk_dir, IMAGE_EXTS, ignore)
+            _count_eligible_files(tokens_walk_dir, IMAGE_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
             if scan_tokens and tokens_walk_dir.exists()
             else 0
         ),
         "audio": (
-            _count_eligible_files(audio_walk_dir, AUDIO_EXTS, ignore)
+            _count_eligible_files(audio_walk_dir, AUDIO_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
             if scan_audio and audio_walk_dir.exists()
             else 0
         ),

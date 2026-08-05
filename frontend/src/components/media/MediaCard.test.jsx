@@ -63,6 +63,17 @@ describe('MediaCard — audio', () => {
     expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument()
   })
 
+  it('hides the player for an audio archive', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.audio}
+        item={audioItem({ filename: 'ambience.zip', is_archive: true })}
+        onClick={vi.fn()}
+      />
+    )
+    expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument()
+  })
+
   it('shows artwork when has_artwork is set', () => {
     const { container } = render(
       <MediaCard
@@ -128,6 +139,43 @@ describe('MediaCard — map (no audio controls)', () => {
       />
     )
     expect(screen.getByText(/missing/i)).toBeInTheDocument()
+  })
+
+  it('shows the archive badge for an archive item', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ filename: 'pack.zip', is_archive: true })}
+        onClick={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/archive/i)).toBeInTheDocument()
+  })
+
+  it('hides the top-left archive badge in bulk mode (checkbox takes the corner)', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ filename: 'pack.zip', is_archive: true })}
+        onClick={vi.fn()}
+        bulkMode
+        selected={false}
+        onToggle={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/archive/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the archive badge inline in list mode', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ filename: 'pack.zip', is_archive: true })}
+        onClick={vi.fn()}
+        list
+      />
+    )
+    expect(screen.getByText(/archive/i)).toBeInTheDocument()
   })
 
   it('opens on Enter key', async () => {

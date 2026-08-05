@@ -150,6 +150,14 @@ describe('MapDetailView', () => {
     expect(document.querySelector('img')).toBeInTheDocument()
   })
 
+  it('renders the archive placeholder (no viewer) for an archive map', async () => {
+    mockApi('m2', { filename: 'pack.zip', is_archive: true })
+    render(<MapDetailView />)
+    await waitFor(() => expect(screen.getByText(/cannot be previewed/i)).toBeInTheDocument())
+    expect(screen.queryByTestId('pdf-viewer')).toBeNull()
+    expect(document.querySelector('img')).toBeNull()
+  })
+
   it('saves edited map tags', async () => {
     mockApi('m2')
     api.patch.mockResolvedValue({})

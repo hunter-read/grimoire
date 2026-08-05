@@ -13,7 +13,7 @@ from ...config import THUMB_DIR, get_db
 from ...models import Token, TokenFolder
 from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
-from ...indexer import slugify
+from ...indexer import archive_ext, archive_mime, slugify
 from .._media_access import assert_media_access
 from ._helpers import _allow_explicit
 from ._schemas import FolderTagsUpdate, TokenUpdate
@@ -47,6 +47,7 @@ def list_tokens(
                 "has_thumbnail": t.has_thumbnail,
                 "is_explicit": bool(t.is_explicit),
                 "is_missing": bool(t.is_missing),
+                "is_archive": bool(archive_ext(t.filename)),
             }
             for t in tokens
         ],
@@ -87,12 +88,17 @@ def get_token(
     folder_path = "/".join(Path(t.relative_path).parts[1:-1])
     folder = db.query(TokenFolder).filter_by(path=folder_path).first()
 
-    try:
-        img = PILImage.open(t.filepath)
-        pixel_width, pixel_height = img.size
-        img.close()
-    except Exception:
+    is_archive = bool(archive_ext(t.filename))
+    if is_archive:
+        # Archives are opaque blobs — there is no image to measure.
         pixel_width, pixel_height = None, None
+    else:
+        try:
+            img = PILImage.open(t.filepath)
+            pixel_width, pixel_height = img.size
+            img.close()
+        except Exception:
+            pixel_width, pixel_height = None, None
 
     return {
         "id": t.id,
@@ -106,6 +112,7 @@ def get_token(
         "has_thumbnail": t.has_thumbnail,
         "is_explicit": bool(t.is_explicit),
         "is_missing": bool(t.is_missing),
+        "is_archive": is_archive,
         "pixel_width": pixel_width,
         "pixel_height": pixel_height,
     }
@@ -125,8 +132,12 @@ def serve_token_file(
             t.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
-    ext = Path(t.filepath).suffix.lower()
-    media = f"image/{ext[1:]}"
+    arc_ext = archive_ext(t.filename)
+    if arc_ext:
+        media = archive_mime(arc_ext)
+    else:
+        ext = Path(t.filepath).suffix.lower()
+        media = f"image/{ext[1:]}"
     return FileResponse(t.filepath, media_type=media, filename=t.filename)
 
 

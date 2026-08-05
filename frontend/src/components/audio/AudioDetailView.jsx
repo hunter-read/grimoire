@@ -10,6 +10,8 @@ import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
+import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import { isArchiveMedia } from '../../constants'
 import useIsMobile from '../../hooks/useIsMobile'
 
 export default function AudioDetailView() {
@@ -40,6 +42,7 @@ export default function AudioDetailView() {
   })()
 
   const currentFolderTags = track.folder_tags ?? []
+  const isArchive = isArchiveMedia(track)
 
   const saveTrackTags = async (tags) => {
     await api.patch(`/audio/${audioId}`, { tags })
@@ -155,55 +158,59 @@ export default function AudioDetailView() {
           flexDirection: isMobilePhone ? 'column' : 'row',
         }}
       >
-        {/* Player pane */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            background: 'var(--bg-deep)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 24,
-            padding: 24,
-          }}
-        >
+        {/* Player / archive pane */}
+        {isArchive ? (
+          <ArchivePlaceholder fileUrl={`/audio/${audioId}/file`} filename={track.filename} />
+        ) : (
           <div
             style={{
-              width: 'min(360px, 70vw)',
-              aspectRatio: '1/1',
-              borderRadius: 8,
-              overflow: 'hidden',
-              background: 'var(--bg-card)',
+              flex: 1,
+              overflow: 'auto',
+              background: 'var(--bg-deep)',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+              gap: 24,
+              padding: 24,
             }}
           >
-            {track.has_artwork ? (
-              <img
-                src={mediaUrl(`/audio/${audioId}/artwork`)}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <LuMusic size={72} color="var(--text-muted)" style={{ opacity: 0.4 }} />
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <AudioPlayer
-              track={{
-                id: audioId,
-                title: track.title || track.filename,
-                artwork: track.has_artwork,
+            <div
+              style={{
+                width: 'min(360px, 70vw)',
+                aspectRatio: '1/1',
+                borderRadius: 8,
+                overflow: 'hidden',
+                background: 'var(--bg-card)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
               }}
-              showPlayNext
-              size={56}
-            />
+            >
+              {track.has_artwork ? (
+                <img
+                  src={mediaUrl(`/audio/${audioId}/artwork`)}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <LuMusic size={72} color="var(--text-muted)" style={{ opacity: 0.4 }} />
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <AudioPlayer
+                track={{
+                  id: audioId,
+                  title: track.title || track.filename,
+                  artwork: track.has_artwork,
+                }}
+                showPlayNext
+                size={56}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Metadata sidebar */}
         <div

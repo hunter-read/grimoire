@@ -77,6 +77,23 @@ describe('AudioDetailView', () => {
     expect(container.querySelector('img')).toBeNull()
   })
 
+  it('renders the archive placeholder (no player) for an audio archive', async () => {
+    api.get.mockResolvedValue(
+      detail({
+        filename: 'ambience.zip',
+        title: '',
+        artist: '',
+        album: '',
+        duration: 0,
+        has_artwork: false,
+        is_archive: true,
+      })
+    )
+    render(<AudioDetailView />)
+    await waitFor(() => expect(screen.getByText(/cannot be previewed/i)).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /play/i })).toBeNull()
+  })
+
   it('saves edited track tags', async () => {
     api.get.mockResolvedValue(detail())
     api.patch.mockResolvedValue({})

@@ -78,6 +78,13 @@ describe('TokenDetailView', () => {
     expect(screen.getByText('Goblins')).toBeInTheDocument()
   })
 
+  it('renders the archive placeholder instead of an <img> for an archive token', async () => {
+    mockApi('t2', { filename: 'portraits.zip', is_archive: true })
+    render(<TokenDetailView />)
+    await waitFor(() => expect(screen.getByText(/cannot be previewed/i)).toBeInTheDocument())
+    expect(document.querySelector('img')).toBeNull()
+  })
+
   it('navigates to the next token with the right arrow key', async () => {
     mockApi('t2')
     render(<TokenDetailView />)

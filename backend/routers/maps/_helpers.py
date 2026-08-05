@@ -10,6 +10,7 @@ import fitz  # type: ignore[import-untyped]
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
 from ...config import PAGE_CACHE_DIR, _valkey, logger
+from ...indexer import archive_ext
 from ..books._helpers import _get_pdf_doc
 
 
@@ -113,6 +114,9 @@ def _map_image_info(filepath: str, relative_path: str) -> dict:
         "is_pdf": False,
         "page_count": None,
     }
+    # Archives are opaque blobs — no raster to measure and no grid to infer.
+    if archive_ext(filepath):
+        return info
     if _is_pdf(filepath):
         info["is_pdf"] = True
         try:
