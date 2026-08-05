@@ -34,6 +34,7 @@ from .constants import (  # noqa: E402,F401
     DOC_EXTS,
     IMAGE_EXTS,
     MAP_IMAGE_EXTS,
+    MEDIA_ARCHIVE_EXTS,
     METADATA_MODES,
     NO_AUTO_CATEGORY_MARKER,
     PDF_EXTS,

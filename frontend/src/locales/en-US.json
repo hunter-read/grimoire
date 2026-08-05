@@ -84,7 +84,9 @@
     "sizeGB": "{{size}} GB",
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
-    "select": "Select"
+    "select": "Select",
+    "archive": "Archive",
+    "archiveNotViewable": "This is an archive file and cannot be previewed. Download it to open its contents."
   },
   "login": {
     "username": "Username",

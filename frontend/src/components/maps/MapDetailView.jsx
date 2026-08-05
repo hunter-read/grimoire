@@ -16,6 +16,8 @@ import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from './InlineTagEditor'
 import MapPdfViewer from './MapPdfViewer'
+import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
@@ -111,6 +113,7 @@ export default function MapDetailView() {
   })()
 
   const currentFolderTags = map.folder_tags ?? []
+  const isArchive = isArchiveMedia(map)
   const isPdf = !!map.is_pdf
 
   const saveMapTags = async (tags) => {
@@ -244,8 +247,10 @@ export default function MapDetailView() {
           flexDirection: isMobilePhone ? 'column' : 'row',
         }}
       >
-        {/* Image / PDF pane */}
-        {isPdf ? (
+        {/* Image / PDF / archive pane */}
+        {isArchive ? (
+          <ArchivePlaceholder fileUrl={`/maps/${mapId}/file`} filename={map.filename} />
+        ) : isPdf ? (
           <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
             <MapPdfViewer
               mapId={mapId}

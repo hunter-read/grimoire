@@ -84,7 +84,9 @@
     "sizeGB": "{{size}} GB",
     "addToFavorites": "Aan favorieten toevoegen",
     "removeFromFavorites": "Uit favorieten verwijderen",
-    "select": "Selecteren"
+    "select": "Selecteren",
+    "archive": "Archief",
+    "archiveNotViewable": "Dit is een archiefbestand en kan niet worden voorvertoond. Download het om de inhoud te openen."
   },
   "login": {
     "username": "Gebruikersnaam",

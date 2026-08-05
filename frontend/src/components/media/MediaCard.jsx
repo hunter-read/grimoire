@@ -11,6 +11,9 @@ import LazyImg from '../LazyImg'
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
   'bottom-right': { bottom: 6, right: 6 },
+  // Top-left is free on the thumbnail (favorite/download sit top-right); in bulk
+  // mode the selection checkbox takes it, so corner badges are hidden there.
+  'top-left': { top: 6, left: 6 },
 }
 
 /**
@@ -45,8 +48,9 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
   // Which item field signals an available thumbnail/artwork (audio uses artwork).
   const hasThumbnail = item[config.thumbnailFlag || 'has_thumbnail']
 
-  // Track ref for the global audio player (audio gallery only).
-  const isAudio = !!config.audioFileUrl
+  // Track ref for the global audio player (audio gallery only). Archives in the
+  // audio tree (issue #250) are opaque blobs with nothing to play.
+  const isAudio = !!config.audioFileUrl && !item.is_archive
   const track = isAudio
     ? { id: item.id, title: item.title || item.filename, artwork: item.has_artwork }
     : null
@@ -137,7 +141,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
             <span>{formatSize(item.file_size)}</span>
             {activeBadges.map((b) => (
               <span key={b.flag} style={{ color: b.inlineColor }}>
-                {t(`${config.i18n}.${b.label}`)}
+                {t(b.labelKey || `${config.i18n}.${b.label}`)}
               </span>
             ))}
           </div>
@@ -251,7 +255,8 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           </div>
         )}
         {activeBadges
-          .filter((b) => b.corner)
+          // In bulk mode the selection checkbox occupies the top-left corner.
+          .filter((b) => b.corner && !(bulkMode && b.corner === 'top-left'))
           .map((b) => (
             <div
               key={b.flag}
@@ -267,7 +272,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
                 fontWeight: 600,
               }}
             >
-              {t(`${config.i18n}.${b.label}`)}
+              {t(b.labelKey || `${config.i18n}.${b.label}`)}
             </div>
           ))}
       </div>

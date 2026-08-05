@@ -16,6 +16,8 @@ import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
+import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import { isArchiveMedia } from '../../constants'
 
 export default function TokenDetailView() {
   const { tokenId } = useParams()
@@ -83,6 +85,7 @@ export default function TokenDetailView() {
   })()
 
   const currentFolderTags = token.folder_tags ?? []
+  const isArchive = isArchiveMedia(token)
 
   const saveTokenTags = async (tags) => {
     await api.patch(`/tokens/${tokenId}`, { tags })
@@ -204,32 +207,36 @@ export default function TokenDetailView() {
           flexDirection: isMobilePhone ? 'column' : 'row',
         }}
       >
-        {/* Image pane */}
-        <div
-          ref={imagePane}
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            background: 'var(--bg-deep)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            padding: 24,
-          }}
-        >
-          <img
-            src={mediaUrl(`/tokens/${tokenId}/file`)}
-            alt={token.filename}
+        {/* Image / archive pane */}
+        {isArchive ? (
+          <ArchivePlaceholder fileUrl={`/tokens/${tokenId}/file`} filename={token.filename} />
+        ) : (
+          <div
+            ref={imagePane}
             style={{
-              maxWidth: '100%',
-              maxHeight: '80vh',
-              borderRadius: 4,
-              boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
-              ...imageStyle,
+              flex: 1,
+              overflow: 'auto',
+              background: 'var(--bg-deep)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              padding: 24,
             }}
-            draggable={false}
-          />
-        </div>
+          >
+            <img
+              src={mediaUrl(`/tokens/${tokenId}/file`)}
+              alt={token.filename}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                borderRadius: 4,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                ...imageStyle,
+              }}
+              draggable={false}
+            />
+          </div>
+        )}
 
         {/* Metadata sidebar — always visible on desktop, toggle-controlled on mobile */}
         <div

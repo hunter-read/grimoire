@@ -13,7 +13,7 @@ from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import GenericMap, MapFolder
 from ...services import tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
-from ...indexer import slugify
+from ...indexer import archive_ext, archive_mime, slugify
 from .._media_access import assert_media_access
 from ._helpers import _is_pdf, _map_image_info, render_map_pdf_page
 from ._schemas import FolderTagsUpdate, MapUpdate
@@ -60,6 +60,7 @@ def list_maps(
                 "file_size": m.file_size,
                 "has_thumbnail": m.has_thumbnail,
                 "is_missing": bool(m.is_missing),
+                "is_archive": bool(archive_ext(m.filename)),
             }
             for m in maps
         ],
@@ -113,6 +114,7 @@ def get_map(
         "file_size": m.file_size,
         "has_thumbnail": m.has_thumbnail,
         "is_missing": bool(m.is_missing),
+        "is_archive": bool(archive_ext(m.filename)),
         **img_info,
     }
 
@@ -131,8 +133,12 @@ def serve_map_file(
             m.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
-    ext = Path(m.filepath).suffix.lower()
-    media = "application/pdf" if ext == ".pdf" else f"image/{ext[1:]}"
+    arc_ext = archive_ext(m.filename)
+    if arc_ext:
+        media = archive_mime(arc_ext)
+    else:
+        ext = Path(m.filepath).suffix.lower()
+        media = "application/pdf" if ext == ".pdf" else f"image/{ext[1:]}"
     return FileResponse(m.filepath, media_type=media, filename=m.filename)
 
 
@@ -159,6 +165,10 @@ def serve_map_page(
             db.commit()
         raise HTTPException(404, "File not found on disk")
     filepath = m.filepath
+
+    # Archives have no renderable pages — the client downloads them instead.
+    if archive_ext(m.filename):
+        raise HTTPException(400, "Archives have no viewable pages")
 
     if not _is_pdf(filepath):
         if page_num != 1:

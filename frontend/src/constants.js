@@ -61,6 +61,15 @@ export function isArchiveBook(book) {
 }
 
 /**
+ * True when a media item (map/token/audio) is an archive. Unlike books — which
+ * are matched on their stored `mime_type` — media rows carry no MIME column, so
+ * the backend serialises an explicit `is_archive` flag (issue #250).
+ */
+export function isArchiveMedia(item) {
+  return !!item && !!item.is_archive
+}
+
+/**
  * Create a URL-safe slug from a name. Mirrors `slugify` in `backend/indexer.py`
  * so custom category names entered in the UI match what the backend produces.
  */
