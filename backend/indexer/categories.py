@@ -1,6 +1,7 @@
 """Folder-name → book-category inference, plus the shared ``slugify`` helper."""
 import re
 import logging
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -8,8 +9,14 @@ from .. import config
 from ..models import AppSetting
 from .constants import (
     CATEGORY_MAP,
+    CONTAINER_ONE_PAGE,
+    CONTAINER_PARENT,
     NO_AUTO_CATEGORY_MARKER,  # noqa: F401  (re-exported for callers)
+    NSFW_MARKER,
+    ONE_PAGE_MARKER,
+    PARENT_SYSTEM_MARKER,
     UNCATEGORIZED,
+    _CONTAINER_SUFFIXES,
     _ONE_PAGE_SLUGS,
     _SYSTEM_AGNOSTIC_SLUGS,
 )
@@ -60,6 +67,68 @@ def is_special_collection_folder(folder_name: str) -> bool:
     the normal CATEGORY_MAP inference.
     """
     return is_system_agnostic_folder(folder_name) or is_one_page_folder(folder_name)
+
+
+def prettify_collection_name(name: str) -> str:
+    """Humanize a slug-like folder or file stem into a display name.
+
+    ``honey-heist`` → ``Honey Heist``. Words already containing an uppercase
+    letter are left alone so deliberate casing survives (``cbr+PNK``); the
+    frontend applies the shared acronym table on top of this when rendering.
+    """
+    words = re.split(r"[\s_-]+", name.replace("-", " ").strip())
+    return " ".join(w if any(c.isupper() for c in w) else w.capitalize() for w in words if w)
+
+
+def strip_container_suffix(name: str) -> tuple[str, str]:
+    """Split a ``(parent-system)``/``(one-page)`` suffix off a folder name.
+
+    Returns ``(clean_name, container_kind)`` where ``container_kind`` is one of
+    ``CONTAINER_PARENT``/``CONTAINER_ONE_PAGE``, or ``""`` when the name carries
+    no container suffix. Matched case-insensitively anywhere in the name, exactly
+    like the ``(nsfw)`` marker it mirrors.
+    """
+    for suffix, kind in _CONTAINER_SUFFIXES.items():
+        pattern = rf"\s*\({re.escape(suffix)}\)\s*"
+        if re.search(pattern, name, re.IGNORECASE):
+            return re.sub(pattern, " ", name, flags=re.IGNORECASE).strip(), kind
+    return name, ""
+
+
+def detect_container_kind(system_dir: Path, folder_name: str) -> str:
+    """Return the container kind for a top-level books folder, or ``""``.
+
+    A folder becomes a container of systems (rather than a system holding
+    categories) through any of three equivalent declarations:
+
+    1. a marker file at the folder root (``.parent-system-container`` /
+       ``.one-page-container``),
+    2. a ``(parent-system)``/``(one-page)`` suffix on the folder name — handled
+       by ``strip_container_suffix`` before this is called, since the suffix has
+       to come off the stored system name either way,
+    3. one of the reserved one-page collection slugs (``one-page-rpgs``,
+       ``micro-rpgs``, …), which imply a one-page container.
+
+    Marker files are checked first so a user can force a reserved-slug folder
+    into the parent-system flavour instead.
+    """
+    if (system_dir / PARENT_SYSTEM_MARKER).exists():
+        return CONTAINER_PARENT
+    if (system_dir / ONE_PAGE_MARKER).exists():
+        return CONTAINER_ONE_PAGE
+    if is_one_page_folder(folder_name):
+        return CONTAINER_ONE_PAGE
+    return ""
+
+
+def has_nsfw_marker(system_dir: Path) -> bool:
+    """Return True if a ``.nsfw`` marker file sits at this folder's root.
+
+    Equivalent to the ``(nsfw)`` folder-name suffix, offered for parity with the
+    other folder-level indicators (some filesystems and sync tools make
+    parenthesised folder names awkward).
+    """
+    return (system_dir / NSFW_MARKER).exists()
 
 
 def _normalize_folder(name: str) -> str:
@@ -128,7 +197,7 @@ def folder_category_inference_disabled(session: Session) -> bool:
     return bool(row) and row.value == "true"
 
 
-def guess_category(filepath: str) -> str:
+def guess_category(filepath: str, system_depth: int = 2) -> str:
     """Infer book category from path segments.
 
     The top-level category folder (the first folder under the system root, e.g.
@@ -138,13 +207,18 @@ def guess_category(filepath: str) -> str:
     incidentally matches a different keyword. Only when the top-level folder does
     not match do we scan deeper subfolders innermost-first, then fall back to the
     top-level folder name as a custom category slug.
+
+    ``system_depth`` is the index of the category folder within the path — 2 for
+    the standard ``books/<system>/<category>/`` layout, 3 for a system nested
+    inside a container folder (``books/<container>/<system>/<category>/``, issues
+    #261/#262).
     """
     segments = filepath.replace("\\", "/").split("/")
     # segments[-1] is the filename; the category folder is the first segment
-    # under the system root (index 2 for the standard books/<system>/<cat>/ layout).
+    # under the system root.
     folder_segments = segments[:-1]
-    if len(folder_segments) > 2:
-        top_category_folder = folder_segments[2]
+    if len(folder_segments) > system_depth:
+        top_category_folder = folder_segments[system_depth]
         matched = _match_category(top_category_folder)
         if matched is not None:
             return matched

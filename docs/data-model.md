@@ -33,6 +33,7 @@ erDiagram
 
     game_systems ||--o{ books : contains
     game_systems ||--o{ campaigns : "system for"
+    game_systems ||--o{ game_systems : "container of"
 
     genres ||--o{ genres : "parent of"
 
@@ -74,6 +75,7 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 | From (table.column) | To (table.column) | Notes |
 | --- | --- | --- |
 | `books.game_system_id` | `game_systems.id` | nullable; a book may be unassigned |
+| `game_systems.parent_id` | `game_systems.id` | self-referential; nullable. Set on the child systems of a container folder (issues #261/#262) |
 | `genres.parent_id` | `genres.id` | self-referential; nullable (tiered genres) |
 | `bookmarks.user_id` | `users.id` | |
 | `bookmarks.book_id` | `books.id` | |
@@ -115,7 +117,7 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `game_systems` | A TTRPG system (D&D 5e, PbtA, …). | `name`, `slug` unique. `is_system_agnostic` flags cross-system content; `is_one_page` flags the special one-page/small-RPG collection (both grouped together in the library UI). Metadata (issue #202): `genres` (JSON list; supersedes the legacy scalar `genre`), `dice_materials` (JSON list), `system_family`, `parent_system` (mid-tier grouping, e.g. "Dungeons & Dragons"), `edition` (e.g. "5e"/"Red"; combines with `parent_system` for display), `license`, `year`, `urls` and `character_builder_urls` (JSON lists of `{label, url}`; supersede the legacy scalar `character_builder_url`). |
+| `game_systems` | A TTRPG system (D&D 5e, PbtA, …). | `name`, `slug` unique. `is_system_agnostic` flags cross-system content; `is_one_page` flags the special one-page/small-RPG collection (both grouped together in the library UI). Metadata (issue #202): `genres` (JSON list; supersedes the legacy scalar `genre`), `dice_materials` (JSON list), `system_family`, `parent_system` (mid-tier grouping, e.g. "Dungeons & Dragons"), `edition` (e.g. "5e"/"Red"; combines with `parent_system` for display), `license`, `year`, `urls` and `character_builder_urls` (JSON lists of `{label, url}`; supersede the legacy scalar `character_builder_url`). System containers (issues #261/#262): `container_kind` (`""`, `"parent"`, or `"one-page"`) marks a folder whose children are systems rather than categories, `parent_id` self-references the containing system, and `name_is_custom` stops the scanner overwriting a user-renamed system on rescan. |
 | `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, OCR unavailable) / `ocr` (indexed via OCR). `ocr_pending` (indexed `ix_books_ocr_pending`) flags a scanned PDF queued for deferred OCR; `ocr_pages_done` is the per-page OCR checkpoint so a long book resumes rather than restarts after an interruption. `ocr_dpi` is an optional per-book OCR resolution override (NULL = global `OCR_DPI`), set when a book is re-OCR'd at a higher DPI via `POST /api/books/{id}/reindex`. Metadata (issue #202): `artists` and `genres` (JSON lists), `isbn`, `version`, `language`, `license` (per-book override of the system license — an OGL SRD inside a proprietary system), `urls` (JSON list of `{label, url}`; supersedes the legacy scalar `publisher_url`), and a variable-precision publication date `year`/`month`/`day` (all nullable — `year` may stand alone). |
 | `book_folders` | Folder tags for a book subcategory folder path (`{system_id}/{category}/{subfolder…}`), editable inline on the system page and surfaced on the tags page under Books. `tags` stores internal keys (display comes from the `tags` catalog); `tags.json` applies additively. | `path` unique. |
 | `genres` | Curated genre lookup, tiered via a self-referential `parent_id` (e.g. Cyberpunk → Science Fiction). | `name` unique. `is_default` marks seeded rows; `sort_order` orders siblings. Children cascade-delete. |

@@ -13,6 +13,7 @@ vi.mock('../api', () => ({
     patch: vi.fn(() => Promise.resolve({})),
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
+    upload: vi.fn(() => Promise.resolve({})),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
@@ -21,12 +22,13 @@ vi.mock('../api', () => ({
 // Open the shared filter modal (favourites/tags/genres live there now).
 const openBookFilters = () => userEvent.click(screen.getByRole('button', { name: 'Filters' }))
 
+const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     useParams: () => ({ systemId: 'system-1' }),
-    useNavigate: () => vi.fn(),
+    useNavigate: () => mockNavigate,
   }
 })
 
@@ -817,5 +819,140 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     // Edits merge into the book and the bulk UI closes.
     await waitFor(() => expect(screen.queryByTestId('bulk-edit-modal')).not.toBeInTheDocument())
     await waitFor(() => expect(screen.queryByTestId('bulk-bar')).not.toBeInTheDocument())
+  })
+})
+
+describe('SystemDetailView — system containers (issues #261, #262)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockIsFavorite.mockReturnValue(false)
+  })
+
+  const makeContainer = (over = {}) => ({
+    ...makeSystem([]),
+    id: 'system-1',
+    name: 'one-page-rpgs',
+    is_one_page: true,
+    container_kind: 'one-page',
+    children: [
+      { id: 'c1', name: 'Honey Heist', book_count: 1, tags: [], genres: [] },
+      { id: 'c2', name: 'Lasers And Feelings', book_count: 1, tags: [], genres: [] },
+    ],
+    ...over,
+  })
+
+  it('renders the container children as systems instead of a book list', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+    expect(screen.getByText('Lasers And Feelings')).toBeInTheDocument()
+  })
+
+  it('prettifies the container name in the heading', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    renderView()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'One Page RPGs' })).toBeInTheDocument()
+    )
+  })
+
+  it('navigates into a child system when its card is clicked', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('Honey Heist'))
+    expect(mockNavigate).toHaveBeenCalledWith('/library/system/c1')
+  })
+
+  it('navigates back to the library from a container', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('Back to Library'))
+    expect(mockNavigate).toHaveBeenCalledWith('/library')
+  })
+
+  it('counts the nested systems rather than books', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    renderView()
+    await waitFor(() =>
+      expect(screen.getByText('2 systems in this collection')).toBeInTheDocument()
+    )
+  })
+
+  it('falls back to the normal book view when a container has no children yet', async () => {
+    api.get.mockResolvedValue({
+      ...makeSystem([makeBook({ title: 'Loose Book' })]),
+      container_kind: 'parent',
+      children: [],
+    })
+    renderView()
+    await waitFor(() => expect(screen.getByText('Loose Book')).toBeInTheDocument())
+  })
+
+  it('renders an ordinary system as a book list', async () => {
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+  })
+  it('reflects a container cover upload without leaving the view', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    api.upload.mockResolvedValue({ cover_image: 'system-1.png' })
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('Cover image'))
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'c.png', { type: 'image/png' })
+    await userEvent.upload(screen.getByTestId('cover-upload-input'), file)
+
+    await waitFor(() => expect(api.upload).toHaveBeenCalledWith('/systems/system-1/cover', file))
+    // Still on the container view, now showing the uploaded art.
+    expect(screen.getByText('Honey Heist')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('cover-preview')).toBeInTheDocument())
+  })
+})
+
+describe('SystemDetailView — back navigation from a nested system', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockIsFavorite.mockReturnValue(false)
+  })
+
+  it('returns to the parent system rather than the library root', async () => {
+    api.get.mockResolvedValue({
+      ...makeSystem([makeBook({ title: 'PHB' })]),
+      parent_id: 'container-9',
+      parent_name: 'Dungeons & Dragons',
+      parent_is_one_page: false,
+    })
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('Back to Dungeons & Dragons'))
+    expect(mockNavigate).toHaveBeenCalledWith('/library/system/container-9')
+  })
+
+  it('prettifies a one-page collection name in the back label', async () => {
+    api.get.mockResolvedValue({
+      ...makeSystem([makeBook({ title: 'Honey Heist' })]),
+      parent_id: 'container-op',
+      parent_name: 'one-page-rpgs',
+      parent_is_one_page: true,
+    })
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+
+    expect(screen.getByText('Back to One Page RPGs')).toBeInTheDocument()
+  })
+
+  it('a top-level system still goes back to the library', async () => {
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('Back to Library'))
+    expect(mockNavigate).toHaveBeenCalledWith('/library')
   })
 })

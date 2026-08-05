@@ -38,6 +38,8 @@ def list_systems(
     edition: Optional[str] = Query(None),
     license: Optional[str] = Query(None),
     explicit: Optional[bool] = Query(None),
+    parent_id: Optional[str] = Query(None),
+    include_children: bool = Query(False),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -60,9 +62,25 @@ def list_systems(
     }
 
     systems = db.query(GameSystem).all()
+    # Number of child systems per container, for the container's card.
+    child_counts = {
+        pid: count
+        for pid, count in db.query(GameSystem.parent_id, func.count(GameSystem.id))
+        .filter(GameSystem.parent_id.isnot(None))
+        .group_by(GameSystem.parent_id)
+        .all()
+    }
     system_tags = tag_service.display_tags_for_resources(db, "system", [s.id for s in systems])
     result = []
     for s in systems:
+        # Container children are browsed through their container, so they stay
+        # out of the top-level listing unless explicitly asked for (issues
+        # #261/#262). ``parent_id`` selects one container's children.
+        if parent_id:
+            if s.parent_id != parent_id:
+                continue
+        elif s.parent_id and not include_children:
+            continue
         if s.is_explicit and not can_see_explicit:
             continue
         if explicit is not None and bool(s.is_explicit) != explicit:
@@ -86,6 +104,7 @@ def list_systems(
                 int(total_pages or 0),
                 cover_book_id,
                 tags=system_tags.get(s.id, []),
+                child_count=child_counts.get(s.id, 0),
             )
         )
 
@@ -138,9 +157,10 @@ def get_system(
         book_q = book_q.filter(Book.is_explicit != True)
     books = book_q.all()
 
-    # Cover resolution ignores the sort/filter args (must be stable).
+    # Cover resolution ignores the sort/filter args (must be stable). Containers
+    # never borrow a child's book as their cover — see resolve_cover_book_id.
     cover_book_id = system.cover_book_id
-    if not cover_book_id:
+    if not cover_book_id and not system.container_kind:
         auto = next((b for b in books if b.category == "core" and b.has_thumbnail), None)
         if not auto:
             auto = next((b for b in books if b.has_thumbnail), None)
@@ -156,6 +176,10 @@ def get_system(
         books = [b for b in books if _has_value(b.genres, genre)]
     books = _sort_books(books, book_sort, book_order)
 
+    # Container folders hold systems rather than (only) books — return those
+    # children so the detail view can render them as systems (issues #261/#262).
+    children = _serialize_children(db, system, can_see_explicit)
+
     system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
     book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
     summary = serialize_system_summary(
@@ -164,9 +188,55 @@ def get_system(
         total_page_count=sum(b.page_count or 0 for b in books),
         cover_book_id=cover_book_id,
         tags=system_tags,
+        child_count=len(children),
     )
     summary["books"] = [serialize_book(b, tags=book_tags.get(b.id, [])) for b in books]
+    summary["children"] = children
     return summary
+
+
+def _serialize_children(
+    db: Session, system: GameSystem, can_see_explicit: bool
+) -> list[dict]:
+    """Serialize a container's child systems, newest-style summary rows.
+
+    Returns an empty list for ordinary systems, so the field is always present
+    and the caller never has to branch on ``container_kind``.
+    """
+    if not system.container_kind:
+        return []
+    child_q = db.query(GameSystem).filter(GameSystem.parent_id == system.id)
+    if not can_see_explicit:
+        child_q = child_q.filter(GameSystem.is_explicit != True)  # noqa: E712
+    children = child_q.all()
+    if not children:
+        return []
+
+    agg_q = db.query(
+        Book.game_system_id,
+        func.count(Book.id),
+        func.coalesce(func.sum(Book.page_count), 0),
+    ).filter(Book.game_system_id.in_([c.id for c in children]))
+    if not can_see_explicit:
+        agg_q = agg_q.filter(Book.is_explicit != True)  # noqa: E712
+    agg = {
+        gsid: (count, pages)
+        for gsid, count, pages in agg_q.group_by(Book.game_system_id).all()
+    }
+    child_tags = tag_service.display_tags_for_resources(db, "system", [c.id for c in children])
+    rows = []
+    for c in children:
+        book_count, total_pages = agg.get(c.id, (0, 0))
+        rows.append(
+            serialize_system_summary(
+                c,
+                book_count,
+                int(total_pages or 0),
+                resolve_cover_book_id(db, c),
+                tags=child_tags.get(c.id, []),
+            )
+        )
+    return sorted(rows, key=lambda r: r["name"].lower())
 
 
 def _sort_books(books: list[Book], sort: str, order: str) -> list[Book]:
@@ -231,6 +301,21 @@ def update_system(
     payload = data.model_dump(exclude_none=True)
     tag_service.sync_tags_from_payload(db, "system", system.id, payload)
     payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
+    # A rename is sticky: the scanner derives default names from folder structure
+    # (e.g. "Dungeons & Dragons 2e") and must not clobber a user's correction
+    # ("Advanced Dungeons & Dragons") on the next rescan (issues #261/#262).
+    new_name = payload.get("name")
+    if new_name is not None and new_name != system.name:
+        # ``name`` is unique, so report a clash as a conflict rather than letting
+        # the commit fail with an opaque 500.
+        clash = (
+            db.query(GameSystem)
+            .filter(GameSystem.name == new_name, GameSystem.id != system.id)
+            .first()
+        )
+        if clash:
+            raise HTTPException(409, f"A system named '{new_name}' already exists")
+        system.name_is_custom = True
     for field, value in payload.items():
         setattr(system, field, value)
     db.commit()

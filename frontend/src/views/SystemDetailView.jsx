@@ -25,6 +25,7 @@ import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
 import SystemSearchResults from '../components/system/SystemSearchResults'
 import SystemCategorySection from '../components/system/SystemCategorySection'
+import SystemContainerView from '../components/system/SystemContainerView'
 import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
 import BulkToggleButton from '../components/BulkToggleButton'
@@ -201,10 +202,45 @@ export default function SystemDetailView() {
       </div>
     )
 
+  // Container folders hold systems, not categories (issues #261, #262), so they
+  // render their children as a system grid instead of a book list. A container
+  // with no children yet falls through to the normal view rather than showing an
+  // empty grid — that way a half-scanned library still shows whatever it found.
+  if (system.container_kind && (system.children || []).length > 0) {
+    return (
+      <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
+        <SystemContainerView
+          system={system}
+          viewMode={viewMode}
+          canEdit={isEditor}
+          onBack={() => navigate('/library')}
+          onOpenChild={(child) => navigate(`/library/system/${child.id}`)}
+          onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
+          headerExtra={<ViewModeToggle mode={viewMode} onCycle={cycleViewMode} />}
+        />
+      </div>
+    )
+  }
+
   // Special collections (system-agnostic + one-page/small RPGs) are not real
   // game systems, so they don't expose editable system metadata.
   const isSpecialCollection = system.is_system_agnostic || system.is_one_page
   const canEditSystemMeta = isEditor && !isSpecialCollection
+
+  // A system nested in a container (issues #261, #262) was reached *through* that
+  // container, so going "back" returns there rather than skipping to the library
+  // root. Container names may be raw folder slugs, hence the prettified label.
+  const backTarget = system.parent_id
+    ? {
+        to: `/library/system/${system.parent_id}`,
+        label: t('systemDetail.backTo', {
+          name: systemDisplayName({
+            name: system.parent_name || '',
+            is_one_page: system.parent_is_one_page,
+          }),
+        }),
+      }
+    : { to: '/library', label: t('systemDetail.backToLibrary') }
 
   const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
 
@@ -382,7 +418,7 @@ export default function SystemDetailView() {
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <button
-            onClick={() => navigate('/library')}
+            onClick={() => navigate(backTarget.to)}
             style={{
               background: 'none',
               color: 'var(--text-dim)',
@@ -393,7 +429,7 @@ export default function SystemDetailView() {
               marginBottom: 16,
             }}
           >
-            <LuArrowLeft size={15} /> {t('systemDetail.backToLibrary')}
+            <LuArrowLeft size={15} /> {backTarget.label}
           </button>
 
           <div
@@ -721,6 +757,9 @@ export default function SystemDetailView() {
               setSystem({ ...system, ...updated })
               setEditing(false)
             }}
+            // Cover uploads apply immediately, so reflect them without closing
+            // the editor or discarding unsaved metadata edits.
+            onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
           />
         )}
 

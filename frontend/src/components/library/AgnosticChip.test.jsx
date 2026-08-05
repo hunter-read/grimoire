@@ -5,7 +5,11 @@ import AgnosticChip from './AgnosticChip'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => (k === 'library.bookCount' ? `${o.count} books` : k),
+    t: (k, o) => {
+      if (k === 'library.bookCount') return `${o.count} books`
+      if (k === 'systemContainer.count') return `${o.count} systems`
+      return k
+    },
   }),
 }))
 
@@ -48,5 +52,15 @@ describe('AgnosticChip', () => {
     render(<AgnosticChip system={makeSystem()} onClick={onClick} />)
     await userEvent.click(screen.getByText('One Page RPGs'))
     expect(onClick).toHaveBeenCalled()
+  })
+  it('counts nested systems instead of books for a container', () => {
+    render(
+      <AgnosticChip
+        system={makeSystem({ container_kind: 'one-page', book_count: 0, child_count: 9 })}
+        onClick={vi.fn()}
+      />
+    )
+    expect(screen.getByText('9 systems')).toBeInTheDocument()
+    expect(screen.queryByText('0 books')).not.toBeInTheDocument()
   })
 })

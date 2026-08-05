@@ -435,4 +435,62 @@ describe('LibraryView', () => {
       expect(familySelect.querySelector('option[value="Fate"]')).toBeTruthy()
     })
   })
+  describe('system containers (issues #261, #262)', () => {
+    it('shows a parent-system container that has no books of its own', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({
+          id: 'ctr',
+          name: 'Dungeons & Dragons',
+          container_kind: 'parent',
+          book_count: 0,
+          child_count: 3,
+        }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
+    })
+
+    it('still hides an ordinary system with no books', async () => {
+      api.get.mockResolvedValue([makeSystem({ id: 'empty', name: 'Empty System', book_count: 0 })])
+      renderView()
+      // An all-empty library falls back to the "0 game systems" empty state.
+      await waitFor(() =>
+        expect(screen.getByText('0 game systems in your library')).toBeInTheDocument()
+      )
+      expect(screen.queryByText('Empty System')).not.toBeInTheDocument()
+    })
+
+    it('hides a container that has no children yet', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({
+          id: 'ctr-empty',
+          name: 'Empty Container',
+          container_kind: 'parent',
+          book_count: 0,
+          child_count: 0,
+        }),
+      ])
+      renderView()
+      await waitFor(() =>
+        expect(screen.getByText('0 game systems in your library')).toBeInTheDocument()
+      )
+      expect(screen.queryByText('Empty Container')).not.toBeInTheDocument()
+    })
+
+    it('puts a one-page container in the special collections strip', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({
+          id: 'op',
+          name: 'one-page-rpgs',
+          is_one_page: true,
+          container_kind: 'one-page',
+          book_count: 0,
+          child_count: 7,
+        }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('One Page RPGs')).toBeInTheDocument())
+      expect(screen.getByText('Special Collections')).toBeInTheDocument()
+    })
+  })
 })

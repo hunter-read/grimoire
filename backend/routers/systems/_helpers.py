@@ -8,7 +8,14 @@ def resolve_cover_book_id(db, system) -> str | None:
     Most systems don't have an explicit ``cover_book_id`` set, so we pick the
     first core book with a thumbnail (or any book with a thumbnail) — matching
     the cover shown in the systems list.
+
+    Container folders (issues #261/#262) are shelves of systems, so one of their
+    children's books is not a meaningful cover for them: an arbitrary game's
+    front page would stand in for the whole collection. They show folder art or
+    an uploaded image, or nothing.
     """
+    if system.container_kind:
+        return system.cover_book_id or None
     cover_book_id = system.cover_book_id
     if not cover_book_id:
         auto = (

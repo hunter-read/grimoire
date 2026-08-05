@@ -143,6 +143,13 @@
     "noTagMatch": "Ningún sistema coincide con las etiquetas seleccionadas.",
     "filterByTag": "Filtrar por {{tag}}"
   },
+  "systemContainer": {
+    "subtitle_one": "{{count}} sistema en esta colección",
+    "subtitle_other": "{{count}} sistemas en esta colección",
+    "empty": "Todavía no se han encontrado sistemas en esta colección.",
+    "count_one": "{{count}} sistema",
+    "count_other": "{{count}} sistemas"
+  },
   "systemDetail": {
     "backToLibrary": "Volver a la biblioteca",
     "publishedBy": "Publicado por",
@@ -178,7 +185,8 @@
     "parentSystemLabel": "Sistema padre",
     "addTags": "Añadir etiquetas",
     "editTags": "Editar",
-    "editTagsFull": "Editar etiquetas"
+    "editTagsFull": "Editar etiquetas",
+    "backTo": "Volver a {{name}}"
   },
   "reader": {
     "back": "Atrás",
@@ -1105,6 +1113,9 @@
     "removeTag": "Quitar etiqueta {{tag}}"
   },
   "systemEditor": {
+    "name": "Nombre",
+    "nameDerivedHint": "Generado a partir de la estructura de carpetas. Renómbralo aquí y tu nombre se mantendrá en futuros escaneos.",
+    "nameCustomHint": "Nombre personalizado: los escaneos no lo sobrescribirán.",
     "title": "Editar metadatos del sistema",
     "description": "Descripción",
     "tags": "Etiquetas",
@@ -1143,7 +1154,13 @@
     "createParentSystem": "Crear sistema padre «{{name}}»",
     "fetchMetadata": "Obtener metadatos",
     "loadMoreCovers_one": "Mostrar 1 más",
-    "loadMoreCovers_other": "Mostrar {{count}} más"
+    "loadMoreCovers_other": "Mostrar {{count}} más",
+    "uploadCover": "Imagen de portada",
+    "chooseImage": "Elegir imagen",
+    "replaceCover": "Reemplazar imagen",
+    "removeCover": "Quitar",
+    "coverUploadFailed": "Error al subir",
+    "folderCoverInUse": "Se está usando una imagen de portada encontrada en la carpeta de este sistema. Quítala de la carpeta para usar una subida en su lugar."
   },
   "bookEditor": {
     "title": "Editar libro",

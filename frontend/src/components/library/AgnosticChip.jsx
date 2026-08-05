@@ -42,7 +42,11 @@ export default function AgnosticChip({ system, onClick }) {
           whiteSpace: 'nowrap',
         }}
       >
-        {t('library.bookCount', { count: system.book_count })}
+        {/* A container holds systems rather than books of its own, so its count
+            reflects the games inside it (issues #261, #262). */}
+        {system.container_kind
+          ? t('systemContainer.count', { count: system.child_count || 0 })
+          : t('library.bookCount', { count: system.book_count })}
       </span>
     </div>
   )
