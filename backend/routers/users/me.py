@@ -3,11 +3,11 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 
 from ...config import OPDS_ENABLED, BASE_URL, get_db
-from ...models import User, Campaign
+from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
+from ..campaigns._helpers import purge_user_data
 from ._schemas import PasswordChange, PreferencesUpdate
 
 router = APIRouter()
@@ -64,14 +64,7 @@ def delete_own_account(
         raise HTTPException(404, "User not found")
     if user.role == "admin":
         raise HTTPException(400, "Admin accounts cannot be self-deleted")
-    uid = user.id
-    for campaign in db.query(Campaign).filter_by(owner_id=uid).all():
-        db.delete(campaign)
-    db.execute(text("DELETE FROM campaign_members WHERE user_id = :uid"), {"uid": uid})
-    db.execute(text("DELETE FROM player_session_notes WHERE user_id = :uid"), {"uid": uid})
-    db.execute(text("DELETE FROM session_availability WHERE user_id = :uid"), {"uid": uid})
-    db.execute(text("DELETE FROM bookmarks WHERE user_id = :uid"), {"uid": uid})
-    db.execute(text("DELETE FROM favorites WHERE user_id = :uid"), {"uid": uid})
+    purge_user_data(db, user.id)
     db.delete(user)
     db.commit()
 

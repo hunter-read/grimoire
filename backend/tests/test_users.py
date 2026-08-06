@@ -353,3 +353,182 @@ class TestDeleteUser:
 
         resp = client.delete(f"/api/users/{user_id}", headers=admin_headers)
         assert resp.status_code == 204
+
+
+class TestDeleteUserReferences:
+    """Every FK to users.id must be cleared before the user row is deleted.
+
+    Content the user merely authored inside someone else's campaign
+    (wiki_pages.created_by_id, campaign_files.uploaded_by_id) is attribution, not
+    ownership: it must survive with the author nulled. Personal rows (shares,
+    saved filters) go with the user.
+    """
+
+    def _make_user(self, client, admin_headers):
+        username = unique_user()
+        resp = client.post(
+            "/api/users",
+            json={"username": username, "password": "refpass123", "role": "player"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()["id"], username
+
+    def _campaign(self, client, gm_headers):
+        return client.post(
+            "/api/campaigns",
+            json={"name": f"Ref {uuid.uuid4().hex[:8]}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()["id"]
+
+    def test_authored_wiki_page_survives_with_author_nulled(
+        self, client, admin_headers, gm_headers
+    ):
+        from backend.config import SessionLocal
+        from backend.models import WikiPage
+
+        user_id, _ = self._make_user(client, admin_headers)
+        cid = self._campaign(client, gm_headers)
+
+        db = SessionLocal()
+        try:
+            page = WikiPage(
+                campaign_id=cid,
+                title="Authored",
+                slug=f"authored-{uuid.uuid4().hex[:8]}",
+                created_by_id=user_id,
+            )
+            db.add(page)
+            db.commit()
+            page_id = page.id
+        finally:
+            db.close()
+
+        resp = client.delete(f"/api/users/{user_id}", headers=admin_headers)
+        assert resp.status_code == 204, resp.text
+
+        db = SessionLocal()
+        try:
+            survived = db.query(WikiPage).filter_by(id=page_id).first()
+            assert survived is not None, "another user's campaign lost a wiki page"
+            assert survived.created_by_id is None
+        finally:
+            db.close()
+
+    def test_uploaded_file_survives_with_uploader_nulled(
+        self, client, admin_headers, gm_headers
+    ):
+        from backend.config import SessionLocal
+        from backend.models import CampaignFile
+
+        user_id, _ = self._make_user(client, admin_headers)
+        cid = self._campaign(client, gm_headers)
+
+        db = SessionLocal()
+        try:
+            f = CampaignFile(
+                campaign_id=cid,
+                stored_path="x.png",
+                filename="x.png",
+                uploaded_by_id=user_id,
+            )
+            db.add(f)
+            db.commit()
+            file_id = f.id
+        finally:
+            db.close()
+
+        resp = client.delete(f"/api/users/{user_id}", headers=admin_headers)
+        assert resp.status_code == 204, resp.text
+
+        db = SessionLocal()
+        try:
+            survived = db.query(CampaignFile).filter_by(id=file_id).first()
+            assert survived is not None
+            assert survived.uploaded_by_id is None
+        finally:
+            db.close()
+
+    def test_personal_rows_are_removed(self, client, admin_headers, gm_headers):
+        """Wiki-page shares, resource shares, and saved filters die with the user."""
+        from backend.config import SessionLocal
+        from backend.models import (
+            CampaignResource,
+            CampaignResourceShare,
+            SavedFilter,
+            WikiPage,
+            WikiPageShare,
+        )
+
+        user_id, _ = self._make_user(client, admin_headers)
+        cid = self._campaign(client, gm_headers)
+
+        db = SessionLocal()
+        try:
+            page = WikiPage(
+                campaign_id=cid, title="Shared", slug=f"shared-{uuid.uuid4().hex[:8]}"
+            )
+            resource = CampaignResource(
+                campaign_id=cid, resource_type="book", resource_id=uuid.uuid4().hex
+            )
+            db.add_all([page, resource])
+            db.flush()
+            db.add_all(
+                [
+                    WikiPageShare(page_id=page.id, user_id=user_id),
+                    CampaignResourceShare(resource_id=resource.id, user_id=user_id),
+                    SavedFilter(user_id=user_id, scope="books", name="mine"),
+                ]
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        resp = client.delete(f"/api/users/{user_id}", headers=admin_headers)
+        assert resp.status_code == 204, resp.text
+
+        db = SessionLocal()
+        try:
+            assert db.query(WikiPageShare).filter_by(user_id=user_id).count() == 0
+            assert db.query(CampaignResourceShare).filter_by(user_id=user_id).count() == 0
+            assert db.query(SavedFilter).filter_by(user_id=user_id).count() == 0
+        finally:
+            db.close()
+
+    def test_self_delete_clears_the_same_references(self, client, admin_headers, gm_headers):
+        """delete_own_account is a separate endpoint and must clean up identically."""
+        from backend.config import SessionLocal
+        from backend.models import SavedFilter, WikiPage
+
+        user_id, username = self._make_user(client, admin_headers)
+        token = client.post(
+            "/api/auth/login", json={"username": username, "password": "refpass123"}
+        ).json()["token"]
+        cid = self._campaign(client, gm_headers)
+
+        db = SessionLocal()
+        try:
+            page = WikiPage(
+                campaign_id=cid,
+                title="Mine",
+                slug=f"mine-{uuid.uuid4().hex[:8]}",
+                created_by_id=user_id,
+            )
+            db.add(page)
+            db.add(SavedFilter(user_id=user_id, scope="books", name="mine"))
+            db.commit()
+            page_id = page.id
+        finally:
+            db.close()
+
+        resp = client.delete("/api/users/me", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 204, resp.text
+
+        db = SessionLocal()
+        try:
+            survived = db.query(WikiPage).filter_by(id=page_id).first()
+            assert survived is not None
+            assert survived.created_by_id is None
+            assert db.query(SavedFilter).filter_by(user_id=user_id).count() == 0
+        finally:
+            db.close()
