@@ -4,6 +4,8 @@ import MediaFolderGroup from './MediaFolderGroup'
 import MediaCard from './MediaCard'
 import LazyGrid from '../LazyGrid'
 import BulkActionBar from '../BulkActionBar'
+import BulkToggleButton from '../BulkToggleButton'
+import ViewModeToggle from '../ViewModeToggle'
 import SortFilterBar from '../library/SortFilterBar'
 import SearchInput from '../library/SearchInput'
 import useTagLabels, { titleCaseTag } from '../../hooks/useTagLabels'
@@ -102,36 +104,47 @@ export default function GalleryLayout({
                 placeholder={t(`${i18n}.filterPlaceholder`)}
               />
             )}
-            <GalleryToolbar config={config} gallery={gallery} showBulk={!isPlayer} />
+            <GalleryToolbar config={config} gallery={gallery} />
           </div>
         </div>
 
-        {/* Sort + filter toolbar (right-aligned), below the header. */}
-        {!bulkMode && (
-          <div style={{ marginBottom: 20 }}>
-            <SortFilterBar
-              state={gallery.sortFilter}
-              onChange={gallery.setSortFilter}
-              sortOptions={sortOptions}
-              showSearch={false}
-              multiFilters={[
-                {
-                  key: 'tags',
-                  label: t('sortFilter.filterTags'),
-                  emptyLabel: t('sortFilter.noTags'),
-                  options: tagOptions,
-                },
-              ]}
-              toggleFilters={[
-                { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
-              ]}
-              saved={gallery.savedFilters.saved}
-              onSavePreset={handleSavePreset}
-              onSetDefault={gallery.savedFilters.setDefault}
-              onDeletePreset={gallery.savedFilters.remove}
-            />
-          </div>
-        )}
+        {/* Single sticky toolbar row: sort + filters on the left, multi-select
+            and view-mode on the right (#255). Stays mounted in bulk mode so the
+            Cancel button remains reachable; the sort/filter controls themselves
+            are inert there but harmless. */}
+        <SortFilterBar
+          sticky
+          state={gallery.sortFilter}
+          onChange={gallery.setSortFilter}
+          sortOptions={sortOptions}
+          showSearch={false}
+          multiFilters={[
+            {
+              key: 'tags',
+              label: t('sortFilter.filterTags'),
+              emptyLabel: t('sortFilter.noTags'),
+              options: tagOptions,
+            },
+          ]}
+          toggleFilters={[
+            { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
+          ]}
+          saved={gallery.savedFilters.saved}
+          onSavePreset={handleSavePreset}
+          onSetDefault={gallery.savedFilters.setDefault}
+          onDeletePreset={gallery.savedFilters.remove}
+          trailing={
+            <>
+              {!isPlayer && (
+                <BulkToggleButton
+                  active={bulkMode}
+                  onToggle={bulkMode ? gallery.bulk.exit : gallery.bulk.enter}
+                />
+              )}
+              <ViewModeToggle mode={gallery.viewMode} onCycle={gallery.cycleViewMode} />
+            </>
+          }
+        />
 
         {bulkMode && (
           <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>

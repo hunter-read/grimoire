@@ -1,26 +1,15 @@
 import { useTranslation } from 'react-i18next'
-import ViewModeToggle from '../ViewModeToggle'
-import BulkToggleButton from '../BulkToggleButton'
 import CollapseExpandButtons from '../CollapseExpandButtons'
 import ToggleSwitch from '../ToggleSwitch'
 
-const toolBtnStyle = {
-  padding: '6px 12px',
-  borderRadius: 6,
-  fontSize: 13,
-  background: 'var(--bg-card)',
-  color: 'var(--text-dim)',
-  border: '1px solid var(--border)',
-  cursor: 'pointer',
-}
-
 /**
- * Header view-controls for a media gallery (maps / tokens / audio): bulk-select,
- * view-mode, a folder-grouping switch, and collapse/expand-all. The standalone
- * search box and the SortFilterBar (sort + filter modal) are rendered separately
- * by GalleryLayout, mirroring the system/library toolbar arrangement.
+ * Header view-controls for a media gallery (maps / tokens / audio): a
+ * folder-grouping switch and collapse/expand-all. The search box, the
+ * SortFilterBar (sort + filter modal), and the bulk-select / view-mode buttons
+ * are rendered separately by GalleryLayout — the latter two live in the sticky
+ * toolbar row alongside sort and filters (#255).
  */
-export default function GalleryToolbar({ config, gallery, showBulk }) {
+export default function GalleryToolbar({ config, gallery }) {
   const { t } = useTranslation()
   const { i18n } = config
   const { bulkMode } = gallery.bulk
@@ -35,13 +24,6 @@ export default function GalleryToolbar({ config, gallery, showBulk }) {
         justifyContent: 'flex-end',
       }}
     >
-      {showBulk && <BulkToggleButton active={bulkMode} onToggle={gallery.bulk.enter} />}
-      {bulkMode && <BulkToggleButton active onToggle={gallery.bulk.exit} />}
-      <ViewModeToggle
-        mode={gallery.viewMode}
-        onCycle={gallery.cycleViewMode}
-        style={toolBtnStyle}
-      />
       <ToggleSwitch
         id={`${i18n}-group-toggle`}
         checked={gallery.grouped}

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import GalleryLayout from './GalleryLayout'
 import { MEDIA_CONFIGS } from './mediaConfig'
 
 // The toolbar has its own coverage; stub it so this test focuses on layout.
 vi.mock('./GalleryToolbar', () => ({
-  default: ({ showBulk }) => <div data-testid="toolbar" data-showbulk={String(showBulk)} />,
+  default: () => <div data-testid="toolbar" />,
 }))
 vi.mock('./MediaFolderGroup', () => ({
   default: ({ folder }) => <div data-testid="folder-group">{folder}</div>,
@@ -131,9 +131,39 @@ describe('GalleryLayout', () => {
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
   })
 
-  it('passes showBulk=false to the toolbar in player mode', () => {
+  // #255: multi-select and view-mode live in the sticky sort/filter row.
+  it('renders the select button inside the sticky sort/filter row', () => {
+    render(<GalleryLayout {...baseProps()} />)
+    const bar = screen.getByTestId('sort-filter-bar')
+    expect(bar).toHaveStyle({ position: 'sticky', top: '0px' })
+    expect(within(bar).getByRole('button', { name: /select/i })).toBeInTheDocument()
+  })
+
+  it('enters bulk mode from the toolbar select button', () => {
+    const gallery = makeGallery()
+    render(<GalleryLayout {...baseProps({ gallery })} />)
+    fireEvent.click(screen.getByRole('button', { name: /select/i }))
+    expect(gallery.bulk.enter).toHaveBeenCalled()
+  })
+
+  // Regression: bulk mode used to render both an "enter" and an "exit" bulk
+  // button, so two Cancel buttons appeared side by side.
+  it('shows exactly one Cancel button in bulk mode and it exits', () => {
+    const exit = vi.fn()
+    const gallery = makeGallery({
+      bulk: { bulkMode: true, enter: vi.fn(), exit, toggleFolder: vi.fn() },
+    })
+    render(<GalleryLayout {...baseProps({ gallery })} />)
+    const cancels = screen.getAllByRole('button', { name: /cancel/i })
+    expect(cancels).toHaveLength(1)
+    fireEvent.click(cancels[0])
+    expect(exit).toHaveBeenCalled()
+  })
+
+  it('hides the select button for players but keeps view-mode', () => {
     render(<GalleryLayout {...baseProps({ isPlayer: true })} />)
-    expect(screen.getByTestId('toolbar')).toHaveAttribute('data-showbulk', 'false')
+    expect(screen.queryByRole('button', { name: /select|cancel/i })).not.toBeInTheDocument()
+    expect(screen.getByTestId('sort-filter-bar')).toBeInTheDocument()
   })
 
   it('renders folder groups in player mode', () => {
