@@ -5,14 +5,15 @@ import { toTitleCase } from '../../utils'
 import RescanButton from '../RescanButton'
 import BookFolderGroup from './BookFolderGroup'
 import CategoryBookItem from './CategoryBookItem'
-import { buildFolderTree } from './folderTree'
+import { buildFolderTree, categoryDepth } from './folderTree'
 
 /** The original (non-slugified) category folder name from a book's relative_path.
- *  Path structure: books/{SystemName}/{categoryDir}/.../book.pdf → parts[2].
+ *  Path structure: books/{SystemName}/{categoryDir}/.../book.pdf → parts[2], or
+ *  one level deeper for a system nested in a container folder (see categoryDepth).
  *  Returns null when the book has no category folder (sits directly in the system dir). */
-function getCategoryFolderName(book) {
+function getCategoryFolderName(book, depth = 2) {
   const parts = (book?.relative_path || '').replace(/\\/g, '/').split('/')
-  return parts.length > 3 ? parts[2] : null
+  return parts.length > depth + 1 ? parts[depth] : null
 }
 
 /**
@@ -75,8 +76,11 @@ export default function SystemCategorySection({
   //  - Custom folders use the original folder name from the book path verbatim
   //    (e.g. "GM Tools", not the slug "gm-tools"), falling back to a humanized
   //    slug only when the path is unavailable.
+  // Books of a container child sit one folder deeper, so every path index below
+  // shifts with the system rather than assuming the flat layout.
+  const depth = categoryDepth(system)
   const isKnownCategory = !!CATEGORY_LABELS[cat] || i18n.exists(`categories.${cat}`)
-  const customLabel = getCategoryFolderName(books?.[0]) || toTitleCase(cat)
+  const customLabel = getCategoryFolderName(books?.[0], depth) || toTitleCase(cat)
   const catLabel = system?.is_one_page
     ? t('systemDetail.books')
     : isKnownCategory
@@ -102,7 +106,7 @@ export default function SystemCategorySection({
 
   // Build a nested folder tree from relative_path (supports arbitrary depth).
   // Books sitting directly in the category dir collect at the tree root.
-  const tree = buildFolderTree(books)
+  const tree = buildFolderTree(books, depth)
   const folderNames = Object.keys(tree.folders).sort((a, b) => a.localeCompare(b))
   const hasFolders = folderNames.length > 0
 

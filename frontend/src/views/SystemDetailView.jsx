@@ -28,6 +28,8 @@ import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
 import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
+import { categoryDepth } from '../components/system/folderTree'
+import { systemScope, groupScope } from '../components/system/rescanScope'
 import BulkToggleButton from '../components/BulkToggleButton'
 import CollapseExpandButtons from '../components/CollapseExpandButtons'
 import ToolbarButton from '../components/ToolbarButton'
@@ -45,36 +47,6 @@ import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 
 const DEFAULT_BOOK_FILTER = { sort: 'title', order: 'asc', filters: {} }
-
-/** The library-root-relative folder a book lives in (its relative_path minus the
- *  filename), e.g. "books/D&D 5e/adventure/Curse of Strahd". Used as the rescan scope. */
-function bookFolderScope(book) {
-  const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
-  return parts.slice(0, -1).join('/')
-}
-
-/** The "books/{SystemName}" scope for a whole system, derived from any of its books. */
-function systemScope(books) {
-  const ref = (books || []).find((b) => b.relative_path)
-  if (!ref) return null
-  const parts = ref.relative_path.replace(/\\/g, '/').split('/')
-  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null
-}
-
-/** The deepest common folder scope shared by a group of books (their category or
- *  subfolder dir). Falls back to the system scope when paths diverge. */
-function groupScope(books) {
-  const dirs = (books || []).map(bookFolderScope).filter(Boolean)
-  if (dirs.length === 0) return null
-  const split = dirs.map((d) => d.split('/'))
-  const common = []
-  for (let i = 0; i < split[0].length; i++) {
-    const seg = split[0][i]
-    if (split.every((p) => p[i] === seg)) common.push(seg)
-    else break
-  }
-  return common.length >= 2 ? common.join('/') : systemScope(books)
-}
 
 export default function SystemDetailView() {
   const { t } = useTranslation()
@@ -258,21 +230,15 @@ export default function SystemDetailView() {
   const updateBookFilter = (next) => setBookFilter(next)
   const handleSaveBookPreset = (name, opts) => saveBookPreset(name, bookFilter, opts)
 
-  // Toggle a single tag in the filter state (used by the card/tag chips).
-  const toggleTag = (tag) => {
-    const cur = bookFilters.tags || []
-    const lower = tag.toLowerCase()
-    const next = cur.some((tg) => tg.toLowerCase() === lower)
-      ? cur.filter((tg) => tg.toLowerCase() !== lower)
-      : [...cur, tag]
-    setBookFilter({
-      ...bookFilter,
-      filters: { ...bookFilters, tags: next.length ? next : undefined },
-    })
-  }
-
   const comparator = bookComparator(bookFilter.sort, bookFilter.order)
   const sortBooks = (books) => [...books].sort(comparator)
+
+  // Books of a system nested in a container sit one folder deeper, so rescan
+  // scopes must account for the container segment. Bound here (where the system
+  // is known) so the scope helpers keep their plain `(books) => scope` shape.
+  const scopeDepth = categoryDepth(system)
+  const systemRescanScope = (books) => systemScope(books, scopeDepth)
+  const categoryRescanScope = (books) => groupScope(books, scopeDepth)
 
   const bookMatchesFilters = bookFilterPredicate(bookFilters, {
     isFavorite: (id) => isFavorite('book', id),
@@ -715,7 +681,7 @@ export default function SystemDetailView() {
                 />
                 {isEditor && (
                   <RescanButton
-                    scope={systemScope(system.books)}
+                    scope={systemRescanScope(system.books)}
                     compact={false}
                     label={t('rescan.button.label')}
                   />
@@ -837,7 +803,7 @@ export default function SystemDetailView() {
               }
               collapsedSubfolders={collapsedSubfolders}
               onToggleSubfolder={toggleSubfolder}
-              groupScope={groupScope}
+              groupScope={categoryRescanScope}
               bookFolderTags={bookFolderTags}
               editingFolderKey={editingFolderKey}
               onEditFolder={setEditingFolderKey}

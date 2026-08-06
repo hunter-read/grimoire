@@ -101,6 +101,11 @@ vi.mock('../components/AddToCampaignModal', () => ({
   default: () => <div data-testid="add-to-campaign" />,
 }))
 
+// Expose the rescan scope so tests can assert which folder a rescan targets.
+vi.mock('../components/RescanButton', () => ({
+  default: ({ scope }) => <div data-testid="rescan" data-scope={scope ?? ''} />,
+}))
+
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 function makeBook(overrides = {}) {
@@ -916,6 +921,95 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     // Still on the container view, now showing the uploaded art.
     expect(screen.getByText('Honey Heist')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByTestId('cover-preview')).toBeInTheDocument())
+  })
+})
+
+describe('SystemDetailView — collapse and expand all categories', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockIsFavorite.mockReturnValue(false)
+  })
+
+  const twoCategories = () =>
+    makeSystem([
+      makeBook({ title: 'PHB', category: 'core', relative_path: 'books/TestSystem/core/phb.pdf' }),
+      makeBook({
+        title: 'Strahd',
+        category: 'adventure',
+        relative_path: 'books/TestSystem/adventure/cos.pdf',
+      }),
+    ])
+
+  it('hides every category body on collapse all, and restores it on expand all', async () => {
+    api.get.mockResolvedValue(twoCategories())
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+    expect(screen.getByText('Strahd')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /collapse all/i }))
+    expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+    expect(screen.queryByText('Strahd')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /expand all/i }))
+    expect(screen.getByText('PHB')).toBeInTheDocument()
+    expect(screen.getByText('Strahd')).toBeInTheDocument()
+  })
+})
+
+describe('SystemDetailView — category depth for a system inside a container', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockIsFavorite.mockReturnValue(false)
+  })
+
+  // books/Dungeons & Dragons/5e/… — one level deeper than a top-level system,
+  // so both the category tree and the rescan scope shift by the container dir.
+  const childBook = (over = {}) =>
+    makeBook({
+      category: 'monster-manuals',
+      relative_path: 'books/Dungeons & Dragons/5e/Monster Manuals/mm.pdf',
+      ...over,
+    })
+  const childSystem = (books) => ({
+    ...makeSystem(books),
+    name: 'Dungeons & Dragons 5e',
+    parent_id: 'container-dnd',
+    parent_name: 'Dungeons & Dragons',
+  })
+
+  it('heads a custom category with its own folder, not the system dir', async () => {
+    // Previously "5e" was read as the category folder, so each custom category
+    // slug produced another top-level "5e" heading with the real category
+    // nested beneath it as a subfolder.
+    api.get.mockResolvedValue(childSystem([childBook({ title: 'Monster Manual' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('Monster Manual')).toBeInTheDocument())
+
+    expect(screen.getByText('Monster Manuals')).toBeInTheDocument()
+    expect(screen.queryByText('5e')).not.toBeInTheDocument()
+  })
+
+  it('scopes a rescan to the system folder, not the whole container', async () => {
+    // A scope of "books/Dungeons & Dragons" would re-scan every edition in the
+    // container rather than just this one.
+    api.get.mockResolvedValue(childSystem([childBook({ title: 'Monster Manual' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('Monster Manual')).toBeInTheDocument())
+
+    const scopes = screen.getAllByTestId('rescan').map((n) => n.getAttribute('data-scope'))
+    expect(scopes).toContain('books/Dungeons & Dragons/5e')
+    expect(scopes).not.toContain('books/Dungeons & Dragons')
+  })
+
+  it('leaves a top-level system scoped to its own folder', async () => {
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    const scopes = screen.getAllByTestId('rescan').map((n) => n.getAttribute('data-scope'))
+    expect(scopes).toContain('books/TestSystem')
   })
 })
 
