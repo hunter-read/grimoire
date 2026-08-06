@@ -12,11 +12,18 @@ const defaultGet = (path) => {
   return Promise.resolve({ books: [] })
 }
 const get = vi.fn(defaultGet)
+// "Save all" sends the whole batch through the bulk endpoint (issue #270).
+const bulkUpdate = vi.fn(() => Promise.resolve({ updated: [], errors: [] }))
 vi.mock('../api', () => ({
   default: {
     patch: (...args) => patch(...args),
     get: (...args) => get(...args),
     post: (...args) => post(...args),
+  },
+  bulk: {
+    update: (...args) => bulkUpdate(...args),
+    addTags: vi.fn(() => Promise.resolve({ updated: [], errors: [], tags: {} })),
+    setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p) => p,
@@ -43,6 +50,8 @@ describe('BulkEditModal', () => {
   beforeEach(() => {
     patch.mockClear()
     get.mockClear()
+    bulkUpdate.mockClear()
+    bulkUpdate.mockResolvedValue({ updated: [], errors: [] })
     get.mockImplementation(defaultGet)
   })
 
@@ -70,10 +79,46 @@ describe('BulkEditModal', () => {
     fireEvent.click(screen.getByText('Save all'))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
-    // Only m1 changed → one PATCH.
-    expect(patch).toHaveBeenCalledTimes(1)
-    expect(patch).toHaveBeenCalledWith('/maps/m1', { tags: ['old', 'new'] })
+    // Only m1 changed → it alone is sent, in a single bulk request (issue #270).
+    expect(bulkUpdate).toHaveBeenCalledTimes(1)
+    expect(bulkUpdate).toHaveBeenCalledWith('map', [{ id: 'm1', tags: ['old', 'new'] }])
+    expect(patch).not.toHaveBeenCalled()
     expect(onSaved).toHaveBeenCalledWith({ m1: { tags: ['old', 'new'] } })
+  })
+
+  // Issue #270: a failed save left the button stuck on "Applying" forever
+  // because `saving` was never reset on the error path.
+  it('re-enables the save button after a failed save', async () => {
+    bulkUpdate.mockRejectedValueOnce(new Error('Internal Server Error'))
+    const onSaved = vi.fn()
+    renderModal({ onSaved })
+
+    fireEvent.change(screen.getByPlaceholderText('Comma-separated tags'), {
+      target: { value: 'old, new' },
+    })
+    fireEvent.click(screen.getByText('Save all'))
+
+    await waitFor(() => expect(screen.getByText('Internal Server Error')).toBeInTheDocument())
+    expect(onSaved).not.toHaveBeenCalled()
+    // Back to "Save all" rather than stuck on the applying label.
+    expect(screen.getByText('Save all')).toBeInTheDocument()
+  })
+
+  it('reports per-item errors and omits those items from onSaved', async () => {
+    bulkUpdate.mockResolvedValueOnce({
+      updated: [],
+      errors: [{ id: 'm1', detail: 'Map not found' }],
+    })
+    const onSaved = vi.fn()
+    renderModal({ onSaved })
+
+    fireEvent.change(screen.getByPlaceholderText('Comma-separated tags'), {
+      target: { value: 'old, new' },
+    })
+    fireEvent.click(screen.getByText('Save all'))
+
+    await waitFor(() => expect(screen.getByText('Map not found')).toBeInTheDocument())
+    expect(onSaved).not.toHaveBeenCalled()
   })
 
   it('edits system genres via the genre combobox', async () => {
@@ -95,7 +140,7 @@ describe('BulkEditModal', () => {
     fireEvent.click(screen.getByText('Save all'))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
-    expect(patch).toHaveBeenCalledWith('/systems/s1', { genres: ['Fantasy'] })
+    expect(bulkUpdate).toHaveBeenCalledWith('system', [{ id: 's1', genres: ['Fantasy'] }])
     expect(onSaved).toHaveBeenCalledWith({ s1: { genres: ['Fantasy'] } })
   })
 
@@ -128,11 +173,14 @@ describe('BulkEditModal', () => {
     fireEvent.click(screen.getByText('Save all'))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
-    expect(patch).toHaveBeenCalledWith('/systems/s1', {
-      description: 'A dark realm',
-      publishers: [{ name: 'Acme', url: '' }],
-      is_explicit: true,
-    })
+    expect(bulkUpdate).toHaveBeenCalledWith('system', [
+      {
+        id: 's1',
+        description: 'A dark realm',
+        publishers: [{ name: 'Acme', url: '' }],
+        is_explicit: true,
+      },
+    ])
   })
 
   it('lazy-fetches books for the cover picker when absent', async () => {
@@ -164,10 +212,13 @@ describe('BulkEditModal', () => {
       fireEvent.click(screen.getByText('Save all'))
 
       await waitFor(() => expect(onSaved).toHaveBeenCalled())
-      expect(patch).toHaveBeenCalledTimes(3)
-      for (const id of ['b1', 'b2', 'b3']) {
-        expect(patch).toHaveBeenCalledWith(`/books/${id}`, { category: 'adventure' })
-      }
+      // All three books ride in a single request rather than three PATCHes.
+      expect(bulkUpdate).toHaveBeenCalledTimes(1)
+      expect(bulkUpdate).toHaveBeenCalledWith('book', [
+        { id: 'b1', category: 'adventure' },
+        { id: 'b2', category: 'adventure' },
+        { id: 'b3', category: 'adventure' },
+      ])
       expect(onSaved).toHaveBeenCalledWith({
         b1: { category: 'adventure' },
         b2: { category: 'adventure' },

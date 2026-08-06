@@ -8,11 +8,12 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import get_db
 from ...models import Audio, AudioFolder
-from ...services import tag_service
+from ...services import bulk_service, tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import _extract_embedded_art, _find_folder_artwork, archive_ext, archive_mime
+from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access
-from ._schemas import AudioUpdate, FolderTagsUpdate
+from ._schemas import AudioBulkUpdate, AudioUpdate, FolderTagsUpdate
 
 # Map audio extensions to the mimetype the browser <audio> element expects.
 _AUDIO_MIME = {
@@ -153,10 +154,48 @@ def update_audio(
     a = db.query(Audio).filter_by(id=audio_id).first()
     if not a:
         raise HTTPException(404)
-    payload = data.model_dump(exclude_none=True)
-    tag_service.sync_tags_from_payload(db, "audio", a.id, payload)
-    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
-    for field, value in payload.items():
-        setattr(a, field, value)
+    bulk_service.apply_updates(db, "audio", a, data.model_dump(exclude_none=True))
     db.commit()
     return {"status": "ok"}
+
+
+def bulk_update_audio(
+    data: AudioBulkUpdate,  # type: ignore[valid-type]
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Apply per-track edits for a whole selection in one transaction (issue #270)."""
+    return bulk_service.run_bulk_update(
+        db,
+        "audio",
+        list(data.items),  # type: ignore[attr-defined]
+        payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
+        not_found_detail="Audio not found",
+    )
+
+
+def bulk_add_audio_tags(
+    data: BulkAddTags,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Additively tag a whole selection of audio tracks in one transaction."""
+    return bulk_service.run_bulk_add_tags(
+        db, "audio", data.ids, data.tags, not_found_detail="Audio not found"
+    )
+
+
+def bulk_update_audio_folders(
+    data: BulkFolderTags,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Set tags on many audio folders in one transaction."""
+    folders = []
+    for entry in data.folders:
+        internals = tag_service.upsert_folder_tags(
+            db, AudioFolder, entry.path, entry.tags, category="audio"
+        )
+        folders.append({"path": entry.path, "tags": internals})
+    db.commit()
+    return {"folders": folders}

@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SystemDetailView from './SystemDetailView'
-import api from '../api'
+import api, { bulk } from '../api'
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,11 @@ vi.mock('../api', () => ({
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
     upload: vi.fn(() => Promise.resolve({})),
+  },
+  bulk: {
+    addTags: vi.fn(() => Promise.resolve({ updated: [], errors: [], tags: {} })),
+    update: vi.fn(() => Promise.resolve({ updated: [], errors: [] })),
+    setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
@@ -797,10 +802,11 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
 
     fireEvent.click(screen.getByText('bulk-apply-tags'))
 
-    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2))
-    const patchedTags = api.patch.mock.calls.map((c) => c[1].tags)
-    expect(patchedTags).toContainEqual(['old', 'fresh'])
-    expect(patchedTags).toContainEqual(['fresh'])
+    // Issue #270: both books go in one request rather than a PATCH each; the
+    // server merges the new tag onto each book's existing tags.
+    await waitFor(() => expect(bulk.addTags).toHaveBeenCalledTimes(1))
+    expect(bulk.addTags).toHaveBeenCalledWith('book', ['b1', 'b2'], ['fresh'])
+    expect(api.patch).not.toHaveBeenCalled()
     // Selection is cleared after applying (count resets to 0).
     await waitFor(() => expect(screen.getByTestId('bulk-count').textContent).toBe('0'))
   })

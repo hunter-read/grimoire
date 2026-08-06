@@ -11,12 +11,13 @@ from fastapi.responses import FileResponse
 
 from ...config import THUMB_DIR, get_db
 from ...models import Token, TokenFolder
-from ...services import tag_service
+from ...services import bulk_service, tag_service
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
+from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access
 from ._helpers import _allow_explicit
-from ._schemas import FolderTagsUpdate, TokenUpdate
+from ._schemas import FolderTagsUpdate, TokenBulkUpdate, TokenUpdate
 
 router = APIRouter()
 
@@ -168,10 +169,52 @@ def update_token(
     t = db.query(Token).filter_by(id=token_id).first()
     if not t:
         raise HTTPException(404)
-    payload = data.model_dump(exclude_none=True)
-    tag_service.sync_tags_from_payload(db, "token", t.id, payload)
-    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
-    for field, value in payload.items():
-        setattr(t, field, value)
+    bulk_service.apply_updates(db, "token", t, data.model_dump(exclude_none=True))
     db.commit()
     return {"status": "ok"}
+
+
+def bulk_update_tokens(
+    data: TokenBulkUpdate,  # type: ignore[valid-type]
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Apply per-token edits for a whole selection in one transaction (issue #270).
+
+    Replaces the frontend's N-way PATCH fan-out, which raced on tag creation and
+    returned intermittent 500s.
+    """
+    return bulk_service.run_bulk_update(
+        db,
+        "token",
+        list(data.items),  # type: ignore[attr-defined]
+        payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
+        not_found_detail="Token not found",
+    )
+
+
+def bulk_add_token_tags(
+    data: BulkAddTags,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Additively tag a whole selection of tokens in one transaction."""
+    return bulk_service.run_bulk_add_tags(
+        db, "token", data.ids, data.tags, not_found_detail="Token not found"
+    )
+
+
+def bulk_update_token_folders(
+    data: BulkFolderTags,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Set tags on many token folders in one transaction."""
+    folders = []
+    for entry in data.folders:
+        internals = tag_service.upsert_folder_tags(
+            db, TokenFolder, entry.path, entry.tags, category="token"
+        )
+        folders.append({"path": entry.path, "tags": internals})
+    db.commit()
+    return {"folders": folders}

@@ -6,10 +6,13 @@ from .core import (
     list_audio,
     list_audio_folders,
     update_audio_folder,
+    bulk_update_audio_folders,
     get_audio,
     serve_audio_file,
     serve_audio_artwork,
     update_audio,
+    bulk_update_audio,
+    bulk_add_audio_tags,
 )
 
 router = APIRouter(tags=["audio"])
@@ -68,4 +71,37 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update audio metadata",
     description="Updates editable fields on a track (description, tags). GM or admin role required.",
+)
+# Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
+# creation and 500'd; these take the whole batch in one transaction.
+router.add_api_route(
+    "/audio/bulk",
+    bulk_update_audio,
+    methods=["POST"],
+    summary="Bulk update audio tracks",
+    description=(
+        "Applies per-track edits for many tracks in one transaction. "
+        "Body: {items: [{id, description?, tags?}]}. Unknown ids are reported in "
+        "`errors` and skipped. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/audio/bulk/tags",
+    bulk_add_audio_tags,
+    methods=["POST"],
+    summary="Bulk add tags to audio tracks",
+    description=(
+        "Additively applies tags to many tracks in one transaction. "
+        "Body: {ids: [...], tags: [...]}. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/audio-folders/bulk",
+    bulk_update_audio_folders,
+    methods=["POST"],
+    summary="Bulk set audio folder tags",
+    description=(
+        "Sets tags on many audio folders in one transaction. "
+        "Body: {folders: [{path, tags}]}. GM or admin role required."
+    ),
 )

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LibraryView from './LibraryView'
-import api from '../api'
+import api, { bulk } from '../api'
 
 vi.mock('../api', () => ({
   default: {
@@ -11,6 +11,11 @@ vi.mock('../api', () => ({
     patch: vi.fn(() => Promise.resolve({})),
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
+  },
+  bulk: {
+    addTags: vi.fn(() => Promise.resolve({ updated: [], errors: [], tags: {} })),
+    update: vi.fn(() => Promise.resolve({ updated: [], errors: [] })),
+    setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
@@ -323,10 +328,11 @@ describe('LibraryView', () => {
       await userEvent.type(input, 'grim')
       await userEvent.click(screen.getByRole('button', { name: /add tags/i }))
 
-      await waitFor(() =>
-        expect(api.patch).toHaveBeenCalledWith('/systems/s1', { tags: ['osr', 'grim'] })
-      )
-      expect(api.patch).not.toHaveBeenCalledWith('/systems/s2', expect.anything())
+      // Issue #270: one bulk request for the selection, not one PATCH per system.
+      // The server merges the new tags onto each item's existing ones.
+      await waitFor(() => expect(bulk.addTags).toHaveBeenCalledWith('system', ['s1'], ['grim']))
+      expect(bulk.addTags).toHaveBeenCalledTimes(1)
+      expect(api.patch).not.toHaveBeenCalled()
     })
 
     it('opens the bulk edit modal for the selected systems', async () => {

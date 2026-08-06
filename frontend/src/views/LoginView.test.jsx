@@ -118,15 +118,17 @@ describe('LoginView', () => {
         })
       }
       if (url === '/api/auth/guest-login') {
+        const body = {
+          token: 'gtok',
+          user: { username: 'guest_x', role: 'guest' },
+          campaign_id: 'camp42',
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () =>
-            Promise.resolve({
-              token: 'gtok',
-              user: { username: 'guest_x', role: 'guest' },
-              campaign_id: 'camp42',
-            }),
+          // api.js reads the body as text and parses it itself (issue #270).
+          text: () => Promise.resolve(JSON.stringify(body)),
+          json: () => Promise.resolve(body),
         })
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })

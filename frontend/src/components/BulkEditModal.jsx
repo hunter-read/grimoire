@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuChevronLeft, LuChevronRight, LuDownload, LuCopy } from 'react-icons/lu'
-import api from '../api'
+import api, { bulk as bulkApi } from '../api'
 import SystemBulkEditFields from './system/SystemBulkEditFields'
 import BookBulkEditFields from './system/BookBulkEditFields'
 import ApplyToAllDialog from './system/ApplyToAllDialog'
@@ -9,23 +9,20 @@ import MetadataFetchDialog from './system/MetadataFetchDialog'
 import { intoBookForm } from './system/metadataFieldValue'
 import { cleanLinks } from './metadata/metadataUtils'
 
-// Per-type editable fields and the PATCH endpoint they save to. Tags are edited
-// as a comma-separated string and split on save.
+// Per-type editable fields. Saving goes through the shared bulk endpoint for
+// this type (see `bulk` in api.js). Tags are edited as a comma-separated string
+// and split on save.
 const CONFIG = {
   map: {
-    endpoint: (id) => `/maps/${id}`,
     fields: ['tags', 'grid_size'],
   },
   token: {
-    endpoint: (id) => `/tokens/${id}`,
     fields: ['tags', 'is_explicit'],
   },
   audio: {
-    endpoint: (id) => `/audio/${id}`,
     fields: ['tags'],
   },
   book: {
-    endpoint: (id) => `/books/${id}`,
     // Metadata add-ons serve books and systems; the carousel offers the same
     // "Fetch metadata" step the single-item editors do (issue #260).
     metadataKind: 'books',
@@ -56,7 +53,6 @@ const CONFIG = {
     custom: true,
   },
   system: {
-    endpoint: (id) => `/systems/${id}`,
     metadataKind: 'systems',
     // Systems use a bespoke editor body (SystemBulkEditFields) that mirrors the
     // full single-system editor, so tags/publishers/genres/links stay native
@@ -175,8 +171,8 @@ const stringToTags = (s) =>
 
 /**
  * Edit a set of items one at a time via a carousel. Receives the selected item
- * objects and a `type` (book|map|token). On save, persists each changed item
- * via its single-item PATCH endpoint and calls `onSaved` with a map of
+ * objects and a `type` (book|map|token|audio|system). On save, persists every
+ * changed item in a single bulk request and calls `onSaved` with a map of
  * { id: changedFields } so the parent view can patch local state.
  */
 export default function BulkEditModal({
@@ -324,7 +320,6 @@ export default function BulkEditModal({
     setError(null)
     try {
       const changedById = {}
-      const requests = []
       for (const it of items) {
         const d = drafts[it.id]
         const patch = {}
@@ -347,15 +342,28 @@ export default function BulkEditModal({
             patch[f] = d[f]
           }
         }
-        if (Object.keys(patch).length) {
-          changedById[it.id] = patch
-          requests.push(api.patch(cfg.endpoint(it.id), patch))
+        if (Object.keys(patch).length) changedById[it.id] = patch
+      }
+
+      const changes = Object.entries(changedById).map(([id, patch]) => ({ id, ...patch }))
+      if (changes.length) {
+        // One request for the whole batch: the old per-item PATCH fan-out raced
+        // on tag creation server-side and 500'd (issue #270).
+        const { errors } = await bulkApi.update(type, changes)
+        if (errors?.length) {
+          // Items the server rejected individually (unknown id, name clash) must
+          // not be reported to the parent as saved.
+          for (const { id } of errors) delete changedById[id]
+          setError(errors.map((e) => e.detail).join('; '))
+          return
         }
       }
-      await Promise.all(requests)
       onSaved(changedById)
     } catch (err) {
       setError(err.message)
+    } finally {
+      // Always released, so a failed save re-enables the button rather than
+      // leaving it stuck on "Applying" (issue #270).
       setSaving(false)
     }
   }

@@ -8,6 +8,8 @@ from .core import (
     list_systems,
     update_book_folder,
     update_system,
+    bulk_update_systems,
+    bulk_add_system_tags,
 )
 from .covers import delete_system_cover, serve_system_cover, upload_system_cover
 from .metadata import fetch_metadata, list_metadata_sources, search_metadata
@@ -66,6 +68,29 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update game system metadata",
     description="Updates editable fields on a game system. GM or admin role required.",
+)
+# Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
+# creation and 500'd; these take the whole batch in one transaction.
+router.add_api_route(
+    "/bulk",
+    bulk_update_systems,
+    methods=["POST"],
+    summary="Bulk update game systems",
+    description=(
+        "Applies per-system edits for many systems in one transaction. "
+        "Body: {items: [{id, ...GameSystemUpdate fields}]}. Unknown ids and name "
+        "clashes are reported in `errors` and skipped. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/bulk/tags",
+    bulk_add_system_tags,
+    methods=["POST"],
+    summary="Bulk add tags to game systems",
+    description=(
+        "Additively applies tags to many systems in one transaction. "
+        "Body: {ids: [...], tags: [...]}. GM or admin role required."
+    ),
 )
 
 # Cover art. A ``cover.*``/``folder.*`` image in the system's library folder wins

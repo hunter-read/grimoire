@@ -206,6 +206,37 @@ Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a sc
 ```
 Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is cooperative - the running scan checks for the stop signal after each file and exits at the next safe checkpoint. Poll `/api/scan-status` until `running` is `false` to confirm it has stopped.
 
+### Bulk operations
+
+Every bulk-editable collection (`books`, `systems`, `maps`, `tokens`, `audio`)
+exposes the same pair of endpoints, and the three media folder collections
+(`map-folders`, `token-folders`, `audio-folders`) expose a bulk folder-tag route.
+All require the gm/admin role.
+
+| Route | Body | Purpose |
+|-------|------|---------|
+| `POST /api/<collection>/bulk` | `{items: [{id, ...PATCH fields}]}` | Per-item field edits. A per-item `tags` list **replaces** that item's tags |
+| `POST /api/<collection>/bulk/tags` | `{ids: [...], tags: [...]}` | **Additively** applies tags — existing tags are kept |
+| `POST /api/{map,token,audio}-folders/bulk` | `{folders: [{path, tags}]}` | Sets tags on many folder paths |
+
+Each request is applied in a **single transaction**, which is what makes them
+safe: the previous client-side approach of one PATCH per selected item raced on
+the unique `tags.internal` constraint when several requests created the same new
+tag concurrently, returning intermittent `500`s (issue #270).
+
+All three return the same shape:
+
+```json
+{"updated": ["id1", "id2"], "errors": [{"id": "id3", "detail": "Token not found"}]}
+```
+
+Items that cannot be applied — an unknown id, or a system rename that clashes
+with an existing name — are reported in `errors` and **skipped**, so one bad
+entry never discards the rest of the batch. `bulk/tags` additionally returns
+`tags` keyed by id with each resource's resulting tag list, letting clients patch
+local state without refetching. A batch is capped at 1000 items; `ids`/`items`
+must be non-empty (`422` otherwise).
+
 ### Game Systems
 
 | Endpoint | Method | Auth | Description |
@@ -213,6 +244,8 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 | `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool), `parent_id` (list one container's children), `include_children` (bool; flat list including nested systems) |
 | `/api/systems/:id` | GET | any | System detail + full book list, plus `children` (the nested systems when this is a container). Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books |
 | `/api/systems/:id` | PATCH | gm/admin | Update metadata (see fields below) |
+| `/api/systems/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}`. A name clash fails only that item |
+| `/api/systems/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/systems/:id/cover` | GET | any | Serves the system's folder cover art or uploaded cover image. 404 when it has neither |
 | `/api/systems/:id/cover` | POST | gm/admin | Upload a cover image (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB |
 | `/api/systems/:id/cover` | DELETE | gm/admin | Remove the uploaded cover. Folder art is library-managed and unaffected |
@@ -283,6 +316,8 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
 | `/api/books/:id` | GET | any | Book detail with game system |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`. `license` overrides the system license for this book (blank inherits it). `file_size`/`page_count`/`mime_type` are read-only. |
+| `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
+| `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background — poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
 | `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any PDF: a text-layer book is re-extracted and its FTS rows rebuilt; an image-only book is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed. Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for non-PDFs, 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
@@ -364,8 +399,11 @@ books-only and are not indexed here.
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
 | `/api/maps/:id/thumbnail` | GET | any | WebP thumbnail |
+| `/api/maps/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, map_type?, grid_size?}]}` |
+| `/api/maps/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/map-folders` | GET | any | List folder tag assignments |
 | `/api/map-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
+| `/api/map-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
 
 ### Tokens
 
@@ -376,8 +414,11 @@ books-only and are not indexed here.
 | `/api/tokens/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit` |
 | `/api/tokens/:id/file` | GET | any | Download the token image, or the archive (served with the archive's MIME type) |
 | `/api/tokens/:id/thumbnail` | GET | any | WebP thumbnail |
+| `/api/tokens/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, is_explicit?}]}` |
+| `/api/tokens/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/token-folders` | GET | any | List folder tag assignments |
 | `/api/token-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
+| `/api/token-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
 
 ### Audio
 
@@ -390,8 +431,11 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
 | `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
 | `/api/audio/:id/artwork` | GET | any | Folder cover art or embedded album art. 404 if none |
+| `/api/audio/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?}]}` |
+| `/api/audio/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/audio-folders` | GET | any | List folder tag assignments |
 | `/api/audio-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
+| `/api/audio-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
 
 **Access control on media by-id routes:** As with books, the library-browse list routes (`GET /api/maps`, `/api/tokens`, `/api/audio` and their `*-folders`) are blocked for guests, but the by-id routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/artwork`) are reachable by any authenticated user and enforce access themselves. A guest may only read a map/token/audio item **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); otherwise the route returns 403. An explicit token returns 403 for a non-guest who has `allow_explicit` disabled, on the file/thumbnail routes as well as `GET /api/tokens/:id`. An item deliberately shared into a guest's campaign is served regardless of its explicit flag.
 

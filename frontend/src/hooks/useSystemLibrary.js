@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import api from '../api'
+import { bulk as bulkApi } from '../api'
 import useBulkSelection from './useBulkSelection'
 
 /**
@@ -8,9 +8,8 @@ import useBulkSelection from './useBulkSelection'
  *
  * Tag filtering is OR-based — a system matches if it carries *any* selected
  * tag — mirroring the media galleries (see `useMediaGallery`). Bulk tag apply
- * merges new tags into each selected system's existing tags and persists them
- * via the per-system `PATCH /systems/{id}` endpoint, the same shape the media
- * views use.
+ * merges new tags into the whole selection via the single-request
+ * `POST /systems/bulk/tags` endpoint, the same shape the media views use.
  *
  * @param {Array|null} systems - the loaded systems list (null while loading)
  * @param {Function} setSystems - state setter for the systems list, used to
@@ -48,22 +47,18 @@ export default function useSystemLibrary(systems, setSystems) {
 
   const selectedSystems = systems ? systems.filter((s) => selectedIds.has(s.id)) : []
 
-  // Merge `newTags` into every selected system and persist each via PATCH.
+  // Merge `newTags` into every selected system in a single request. The old
+  // one-PATCH-per-system fan-out raced on tag creation server-side (issue #270).
   const applyTags = async (newTags) => {
     if (!systems) return
     setApplying(true)
     try {
-      const edited = {}
-      const requests = []
-      for (const id of selectedIds) {
-        const system = systems.find((s) => s.id === id)
-        if (!system) continue
-        const merged = [...new Set([...(system.tags || []), ...newTags])]
-        edited[id] = { tags: merged }
-        requests.push(api.patch(`/systems/${id}`, { tags: merged }))
-      }
-      await Promise.all(requests)
-      applyEdits(edited)
+      const ids = [...selectedIds].filter((id) => systems.some((s) => s.id === id))
+      if (!ids.length) return
+      const { tags } = await bulkApi.addTags('system', ids, newTags)
+      // The server returns each system's resulting tag list, so local state is
+      // patched from what actually landed rather than a client-side guess.
+      applyEdits(Object.fromEntries(ids.map((id) => [id, { tags: tags?.[id] || [] }])))
       bulk.clear()
     } finally {
       setApplying(false)

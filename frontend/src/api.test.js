@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import api, { mediaUrl, campaigns, auth, opds, settings } from './api'
+import api, { mediaUrl, campaigns, auth, opds, settings, bulk } from './api'
 
+// Mirrors a real Response: handleResponse reads the body as text and parses it
+// itself, so an error body that isn't JSON can't throw a misleading SyntaxError
+// (issue #270).
 function mockFetch(status, body) {
   return vi.fn().mockResolvedValue({
     status,
     ok: status >= 200 && status < 300,
+    text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body)),
     json: () => Promise.resolve(body),
   })
 }
@@ -58,6 +62,30 @@ describe('api', () => {
       global.fetch = mockFetch(404, { detail: 'Not found' })
 
       await expect(api.get('/books/ghost')).rejects.toMatchObject({ status: 404 })
+    })
+
+    // Issue #270: FastAPI returns the plain text "Internal Server Error" for an
+    // unhandled exception. Parsing that as JSON threw a SyntaxError that escaped
+    // the caller's catch and masked the real failure.
+    it('surfaces a non-JSON error body instead of a JSON parse error', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 500,
+        ok: false,
+        text: () => Promise.resolve('Internal Server Error'),
+      })
+
+      await expect(api.patch('/tokens/x', { tags: ['a'] })).rejects.toThrow('Internal Server Error')
+    })
+
+    it('falls back to statusText when the error body is empty', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 502,
+        ok: false,
+        statusText: 'Bad Gateway',
+        text: () => Promise.resolve(''),
+      })
+
+      await expect(api.get('/x')).rejects.toThrow('Bad Gateway')
     })
 
     it('dispatches grimoire:unauthorized event on 401', async () => {
@@ -255,6 +283,7 @@ describe('api', () => {
         status: 200,
         ok: true,
         headers: { get: () => 'attachment; filename="f"' },
+        text: () => Promise.resolve('{}'),
         json: () => Promise.resolve({}),
         blob: () => Promise.resolve(new Blob(['x'])),
       })
@@ -360,6 +389,61 @@ describe('api', () => {
         settings.revokeApiKey(),
       ])
       expect(fetch).toHaveBeenCalled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Bulk helpers (issue #270) — one request per selection, not one per item.
+  // ---------------------------------------------------------------------------
+
+  describe('bulk helpers', () => {
+    beforeEach(() => {
+      global.fetch = mockFetch(200, { updated: [], errors: [] })
+    })
+
+    const lastCall = () => fetch.mock.calls[fetch.mock.calls.length - 1]
+
+    it('POSTs one request to the collection tag endpoint', async () => {
+      await bulk.addTags('token', ['a', 'b'], ['goblin'])
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/tokens/bulk/tags')
+      expect(options.method).toBe('POST')
+      expect(JSON.parse(options.body)).toEqual({ ids: ['a', 'b'], tags: ['goblin'] })
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('POSTs per-item edits as a single batch', async () => {
+      await bulk.update('book', [{ id: 'b1', title: 'T' }])
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/books/bulk')
+      expect(JSON.parse(options.body)).toEqual({ items: [{ id: 'b1', title: 'T' }] })
+    })
+
+    it('POSTs folder tags to the matching folder collection', async () => {
+      await bulk.setFolderTags('map', [{ path: 'Caves', tags: ['dark'] }])
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/map-folders/bulk')
+      expect(JSON.parse(options.body)).toEqual({ folders: [{ path: 'Caves', tags: ['dark'] }] })
+    })
+
+    it('routes every supported resource type', async () => {
+      await Promise.all([
+        bulk.addTags('map', ['1'], ['t']),
+        bulk.addTags('audio', ['1'], ['t']),
+        bulk.addTags('system', ['1'], ['t']),
+        bulk.update('system', [{ id: '1' }]),
+        bulk.setFolderTags('audio', [{ path: 'p', tags: [] }]),
+        bulk.setFolderTags('token', [{ path: 'p', tags: [] }]),
+      ])
+      const urls = fetch.mock.calls.map(([u]) => u)
+      expect(urls).toEqual([
+        '/api/maps/bulk/tags',
+        '/api/audio/bulk/tags',
+        '/api/systems/bulk/tags',
+        '/api/systems/bulk',
+        '/api/audio-folders/bulk',
+        '/api/token-folders/bulk',
+      ])
     })
   })
 })
