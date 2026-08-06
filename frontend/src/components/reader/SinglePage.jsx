@@ -8,6 +8,9 @@ import { PAGE_WIDTH, animStyle } from './pageRender'
  * Pass `pageUrl(page, width)` to override where page images come from (defaults
  * to the book page endpoint). When `wordsCacheRef` is omitted the selectable
  * text overlay is skipped — used by maps, which render pages without text.
+ *
+ * `renderWidth` is the width to request the page image at; the reader raises it
+ * when zoomed so text stays sharp instead of being scaled up as a bitmap.
  */
 export default function SinglePage({
   bookId,
@@ -21,6 +24,7 @@ export default function SinglePage({
   activeSearchQuery,
   activeHighlight,
   pageUrl,
+  renderWidth = PAGE_WIDTH,
 }) {
   const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   const wd = wordsCacheRef?.current[currentPage]
@@ -49,7 +53,7 @@ export default function SinglePage({
           }}
         >
           <img
-            src={urlFor(currentPage, PAGE_WIDTH)}
+            src={urlFor(currentPage, renderWidth)}
             alt={getAlt(currentPage)}
             draggable={false}
             style={{
@@ -71,7 +75,7 @@ export default function SinglePage({
         </div>
       ) : (
         <img
-          src={urlFor(currentPage, PAGE_WIDTH)}
+          src={urlFor(currentPage, renderWidth)}
           alt={getAlt(currentPage)}
           style={{
             maxHeight: '100%',

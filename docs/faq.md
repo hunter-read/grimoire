@@ -55,6 +55,38 @@ This lets you keep your existing file structure on the host without adding an ex
 
 ---
 
+## How do I zoom in on a page?
+
+In the reader's **Page** and **Spread** modes, the toolbar has a zoom cluster - minus, the current level, and plus - with a reset button that appears once you are zoomed in. Zoom runs from 100% to 200% in 25% steps.
+
+There are also keyboard shortcuts:
+
+| Key | Action |
+| --- | --- |
+| `+` or `=` | Zoom in |
+| `-` | Zoom out |
+| `0` | Reset to 100% |
+
+While zoomed, drag with the mouse (or one finger on touch) to pan around the page. Pinch-to-zoom works on touch devices as usual. Zoom resets when you turn the page.
+
+**PDF** mode is the browser's own PDF viewer, so use its built-in zoom there instead.
+
+> Past 150%, Grimoire re-requests the page at a higher render resolution so text stays sharp rather than being scaled up. The 200% ceiling is where the source render stops being able to keep up.
+
+---
+
+## Can I make the scroll wheel zoom instead of turning pages?
+
+Yes - **Settings → Reader → Scroll wheel** offers three choices:
+
+- **Turn pages** - scrolling moves through the book (the default)
+- **Zoom** - scrolling zooms in and out, centred on the cursor
+- **Nothing** - scrolling is left alone, so a zoomed page scrolls normally
+
+Whichever you pick, **Ctrl + scroll** (**Cmd + scroll** on macOS) always zooms, matching the browser-wide convention.
+
+---
+
 ## How do I configure OIDC with Authentik?
 
 Below is a complete setup for Authentik that maps groups to Grimoire roles and controls NSFW access via a separate group.

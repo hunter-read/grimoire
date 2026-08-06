@@ -205,6 +205,8 @@
     "keyboardShortcuts": "Atajos de teclado",
     "shortcutPrevNext": "Página anterior / siguiente",
     "shortcutPrevNextVertical": "Página anterior / siguiente (vertical)",
+    "shortcutZoom": "Acercar / alejar",
+    "shortcutZoomReset": "Restablecer zoom",
     "shortcutFavorite": "Alternar favorito",
     "shortcutToc": "Índice",
     "shortcutBookmarks": "Marcadores",
@@ -212,6 +214,9 @@
     "shortcutHelp": "Esta ayuda",
     "shortcutClose": "Cerrar paneles",
     "spreadCover": "Portada",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "zoomReset": "Restablecer zoom",
     "spreadIncludeCover": "Incluir portada en la doble página (emparejar páginas 1-2, 3-4…)",
     "spreadExcludeCover": "Excluir portada de la doble página (emparejar páginas 2-3, 4-5…)",
     "archiveNotViewable": "Este es un archivo comprimido y no se puede ver en el lector. Descárgalo para abrir su contenido."
@@ -520,8 +525,11 @@
       "page": "Página",
       "spread": "Doble página",
       "pdf": "PDF",
-      "scrollWheelNav": "Navegación con la rueda del ratón",
-      "scrollWheelNavHint": "Pasa páginas desplazándote. Desactívalo si prefieres que la rueda del ratón no haga nada."
+      "scrollWheel": "Rueda del ratón",
+      "scrollWheelHint": "Qué hace la rueda del ratón sobre una página. Ctrl/Cmd + rueda siempre hace zoom, elijas lo que elijas.",
+      "wheelPage": "Pasar páginas",
+      "wheelZoom": "Zoom",
+      "wheelNone": "Nada"
     },
     "library": {
       "title": "Navegación de la biblioteca",

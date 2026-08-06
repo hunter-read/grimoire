@@ -32,8 +32,9 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **Shared Tags** - One tag catalog across systems, books, maps, tokens, and audio. Tags match on a lowercased internal key with an editable display name, so "Draw Steel" and "draw steel" are the same tag. A dedicated Tags page lists every tag with usage counts, lets you rename/merge/delete, and browses all items carrying a tag; clicking a tag anywhere jumps there. Filter dropdowns show only tags used on the current page, and campaign resources can be bulk-added by tag
 - **View Modes** - Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
 - **Metadata Editor** - Rich metadata for systems (multiple genres, dice/materials, system family, parent system + edition, license, year, and multiple generic + character-builder links) and books (authors, artists, genres, ISBN, version, language, a per-book license override, a variable-precision publication date, and multiple links). Genres, system families, parent systems, licenses, and dice/materials are drawn from curated lists you manage in **Settings → Metadata** (each section collapsible; defaults plus your own custom values). A *parent system* groups related systems (e.g. D&D 5e and AD&D under "Dungeons & Dragons"), and an *edition* string combines with it for display ("Cyberpunk" + "Red" → "Cyberpunk Red")
-- **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on
-- **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
+- **Community Add-ons** - Install metadata scrapers contributed by the community to fill in game system and book details from external sources (TTRPG Wiki for systems, DriveThruRPG for books). Open a system or book, hit **Fetch metadata**, pick a match, and review a field-by-field diff before anything is written - values you have already set are never pre-selected. Definitions live in the separate [community-add-ons](https://github.com/grimoire-codex/community-add-ons) repo, so a source that changes can be fixed without waiting for a Grimoire release. Manage and update them in **Settings → Add-ons**; see [`docs/addons.md`](docs/addons.md)
+- **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on. Sort, filters, saved presets, multi-select, and the view switcher share a single toolbar row that stays pinned to the top of the page as you scroll, so bulk-selecting entries near the bottom of a long library no longer means scrolling back up
+- **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. An "apply to all" button opens a checklist of fields to copy from the item you are on to the whole selection - tick Category and every selected book moves at once - and books and systems can pull metadata from an installed add-on without leaving the carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
 - **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
 - **OPDS Catalog** - Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
 - **Docker Ready** - One command to run, mount your library directory, done
@@ -237,6 +238,8 @@ Archive files placed anywhere under `books/` are shown alongside your books in t
 
 Archives are treated as opaque downloads - Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive. Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) additionally get a cover thumbnail generated from the first image inside them.
 
+Archives are also recognized under `maps/`, `tokens/`, and `audio/`, where they appear in the gallery next to your images and tracks marked with an **Archive** badge. Map packs and art collections are often distributed zipped alongside supplementary files (PSDs, STLs, source files), so bundling them keeps the extras with the maps they belong to without cluttering the gallery. Opening one offers a download instead of a preview - there is no thumbnail, no image viewer, and no audio player, since the contents are never extracted. The comic-book extensions (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are books-only and are skipped in these collections.
+
 #### Special collections (system-agnostic & one-page)
 
 Some books don't belong to a single game system - reference material, zines, art books, or rulesets like Ironsworn or Mothership that span multiple systems. And some "systems" are really a bucket of many tiny games: one-page and small RPGs. Create a folder whose name is one of the recognized names below and Grimoire will display its contents in a separate **Special Collections** section on the library page, outside the normal game-system grid.
@@ -251,8 +254,9 @@ Some books don't belong to a single game system - reference material, zines, art
 | `One-Page RPGs` | One-page / small RPGs | `books/One-Page RPGs/` |
 | `Single-Page RPGs` | One-page / small RPGs | `books/Single-Page RPGs/` |
 | `One-Shot RPGs` | One-page / small RPGs | `books/One-Shot RPGs/` |
+| `Micro RPGs` | One-page / small RPGs | `books/Micro RPGs/` |
 
-Subfolders directly under one of these roots become **custom category headings** - whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
+For the **system-agnostic** collections, subfolders directly under the root become **custom category headings** - whatever you name them is what appears in the UI. There is no keyword matching; the folder name is used as-is (slugified).
 
 ```
 books/
@@ -268,6 +272,72 @@ books/
 
 Books placed directly in the root (without a subfolder) appear under an **Uncategorized** heading.
 
+The **one-page / small RPG** collections behave differently: they are *system containers*, described next.
+
+#### System containers (parent systems & sub-libraries)
+
+Sometimes a folder isn't a game system - it's a shelf holding several. Grimoire supports two flavours, and in both cases the folder's immediate children become game systems in their own right, each with its own metadata, tags, cover, and place in the system filters.
+
+**Parent systems** group the editions of one game:
+
+```
+books/
+└── Dungeons & Dragons/          ← a container, not a system
+    ├── .parent-system-container ← marker file declaring it
+    ├── 3e/
+    │   └── core/
+    │       └── Players Handbook.pdf
+    └── 5e/
+        └── core/
+            └── Players Handbook.pdf
+```
+
+This yields two systems - "Dungeons & Dragons 3e" and "Dungeons & Dragons 5e" - each with `Parent System` set to "Dungeons & Dragons" and `Edition` set to the folder name, so you can filter the library by either. Category folders (`core`, `adventure`, …) work normally *inside* each edition.
+
+**One-page / micro-RPG collections** are sub-libraries of many tiny games. Here, *both* subfolders and loose files at the root become systems:
+
+```
+books/
+└── One-Page RPGs/               ← a container (recognized by name)
+    ├── honey-heist.pdf          → system "Honey Heist" (1 book)
+    ├── lasers-and-feelings.pdf  → system "Lasers And Feelings" (1 book)
+    └── cbr+pnk/                 → system "Cbr+pnk" (2 books)
+        ├── core/
+        │   └── core-rules.pdf
+        └── character-sheets/
+            └── character.pdf
+```
+
+A single-file game becomes a system holding that one book; a folder-backed game keeps its internal category structure. Either way each game gets full system-level metadata and tagging, while the collection itself stays as one tidy entry in the **Special Collections** strip instead of flooding the main grid.
+
+**Declaring a container.** Any of these work, and they can be combined with `(nsfw)` and sort-order prefixes:
+
+| Method | Example | Kind |
+|---|---|---|
+| Marker file | `books/D&D/.parent-system-container` | Parent system |
+| Marker file | `books/Itch Bundle/.one-page-container` | One-page collection |
+| Folder-name suffix | `books/Cyberpunk (parent-system)/` | Parent system |
+| Folder-name suffix | `books/Jam Games (one-page)/` | One-page collection |
+| Recognized name | `books/One-Page RPGs/` | One-page collection |
+
+**Naming.** Child systems get a sensible default name - `{Parent} {Edition}` for parent systems, the prettified file/folder name for one-page games. Rename any of them in the UI and your name sticks: rescans never overwrite a system you've renamed, so "Dungeons & Dragons 2e" can become "Advanced Dungeons & Dragons".
+
+**Reorganizing an existing library.** If you move a flat `books/Dungeons & Dragons 5e/` into `books/Dungeons & Dragons/5e/`, the generated child name matches the system you already have - so Grimoire adopts that existing system rather than creating a duplicate. Its books, metadata, tags, and cover all follow it into the container.
+
+**Cover art.** A container holds no books of its own, so there's no thumbnail to derive a cover from. Give it art either way:
+
+```
+books/
+└── Dungeons & Dragons/
+    ├── .parent-system-container
+    ├── cover.jpg           ← folder artwork (cover.* or folder.*)
+    └── 5e/
+```
+
+Or upload one from the container's page (**Cover image**, GM/admin only). A `cover.*`/`folder.*` file in the library folder takes precedence over an upload, and both beat the book thumbnail an ordinary system falls back to. This works for any system, not just containers.
+
+> **Note:** systems nested inside a container count toward your library's game-system total. If you already used a `One-Page RPGs` folder, expect that number to rise after the first rescan as each game inside it becomes its own system.
+
 #### Marking a system as explicit
 
 Append `(nsfw)` to the folder name to mark all content in that system as explicit:
@@ -280,6 +350,16 @@ books/
 ```
 
 Users with explicit content disabled will not see this system or its books.
+
+Alternatively, drop an empty `.nsfw` file at the system's root - useful when parenthesised folder names are awkward for your filesystem or sync tool:
+
+```
+books/
+└── Some Adult Game/
+    ├── .nsfw
+    └── core/
+        └── rulebook.pdf
+```
 
 #### Sort-order prefixes
 
@@ -678,7 +758,8 @@ Guests let you share a single campaign with people who don't have full accounts 
 Each campaign has a full-page markdown **wiki** (opened from the campaign overview) for building out the world - a place for session recaps, lore, NPCs, and plans:
 
 - **Markdown** with tables, images, and the usual formatting, edited side-by-side with a live preview.
-- **Visibility per page** - *GM only*, *Public* (all members), or *Private* (specific members - e.g. a secret shared with one player). Change it straight from the visibility badge on the page: the badge is a dropdown, and for *Private* pages it lists members so you can grant or revoke access without opening the editor.
+- **Visibility per page** - *GM only*, *Public* (all members), or *Private* (specific members - e.g. a secret shared with one player). Change it straight from the visibility badge on the page: the badge is a dropdown, and for *Private* pages it lists members so you can grant or revoke access without opening the editor. In the sidebar tree, restricted pages (*GM only* / *Private*) carry a small lock-style glyph at the end of their row and read slightly dimmer; *Public* pages show their glyph on hover, and it's clickable to change the level without leaving the list. Visibility is never conveyed by colour alone.
+- **Custom icons per entry** - give any page (or resource category) its own icon so a long sidebar is easy to scan. The picker is searchable - search by concept, not just name ("tree" finds the pine, "disguise" finds the mask) - and offers a **built-in** set of 200+ icons plus an **emoji** tab. Tint any icon with a preset colour or a custom hex value.
 - **GM secrets inline** - wrap text in `||double pipes||` (or use the **GM secret** button) to hide just that span inside an otherwise shared page. The GM sees it highlighted; players never receive it - it's stripped on the server before the page is sent. (Personal campaigns keep everything, since only you can read them.)
 - **Nested pages** - organize the sidebar as a tree: any page can hold subpages, to any depth (a "category" is just a page with children). Drag pages to re-nest them, add a subpage from the parent row, and collapse/expand branches. Deleting a page lifts its subpages up to the parent rather than removing them.
 - **Page links** - write `[[Page Title]]` to link pages; missing targets are auto-created as stubs, and each page shows what links back to it.

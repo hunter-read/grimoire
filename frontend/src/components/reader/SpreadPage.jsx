@@ -23,6 +23,7 @@ export default function SpreadPage({
   activeSearchQuery,
   activeHighlight,
   pageUrl,
+  renderWidth = SPREAD_WIDTH,
 }) {
   const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   return (
@@ -54,7 +55,7 @@ export default function SpreadPage({
             }}
           >
             <img
-              src={urlFor(p, SPREAD_WIDTH)}
+              src={urlFor(p, renderWidth)}
               alt={getAlt(p)}
               draggable={false}
               style={{
@@ -77,7 +78,7 @@ export default function SpreadPage({
         ) : (
           <img
             key={p}
-            src={urlFor(p, SPREAD_WIDTH)}
+            src={urlFor(p, renderWidth)}
             alt={getAlt(p)}
             style={{
               maxHeight: '100%',

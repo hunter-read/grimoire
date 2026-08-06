@@ -205,6 +205,8 @@
     "keyboardShortcuts": "Keyboard Shortcuts",
     "shortcutPrevNext": "Previous / next page",
     "shortcutPrevNextVertical": "Previous / next page (vertical)",
+    "shortcutZoom": "Zoom in / out",
+    "shortcutZoomReset": "Reset zoom",
     "shortcutFavorite": "Toggle favourite",
     "shortcutToc": "Table of contents",
     "shortcutBookmarks": "Bookmarks",
@@ -212,6 +214,9 @@
     "shortcutHelp": "This help",
     "shortcutClose": "Close panels",
     "spreadCover": "Cover",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Reset zoom",
     "spreadIncludeCover": "Include cover in spread (pair pages 1-2, 3-4…)",
     "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)",
     "archiveNotViewable": "This is an archive file and cannot be viewed in the reader. Download it to open its contents."
@@ -520,8 +525,11 @@
       "page": "Page",
       "spread": "Spread",
       "pdf": "PDF",
-      "scrollWheelNav": "Scroll wheel navigation",
-      "scrollWheelNavHint": "Turn pages by scrolling. Disable if you prefer the scroll wheel to do nothing."
+      "scrollWheel": "Scroll wheel",
+      "scrollWheelHint": "What the scroll wheel does over a page. Ctrl/Cmd + scroll always zooms, whichever you pick.",
+      "wheelPage": "Turn pages",
+      "wheelZoom": "Zoom",
+      "wheelNone": "Nothing"
     },
     "library": {
       "title": "Library Browsing",
