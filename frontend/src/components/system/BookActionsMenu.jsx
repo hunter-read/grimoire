@@ -8,16 +8,24 @@ import {
   LuDownload,
   LuScanText,
   LuRefreshCw,
+  LuScroll,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
+import { useUISettings } from '../../context/UISettingsContext'
+import AddToCampaignModal from '../AddToCampaignModal'
 
 const MENU_WIDTH = 220
 
 /**
- * Consolidated per-book actions dropdown (kebab): View details, Edit,
- * Download, and a context-aware re-index item. Details is available to every
- * user; Edit and re-index are gm/admin only. Favorite is deliberately left out — it stays a
- * standalone always-visible control on the row.
+ * Consolidated per-book actions dropdown (kebab): View details, Edit, Add to
+ * campaign, Download, and a context-aware re-index item. Details, Add to
+ * campaign, and Download are available to every user; Edit and re-index are
+ * gm/admin only. Favorite is deliberately left out — it stays a standalone
+ * always-visible control on the row.
+ *
+ * "Add to campaign" opens the shared AddToCampaignModal with this one book,
+ * mirroring the bulk-select action so a single book doesn't need multi-select.
+ * It is hidden when the user has campaigns hidden in their UI settings.
  *
  * The re-index item adapts to the book:
  *   - successfully OCR / image-only PDF → "Re-OCR…" which reveals an inline DPI
@@ -34,8 +42,10 @@ const MENU_WIDTH = 220
  */
 export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
   const { t } = useTranslation()
+  const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
+  const [addToCampaign, setAddToCampaign] = useState(false)
   const [showDpi, setShowDpi] = useState(false)
   const [dpi, setDpi] = useState(book.ocr_dpi ? String(book.ocr_dpi) : '')
   const [state, setState] = useState('idle') // idle | working | done | error
@@ -202,6 +212,21 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
               </button>
             )}
 
+            {!hide_campaigns && (
+              <button
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                  setAddToCampaign(true)
+                }}
+                style={itemStyle}
+              >
+                <LuScroll size={15} aria-hidden="true" />
+                {t('resources.addToCampaign')}
+              </button>
+            )}
+
             <a
               role="menuitem"
               href={mediaUrl(`/books/${book.id}/file`)}
@@ -294,6 +319,22 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
                 {isOcrBook ? t('reocr.error') : t('bookActions.rescanError')}
               </div>
             )}
+          </div>,
+          document.body
+        )}
+
+      {/* Rendered outside the menu so it survives the menu closing on click, and
+          portalled with propagation stopped: the menu sits inside a book row
+          whose own click handler opens the reader, which would otherwise fire
+          behind the modal on every click inside it. */}
+      {addToCampaign &&
+        createPortal(
+          <div onClick={(e) => e.stopPropagation()}>
+            <AddToCampaignModal
+              items={[{ resource_type: 'book', resource_id: book.id }]}
+              onClose={() => setAddToCampaign(false)}
+              onAdded={() => setAddToCampaign(false)}
+            />
           </div>,
           document.body
         )}
