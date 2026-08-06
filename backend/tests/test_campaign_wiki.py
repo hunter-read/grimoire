@@ -642,6 +642,72 @@ class TestWikiNesting:
         assert got["parent_id"] == grand["id"]
 
 
+class TestCampaignDeleteCascade:
+    """Deleting a campaign must clear everything referencing its wiki pages.
+
+    `wiki_pages.parent_id` and both `wiki_page_links` sides point at wiki_pages
+    with no ON DELETE, so without ORM cascades SQLite (foreign_keys=ON) rejects
+    the delete and the whole campaign becomes undeletable.
+    """
+
+    def _campaign(self, client, gm_headers):
+        return client.post(
+            "/api/campaigns",
+            json={"name": f"Del {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()["id"]
+
+    def test_delete_campaign_with_nested_pages(self, client, gm_headers):
+        cid = self._campaign(client, gm_headers)
+        parent = _create(client, gm_headers, cid, title="Parent").json()
+        _create(client, gm_headers, cid, title="Child", parent_id=parent["id"])
+
+        resp = client.delete(f"/api/campaigns/{cid}", headers=gm_headers)
+        assert resp.status_code == 204, resp.text
+        assert client.get(f"/api/campaigns/{cid}", headers=gm_headers).status_code == 404
+
+    def test_delete_campaign_with_wiki_links(self, client, gm_headers):
+        cid = self._campaign(client, gm_headers)
+        _create(client, gm_headers, cid, title="Target")
+        _create(client, gm_headers, cid, title="Source", body="See [[Target]].")
+
+        resp = client.delete(f"/api/campaigns/{cid}", headers=gm_headers)
+        assert resp.status_code == 204, resp.text
+
+    def test_delete_campaign_leaves_no_orphans(self, client, gm_headers):
+        """Nesting and links together, with a direct check for leftover rows."""
+        from backend.config import SessionLocal
+        from backend.models import WikiPage, WikiPageLink
+
+        cid = self._campaign(client, gm_headers)
+        target = _create(client, gm_headers, cid, title="Bestiary").json()
+        _create(
+            client,
+            gm_headers,
+            cid,
+            title="Goblin",
+            parent_id=target["id"],
+            body="Lives near [[Bestiary]].",
+        )
+
+        db = SessionLocal()
+        try:
+            # Guard the fixture: the bug only reproduces if a link row exists.
+            assert db.query(WikiPageLink).filter_by(campaign_id=cid).count() == 1
+        finally:
+            db.close()
+
+        resp = client.delete(f"/api/campaigns/{cid}", headers=gm_headers)
+        assert resp.status_code == 204, resp.text
+
+        db = SessionLocal()
+        try:
+            assert db.query(WikiPage).filter_by(campaign_id=cid).count() == 0
+            assert db.query(WikiPageLink).filter_by(campaign_id=cid).count() == 0
+        finally:
+            db.close()
+
+
 class TestNoteCategoryMigration:
     def test_note_categories_become_parent_pages(self, client, gm_headers, gm_id):
         from backend.config import SessionLocal

@@ -11,6 +11,47 @@ from ...models import Campaign, CampaignMember, User
 from ...auth import CurrentUser
 
 
+# Tables holding rows that belong to a single user and die with them. Kept as a
+# constant (never user input) so the f-string interpolation below is injection-safe.
+_USER_SCOPED_TABLES = (
+    "campaign_members",
+    "player_session_notes",
+    "session_availability",
+    "bookmarks",
+    "favorites",
+    "saved_filters",
+    "wiki_page_shares",
+    "campaign_resource_shares",
+)
+
+# Nullable FKs that are *attribution*, not ownership: the content lives inside
+# someone else's campaign and must outlive the user, so these are nulled rather
+# than cascaded. Read paths already tolerate a missing author.
+_USER_ATTRIBUTION_COLUMNS = (
+    ("wiki_pages", "created_by_id"),
+    ("campaign_files", "uploaded_by_id"),
+)
+
+
+def purge_user_data(db, user_id: str) -> None:
+    """Remove everything that would dangle if ``user_id`` were deleted.
+
+    Deletes the user's owned campaigns and their personal rows, and clears
+    attribution on content that survives them. Every FK referencing ``users.id``
+    must be handled here or the subsequent ``DELETE FROM users`` fails against
+    SQLite's foreign_keys=ON. Does not delete the User itself, and does not commit.
+    """
+    for campaign in db.query(Campaign).filter_by(owner_id=user_id).all():
+        db.delete(campaign)
+    for table in _USER_SCOPED_TABLES:
+        db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
+    for table, column in _USER_ATTRIBUTION_COLUMNS:
+        db.execute(
+            text(f"UPDATE {table} SET {column} = NULL WHERE {column} = :uid"),
+            {"uid": user_id},
+        )
+
+
 def delete_guest_user(db, user_id: str) -> None:
     """Delete a guest User and everything scoped to it.
 
@@ -25,13 +66,7 @@ def delete_guest_user(db, user_id: str) -> None:
     user = db.query(User).filter_by(id=user_id).first()
     if not user or not user.is_guest:
         return
-    for table in (
-        "player_session_notes",
-        "session_availability",
-        "bookmarks",
-        "favorites",
-    ):
-        db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
+    purge_user_data(db, user_id)
     db.delete(user)
 
 

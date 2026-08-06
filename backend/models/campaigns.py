@@ -10,7 +10,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 from .base import Base, _utcnow, _uuid
 
@@ -72,6 +72,14 @@ class Campaign(Base):
     )
     wiki_pages = relationship(
         "WikiPage", back_populates="campaign", cascade="all, delete-orphan"
+    )
+    # Link rows have no owning-side relationship of their own, so without this the
+    # campaign's wiki_pages cascade would delete pages that link rows still
+    # reference, and SQLite (foreign_keys=ON) would reject the delete.
+    wiki_links = relationship(
+        "WikiPageLink",
+        cascade="all, delete-orphan",
+        primaryjoin="Campaign.id==WikiPageLink.campaign_id",
     )
     categories = relationship(
         "CampaignCategory", back_populates="campaign", cascade="all, delete-orphan"
@@ -274,6 +282,29 @@ class WikiPage(Base):
     campaign = relationship("Campaign", back_populates="wiki_pages")
     shares = relationship(
         "WikiPageShare", back_populates="page", cascade="all, delete-orphan"
+    )
+    # Nesting: gives the unit of work an ordering constraint so a parent is never
+    # deleted before its children. Deleting a single page re-parents its children
+    # first (see routers/campaigns/wiki.py), so this cascade only bites when the
+    # whole subtree is going away with the campaign.
+    children = relationship(
+        "WikiPage",
+        cascade="all, delete-orphan",
+        backref=backref("parent", remote_side="WikiPage.id"),
+    )
+    # Both link sides, so a page's link rows go before the page itself. `overlaps`
+    # is required: these and Campaign.wiki_links manage the same rows.
+    outgoing_links = relationship(
+        "WikiPageLink",
+        cascade="all, delete-orphan",
+        primaryjoin="WikiPage.id==WikiPageLink.source_page_id",
+        overlaps="wiki_links",
+    )
+    incoming_links = relationship(
+        "WikiPageLink",
+        cascade="all, delete-orphan",
+        primaryjoin="WikiPage.id==WikiPageLink.target_page_id",
+        overlaps="wiki_links,outgoing_links",
     )
 
     __table_args__ = (UniqueConstraint("campaign_id", "slug"),)
