@@ -13,9 +13,10 @@ vi.mock('../../api', () => ({
   },
 }))
 
-// searchResources is called once per type (book, map, token, audio). Resolve
-// each call from a per-type fixture so the folder tree has real structure.
-// Book subtitles lead with the game system, then nested category folders.
+// searchResources is called for the active type tab only, with the query sent
+// to the server. Resolve each call from a per-type fixture so the folder tree
+// has real structure. Book subtitles lead with the game system, then nested
+// category folders.
 const byType = {
   book: [
     {
@@ -54,14 +55,37 @@ function Harness(props) {
 }
 
 describe('ResourcePicker', () => {
-  it('loads all four resource types on mount', async () => {
+  it('loads only the active type on mount, not the whole library', async () => {
     render(<Harness />)
-    await waitFor(() =>
-      expect(campaigns.searchResources).toHaveBeenCalledWith('', 'book', '', 1000)
-    )
-    for (const type of ['book', 'map', 'token', 'audio']) {
-      expect(campaigns.searchResources).toHaveBeenCalledWith('', type, '', 1000)
+    await waitFor(() => expect(campaigns.searchResources).toHaveBeenCalledWith('', 'book', ''))
+    // The other three tabs are fetched when opened, not up front.
+    for (const type of ['map', 'token', 'audio']) {
+      expect(campaigns.searchResources).not.toHaveBeenCalledWith('', type, '')
     }
+  })
+
+  it('fetches the newly selected type when switching tabs', async () => {
+    render(<Harness />)
+    await screen.findByRole('button', { name: 'Books' })
+    await userEvent.click(screen.getByRole('button', { name: 'Maps' }))
+    await waitFor(() => expect(campaigns.searchResources).toHaveBeenCalledWith('', 'map', ''))
+  })
+
+  it('sends the search query to the server instead of filtering locally', async () => {
+    render(<Harness />)
+    await screen.findByRole('button', { name: 'Books' })
+    await userEvent.type(screen.getByPlaceholderText(/search/i), 'strahd')
+    // Debounced, so the query lands as one request rather than one per keystroke.
+    await waitFor(() =>
+      expect(campaigns.searchResources).toHaveBeenCalledWith('strahd', 'book', '')
+    )
+  })
+
+  it('passes the campaign system through so container children are scoped', async () => {
+    render(<Harness systemId="sys-container" />)
+    await waitFor(() =>
+      expect(campaigns.searchResources).toHaveBeenCalledWith('', 'book', 'sys-container')
+    )
   })
 
   it('offers book/map/token/audio tabs and no "all" tab', async () => {
