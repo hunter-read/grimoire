@@ -32,6 +32,8 @@ function Harness({
   onSavePreset,
   onSetDefault,
   onDeletePreset,
+  trailing,
+  sticky,
 }) {
   const [state, setState] = useState(initial)
   return (
@@ -47,6 +49,8 @@ function Harness({
         onSavePreset={onSavePreset}
         onSetDefault={onSetDefault}
         onDeletePreset={onDeletePreset}
+        trailing={trailing}
+        sticky={sticky}
       />
       <output data-testid="state">{JSON.stringify(state)}</output>
     </div>
@@ -156,5 +160,50 @@ describe('SortFilterBar', () => {
     expect(onSetDefault).toHaveBeenCalledWith('p1', true)
     await userEvent.click(screen.getByLabelText('sortFilter.delete Keep'))
     expect(onDeletePreset).toHaveBeenCalledWith('p1')
+  })
+
+  // #255: gallery pages fold their multi-select / view-mode buttons into this
+  // row and pin it to the top of the scroll container.
+  it('renders trailing controls inside the row', () => {
+    render(<Harness trailing={<button type="button">Select</button>} />)
+    const bar = screen.getByTestId('sort-filter-bar')
+    expect(bar).toContainElement(screen.getByRole('button', { name: 'Select' }))
+  })
+
+  it('is not sticky by default and sticks to the top when sticky is set', () => {
+    const { rerender } = render(<Harness />)
+    const bar = screen.getByTestId('sort-filter-bar')
+    expect(bar).not.toHaveStyle({ position: 'sticky' })
+    expect(bar).not.toHaveClass('sort-filter-bar-sticky')
+    rerender(<Harness sticky />)
+    expect(bar).toHaveStyle({ position: 'sticky', top: '0px' })
+    expect(bar).toHaveClass('sort-filter-bar-sticky')
+  })
+
+  // The backdrop is a viewport-wide ::before offset back to the viewport edge,
+  // so it reaches the page edge even inside a narrower container (system detail
+  // caps at 1200px vs the galleries' 1400px) — a plain background stopped short.
+  it('draws the sticky backdrop as a full-bleed pseudo-element', () => {
+    render(<Harness sticky />)
+    const bar = screen.getByTestId('sort-filter-bar')
+    // No opaque background on the row itself; the ::before carries it.
+    expect(bar.style.background).toBe('')
+    const css = [...document.querySelectorAll('style')].map((s) => s.textContent).join('')
+    expect(css).toMatch(/\.sort-filter-bar-sticky::before/)
+    expect(css).toMatch(/width:\s*100vw/)
+    expect(css).toMatch(/--sfb-offset/)
+  })
+
+  // Measured from the row's own position, so the backdrop starts at the
+  // viewport edge instead of overhanging (which made <main> scroll sideways).
+  it('sets the backdrop offset from the row position', () => {
+    const spy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ left: 220, top: 0, right: 0, bottom: 0, width: 0, height: 0 })
+    render(<Harness sticky />)
+    expect(screen.getByTestId('sort-filter-bar').style.getPropertyValue('--sfb-offset')).toBe(
+      '220px'
+    )
+    spy.mockRestore()
   })
 })

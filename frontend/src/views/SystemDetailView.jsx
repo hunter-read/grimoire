@@ -702,12 +702,6 @@ export default function SystemDetailView() {
                     active={editing}
                   />
                 )}
-                {isEditor && (
-                  <BulkToggleButton
-                    active={bulkMode}
-                    onToggle={bulkMode ? bulk.exit : bulk.enter}
-                  />
-                )}
                 <ToolbarButton
                   icon={<LuDownload size={13} />}
                   label={t('systemDetail.downloadAll')}
@@ -732,7 +726,6 @@ export default function SystemDetailView() {
                 className="system-btn-row"
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
-                <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} style={toolBtnStyle} />
                 <CategoryGroupToggle grouped={grouped} onToggle={setGrouped} />
                 <CollapseExpandButtons
                   onCollapseAll={collapseAll}
@@ -761,13 +754,27 @@ export default function SystemDetailView() {
           />
         )}
 
-        {/* Sort + filter toolbar (right-aligned), with server-backed presets. */}
+        {/* Single sticky toolbar row: sort + filters on the left, multi-select
+            and view-mode on the right (#255). Hidden while showing in-book
+            search results, which have their own layout. */}
         {!searchResults && (
           <SortFilterBar
+            sticky
             state={bookFilter}
             onChange={updateBookFilter}
             sortOptions={bookSortOptions}
             showSearch={false}
+            trailing={
+              <>
+                {isEditor && (
+                  <BulkToggleButton
+                    active={bulkMode}
+                    onToggle={bulkMode ? bulk.exit : bulk.enter}
+                  />
+                )}
+                <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} style={toolBtnStyle} />
+              </>
+            }
             multiFilters={[
               {
                 key: 'genres',

@@ -369,42 +369,34 @@ export default function LibraryView() {
         {/* Game Systems */}
         {hasNormalSystems && (
           <>
-            <div
-              style={{
-                marginBottom: 24,
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 12,
-              }}
-            >
-              <div>
-                <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
-                <p
-                  style={{
-                    color: 'var(--text-dim)',
-                    fontSize: 17,
-                    fontFamily: 'Alegreya, serif',
-                    fontStyle: 'italic',
-                  }}
-                >
-                  {t('library.subtitle', { count: normalSystems.length })}
-                </p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {canEdit && (
-                  <BulkToggleButton
-                    active={bulk.bulkMode}
-                    onToggle={() => (bulk.bulkMode ? bulk.exit() : bulk.enter())}
-                  />
-                )}
-                <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} />
-              </div>
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
+              <p
+                style={{
+                  color: 'var(--text-dim)',
+                  fontSize: 17,
+                  fontFamily: 'Alegreya, serif',
+                  fontStyle: 'italic',
+                }}
+              >
+                {t('library.subtitle', { count: normalSystems.length })}
+              </p>
             </div>
 
             <SortFilterBar
+              sticky
               scope="systems"
+              trailing={
+                <>
+                  {canEdit && (
+                    <BulkToggleButton
+                      active={bulk.bulkMode}
+                      onToggle={() => (bulk.bulkMode ? bulk.exit() : bulk.enter())}
+                    />
+                  )}
+                  <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} />
+                </>
+              }
               state={sortFilter}
               onChange={updateSortFilter}
               sortOptions={[

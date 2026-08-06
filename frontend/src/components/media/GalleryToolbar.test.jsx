@@ -19,35 +19,25 @@ const makeGallery = (over = {}) => ({
 })
 
 const renderToolbar = (props = {}) =>
-  render(
-    <GalleryToolbar
-      config={MEDIA_CONFIGS.map}
-      gallery={makeGallery(props.gallery)}
-      showBulk={props.showBulk ?? true}
-    />
-  )
+  render(<GalleryToolbar config={MEDIA_CONFIGS.map} gallery={makeGallery(props.gallery)} />)
 
 describe('GalleryToolbar', () => {
-  it('renders the group-by-folder switch and view-mode control', () => {
+  it('renders the group-by-folder switch', () => {
     renderToolbar()
     expect(screen.getByRole('switch')).toBeInTheDocument()
   })
 
-  it('enters bulk mode via the bulk-select button when allowed', async () => {
-    const enter = vi.fn()
-    renderToolbar({ gallery: { bulk: { bulkMode: false, enter, exit: vi.fn() } } })
-    const btns = screen.getAllByRole('button')
-    // The first button is the bulk-select toggle.
-    await userEvent.click(btns[0])
-    expect(enter).toHaveBeenCalled()
-  })
-
-  it('hides the bulk-select button for players (showBulk=false)', () => {
-    const { rerender } = renderToolbar({ showBulk: false })
-    // Still renders the group switch even without bulk controls.
-    expect(screen.getByRole('switch')).toBeInTheDocument()
-    rerender(<GalleryToolbar config={MEDIA_CONFIGS.map} gallery={makeGallery()} showBulk={true} />)
-    expect(screen.getByRole('switch')).toBeInTheDocument()
+  // Bulk-select and view-mode moved into the sticky SortFilterBar row (#255),
+  // so this toolbar only holds the grouping switch and collapse/expand.
+  it('renders no bulk-select or view-mode control', () => {
+    renderToolbar()
+    expect(screen.queryByRole('button', { name: /select|cancel/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /view|grid|list|compact/i })
+    ).not.toBeInTheDocument()
+    // Only the collapse/expand pair remains.
+    expect(screen.getByRole('button', { name: /collapse all/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /expand all/i })).toBeInTheDocument()
   })
 
   it('toggles the folder grouping switch', async () => {
@@ -69,14 +59,5 @@ describe('GalleryToolbar', () => {
     renderToolbar({ gallery: { setCollapsed, allCollapsed: true } })
     await userEvent.click(screen.getByRole('button', { name: /expand all/i }))
     expect(setCollapsed).toHaveBeenCalledWith(new Set())
-  })
-
-  it('exits bulk mode via the active bulk button', async () => {
-    const exit = vi.fn()
-    renderToolbar({ gallery: { bulk: { bulkMode: true, enter: vi.fn(), exit } } })
-    // In bulk mode two bulk buttons render (enter + exit); the exit one calls exit().
-    const btns = screen.getAllByRole('button')
-    await userEvent.click(btns[1])
-    expect(exit).toHaveBeenCalled()
   })
 })
