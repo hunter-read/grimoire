@@ -88,6 +88,63 @@ describe('SystemCategorySection', () => {
     expect(screen.queryByText(/gm-tools/i)).not.toBeInTheDocument()
   })
 
+  describe('systems nested in a container folder', () => {
+    // books/Dungeons & Dragons/5e/… — the system dir sits one level deeper, so
+    // every path index shifts. `parent_id` is what marks the system as a child.
+    const child = { id: 'sys-5e', name: 'Dungeons & Dragons 5e', parent_id: 'sys-dnd' }
+    const childBook = (id, ...segs) => ({
+      id,
+      title: id,
+      relative_path: `books/Dungeons & Dragons/5e/${segs.join('/')}/${id}.pdf`,
+    })
+
+    it('labels a custom category with its own folder, not the system dir', () => {
+      // Previously "5e" was read as the category folder, so every custom
+      // category slug produced another top-level "5e" heading.
+      render(
+        <SystemCategorySection
+          {...baseProps({
+            cat: 'monster-manuals',
+            system: child,
+            books: [childBook('b1', 'Monster Manuals')],
+          })}
+        />
+      )
+      expect(screen.getByText('Monster Manuals')).toBeInTheDocument()
+      expect(screen.queryByText('5e')).not.toBeInTheDocument()
+    })
+
+    it('renders the category flat rather than nesting it under the system dir', () => {
+      render(
+        <SystemCategorySection
+          {...baseProps({
+            cat: 'monster-manuals',
+            system: child,
+            books: [childBook('b1', 'Monster Manuals'), childBook('b2', 'Monster Manuals')],
+          })}
+        />
+      )
+      // The books belong to the category directly — no subfolder group at all.
+      expect(screen.queryAllByTestId('folder-group')).toHaveLength(0)
+      expect(screen.getAllByTestId('book-item').map((n) => n.textContent)).toEqual(['b1', 'b2'])
+    })
+
+    it('still groups genuine subfolders below the category', () => {
+      render(
+        <SystemCategorySection
+          {...baseProps({
+            cat: 'monster-manuals',
+            system: child,
+            books: [childBook('b1', 'Monster Manuals', 'spelljammer')],
+          })}
+        />
+      )
+      const group = screen.getByTestId('folder-group')
+      expect(group).toHaveTextContent('spelljammer')
+      expect(group).toHaveAttribute('data-path', 'spelljammer')
+    })
+  })
+
   it('humanizes the slug when the book path has no category folder', () => {
     render(
       <SystemCategorySection

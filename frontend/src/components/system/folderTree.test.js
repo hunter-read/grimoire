@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { getBookSubfolderPath, buildFolderTree, countBooks, allBooks } from './folderTree'
+import {
+  getBookSubfolderPath,
+  buildFolderTree,
+  countBooks,
+  allBooks,
+  categoryDepth,
+} from './folderTree'
 
 function book(id, relative_path) {
   return { id, relative_path }
@@ -31,6 +37,58 @@ describe('getBookSubfolderPath', () => {
 
   it('returns [] when relative_path is missing', () => {
     expect(getBookSubfolderPath({})).toEqual([])
+  })
+})
+
+describe('categoryDepth', () => {
+  it('is 2 for an ordinary system', () => {
+    expect(categoryDepth({ id: 's1' })).toBe(2)
+    expect(categoryDepth(null)).toBe(2)
+  })
+
+  it('is 3 for a system nested in a container', () => {
+    expect(categoryDepth({ id: 's1', parent_id: 'container' })).toBe(3)
+  })
+})
+
+describe('getBookSubfolderPath for container children', () => {
+  // books/{Container}/{System}/{category}/… — one level deeper than usual, so
+  // the category folder must not be mistaken for a subfolder.
+  const mm = book('mm', 'books/Dungeons & Dragons/5e/Monster Manuals/mm.pdf')
+
+  it('treats a custom category folder as the category, not a subfolder', () => {
+    expect(getBookSubfolderPath(mm, 3)).toEqual([])
+  })
+
+  it('regresses the reported bug when the flat depth is assumed', () => {
+    // At depth 2 the system folder ("5e") reads as the category and the real
+    // category nests under it — which is what surfaced one "5e" heading per
+    // custom category slug.
+    expect(getBookSubfolderPath(mm, 2)).toEqual(['Monster Manuals'])
+  })
+
+  it('still reports genuine subfolders below the category', () => {
+    expect(
+      getBookSubfolderPath(book('d', 'books/D&D/5e/Monster Manuals/spelljammer/d.pdf'), 3)
+    ).toEqual(['spelljammer'])
+  })
+
+  it('returns [] for a book directly in the container child category dir', () => {
+    expect(getBookSubfolderPath(book('c', 'books/D&D/5e/core/phb.pdf'), 3)).toEqual([])
+  })
+})
+
+describe('buildFolderTree for container children', () => {
+  it('does not create a folder level for the system dir', () => {
+    // Three custom categories previously rendered three separate "5e" headings,
+    // one per category section, each wrapping its real category as a subfolder.
+    const books = [
+      book('a', 'books/D&D/5e/Monster Manuals/a.pdf'),
+      book('b', 'books/D&D/5e/Monster Manuals/b.pdf'),
+    ]
+    const tree = buildFolderTree(books, 3)
+    expect(Object.keys(tree.folders)).toEqual([])
+    expect(tree.books.map((x) => x.id)).toEqual(['a', 'b'])
   })
 })
 
