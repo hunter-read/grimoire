@@ -39,9 +39,14 @@ export default function CampaignEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  // Container children (e.g. "Dungeons & Dragons 5e" under the "Dungeons &
+  // Dragons" parent-system container) are the systems a campaign is actually
+  // played in, so they must be offered here — hence include_children. The
+  // containers themselves are folder groupings that hold no books of their own,
+  // so they're filtered out below rather than offered as a dead-end choice.
   useEffect(() => {
     api
-      .get('/systems')
+      .get('/systems?include_children=true')
       .then((data) => setSystems(data || []))
       .catch(() => {})
   }, [])
@@ -130,8 +135,14 @@ export default function CampaignEditor({
 
   const showGmTitle = form.is_gm_campaign || (isEdit && campaign?.is_gm_campaign)
 
+  // Only systems you can actually play in are selectable. A container
+  // ("Dungeons & Dragons", "One-Page RPGs") is a folder grouping whose books all
+  // live on its children, so picking one would scope the campaign to an empty
+  // system — its children are offered instead.
+  const selectableSystems = systems.filter((s) => !s.container_kind)
+
   // Group systems for the dropdown: favorited first, then the full list.
-  const favoriteSystems = systems.filter((s) => isFavorite('system', s.id))
+  const favoriteSystems = selectableSystems.filter((s) => isFavorite('system', s.id))
 
   const detailsStep = (
     <>
@@ -188,7 +199,7 @@ export default function CampaignEditor({
             </optgroup>
           )}
           <optgroup label={t('campaignEditor.systemGroupAll')}>
-            {systems.map((s) => (
+            {selectableSystems.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>

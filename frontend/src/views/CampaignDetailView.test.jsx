@@ -157,6 +157,17 @@ describe('CampaignDetailView loading and errors', () => {
 })
 
 describe('CampaignDetailView rendering', () => {
+  it('names a system that is a container child', async () => {
+    // The system list must be fetched with include_children, otherwise a
+    // campaign set to "Dungeons & Dragons 5e" (a child of the "Dungeons &
+    // Dragons" container) resolves to nothing and renders as "—".
+    mockLoad({ campaign: makeCampaign({ system_id: 'sys1' }) })
+    api.get.mockResolvedValue([{ id: 'sys1', name: 'Dungeons & Dragons 5e', parent_id: 'sys-dnd' }])
+    renderView()
+    expect(await screen.findByText('Dungeons & Dragons 5e')).toBeInTheDocument()
+    expect(api.get).toHaveBeenCalledWith('/systems?include_children=true')
+  })
+
   it('renders the header, banner, members and resources', async () => {
     mockLoad()
     renderView()
