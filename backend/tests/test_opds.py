@@ -438,3 +438,38 @@ class TestOPDSGuestDenied:
             ).status_code
             == 404
         )
+
+
+class TestOpenApiSchema:
+    """Regression coverage for #276.
+
+    Registering an OPDS route with `response_class=None` made FastAPI's schema
+    generation assert, so `/api/openapi.json` 500'd (and `/api/docs` rendered
+    empty) for every instance running with OPDS_ENABLED=true.
+    """
+
+    def test_openapi_schema_generates_with_opds_enabled(self, opds_client):
+        resp = opds_client.get("/api/openapi.json")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["paths"]
+
+    def test_opds_routes_are_documented(self, opds_client):
+        paths = opds_client.get("/api/openapi.json").json()["paths"]
+        for path in (
+            "/opds/{token}",
+            "/opds/{token}/all",
+            "/opds/{token}/entry/{book_id}",
+            "/opds/{token}/download/{book_id}",
+        ):
+            assert path in paths, f"{path} missing from OpenAPI schema"
+
+    def test_feed_still_returns_atom_not_json(self, opds_client, opds_admin_headers):
+        # Declaring a response_class must not make FastAPI re-encode the feed:
+        # the handlers return a Response directly, so it passes through as-is.
+        token = _generate_token(opds_client, opds_admin_headers)
+        resp = opds_client.get(f"/opds/{token}")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith(
+            "application/atom+xml;profile=opds-catalog;kind=navigation"
+        )
+        assert resp.text.startswith("<?xml")
