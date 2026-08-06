@@ -108,11 +108,10 @@ describe('PageEditor', () => {
     renderEditor()
     await user.click(screen.getByRole('button', { name: 'Icon' }))
     const dialog = screen.getByRole('dialog', { name: 'Icon' })
+    // The popover stays open after picking an icon, so the colour is one more
+    // click away rather than requiring a reopen.
     await user.click(within(dialog).getByRole('button', { name: 'swords' }))
-
-    await user.click(screen.getByRole('button', { name: 'Icon' }))
-    const reopened = screen.getByRole('dialog', { name: 'Icon' })
-    await user.click(within(reopened).getByRole('button', { name: 'Purple' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Purple' }))
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>

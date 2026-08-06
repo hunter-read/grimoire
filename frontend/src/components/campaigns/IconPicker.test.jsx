@@ -27,14 +27,34 @@ describe('IconPicker', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('picks a built-in icon and closes', async () => {
+  it('closes on an outside click', async () => {
+    const user = userEvent.setup()
+    render(<IconPicker value="" onChange={vi.fn()} />)
+    await open(user)
+    await user.click(document.body)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('picks a built-in icon and stays open', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     render(<IconPicker value="" onChange={onChange} />)
     const dialog = await open(user)
     await user.click(within(dialog).getByRole('button', { name: 'castle' }))
     expect(onChange).toHaveBeenCalledWith('castle')
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('allows changing the icon again without reopening', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(<IconPicker value="" onChange={onChange} />)
+    const dialog = await open(user)
+    await user.click(within(dialog).getByRole('button', { name: 'castle' }))
+    await user.click(within(dialog).getByRole('button', { name: 'rabbit' }))
+    expect(onChange).toHaveBeenNthCalledWith(1, 'castle')
+    expect(onChange).toHaveBeenNthCalledWith(2, 'rabbit')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('filters the grid as you type, and reports no results', async () => {

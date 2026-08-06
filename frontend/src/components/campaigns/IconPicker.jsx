@@ -18,8 +18,10 @@ const GRID_MAX_HEIGHT = 168
 // `value` is the stored icon (a Lucide key or an emoji character) and `color`
 // the stored tint. `onChange(icon)` and `onColorChange(color)` report each
 // independently; `onColorChange` is optional, and the colour row is hidden
-// without it. The popover is rendered in a portal at fixed viewport coordinates
-// so it isn't clipped by a scrolling/overflow-hidden modal body.
+// without it. The popover stays open after a pick so the icon and its colour can
+// be adjusted together; it closes on Escape, an outside click, or the trigger.
+// It is rendered in a portal at fixed viewport coordinates so it isn't clipped
+// by a scrolling/overflow-hidden modal body.
 export default function IconPicker({
   value,
   onChange,
@@ -97,9 +99,10 @@ export default function IconPicker({
     if (!open) setQuery('')
   }, [open])
 
+  // Picking an icon leaves the popover open so the colour can be set (or the
+  // icon swapped) without reopening — Escape or a click outside closes it.
   const pick = (name) => {
     onChange(name)
-    setOpen(false)
   }
 
   return (
