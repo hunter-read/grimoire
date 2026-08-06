@@ -14,9 +14,21 @@ async function handleResponse(res) {
     throw Object.assign(new Error('Unauthorized'), { status: 401 })
   }
   if (res.status === 204) return null
-  const body = await res.json()
-  if (!res.ok)
-    throw Object.assign(new Error(body.detail || 'Request failed'), { status: res.status, body })
+  // Not every error body is JSON: an unhandled server exception returns the
+  // plain text "Internal Server Error", and parsing that threw a misleading
+  // SyntaxError that masked the real failure (issue #270). Parse defensively and
+  // fall back to the status text.
+  const raw = await res.text()
+  let body = null
+  try {
+    body = raw ? JSON.parse(raw) : null
+  } catch {
+    body = null
+  }
+  if (!res.ok) {
+    const detail = body?.detail || raw?.trim() || res.statusText || 'Request failed'
+    throw Object.assign(new Error(detail), { status: res.status, body })
+  }
   return body
 }
 
@@ -205,6 +217,43 @@ export const settings = {
   patch: (data) => api.patch('/settings', data),
   generateApiKey: () => api.post('/settings/api-key/generate'),
   revokeApiKey: () => api.delete('/settings/api-key'),
+}
+
+// The collection path each bulk-editable resource type lives under. Keyed by the
+// `type` the bulk UI already uses, so callers pass the same string throughout.
+const BULK_PATHS = {
+  book: '/books',
+  system: '/systems',
+  map: '/maps',
+  token: '/tokens',
+  audio: '/audio',
+}
+
+// Folder-tag collections that support batched writes (media folder tagging).
+const BULK_FOLDER_PATHS = {
+  map: '/map-folders',
+  token: '/token-folders',
+  audio: '/audio-folders',
+}
+
+/**
+ * Bulk operations (issue #270).
+ *
+ * These replace the old one-request-per-item fan-out, which raced on tag
+ * creation server-side and returned intermittent 500s. Each call sends the whole
+ * selection in a single request that the backend applies in one transaction.
+ *
+ * Every response is `{updated: [id], errors: [{id, detail}]}`; `addTags` also
+ * returns `tags` keyed by id so callers can patch local state without refetching.
+ */
+export const bulk = {
+  // Additively apply `tags` to every id — never removes existing tags.
+  addTags: (type, ids, tags) => api.post(`${BULK_PATHS[type]}/bulk/tags`, { ids, tags }),
+  // Apply per-item field edits. `items` is [{id, ...fields}]; a per-item `tags`
+  // list replaces that item's tags outright.
+  update: (type, items) => api.post(`${BULK_PATHS[type]}/bulk`, { items }),
+  // Set tags on many folders at once. `folders` is [{path, tags}].
+  setFolderTags: (type, folders) => api.post(`${BULK_FOLDER_PATHS[type]}/bulk`, { folders }),
 }
 
 const api = {

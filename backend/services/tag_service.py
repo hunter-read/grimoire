@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Iterable, Optional
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -128,21 +129,35 @@ def get_or_create_tag(
     callers). Matching an existing tag never rewrites its display value; its
     category is promoted to ``shared`` when it's now used in a different category
     (see :func:`_promote_category`).
+
+    ``Tag.internal`` is unique, so the read-then-insert below is a race: two
+    concurrent requests applying the same new tag both see "absent" and both
+    insert. The insert runs in a SAVEPOINT and the loser re-reads the winner's
+    row, rather than letting an ``IntegrityError`` poison the caller's whole
+    transaction (issue #270).
     """
     internal = normalize_internal(raw)
     if not internal:
         return None
     tag = db.query(Tag).filter(Tag.internal == internal).first()
     if tag is None:
-        tag = Tag(
+        new_tag = Tag(
             internal=internal,
             display=(display or default_display(raw)) or internal,
             category=category,
         )
-        db.add(tag)
-        db.flush()  # assign id without committing; caller owns the transaction
-    else:
-        _promote_category(tag, category)
+        try:
+            with db.begin_nested():  # SAVEPOINT: rolled back on conflict
+                db.add(new_tag)
+                db.flush()  # assign id without committing; caller owns the transaction
+            return new_tag
+        except IntegrityError:
+            # Someone else created it between our read and our insert; adopt
+            # theirs. The savepoint rollback leaves the outer transaction usable.
+            tag = db.query(Tag).filter(Tag.internal == internal).first()
+            if tag is None:  # pragma: no cover - the constraint implies a winner
+                raise
+    _promote_category(tag, category)
     return tag
 
 

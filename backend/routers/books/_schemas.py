@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
+from .._bulk_schemas import bulk_update_model
+
 
 class LinkEntry(BaseModel):
     """A labeled link on a book (publisher / DriveThruRPG page, etc.)."""
@@ -60,6 +62,10 @@ class BookUpdate(BaseModel):
         if v is not None and not (1 <= v <= 31):
             raise ValueError("day must be between 1 and 31")
         return v
+
+
+# Batch form of BookUpdate: {"items": [{"id": ..., ...BookUpdate fields}]}.
+BookBulkUpdate = bulk_update_model(BookUpdate, "Book")
 
 
 class MetadataSearch(BaseModel):

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import useMediaGallery from './useMediaGallery'
-import api from '../api'
+import api, { bulk } from '../api'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
 
 vi.mock('../api', () => ({
@@ -10,6 +10,11 @@ vi.mock('../api', () => ({
     patch: vi.fn(() => Promise.resolve({})),
     post: vi.fn(() => Promise.resolve({})),
     delete: vi.fn(() => Promise.resolve({})),
+  },
+  bulk: {
+    addTags: vi.fn(() => Promise.resolve({ updated: [], errors: [], tags: {} })),
+    update: vi.fn(() => Promise.resolve({ updated: [], errors: [] })),
+    setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
 }))
 
@@ -140,15 +145,33 @@ describe('useMediaGallery', () => {
     expect(result.current.allTags).toEqual(['cave', 'forest'])
   })
 
-  it('applies bulk tags to selected items via PATCH', async () => {
+  // Issue #270: tagging a selection sends ONE request, not one per item — the
+  // per-item fan-out raced on tag creation server-side and returned 500s.
+  it('applies bulk tags to the whole selection in a single request', async () => {
     setup([item({ id: 'a', filename: 'a.png' }), item({ id: 'b', filename: 'b.png' })])
     const { result } = renderHook(() => useMediaGallery(config))
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.toggleSelect('a'))
+    act(() => result.current.toggleSelect('b'))
     await act(async () => {
       await result.current.applyBulkTags(['new'])
     })
-    expect(api.patch).toHaveBeenCalledWith('/maps/a', { tags: ['new'] })
+    expect(bulk.addTags).toHaveBeenCalledTimes(1)
+    expect(bulk.addTags).toHaveBeenCalledWith('map', ['a', 'b'], ['new'])
+    expect(api.patch).not.toHaveBeenCalled()
+  })
+
+  it('releases the applying flag when the bulk request fails', async () => {
+    bulk.addTags.mockRejectedValueOnce(new Error('Internal Server Error'))
+    setup([item({ id: 'a', filename: 'a.png' })])
+    const { result } = renderHook(() => useMediaGallery(config))
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    act(() => result.current.toggleSelect('a'))
+    await act(async () => {
+      await result.current.applyBulkTags(['new']).catch(() => {})
+    })
+    // Without the finally, the bar stayed stuck on "Applying" forever (#270).
+    expect(result.current.bulkApplying).toBe(false)
   })
 
   it('saves a folder tag list via PATCH', async () => {

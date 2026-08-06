@@ -15,9 +15,10 @@ from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...indexer import slugify
 from ...models import Book, GameSystem
-from ...services import tag_service
+from ...services import bulk_service, tag_service
+from .._bulk_schemas import BulkAddTags
 from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
-from ._schemas import BookUpdate
+from ._schemas import BookBulkUpdate, BookUpdate
 
 # OCR DPI bounds, mirroring backend.config._read_ocr_dpi clamping.
 _OCR_DPI_MIN = 72
@@ -127,15 +128,37 @@ def update_book(
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    payload = data.model_dump(exclude_none=True)
-    # Tags live in the shared-tag tables, not a column on the book (issue #235),
-    # so apply them via the service and keep them out of the setattr loop.
-    tag_service.sync_tags_from_payload(db, "book", book.id, payload)
-    payload.pop("tags", None)
-    for field, value in payload.items():
-        setattr(book, field, value)
+    # Tags live in the shared-tag tables, not a column on the book (issue #235);
+    # apply_updates routes them through the tag service for us.
+    bulk_service.apply_updates(db, "book", book, data.model_dump(exclude_none=True))
     db.commit()
     return {"status": "ok"}
+
+
+def bulk_update_books(
+    data: BookBulkUpdate,  # type: ignore[valid-type]
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Apply per-book edits for a whole selection in one transaction (issue #270)."""
+    return bulk_service.run_bulk_update(
+        db,
+        "book",
+        list(data.items),  # type: ignore[attr-defined]
+        payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
+        not_found_detail="Book not found",
+    )
+
+
+def bulk_add_book_tags(
+    data: BulkAddTags,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Additively tag a whole selection of books in one transaction."""
+    return bulk_service.run_bulk_add_tags(
+        db, "book", data.ids, data.tags, not_found_detail="Book not found"
+    )
 
 
 def reindex_book(

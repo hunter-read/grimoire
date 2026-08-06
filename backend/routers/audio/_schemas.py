@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
+from .._bulk_schemas import bulk_update_model
 
 
 class AudioUpdate(BaseModel):
@@ -13,6 +14,10 @@ class AudioUpdate(BaseModel):
     @classmethod
     def dedupe_tags(cls, v):
         return tag_service.dedupe_tags(v) if v is not None else v
+
+
+# Batch form of AudioUpdate: {"items": [{"id": ..., ...AudioUpdate fields}]}.
+AudioBulkUpdate = bulk_update_model(AudioUpdate, "Audio")
 
 
 class FolderTagsUpdate(BaseModel):

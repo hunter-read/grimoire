@@ -11,7 +11,7 @@ import {
   LuX,
   LuDownload,
 } from 'react-icons/lu'
-import api from '../api'
+import api, { bulk as bulkApi } from '../api'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import BulkActionBar from '../components/BulkActionBar'
 import AddToCampaignModal from '../components/AddToCampaignModal'
@@ -308,25 +308,23 @@ export default function SystemDetailView() {
 
   const selectedBookObjects = () => (system.books || []).filter((b) => selectedBookIds.has(b.id))
 
+  // One request for the whole selection: the old per-book PATCH fan-out raced on
+  // tag creation server-side and returned intermittent 500s (issue #270).
   const applyBulkTags = async (newTags) => {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
     setBulkApplying(true)
-    const updates = {}
-    await Promise.all(
-      [...selectedBookIds].map((id) => {
-        const book = (system.books || []).find((b) => b.id === id)
-        if (!book) return null
-        const merged = [...new Set([...(book.tags || []), ...newTags])]
-        updates[id] = { tags: merged }
-        return api.patch(`/books/${id}`, { tags: merged })
-      })
-    )
-    setSystem((s) => ({
-      ...s,
-      books: s.books.map((b) => (updates[b.id] ? { ...b, ...updates[b.id] } : b)),
-    }))
-    bulk.clear()
-    setBulkApplying(false)
+    try {
+      const ids = [...selectedBookIds].filter((id) => (system.books || []).some((b) => b.id === id))
+      if (!ids.length) return
+      const { tags } = await bulkApi.addTags('book', ids, newTags)
+      setSystem((s) => ({
+        ...s,
+        books: s.books.map((b) => (tags?.[b.id] ? { ...b, tags: tags[b.id] } : b)),
+      }))
+      bulk.clear()
+    } finally {
+      setBulkApplying(false)
+    }
   }
 
   const applyBookEdits = (edited) =>

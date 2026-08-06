@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
-from ...services import tag_service
+from ...services import bulk_service, tag_service
+from .._bulk_schemas import BulkAddTags
 from ._helpers import resolve_cover_book_id
-from ._schemas import BookFolderUpdate, GameSystemUpdate
+from ._schemas import BookFolderUpdate, GameSystemBulkUpdate, GameSystemUpdate
 from ._serializers import serialize_book, serialize_system_summary
 
 # Sort keys accepted by list_systems. Value is the summary dict key to sort on.
@@ -299,24 +300,66 @@ def update_system(
     # model_dump serializes nested Pydantic models (publishers, urls,
     # character_builder_urls) to plain dicts, which SQLAlchemy stores as JSON.
     payload = data.model_dump(exclude_none=True)
-    tag_service.sync_tags_from_payload(db, "system", system.id, payload)
-    payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
-    # A rename is sticky: the scanner derives default names from folder structure
-    # (e.g. "Dungeons & Dragons 2e") and must not clobber a user's correction
-    # ("Advanced Dungeons & Dragons") on the next rescan (issues #261/#262).
-    new_name = payload.get("name")
-    if new_name is not None and new_name != system.name:
+    try:
+        _apply_rename(db, system, payload)
+    except bulk_service.BulkItemError as exc:
         # ``name`` is unique, so report a clash as a conflict rather than letting
         # the commit fail with an opaque 500.
-        clash = (
-            db.query(GameSystem)
-            .filter(GameSystem.name == new_name, GameSystem.id != system.id)
-            .first()
-        )
-        if clash:
-            raise HTTPException(409, f"A system named '{new_name}' already exists")
-        system.name_is_custom = True
-    for field, value in payload.items():
-        setattr(system, field, value)
+        raise HTTPException(409, str(exc)) from exc
+    bulk_service.apply_updates(db, "system", system, payload)
     db.commit()
     return {"status": "ok"}
+
+
+def _apply_rename(db: Session, system: GameSystem, payload: dict) -> None:
+    """Mark a rename sticky, rejecting a name already taken by another system.
+
+    A rename is sticky: the scanner derives default names from folder structure
+    (e.g. "Dungeons & Dragons 2e") and must not clobber a user's correction
+    ("Advanced Dungeons & Dragons") on the next rescan (issues #261/#262).
+
+    Raises :class:`bulk_service.BulkItemError` on a clash so the bulk endpoint can
+    report it per item while the single-item handler turns it into a 409.
+    """
+    new_name = payload.get("name")
+    if new_name is None or new_name == system.name:
+        return
+    clash = (
+        db.query(GameSystem)
+        .filter(GameSystem.name == new_name, GameSystem.id != system.id)
+        .first()
+    )
+    if clash:
+        raise bulk_service.BulkItemError(f"A system named '{new_name}' already exists")
+    system.name_is_custom = True
+
+
+def bulk_update_systems(
+    data: GameSystemBulkUpdate,  # type: ignore[valid-type]
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Apply per-system edits for a whole selection in one transaction (issue #270).
+
+    A name clash fails only its own item (reported in ``errors``); the rest of the
+    batch still applies.
+    """
+    return bulk_service.run_bulk_update(
+        db,
+        "system",
+        list(data.items),  # type: ignore[attr-defined]
+        payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
+        validate=_apply_rename,
+        not_found_detail="System not found",
+    )
+
+
+def bulk_add_system_tags(
+    data: BulkAddTags,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Additively tag a whole selection of systems in one transaction."""
+    return bulk_service.run_bulk_add_tags(
+        db, "system", data.ids, data.tags, not_found_detail="System not found"
+    )

@@ -6,11 +6,14 @@ from .core import (
     list_maps,
     list_map_folders,
     update_map_folder,
+    bulk_update_map_folders,
     get_map,
     serve_map_file,
     serve_map_page,
     serve_map_thumbnail,
     update_map,
+    bulk_update_maps,
+    bulk_add_map_tags,
 )
 
 router = APIRouter(tags=["maps"])
@@ -76,4 +79,37 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update map metadata",
     description="Updates editable fields on a map (description, tags, map_type, grid_size). GM or admin role required.",
+)
+# Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
+# creation and 500'd; these take the whole batch in one transaction.
+router.add_api_route(
+    "/maps/bulk",
+    bulk_update_maps,
+    methods=["POST"],
+    summary="Bulk update maps",
+    description=(
+        "Applies per-map edits for many maps in one transaction. "
+        "Body: {items: [{id, description?, tags?, map_type?, grid_size?}]}. Unknown "
+        "ids are reported in `errors` and skipped. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/maps/bulk/tags",
+    bulk_add_map_tags,
+    methods=["POST"],
+    summary="Bulk add tags to maps",
+    description=(
+        "Additively applies tags to many maps in one transaction. "
+        "Body: {ids: [...], tags: [...]}. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/map-folders/bulk",
+    bulk_update_map_folders,
+    methods=["POST"],
+    summary="Bulk set map folder tags",
+    description=(
+        "Sets tags on many map folders in one transaction. "
+        "Body: {folders: [{path, tags}]}. GM or admin role required."
+    ),
 )

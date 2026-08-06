@@ -6,6 +6,8 @@ from .core import (
     list_books,
     get_book,
     update_book,
+    bulk_update_books,
+    bulk_add_book_tags,
     reindex_book,
     rescan_book,
     serve_book_file,
@@ -33,6 +35,29 @@ router.add_api_route(
 )
 router.add_api_route("/{book_id}", get_book, methods=["GET"], summary="Get a book")
 router.add_api_route("/{book_id}", update_book, methods=["PATCH"], summary="Update book metadata")
+# Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
+# creation and 500'd; these take the whole batch in one transaction.
+router.add_api_route(
+    "/bulk",
+    bulk_update_books,
+    methods=["POST"],
+    summary="Bulk update books",
+    description=(
+        "Applies per-book edits for many books in one transaction. "
+        "Body: {items: [{id, ...BookUpdate fields}]}. Unknown ids are reported in "
+        "`errors` and skipped. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/bulk/tags",
+    bulk_add_book_tags,
+    methods=["POST"],
+    summary="Bulk add tags to books",
+    description=(
+        "Additively applies tags to many books in one transaction. "
+        "Body: {ids: [...], tags: [...]}. GM or admin role required."
+    ),
+)
 router.add_api_route(
     "/{book_id}/reindex",
     reindex_book,

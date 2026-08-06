@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import api from '../api'
+import api, { bulk as bulkApi } from '../api'
 import useSessionState from './useSessionState'
 import useViewMode from './useViewMode'
 import useBulkSelection from './useBulkSelection'
@@ -21,7 +21,7 @@ const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
  * folder grouping is toggleable (flat list when off).
  */
 export default function useMediaGallery(config) {
-  const { type, collection, foldersUrl, listUrl, itemUrl, sessionKey } = config
+  const { type, collection, foldersUrl, listUrl, sessionKey } = config
   const { isFavorite } = useFavorites()
 
   const [data, setData] = useState(null)
@@ -104,41 +104,43 @@ export default function useMediaGallery(config) {
     setFolderTags((prev) => ({ ...prev, [path]: tags }))
   }
 
+  // Tag the whole selection in one request per kind (items, folders) rather than
+  // one per item. The old fan-out raced on tag creation server-side and returned
+  // intermittent 500s that left the button stuck on "Applying" (issue #270).
   const applyBulkTags = async (newTags) => {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
     setBulkApplying(true)
-    const promises = []
+    try {
+      const ids = [...selectedIds].filter((id) => items.some((i) => i.id === id))
+      if (ids.length) await bulkApi.addTags(type, ids, newTags)
 
-    for (const id of selectedIds) {
-      const item = items.find((i) => i.id === id)
-      if (!item) continue
-      const merged = [...new Set([...(item.tags || []), ...newTags])]
-      promises.push(api.patch(itemUrl(id), { tags: merged }))
+      const folders = [...selectedFolderPaths].map((path) => ({
+        path,
+        tags: [...new Set([...(folderTags[path] || []), ...newTags])],
+      }))
+      if (folders.length) {
+        await bulkApi.setFolderTags(type, folders)
+        setFolderTags((prev) => ({
+          ...prev,
+          ...Object.fromEntries(folders.map((f) => [f.path, f.tags])),
+        }))
+      }
+
+      setData((prev) => ({
+        ...prev,
+        [collection]: prev[collection].map((item) =>
+          selectedIds.has(item.id)
+            ? { ...item, tags: [...new Set([...(item.tags || []), ...newTags])] }
+            : item
+        ),
+      }))
+
+      bulk.clear()
+    } finally {
+      // Always released, so a failed apply re-enables the button instead of
+      // leaving it stuck on "Applying" (issue #270).
+      setBulkApplying(false)
     }
-
-    for (const path of selectedFolderPaths) {
-      const existing = folderTags[path] || []
-      const merged = [...new Set([...existing, ...newTags])]
-      promises.push(
-        api
-          .patch(foldersUrl, { path, tags: merged })
-          .then(() => setFolderTags((prev) => ({ ...prev, [path]: merged })))
-      )
-    }
-
-    await Promise.all(promises)
-
-    setData((prev) => ({
-      ...prev,
-      [collection]: prev[collection].map((item) =>
-        selectedIds.has(item.id)
-          ? { ...item, tags: [...new Set([...(item.tags || []), ...newTags])] }
-          : item
-      ),
-    }))
-
-    bulk.clear()
-    setBulkApplying(false)
   }
 
   const selectedObjects = () => items.filter((i) => selectedIds.has(i.id))

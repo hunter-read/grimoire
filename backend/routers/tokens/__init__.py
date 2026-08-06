@@ -6,10 +6,13 @@ from .core import (
     list_tokens,
     list_token_folders,
     update_token_folder,
+    bulk_update_token_folders,
     get_token,
     serve_token_file,
     serve_token_thumbnail,
     update_token,
+    bulk_update_tokens,
+    bulk_add_token_tags,
 )
 
 router = APIRouter(tags=["tokens"])
@@ -68,4 +71,37 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update token metadata",
     description="Updates editable fields on a token (description, tags). GM or admin role required.",
+)
+# Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
+# creation and 500'd; these take the whole batch in one transaction.
+router.add_api_route(
+    "/tokens/bulk",
+    bulk_update_tokens,
+    methods=["POST"],
+    summary="Bulk update tokens",
+    description=(
+        "Applies per-token edits for many tokens in one transaction. "
+        "Body: {items: [{id, description?, tags?, is_explicit?}]}. Unknown ids are "
+        "reported in `errors` and skipped. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/tokens/bulk/tags",
+    bulk_add_token_tags,
+    methods=["POST"],
+    summary="Bulk add tags to tokens",
+    description=(
+        "Additively applies tags to many tokens in one transaction. "
+        "Body: {ids: [...], tags: [...]}. GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/token-folders/bulk",
+    bulk_update_token_folders,
+    methods=["POST"],
+    summary="Bulk set token folder tags",
+    description=(
+        "Sets tags on many token folders in one transaction. "
+        "Body: {folders: [{path, tags}]}. GM or admin role required."
+    ),
 )

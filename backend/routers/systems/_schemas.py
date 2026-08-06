@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
+from .._bulk_schemas import bulk_update_model
 
 
 class PublisherEntry(BaseModel):
@@ -104,3 +105,7 @@ class GameSystemUpdate(BaseModel):
                 seen.add(key)
                 out.append(s)
         return out
+
+
+# Batch form of GameSystemUpdate: {"items": [{"id": ..., ...GameSystemUpdate fields}]}.
+GameSystemBulkUpdate = bulk_update_model(GameSystemUpdate, "GameSystem")
