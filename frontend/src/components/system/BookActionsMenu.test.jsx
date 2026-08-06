@@ -7,9 +7,24 @@ vi.mock('react-i18next', () => ({
 }))
 
 const mockPost = vi.fn(() => Promise.resolve({}))
+const mockCampaignList = vi.fn(() => Promise.resolve([]))
 vi.mock('../../api', () => ({
   default: { post: (...args) => mockPost(...args) },
   mediaUrl: (path) => `http://localhost${path}`,
+  // Used by AddToCampaignModal, which the "add to campaign" item opens.
+  campaigns: {
+    list: (...args) => mockCampaignList(...args),
+    bulkAddResources: vi.fn(() => Promise.resolve([])),
+  },
+}))
+
+let mockHideCampaigns = false
+vi.mock('../../context/UISettingsContext', () => ({
+  useUISettings: () => ({ hide_campaigns: mockHideCampaigns }),
+}))
+
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'u1' } }),
 }))
 
 function makeBook(overrides = {}) {
@@ -31,6 +46,9 @@ describe('BookActionsMenu', () => {
   beforeEach(() => {
     mockPost.mockClear()
     mockPost.mockResolvedValue({})
+    mockCampaignList.mockClear()
+    mockCampaignList.mockResolvedValue([])
+    mockHideCampaigns = false
   })
 
   it('is collapsed until the trigger is clicked', () => {
@@ -62,6 +80,67 @@ describe('BookActionsMenu', () => {
     const link = screen.getByRole('menuitem', { name: 'bookActions.download' })
     expect(link).toHaveAttribute('href', 'http://localhost/books/b7/file')
     expect(link).toHaveAttribute('download')
+  })
+
+  // --- add to campaign ---
+
+  it('opens the add-to-campaign modal for just this book', async () => {
+    mockCampaignList.mockResolvedValue([{ id: 'c1', name: 'Curse of Strahd', owner_id: 'u1' }])
+    renderMenu({ id: 'b9' })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
+    // The modal loads the user's campaigns and offers this one book.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    await waitFor(() => expect(mockCampaignList).toHaveBeenCalled())
+    expect(screen.getByRole('option', { name: 'Curse of Strahd' })).toBeInTheDocument()
+  })
+
+  it('keeps the modal open after the menu closes', async () => {
+    mockCampaignList.mockResolvedValue([{ id: 'c1', name: 'Camp', owner_id: 'u1' }])
+    renderMenu()
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
+    // The menu itself is dismissed, but the modal it opened stays up.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('does not let modal clicks reach the surrounding row', async () => {
+    // The menu lives inside a book row whose click handler opens the reader.
+    // React portals still bubble through the React tree, so without an explicit
+    // stopPropagation every click in the modal would also open the book.
+    mockCampaignList.mockResolvedValue([{ id: 'c1', name: 'Camp', owner_id: 'u1' }])
+    const onRowClick = vi.fn()
+    render(
+      <div onClick={onRowClick}>
+        <BookActionsMenu book={makeBook()} onEdit={() => {}} />
+      </div>
+    )
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
+    const dialog = await screen.findByRole('dialog')
+    onRowClick.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }))
+    expect(onRowClick).not.toHaveBeenCalled()
+    expect(dialog).not.toBeInTheDocument()
+  })
+
+  it('is available to non-editors, unlike edit', () => {
+    renderMenu({}, { onEdit: undefined })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.edit' })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'resources.addToCampaign' })).toBeInTheDocument()
+  })
+
+  it('hides the item when campaigns are hidden in UI settings', () => {
+    mockHideCampaigns = true
+    renderMenu()
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(
+      screen.queryByRole('menuitem', { name: 'resources.addToCampaign' })
+    ).not.toBeInTheDocument()
+    // The rest of the menu is unaffected.
+    expect(screen.getByRole('menuitem', { name: 'bookActions.download' })).toBeInTheDocument()
   })
 
   // --- text-layer PDF: re-scan ---
