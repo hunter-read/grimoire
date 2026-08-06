@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CampaignEditor from './CampaignEditor'
 import api, { campaigns } from '../../api'
@@ -44,7 +44,12 @@ vi.mock('./ResourcePicker', () => ({
 
 const systems = [
   { id: 'sys-fav', name: 'Favourite System' },
-  { id: 'sys1', name: 'D&D 5e' },
+  { id: 'sys1', name: 'D&D 5e', parent_id: 'sys-dnd' },
+  // Containers: folder groupings whose books live on their children. These must
+  // not be offered as a campaign's system (issue: parent-system containers).
+  { id: 'sys-dnd', name: 'Dungeons & Dragons', container_kind: 'parent' },
+  { id: 'sys-opr', name: 'One-Page RPGs', container_kind: 'one-page' },
+  { id: 'sys-honey', name: 'Honey Heist', parent_id: 'sys-opr' },
 ]
 
 beforeEach(() => {
@@ -55,7 +60,7 @@ beforeEach(() => {
 describe('CampaignEditor — create flow', () => {
   it('requires a name before advancing to the resource step', async () => {
     render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/systems'))
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/systems?include_children=true'))
     await userEvent.click(screen.getByRole('button', { name: /next/i }))
     expect(screen.getByText(/name is required/i)).toBeInTheDocument()
     // Still on the details step (no picker yet).
@@ -90,6 +95,34 @@ describe('CampaignEditor — create flow', () => {
       { resource_type: 'book', resource_id: 'b1', visibility: 'public' },
     ])
     expect(onSaved).toHaveBeenCalledWith({ id: 'c1' })
+  })
+
+  it('offers container children but not the containers themselves', async () => {
+    render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+    const select = screen.getByLabelText(/system/i)
+    const values = within(select)
+      .getAllByRole('option')
+      .map((o) => o.value)
+
+    // Children of both container kinds are playable systems and selectable.
+    expect(values).toContain('sys1')
+    expect(values).toContain('sys-honey')
+    // The containers hold no books of their own, so they are not offered.
+    expect(values).not.toContain('sys-dnd')
+    expect(values).not.toContain('sys-opr')
+  })
+
+  it('selects a container child as the campaign system', async () => {
+    campaigns.create.mockResolvedValue({ id: 'c3' })
+    render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+    await userEvent.type(screen.getByLabelText(/name/i), 'Curse of Strahd')
+    await userEvent.selectOptions(screen.getByLabelText(/system/i), 'sys1')
+    await userEvent.click(screen.getByRole('button', { name: /next/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create campaign/i }))
+    await waitFor(() => expect(campaigns.create).toHaveBeenCalled())
+    expect(campaigns.create.mock.calls[0][0].system_id).toBe('sys1')
   })
 
   it('can go back from the resource step to the details step', async () => {

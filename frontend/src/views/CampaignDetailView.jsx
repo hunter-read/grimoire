@@ -161,8 +161,10 @@ export default function CampaignDetailView() {
     load()
     loadSchedule()
     loadAvailability()
+    // include_children so a campaign set to a container child ("Dungeons &
+    // Dragons 5e") resolves to a name here instead of falling back to "—".
     api
-      .get('/systems')
+      .get('/systems?include_children=true')
       .then(setSystems)
       .catch(() => {})
   }, [campaignId])
