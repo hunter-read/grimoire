@@ -115,7 +115,10 @@ export const campaigns = {
     if (opts.newCategoryName) fields.new_category_name = opts.newCategoryName
     return api.upload(`/campaigns/${id}/images`, file, fields)
   },
-  searchResources: (q = '', resourceType = '', systemId = '', limit = 40) => {
+  // `limit` is applied per resource type server-side. It defaults high because
+  // the picker browses a whole collection as a folder tree rather than showing a
+  // preview slice; the server clamps it to its own ceiling.
+  searchResources: (q = '', resourceType = '', systemId = '', limit = 5000) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (resourceType) params.set('resource_type', resourceType)

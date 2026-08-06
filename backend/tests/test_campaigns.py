@@ -3,7 +3,14 @@ import io
 import os
 import uuid
 import pytest
-from backend.tests.conftest import make_campaign, make_game_system, make_book, make_map
+from backend.tests.conftest import (
+    make_campaign,
+    make_game_system,
+    make_book,
+    make_map,
+    make_audio,
+    make_token,
+)
 
 
 def uid():
@@ -569,6 +576,103 @@ class TestResourceSearch:
         )
         results = resp.json()
         assert results[0]["name"] == "plain.png"  # folder hit ranked first
+
+    def test_matches_past_the_old_hardcoded_cap(self, client, gm_headers):
+        """Search must consider the whole library, not a truncated head slice.
+
+        Filtering used to happen in Python over a ``.limit(500)``/``.limit(1000)``
+        slice ordered by title/filename, so an item sorting after that cap was
+        unreachable even by exact name. These rows sort last on purpose.
+        """
+        system = make_game_system()
+        token = f"zzcap{uid()}"
+        make_book(system_id=system.id, title=f"zzzz-last-{token}")
+        make_map(filename=f"zzzz-last-{token}.png", relative_path=f"Maps/deep/zz-{token}.png")
+        make_token(filename=f"zzzz-last-{token}.png", relative_path=f"Tokens/zz-{token}.png")
+        make_audio(title=f"zzzz-last-{token}", filename=f"zzzz-{token}.mp3")
+
+        for rtype in ("book", "map", "token", "audio"):
+            resp = client.get(
+                f"/api/campaigns/resources/search?q={token}&resource_type={rtype}",
+                headers=gm_headers,
+            )
+            assert resp.status_code == 200
+            assert len(resp.json()) >= 1, f"{rtype} search found nothing"
+
+    def test_container_system_includes_child_books(self, client, gm_headers):
+        """Scoping to a container returns its children's books.
+
+        A parent-system container holds no books itself — they belong to its
+        edition children — so an equality filter on game_system_id matched
+        nothing and the picker showed no books for the campaign's system.
+        """
+        container = make_game_system(container_kind="parent")
+        child = make_game_system(parent_id=container.id)
+        token = f"cont{uid()}"
+        make_book(system_id=child.id, title=f"{token} Child Book")
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q={token}&resource_type=book"
+            f"&system_id={container.id}",
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        assert [r["name"] for r in resp.json()] == [f"{token} Child Book"]
+
+    def test_system_scope_still_excludes_other_systems(self, client, gm_headers):
+        """Container expansion must not widen the scope to unrelated systems."""
+        container = make_game_system(container_kind="parent")
+        child = make_game_system(parent_id=container.id)
+        outsider = make_game_system()
+        token = f"scope{uid()}"
+        make_book(system_id=child.id, title=f"{token} Inside")
+        make_book(system_id=outsider.id, title=f"{token} Outside")
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q={token}&resource_type=book"
+            f"&system_id={container.id}",
+            headers=gm_headers,
+        )
+        names = [r["name"] for r in resp.json()]
+        assert any("Inside" in n for n in names)
+        assert not any("Outside" in n for n in names)
+
+    def test_wildcards_in_query_are_literal(self, client, gm_headers):
+        """A bare % must not act as a LIKE wildcard matching the whole library."""
+        system = make_game_system()
+        marker = f"pct{uid()}"
+        make_book(system_id=system.id, title=f"100% {marker}")
+        make_book(system_id=system.id, title=f"plain {marker}")
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q=100%25+{marker}&resource_type=book",
+            headers=gm_headers,
+        )
+        names = [r["name"] for r in resp.json()]
+        assert names == [f"100% {marker}"]
+
+    def test_searches_audio_by_title(self, client, gm_headers):
+        """Audio displays its tag title, so the title has to be searchable."""
+        token = f"aud{uid()}"
+        make_audio(title=f"{token} Tavern Theme", filename=f"unrelated-{uid()}.mp3")
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q={token}&resource_type=audio",
+            headers=gm_headers,
+        )
+        assert [r["name"] for r in resp.json()] == [f"{token} Tavern Theme"]
+
+    def test_book_search_matches_system_name(self, client, gm_headers):
+        """A book's tree path leads with its system, so searching it finds the books."""
+        token = f"sysname{uid()}"
+        system = make_game_system(name=f"{token} System")
+        make_book(system_id=system.id, title="Ordinary Title")
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q={token}&resource_type=book",
+            headers=gm_headers,
+        )
+        assert [r["name"] for r in resp.json()] == ["Ordinary Title"]
 
 
 # ---------------------------------------------------------------------------

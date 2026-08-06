@@ -6,11 +6,39 @@ and the "add resource" flow. Split out of ``core.py`` (issue #152).
 """
 
 from fastapi import Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import Audio, Book, GenericMap, Token
+from ...models import Audio, Book, GameSystem, GenericMap, Token
+
+# Hard ceiling on how many rows one search may return per resource type. The
+# picker browses a whole collection as a folder tree, so this has to be large
+# enough to hold a real library rather than a preview slice — the old 500/1000
+# caps silently truncated to the alphabetically-first items and made everything
+# past them unreachable, even by search.
+MAX_LIMIT = 20000
+DEFAULT_LIMIT = 5000
+
+
+def _escape_like(term: str) -> str:
+    """Escape LIKE wildcards so a literal % or _ in a query doesn't match everything."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _system_id_filter(db: Session, system_id: str) -> list[str]:
+    """Expand a system id to itself plus its children, for container folders.
+
+    A container ("Dungeons & Dragons", "One-Page RPGs") holds no books directly —
+    they all belong to its child systems. Scoping a campaign's book search to a
+    container therefore has to include those children, or it matches nothing
+    (issues #261/#262).
+    """
+    child_ids = [
+        row[0] for row in db.query(GameSystem.id).filter(GameSystem.parent_id == system_id).all()
+    ]
+    return [system_id, *child_ids]
 
 
 def _resource_folder(relative_path: str) -> str:
@@ -51,7 +79,7 @@ def search_resources_global(
     q: str = "",
     resource_type: str = None,
     system_id: str = None,
-    limit: int = 30,
+    limit: int = DEFAULT_LIMIT,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -61,23 +89,46 @@ def search_resources_global(
     audio match on their folder path *first*, then filename, so a folder name like
     "Abyssal Fall (30x49)" surfaces every item inside it. Folder-path matches are
     ranked above filename-only matches.
+
+    Matching happens in SQL so the query runs against the whole library. It used
+    to filter in Python over a ``.limit()``-ed slice, which meant only the
+    alphabetically-first 500 books / 1000 media rows were ever considered and
+    anything past that was invisible even to an exact-name search.
+
+    ``limit`` is applied per resource type, so asking for several types does not
+    make each one's share smaller.
     """
     if current_user.role == "guest":
         raise HTTPException(403, "Guests cannot browse the library")
     results = []
+    q = (q or "").strip()
     q_lower = q.lower()
+    per_type = max(1, min(limit, MAX_LIMIT))
+    like = f"%{_escape_like(q)}%" if q else None
 
     if not resource_type or resource_type == "book":
-        from ...models import GameSystem
-
         # Map system id → name in one pass so each book's tree path can lead
         # with its system without a per-book relationship lookup.
-        system_names = {s.id: s.name for s in db.query(GameSystem).all()}
+        system_names = {s.id: s.name for s in db.query(GameSystem.id, GameSystem.name).all()}
         query = db.query(Book)
         if system_id:
-            query = query.filter(Book.game_system_id == system_id)
+            query = query.filter(Book.game_system_id.in_(_system_id_filter(db, system_id)))
+        if like is not None:
+            # A book's tree path is built from its system name, relative path and
+            # category, so match any of those to keep folder search working.
+            system_hits = [
+                sid for sid, name in system_names.items() if q_lower in (name or "").lower()
+            ]
+            conditions = [
+                Book.title.ilike(like, escape="\\"),
+                Book.relative_path.ilike(like, escape="\\"),
+                Book.category.ilike(like, escape="\\"),
+            ]
+            if system_hits:
+                conditions.append(Book.game_system_id.in_(system_hits))
+            query = query.filter(or_(*conditions))
         book_folder_hits, book_name_hits = [], []
-        for b in query.order_by(Book.title).limit(500).all():
+        for b in query.order_by(Book.title).limit(per_type).all():
             # Tree path: <System>/<category>/<subcategory>/... so the picker
             # groups books by system first, then by their nested folders.
             folder = _book_subtitle(
@@ -90,18 +141,28 @@ def search_resources_global(
                 "subtitle": folder,
                 "has_thumbnail": b.has_thumbnail,
             }
-            if not q:
-                book_name_hits.append(row)
-            elif q_lower in folder.lower():
+            # SQL already narrowed to matches; this only ranks folder hits above
+            # title-only hits, preserving the picker's ordering contract.
+            if q and q_lower in folder.lower():
                 book_folder_hits.append(row)
-            elif q_lower in (b.title or "").lower():
+            else:
                 book_name_hits.append(row)
         results.extend(book_folder_hits + book_name_hits)
 
     # Maps/tokens/audio: prefer folder-path matches, then filename matches.
     def _media_results(rtype, model):
+        query = db.query(model)
+        if like is not None:
+            conditions = [
+                model.filename.ilike(like, escape="\\"),
+                model.relative_path.ilike(like, escape="\\"),
+            ]
+            # Audio displays its tag title, so that has to be searchable too.
+            if rtype == "audio":
+                conditions.append(model.title.ilike(like, escape="\\"))
+            query = query.filter(or_(*conditions))
         folder_hits, name_hits = [], []
-        for item in db.query(model).order_by(model.filename).limit(1000).all():
+        for item in query.order_by(model.filename).limit(per_type).all():
             folder = _resource_folder(item.relative_path)
             # Audio has no thumbnail; use its artwork flag and prefer its title.
             if rtype == "audio":
@@ -117,11 +178,9 @@ def search_resources_global(
                 "subtitle": folder,
                 "has_thumbnail": has_thumb,
             }
-            if not q:
-                name_hits.append(row)
-            elif q_lower in folder.lower():
+            if q and q_lower in folder.lower():
                 folder_hits.append(row)
-            elif q_lower in (name or "").lower():
+            else:
                 name_hits.append(row)
         return folder_hits + name_hits
 
@@ -134,7 +193,7 @@ def search_resources_global(
     if not resource_type or resource_type == "audio":
         results.extend(_media_results("audio", Audio))
 
-    return results[:limit]
+    return results
 
 
 def suggested_resources(

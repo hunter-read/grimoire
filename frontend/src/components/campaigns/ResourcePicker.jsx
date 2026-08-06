@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuBookOpen, LuTrash2, LuTags } from 'react-icons/lu'
 import { campaigns, tags as tagsApi } from '../../api'
@@ -17,13 +17,21 @@ import {
   typeTab,
 } from './campaignEditorShared'
 
+// How long to wait after the last keystroke before querying the server.
+const DEBOUNCE_MS = 250
+
 /**
  * Unified library-resource picker: browse books/maps/tokens/audio by folder,
  * check what to include, and set each pick's visibility. The selection is fully
  * controlled by the parent via `selected` / `setSelected`, so the same component
  * drives both the create wizard and the "link more resources" modal.
  *
- * `systemId` scopes the book results to one game system (empty = all systems).
+ * Results come from the server one type at a time, with the search query sent
+ * along (debounced), so matching runs against the whole library rather than
+ * against a pre-fetched slice of it.
+ *
+ * `systemId` scopes the book results to one game system (empty = all systems);
+ * a container system also matches its children's books.
  * `preselectCore` pre-checks that system's core books once, for the wizard.
  * `excludeKeys` is a Set of `resourceKey` values already linked; those rows are
  * filtered out so you can't pick a duplicate.
@@ -39,9 +47,12 @@ export default function ResourcePicker({
   pinSystem = '',
 }) {
   const { t } = useTranslation()
-  // All available resources (loaded once per type set), grouped client-side.
+  // Resources for the active type tab, as returned by the server.
   const [all, setAll] = useState(null)
   const [query, setQuery] = useState('')
+  // The query actually sent to the server, trailing the input by DEBOUNCE_MS so
+  // typing doesn't fire a request per keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('book')
   const [openKeys, setOpenKeys] = useState(() => new Set())
   // "Add by tag" (issue #235.8): the loaded tag list and any add error.
@@ -49,27 +60,26 @@ export default function ResourcePicker({
   const [tagValue, setTagValue] = useState('')
   const [tagAdding, setTagAdding] = useState(false)
 
-  // Load books (optionally scoped to the campaign's system) plus every map,
-  // token, and audio item, once. Empty query returns the full set per type; we
-  // group and filter locally for a snappy folder browser without per-keystroke
-  // requests.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query.trim()), DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [query])
+
+  // Load the active type only, and let the server do the matching. Fetching all
+  // four types up front and filtering in the browser meant the search could only
+  // ever see whatever slice the server had already returned, so items past the
+  // cap were unreachable — searching now queries the whole library.
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      campaigns.searchResources('', 'book', systemId || '', 1000),
-      campaigns.searchResources('', 'map', '', 1000),
-      campaigns.searchResources('', 'token', '', 1000),
-      campaigns.searchResources('', 'audio', '', 1000),
-    ])
-      .then(([books, maps, tokens, audio]) => {
-        if (cancelled) return
-        setAll([...(books || []), ...(maps || []), ...(tokens || []), ...(audio || [])])
-      })
+    setAll(null)
+    campaigns
+      .searchResources(debouncedQuery, typeFilter, typeFilter === 'book' ? systemId || '' : '')
+      .then((rows) => !cancelled && setAll(rows || []))
       .catch(() => !cancelled && setAll([]))
     return () => {
       cancelled = true
     }
-  }, [systemId])
+  }, [systemId, typeFilter, debouncedQuery])
 
   // Load the tag list once, for the "add by tag" picker.
   useEffect(() => {
@@ -85,8 +95,9 @@ export default function ResourcePicker({
 
   // Add every campaign-addable resource carrying the chosen tag to the selection
   // (issue #235.8). Systems aren't campaign resources, so they're skipped; rows
-  // already selected or excluded are left as-is. Metadata (name) is enriched from
-  // the loaded resource set when available.
+  // already selected or excluded are left as-is. Names are enriched from the
+  // loaded resource set when it happens to hold the row (it only covers the
+  // active type now), falling back to the tag API's own title/filename.
   const addByTag = async (internal) => {
     if (!internal || tagAdding) return
     setTagAdding(true)
@@ -118,10 +129,15 @@ export default function ResourcePicker({
     }
   }
 
-  // Pre-select core books for the campaign's system the first time resources
-  // load (wizard only). Skipped once the user has picked anything.
+  // Pre-select core books for the campaign's system the first time the *unfiltered
+  // book* list loads (wizard only). Skipped once the user has picked anything.
+  // Guarded by a ref because `all` now holds one type at a time: without it,
+  // switching tabs or searching would re-run this against a different list.
+  const preselectedRef = useRef(false)
   useEffect(() => {
     if (!preselectCore || !all || !systemId) return
+    if (preselectedRef.current || typeFilter !== 'book' || debouncedQuery) return
+    preselectedRef.current = true
     setSelected((prev) => {
       if (prev.length > 0) return prev
       return all
@@ -139,7 +155,7 @@ export default function ResourcePicker({
           visibility: 'public',
         }))
     })
-  }, [all, systemId, preselectCore, setSelected])
+  }, [all, systemId, preselectCore, setSelected, typeFilter, debouncedQuery])
 
   const selectedKeys = new Set(selected.map(resourceKey))
 
@@ -168,15 +184,10 @@ export default function ResourcePicker({
 
   const q = query.trim().toLowerCase()
 
-  // Filter to the active type + search + not-already-linked, then build a
-  // nested folder tree from each item's subtitle path.
-  const filtered = (all || []).filter((r) => {
-    if (r.resource_type !== typeFilter) return false
-    if (excludeKeys && excludeKeys.has(resourceKey(r))) return false
-    if (q && !r.name.toLowerCase().includes(q) && !(r.subtitle || '').toLowerCase().includes(q))
-      return false
-    return true
-  })
+  // The server already scoped these to the active type and query; only
+  // already-linked rows still need filtering out here. Build a nested folder
+  // tree from each remaining item's subtitle path.
+  const filtered = (all || []).filter((r) => !(excludeKeys && excludeKeys.has(resourceKey(r))))
   // Pin the campaign's own system to the top of the book tree only.
   const pin = typeFilter === 'book' ? pinSystem : ''
   const tree = buildFolderTree(filtered, t('campaignEditor.resources.ungrouped'), pin)
