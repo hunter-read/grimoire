@@ -180,30 +180,25 @@ describe('SortFilterBar', () => {
     expect(bar).toHaveClass('sort-filter-bar-sticky')
   })
 
-  // The backdrop is a viewport-wide ::before offset back to the viewport edge,
-  // so it reaches the page edge even inside a narrower container (system detail
-  // caps at 1200px vs the galleries' 1400px) — a plain background stopped short.
-  it('draws the sticky backdrop as a full-bleed pseudo-element', () => {
+  // The backdrop rides on the row itself so it spans exactly the content width.
+  // An earlier full-bleed version stretched to the viewport edges, which looked
+  // detached from the content on wide screens.
+  it('draws the sticky backdrop at the row width', () => {
     render(<Harness sticky />)
     const bar = screen.getByTestId('sort-filter-bar')
-    // No opaque background on the row itself; the ::before carries it.
-    expect(bar.style.background).toBe('')
+    expect(bar).toHaveStyle({ background: 'var(--bg-deep)' })
+    // Read off the inline style: jsdom does not resolve the border shorthand
+    // when the colour is a var() reference.
+    expect(bar.style.borderBottom).toBe('1px solid var(--border)')
     const css = [...document.querySelectorAll('style')].map((s) => s.textContent).join('')
-    expect(css).toMatch(/\.sort-filter-bar-sticky::before/)
-    expect(css).toMatch(/width:\s*100vw/)
-    expect(css).toMatch(/--sfb-offset/)
+    expect(css).not.toMatch(/::before/)
+    expect(css).not.toMatch(/100vw/)
   })
 
-  // Measured from the row's own position, so the backdrop starts at the
-  // viewport edge instead of overhanging (which made <main> scroll sideways).
-  it('sets the backdrop offset from the row position', () => {
-    const spy = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockReturnValue({ left: 220, top: 0, right: 0, bottom: 0, width: 0, height: 0 })
-    render(<Harness sticky />)
-    expect(screen.getByTestId('sort-filter-bar').style.getPropertyValue('--sfb-offset')).toBe(
-      '220px'
-    )
-    spy.mockRestore()
+  // No backdrop when the row scrolls with the page — it needs to cover content
+  // only while pinned.
+  it('leaves the row transparent when not sticky', () => {
+    render(<Harness />)
+    expect(screen.getByTestId('sort-filter-bar').style.background).toBe('')
   })
 })

@@ -205,6 +205,8 @@
     "keyboardShortcuts": "Raccourcis clavier",
     "shortcutPrevNext": "Page précédente / suivante",
     "shortcutPrevNextVertical": "Page précédente / suivante (vertical)",
+    "shortcutZoom": "Zoom avant / arrière",
+    "shortcutZoomReset": "Réinitialiser le zoom",
     "shortcutFavorite": "Basculer le favori",
     "shortcutToc": "Table des matières",
     "shortcutBookmarks": "Signets",
@@ -212,6 +214,9 @@
     "shortcutHelp": "Cette aide",
     "shortcutClose": "Fermer les panneaux",
     "spreadCover": "Couverture",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "zoomReset": "Réinitialiser le zoom",
     "spreadIncludeCover": "Inclure la couverture dans la double page (pages 1-2, 3-4…)",
     "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)",
     "archiveNotViewable": "Ce fichier est une archive et ne peut pas être affiché dans le lecteur. Téléchargez-le pour en ouvrir le contenu."
@@ -520,8 +525,11 @@
       "page": "Page",
       "spread": "Double page",
       "pdf": "PDF",
-      "scrollWheelNav": "Navigation à la molette",
-      "scrollWheelNavHint": "Tournez les pages en faisant défiler. Désactivez cette option si vous préférez que la molette ne fasse rien."
+      "scrollWheel": "Molette",
+      "scrollWheelHint": "Ce que fait la molette sur une page. Ctrl/Cmd + molette zoome toujours, quel que soit le choix.",
+      "wheelPage": "Tourner les pages",
+      "wheelZoom": "Zoomer",
+      "wheelNone": "Rien"
     },
     "library": {
       "title": "Navigation dans la bibliothèque",

@@ -205,6 +205,8 @@
     "keyboardShortcuts": "Sneltoetsen",
     "shortcutPrevNext": "Vorige / volgende pagina",
     "shortcutPrevNextVertical": "Vorige / volgende pagina (verticaal)",
+    "shortcutZoom": "In- / uitzoomen",
+    "shortcutZoomReset": "Zoom herstellen",
     "shortcutFavorite": "Favoriet in-/uitschakelen",
     "shortcutToc": "Inhoudsopgave",
     "shortcutBookmarks": "Bladwijzers",
@@ -212,6 +214,9 @@
     "shortcutHelp": "Deze help",
     "shortcutClose": "Panelen sluiten",
     "spreadCover": "Omslag",
+    "zoomIn": "Inzoomen",
+    "zoomOut": "Uitzoomen",
+    "zoomReset": "Zoom herstellen",
     "spreadIncludeCover": "Omslag opnemen in dubbele pagina (pagina's 1-2, 3-4 koppelen…)",
     "spreadExcludeCover": "Omslag uitsluiten van dubbele pagina (pagina's 2-3, 4-5 koppelen…)",
     "archiveNotViewable": "Dit is een archiefbestand en kan niet in de lezer worden bekeken. Download het om de inhoud te openen."
@@ -520,8 +525,11 @@
       "page": "Pagina",
       "spread": "Dubbele pagina",
       "pdf": "PDF",
-      "scrollWheelNav": "Navigatie met scrollwiel",
-      "scrollWheelNavHint": "Blader door pagina's door te scrollen. Schakel uit als je wilt dat het scrollwiel niets doet."
+      "scrollWheel": "Scrollwiel",
+      "scrollWheelHint": "Wat het scrollwiel doet boven een pagina. Ctrl/Cmd + scrollen zoomt altijd, wat je ook kiest.",
+      "wheelPage": "Pagina's omslaan",
+      "wheelZoom": "Zoomen",
+      "wheelNone": "Niets"
     },
     "library": {
       "title": "Bibliotheek doorbladeren",

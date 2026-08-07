@@ -39,6 +39,13 @@ function defaultProps(overrides = {}) {
     isFavorite: false,
     onToggleFavorite: vi.fn(),
     onBookmarkPage: vi.fn(),
+    zoom: 1,
+    canZoomIn: true,
+    canZoomOut: false,
+    isZoomed: false,
+    onZoomIn: vi.fn(),
+    onZoomOut: vi.fn(),
+    onResetZoom: vi.fn(),
     ...overrides,
   }
 }
@@ -227,5 +234,101 @@ describe('ReaderToolbar — actions', () => {
     const backdrop = screen.getByText('Keyboard Shortcuts').closest('[style*="inset"]')
     await userEvent.click(backdrop)
     expect(onToggleShortcuts).toHaveBeenCalledOnce()
+  })
+})
+
+describe('ReaderToolbar — zoom controls', () => {
+  it('shows the current zoom level and fires the zoom callbacks', async () => {
+    const onZoomIn = vi.fn()
+    const onZoomOut = vi.fn()
+    renderToolbar({ zoom: 1.5, canZoomIn: true, canZoomOut: true, onZoomIn, onZoomOut })
+
+    expect(screen.getByText('150%')).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Zoom in'))
+    expect(onZoomIn).toHaveBeenCalledOnce()
+    await userEvent.click(screen.getByLabelText('Zoom out'))
+    expect(onZoomOut).toHaveBeenCalledOnce()
+  })
+
+  it('disables each button at its clamp bound', () => {
+    renderToolbar({ zoom: 1, canZoomIn: true, canZoomOut: false })
+    expect(screen.getByLabelText('Zoom out')).toBeDisabled()
+    expect(screen.getByLabelText('Zoom in')).not.toBeDisabled()
+
+    renderToolbar({ zoom: 2, canZoomIn: false, canZoomOut: true })
+    expect(screen.getAllByLabelText('Zoom in').at(-1)).toBeDisabled()
+  })
+
+  it('offers reset only once zoomed', async () => {
+    const onResetZoom = vi.fn()
+    renderToolbar({ isZoomed: false })
+    expect(screen.queryByLabelText('Reset zoom')).not.toBeInTheDocument()
+
+    renderToolbar({ zoom: 1.75, isZoomed: true, canZoomOut: true, onResetZoom })
+    await userEvent.click(screen.getByLabelText('Reset zoom'))
+    expect(onResetZoom).toHaveBeenCalledOnce()
+  })
+
+  it('hides the cluster in pdf mode, where the native viewer zooms itself', () => {
+    renderToolbar({ mode: 'pdf' })
+    expect(screen.queryByLabelText('Zoom in')).not.toBeInTheDocument()
+    expect(screen.queryByText('100%')).not.toBeInTheDocument()
+  })
+
+  it('hides the cluster on phones, where pinch-to-zoom already works', () => {
+    renderToolbar({ isMobilePhone: true })
+    expect(screen.queryByLabelText('Zoom in')).not.toBeInTheDocument()
+  })
+
+  it('lists the zoom shortcuts in the overlay', () => {
+    renderToolbar({ showShortcuts: true })
+    // Testing Library collapses the padding spaces in the key label.
+    expect(screen.getByText('+ / -')).toBeInTheDocument()
+    expect(screen.getByText('0')).toBeInTheDocument()
+  })
+
+  it('omits the zoom shortcuts in pdf mode', () => {
+    renderToolbar({ showShortcuts: true, mode: 'pdf' })
+    expect(screen.queryByText('+ / -')).not.toBeInTheDocument()
+  })
+})
+
+describe('ReaderToolbar — page input', () => {
+  it('reports each keystroke in the page box', async () => {
+    const onPageInputChange = vi.fn()
+    renderToolbar({ onPageInputChange, pageInput: '' })
+    await userEvent.type(screen.getByLabelText('Current page number'), '7')
+    expect(onPageInputChange).toHaveBeenCalledWith('7')
+  })
+
+  it('commits the typed page on Enter', async () => {
+    const onPageInputCommit = vi.fn()
+    renderToolbar({ onPageInputCommit, pageInput: '42' })
+    const input = screen.getByLabelText('Current page number')
+    await userEvent.type(input, '{Enter}')
+    expect(onPageInputCommit).toHaveBeenCalledWith(42)
+  })
+
+  it('commits on blur too, so clicking away is not lost', async () => {
+    const onPageInputCommit = vi.fn()
+    renderToolbar({ onPageInputCommit, pageInput: '13' })
+    const input = screen.getByLabelText('Current page number')
+    await userEvent.click(input)
+    await userEvent.tab()
+    expect(onPageInputCommit).toHaveBeenCalledWith(13)
+  })
+
+  it('falls back to page 1 when the box holds no number', async () => {
+    const onPageInputCommit = vi.fn()
+    renderToolbar({ onPageInputCommit, pageInput: 'abc' })
+    await userEvent.type(screen.getByLabelText('Current page number'), '{Enter}')
+    expect(onPageInputCommit).toHaveBeenCalledWith(1)
+  })
+
+  it('keeps the shortcuts modal open when the card itself is clicked', async () => {
+    const onToggleShortcuts = vi.fn()
+    renderToolbar({ showShortcuts: true, onToggleShortcuts })
+    await userEvent.click(screen.getByText('Keyboard Shortcuts'))
+    expect(onToggleShortcuts).not.toHaveBeenCalled()
   })
 })

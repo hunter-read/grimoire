@@ -6,9 +6,10 @@ import api, { mediaUrl } from '../api'
 import { isArchiveBook } from '../constants'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
-import { getUserPrefs } from '../hooks/useUserPrefs'
+import { getUserPrefs, getWheelAction } from '../hooks/useUserPrefs'
 import { useFavorites } from '../context/FavoritesContext'
 import useReaderGestures from '../hooks/useReaderGestures'
+import useReaderZoom, { renderWidthFor } from '../hooks/useReaderZoom'
 import useIsMobile from '../hooks/useIsMobile'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
@@ -76,8 +77,6 @@ export default function ReaderView() {
   const [pendingLabel, setPendingLabel] = useState('')
   const [pendingNotes, setPendingNotes] = useState('')
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
 
   const { isFavorite, toggleFavorite } = useFavorites()
 
@@ -124,9 +123,25 @@ export default function ReaderView() {
     [totalPages, mode, spreadOffset]
   )
 
+  // Zoom/pan for the page image. Keyed on currentPage so both reset when you
+  // turn the page — landing on a new page zoomed into a corner is disorienting.
+  const {
+    zoom,
+    pan,
+    setPan,
+    setZoomDirect,
+    zoomRef,
+    panRef,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    zoomAt,
+    canZoomIn,
+    canZoomOut,
+    isZoomed,
+  } = useReaderZoom({ resetKey: currentPage })
+
   useEffect(() => {
-    setZoom(1)
-    setPan({ x: 0, y: 0 })
     setSelectionPopup(null)
     saveBookPrefs(bookId, { page: currentPage })
   }, [currentPage, bookId])
@@ -270,7 +285,8 @@ export default function ReaderView() {
   const step = mode === 'spread' ? 2 : 1
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      const el = e.target
+      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
       if (mode !== 'pdf') {
         if (e.key === 'ArrowLeft') {
           e.preventDefault()
@@ -289,6 +305,22 @@ export default function ReaderView() {
           goToPage(currentPage + step, undefined, 'y')
         }
       }
+      // Zoom shortcuts. Deliberately non-letter keys — the reader already binds
+      // bare f/t/b/s. The native PDF viewer has its own zoom, so skip them there.
+      if (mode !== 'pdf') {
+        if (e.key === '+' || e.key === '=') {
+          e.preventDefault()
+          zoomIn()
+        }
+        if (e.key === '-' || e.key === '_') {
+          e.preventDefault()
+          zoomOut()
+        }
+        if (e.key === '0') {
+          e.preventDefault()
+          resetZoom()
+        }
+      }
       if (e.key === 'f') toggleFavorite('book', bookId)
       if (e.key === 't') togglePanel('toc')
       if (e.key === 'b') togglePanel('bookmarks')
@@ -298,20 +330,30 @@ export default function ReaderView() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [mode, currentPage, step, goToPage, bookId, toggleFavorite])
+  }, [mode, currentPage, step, goToPage, bookId, toggleFavorite, zoomIn, zoomOut, resetZoom])
 
-  const wheelNav = getUserPrefs().wheelNav !== false
+  // Page images are pre-rendered WebP, so scaling them up in CSS softens the
+  // text. Past the threshold, re-request the page at a higher render width and
+  // let the browser swap it in — the CSS transform covers the intervening
+  // frames, so zooming stays smooth while the sharper image loads.
+  const baseWidth = mode === 'spread' ? SPREAD_WIDTH : PAGE_WIDTH
+  const renderWidth = renderWidthFor(baseWidth, zoom)
 
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useReaderGestures({
+  const wheelAction = getWheelAction()
+
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, handleMouseDown } = useReaderGestures({
     mode,
     currentPage,
     zoom,
     pan,
-    setZoom,
+    zoomRef,
+    panRef,
     setPan,
+    setZoomDirect,
+    zoomAt,
     goToPage,
     contentRef,
-    wheelNav,
+    wheelAction,
   })
 
   if (!book)
@@ -415,6 +457,13 @@ export default function ReaderView() {
           setPendingBookmark({ page: currentPage })
           setPendingLabel('')
         }}
+        zoom={zoom}
+        canZoomIn={canZoomIn}
+        canZoomOut={canZoomOut}
+        isZoomed={isZoomed}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onResetZoom={resetZoom}
       />
 
       {/* Content + optional sidebar */}
@@ -431,6 +480,7 @@ export default function ReaderView() {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
         >
           {mode === 'pdf' ? (
             <iframe
@@ -452,6 +502,7 @@ export default function ReaderView() {
               directionRef={directionRef}
               activeSearchQuery={activeSearchQuery}
               activeHighlight={activeHighlight}
+              renderWidth={renderWidth}
             />
           ) : (
             <SinglePage
@@ -465,6 +516,7 @@ export default function ReaderView() {
               directionRef={directionRef}
               activeSearchQuery={activeSearchQuery}
               activeHighlight={activeHighlight}
+              renderWidth={renderWidth}
             />
           )}
         </div>

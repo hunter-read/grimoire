@@ -205,6 +205,8 @@
     "keyboardShortcuts": "Atalhos de teclado",
     "shortcutPrevNext": "Página anterior / seguinte",
     "shortcutPrevNextVertical": "Página anterior / seguinte (vertical)",
+    "shortcutZoom": "Ampliar / reduzir",
+    "shortcutZoomReset": "Repor zoom",
     "shortcutFavorite": "Alternar favorito",
     "shortcutToc": "Índice",
     "shortcutBookmarks": "Marcadores",
@@ -212,6 +214,9 @@
     "shortcutHelp": "Esta ajuda",
     "shortcutClose": "Fechar painéis",
     "spreadCover": "Capa",
+    "zoomIn": "Ampliar",
+    "zoomOut": "Reduzir",
+    "zoomReset": "Repor zoom",
     "spreadIncludeCover": "Incluir capa na página dupla (emparelhar páginas 1-2, 3-4…)",
     "spreadExcludeCover": "Excluir capa da página dupla (emparelhar páginas 2-3, 4-5…)",
     "archiveNotViewable": "Este é um ficheiro de arquivo e não pode ser visualizado no leitor. Descarregue-o para abrir o seu conteúdo."
@@ -520,8 +525,11 @@
       "page": "Página",
       "spread": "Página dupla",
       "pdf": "PDF",
-      "scrollWheelNav": "Navegação com a roda do rato",
-      "scrollWheelNavHint": "Vire páginas deslocando-se. Desative se preferir que a roda do rato não faça nada."
+      "scrollWheel": "Roda do rato",
+      "scrollWheelHint": "O que a roda do rato faz sobre uma página. Ctrl/Cmd + roda amplia sempre, independentemente da escolha.",
+      "wheelPage": "Virar páginas",
+      "wheelZoom": "Zoom",
+      "wheelNone": "Nada"
     },
     "library": {
       "title": "Navegação da biblioteca",

@@ -14,6 +14,9 @@ import {
   LuHeart,
   LuKeyboard,
   LuPanelLeft,
+  LuMinus,
+  LuPlus,
+  LuRotateCcw,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
@@ -34,6 +37,19 @@ const btnStyle = {
   alignItems: 'center',
   cursor: 'pointer',
 }
+
+/** One button in the zoom cluster. Dimmed and inert at the clamp bounds. */
+const zoomBtnStyle = (disabled, divider) => ({
+  background: 'var(--bg-card)',
+  color: disabled ? 'var(--text-muted)' : 'var(--text-dim)',
+  border: 'none',
+  borderRight: divider ? '1px solid var(--border)' : 'none',
+  padding: '5px 10px',
+  cursor: disabled ? 'default' : 'pointer',
+  opacity: disabled ? 0.45 : 1,
+  display: 'flex',
+  alignItems: 'center',
+})
 
 export default function ReaderToolbar({
   book,
@@ -59,6 +75,13 @@ export default function ReaderToolbar({
   isFavorite,
   onToggleFavorite,
   onBookmarkPage,
+  zoom = 1,
+  canZoomIn = false,
+  canZoomOut = false,
+  isZoomed = false,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
 }) {
   const { t } = useTranslation()
 
@@ -211,6 +234,62 @@ export default function ReaderToolbar({
           </button>
         )}
 
+        {/* Zoom cluster — the native PDF viewer has its own zoom, and the
+            controls are dropped on phones where pinch-to-zoom already works. */}
+        {mode !== 'pdf' && !isMobilePhone && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+          >
+            <button
+              onClick={onZoomOut}
+              disabled={!canZoomOut}
+              title={t('reader.zoomOut')}
+              aria-label={t('reader.zoomOut')}
+              style={zoomBtnStyle(!canZoomOut, true)}
+            >
+              <LuMinus size={13} />
+            </button>
+            <span
+              aria-live="polite"
+              style={{
+                fontSize: 12,
+                color: 'var(--text-dim)',
+                padding: '0 8px',
+                minWidth: 44,
+                textAlign: 'center',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={onZoomIn}
+              disabled={!canZoomIn}
+              title={t('reader.zoomIn')}
+              aria-label={t('reader.zoomIn')}
+              style={zoomBtnStyle(!canZoomIn, isZoomed)}
+            >
+              <LuPlus size={13} />
+            </button>
+            {isZoomed && (
+              <button
+                onClick={onResetZoom}
+                title={t('reader.zoomReset')}
+                aria-label={t('reader.zoomReset')}
+                style={zoomBtnStyle(false, false)}
+              >
+                <LuRotateCcw size={13} />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Panel selector */}
         {panels.length > 0 && (
           <div
@@ -320,6 +399,12 @@ export default function ReaderToolbar({
             {[
               ['←  /  →', t('reader.shortcutPrevNext')],
               ['↑  /  ↓', t('reader.shortcutPrevNextVertical')],
+              ...(mode !== 'pdf'
+                ? [
+                    ['+  /  -', t('reader.shortcutZoom')],
+                    ['0', t('reader.shortcutZoomReset')],
+                  ]
+                : []),
               ['f', t('reader.shortcutFavorite')],
               ['t', t('reader.shortcutToc')],
               ['b', t('reader.shortcutBookmarks')],

@@ -9,7 +9,10 @@ import api from '../api'
 
 vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
-  mediaUrl: (path) => `/media${path}`,
+  // Mirrors the real signature's query params so tests can assert the render
+  // width requested for a page.
+  mediaUrl: (path, params) =>
+    `/media${path}${params ? `?${new URLSearchParams(params).toString()}` : ''}`,
 }))
 
 vi.mock('../hooks/useReaderGestures', () => ({
@@ -333,5 +336,98 @@ describe('ReaderView — archive files (issue #94)', () => {
     const link = screen.getByRole('link', { name: /download/i })
     expect(link).toHaveAttribute('href', '/media/books/arch-1/file')
     expect(link).toHaveAttribute('download', 'lancer.zip')
+  })
+})
+
+describe('ReaderView — zoom (issue #249)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setupApiMocks()
+    vi.stubGlobal('requestAnimationFrame', (cb) => {
+      cb()
+      return 0
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+
+  const press = (key) =>
+    act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key }))
+    })
+
+  it('zooms in and out with the +/- keys', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    expect(screen.getByText('100%')).toBeInTheDocument()
+
+    await press('+')
+    expect(screen.getByText('125%')).toBeInTheDocument()
+    await press('-')
+    expect(screen.getByText('100%')).toBeInTheDocument()
+  })
+
+  it('accepts "=" as zoom in, so Shift is not required', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await press('=')
+    expect(screen.getByText('125%')).toBeInTheDocument()
+  })
+
+  it('resets to 100% with the 0 key', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await press('+')
+    await press('+')
+    expect(screen.getByText('150%')).toBeInTheDocument()
+
+    await press('0')
+    expect(screen.getByText('100%')).toBeInTheDocument()
+  })
+
+  it('does not zoom past the clamp', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    for (let i = 0; i < 8; i++) await press('+')
+    // Ceiling is 2x: page images are pre-rendered and the render endpoint caps
+    // width at 3000px, so beyond this the image would just be scaled up.
+    expect(screen.getByText('200%')).toBeInTheDocument()
+  })
+
+  it('ignores the zoom keys while a text input has focus', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.focus()
+
+    await act(async () => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }))
+    })
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    input.remove()
+  })
+
+  it('resets zoom when the page changes', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await press('+')
+    expect(screen.getByText('125%')).toBeInTheDocument()
+
+    await press('ArrowRight')
+    await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument())
+  })
+
+  it('requests a sharper page render once zoomed past the threshold', async () => {
+    const { container } = renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    const src = () => container.querySelector('img[src*="/page/"]')?.getAttribute('src') ?? ''
+    expect(src()).toContain('width=1600')
+
+    // 1.75x crosses the threshold, so the page is re-fetched at a higher width
+    // instead of being scaled up as a bitmap.
+    await press('+')
+    await press('+')
+    await press('+')
+    await waitFor(() => expect(src()).toContain('width=2800'))
   })
 })
