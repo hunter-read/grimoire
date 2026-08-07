@@ -1319,7 +1319,7 @@
     "embed_map": "Karte",
     "embed_token": "Token",
     "embed_audio": "Audio",
-    "embedBookPage": "Buch — S. {{page}}",
+    "embedBookPage": "{{title}} — S. {{page}}",
     "parentLabel": "Übergeordnete Seite",
     "noParent": "Oberste Ebene",
     "addSubpage": "Unterseite hinzufügen",

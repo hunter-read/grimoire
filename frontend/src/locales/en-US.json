@@ -1319,7 +1319,7 @@
     "embed_map": "Map",
     "embed_token": "Token",
     "embed_audio": "Audio",
-    "embedBookPage": "Book — p. {{page}}",
+    "embedBookPage": "{{title}} — p. {{page}}",
     "parentLabel": "Parent page",
     "noParent": "Top level",
     "addSubpage": "Add subpage",
