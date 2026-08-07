@@ -17,7 +17,12 @@ from ...auth import CurrentUser, get_current_user
 from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
-from ._helpers import assert_can_manage, can_view, get_campaign_or_404
+from ._helpers import (
+    assert_can_manage,
+    assert_not_archived,
+    can_view,
+    get_campaign_or_404,
+)
 
 # Allowed image types for banners and character art.
 _IMAGE_TYPES = {
@@ -113,9 +118,14 @@ def _get_member_or_404(db, campaign_id: str, member_id: str) -> CampaignMember:
 
 
 def _assert_can_edit_member(campaign: Campaign, member: CampaignMember, user: CurrentUser) -> None:
-    """The member themselves or the campaign owner may edit a member's art/sheet."""
+    """The member themselves or the campaign owner may edit a member's art/sheet.
+
+    Only reached by write handlers (the art/sheet GET routes check `can_view`),
+    so the archived freeze applies here too.
+    """
     if member.user_id != user.id and campaign.owner_id != user.id:
         raise HTTPException(403, "Not authorised to edit this member")
+    assert_not_archived(campaign)
 
 
 # --- Banner -----------------------------------------------------------------

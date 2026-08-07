@@ -117,4 +117,20 @@ describe('CampaignCard', () => {
     )
     expect(screen.getByText(/2/)).toBeInTheDocument()
   })
+
+  it('marks an archived campaign with a badge', () => {
+    render(
+      <CampaignCard
+        campaign={campaign({ is_archived: true })}
+        onClick={vi.fn()}
+        onOpenNotes={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/archived/i)).toBeInTheDocument()
+  })
+
+  it('shows no archived badge on an active campaign', () => {
+    render(<CampaignCard campaign={campaign()} onClick={vi.fn()} onOpenNotes={vi.fn()} />)
+    expect(screen.queryByText(/archived/i)).toBeNull()
+  })
 })

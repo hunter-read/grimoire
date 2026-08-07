@@ -789,7 +789,12 @@
       "multi": "Tienes {{count}} invitaciones de campaña pendientes.",
       "view": "Ver",
       "dismiss": "Descartar"
-    }
+    },
+    "showArchived": "Archivadas",
+    "showArchivedHint": "Mostrar campañas archivadas junto a las activas",
+    "archivedCampaigns": "Campañas archivadas",
+    "archivedBadge": "Archivada",
+    "readOnlyArchived": "Esta campaña está archivada y es de solo lectura. Desarchívala para hacer cambios."
   },
   "campaignDetail": {
     "backToCampaigns": "Campañas",
@@ -831,7 +836,16 @@
       "modalTitle": "Banner de la campaña",
       "allowedFormats": "PNG, JPEG, WebP o GIF, hasta 5 MB."
     },
-    "openNotes": "Abrir notas"
+    "openNotes": "Abrir notas",
+    "archive": "Archivar",
+    "unarchive": "Desarchivar",
+    "archiveConfirm": "¿Archivar la campaña \"{{name}}\"? Se ocultará de las listas de campañas y pasará a ser de solo lectura. Puedes desarchivarla en cualquier momento.",
+    "convertToGroup": "Convertir en grupo",
+    "convertHint": "Convierte esta campaña personal en una campaña de grupo dirigida por un DJ para poder invitar jugadores. Esto no se puede deshacer.",
+    "convertConfirm": "¿Convertir \"{{name}}\" en una campaña de grupo? Podrás invitar jugadores y definir un horario. Esto no se puede deshacer.",
+    "leave": "Salir de la campaña",
+    "leaveHint": "Quitarte de esta campaña. El DJ conserva la campaña y sus notas.",
+    "leaveConfirm": "¿Salir de \"{{name}}\"? Perderás el acceso a sus recursos, wiki y horario. El DJ puede volver a invitarte."
   },
   "campaignEditor": {
     "titleNew": "Nueva campaña",

@@ -789,7 +789,12 @@
       "multi": "Vous avez {{count}} invitations de campagne en attente.",
       "view": "Voir",
       "dismiss": "Ignorer"
-    }
+    },
+    "showArchived": "Archivées",
+    "showArchivedHint": "Afficher les campagnes archivées avec les campagnes actives",
+    "archivedCampaigns": "Campagnes archivées",
+    "archivedBadge": "Archivée",
+    "readOnlyArchived": "Cette campagne est archivée et en lecture seule. Désarchivez-la pour la modifier."
   },
   "campaignDetail": {
     "backToCampaigns": "Campagnes",
@@ -831,7 +836,16 @@
       "modalTitle": "Bannière de campagne",
       "allowedFormats": "PNG, JPEG, WebP ou GIF, jusqu'à 5 Mo."
     },
-    "openNotes": "Ouvrir les notes"
+    "openNotes": "Ouvrir les notes",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "archiveConfirm": "Archiver la campagne « {{name}} » ? Elle sera masquée des listes de campagnes et passera en lecture seule. Vous pourrez la désarchiver à tout moment.",
+    "convertToGroup": "Convertir en groupe",
+    "convertHint": "Transformer cette campagne personnelle en campagne de groupe dirigée par un MJ afin d'inviter des joueurs. Cette action est irréversible.",
+    "convertConfirm": "Convertir « {{name}} » en campagne de groupe ? Vous pourrez inviter des joueurs et définir un planning. Cette action est irréversible.",
+    "leave": "Quitter la campagne",
+    "leaveHint": "Vous retirer de cette campagne. Le MJ conserve la campagne et ses notes.",
+    "leaveConfirm": "Quitter « {{name}} » ? Vous perdrez l'accès à ses ressources, son wiki et son planning. Le MJ pourra vous réinviter."
   },
   "campaignEditor": {
     "titleNew": "Nouvelle campagne",

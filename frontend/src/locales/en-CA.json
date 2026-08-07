@@ -789,7 +789,12 @@
       "multi": "You have {{count}} pending campaign invitations.",
       "view": "View",
       "dismiss": "Dismiss"
-    }
+    },
+    "showArchived": "Archived",
+    "showArchivedHint": "Show archived campaigns alongside active ones",
+    "archivedCampaigns": "Archived Campaigns",
+    "archivedBadge": "Archived",
+    "readOnlyArchived": "This campaign is archived and read-only. Unarchive it to make changes."
   },
   "campaignDetail": {
     "backToCampaigns": "Campaigns",
@@ -831,7 +836,16 @@
       "modalTitle": "Campaign Banner",
       "allowedFormats": "PNG, JPEG, WebP, or GIF, up to 5 MB."
     },
-    "openNotes": "Open Notes"
+    "openNotes": "Open Notes",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archiveConfirm": "Archive campaign \"{{name}}\"? It will be hidden from campaign lists and become read-only. You can unarchive it at any time.",
+    "convertToGroup": "Convert to group",
+    "convertHint": "Turn this personal campaign into a GM-run group campaign so you can invite players. This cannot be undone.",
+    "convertConfirm": "Convert \"{{name}}\" into a group campaign? You will be able to invite players and set a schedule. This cannot be undone.",
+    "leave": "Leave campaign",
+    "leaveHint": "Remove yourself from this campaign. The GM keeps the campaign and its notes.",
+    "leaveConfirm": "Leave \"{{name}}\"? You will lose access to its resources, wiki, and schedule. The GM can invite you back."
   },
   "campaignEditor": {
     "titleNew": "New Campaign",

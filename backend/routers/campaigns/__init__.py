@@ -8,6 +8,8 @@ from .core import (
     get_campaign,
     update_campaign,
     delete_campaign,
+    convert_campaign_to_group,
+    set_campaign_archived,
     list_invites,
     admin_list_user_campaigns,
 )
@@ -128,6 +130,18 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Delete a campaign",
     status_code=204,
+)
+router.add_api_route(
+    "/{campaign_id}/convert-to-group",
+    convert_campaign_to_group,
+    methods=["POST"],
+    summary="Convert a personal campaign into a GM-run group campaign",
+)
+router.add_api_route(
+    "/{campaign_id}/archive",
+    set_campaign_archived,
+    methods=["PUT"],
+    summary="Archive or unarchive a campaign",
 )
 
 # --- Resource search (must be before /{campaign_id} to avoid routing conflict) ---

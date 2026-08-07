@@ -789,7 +789,12 @@
       "multi": "Você tem {{count}} convites de campanha pendentes.",
       "view": "Ver",
       "dismiss": "Ignorar"
-    }
+    },
+    "showArchived": "Arquivadas",
+    "showArchivedHint": "Mostrar campanhas arquivadas junto com as ativas",
+    "archivedCampaigns": "Campanhas arquivadas",
+    "archivedBadge": "Arquivada",
+    "readOnlyArchived": "Esta campanha está arquivada e é somente leitura. Desarquive-a para fazer alterações."
   },
   "campaignDetail": {
     "backToCampaigns": "Campanhas",
@@ -831,7 +836,16 @@
       "modalTitle": "Banner da campanha",
       "allowedFormats": "PNG, JPEG, WebP ou GIF, até 5 MB."
     },
-    "openNotes": "Abrir notas"
+    "openNotes": "Abrir notas",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "archiveConfirm": "Arquivar a campanha \"{{name}}\"? Ela será ocultada das listas de campanhas e ficará somente leitura. Você pode desarquivá-la a qualquer momento.",
+    "convertToGroup": "Converter em grupo",
+    "convertHint": "Transforme esta campanha pessoal em uma campanha de grupo conduzida por um mestre para poder convidar jogadores. Isso não pode ser desfeito.",
+    "convertConfirm": "Converter \"{{name}}\" em uma campanha de grupo? Você poderá convidar jogadores e definir uma agenda. Isso não pode ser desfeito.",
+    "leave": "Sair da campanha",
+    "leaveHint": "Remover você mesmo desta campanha. O mestre mantém a campanha e suas anotações.",
+    "leaveConfirm": "Sair de \"{{name}}\"? Você perderá o acesso aos recursos, wiki e agenda. O mestre pode convidá-lo novamente."
   },
   "campaignEditor": {
     "titleNew": "Nova campanha",

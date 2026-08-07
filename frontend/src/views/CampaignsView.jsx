@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuScroll, LuPlus, LuMailOpen } from 'react-icons/lu'
+import { LuScroll, LuPlus, LuMailOpen, LuArchive } from 'react-icons/lu'
 import { campaigns } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
@@ -22,21 +22,28 @@ export default function CampaignsView() {
   const [list, setList] = useState(null)
   const [showEditor, setShowEditor] = useState(false)
   const [error, setError] = useState(null)
+  // When off (the default) the server omits archived campaigns entirely, so
+  // finished games stay out of the way until they're asked for.
+  const [showArchived, setShowArchived] = useState(false)
 
   const isGmOrAdmin = user?.role === 'admin' || user?.role === 'gm'
   // campaign_access defaults to enabled when the field is absent (older tokens).
   const canCreate = user?.campaign_access !== false
 
-  const load = () => {
+  const load = (includeArchived = showArchived) => {
     campaigns
-      .list()
+      .list(includeArchived)
       .then(setList)
       .catch((e) => setError(e.message))
   }
 
   useEffect(() => {
-    load()
-  }, [])
+    // Refetch on toggle: archived campaigns aren't in the current payload to
+    // filter client-side. `load` is stable enough here — it only closes over
+    // setState setters and the flag passed explicitly.
+    load(showArchived)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArchived])
 
   // Most recently accessed (by any user) first; campaigns never opened fall last.
   const byRecentAccess = (a, b) =>
@@ -46,9 +53,14 @@ export default function CampaignsView() {
   const accepted = (list?.filter((c) => c.invitation_status !== 'invited') ?? []).sort(
     byRecentAccess
   )
-  const gmCampaigns = accepted.filter((c) => c.owner_id === user?.id && c.is_gm_campaign)
-  const personalCampaigns = accepted.filter((c) => c.owner_id === user?.id && !c.is_gm_campaign)
-  const joinedCampaigns = accepted.filter((c) => c.owner_id !== user?.id)
+  // Archived campaigns get their own section rather than being mixed into the
+  // GM/joined/personal groups, so switching the toggle on doesn't reshuffle the
+  // active lists.
+  const active = accepted.filter((c) => !c.is_archived)
+  const archivedCampaigns = accepted.filter((c) => c.is_archived)
+  const gmCampaigns = active.filter((c) => c.owner_id === user?.id && c.is_gm_campaign)
+  const personalCampaigns = active.filter((c) => c.owner_id === user?.id && !c.is_gm_campaign)
+  const joinedCampaigns = active.filter((c) => c.owner_id !== user?.id)
 
   const respondToInvite = async (campaign, status) => {
     await campaigns.updateMember(campaign.id, user.id, status)
@@ -72,33 +84,54 @@ export default function CampaignsView() {
         >
           <LuScroll size={20} color="var(--gold)" /> {t('campaigns.title')}
         </h2>
-        {canCreate ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
-            onClick={() => setShowEditor(true)}
+            onClick={() => setShowArchived((v) => !v)}
+            aria-pressed={showArchived}
+            title={t('campaigns.showArchivedHint')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '8px 16px',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
+              padding: '8px 14px',
+              background: showArchived ? 'var(--bg-deep)' : 'var(--bg-card)',
+              border: `1px solid ${showArchived ? 'var(--gold-dim)' : 'var(--border)'}`,
               borderRadius: 8,
-              color: 'var(--text-dim)',
+              color: showArchived ? 'var(--gold)' : 'var(--text-dim)',
               cursor: 'pointer',
-              fontSize: 14,
-              fontWeight: 500,
+              fontSize: 13,
             }}
           >
-            <LuPlus size={16} /> {t('campaigns.newCampaign')}
+            <LuArchive size={14} /> {t('campaigns.showArchived')}
           </button>
-        ) : (
-          <span
-            title={t('campaigns.accessDisabledHint')}
-            style={{ fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic' }}
-          >
-            {t('campaigns.accessDisabled')}
-          </span>
-        )}
+          {canCreate ? (
+            <button
+              onClick={() => setShowEditor(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 500,
+              }}
+            >
+              <LuPlus size={16} /> {t('campaigns.newCampaign')}
+            </button>
+          ) : (
+            <span
+              title={t('campaigns.accessDisabledHint')}
+              style={{ fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic' }}
+            >
+              {t('campaigns.accessDisabled')}
+            </span>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -315,6 +348,37 @@ export default function CampaignsView() {
               </h3>
               <div style={CARD_GRID}>
                 {personalCampaigns.map((c) => (
+                  <CampaignCard
+                    key={c.id}
+                    campaign={c}
+                    userId={user?.id}
+                    onClick={() => navigate(`/campaigns/${c.id}`)}
+                    onOpenNotes={() => navigate(`/campaigns/${c.id}/notes`)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {showArchived && archivedCampaigns.length > 0 && (
+            <section style={{ marginBottom: 32 }}>
+              <h3
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <LuArchive size={13} /> {t('campaigns.archivedCampaigns')}
+              </h3>
+              <div style={CARD_GRID}>
+                {archivedCampaigns.map((c) => (
                   <CampaignCard
                     key={c.id}
                     campaign={c}

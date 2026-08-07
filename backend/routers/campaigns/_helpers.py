@@ -189,15 +189,38 @@ def get_campaign_or_404(db, campaign_id: str) -> Campaign:
     return c
 
 
+def assert_not_archived(campaign: Campaign) -> None:
+    """Refuse writes to an archived campaign.
+
+    Archiving freezes a campaign read-only for everyone, owner included — it is
+    the "this game is finished" state, so its notes and wiki stay exactly as they
+    were left. Every write handler calls this; reads deliberately do not, so an
+    archived campaign remains fully browsable. Unarchiving lifts the freeze, so
+    this is never a dead end.
+
+    Called explicitly at each write site rather than folded into
+    ``get_campaign_or_404`` (which read paths share) and separately from
+    ``assert_can_manage`` (which member-level writes like player notes and
+    availability bypass entirely).
+    """
+    if campaign.is_archived:
+        raise HTTPException(409, "Campaign is archived: unarchive it to make changes")
+
+
 def assert_can_manage(campaign: Campaign, user: CurrentUser, db):
     """Only the owner can manage a campaign, and only while their campaign access
-    is enabled. A disabled owner locks the campaign read-only for everyone."""
+    is enabled. A disabled owner locks the campaign read-only for everyone.
+
+    Archived campaigns are frozen for the owner too — see [[assert_not_archived]],
+    which write handlers call alongside this.
+    """
     if campaign.owner_id != user.id:
         raise HTTPException(403, "Not authorised to manage this campaign")
     if not user_has_campaign_access(db, campaign.owner_id):
         raise HTTPException(
             403, "Campaign is locked: the GM's campaign access has been disabled"
         )
+    assert_not_archived(campaign)
 
 
 def is_member(db, campaign_id: str, user_id: str) -> bool:
@@ -358,9 +381,14 @@ def serialize_campaign(c: Campaign, members: list, db) -> dict:
         "next_session": next_session,
         "has_banner": bool(c.banner_path),
         "resource_group_order": c.resource_group_order or [],
-        # True when the owner's campaign access is disabled — the campaign is then
-        # read-only for everyone (players keep view access, lose all writes).
-        "locked": not owner_has_access,
+        "is_archived": bool(c.is_archived),
+        "archived_at": c.archived_at.isoformat() if c.archived_at else None,
+        # True when the campaign is read-only for everyone (players and owner keep
+        # view access, lose all writes) — either because the owner's campaign
+        # access is disabled or because the campaign is archived. The UI hides
+        # every edit affordance off this one flag, so both causes must set it;
+        # `is_archived` / `owner_has_campaign_access` say which applies.
+        "locked": not owner_has_access or bool(c.is_archived),
         "owner_has_campaign_access": owner_has_access,
         "members": members,
         "created_at": c.created_at.isoformat(),

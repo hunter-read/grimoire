@@ -30,16 +30,29 @@ from ._helpers import (
     user_has_campaign_access,
 )
 from ._schemas import (
+    CampaignArchive,
+    CampaignConvert,
     CampaignCreate,
     CampaignUpdate,
 )
 
 
 def list_campaigns(
+    include_archived: bool = False,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    owned = db.query(Campaign).filter_by(owner_id=current_user.id).all()
+    """Campaigns the user owns or belongs to.
+
+    Archived campaigns are left out unless ``include_archived`` is set, so the
+    default list stays the active games. The flag returns archived campaigns
+    *alongside* the active ones (rather than only archived), letting the UI
+    toggle between "active" and "everything" with one request either way.
+    """
+    owned_q = db.query(Campaign).filter_by(owner_id=current_user.id)
+    if not include_archived:
+        owned_q = owned_q.filter(Campaign.is_archived.is_(False))
+    owned = owned_q.all()
 
     all_memberships = (
         db.query(CampaignMember)
@@ -51,16 +64,15 @@ def list_campaigns(
     )
     membership_status = {m.campaign_id: m.status for m in all_memberships}
     member_campaign_ids = set(membership_status.keys())
-    member_campaigns = (
-        db.query(Campaign)
-        .filter(
+    member_campaigns = []
+    if member_campaign_ids:
+        member_q = db.query(Campaign).filter(
             Campaign.id.in_(member_campaign_ids),
             Campaign.owner_id != current_user.id,
         )
-        .all()
-        if member_campaign_ids
-        else []
-    )
+        if not include_archived:
+            member_q = member_q.filter(Campaign.is_archived.is_(False))
+        member_campaigns = member_q.all()
 
     def _members(c):
         rows = db.query(CampaignMember).filter_by(campaign_id=c.id).all()
@@ -110,9 +122,14 @@ def list_invites(
     if not invited:
         return []
     campaign_ids = {m.campaign_id for m in invited}
+    # Archived campaigns drop out of the invite banner: the invite can't be
+    # meaningfully acted on while the campaign is frozen, and it reappears
+    # (still pending) if the owner unarchives.
     campaigns = {
         c.id: c
-        for c in db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
+        for c in db.query(Campaign)
+        .filter(Campaign.id.in_(campaign_ids), Campaign.is_archived.is_(False))
+        .all()
     }
     owner_ids = {c.owner_id for c in campaigns.values()}
     owners = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()}
@@ -277,13 +294,81 @@ def update_campaign(
     return serialize_campaign(c, build_members(c, db), db)
 
 
+def convert_campaign_to_group(
+    campaign_id: str,
+    data: CampaignConvert,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Promote a personal campaign to a GM-run (group) campaign.
+
+    Only the owner can convert, and only if they could have created a GM campaign
+    in the first place — otherwise this would be a way around that role check.
+    Nothing is migrated: members, guests, and the schedule are all features a
+    personal campaign simply never had, so they start empty. Everything already
+    in the campaign (resources, wiki, sessions) carries over untouched.
+
+    One-way: there is no group -> personal route, because demoting would strand
+    those rows with nowhere to live.
+    """
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    if not is_gm_or_admin(current_user):
+        raise HTTPException(403, "Only GMs and admins can run group campaigns")
+    if c.is_gm_campaign:
+        raise HTTPException(409, "Campaign is already a group campaign")
+
+    c.is_gm_campaign = True
+    if data.gm_title and data.gm_title.strip():
+        c.gm_title = data.gm_title.strip()
+    db.commit()
+    db.refresh(c)
+    return serialize_campaign(c, build_members(c, db), db)
+
+
+def set_campaign_archived(
+    campaign_id: str,
+    data: CampaignArchive,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Archive or unarchive a campaign (owner only).
+
+    Archiving hides the campaign from everyone's list unless they ask for
+    archived ones, and freezes it read-only. Deliberately does not go through
+    ``assert_can_manage``: that refuses writes to archived campaigns, which would
+    make unarchiving impossible. The same owner and access checks are applied
+    here instead.
+    """
+    c = get_campaign_or_404(db, campaign_id)
+    if c.owner_id != current_user.id:
+        raise HTTPException(403, "Not authorised to manage this campaign")
+    if not user_has_campaign_access(db, c.owner_id):
+        raise HTTPException(
+            403, "Campaign is locked: the GM's campaign access has been disabled"
+        )
+
+    c.is_archived = data.archived
+    c.archived_at = datetime.datetime.utcnow() if data.archived else None
+    db.commit()
+    db.refresh(c)
+    return serialize_campaign(c, build_members(c, db), db)
+
+
 def delete_campaign(
     campaign_id: str,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     c = get_campaign_or_404(db, campaign_id)
-    assert_can_manage(c, current_user, db)
+    # Deleting an archived campaign is allowed — archiving is a tidying step, not
+    # a lock against removal — so this skips the archived check in assert_can_manage.
+    if c.owner_id != current_user.id:
+        raise HTTPException(403, "Not authorised to manage this campaign")
+    if not user_has_campaign_access(db, c.owner_id):
+        raise HTTPException(
+            403, "Campaign is locked: the GM's campaign access has been disabled"
+        )
     db.delete(c)
     db.commit()
 

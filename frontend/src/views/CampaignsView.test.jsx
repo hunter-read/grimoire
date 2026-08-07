@@ -208,4 +208,70 @@ describe('CampaignsView', () => {
     expect(screen.queryByText(/new campaign/i)).toBeNull()
     expect(screen.getByText(/access disabled/i)).toBeTruthy()
   })
+
+  // Archived campaigns are excluded server-side, so the toggle refetches rather
+  // than filtering the payload already in hand.
+  describe('archived campaigns', () => {
+    const archivedCampaign = {
+      ...ownedGmCampaign,
+      id: 'c9',
+      name: 'Finished Game',
+      is_archived: true,
+    }
+
+    it('requests active campaigns only by default', async () => {
+      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      renderView()
+      await waitFor(() => screen.getByText('Lost Mines'))
+      expect(campaigns.list).toHaveBeenCalledWith(false)
+    })
+
+    it('refetches with archived included when the toggle is pressed', async () => {
+      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      renderView()
+      await waitFor(() => screen.getByText('Lost Mines'))
+      fireEvent.click(screen.getByRole('button', { name: /archived/i }))
+      await waitFor(() => expect(campaigns.list).toHaveBeenCalledWith(true))
+    })
+
+    it('reflects the toggle state with aria-pressed', async () => {
+      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      renderView()
+      await waitFor(() => screen.getByText('Lost Mines'))
+      const toggle = screen.getByRole('button', { name: /archived/i })
+      expect(toggle.getAttribute('aria-pressed')).toBe('false')
+      fireEvent.click(toggle)
+      await waitFor(() => expect(toggle.getAttribute('aria-pressed')).toBe('true'))
+    })
+
+    it('lists archived campaigns in their own section once toggled on', async () => {
+      campaigns.list.mockResolvedValue([ownedGmCampaign, archivedCampaign])
+      renderView()
+      await waitFor(() => screen.getByText('Lost Mines'))
+      fireEvent.click(screen.getByRole('button', { name: /archived/i }))
+      await waitFor(() => expect(screen.getByText('Finished Game')).toBeTruthy())
+      expect(screen.getByText('Archived Campaigns')).toBeTruthy()
+    })
+
+    it('keeps archived campaigns out of the active sections', async () => {
+      // Both are owned GM campaigns; only the active one belongs under that heading.
+      campaigns.list.mockResolvedValue([ownedGmCampaign, archivedCampaign])
+      renderView()
+      await waitFor(() => screen.getByText('Lost Mines'))
+      fireEvent.click(screen.getByRole('button', { name: /archived/i }))
+      await waitFor(() => screen.getByText('Finished Game'))
+      const gmHeading = screen.getByText('GM Campaigns')
+      const archivedHeading = screen.getByText('Archived Campaigns')
+      // The archived card sits under the archived heading, not the GM one.
+      expect(gmHeading.parentElement.textContent).not.toContain('Finished Game')
+      expect(archivedHeading.parentElement.textContent).toContain('Finished Game')
+    })
+
+    it('does not render the archived section when the toggle is off', async () => {
+      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      renderView()
+      await waitFor(() => screen.getByText('Lost Mines'))
+      expect(screen.queryByText('Archived Campaigns')).toBeNull()
+    })
+  })
 })
