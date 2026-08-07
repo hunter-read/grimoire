@@ -13,12 +13,17 @@ const BOTTOM_GAP = 24
  * hardcoded per host. Returns `null` until measured, and whenever the available
  * space is below `min` — callers then fall back to natural content height, so a
  * short window scrolls the page normally instead of squashing the editor.
+ *
+ * `ready` guards the first measurement: a caller that renders a placeholder
+ * (spinner, empty state) before the real element exists passes `false` until
+ * the ref is populated, so the measurement isn't taken — and missed — while the
+ * ref is still empty.
  */
-export default function useFillViewport(ref, { min = 320, enabled = true } = {}) {
+export default function useFillViewport(ref, { min = 320, enabled = true, ready = true } = {}) {
   const [height, setHeight] = useState(null)
 
   useLayoutEffect(() => {
-    if (!enabled) {
+    if (!enabled || !ready) {
       setHeight(null)
       return
     }
@@ -48,7 +53,7 @@ export default function useFillViewport(ref, { min = 320, enabled = true } = {})
       window.removeEventListener('resize', measure)
       ro?.disconnect()
     }
-  }, [ref, min, enabled])
+  }, [ref, min, enabled, ready])
 
   return height
 }

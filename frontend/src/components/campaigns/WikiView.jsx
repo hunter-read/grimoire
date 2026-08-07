@@ -27,6 +27,8 @@ import VisibilityBadge from './VisibilityBadge'
 import VisibilityEditor from './VisibilityEditor'
 import RowVisibilityControl from './RowVisibilityControl'
 import PageEditor from './PageEditor'
+import useFillViewport from './useFillViewport'
+import useResizableWidth from './useResizableWidth'
 import { headingDomId } from './wikiHeadings'
 import { descendantIds, ghostBtn, goldBtn } from './wikiShared'
 
@@ -62,6 +64,28 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     }
   })
   const dragId = useRef(null)
+  // Size the two-pane row to the viewport so the page tree scrolls in its own
+  // container instead of riding the window scroll with the note (#288). On
+  // phones the tree and the note swap full-screen, so the page flow is left
+  // alone — there the list is the whole screen and scrolls on its own already.
+  // While the editor is open it does its own viewport fill (#298) and needs the
+  // natural flow around it, so the row steps back and lets it size itself.
+  const rowRef = useRef(null)
+  const fillHeight = useFillViewport(rowRef, {
+    enabled: !isMobile && !editing && !creating,
+    // The row replaces a loading spinner, so there's nothing to measure until
+    // the page list has arrived.
+    ready: pages !== null,
+    min: 320,
+  })
+  // Sidebar width, dragged from the divider between the panes and remembered
+  // for the session. Per campaign, so a wiki with deep page trees can keep a
+  // wider list than one with short titles.
+  const {
+    width: sidebarWidth,
+    dragging: resizing,
+    handleProps: resizeHandleProps,
+  } = useResizableWidth(`grimoire_wiki_sidebar_w_${campaign.id}`, { initial: 240 })
   // Live drop indicator: { id, where: 'before' | 'after' | 'inside' }.
   const [dropTarget, setDropTarget] = useState(null)
   // Id of the tree row under the cursor — drives the hover-only row controls
@@ -92,18 +116,27 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
       return next
     })
 
+  // Kept identity-stable (the current selection is read through the state
+  // updater rather than closed over) because it feeds `openPage`, which reaches
+  // the memoized ReactMarkdown component map in WikiMarkdown — see the note
+  // there. `isMobile` is read via a ref for the same reason.
+  const isMobileRef = useRef(isMobile)
+  isMobileRef.current = isMobile
   const loadList = useCallback(
     (selectId) => {
       campaigns.listWikiPages(campaign.id).then((list) => {
         setPages(list)
-        if (selectId) setSelectedId(selectId)
-        // Desktop auto-opens the first page so the pane isn't empty. On mobile the
-        // tree and note swap full-screen, so auto-opening would drop the user into
-        // a note instead of the page list — land them on the list instead.
-        else if (!selectId && list.length && !selectedId && !isMobile) setSelectedId(list[0].id)
+        setSelectedId((current) => {
+          if (selectId) return selectId
+          // Desktop auto-opens the first page so the pane isn't empty. On mobile the
+          // tree and note swap full-screen, so auto-opening would drop the user into
+          // a note instead of the page list — land them on the list instead.
+          if (list.length && !current && !isMobileRef.current) return list[0].id
+          return current
+        })
       })
     },
-    [campaign.id, selectedId, isMobile]
+    [campaign.id]
   )
 
   useEffect(() => {
@@ -136,14 +169,23 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // to this user or doesn't exist yet, so we refresh in case the list is stale.
   // `heading` is the link's :#Heading suffix — held until the target page's body
   // has rendered, then scrolled to by the effect below.
-  const openPage = (target, heading) => {
-    if (!target) {
-      loadList()
-      return
-    }
-    setPendingHeading(heading || null)
-    setSelectedId(target.id)
-  }
+  //
+  // Memoized because it reaches WikiMarkdown, where it feeds the memoized
+  // ReactMarkdown component map. A new identity here rebuilds that map, which
+  // remounts every embed in the note — resetting the book title an EmbedCard
+  // has fetched back to the generic label. Any parent re-render (hovering a
+  // sidebar row) would otherwise make the titles flicker.
+  const openPage = useCallback(
+    (target, heading) => {
+      if (!target) {
+        loadList()
+        return
+      }
+      setPendingHeading(heading || null)
+      setSelectedId(target.id)
+    },
+    [loadList]
+  )
 
   // Scroll to the heading a cross-page [[Page:#Heading]] link asked for, once the
   // destination body is on screen. Cleared after one attempt so it doesn't fire
@@ -539,24 +581,53 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-      {/* Page list */}
+    <div
+      ref={rowRef}
+      style={{
+        display: 'flex',
+        // The divider carries its own spacing, so the row gap closes up on
+        // desktop and the drag target sits between the panes.
+        gap: isMobile ? 20 : 0,
+        alignItems: 'flex-start',
+        // While dragging, keep the pointer's cursor and stop the drag from
+        // selecting the page titles it sweeps across.
+        cursor: resizing ? 'col-resize' : undefined,
+        userSelect: resizing ? 'none' : undefined,
+        // Filling the viewport is what lets each pane own its scroll: neither
+        // the tree nor the note can move the window, so they stop dragging each
+        // other around. Falls back to the original page flow when there isn't
+        // room (short window, mobile).
+        height: fillHeight ?? undefined,
+        minHeight: 0,
+      }}
+    >
+      {/* Page list. New Page and search stay pinned at the top, the tree scrolls
+          in the middle, and import/export sit at the bottom of the column. */}
       <div
         style={{
-          flex: isMobile ? '1 1 auto' : '0 0 240px',
-          maxWidth: isMobile ? '100%' : 240,
+          flex: isMobile ? '1 1 auto' : `0 0 ${sidebarWidth}px`,
+          maxWidth: isMobile ? '100%' : sidebarWidth,
           width: isMobile ? '100%' : undefined,
-          display: showList ? 'block' : 'none',
+          display: showList ? 'flex' : 'none',
+          flexDirection: 'column',
+          height: fillHeight ? '100%' : undefined,
+          minHeight: 0,
         }}
       >
         <button
           onClick={() => startCreate('')}
-          style={{ ...goldBtn, width: '100%', justifyContent: 'center', marginBottom: 10 }}
+          style={{
+            ...goldBtn,
+            width: '100%',
+            justifyContent: 'center',
+            marginBottom: 10,
+            flexShrink: 0,
+          }}
         >
           <LuPlus size={14} /> {t('wiki.newPage')}
         </button>
 
-        <div style={{ position: 'relative', marginBottom: 10 }}>
+        <div style={{ position: 'relative', marginBottom: 10, flexShrink: 0 }}>
           <LuSearch
             size={13}
             style={{
@@ -584,27 +655,58 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           />
         </div>
 
-        {pages.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 4px' }}>
-            {t('wiki.noPages')}
-          </div>
-        ) : (
-          <div
-            // Dropping in the empty space below the tree moves a page to the root.
-            onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
-            onDrop={isOwner ? onDropOnRoot : undefined}
-            style={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 40 }}
-          >
-            {searching
-              ? matches.map((p) => renderRow(p, 0, true))
-              : roots.map((p) => renderRow(p, 0))}
-          </div>
-        )}
+        {/* The scrolling region. It owns the leftover height, so a long tree
+            scrolls here rather than moving the note — and the scroll position
+            survives selecting a different page, since this element stays
+            mounted across the re-render. */}
+        <div
+          data-testid="wiki-page-tree"
+          style={{
+            flex: fillHeight ? '1 1 auto' : undefined,
+            minHeight: 0,
+            overflowY: fillHeight ? 'auto' : undefined,
+            // Room for the row hover controls so they aren't clipped by the
+            // scroll container's edge.
+            paddingRight: fillHeight ? 2 : undefined,
+          }}
+        >
+          {pages.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 4px' }}>
+              {t('wiki.noPages')}
+            </div>
+          ) : (
+            <div
+              // Dropping in the empty space below the tree moves a page to the root.
+              onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
+              onDrop={isOwner ? onDropOnRoot : undefined}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                // Fill the scroll area so the drop-to-root zone covers the empty
+                // space under a short tree, as it did in the page-flow layout.
+                minHeight: fillHeight ? '100%' : 40,
+              }}
+            >
+              {searching
+                ? matches.map((p) => renderRow(p, 0, true))
+                : roots.map((p) => renderRow(p, 0))}
+            </div>
+          )}
+        </div>
 
         {/* Export is open to every member — a player can take their own copy of
             the campaign with them, including from an archived one. Import writes,
             so it stays owner-only and disappears once the campaign is archived. */}
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => exportWiki('md')}
@@ -629,8 +731,54 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
         </div>
       </div>
 
-      {/* Main pane */}
-      <div style={{ flex: 1, minWidth: 0, display: showMain ? 'block' : 'none' }}>
+      {/* Drag handle between the panes. Desktop only — on mobile the panes swap
+          full-screen, so there's no divider to grab. The hit area is wider than
+          the visible line so it's easy to catch with the mouse. */}
+      {!isMobile && showList && showMain && (
+        <div
+          {...resizeHandleProps}
+          aria-label={t('wiki.resizeSidebar')}
+          title={t('wiki.resizeSidebar')}
+          style={{
+            flex: '0 0 auto',
+            alignSelf: 'stretch',
+            width: 9,
+            margin: '0 5px',
+            cursor: 'col-resize',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            touchAction: 'none',
+          }}
+        >
+          {/* The line itself: a hairline at rest, brightening while dragged or
+              hovered so the divider reads as grabbable. */}
+          <div
+            style={{
+              width: resizing ? 2 : 1,
+              height: '100%',
+              borderRadius: 1,
+              background: resizing ? 'var(--gold)' : 'var(--border)',
+              transition: 'background 120ms ease',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Main pane. Scrolls inside itself when the row is viewport-sized, so a
+          long note stays clear of the page tree next to it. */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: showMain ? 'block' : 'none',
+          height: fillHeight ? '100%' : undefined,
+          minHeight: 0,
+          overflowY: fillHeight ? 'auto' : undefined,
+        }}
+      >
         {/* In the note-reading view the "Pages" button shares the title's action
             row (below); here it only fronts the create/edit editors. */}
         {isMobile && (creating || editing) && (
