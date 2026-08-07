@@ -20,6 +20,8 @@ import IconPicker from './IconPicker'
 import WikiLinkAutocomplete, { findActiveLinkQuery } from './WikiLinkAutocomplete'
 import { buildTitleTrie } from './wikiLinkTarget'
 import { caretCoordinates } from './caretPosition'
+import useFillViewport from './useFillViewport'
+import useIsMobile from '../../hooks/useIsMobile'
 import {
   descendantIds,
   toolbarControl,
@@ -62,6 +64,13 @@ export default function PageEditor({
   const [showEmbedPicker, setShowEmbedPicker] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const bodyRef = useRef(null)
+
+  // Fill the viewport so a long note doesn't push Save/Cancel off-screen (#293).
+  // On phones the editor already owns the whole screen and the on-screen
+  // keyboard shrinks the visual viewport, so it keeps the natural page flow.
+  const isMobile = useIsMobile()
+  const rootRef = useRef(null)
+  const fillHeight = useFillViewport(rootRef, { enabled: !isMobile })
 
   // --- [[link]] autocomplete (issue #196) ---
   // Titles come from the dedicated endpoint rather than `allPages` because they
@@ -257,8 +266,17 @@ export default function PageEditor({
     )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+    <div
+      ref={rootRef}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        height: fillHeight ?? undefined,
+        minHeight: 0,
+      }}
+    >
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
         <IconPicker
           value={icon}
           onChange={setIcon}
@@ -288,7 +306,9 @@ export default function PageEditor({
       </div>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div
+        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}
+      >
         <select
           value={visibility}
           onChange={(e) => setVisibility(e.target.value)}
@@ -377,12 +397,15 @@ export default function PageEditor({
         <button
           type="button"
           onClick={() => {
-            insertAtCursor('[[]]')
             const ta = bodyRef.current
+            // Where the caret lands once "[[]]" is in: between the two pairs.
+            // Computed up front rather than read back a frame later, so this
+            // doesn't race insertAtCursor's own caret restore.
+            const caret = (ta?.selectionStart ?? body.length) + 2
+            insertAtCursor('[[]]')
             requestAnimationFrame(() => {
               if (!ta) return
-              const pos = (ta.selectionStart ?? 0) - 2
-              ta.setSelectionRange(pos, pos)
+              ta.setSelectionRange(caret, caret)
               refreshSuggest(ta)
             })
           }}
@@ -421,6 +444,7 @@ export default function PageEditor({
             borderRadius: 8,
             padding: '10px 12px',
             background: 'var(--bg-deep)',
+            flexShrink: 0,
           }}
         >
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
@@ -454,10 +478,29 @@ export default function PageEditor({
         </div>
       )}
 
-      {/* Editor + live preview */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 360px', minWidth: 280, position: 'relative' }}>
-          <div style={paneLabel}>{t('wiki.markdown')}</div>
+      {/* Editor + live preview. When filling the viewport the row takes the
+          leftover height and each pane scrolls inside itself, so the buttons
+          below stay put; otherwise it keeps the original content-sized flow. */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 14,
+          flexWrap: 'wrap',
+          flex: fillHeight ? '1 1 auto' : undefined,
+          minHeight: 0,
+        }}
+      >
+        <div
+          style={{
+            flex: '1 1 360px',
+            minWidth: 280,
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <div style={{ ...paneLabel, flexShrink: 0 }}>{t('wiki.markdown')}</div>
           <textarea
             ref={bodyRef}
             value={body}
@@ -484,7 +527,11 @@ export default function PageEditor({
               color: 'var(--text)',
               fontSize: 14,
               lineHeight: 1.6,
-              resize: 'vertical',
+              // Filling the viewport, the textarea is sized by the flex row and
+              // scrolls its own overflow, so manual resizing would fight it.
+              ...(fillHeight
+                ? { flex: '1 1 auto', minHeight: 0, resize: 'none' }
+                : { resize: 'vertical' }),
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               boxSizing: 'border-box',
             }}
@@ -500,8 +547,16 @@ export default function PageEditor({
           )}
         </div>
         {showPreview && (
-          <div style={{ flex: '1 1 360px', minWidth: 280 }}>
-            <div style={paneLabel}>
+          <div
+            style={{
+              flex: '1 1 360px',
+              minWidth: 280,
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
+          >
+            <div style={{ ...paneLabel, flexShrink: 0 }}>
               <LuEye size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
               {t('wiki.preview')}
             </div>
@@ -512,6 +567,7 @@ export default function PageEditor({
                 border: '1px solid var(--border)',
                 borderRadius: 10,
                 minHeight: 200,
+                ...(fillHeight ? { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' } : undefined),
               }}
             >
               <WikiMarkdown
@@ -525,9 +581,9 @@ export default function PageEditor({
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--danger)', fontSize: 13, flexShrink: 0 }}>{error}</div>}
 
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
         <button type="button" onClick={onCancel} style={ghostBtn}>
           {t('common.cancel')}
         </button>
