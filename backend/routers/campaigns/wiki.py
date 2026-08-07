@@ -18,6 +18,7 @@ from ...config import get_db
 from ...models import User, WikiPage, WikiPageLink, WikiPageShare
 from ._helpers import (
     assert_can_manage,
+    assert_not_archived,
     can_view,
     extract_snippet,
     get_campaign_or_404,
@@ -289,6 +290,7 @@ def create_page(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
+    assert_not_archived(c)
 
     is_owner = c.owner_id == current_user.id
     visibility = data.visibility or "gm"
@@ -344,6 +346,7 @@ def update_page(
         raise HTTPException(404, "Page not found")
     if not can_edit_page(page, c, current_user):
         raise HTTPException(403, "Not authorised to edit this page")
+    assert_not_archived(c)
 
     is_owner = c.owner_id == current_user.id
 
@@ -400,6 +403,7 @@ def delete_page(
     # Owner deletes anything; a member may delete a page they authored.
     if c.owner_id != current_user.id and page.created_by_id != current_user.id:
         raise HTTPException(403, "Not authorised to delete this page")
+    assert_not_archived(c)
     # Re-parent any children to this page's parent so subtrees aren't orphaned
     # (deleting a "category" page lifts its pages a level instead of nuking them).
     db.query(WikiPage).filter_by(campaign_id=campaign_id, parent_id=page_id).update(

@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuScroll, LuUsers, LuUser, LuLink, LuCalendar, LuNotebook } from 'react-icons/lu'
+import {
+  LuScroll,
+  LuUsers,
+  LuUser,
+  LuLink,
+  LuCalendar,
+  LuNotebook,
+  LuArchive,
+} from 'react-icons/lu'
 import { campaigns } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import CampaignRoleBadge from './CampaignRoleBadge'
@@ -105,6 +113,19 @@ export default function CampaignCard({
             {campaign.name}
           </span>
           {badgeLabel && <CampaignRoleBadge label={badgeLabel} />}
+          {campaign.is_archived && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <LuArchive size={11} aria-hidden="true" /> {t('campaigns.archivedBadge')}
+            </span>
+          )}
           {campaign.parent_campaign_id && (
             <span
               style={{

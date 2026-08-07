@@ -53,6 +53,21 @@ class CampaignUpdate(BaseModel):
     parent_campaign_id: Optional[str] = None
 
 
+class CampaignConvert(BaseModel):
+    """Promote a personal campaign to a GM-run (group) one.
+
+    One-way by design: the reverse would strand members, guests, and the
+    schedule, none of which a personal campaign can hold. ``gm_title`` is
+    optional and defaults to the campaign's existing title.
+    """
+
+    gm_title: Optional[str] = None
+
+
+class CampaignArchive(BaseModel):
+    archived: bool
+
+
 class InvitePayload(BaseModel):
     user_id: str
 

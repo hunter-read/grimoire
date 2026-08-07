@@ -65,6 +65,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // (add-subpage, and the visibility glyph on fully-visible pages).
   const [hoveredRow, setHoveredRow] = useState(null)
 
+  // Importing writes pages into the campaign, so it needs manage rights and a
+  // campaign that isn't frozen. Exporting only reads and stays available to all.
+  const canImport = isOwner && !campaign.is_archived
+
   const exportWiki = async (format) => {
     try {
       await campaigns.exportWiki(campaign.id, format)
@@ -576,16 +580,19 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           </div>
         )}
 
-        {isOwner && (
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => exportWiki('md')}
-                title={t('wiki.exportMd')}
-                style={{ ...dashedBtn, flex: 1 }}
-              >
-                <LuDownload size={13} /> {t('wiki.export')}
-              </button>
+        {/* Export is open to every member — a player can take their own copy of
+            the campaign with them, including from an archived one. Import writes,
+            so it stays owner-only and disappears once the campaign is archived. */}
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => exportWiki('md')}
+              title={t('wiki.exportMd')}
+              style={{ ...dashedBtn, flex: 1 }}
+            >
+              <LuDownload size={13} /> {t('wiki.export')}
+            </button>
+            {canImport && (
               <button
                 onClick={() => setImporting(true)}
                 title={t('wiki.importTitle')}
@@ -593,12 +600,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               >
                 <LuUpload size={13} /> {t('wiki.import')}
               </button>
-            </div>
-            <button onClick={() => exportWiki('json')} style={{ ...dashedBtn, fontSize: 11 }}>
-              {t('wiki.exportJson')}
-            </button>
+            )}
           </div>
-        )}
+          <button onClick={() => exportWiki('json')} style={{ ...dashedBtn, fontSize: 11 }}>
+            {t('wiki.exportJson')}
+          </button>
+        </div>
       </div>
 
       {/* Main pane */}

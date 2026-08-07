@@ -21,6 +21,8 @@ vi.mock('../api', () => ({
     setCharacterName: vi.fn(),
     setAvailability: vi.fn(),
     cancelDate: vi.fn(),
+    setArchived: vi.fn(),
+    convertToGroup: vi.fn(),
   },
 }))
 
@@ -365,5 +367,173 @@ describe('CampaignDetailView schedule summaries', () => {
     })
     renderView()
     expect(await screen.findByText(/Monthly/i)).toBeInTheDocument()
+  })
+})
+
+describe('CampaignDetailView archiving', () => {
+  it('archives the campaign when confirmed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockLoad()
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /^Archive$/i }))
+    await waitFor(() => expect(campaigns.setArchived).toHaveBeenCalledWith('c1', true))
+    window.confirm.mockRestore()
+  })
+
+  it('does not archive when the confirm is dismissed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    mockLoad()
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /^Archive$/i }))
+    expect(campaigns.setArchived).not.toHaveBeenCalled()
+    window.confirm.mockRestore()
+  })
+
+  // Unarchiving is the way back out of a read-only campaign, so it must stay
+  // clickable while archived (when `locked` has disabled every other action).
+  it('offers unarchive on an archived campaign and needs no confirm', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockLoad({ campaign: makeCampaign({ is_archived: true, locked: true }) })
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /unarchive/i }))
+    await waitFor(() => expect(campaigns.setArchived).toHaveBeenCalledWith('c1', false))
+    expect(confirmSpy).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+  })
+
+  it('shows the archived read-only notice rather than the locked one', async () => {
+    mockLoad({ campaign: makeCampaign({ is_archived: true, locked: true }) })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.getByText(/archived and read-only/i)).toBeInTheDocument()
+    expect(screen.queryByText(/campaign access has been disabled/i)).not.toBeInTheDocument()
+  })
+
+  it('hides the edit button while archived', async () => {
+    mockLoad({ campaign: makeCampaign({ is_archived: true, locked: true }) })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByText(/^Edit$/i)).not.toBeInTheDocument()
+  })
+
+  it('hides archiving from non-owners', async () => {
+    mockUser = { id: 'someone-else', role: 'player', campaign_access: true }
+    mockLoad()
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByRole('button', { name: /^Archive$/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('CampaignDetailView convert to group', () => {
+  const personal = (over = {}) => makeCampaign({ is_gm_campaign: false, ...over })
+
+  it('converts a personal campaign when confirmed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockLoad({ campaign: personal() })
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /convert to group/i }))
+    await waitFor(() => expect(campaigns.convertToGroup).toHaveBeenCalledWith('c1'))
+    window.confirm.mockRestore()
+  })
+
+  it('does not convert when the confirm is dismissed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    mockLoad({ campaign: personal() })
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /convert to group/i }))
+    expect(campaigns.convertToGroup).not.toHaveBeenCalled()
+    window.confirm.mockRestore()
+  })
+
+  // One-way: once it's a group campaign there is nothing to convert back to.
+  it('hides the action on a campaign that is already a group one', async () => {
+    mockLoad({ campaign: makeCampaign({ is_gm_campaign: true }) })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByRole('button', { name: /convert to group/i })).not.toBeInTheDocument()
+  })
+
+  it('hides the action while the campaign is archived', async () => {
+    mockLoad({ campaign: personal({ is_archived: true, locked: true }) })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByRole('button', { name: /convert to group/i })).not.toBeInTheDocument()
+  })
+
+  it('hides the action from non-owners', async () => {
+    mockUser = { id: 'someone-else', role: 'player', campaign_access: true }
+    mockLoad({ campaign: personal() })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByRole('button', { name: /convert to group/i })).not.toBeInTheDocument()
+  })
+})
+
+// Leaving is always the member's own call — archiving must not trap anyone in a
+// campaign they no longer want to be part of.
+describe('CampaignDetailView leaving a campaign', () => {
+  const asMember = (over = {}) =>
+    makeCampaign({
+      owner_id: 'someone-else',
+      members: [
+        { user_id: 'someone-else', username: 'gm', is_owner: true, status: 'accepted' },
+        { user_id: 'owner1', username: 'me', is_owner: false, status: 'accepted' },
+      ],
+      ...over,
+    })
+
+  it('leaves the campaign and returns to the list', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockLoad({ campaign: asMember() })
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /leave campaign/i }))
+    await waitFor(() => expect(campaigns.removeMember).toHaveBeenCalledWith('c1', 'owner1'))
+    expect(mockNavigate).toHaveBeenCalledWith('/campaigns')
+    window.confirm.mockRestore()
+  })
+
+  it('does not leave when the confirm is dismissed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    mockLoad({ campaign: asMember() })
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByRole('button', { name: /leave campaign/i }))
+    expect(campaigns.removeMember).not.toHaveBeenCalled()
+    window.confirm.mockRestore()
+  })
+
+  it('still offers leaving on an archived campaign', async () => {
+    mockLoad({ campaign: asMember({ is_archived: true, locked: true }) })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.getByRole('button', { name: /leave campaign/i })).toBeInTheDocument()
+  })
+
+  it('hides leaving from the owner, who deletes instead', async () => {
+    mockLoad()
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByRole('button', { name: /leave campaign/i })).not.toBeInTheDocument()
+  })
+
+  it('hides leaving from someone with only a pending invitation', async () => {
+    mockLoad({
+      campaign: asMember({
+        members: [
+          { user_id: 'someone-else', username: 'gm', is_owner: true, status: 'accepted' },
+          { user_id: 'owner1', username: 'me', is_owner: false, status: 'invited' },
+        ],
+      }),
+    })
+    renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.queryByRole('button', { name: /leave campaign/i })).not.toBeInTheDocument()
   })
 })

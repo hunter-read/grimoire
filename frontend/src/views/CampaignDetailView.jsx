@@ -12,6 +12,8 @@ import {
   LuLink,
   LuImagePlus,
   LuLock,
+  LuArchive,
+  LuLogOut,
 } from 'react-icons/lu'
 import api, { campaigns } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -211,21 +213,48 @@ export default function CampaignDetailView() {
   const isOwner = campaign.owner_id === user?.id || user?.role === 'admin'
   const isGmCampaign = campaign.is_gm_campaign
 
-  // The campaign is locked (read-only for everyone) when the owner's campaign
-  // access is disabled. The current user also loses management when their own
-  // access is disabled. Backend enforces this; the UI only reflects it.
+  // The campaign is locked (read-only for everyone) when it's archived or when
+  // the owner's campaign access is disabled. The current user also loses
+  // management when their own access is disabled. Backend enforces this; the UI
+  // only reflects it. Archiving is checked first so the notice names the cause
+  // the owner can actually act on.
   const selfDisabled = user?.campaign_access === false
+  const isArchived = !!campaign.is_archived
   const canManage = isOwner && !campaign.locked && !selfDisabled
-  const readOnlyNotice = campaign.locked
-    ? t('campaigns.readOnlyLocked')
-    : selfDisabled && isOwner
-      ? t('campaigns.readOnlySelf')
-      : null
+  const readOnlyNotice = isArchived
+    ? t('campaigns.readOnlyArchived')
+    : campaign.locked
+      ? t('campaigns.readOnlyLocked')
+      : selfDisabled && isOwner
+        ? t('campaigns.readOnlySelf')
+        : null
+
+  // Archiving stays available to the owner while archived — it's the only way
+  // back out — so it deliberately does not use `canManage` (which is false for
+  // an archived campaign).
+  const canArchive = isOwner && !selfDisabled && campaign.owner_has_campaign_access !== false
+
+  // Leaving is always the member's own call — archiving must not trap anyone in
+  // a campaign — so this ignores `locked` too. Owners leave by deleting instead.
+  const canLeave =
+    !isOwner && campaign.members?.some((m) => m.user_id === user?.id && m.status === 'accepted')
 
   const deleteCampaign = async () => {
     if (!confirm(t('campaignDetail.deleteConfirm', { name: campaign.name }))) return
     await campaigns.delete(campaign.id)
     navigate('/campaigns')
+  }
+
+  const toggleArchived = async () => {
+    if (!isArchived && !confirm(t('campaignDetail.archiveConfirm', { name: campaign.name }))) return
+    await campaigns.setArchived(campaign.id, !isArchived)
+    load()
+  }
+
+  const convertToGroup = async () => {
+    if (!confirm(t('campaignDetail.convertConfirm', { name: campaign.name }))) return
+    await campaigns.convertToGroup(campaign.id)
+    load()
   }
 
   const handleUpdateMember = async (userId, status) => {
@@ -242,6 +271,12 @@ export default function CampaignDetailView() {
   const handleSetCharacterName = async (userId, character_name) => {
     await campaigns.setCharacterName(campaignId, userId, character_name)
     load()
+  }
+
+  const leaveCampaign = async () => {
+    if (!confirm(t('campaignDetail.leaveConfirm', { name: campaign.name }))) return
+    await campaigns.removeMember(campaignId, user.id)
+    navigate('/campaigns')
   }
 
   return (
@@ -442,6 +477,68 @@ export default function CampaignDetailView() {
                 }}
               >
                 <LuSettings size={14} /> {t('campaignDetail.edit')}
+              </button>
+            )}
+            {/* Personal -> group promotion. One-way, so it disappears once the
+                campaign is a group one. */}
+            {canManage && !isGmCampaign && (
+              <button
+                onClick={convertToGroup}
+                title={t('campaignDetail.convertHint')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '7px 12px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
+              >
+                <LuUsers size={14} /> {t('campaignDetail.convertToGroup')}
+              </button>
+            )}
+            {canArchive && (
+              <button
+                onClick={toggleArchived}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '7px 12px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
+              >
+                <LuArchive size={14} />
+                {isArchived ? t('campaignDetail.unarchive') : t('campaignDetail.archive')}
+              </button>
+            )}
+            {canLeave && (
+              <button
+                onClick={leaveCampaign}
+                title={t('campaignDetail.leaveHint')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '7px 12px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--danger)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
+              >
+                <LuLogOut size={14} /> {t('campaignDetail.leave')}
               </button>
             )}
           </div>

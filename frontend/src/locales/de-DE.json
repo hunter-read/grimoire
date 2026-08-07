@@ -789,7 +789,12 @@
       "multi": "Du hast {{count}} ausstehende Kampagneneinladungen.",
       "view": "Ansehen",
       "dismiss": "Ausblenden"
-    }
+    },
+    "showArchived": "Archiviert",
+    "showArchivedHint": "Archivierte Kampagnen zusammen mit aktiven anzeigen",
+    "archivedCampaigns": "Archivierte Kampagnen",
+    "archivedBadge": "Archiviert",
+    "readOnlyArchived": "Diese Kampagne ist archiviert und schreibgeschützt. Hebe die Archivierung auf, um Änderungen vorzunehmen."
   },
   "campaignDetail": {
     "backToCampaigns": "Kampagnen",
@@ -831,7 +836,16 @@
       "modalTitle": "Kampagnen-Banner",
       "allowedFormats": "PNG, JPEG, WebP oder GIF, bis zu 5 MB."
     },
-    "openNotes": "Notizen öffnen"
+    "openNotes": "Notizen öffnen",
+    "archive": "Archivieren",
+    "unarchive": "Archivierung aufheben",
+    "archiveConfirm": "Kampagne \"{{name}}\" archivieren? Sie wird aus den Kampagnenlisten ausgeblendet und schreibgeschützt. Du kannst die Archivierung jederzeit aufheben.",
+    "convertToGroup": "In Gruppe umwandeln",
+    "convertHint": "Diese persönliche Kampagne in eine vom Spielleiter geführte Gruppenkampagne umwandeln, um Spieler einzuladen. Dies kann nicht rückgängig gemacht werden.",
+    "convertConfirm": "\"{{name}}\" in eine Gruppenkampagne umwandeln? Du kannst dann Spieler einladen und einen Zeitplan festlegen. Dies kann nicht rückgängig gemacht werden.",
+    "leave": "Kampagne verlassen",
+    "leaveHint": "Dich selbst aus dieser Kampagne entfernen. Die Kampagne und ihre Notizen bleiben beim Spielleiter.",
+    "leaveConfirm": "\"{{name}}\" verlassen? Du verlierst den Zugriff auf Ressourcen, Wiki und Zeitplan. Der Spielleiter kann dich erneut einladen."
   },
   "campaignEditor": {
     "titleNew": "Neue Kampagne",

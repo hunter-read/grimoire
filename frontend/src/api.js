@@ -43,12 +43,19 @@ export const mediaUrl = (path, params = {}) => {
 
 // Campaign Manager helpers
 export const campaigns = {
-  list: () => api.get('/campaigns'),
+  // includeArchived widens the list to archived campaigns as well as active
+  // ones; the default list is the active games only.
+  list: (includeArchived = false) =>
+    api.get(`/campaigns${includeArchived ? '?include_archived=true' : ''}`),
   invites: () => api.get('/campaigns/invites'),
   get: (id) => api.get(`/campaigns/${id}`),
   create: (data) => api.post('/campaigns', data),
   update: (id, data) => api.patch(`/campaigns/${id}`, data),
   delete: (id) => api.delete(`/campaigns/${id}`),
+  // One-way: a group campaign cannot be turned back into a personal one.
+  convertToGroup: (id, gmTitle) =>
+    api.post(`/campaigns/${id}/convert-to-group`, gmTitle ? { gm_title: gmTitle } : {}),
+  setArchived: (id, archived) => api.put(`/campaigns/${id}/archive`, { archived }),
 
   // Members
   invite: (id, userId) => api.post(`/campaigns/${id}/invite`, { user_id: userId }),

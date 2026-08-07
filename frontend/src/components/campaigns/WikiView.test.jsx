@@ -19,6 +19,7 @@ vi.mock('../../api', () => ({
     reorderWikiPages: vi.fn(),
     createWikiPage: vi.fn(),
     deleteWikiPage: vi.fn(),
+    exportWiki: vi.fn(),
   },
 }))
 
@@ -526,5 +527,48 @@ describe('WikiView tree row chrome', () => {
         shared_user_ids: [],
       })
     )
+  })
+})
+
+// Export lets a player take their own copy of the campaign with them, so it is
+// not owner-gated. Import writes pages, so it stays owner-only and disappears
+// once the campaign is archived.
+describe('WikiView export and import affordances', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.listWikiPages.mockResolvedValue([page])
+    campaigns.exportWiki.mockResolvedValue({})
+  })
+
+  it('offers export to a non-owner member', async () => {
+    renderView({ isOwner: false })
+    await waitFor(() => expect(screen.getByText('Dragons')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /^export$/i })).toBeInTheDocument()
+  })
+
+  it('exports as markdown when a member clicks export', async () => {
+    renderView({ isOwner: false })
+    await waitFor(() => screen.getByText('Dragons'))
+    fireEvent.click(screen.getByRole('button', { name: /^export$/i }))
+    await waitFor(() => expect(campaigns.exportWiki).toHaveBeenCalledWith('c1', 'md'))
+  })
+
+  it('hides import from a non-owner', async () => {
+    renderView({ isOwner: false })
+    await waitFor(() => screen.getByText('Dragons'))
+    expect(screen.queryByRole('button', { name: /^import$/i })).not.toBeInTheDocument()
+  })
+
+  it('offers import to the owner of an active campaign', async () => {
+    renderView()
+    await waitFor(() => screen.getByText('Dragons'))
+    expect(screen.getByRole('button', { name: /^import$/i })).toBeInTheDocument()
+  })
+
+  it('keeps export but drops import once the campaign is archived', async () => {
+    renderView({ campaign: { ...campaign, is_archived: true } })
+    await waitFor(() => screen.getByText('Dragons'))
+    expect(screen.getByRole('button', { name: /^export$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^import$/i })).not.toBeInTheDocument()
   })
 })

@@ -789,7 +789,12 @@
       "multi": "Je hebt {{count}} openstaande campagne-uitnodigingen.",
       "view": "Bekijken",
       "dismiss": "Sluiten"
-    }
+    },
+    "showArchived": "Gearchiveerd",
+    "showArchivedHint": "Gearchiveerde campagnes naast actieve tonen",
+    "archivedCampaigns": "Gearchiveerde campagnes",
+    "archivedBadge": "Gearchiveerd",
+    "readOnlyArchived": "Deze campagne is gearchiveerd en alleen-lezen. Haal haar uit het archief om wijzigingen te maken."
   },
   "campaignDetail": {
     "backToCampaigns": "Campagnes",
@@ -831,7 +836,16 @@
       "modalTitle": "Campagnebanner",
       "allowedFormats": "PNG, JPEG, WebP of GIF, tot 5 MB."
     },
-    "openNotes": "Notities openen"
+    "openNotes": "Notities openen",
+    "archive": "Archiveren",
+    "unarchive": "Uit archief halen",
+    "archiveConfirm": "Campagne \"{{name}}\" archiveren? Ze wordt verborgen in campagnelijsten en wordt alleen-lezen. Je kunt haar altijd uit het archief halen.",
+    "convertToGroup": "Omzetten naar groep",
+    "convertHint": "Zet deze persoonlijke campagne om naar een groepscampagne met een SL, zodat je spelers kunt uitnodigen. Dit kan niet ongedaan worden gemaakt.",
+    "convertConfirm": "\"{{name}}\" omzetten naar een groepscampagne? Je kunt dan spelers uitnodigen en een schema instellen. Dit kan niet ongedaan worden gemaakt.",
+    "leave": "Campagne verlaten",
+    "leaveHint": "Jezelf uit deze campagne verwijderen. De SL houdt de campagne en de notities.",
+    "leaveConfirm": "\"{{name}}\" verlaten? Je verliest toegang tot de bronnen, wiki en planning. De SL kan je opnieuw uitnodigen."
   },
   "campaignEditor": {
     "titleNew": "Nieuwe campagne",

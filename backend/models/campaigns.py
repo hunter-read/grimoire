@@ -40,6 +40,13 @@ class Campaign(Base):
     # owner creates a guest for the campaign.
     guest_invites_enabled = Column(Boolean, default=False)
 
+    # Archived campaigns are hidden from every member's campaign list unless the
+    # list is explicitly asked to include them, and are read-only for everyone
+    # (the same freeze the owner-level `locked` state applies). Archiving is
+    # reversible: unarchiving restores writes and normal listing.
+    is_archived = Column(Boolean, default=False, nullable=False)
+    archived_at = Column(DateTime, nullable=True)
+
     # Manual display order for the resource panel's groups, interleaving the
     # built-in type groups (keys "type:book", "type:map", "type:token",
     # "type:file") with GM-defined categories (key "cat:<category_id>"). A list of

@@ -36,11 +36,17 @@ from fastapi.responses import Response
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import WikiPage
-from ._helpers import assert_can_manage, get_campaign_or_404
+from ._helpers import (
+    assert_can_manage,
+    can_view,
+    get_campaign_or_404,
+    strip_gm_secrets,
+)
 from ._schemas import clean_icon_color
 from .wiki import (
     _ensure_unique_slug,
     _page_summary,
+    can_view_page,
     rebuild_links,
     slugify,
 )
@@ -110,10 +116,26 @@ def export_wiki(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Export every wiki page of an owned campaign as a markdown zip or JSON bundle."""
+    """Export a campaign's wiki as a markdown zip or JSON bundle.
+
+    Available to any campaign viewer, not just the owner: a player who is leaving
+    (or moving to another platform) can take their copy of the campaign with them.
+    Deliberately still works on an archived campaign — archiving is exactly when
+    someone wants their notes out — since exporting reads rather than writes.
+
+    A non-owner receives only what they can already see in the app: pages that
+    fail ``can_view_page`` are omitted entirely, and ``||GM secrets||`` are
+    stripped from the bodies of the pages that remain. The owner exports the
+    unfiltered wiki, as before.
+    """
     c = get_campaign_or_404(db, campaign_id)
-    assert_can_manage(c, current_user, db)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    is_owner = c.owner_id == current_user.id
+
     pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
+    if not is_owner:
+        pages = [p for p in pages if can_view_page(p, c, current_user, db)]
     pages.sort(key=lambda p: (p.sort_order or 0, (p.title or "").lower()))
     by_id = {p.id: p for p in pages}
     # A page's parent slug, used to round-trip nesting through the export.
@@ -123,6 +145,11 @@ def export_wiki(
     }
     base = slugify(c.name) or "campaign"
 
+    # The owner's export is verbatim; everyone else's has GM secrets removed, the
+    # same body they'd see in the reader.
+    def body_of(p) -> str:
+        return (p.body or "") if is_owner else strip_gm_secrets(p.body or "")
+
     if format == "json":
         bundle = {
             "grimoire_wiki_version": BUNDLE_VERSION,
@@ -131,7 +158,7 @@ def export_wiki(
                 {
                     "title": p.title,
                     "slug": p.slug,
-                    "body": p.body or "",
+                    "body": body_of(p),
                     "visibility": p.visibility,
                     "page_type": p.page_type,
                     "session_date": p.session_date,
@@ -162,7 +189,7 @@ def export_wiki(
                 n += 1
             used.add(fname)
             fm = _frontmatter(p, parent_slug[p.id])
-            zf.writestr(fname, f"{fm}\n\n{p.body or ''}\n")
+            zf.writestr(fname, f"{fm}\n\n{body_of(p)}\n")
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",

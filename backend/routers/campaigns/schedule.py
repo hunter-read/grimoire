@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import CampaignMember, CampaignSchedule, SessionAvailability, User
-from ._helpers import assert_can_manage, can_view, compute_next_sessions, get_campaign_or_404
+from ._helpers import (
+    assert_can_manage,
+    assert_not_archived,
+    can_view,
+    compute_next_sessions,
+    get_campaign_or_404,
+)
 from ._schemas import AvailabilityUpdate, ScheduleUpsert
 
 
@@ -167,6 +173,7 @@ def set_availability(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
+    assert_not_archived(c)
     if data.status not in ("available", "tentative", "unavailable"):
         raise HTTPException(400, "status must be available | tentative | unavailable")
 
@@ -229,6 +236,7 @@ def cancel_session_date(
     c = get_campaign_or_404(db, campaign_id)
     if c.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(403, "Only the GM can cancel sessions")
+    assert_not_archived(c)
     try:
         datetime.date.fromisoformat(session_date)
     except ValueError:

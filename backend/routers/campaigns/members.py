@@ -14,6 +14,7 @@ from ...config import get_db
 from ...models import CampaignMember, User
 from ._helpers import (
     assert_can_manage,
+    assert_not_archived,
     delete_guest_user,
     get_campaign_or_404,
     user_has_campaign_access,
@@ -66,6 +67,7 @@ def update_member_status(
     is_owner = c.owner_id == current_user.id
     if user_id != current_user.id and not is_owner:
         raise HTTPException(403, "Cannot update another member's status")
+    assert_not_archived(c)
 
     member = (
         db.query(CampaignMember).filter_by(campaign_id=campaign_id, user_id=user_id).first()
@@ -117,8 +119,15 @@ def remove_member(
     db: Session = Depends(get_db),
 ):
     c = get_campaign_or_404(db, campaign_id)
-    if user_id != current_user.id and c.owner_id != current_user.id:
+    is_self = user_id == current_user.id
+    if not is_self and c.owner_id != current_user.id:
         raise HTTPException(403, "Not authorised")
+    # Leaving is always the member's own call, archived or not — nobody should be
+    # held in a campaign because its GM archived it. The archive freeze therefore
+    # only blocks the *owner* removing someone else, which is an edit to a record
+    # that is meant to stay as it was left.
+    if not is_self:
+        assert_not_archived(c)
 
     member = (
         db.query(CampaignMember).filter_by(campaign_id=campaign_id, user_id=user_id).first()

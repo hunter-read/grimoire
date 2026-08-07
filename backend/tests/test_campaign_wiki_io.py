@@ -60,7 +60,10 @@ class TestExport:
         titles = [p["title"] for p in bundle["pages"]]
         assert "Dragon" in titles
 
-    def test_export_requires_owner(self, client, gm_headers, player_headers, player_id):
+    def test_export_allowed_for_members(self, client, gm_headers, player_headers, player_id):
+        """Export is open to any campaign viewer so a player can take their own
+        copy of the wiki with them (filtered to what they can see — see
+        ``test_campaign_archive.py::TestWikiExportAccess``)."""
         c = _campaign(client, gm_headers)
         client.post(
             f"/api/campaigns/{c['id']}/invite", json={"user_id": player_id}, headers=gm_headers
@@ -72,6 +75,14 @@ class TestExport:
         )
         resp = client.get(
             f"/api/campaigns/{c['id']}/wiki/export?format=md", headers=player_headers
+        )
+        assert resp.status_code == 200
+
+    def test_export_requires_membership(self, client, gm_headers, admin_headers):
+        """A non-member still cannot export, admin or not."""
+        c = _campaign(client, gm_headers)
+        resp = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=md", headers=admin_headers
         )
         assert resp.status_code == 403
 

@@ -274,6 +274,37 @@ describe('api', () => {
       expect(options.method).toBeUndefined()
     })
 
+    it('campaigns.list omits the archived flag by default', async () => {
+      await campaigns.list()
+      expect(lastCall()[0]).toBe('/api/campaigns')
+    })
+
+    it('campaigns.list asks for archived campaigns when requested', async () => {
+      await campaigns.list(true)
+      expect(lastCall()[0]).toBe('/api/campaigns?include_archived=true')
+    })
+
+    it('campaigns.setArchived PUTs the archived flag', async () => {
+      await campaigns.setArchived('c1', true)
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/campaigns/c1/archive')
+      expect(options.method).toBe('PUT')
+      expect(JSON.parse(options.body)).toEqual({ archived: true })
+    })
+
+    it('campaigns.convertToGroup POSTs an empty body without a title', async () => {
+      await campaigns.convertToGroup('c1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/campaigns/c1/convert-to-group')
+      expect(options.method).toBe('POST')
+      expect(JSON.parse(options.body)).toEqual({})
+    })
+
+    it('campaigns.convertToGroup sends the gm title when given', async () => {
+      await campaigns.convertToGroup('c1', 'Keeper')
+      expect(JSON.parse(lastCall()[1].body)).toEqual({ gm_title: 'Keeper' })
+    })
+
     // Exercise every campaigns.* helper so the (large) helper block is covered.
     // Upload/download/mediaUrl helpers are stubbed to no-ops via fetch/URL mocks.
     it('invokes every campaigns helper without throwing', async () => {
@@ -297,6 +328,9 @@ describe('api', () => {
         campaigns.create({ name: 'x' }),
         campaigns.update('c1', { name: 'y' }),
         campaigns.delete('c1'),
+        campaigns.convertToGroup('c1'),
+        campaigns.convertToGroup('c1', 'Keeper'),
+        campaigns.setArchived('c1', true),
         campaigns.invite('c1', 'u1'),
         campaigns.updateMember('c1', 'u1', 'accepted'),
         campaigns.setCharacterName('c1', 'u1', 'Aragorn'),

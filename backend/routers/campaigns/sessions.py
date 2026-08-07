@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import GMSessionNote, PlayerSessionNote, SessionNote, User
-from ._helpers import assert_can_manage, can_view, extract_snippet, get_campaign_or_404
+from ._helpers import (
+    assert_can_manage,
+    assert_not_archived,
+    can_view,
+    extract_snippet,
+    get_campaign_or_404,
+)
 from ._schemas import GMNoteUpdate, PlayerNoteUpdate, SessionNoteCreate, SessionNoteUpdate
 
 
@@ -125,6 +131,7 @@ def create_session(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
+    assert_not_archived(c)
     try:
         datetime.date.fromisoformat(data.session_date)
     except ValueError:
@@ -197,6 +204,7 @@ def update_session(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
+    assert_not_archived(c)
     session = db.query(SessionNote).filter_by(id=session_id, campaign_id=campaign_id).first()
     if not session:
         raise HTTPException(404, "Session not found")
@@ -230,6 +238,7 @@ def upsert_player_note(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
+    assert_not_archived(c)
 
     session = db.query(SessionNote).filter_by(id=session_id, campaign_id=campaign_id).first()
     if not session:
