@@ -11,7 +11,12 @@ function fireDragAt(type, el, clientY) {
   fireEvent(el, ev)
 }
 
+// EmbedCard fetches a book's title through the default export, so the mock
+// carries one — that fetch is what the embed-flicker regression test watches.
+const apiGet = vi.fn(() => Promise.resolve({ title: "Player's Handbook" }))
 vi.mock('../../api', () => ({
+  default: { get: (...args) => apiGet(...args) },
+  mediaUrl: (path) => `http://localhost${path}`,
   campaigns: {
     listWikiPages: vi.fn(),
     getWikiPage: vi.fn(),
@@ -20,6 +25,7 @@ vi.mock('../../api', () => ({
     createWikiPage: vi.fn(),
     deleteWikiPage: vi.fn(),
     exportWiki: vi.fn(),
+    fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}`,
   },
 }))
 
@@ -570,5 +576,253 @@ describe('WikiView export and import affordances', () => {
     await waitFor(() => screen.getByText('Dragons'))
     expect(screen.getByRole('button', { name: /^export$/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^import$/i })).not.toBeInTheDocument()
+  })
+})
+
+// Issue #288: the page tree scrolls in its own container so a long note can't
+// drag it out of view, the import/export controls sit at the bottom of that
+// column, and the tree's scroll position survives opening another note.
+describe('WikiView sidebar scrolling', () => {
+  const child = { ...page, id: 'p2', title: 'Goblins', body: 'Small and mean' }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.listWikiPages.mockResolvedValue([page, child])
+    campaigns.getWikiPage.mockImplementation((_c, id) =>
+      Promise.resolve(id === 'p2' ? child : page)
+    )
+  })
+
+  it('sizes the two-pane row to the remaining viewport height', async () => {
+    const { container } = renderView()
+    await screen.findByText('Goblins')
+    // jsdom reports a 0 top and a 768px viewport, leaving 744 after the gap.
+    expect(container.firstChild.style.height).toBe('744px')
+  })
+
+  it('gives the page tree its own scroll container', async () => {
+    renderView()
+    await screen.findByText('Goblins')
+    const tree = screen.getByTestId('wiki-page-tree')
+    expect(tree.style.overflowY).toBe('auto')
+    expect(tree.style.flex).toBe('1 1 auto')
+  })
+
+  it('scrolls the note pane separately from the tree', async () => {
+    const { container } = renderView()
+    await screen.findByText('Here be dragons')
+    // The note's own pane is the row child that holds it — found by walking up
+    // rather than by index, so inserting the divider doesn't break this.
+    const notePane = Array.from(container.firstChild.children).find((c) =>
+      c.contains(screen.getByText('Here be dragons'))
+    )
+    expect(notePane).toBeDefined()
+    expect(notePane.style.overflowY).toBe('auto')
+    // Two independent scroll containers, so neither moves the other.
+    expect(notePane.contains(screen.getByTestId('wiki-page-tree'))).toBe(false)
+  })
+
+  it('pins the import/export controls below the scrolling tree', async () => {
+    renderView()
+    await screen.findByText('Goblins')
+    const tree = screen.getByTestId('wiki-page-tree')
+    const footer = screen.getByRole('button', { name: /^export$/i }).closest('div').parentElement
+    expect(footer.style.flexShrink).toBe('0')
+    // The footer is a sibling that follows the scroll area, not part of it.
+    expect(tree.contains(footer)).toBe(false)
+    expect(tree.nextElementSibling).toBe(footer)
+  })
+
+  it('keeps the tree scroll position when a different note is opened', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    const tree = screen.getByTestId('wiki-page-tree')
+    tree.scrollTop = 120
+
+    fireEvent.click(screen.getByRole('button', { name: 'Goblins' }))
+    await screen.findByText('Small and mean')
+
+    // The scroll container survived the re-render rather than remounting, so
+    // the list stays where the user left it.
+    expect(screen.getByTestId('wiki-page-tree')).toBe(tree)
+    expect(tree.scrollTop).toBe(120)
+  })
+
+  it('lets the drop-to-root zone cover the whole scroll area', async () => {
+    renderView()
+    await screen.findByText('Goblins')
+    const dropZone = screen.getByTestId('wiki-page-tree').firstChild
+    expect(dropZone.style.minHeight).toBe('100%')
+  })
+
+  it('falls back to natural page flow when the viewport is too short', async () => {
+    const original = window.innerHeight
+    Object.defineProperty(window, 'innerHeight', { value: 200, configurable: true })
+    try {
+      const { container } = renderView()
+      await screen.findByText('Goblins')
+      expect(container.firstChild.style.height).toBe('')
+      expect(screen.getByTestId('wiki-page-tree').style.overflowY).toBe('')
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { value: original, configurable: true })
+    }
+  })
+
+  it('hands the viewport back to the editor while a page is being edited', async () => {
+    const { container } = renderView()
+    await screen.findByText('Here be dragons')
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    await screen.findByRole('textbox', { name: 'Markdown' })
+    // PageEditor does its own fill (#298), so the row steps out of the way.
+    expect(container.firstChild.style.height).toBe('')
+  })
+})
+
+// The divider between the page list and the note can be dragged to widen or
+// narrow the list, and the choice is kept for the session.
+describe('WikiView resizable sidebar', () => {
+  const sidebarOf = (container) => container.firstChild.children[0]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    campaigns.listWikiPages.mockResolvedValue([page])
+    campaigns.getWikiPage.mockResolvedValue(page)
+  })
+
+  const dragDivider = (from, to) => {
+    const handle = screen.getByRole('separator')
+    fireEvent.pointerDown(handle, { clientX: from, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(handle, { clientX: to, pointerId: 1 })
+    fireEvent.pointerUp(handle, { clientX: to, pointerId: 1 })
+  }
+
+  it('starts the page list at its default width', async () => {
+    const { container } = renderView()
+    await screen.findByText('Dragons')
+    expect(sidebarOf(container).style.flex).toBe('0 0 240px')
+  })
+
+  it('widens the page list when the divider is dragged right', async () => {
+    const { container } = renderView()
+    await screen.findByText('Dragons')
+    dragDivider(300, 400)
+    expect(sidebarOf(container).style.flex).toBe('0 0 340px')
+  })
+
+  it('narrows the page list when the divider is dragged left', async () => {
+    const { container } = renderView()
+    await screen.findByText('Dragons')
+    dragDivider(300, 240)
+    expect(sidebarOf(container).style.flex).toBe('0 0 180px')
+  })
+
+  it('resizes from the keyboard as well as the mouse', async () => {
+    const { container } = renderView()
+    await screen.findByText('Dragons')
+    fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' })
+    expect(sidebarOf(container).style.flex).toBe('0 0 256px')
+  })
+
+  it('keeps the chosen width when another note is opened', async () => {
+    const { container } = renderView()
+    await screen.findByText('Dragons')
+    dragDivider(300, 400)
+    fireEvent.click(screen.getByRole('button', { name: 'Dragons' }))
+    await screen.findByText('Here be dragons')
+    expect(sidebarOf(container).style.flex).toBe('0 0 340px')
+  })
+
+  it('restores the width from the session on a remount', async () => {
+    const first = renderView()
+    await screen.findByText('Dragons')
+    dragDivider(300, 400)
+    first.unmount()
+
+    const { container } = renderView()
+    await screen.findByText('Dragons')
+    expect(sidebarOf(container).style.flex).toBe('0 0 340px')
+  })
+
+  it('keeps separate widths for different campaigns', async () => {
+    const first = renderView()
+    await screen.findByText('Dragons')
+    dragDivider(300, 400)
+    first.unmount()
+
+    const { container } = renderView({ campaign: { ...campaign, id: 'c2' } })
+    await screen.findByText('Dragons')
+    expect(sidebarOf(container).style.flex).toBe('0 0 240px')
+  })
+
+  it('highlights the divider while it is being dragged', async () => {
+    renderView()
+    await screen.findByText('Dragons')
+    const handle = screen.getByRole('separator')
+    const line = handle.firstChild
+    expect(line.style.width).toBe('1px')
+    fireEvent.pointerDown(handle, { clientX: 300, button: 0, pointerId: 1 })
+    expect(line.style.width).toBe('2px')
+    fireEvent.pointerUp(handle, { clientX: 300, pointerId: 1 })
+    expect(line.style.width).toBe('1px')
+  })
+})
+
+// Hovering a sidebar row re-renders WikiView. If a callback passed down to
+// WikiMarkdown changes identity on that render, the memoized ReactMarkdown
+// component map is rebuilt and every embed remounts — a book embed then loses
+// the title it fetched and flashes the generic "Book" label until the refetch
+// lands.
+describe('WikiView embed stability across re-renders', () => {
+  const withEmbed = {
+    ...page,
+    body: 'See [[book:b1]] for details.',
+  }
+  const other = { ...page, id: 'p2', title: 'Goblins', parent_id: null }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    apiGet.mockResolvedValue({ title: "Player's Handbook" })
+    campaigns.listWikiPages.mockResolvedValue([withEmbed, other])
+    campaigns.getWikiPage.mockResolvedValue(withEmbed)
+  })
+
+  it('keeps the resolved book title while sidebar rows are hovered', async () => {
+    renderView()
+    const title = await screen.findByText("Player's Handbook")
+
+    // Hover across the rows, as a user scanning the list would.
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Goblins' }))
+    fireEvent.mouseLeave(screen.getByRole('button', { name: 'Goblins' }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Dragons' }))
+
+    // Same element throughout: the card never remounted, so the title never
+    // fell back to the generic label.
+    expect(screen.getByText("Player's Handbook")).toBe(title)
+    expect(screen.queryByText('Book')).not.toBeInTheDocument()
+  })
+
+  it('does not refetch the book when a row is hovered', async () => {
+    renderView()
+    await screen.findByText("Player's Handbook")
+    expect(apiGet).toHaveBeenCalledTimes(1)
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Goblins' }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Dragons' }))
+
+    // A remount would re-run the effect and fetch again.
+    expect(apiGet).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the book title while the sidebar is resized', async () => {
+    renderView()
+    const title = await screen.findByText("Player's Handbook")
+    const handle = screen.getByRole('separator')
+    fireEvent.pointerDown(handle, { clientX: 300, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(handle, { clientX: 380, pointerId: 1 })
+    fireEvent.pointerUp(handle, { clientX: 380, pointerId: 1 })
+
+    expect(screen.getByText("Player's Handbook")).toBe(title)
+    expect(apiGet).toHaveBeenCalledTimes(1)
   })
 })

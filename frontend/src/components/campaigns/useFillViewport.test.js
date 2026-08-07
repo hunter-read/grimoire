@@ -54,6 +54,20 @@ describe('useFillViewport', () => {
     expect(result.current).toBeNull()
   })
 
+  it('waits for `ready` before measuring', () => {
+    // A caller showing a spinner has no element yet; measuring now would read
+    // an empty ref and never retry.
+    const ref = { current: null }
+    const { result, rerender } = renderHook(({ ready }) => useFillViewport(ref, { ready }), {
+      initialProps: { ready: false },
+    })
+    expect(result.current).toBeNull()
+    // The real content mounted — the ref fills in and the measurement lands.
+    ref.current = elementAt(100)
+    rerender({ ready: true })
+    expect(result.current).toBe(776)
+  })
+
   it('recomputes when the window resizes', () => {
     const ref = { current: elementAt(100) }
     const { result } = renderHook(() => useFillViewport(ref))

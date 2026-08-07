@@ -1323,6 +1323,7 @@
     "parentLabel": "Parent page",
     "noParent": "Top level",
     "addSubpage": "Add subpage",
+    "resizeSidebar": "Resize the page list",
     "expand": "Expand",
     "collapse": "Collapse",
     "iconLabel": "Icon",
