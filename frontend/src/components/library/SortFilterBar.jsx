@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowUp,
@@ -51,30 +51,6 @@ export default function SortFilterBar({
   const { t } = useTranslation()
   const [showSaved, setShowSaved] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
-  const barRef = useRef(null)
-
-  // The full-bleed backdrop is a viewport-wide box shifted left by however far
-  // this row sits from the viewport edge. Measuring beats a fixed negative
-  // inset: page containers differ in max-width, and a symmetric overhang would
-  // widen <main>'s scroll area and let it drag sideways.
-  useLayoutEffect(() => {
-    if (!sticky) return undefined
-    const el = barRef.current
-    if (!el) return undefined
-    const measure = () => {
-      const { left } = el.getBoundingClientRect()
-      el.style.setProperty('--sfb-offset', `${left}px`)
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
-    ro?.observe(el)
-    return () => {
-      window.removeEventListener('resize', measure)
-      ro?.disconnect()
-    }
-  }, [sticky])
-
   const filters = state.filters || {}
   const setSort = (sort) => onChange({ ...state, sort })
   const toggleOrder = () => onChange({ ...state, order: state.order === 'asc' ? 'desc' : 'asc' })
@@ -109,32 +85,16 @@ export default function SortFilterBar({
 
   return (
     <>
-      {/* The sticky backdrop is drawn by a pseudo-element rather than a plain
-          background so it reaches the page edge no matter how narrow the page
-          container is (system detail caps at 1200px, the galleries at 1400px).
-          It is sized in viewport units and offset back to the viewport's left
-          edge, which keeps it full-bleed without widening the scrollable area
-          — a symmetric negative inset would make <main> scroll sideways. */}
+      {/* The backdrop is the row's own background, so it tracks the page
+          container's width instead of bleeding to the viewport edges — a
+          full-bleed bar looked stranded on wide screens, where the content it
+          belongs to stops well short of the edge. */}
       {sticky && (
         <style>{`
           .sort-filter-bar-sticky { position: sticky; top: 0; z-index: 30; }
-          .sort-filter-bar-sticky::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: calc(0px - var(--sfb-offset, 0px));
-            width: 100vw;
-            max-width: none;
-            background: var(--bg-deep);
-            border-bottom: 1px solid var(--border);
-            z-index: -1;
-            pointer-events: none;
-          }
         `}</style>
       )}
       <div
-        ref={barRef}
         data-testid="sort-filter-bar"
         className={sticky ? 'sort-filter-bar-sticky' : undefined}
         style={{
@@ -143,7 +103,14 @@ export default function SortFilterBar({
           gap: 10,
           alignItems: 'center',
           marginBottom: 16,
-          ...(sticky ? { padding: '10px 0', marginBottom: 16 } : null),
+          ...(sticky
+            ? {
+                padding: '10px 0',
+                marginBottom: 16,
+                background: 'var(--bg-deep)',
+                borderBottom: '1px solid var(--border)',
+              }
+            : null),
         }}
       >
         {/* Sort group: label + icon + connected select/order button. */}
