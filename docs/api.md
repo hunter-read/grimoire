@@ -659,6 +659,25 @@ The resource panel's **group display order** (custom categories interleaved with
 
 The campaign notebook is a set of markdown **wiki pages**. Pages link to one another with `[[Page Title]]` (or `[[Page Title|label]]`) syntax and embed campaign content inline with `[[book:ID]]`, `[[book:ID:PAGE]]`, `[[map:ID]]`, `[[token:ID]]`, `[[audio:ID]]` (an inline audio player), `[[file:ID]]` (a download card for a campaign file), or `[[image:ID]]` (an uploaded image rendered inline). `ID` is the resource's underlying id; the embed picker lists only resources already linked to the campaign (and offers an image upload). On save the body is re-parsed: unknown `[[Page Title]]` targets auto-create a stub page (inheriting the source page's visibility), embed tokens are skipped (never create stubs), and backlink rows are rebuilt.
 
+##### Link target syntax
+
+A page-link target is a mandatory title plus two optional suffixes — `[[Page Title:id-<page_id>:#Heading]]`:
+
+| Form | Resolves to |
+|------|-------------|
+| `[[Page Title]]` | the page whose slug matches the title |
+| `[[Page Title:id-<page_id>]]` | that exact page, by id |
+| `[[Page Title:#Heading]]` | the page, scrolled to the named heading |
+| `[[Page Title:id-<page_id>:#Heading]]` | both |
+
+The `:id-` suffix pins a link to a page's stable identity, which makes it survive renames and lets a title that collides with another page be addressed at all (two titles differing only in case or punctuation share a slug, so the second gets a `-2` slug that a bare title can never reach). Resolution is identity-first: when `:id-` is present it is the only thing consulted, so a link whose id no longer exists renders as broken rather than silently re-pointing at whatever page holds that title now.
+
+Parsing is suffix-driven and right-to-left — a trailing `:id-…` / `:#…` is only split off when it matches that exact shape — so a title containing an ordinary colon (`[[Ancient Ruins: The Depths]]`) needs no escaping. The heading is everything after the first `:#`, so a heading that itself begins with `#` needs none either: the markdown heading `# # of coin` is linked as `[[Prices:## of coin]]`. A `:#Heading` is addressing only; the stored link row is page-to-page, and a heading never creates a stub. When several headings share text, `:#Heading` resolves to the most prominent (H1 over H2 over H3) and, among equals, the first in the page.
+
+Two behaviours keep links honest as pages change. **Renaming** a page rewrites the title portion of inbound `[[…]]` links in the bodies that point at it, preserving each link's `|label`, `:id-` and `:#Heading` (a rename that leaves the slug unchanged, e.g. recasing, rewrites nothing). **Stub auto-creation applies only to unpinned links** — a pinned `:id-` target that no longer resolves means the page was deleted, so it stays broken instead of being resurrected as an empty duplicate. Deleting a page also recomputes the link rows of the pages that referenced it.
+
+Because import assigns fresh page ids, an incoming `:id-` pin is dropped on import (the title, which *is* remapped, is the identity that survives); `:#Heading` suffixes are preserved.
+
 Pages nest: each page has an optional `parent_id` (null = top level), forming a tree of arbitrary depth (a "category" is just a page with children). Deleting a page re-parents its children to the deleted page's parent rather than removing the subtree. A page may not be its own parent or be moved under one of its own descendants (400).
 
 Each page has a **visibility**: `gm` (owner only), `group` (all accepted members), or `members` (owner plus the users in `shared_user_ids`). The owner may create/edit/delete any page; a member may create `group` pages and edit/delete pages they authored, but cannot set `gm`/`members` visibility.
@@ -672,7 +691,7 @@ Because a non-owner edits this stripped body, a player saving an edit to a page 
 | `/api/campaigns/:id/wiki` | GET | member or owner | List pages the caller can see (`id, title, slug, visibility, page_type, session_date, parent_id, icon, icon_color, sort_order, updated_at, can_edit`), ordered by `sort_order`. Build the page tree client-side from `parent_id` |
 | `/api/campaigns/:id/wiki` | POST | member or owner | Create a page. Body: `{title?, body?, visibility?, page_type?, session_date?, shared_user_ids?, parent_id?, icon?, icon_color?}` (`parent_id` nests the page; see [Entry icons](#entry-icons)) |
 | `/api/campaigns/:id/wiki/search` | GET | member or owner | Search visible pages by title/body. Query: `q` |
-| `/api/campaigns/:id/wiki/titles` | GET | member or owner | `{title, slug}` list for `[[link]]` autocomplete |
+| `/api/campaigns/:id/wiki/titles` | GET | member or owner | `{id, title, slug, ambiguous, parent_title, headings[]}` list for `[[link]]` autocomplete. `ambiguous` is true when another visible page normalizes to the same slug (the editor then emits `:id-`, and labels the suggestion `Title (parent_title)` to tell the collisions apart); `parent_title` is the immediate parent's title, or null at top level **or when that parent isn't visible to the caller**; `headings` is the page's ATX headings as `{text, level}` in document order, for `:#Heading` completions. Headings inside `\|\|GM secrets\|\|` are omitted for non-owners |
 | `/api/campaigns/:id/wiki/reorder` | PUT | owner | Drag-and-drop order. Body: `{ordered_ids}` |
 | `/api/campaigns/:id/wiki/export` | GET | owner or member | Export the wiki - a member can take their own copy of a campaign with them (e.g. when leaving, or moving to another platform), and this **works on an archived campaign** since it only reads. A non-owner receives exactly what they can see in the app: pages failing the `can_view_page` check are omitted, and `||GM secrets||` are stripped from the bodies that remain; the owner's export is unfiltered. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly) or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
 | `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |

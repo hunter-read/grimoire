@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuLink2,
@@ -17,6 +17,9 @@ import { campaigns } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import IconPicker from './IconPicker'
+import WikiLinkAutocomplete, { findActiveLinkQuery } from './WikiLinkAutocomplete'
+import { buildTitleTrie } from './wikiLinkTarget'
+import { caretCoordinates } from './caretPosition'
 import {
   descendantIds,
   toolbarControl,
@@ -59,6 +62,104 @@ export default function PageEditor({
   const [showEmbedPicker, setShowEmbedPicker] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const bodyRef = useRef(null)
+
+  // --- [[link]] autocomplete (issue #196) ---
+  // Titles come from the dedicated endpoint rather than `allPages` because they
+  // carry each page's headings and an `ambiguous` flag, which drive heading
+  // completions and the `:id-` disambiguator respectively.
+  const [linkTargets, setLinkTargets] = useState([])
+  const [suggest, setSuggest] = useState(null) // { query, start, end, top, left }
+  const [suggestIndex, setSuggestIndex] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    // A failed (or unavailable) lookup just means no completions — the editor
+    // stays fully usable, so this never surfaces an error to the user.
+    Promise.resolve()
+      .then(() => campaigns.wikiTitles?.(campaign.id))
+      .then((list) => {
+        if (!cancelled) setLinkTargets(list || [])
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [campaign.id])
+
+  // Trie over titles + headings, rebuilt only when the page set changes; lookup
+  // then costs what the user typed rather than what the campaign holds.
+  const linkTrie = useMemo(() => buildTitleTrie(linkTargets), [linkTargets])
+  const suggestMatches = useMemo(
+    () => (suggest ? linkTrie.search(suggest.query, 8) : []),
+    [linkTrie, suggest]
+  )
+
+  const closeSuggest = useCallback(() => setSuggest(null), [])
+
+  // Re-evaluate whether the caret sits inside an open "[[" after any edit or
+  // cursor move, and position the dropdown under it.
+  const refreshSuggest = useCallback((ta) => {
+    if (!ta) return
+    const active = findActiveLinkQuery(ta.value, ta.selectionStart ?? 0)
+    if (!active) {
+      setSuggest(null)
+      return
+    }
+    const coords = caretCoordinates(ta, active.start)
+    setSuggest({
+      ...active,
+      // Without real layout (jsdom, or a browser that can't measure), fall back
+      // to a spot just under the field rather than pinning the popup at 0,0.
+      top: coords ? coords.top : 24,
+      left: coords ? coords.left : 8,
+    })
+    setSuggestIndex(0)
+  }, [])
+
+  // Replace the "[[query" span with the chosen target and close the link.
+  const acceptSuggestion = useCallback(
+    (match) => {
+      if (!suggest) return
+      const ta = bodyRef.current
+      // Reuse a "]]" that's already sitting at the caret rather than adding a
+      // second one — the Link page button inserts an empty "[[]]" pair, and
+      // editing inside an existing link leaves its closer in place.
+      const rest = body.slice(suggest.end)
+      const closed = rest.startsWith(']]')
+      const insert = `[[${match.target}]]`
+      const next = body.slice(0, suggest.start) + insert + (closed ? rest.slice(2) : rest)
+      setBody(next)
+      setSuggest(null)
+      const pos = suggest.start + insert.length
+      requestAnimationFrame(() => {
+        ta?.focus()
+        ta?.setSelectionRange(pos, pos)
+      })
+    },
+    [body, suggest]
+  )
+
+  // Arrow/Enter/Tab drive the dropdown while it's open; Escape dismisses it.
+  // Everything else falls through to normal typing.
+  const onBodyKeyDown = useCallback(
+    (e) => {
+      if (!suggest || !suggestMatches.length) return
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeSuggest()
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSuggestIndex((i) => (i + 1) % suggestMatches.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSuggestIndex((i) => (i - 1 + suggestMatches.length) % suggestMatches.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        acceptSuggestion(suggestMatches[suggestIndex] || suggestMatches[0])
+      }
+    },
+    [suggest, suggestMatches, suggestIndex, acceptSuggestion, closeSuggest]
+  )
 
   const members = (campaign.members || []).filter((m) => !m.is_owner)
 
@@ -271,7 +372,22 @@ export default function PageEditor({
           </button>
         </span>
 
-        <button type="button" onClick={() => insertAtCursor('[[]]')} style={toolbarBtn}>
+        {/* Drops the caret between the brackets, which opens the completion
+            dropdown on the empty query — so the button now browses pages too. */}
+        <button
+          type="button"
+          onClick={() => {
+            insertAtCursor('[[]]')
+            const ta = bodyRef.current
+            requestAnimationFrame(() => {
+              if (!ta) return
+              const pos = (ta.selectionStart ?? 0) - 2
+              ta.setSelectionRange(pos, pos)
+              refreshSuggest(ta)
+            })
+          }}
+          style={toolbarBtn}
+        >
           <LuLink2 size={13} /> {t('wiki.insertLink')}
         </button>
         <button type="button" onClick={() => setShowEmbedPicker(true)} style={toolbarBtn}>
@@ -340,15 +456,25 @@ export default function PageEditor({
 
       {/* Editor + live preview */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+        <div style={{ flex: '1 1 360px', minWidth: 280, position: 'relative' }}>
           <div style={paneLabel}>{t('wiki.markdown')}</div>
           <textarea
             ref={bodyRef}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(e) => {
+              setBody(e.target.value)
+              refreshSuggest(e.target)
+            }}
+            onKeyDown={onBodyKeyDown}
+            // Cursor moves (clicks, arrows) can leave or enter a "[[", so
+            // re-evaluate after the selection has settled.
+            onSelect={(e) => refreshSuggest(e.target)}
+            onBlur={closeSuggest}
             placeholder={t('wiki.bodyPlaceholder')}
             rows={20}
             aria-label={t('wiki.markdown')}
+            aria-autocomplete="list"
+            aria-expanded={!!suggest && suggestMatches.length > 0}
             style={{
               width: '100%',
               padding: '12px 14px',
@@ -363,6 +489,15 @@ export default function PageEditor({
               boxSizing: 'border-box',
             }}
           />
+          {suggest && (
+            <WikiLinkAutocomplete
+              matches={suggestMatches}
+              position={{ top: suggest.top, left: suggest.left }}
+              activeIndex={suggestIndex}
+              onActiveIndexChange={setSuggestIndex}
+              onAccept={acceptSuggestion}
+            />
+          )}
         </div>
         {showPreview && (
           <div style={{ flex: '1 1 360px', minWidth: 280 }}>
@@ -382,7 +517,8 @@ export default function PageEditor({
               <WikiMarkdown
                 body={body}
                 campaignId={campaign.id}
-                pageSlugs={allPages.map((p) => p.slug)}
+                pages={allPages}
+                currentPageId={page?.id ?? null}
               />
             </div>
           </div>

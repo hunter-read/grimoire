@@ -1345,7 +1345,11 @@
     "newCategoryPlaceholder": "New category name",
     "chooseImage": "Choose an image",
     "visibilityIs": "Visibility: {{level}}",
-    "changeVisibilityFrom": "Change visibility (currently {{level}})"
+    "changeVisibilityFrom": "Change visibility (currently {{level}})",
+    "linkSuggestions": "Page suggestions",
+    "linkSuggestionsHint": "↑↓ to navigate · Enter to insert · Esc to dismiss",
+    "headingLinkHint": "Jumps to “{{heading}}”",
+    "brokenLinkHint": "This link points to a page that no longer exists."
   },
   "campaignNotes": {
     "backToOverview": "Back to overview"

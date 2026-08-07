@@ -27,6 +27,7 @@ import VisibilityBadge from './VisibilityBadge'
 import VisibilityEditor from './VisibilityEditor'
 import RowVisibilityControl from './RowVisibilityControl'
 import PageEditor from './PageEditor'
+import { headingDomId } from './wikiHeadings'
 import { descendantIds, ghostBtn, goldBtn } from './wikiShared'
 
 // Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
@@ -48,6 +49,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const [createParentId, setCreateParentId] = useState('')
   const [query, setQuery] = useState('')
   const [importing, setImporting] = useState(false)
+  // Heading a [[Page:#Heading]] link asked for, pending the target page loading.
+  const [pendingHeading, setPendingHeading] = useState(null)
   // Ids of parent pages whose children are collapsed in the sidebar tree,
   // persisted per campaign (per browser) so the choice survives navigation.
   const collapseKey = `grimoire_wiki_collapsed_${campaign.id}`
@@ -128,15 +131,33 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     onViewingNoteChange?.(viewingNoteOnMobile)
   }, [viewingNoteOnMobile, onViewingNoteChange])
 
-  const openSlug = (slug) => {
-    const match = pages?.find((p) => p.slug === slug)
-    if (match) {
-      setSelectedId(match.id)
-    } else {
-      // The target isn't visible to this user (or doesn't exist yet); refresh list.
+  // Follow a [[link]]. WikiMarkdown has already resolved the target page (by id
+  // when the link is pinned, else by title); a null target means it isn't visible
+  // to this user or doesn't exist yet, so we refresh in case the list is stale.
+  // `heading` is the link's :#Heading suffix — held until the target page's body
+  // has rendered, then scrolled to by the effect below.
+  const openPage = (target, heading) => {
+    if (!target) {
       loadList()
+      return
     }
+    setPendingHeading(heading || null)
+    setSelectedId(target.id)
   }
+
+  // Scroll to the heading a cross-page [[Page:#Heading]] link asked for, once the
+  // destination body is on screen. Cleared after one attempt so it doesn't fire
+  // again on an unrelated re-render.
+  useEffect(() => {
+    if (!pendingHeading || !page) return
+    const id = headingDomId(pendingHeading)
+    // Wait a frame so ReactMarkdown has committed the heading elements.
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+      setPendingHeading(null)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [pendingHeading, page])
 
   const handleSaved = (saved) => {
     setCreating(false)
@@ -770,8 +791,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               <WikiMarkdown
                 body={page.body}
                 campaignId={campaign.id}
-                pageSlugs={pages.map((p) => p.slug)}
-                onOpenSlug={openSlug}
+                pages={pages}
+                currentPageId={page.id}
+                onOpenPage={openPage}
               />
             </div>
 

@@ -1345,7 +1345,11 @@
     "newCategoryPlaceholder": "Name der neuen Kategorie",
     "chooseImage": "Bild auswählen",
     "visibilityIs": "Sichtbarkeit: {{level}}",
-    "changeVisibilityFrom": "Sichtbarkeit ändern (derzeit {{level}})"
+    "changeVisibilityFrom": "Sichtbarkeit ändern (derzeit {{level}})",
+    "linkSuggestions": "Seitenvorschläge",
+    "linkSuggestionsHint": "↑↓ navigieren · Enter einfügen · Esc schließen",
+    "headingLinkHint": "Springt zu „{{heading}}“",
+    "brokenLinkHint": "Dieser Link verweist auf eine Seite, die nicht mehr existiert."
   },
   "campaignNotes": {
     "backToOverview": "Zurück zur Übersicht"

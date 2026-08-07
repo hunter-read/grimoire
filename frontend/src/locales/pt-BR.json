@@ -1345,7 +1345,11 @@
     "newCategoryPlaceholder": "Nome da nova categoria",
     "chooseImage": "Escolher uma imagem",
     "visibilityIs": "Visibilidade: {{level}}",
-    "changeVisibilityFrom": "Alterar visibilidade (atualmente {{level}})"
+    "changeVisibilityFrom": "Alterar visibilidade (atualmente {{level}})",
+    "linkSuggestions": "Sugestões de páginas",
+    "linkSuggestionsHint": "↑↓ navegar · Enter inserir · Esc fechar",
+    "headingLinkHint": "Vai para “{{heading}}”",
+    "brokenLinkHint": "Este link aponta para uma página que não existe mais."
   },
   "campaignNotes": {
     "backToOverview": "Voltar à visão geral"
