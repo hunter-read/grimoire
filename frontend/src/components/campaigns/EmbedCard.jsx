@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import api, { campaigns } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImg from '../LazyImg'
 
@@ -25,6 +26,25 @@ const embedCardStyle = {
 export default function EmbedCard({ spec, campaignId, onNavigate }) {
   const { t } = useTranslation()
   const [type, id, page] = spec.split(':')
+
+  // A book embed names the book, so its title is fetched here. It stays null if
+  // the book can't be resolved (deleted or unreadable), and the card falls back
+  // to the generic "Book" label. Rules-of-hooks keeps this above the early
+  // returns below, hence the type guard rather than a conditional hook.
+  const [bookTitle, setBookTitle] = useState(null)
+  useEffect(() => {
+    if (type !== 'book') return
+    let active = true
+    api
+      .get(`/books/${id}`)
+      .then((b) => {
+        if (active) setBookTitle(b.title || null)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [type, id])
 
   // An embedded audio track plays in the global player (play / play next), with a
   // click-through to its detail page.
@@ -96,8 +116,10 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
   if (!meta) return null
   const { Icon, color } = meta
   const to = type === 'book' && page ? `${meta.to}?page=${page}` : meta.to
-  const label =
-    type === 'book' && page ? t('wiki.embedBookPage', { page }) : t(`wiki.embed_${type}`)
+  // A resolved title replaces the generic type label; the page suffix is added
+  // on top of whichever of the two we ended up with.
+  const name = type === 'book' && bookTitle ? bookTitle : t(`wiki.embed_${type}`)
+  const label = type === 'book' && page ? t('wiki.embedBookPage', { title: name, page }) : name
   return (
     <button type="button" onClick={() => onNavigate(to)} style={embedCardStyle}>
       <Icon size={15} color={color} />

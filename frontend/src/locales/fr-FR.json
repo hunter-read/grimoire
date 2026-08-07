@@ -1319,7 +1319,7 @@
     "embed_map": "Carte",
     "embed_token": "Jeton",
     "embed_audio": "Audio",
-    "embedBookPage": "Livre — p. {{page}}",
+    "embedBookPage": "{{title}} — p. {{page}}",
     "parentLabel": "Page parente",
     "noParent": "Niveau supérieur",
     "addSubpage": "Ajouter une sous-page",

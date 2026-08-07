@@ -1319,7 +1319,7 @@
     "embed_map": "Kaart",
     "embed_token": "Token",
     "embed_audio": "Audio",
-    "embedBookPage": "Boek — p. {{page}}",
+    "embedBookPage": "{{title}} — p. {{page}}",
     "parentLabel": "Bovenliggende pagina",
     "noParent": "Hoogste niveau",
     "addSubpage": "Subpagina toevoegen",
