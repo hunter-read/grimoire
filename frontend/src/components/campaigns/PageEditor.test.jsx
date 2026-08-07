@@ -396,3 +396,68 @@ describe('PageEditor [[link]] autocomplete', () => {
     expect(options()).toEqual([])
   })
 })
+
+// Issue #293: the editor should fill the viewport, scroll the editing surface
+// internally, and keep Save/Cancel reachable without scrolling.
+describe('PageEditor viewport fill', () => {
+  it('sizes its root to the remaining viewport height', () => {
+    const { container } = renderEditor()
+    // jsdom reports a 0 top and a 768px viewport, leaving 744 after the gap.
+    expect(container.firstChild.style.height).toBe('744px')
+  })
+
+  it('lets the editor row take the leftover space while the buttons stay fixed', () => {
+    const { container } = renderEditor()
+    const rows = Array.from(container.firstChild.children)
+    // The markdown/preview row is the only one allowed to grow.
+    const growing = rows.filter((r) => r.style.flex === '1 1 auto')
+    expect(growing).toHaveLength(1)
+    // Every other row is pinned, so Save/Cancel can't be pushed off-screen.
+    const saveRow = rows[rows.length - 1]
+    expect(saveRow).toHaveTextContent('Save')
+    expect(saveRow.style.flexShrink).toBe('0')
+  })
+
+  it('makes the textarea flex and scroll instead of resize', () => {
+    renderEditor()
+    const body = screen.getByRole('textbox', { name: 'Markdown' })
+    expect(body.style.flex).toBe('1 1 auto')
+    expect(body.style.resize).toBe('none')
+  })
+
+  it('scrolls the preview pane internally', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await user.click(screen.getByRole('button', { name: /preview/i }))
+    const pane = screen.getByTestId('preview').parentElement
+    expect(pane.style.overflowY).toBe('auto')
+  })
+
+  it('falls back to natural flow when the viewport is too short', () => {
+    const original = window.innerHeight
+    Object.defineProperty(window, 'innerHeight', { value: 200, configurable: true })
+    try {
+      const { container } = renderEditor()
+      expect(container.firstChild.style.height).toBe('')
+      const body = screen.getByRole('textbox', { name: 'Markdown' })
+      expect(body.style.resize).toBe('vertical')
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { value: original, configurable: true })
+    }
+  })
+
+  it('keeps the natural page flow on mobile', () => {
+    const original = window.matchMedia
+    window.matchMedia = vi.fn(() => ({
+      matches: true,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    try {
+      const { container } = renderEditor()
+      expect(container.firstChild.style.height).toBe('')
+    } finally {
+      window.matchMedia = original
+    }
+  })
+})
