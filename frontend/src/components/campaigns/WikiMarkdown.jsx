@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
@@ -6,16 +6,22 @@ import remarkGfm from 'remark-gfm'
 import { LuFileQuestion } from 'react-icons/lu'
 import EmbedCard from './EmbedCard'
 import LazyImg from '../LazyImg'
+import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
+import { buildHeadingComponents, headingDomId } from './wikiHeadings'
 
 // We avoid a custom remark tokenizer by rewriting [[...]] tokens into ordinary
 // markdown links with a private href scheme, then interpreting that scheme in a
 // custom `a` renderer below.
-//   [[Page Title]]            -> [Page Title](grimoire-wiki:slug-of-title)
-//   [[Page Title|label]]      -> [label](grimoire-wiki:slug-of-title)
+//   [[Page Title]]                    -> [Page Title](grimoire-wiki:<encoded target>)
+//   [[Page Title|label]]              -> [label](grimoire-wiki:<encoded target>)
+//   [[Page Title:id-ID:#Heading]]     -> [Page Title](grimoire-wiki:<encoded target>)
 //   [[book:ID]] / [[book:ID:PAGE]] / [[map:ID]] / [[token:ID]] / [[audio:ID]] / [[file:ID]] / [[image:ID]]
-//                             -> [embed](grimoire-embed:book:ID:PAGE)
+//                                     -> [embed](grimoire-embed:book:ID:PAGE)
+//
+// The href carries the *whole* raw target (URI-encoded) rather than a slug, so
+// the renderer can resolve by page id and honour a :#Heading suffix. Encoding
+// keeps ":" and spaces from being reinterpreted as part of the scheme.
 const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
-const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'file:', 'image:']
 
 // ||GM-only text||. Only the owner ever receives a body still containing these
 // (the backend strips them entirely for everyone else — no text, no marker), so
@@ -23,22 +29,7 @@ const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'file:', 'image:']
 // won't. The match spans newlines so a secret can wrap several lines/paragraphs.
 const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
 
-// Must match the backend slugify (backend/routers/campaigns/wiki.py) exactly, or
-// [[links]] won't resolve to their pages. Python's \w is Unicode-aware, so we use
-// Unicode property escapes (with the `u` flag) instead of JS's ASCII-only \w —
-// otherwise non-ASCII letters like ä/ö/ü/ß are stripped and the slug diverges
-// (issue #252). `_` is kept here (as \w does) then collapsed to `-` below.
-function slugify(title) {
-  return (
-    title
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}_\s-]/gu, '')
-      .trim()
-      .replace(/[\s_-]+/g, '-') || 'untitled'
-  )
-}
-
-// Decode a percent-encoded slug, tolerating malformed input (a stray "%" would
+// Decode a percent-encoded target, tolerating malformed input (a stray "%" would
 // otherwise throw). Returns the original string if it can't be decoded.
 function safeDecode(s) {
   try {
@@ -59,12 +50,14 @@ function escapeLinkText(text) {
 function rewriteLinks(text) {
   return text.replace(LINK_RE, (_match, target, label) => {
     const t = target.trim()
-    const lower = t.toLowerCase()
-    if (EMBED_PREFIXES.some((p) => lower.startsWith(p))) {
+    if (isEmbed(t)) {
       return `[embed](grimoire-embed:${t})`
     }
-    const linkText = escapeLinkText((label || t).trim())
-    return `[${linkText}](grimoire-wiki:${slugify(t)})`
+    // The visible text is the label if given, else the title alone — the :id- and
+    // :#Heading suffixes are addressing, not something the reader should see.
+    const { title } = parseTarget(t)
+    const linkText = escapeLinkText((label || title || t).trim())
+    return `[${linkText}](grimoire-wiki:${encodeURIComponent(t)})`
   })
 }
 
@@ -107,11 +100,47 @@ function splitSecrets(body) {
   return segments
 }
 
-export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenSlug }) {
+/**
+ * Render a wiki page body.
+ *
+ * `pages` is the campaign's visible page list ({ id, title, slug }), used to
+ * resolve [[links]] by id or title and to grey out ones that point nowhere.
+ * `onOpenPage(page, heading)` navigates to a link's target; `heading` is the
+ * `:#Heading` suffix when present, so the caller can scroll to it after the page
+ * loads. A link to the *current* page's heading scrolls in place instead.
+ */
+export default function WikiMarkdown({
+  body,
+  campaignId,
+  pages = [],
+  currentPageId = null,
+  onOpenPage,
+}) {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const slugSet = useMemo(() => new Set(pageSlugs), [pageSlugs])
   const segments = useMemo(() => splitSecrets(body), [body])
+
+  // Scroll to a heading inside the body currently on screen. Headings are given
+  // ids by the `h1..h6` renderers below, keyed on the normalized heading text.
+  const scrollToHeading = useCallback((heading) => {
+    if (typeof document === 'undefined') return
+    const id = headingDomId(heading)
+    // Guarded: scrollIntoView is absent in jsdom and older embedded views.
+    document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  const openLink = useCallback(
+    (rawTarget) => {
+      const link = parseTarget(rawTarget)
+      const target = resolvePage(link, pages)
+      if (target && target.id === currentPageId && link.heading) {
+        scrollToHeading(link.heading)
+        return
+      }
+      onOpenPage?.(target, link.heading, link)
+    },
+    [pages, currentPageId, onOpenPage, scrollToHeading]
+  )
 
   const components = useMemo(
     () => ({
@@ -137,16 +166,28 @@ export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenS
           )
         }
         if (href?.startsWith('grimoire-wiki:')) {
-          // react-markdown percent-encodes non-ASCII in hrefs, so a Unicode slug
-          // (e.g. "breitfuß") arrives encoded ("breitfu%C3%9F"). Decode it back so
-          // it matches the backend slug (issue #252).
-          const slug = safeDecode(href.slice('grimoire-wiki:'.length))
-          const exists = slugSet.has(slug)
+          // We percent-encode the target when rewriting, and react-markdown
+          // additionally encodes non-ASCII (e.g. "breitfuß" -> "breitfu%C3%9F"),
+          // so decode before parsing or the suffixes won't match (issue #252).
+          const rawTarget = safeDecode(href.slice('grimoire-wiki:'.length))
+          const link = parseTarget(rawTarget)
+          const target = resolvePage(link, pages)
+          // A pinned link whose page is gone is broken; so is an unknown title.
+          const exists = !!target
           return (
             <button
               type="button"
-              onClick={() => onOpenSlug?.(slug)}
-              title={exists ? undefined : t('wiki.missingPageHint')}
+              onClick={() => openLink(rawTarget)}
+              title={
+                exists
+                  ? link.heading
+                    ? t('wiki.headingLinkHint', { heading: link.heading })
+                    : undefined
+                  : // A pinned link names a page that once existed, so a failure
+                    // to resolve means it was deleted — it won't be re-created.
+                    // An unpinned one still auto-creates its target on save.
+                    t(link.pageId ? 'wiki.brokenLinkHint' : 'wiki.missingPageHint')
+              }
               style={{
                 background: 'none',
                 border: 'none',
@@ -224,6 +265,10 @@ export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenS
           </blockquote>
         )
       },
+      // Headings get a deterministic id derived from their text, which is what
+      // a [[Page:#Heading]] link scrolls to. Keyed on normalized text (not
+      // document order) so the anchor survives edits elsewhere in the page.
+      ...buildHeadingComponents(),
       code({ inline, children }) {
         if (inline) {
           return (
@@ -253,7 +298,7 @@ export default function WikiMarkdown({ body, campaignId, pageSlugs = [], onOpenS
         )
       },
     }),
-    [slugSet, onOpenSlug, navigate, t, campaignId]
+    [pages, openLink, navigate, t, campaignId]
   )
 
   if (!body?.trim()) {

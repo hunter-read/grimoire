@@ -1,14 +1,15 @@
 """Wiki page endpoint handlers — the campaign-building notebook.
 
-Pages hold markdown bodies and link to each other with `[[Page Title]]` syntax.
+Pages hold markdown bodies and link to each other with `[[Page Title]]` syntax,
+optionally pinned to a page id and/or a heading —
+`[[Page Title:id-<page_id>:#Heading]]`. See `wikilinks.py` for the target grammar.
 Grimoire content is embedded inline as `[[book:<id>]]`, `[[book:<id>:<page>]]`,
 `[[map:<id>]]`, `[[token:<id>]]`, or `[[audio:<id>]]` — those are rendered by the frontend and are
 not tracked as page-to-page links. On every save we re-parse the body, auto-create
-stub pages for any unknown `[[Page Title]]` targets, and rebuild backlink rows.
+stub pages for unknown *unpinned* `[[Page Title]]` targets, and rebuild backlink rows.
 """
 
 import datetime
-import re
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -26,37 +27,39 @@ from ._helpers import (
     strip_gm_secrets,
 )
 from ._schemas import WikiPageCreate, WikiPageUpdate, WikiReorder
+from .wikilinks import (
+    LINK_RE,
+    LinkTarget,
+    build_target,
+    extract_headings,
+    is_embed,
+    parse_page_links,
+    parse_target,
+    slugify,
+)
 
-# Reserved prefixes for Grimoire content embeds — not page-title links.
-_EMBED_PREFIXES = ("book:", "map:", "token:", "audio:", "file:", "image:")
-
-# Matches [[target]] or [[target|label]]; target/label captured separately.
-_LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
-
-
-def slugify(title: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", (title or "").lower()).strip()
-    s = re.sub(r"[\s_-]+", "-", s)
-    return s or "untitled"
-
-
-def _is_embed(target: str) -> bool:
-    return target.strip().lower().startswith(_EMBED_PREFIXES)
+__all__ = [
+    "slugify",
+    "parse_page_link_titles",
+    "rebuild_links",
+    "list_pages",
+    "reorder_pages",
+    "get_page",
+    "create_page",
+    "update_page",
+    "delete_page",
+    "search_pages",
+    "page_titles",
+]
 
 
 def parse_page_link_titles(body: str) -> list:
-    """Return the distinct page-title targets referenced by [[...]] in body."""
-    titles = []
-    seen = set()
-    for m in _LINK_RE.finditer(body or ""):
-        target = m.group(1).strip()
-        if not target or _is_embed(target):
-            continue
-        key = slugify(target)
-        if key not in seen:
-            seen.add(key)
-            titles.append(target)
-    return titles
+    """Return the distinct page-title targets referenced by [[...]] in body.
+
+    Kept as a thin title-only view over `parse_page_links` for callers (and tests)
+    that only care about which titles a body mentions.
+    """
+    return [link.title for link in parse_page_links(body)]
 
 
 def can_view_page(page: WikiPage, campaign, user: CurrentUser, db) -> bool:
@@ -97,25 +100,71 @@ def _ensure_unique_slug(db, campaign_id: str, base_slug: str, exclude_id: str = 
         n += 1
 
 
+def resolve_link_target(db, campaign_id: str, link: LinkTarget):
+    """Resolve a parsed [[...]] target to a WikiPage, or None.
+
+    Identity beats text: a link carrying `:id-` resolves by that id alone, so it
+    keeps pointing at the same page across renames and title collisions (issue
+    #287). A stale id (target deleted) resolves to None rather than silently
+    falling back to the title, which would re-point the link at whatever page
+    happens to hold that title now.
+    """
+    if link.page_id:
+        return (
+            db.query(WikiPage)
+            .filter_by(id=link.page_id, campaign_id=campaign_id)
+            .first()
+        )
+    return (
+        db.query(WikiPage)
+        .filter_by(campaign_id=campaign_id, slug=slugify(link.title))
+        .first()
+    )
+
+
+def _rebuild_link_rows(db, campaign_id: str, page: WikiPage) -> None:
+    """Recompute a page's outgoing link rows against pages that already exist.
+
+    The no-side-effects half of `rebuild_links`: it never creates a target. Used
+    when something *other* than a save invalidated a page's links (e.g. its target
+    was deleted), where manufacturing a stub would be exactly the wrong response.
+    """
+    db.query(WikiPageLink).filter_by(source_page_id=page.id).delete()
+    target_ids = set()
+    for link in parse_page_links(page.body):
+        target = resolve_link_target(db, campaign_id, link)
+        if target is not None and target.id != page.id:
+            target_ids.add(target.id)
+    for tid in target_ids:
+        db.add(
+            WikiPageLink(campaign_id=campaign_id, source_page_id=page.id, target_page_id=tid)
+        )
+
+
 def rebuild_links(db, campaign, page: WikiPage, current_user: CurrentUser) -> None:
     """Re-parse a page's body, auto-create stub targets, and rebuild backlink rows.
 
     Stub pages inherit the source page's visibility so a [[link]] in a group page
     doesn't silently create a GM-only target the players can't reach.
+
+    Only an *unpinned* `[[Title]]` auto-creates its target. A link pinned with
+    `:id-` names a page that already existed, so an unresolvable one means the
+    target was deleted — resurrecting it as an empty stub is what silently
+    duplicated pages after a delete or rename (issue #287). Those render as broken
+    links instead.
     """
     db.query(WikiPageLink).filter_by(source_page_id=page.id).delete()
 
     target_ids = set()
-    for title in parse_page_link_titles(page.body):
-        slug = slugify(title)
-        target = (
-            db.query(WikiPage).filter_by(campaign_id=campaign.id, slug=slug).first()
-        )
+    for link in parse_page_links(page.body):
+        target = resolve_link_target(db, campaign.id, link)
         if target is None:
+            if link.page_id:
+                continue  # stale pin — leave it broken rather than re-creating
             target = WikiPage(
                 campaign_id=campaign.id,
-                title=title,
-                slug=_ensure_unique_slug(db, campaign.id, slug),
+                title=link.title,
+                slug=_ensure_unique_slug(db, campaign.id, slugify(link.title)),
                 body="",
                 visibility=page.visibility,
                 page_type="note",
@@ -130,6 +179,47 @@ def rebuild_links(db, campaign, page: WikiPage, current_user: CurrentUser) -> No
         db.add(
             WikiPageLink(campaign_id=campaign.id, source_page_id=page.id, target_page_id=tid)
         )
+
+
+def rewrite_inbound_titles(db, campaign_id: str, page: WikiPage, old_title: str) -> None:
+    """After a rename, update the visible title in links pointing at this page.
+
+    Walks the pages that link here and rewrites the title portion of each
+    `[[...]]` whose target resolves to this page, leaving any `:id-` pin and
+    `:#Heading` suffix (and any `|label`) untouched. Matching is by resolved
+    identity, so a pinned link is rewritten precisely while an unpinned one is
+    only touched when its old title actually resolved here.
+
+    Without this a rename leaves `[[Old Title]]` text everywhere — dangling if
+    unpinned, merely stale if pinned (issue #287).
+    """
+    old_slug = slugify(old_title)
+    if old_slug == slugify(page.title):
+        return  # slug-equivalent rename (casing/punctuation); link text still resolves
+
+    source_ids = [
+        row.source_page_id
+        for row in db.query(WikiPageLink).filter_by(target_page_id=page.id).all()
+    ]
+    for src in db.query(WikiPage).filter(WikiPage.id.in_(source_ids)).all() if source_ids else []:
+
+        def repl(m):
+            target, label = m.group(1), m.group(2)
+            if is_embed(target):
+                return m.group(0)
+            link = parse_target(target)
+            # Only rewrite links that actually point at the renamed page.
+            if link.page_id:
+                if link.page_id != page.id:
+                    return m.group(0)
+            elif slugify(link.title) != old_slug:
+                return m.group(0)
+            new_target = build_target(page.title, link.page_id, link.heading)
+            return f"[[{new_target}|{label}]]" if label else f"[[{new_target}]]"
+
+        updated = LINK_RE.sub(repl, src.body or "")
+        if updated != src.body:
+            src.body = updated
 
 
 def _resolve_parent(db, campaign_id: str, parent_id, page_id: str = None):
@@ -353,8 +443,12 @@ def update_page(
     if data.title is not None:
         new_title = data.title.strip() or "Untitled"
         if new_title != page.title:
+            old_title = page.title
             page.title = new_title
             page.slug = _ensure_unique_slug(db, campaign_id, slugify(new_title), exclude_id=page.id)
+            # Follow the rename into the bodies that link here, so inbound
+            # [[Old Title]] text doesn't go stale or dangling (issue #287).
+            rewrite_inbound_titles(db, campaign_id, page, old_title)
     if data.body is not None:
         # A non-owner never received the ||...|| GM secrets (they're stripped
         # on read), so their submitted body has none — storing it verbatim
@@ -409,12 +503,33 @@ def delete_page(
     db.query(WikiPage).filter_by(campaign_id=campaign_id, parent_id=page_id).update(
         {WikiPage.parent_id: page.parent_id}, synchronize_session=False
     )
+    # Pages that linked here need their link rows recomputed once this page is
+    # gone — an unpinned [[Title]] may now resolve elsewhere (or become a stub on
+    # their next save), and a pinned one goes broken. Collect them before the rows
+    # are dropped.
+    inbound_source_ids = [
+        row.source_page_id
+        for row in db.query(WikiPageLink).filter_by(target_page_id=page_id).all()
+        if row.source_page_id != page_id
+    ]
     # Drop link rows referencing this page from either side.
     db.query(WikiPageLink).filter(
         (WikiPageLink.source_page_id == page_id)
         | (WikiPageLink.target_page_id == page_id)
     ).delete(synchronize_session=False)
     db.delete(page)
+    db.flush()
+    # Re-resolve the referencing pages against the post-delete state. This only
+    # rebuilds link rows; it deliberately does not auto-create stubs for the page
+    # just deleted, since resolve/rebuild treats a now-missing target as broken
+    # unless the link was unpinned (in which case recreating the page by that
+    # title relinks it naturally).
+    for src in (
+        db.query(WikiPage).filter(WikiPage.id.in_(inbound_source_ids)).all()
+        if inbound_source_ids
+        else []
+    ):
+        _rebuild_link_rows(db, campaign_id, src)
     db.commit()
 
 
@@ -458,13 +573,48 @@ def page_titles(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Lightweight list of {title, slug} for the [[link]] autocomplete."""
+    """Page list backing the `[[link]]` autocomplete.
+
+    Each entry carries the page id and its headings so the editor can offer both
+    `[[Title]]` and `[[Title:#Heading]]` completions, plus `ambiguous` — true when
+    another visible page shares this slug. The editor appends `:id-<id>` only for
+    ambiguous titles, keeping ordinary links readable while still being able to
+    address a colliding page at all (issue #287).
+
+    GM-only spans are stripped from non-owners' bodies before headings are read,
+    so a heading hidden inside `||...||` can't leak through the autocomplete.
+    """
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
+    is_owner = c.owner_id == current_user.id
     pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
+    visible = [p for p in pages if can_view_page(p, c, current_user, db)]
+
+    # A title is ambiguous when another visible page *normalizes* to the same slug
+    # — the stored slugs differ ("ancient-ruins" vs "ancient-ruins-2"), so compare
+    # on the title's own slug rather than the stored one.
+    base_counts: dict[str, int] = {}
+    for p in visible:
+        key = slugify(p.title)
+        base_counts[key] = base_counts.get(key, 0) + 1
+
+    # Immediate parent's title, so the autocomplete can tell same-named pages
+    # apart ("Ancient Ruins (Northlands)"). Resolved against the *visible* pages
+    # only: a parent this user can't see must not leak through the suggestion
+    # list, and reads as top-level instead.
+    visible_titles = {p.id: p.title for p in visible}
+
     return [
-        {"title": p.title, "slug": p.slug}
-        for p in pages
-        if can_view_page(p, c, current_user, db)
+        {
+            "id": p.id,
+            "title": p.title,
+            "slug": p.slug,
+            "ambiguous": base_counts.get(slugify(p.title), 0) > 1,
+            "parent_title": visible_titles.get(p.parent_id) if p.parent_id else None,
+            "headings": extract_headings(
+                (p.body or "") if is_owner else strip_gm_secrets(p.body or "")
+            ),
+        }
+        for p in visible
     ]

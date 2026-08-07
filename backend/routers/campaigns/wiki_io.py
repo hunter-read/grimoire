@@ -50,6 +50,7 @@ from .wiki import (
     rebuild_links,
     slugify,
 )
+from .wikilinks import build_target, parse_target
 
 BUNDLE_VERSION = 1
 _MAX_IMPORT_BYTES = 25 * 1024 * 1024  # 25 MB — bounds a single in-memory read.
@@ -615,15 +616,31 @@ _EMBED_PREFIXES = ("book:", "map:", "token:", "audio:")
 
 def _remap_links(body: str, key_to_title: dict) -> str:
     """Rewrite [[target]] whose target is a foreign source_key to the page title we
-    assigned it, so links survive even when titles collide and get a `-2` slug."""
+    assigned it, so links survive even when titles collide and get a `-2` slug.
+
+    Only the *title* part of the target is remapped; a `:#Heading` suffix is
+    preserved. An incoming `:id-` pin is dropped: it refers to a page id from the
+    source campaign, and every imported page is assigned a fresh id here, so
+    keeping it would leave a permanently broken pin. The title (which we do remap)
+    is the only identity that survives an import.
+    """
     def repl(m):
         target, label = m.group(1).strip(), m.group(2)
         if target.lower().startswith(_EMBED_PREFIXES):
             return m.group(0)
-        new_title = key_to_title.get(target)
-        if not new_title or new_title == target:
+        link = parse_target(target)
+        # Match on the bare title first, then the whole raw target so exports that
+        # used a source_key containing ":" still remap.
+        new_title = key_to_title.get(link.title) or key_to_title.get(target)
+        if not new_title:
+            # Not a foreign key we know: still strip a now-meaningless id pin.
+            if not link.page_id:
+                return m.group(0)
+            new_title = link.title
+        elif new_title == target and not link.page_id:
             return m.group(0)
-        return f"[[{new_title}|{label.strip()}]]" if label else f"[[{new_title}]]"
+        new_target = build_target(new_title, None, link.heading)
+        return f"[[{new_target}|{label.strip()}]]" if label else f"[[{new_target}]]"
 
     return _WIKILINK_RE.sub(repl, body or "")
 

@@ -7,6 +7,7 @@ vi.mock('../../api', () => ({
   campaigns: {
     createWikiPage: vi.fn(),
     updateWikiPage: vi.fn(),
+    wikiTitles: vi.fn(),
   },
 }))
 vi.mock('./WikiMarkdown', () => ({
@@ -40,6 +41,20 @@ const existing = {
   shared_user_ids: [],
 }
 
+// Payload shape of GET /campaigns/:id/wiki/titles.
+const LINK_TARGETS = [
+  {
+    id: 'p1',
+    title: 'Boblin the Goblin',
+    slug: 'boblin-the-goblin',
+    ambiguous: false,
+    headings: [{ text: 'Loot', level: 2 }],
+  },
+  { id: 'p2', title: 'Castle Ruins', slug: 'castle-ruins', ambiguous: false, headings: [] },
+  { id: 'p3', title: 'Ancient Ruins', slug: 'ancient-ruins', ambiguous: true, headings: [] },
+  { id: 'p4', title: 'ancient ruins', slug: 'ancient-ruins-2', ambiguous: true, headings: [] },
+]
+
 const renderEditor = (props = {}) =>
   render(
     <PageEditor
@@ -57,6 +72,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   campaigns.createWikiPage.mockResolvedValue({ id: 'new' })
   campaigns.updateWikiPage.mockResolvedValue({ id: 'p1' })
+  campaigns.wikiTitles.mockResolvedValue(LINK_TARGETS)
 })
 
 describe('PageEditor', () => {
@@ -223,5 +239,160 @@ describe('PageEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()
     expect(campaigns.createWikiPage).not.toHaveBeenCalled()
+  })
+})
+
+describe('PageEditor [[link]] autocomplete', () => {
+  // Type into the body textarea. userEvent reads "[" as the start of its
+  // special-key syntax, so brackets are doubled to type them literally.
+  const typeBody = async (user, text) => {
+    const body = screen.getByLabelText('Markdown')
+    await user.click(body)
+    await user.type(body, text.replace(/\[/g, '[['))
+    return body
+  }
+
+  // The suggestion dropdown, or null when it isn't showing. Scoped to the
+  // listbox because the visibility/parent <select>s also expose role="option".
+  const listbox = () => screen.queryByRole('listbox', { name: 'Page suggestions' })
+  const options = () => (listbox() ? within(listbox()).getAllByRole('option') : [])
+  const findOption = async (name) =>
+    within(await screen.findByRole('listbox', { name: 'Page suggestions' })).findByRole('option', {
+      name,
+    })
+
+  it('suggests pages once [[ is typed', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalledWith('c1'))
+    await typeBody(user, 'see [[Bob')
+    expect(await findOption('Boblin the Goblin')).toBeTruthy()
+  })
+
+  it('matches a word in the middle of a title', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    await typeBody(user, '[[gob')
+    expect(await findOption('Boblin the Goblin')).toBeTruthy()
+  })
+
+  it('inserts the completed link on click', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, 'see [[Bob')
+    await user.click(await findOption('Boblin the Goblin'))
+    expect(body.value).toBe('see [[Boblin the Goblin]]')
+  })
+
+  it('reuses an existing "]]" instead of doubling it', async () => {
+    // The Link page button inserts an empty "[[]]" pair and puts the caret
+    // between the brackets; completing there must not leave "]]]]".
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = screen.getByLabelText('Markdown')
+    await user.click(screen.getByRole('button', { name: /Link page/ }))
+    await user.keyboard('Bob')
+    await user.click(await findOption('Boblin the Goblin'))
+    expect(body.value).toBe('[[Boblin the Goblin]]')
+  })
+
+  it('keeps trailing text after a reused "]]" intact', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, 'see [[Bob]] here')
+    // Put the caret back inside the still-open link, before its "]]".
+    body.setSelectionRange(9, 9)
+    await user.keyboard('l')
+    await user.click(await findOption('Boblin the Goblin'))
+    expect(body.value).toBe('see [[Boblin the Goblin]] here')
+  })
+
+  it('still adds "]]" when the link is unclosed', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, 'see [[Bob and more')
+    body.setSelectionRange(9, 9)
+    await user.keyboard('l')
+    await user.click(await findOption('Boblin the Goblin'))
+    expect(body.value).toBe('see [[Boblin the Goblin]] and more')
+  })
+
+  it('inserts a heading link when a heading row is chosen', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, '[[Loot')
+    await user.click(await findOption(/Loot/))
+    expect(body.value).toBe('[[Boblin the Goblin:#Loot]]')
+  })
+
+  it('adds the :id- disambiguator only for an ambiguous title', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, '[[Ancient')
+    await user.click(await findOption('Ancient Ruins'))
+    expect(body.value).toBe('[[Ancient Ruins:id-p3]]')
+  })
+
+  it('accepts the highlighted match on Enter', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, '[[Castle')
+    await findOption(/Castle Ruins/)
+    await user.keyboard('{Enter}')
+    expect(body.value).toBe('[[Castle Ruins]]')
+  })
+
+  it('moves the highlight with the arrow keys', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, '[[Boblin')
+    await findOption('Boblin the Goblin')
+    // Two rows: the page itself and its "Loot" heading.
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(body.value).toBe('[[Boblin the Goblin:#Loot]]')
+  })
+
+  it('dismisses the dropdown on Escape', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    await typeBody(user, '[[Bob')
+    await findOption('Boblin the Goblin')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(listbox()).toBeNull())
+  })
+
+  it('closes the dropdown once the link is closed', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    await typeBody(user, '[[Bob]]')
+    await waitFor(() => expect(listbox()).toBeNull())
+  })
+
+  it('shows no dropdown outside a [[ link', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    await typeBody(user, 'just prose')
+    expect(listbox()).toBeNull()
+  })
+
+  it('stays usable when the titles lookup fails', async () => {
+    campaigns.wikiTitles.mockRejectedValue(new Error('nope'))
+    const user = userEvent.setup()
+    renderEditor()
+    const body = await typeBody(user, '[[Bob')
+    expect(body.value).toBe('[[Bob')
+    expect(options()).toEqual([])
   })
 })

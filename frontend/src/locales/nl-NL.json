@@ -1345,7 +1345,11 @@
     "newCategoryPlaceholder": "Naam van nieuwe categorie",
     "chooseImage": "Kies een afbeelding",
     "visibilityIs": "Zichtbaarheid: {{level}}",
-    "changeVisibilityFrom": "Zichtbaarheid wijzigen (nu {{level}})"
+    "changeVisibilityFrom": "Zichtbaarheid wijzigen (nu {{level}})",
+    "linkSuggestions": "Paginasuggesties",
+    "linkSuggestionsHint": "↑↓ navigeren · Enter invoegen · Esc sluiten",
+    "headingLinkHint": "Gaat naar “{{heading}}”",
+    "brokenLinkHint": "Deze link verwijst naar een pagina die niet meer bestaat."
   },
   "campaignNotes": {
     "backToOverview": "Terug naar overzicht"

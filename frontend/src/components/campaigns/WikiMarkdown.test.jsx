@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import WikiMarkdown from './WikiMarkdown'
 
+const CASTLE = { id: 'p-castle', title: 'The Castle', slug: 'the-castle' }
+
 function renderMd(props) {
   return render(
     <MemoryRouter>
@@ -24,50 +26,52 @@ describe('WikiMarkdown', () => {
     expect(screen.getByText('A')).toBeTruthy()
   })
 
-  it('renders an existing [[wiki link]] as a button and calls onOpenSlug', () => {
-    const onOpenSlug = vi.fn()
-    renderMd({ body: 'Go to [[The Castle]].', pageSlugs: ['the-castle'], onOpenSlug })
+  it('renders an existing [[wiki link]] as a button and calls onOpenPage', () => {
+    const onOpenPage = vi.fn()
+    renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], onOpenPage })
     const link = screen.getByRole('button', { name: 'The Castle' })
     fireEvent.click(link)
-    expect(onOpenSlug).toHaveBeenCalledWith('the-castle')
+    expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
   })
 
   it('supports [[Target|label]] aliasing', () => {
-    const onOpenSlug = vi.fn()
-    renderMd({ body: '[[The Castle|the keep]]', pageSlugs: ['the-castle'], onOpenSlug })
+    const onOpenPage = vi.fn()
+    renderMd({ body: '[[The Castle|the keep]]', pages: [CASTLE], onOpenPage })
     const link = screen.getByRole('button', { name: 'the keep' })
     fireEvent.click(link)
-    expect(onOpenSlug).toHaveBeenCalledWith('the-castle')
+    expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
   })
 
   it('resolves links with German special characters (issue #252)', () => {
     // ä/ö/ü/ß must survive slugification so the link matches the backend slug,
     // which keeps Unicode letters (Python \w is Unicode-aware).
-    const onOpenSlug = vi.fn()
+    const onOpenPage = vi.fn()
+    const breit = { id: 'b1', title: 'Breitfuß', slug: 'breitfuß' }
+    const zurich = { id: 'z1', title: 'Zürich Straße', slug: 'zürich-straße' }
     renderMd({
       body: 'See [[Breitfuß]] and [[Zürich Straße]].',
-      pageSlugs: ['breitfuß', 'zürich-straße'],
-      onOpenSlug,
+      pages: [breit, zurich],
+      onOpenPage,
     })
     fireEvent.click(screen.getByRole('button', { name: 'Breitfuß' }))
-    expect(onOpenSlug).toHaveBeenCalledWith('breitfuß')
+    expect(onOpenPage).toHaveBeenCalledWith(breit, null, expect.anything())
     fireEvent.click(screen.getByRole('button', { name: 'Zürich Straße' }))
-    expect(onOpenSlug).toHaveBeenCalledWith('zürich-straße')
+    expect(onOpenPage).toHaveBeenCalledWith(zurich, null, expect.anything())
   })
 
   it('escapes backslashes in link text so they cannot break out of the link', () => {
-    const onOpenSlug = vi.fn()
+    const onOpenPage = vi.fn()
     // A trailing backslash in the label must not escape the closing bracket of
     // the markdown link we generate; the link stays intact and clickable.
-    renderMd({ body: '[[The Castle|the keep\\]]', pageSlugs: ['the-castle'], onOpenSlug })
+    renderMd({ body: '[[The Castle|the keep\\]]', pages: [CASTLE], onOpenPage })
     const link = screen.getByRole('button', { name: /the keep/ })
     fireEvent.click(link)
-    expect(onOpenSlug).toHaveBeenCalledWith('the-castle')
+    expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
   })
 
   it('renders a missing wiki link distinctly but still clickable', () => {
-    const onOpenSlug = vi.fn()
-    renderMd({ body: '[[Nowhere]]', pageSlugs: [], onOpenSlug })
+    const onOpenPage = vi.fn()
+    renderMd({ body: '[[Nowhere]]', pages: [], onOpenPage })
     const link = screen.getByRole('button', { name: 'Nowhere' })
     expect(link).toBeTruthy()
   })
@@ -105,15 +109,82 @@ describe('WikiMarkdown', () => {
   })
 
   it('keeps a [[wiki link]] working when it sits next to a secret', () => {
-    const onOpenSlug = vi.fn()
+    const onOpenPage = vi.fn()
     renderMd({
       body: '||hidden|| then [[The Castle]].',
-      pageSlugs: ['the-castle'],
-      onOpenSlug,
+      pages: [CASTLE],
+      onOpenPage,
     })
     fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
-    expect(onOpenSlug).toHaveBeenCalledWith('the-castle')
+    expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
     expect(screen.getByText('hidden').tagName).toBe('SPAN')
+  })
+
+  it('resolves a pinned [[Title:id-...]] to that page, not the title match', () => {
+    // The colliding page is unreachable by title alone; the id gets there.
+    const onOpenPage = vi.fn()
+    const first = { id: 'p1', title: 'Ancient Ruins', slug: 'ancient-ruins' }
+    const second = { id: 'p2', title: 'ancient ruins', slug: 'ancient-ruins-2' }
+    renderMd({
+      body: 'Go to [[Ancient Ruins:id-p2]].',
+      pages: [first, second],
+      onOpenPage,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Ancient Ruins' }))
+    expect(onOpenPage).toHaveBeenCalledWith(second, null, expect.anything())
+  })
+
+  it('follows the id when the link text has gone stale after a rename', () => {
+    const onOpenPage = vi.fn()
+    const renamed = { id: 'p1', title: 'New Keep', slug: 'new-keep' }
+    renderMd({ body: '[[Old Keep:id-p1]]', pages: [renamed], onOpenPage })
+    fireEvent.click(screen.getByRole('button', { name: 'Old Keep' }))
+    expect(onOpenPage).toHaveBeenCalledWith(renamed, null, expect.anything())
+  })
+
+  it('renders a pinned link to a deleted page as broken', () => {
+    renderMd({ body: '[[Gone:id-missing]]', pages: [] })
+    const link = screen.getByRole('button', { name: 'Gone' })
+    expect(link.getAttribute('title')).toBe('This link points to a page that no longer exists.')
+  })
+
+  it('hides the :id- and :#Heading suffixes from the rendered link text', () => {
+    renderMd({ body: '[[The Castle:id-p1:#Loot]]', pages: [CASTLE] })
+    expect(screen.getByRole('button', { name: 'The Castle' })).toBeTruthy()
+  })
+
+  it('passes a :#Heading through to onOpenPage for a cross-page link', () => {
+    const onOpenPage = vi.fn()
+    renderMd({ body: '[[The Castle:#Loot]]', pages: [CASTLE], onOpenPage })
+    fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
+    expect(onOpenPage).toHaveBeenCalledWith(CASTLE, 'Loot', expect.anything())
+  })
+
+  it('does not navigate for a heading link to the page already open', () => {
+    // Same-page heading links scroll in place instead of re-opening the page.
+    const onOpenPage = vi.fn()
+    renderMd({
+      body: '# Loot\n\n[[The Castle:#Loot]]',
+      pages: [CASTLE],
+      currentPageId: CASTLE.id,
+      onOpenPage,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
+    expect(onOpenPage).not.toHaveBeenCalled()
+  })
+
+  it('gives headings an anchor id so :#Heading links can reach them', () => {
+    const { container } = renderMd({ body: '# Loot\n\n## Deep Loot' })
+    const ids = [...container.querySelectorAll('h1,h2')].map((h) => h.id)
+    expect(ids).toEqual(['wiki-h-loot', 'wiki-h-deep%20loot'])
+  })
+
+  it('keeps a title containing a colon working as a plain link', () => {
+    const onOpenPage = vi.fn()
+    const page = { id: 'p9', title: 'Ruins: The Depths', slug: 'ruins-the-depths' }
+    renderMd({ body: '[[Ruins: The Depths]]', pages: [page], onOpenPage })
+    fireEvent.click(screen.getByRole('button', { name: 'Ruins: The Depths' }))
+    expect(onOpenPage).toHaveBeenCalledWith(page, null, expect.anything())
   })
 
   it('renders a Grimoire embed as a content button, not a wiki link', () => {
