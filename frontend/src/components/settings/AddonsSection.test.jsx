@@ -174,6 +174,8 @@ describe('AddonsSection', () => {
     mockState()
     const user = userEvent.setup()
     render(<AddonsSection />)
+    // The index URL field is behind a toggle now; open it to reach the input.
+    await user.click(await screen.findByRole('button', { name: /addons.changeIndex/i }))
     await screen.findByDisplayValue('https://example.com/index.json')
 
     await user.click(screen.getByRole('button', { name: /addons.refresh/i }))
@@ -204,6 +206,8 @@ describe('AddonsSection', () => {
     api.patch.mockRejectedValue(new Error('Could not fetch the add-on index'))
     const user = userEvent.setup()
     render(<AddonsSection />)
+    // The index URL field is behind a toggle now; open it to reach the input.
+    await user.click(await screen.findByRole('button', { name: /addons.changeIndex/i }))
     await screen.findByDisplayValue('https://example.com/index.json')
 
     await user.click(screen.getByRole('button', { name: /addons.refresh/i }))

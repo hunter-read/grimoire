@@ -198,3 +198,51 @@ class WikiPageUpdate(BaseModel):
 
 class WikiReorder(BaseModel):
     ordered_ids: List[str]
+
+
+# Note templates. `name` and `body` are the substance; system/category are free
+# text mirroring the community manifest, so a downloaded template and one
+# written by hand carry the same shape.
+# The page defaults a template seeds a new page with. Stored as a frontmatter
+# block on the body, but exchanged with the client as fields — the editor shows
+# them as an icon picker and a dropdown, not raw YAML.
+class WikiTemplateDefaults(BaseModel):
+    # The page's starting name, distinct from the template's own name: a
+    # template called "NPC" might create pages titled "New NPC".
+    title: str = ""
+    icon: str = ""
+    icon_color: str = ""
+    visibility: str = "gm"
+    page_type: str = "note"
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
+
+
+class WikiTemplateInput(BaseModel):
+    name: str
+    # No `system`: a hand-written template isn't for a game system, and the
+    # server marks it as authored rather than taking one from the client.
+    category: str = ""
+    description: str = ""
+    body: str = ""
+    defaults: Optional[WikiTemplateDefaults] = None
+
+    @field_validator("name")
+    @classmethod
+    def name_required(cls, v: str) -> str:
+        if not (v or "").strip():
+            raise ValueError("name cannot be empty")
+        return v
+
+
+class WikiTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    body: Optional[str] = None
+    defaults: Optional[WikiTemplateDefaults] = None
+
+
+class WikiTemplateSourceInput(BaseModel):
+    # "" restores the built-in catalogue URL.
+    index_url: str = ""

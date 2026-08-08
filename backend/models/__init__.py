@@ -20,6 +20,7 @@ from .campaigns import (
     WikiPage,
     WikiPageLink,
     WikiPageShare,
+    WikiTemplate,
 )
 from .db import init_db
 from .library import (
@@ -72,6 +73,7 @@ __all__ = [
     "GMSessionNote",
     "WikiPage",
     "WikiPageShare",
+    "WikiTemplate",
     "WikiPageLink",
     "CampaignCategory",
     "CampaignSchedule",

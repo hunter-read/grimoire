@@ -13,6 +13,7 @@ import {
   LuChevronRight,
   LuChevronDown,
   LuListMusic,
+  LuLayoutTemplate,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
@@ -20,6 +21,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
+import WikiTemplateModal from './WikiTemplateModal'
 import IconPicker from './IconPicker'
 import { CampaignIcon } from './campaignIcons'
 import { resolveIconColor } from './iconColors'
@@ -49,8 +51,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const [editing, setEditing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createParentId, setCreateParentId] = useState('')
+  // Content for a page started from a template: an unsaved draft PageEditor
+  // opens with. Null for an ordinary blank New Page.
+  const [draft, setDraft] = useState(null)
   const [query, setQuery] = useState('')
   const [importing, setImporting] = useState(false)
+  const [browsingTemplates, setBrowsingTemplates] = useState(false)
   // Heading a [[Page:#Heading]] link asked for, pending the target page loading.
   const [pendingHeading, setPendingHeading] = useState(null)
   // Ids of parent pages whose children are collapsed in the sidebar tree,
@@ -203,6 +209,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   const handleSaved = (saved) => {
     setCreating(false)
+    setDraft(null)
     setEditing(false)
     loadList(saved.id)
     setSelectedId(saved.id)
@@ -254,6 +261,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   }
 
   const startCreate = (parentId = '') => {
+    setDraft(null)
     setCreateParentId(parentId)
     setCreating(true)
     setEditing(false)
@@ -725,6 +733,17 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               </button>
             )}
           </div>
+          {/* Templates creates a page from an installed community note
+              template, so it carries the same write gating as Import. */}
+          {canImport && (
+            <button
+              onClick={() => setBrowsingTemplates(true)}
+              title={t('wiki.templatesTitle')}
+              style={dashedBtn}
+            >
+              <LuLayoutTemplate size={13} /> {t('wiki.templates')}
+            </button>
+          )}
           <button onClick={() => exportWiki('json')} style={{ ...dashedBtn, fontSize: 11 }}>
             {t('wiki.exportJson')}
           </button>
@@ -790,11 +809,16 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           <PageEditor
             campaign={campaign}
             isOwner={isOwner}
-            page={null}
+            // A draft has no `id`, so PageEditor still treats it as a new page
+            // and creates it on save — it just starts pre-filled.
+            page={draft}
             allPages={pages}
             defaultParentId={createParentId}
             onSaved={handleSaved}
-            onCancel={() => setCreating(false)}
+            onCancel={() => {
+              setCreating(false)
+              setDraft(null)
+            }}
           />
         ) : !page ? (
           <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: 20 }}>
@@ -995,6 +1019,24 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           campaignId={campaign.id}
           onClose={() => setImporting(false)}
           onImported={() => loadList()}
+        />
+      )}
+
+      {browsingTemplates && (
+        <WikiTemplateModal
+          campaignId={campaign.id}
+          onClose={() => setBrowsingTemplates(false)}
+          onUsed={(draft) => {
+            // Open the template's content as an *unsaved* page. Nothing is
+            // written until the GM hits save, so picking the wrong template
+            // costs a cancel rather than a delete.
+            setBrowsingTemplates(false)
+            setEditing(false)
+            setPage(null)
+            setSelectedId(null)
+            setDraft(draft)
+            setCreating(true)
+          }}
         />
       )}
     </div>

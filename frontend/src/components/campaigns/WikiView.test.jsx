@@ -25,6 +25,9 @@ vi.mock('../../api', () => ({
     createWikiPage: vi.fn(),
     deleteWikiPage: vi.fn(),
     exportWiki: vi.fn(),
+    wikiTemplates: vi.fn(),
+    useWikiTemplate: vi.fn(),
+    getWikiTemplate: vi.fn(),
     fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}`,
   },
 }))
@@ -824,5 +827,104 @@ describe('WikiView embed stability across re-renders', () => {
 
     expect(screen.getByText("Player's Handbook")).toBe(title)
     expect(apiGet).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('WikiView community note templates', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.listWikiPages.mockResolvedValue([page])
+    campaigns.getWikiPage.mockResolvedValue(page)
+    campaigns.wikiTemplates.mockResolvedValue({
+      templates: [
+        {
+          id: '5e-spell',
+          name: 'Spell',
+          system: 'D&D 5e',
+          category: 'Spells',
+          description: 'A 5e spell.',
+        },
+      ],
+      campaign_system: '',
+      downloads_enabled: true,
+    })
+  })
+
+  it('offers a Templates button to the owner', async () => {
+    renderView()
+    expect(await screen.findByRole('button', { name: /Templates/ })).toBeTruthy()
+  })
+
+  it('hides Templates from a non-owner, as it writes pages', async () => {
+    renderView({ isOwner: false })
+    await screen.findByRole('button', { name: 'Dragons' })
+    expect(screen.queryByRole('button', { name: /Templates/ })).toBeNull()
+  })
+
+  it('hides Templates on an archived campaign', async () => {
+    render(
+      <MemoryRouter>
+        <WikiView campaign={{ ...campaign, is_archived: true }} isOwner />
+      </MemoryRouter>
+    )
+    await screen.findByRole('button', { name: 'Dragons' })
+    expect(screen.queryByRole('button', { name: /Templates/ })).toBeNull()
+  })
+
+  it('opens a template as an unsaved draft rather than creating the page', async () => {
+    campaigns.getWikiTemplate.mockResolvedValue({
+      id: '5e-spell',
+      name: 'Spell',
+      body: '*2nd-level transmutation*',
+      defaults: { title: 'New Spell', icon: 'sparkles', visibility: 'group' },
+    })
+
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: /Templates/ }))
+    await waitFor(() => expect(campaigns.wikiTemplates).toHaveBeenCalledWith('c1'))
+    fireEvent.click(await screen.findByText('A 5e spell.'))
+
+    // The editor opens pre-filled with the template's content...
+    expect(await screen.findByDisplayValue('New Spell')).toBeTruthy()
+    expect(screen.getByDisplayValue('*2nd-level transmutation*')).toBeTruthy()
+    // ...but nothing has been written.
+    expect(campaigns.createWikiPage).not.toHaveBeenCalled()
+  })
+
+  it('leaves no page behind when a template draft is cancelled', async () => {
+    campaigns.getWikiTemplate.mockResolvedValue({
+      id: '5e-spell',
+      name: 'Spell',
+      body: 'body',
+      defaults: { title: 'New Spell' },
+    })
+
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: /Templates/ }))
+    fireEvent.click(await screen.findByText('A 5e spell.'))
+    await screen.findByDisplayValue('New Spell')
+
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }))
+    await waitFor(() => expect(screen.queryByDisplayValue('New Spell')).toBeNull())
+    expect(campaigns.createWikiPage).not.toHaveBeenCalled()
+    expect(campaigns.deleteWikiPage).not.toHaveBeenCalled()
+  })
+
+  it('does not carry a template draft into a blank New Page', async () => {
+    campaigns.getWikiTemplate.mockResolvedValue({
+      id: '5e-spell',
+      name: 'Spell',
+      body: 'body',
+      defaults: { title: 'New Spell' },
+    })
+
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: /Templates/ }))
+    fireEvent.click(await screen.findByText('A 5e spell.'))
+    await screen.findByDisplayValue('New Spell')
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }))
+
+    fireEvent.click(await screen.findByRole('button', { name: /New Page/i }))
+    await waitFor(() => expect(screen.queryByDisplayValue('New Spell')).toBeNull())
   })
 })
