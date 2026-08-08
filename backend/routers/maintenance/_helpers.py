@@ -30,6 +30,74 @@ def _path_exists(filepath: str) -> bool:
     return result[0]
 
 
+def _prune_orphaned_systems(db) -> int:
+    """Delete game systems left with no books after the book sweep.
+
+    Orphaned systems otherwise linger in the campaign-creation picker even
+    though their library entries are gone. Three things keep a system alive:
+
+    * it still has books;
+    * a campaign references it, so deleting would dangle ``system_id``;
+    * it is a container (parent-system / one-page) with a surviving descendant.
+
+    That last rule is what issue #309 was about. A container folder holds no
+    books of its own — the books sit under its children — so the plain
+    "no books" test marked every container as an orphan. Deleting one then
+    cascaded through ``GameSystem.children`` (``delete-orphan``) and took the
+    editions *and their books* with it, making a whole system tree vanish on
+    the first cleanup after a scan.
+
+    Systems are walked deepest-first so that a container whose children all get
+    pruned in this pass is still collected in the same pass.
+    """
+    systems = db.query(GameSystem).all()
+    logger.debug(f"Cleanup: checking {len(systems)} game system(s) for orphans")
+
+    by_id = {s.id: s for s in systems}
+    children: dict[str, list[str]] = {}
+    for system in systems:
+        if system.parent_id:
+            children.setdefault(system.parent_id, []).append(system.id)
+
+    def _depth(system) -> int:
+        """Distance from the tree root, guarding against a parent_id cycle."""
+        depth, seen, cur = 0, {system.id}, system
+        while cur.parent_id and cur.parent_id in by_id and cur.parent_id not in seen:
+            seen.add(cur.parent_id)
+            cur = by_id[cur.parent_id]
+            depth += 1
+        return depth
+
+    deleted: set[str] = set()
+    count = 0
+    for system in sorted(systems, key=_depth, reverse=True):
+        book_count = db.query(Book).filter_by(game_system_id=system.id).count()
+        if book_count > 0:
+            continue
+        campaign_count = db.query(Campaign).filter_by(system_id=system.id).count()
+        if campaign_count > 0:
+            logger.debug(
+                f"Cleanup: empty system '{system.name}' still referenced by "
+                f"{campaign_count} campaign(s) — keeping"
+            )
+            continue
+        surviving = [cid for cid in children.get(system.id, []) if cid not in deleted]
+        if surviving:
+            logger.debug(
+                f"Cleanup: container '{system.name}' has {len(surviving)} surviving "
+                f"child system(s) — keeping"
+            )
+            continue
+        logger.info(f"Cleanup: removing empty game system '{system.name}' (id={system.id})")
+        db.delete(system)
+        db.commit()
+        logger.debug(f"Cleanup: committed removal of system id={system.id}")
+        deleted.add(system.id)
+        count += 1
+
+    return count
+
+
 def _do_cleanup(db) -> dict:
     """Delete DB records whose files no longer exist on disk.
 
@@ -56,28 +124,7 @@ def _do_cleanup(db) -> dict:
         else:
             logger.debug(f"Cleanup: book '{book.title}' present — skipping")
 
-    # Prune game systems left with no books after the book sweep. These orphaned
-    # systems otherwise linger in the campaign-creation picker even though their
-    # library entries are gone. A system still referenced by a campaign is kept
-    # so the campaign's system_id doesn't dangle.
-    systems = db.query(GameSystem).all()
-    logger.debug(f"Cleanup: checking {len(systems)} game system(s) for orphans")
-    for system in systems:
-        book_count = db.query(Book).filter_by(game_system_id=system.id).count()
-        if book_count > 0:
-            continue
-        campaign_count = db.query(Campaign).filter_by(system_id=system.id).count()
-        if campaign_count > 0:
-            logger.debug(
-                f"Cleanup: empty system '{system.name}' still referenced by "
-                f"{campaign_count} campaign(s) — keeping"
-            )
-            continue
-        logger.info(f"Cleanup: removing empty game system '{system.name}' (id={system.id})")
-        db.delete(system)
-        db.commit()
-        logger.debug(f"Cleanup: committed removal of system id={system.id}")
-        removed["systems"] += 1
+    removed["systems"] += _prune_orphaned_systems(db)
 
     maps = db.query(GenericMap).all()
     logger.debug(f"Cleanup: checking {len(maps)} map(s)")
