@@ -139,8 +139,13 @@ def fetch_document(
     user_agent: str = "",
     cache_ttl: int = DEFAULT_CACHE_TTL,
     force: bool = False,
+    timeout: int = HTTP_TIMEOUT,
 ) -> Any:
-    """Fetch ``url``, serving from the disk cache while it is fresh."""
+    """Fetch ``url``, serving from the disk cache while it is fresh.
+
+    ``timeout`` lets a caller fetching a small file fail faster than the
+    catalogue-sized default.
+    """
     if not force:
         cached = read_cache(url, cache_ttl)
         if cached is not None:
@@ -148,7 +153,7 @@ def fetch_document(
             return cached
 
     logger.debug("Add-on fetching %s", url)
-    document = fetch_json(url, user_agent=user_agent)
+    document = fetch_json(url, user_agent=user_agent, timeout=timeout)
     if cache_ttl > 0:
         write_cache(url, document)
     return document

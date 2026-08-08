@@ -103,6 +103,24 @@ def _bool_env(name: str) -> Optional[bool]:
 GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 
 
+# Turns off downloading wiki note templates from a community repository. When
+# true, Grimoire makes no outbound request for templates and the browse/download
+# endpoints refuse. GMs can still write their own templates and upload a `.md`,
+# so a locked-down or air-gapped server keeps the feature — it just stops
+# fetching. Templates are enabled by default.
+WIKI_TEMPLATES_DOWNLOAD_DISABLED: bool = (
+    _bool_env("WIKI_TEMPLATES_DOWNLOAD_DISABLED") or False
+)
+
+# Where the template browser fetches its catalogue from. An operator can point
+# this at a fork or a private mirror; the UI keeps the default and hides the
+# override behind a toggle, so the common case is one click.
+DEFAULT_WIKI_TEMPLATE_INDEX_URL = (
+    "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/"
+    "templates/index.json"
+)
+
+
 # Optional override for folder-name category inference. When set, it pins the
 # value and the admin UI shows a read-only state. When unset, the DB setting
 # (disable_folder_category_inference) is used. true = inference disabled.

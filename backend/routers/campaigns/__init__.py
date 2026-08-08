@@ -85,6 +85,19 @@ from .guests import (
     guest_share_template,
 )
 from .wiki_io import export_wiki, import_wiki
+from .wiki_templates import (
+    browse_wiki_templates,
+    create_wiki_template,
+    delete_wiki_template,
+    download_wiki_template,
+    export_wiki_template,
+    get_wiki_template,
+    list_wiki_templates,
+    update_template_source,
+    update_wiki_template,
+    upload_wiki_template,
+    use_wiki_template,
+)
 from .categories import (
     list_categories,
     create_category,
@@ -479,6 +492,78 @@ router.add_api_route(
     import_wiki,
     methods=["POST"],
     summary="Import wiki pages (markdown / json / LegendKeeper)",
+    status_code=201,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates",
+    list_wiki_templates,
+    methods=["GET"],
+    summary="List the campaign's note templates",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates",
+    create_wiki_template,
+    methods=["POST"],
+    summary="Write a new note template",
+    status_code=201,
+)
+# Literal segments before /{template_id}, so they aren't swallowed by it.
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/browse",
+    browse_wiki_templates,
+    methods=["GET"],
+    summary="Browse the community note-template catalogue",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/upload",
+    upload_wiki_template,
+    methods=["POST"],
+    summary="Add a note template from an uploaded .md file",
+    status_code=201,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/source",
+    update_template_source,
+    methods=["PUT"],
+    summary="Set the note-template catalogue URL",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/download/{template_id}",
+    download_wiki_template,
+    methods=["POST"],
+    summary="Download a community note template into the campaign",
+    status_code=201,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/{template_id}",
+    get_wiki_template,
+    methods=["GET"],
+    summary="Get a note template incl. its body",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/{template_id}",
+    update_wiki_template,
+    methods=["PATCH"],
+    summary="Edit a note template",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/{template_id}",
+    delete_wiki_template,
+    methods=["DELETE"],
+    summary="Delete a note template",
+    status_code=204,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/{template_id}/export",
+    export_wiki_template,
+    methods=["GET"],
+    summary="Export a note template as a .zip folder",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/templates/{template_id}/use",
+    use_wiki_template,
+    methods=["POST"],
+    summary="Create a wiki page from a note template",
     status_code=201,
 )
 router.add_api_route(

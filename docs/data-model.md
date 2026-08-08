@@ -28,6 +28,7 @@ erDiagram
     users ||--o{ player_session_notes : writes
     users ||--o{ wiki_pages : "created by"
     users ||--o{ wiki_page_shares : "shared with"
+    users ||--o{ wiki_templates : "created by"
     users ||--o{ campaign_resource_shares : "shared with"
     users ||--o{ campaign_files : "uploaded by"
 
@@ -47,6 +48,7 @@ erDiagram
     campaigns ||--|| campaign_schedules : "scheduled by"
     campaigns ||--o{ session_availability : tracks
     campaigns ||--o{ wiki_pages : contains
+    campaigns ||--o{ wiki_templates : owns
     campaigns ||--o{ wiki_page_links : "scoped to"
     campaigns ||--o{ campaigns : "parent of"
 
@@ -104,6 +106,8 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 | `wiki_pages.created_by_id` | `users.id` | nullable |
 | `wiki_pages.parent_id` | `wiki_pages.id` | self-referential; nesting |
 | `wiki_pages.category_id` | `campaign_categories.id` | legacy; nullable |
+| `wiki_templates.campaign_id` | `campaigns.id` | per-campaign copies |
+| `wiki_templates.created_by_id` | `users.id` | nullable |
 | `wiki_page_shares.page_id` | `wiki_pages.id` | |
 | `wiki_page_shares.user_id` | `users.id` | |
 | `wiki_page_links.campaign_id` | `campaigns.id` | |
@@ -183,6 +187,7 @@ path-keyed feature.
 | `wiki_pages` | A markdown wiki page in a campaign. | FKs `campaign_id`, `created_by_id`, `parent_id` (self), `category_id` (legacy). **Unique** `(campaign_id, slug)`. `visibility` ∈ `gm`/`group`/`members`. |
 | `wiki_page_shares` | A user a `members` wiki page is shared with. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. |
 | `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
+| `wiki_templates` | A reusable starting point for a wiki page, owned by one campaign. | FKs `campaign_id`, `created_by_id`. `body` holds the markdown (with frontmatter). `source_id`/`source_url`/`source_version` record a downloaded template's provenance and are null for authored/uploaded ones. Deliberately **not** unique on anything — a GM may keep several copies of the same community template. |
 
 ### Settings - [`backend/models/settings.py`](../backend/models/settings.py)
 

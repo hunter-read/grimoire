@@ -88,6 +88,9 @@ class Campaign(Base):
         cascade="all, delete-orphan",
         primaryjoin="Campaign.id==WikiPageLink.campaign_id",
     )
+    wiki_templates = relationship(
+        "WikiTemplate", back_populates="campaign", cascade="all, delete-orphan"
+    )
     categories = relationship(
         "CampaignCategory", back_populates="campaign", cascade="all, delete-orphan"
     )
@@ -315,6 +318,47 @@ class WikiPage(Base):
     )
 
     __table_args__ = (UniqueConstraint("campaign_id", "slug"),)
+
+
+class WikiTemplate(Base):
+    """A reusable starting point for a wiki page, owned by one campaign.
+
+    Templates are per-campaign rather than global: they are small markdown
+    files, so a copy per campaign costs almost nothing, and it means a GM can
+    edit a downloaded template freely without touching anyone else's copy.
+
+    A template arrives one of three ways — downloaded from a community
+    repository, uploaded as a `.md` file, or written in the app — and
+    `source_id` / `source_url` record the first of those so a downloaded
+    template can be traced back (and re-downloaded) later. Both are null for a
+    template the GM authored.
+    """
+
+    __tablename__ = "wiki_templates"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=False, index=True)
+    name = Column(String(255), nullable=False, default="")
+    # Free text, mirroring the community manifest's fields. Both may be empty:
+    # a system-agnostic template has no system, and an uncategorised one falls
+    # under "General" in the browser.
+    system = Column(String(255), default="")
+    category = Column(String(255), default="")
+    description = Column(Text, default="")
+    # The markdown page body, including its YAML frontmatter.
+    body = Column(Text, default="")
+    # Provenance for a downloaded template: the community id (e.g. "5e-spell")
+    # and the URL it came from. Null for authored/uploaded templates.
+    source_id = Column(String(100), nullable=True)
+    source_url = Column(Text, nullable=True)
+    source_version = Column(String(20), nullable=True)
+    created_by_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    sort_order = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    campaign = relationship("Campaign", back_populates="wiki_templates")
 
 
 class WikiPageShare(Base):

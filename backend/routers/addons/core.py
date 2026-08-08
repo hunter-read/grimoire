@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ... import addons
+from ...addons.constants import DEFAULT_INDEX_URL
 from ...auth import CurrentUser, require_admin
 from ...config import get_db
 from ._schemas import AddonInstall, AddonSettingsUpdate, AddonUpdate
@@ -54,6 +55,9 @@ def list_addons(
         "installed": sorted(installed.values(), key=lambda a: a["name"].lower()),
         "available": sorted(available, key=lambda a: a["name"].lower()),
         "index_url": addons.get_index_url(db),
+        # Lets the UI say "using the community index" and keep the URL field
+        # tucked behind a button, rather than showing a URL nobody edits.
+        "default_index_url": DEFAULT_INDEX_URL,
         "allow_scripts": addons.scripts_allowed(db),
         "index_generated": addons.get_cached_index(db).get("generated", ""),
     }

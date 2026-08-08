@@ -159,6 +159,30 @@ export const campaigns = {
   exportWiki: (id, format) =>
     api.download(`/campaigns/${id}/wiki/export?format=${format}`, `wiki.${format}`),
   importWiki: (id, file) => api.upload(`/campaigns/${id}/wiki/import`, file),
+  // Wiki note templates — per-campaign starting points for pages.
+  wikiTemplates: (id) => api.get(`/campaigns/${id}/wiki/templates`),
+  getWikiTemplate: (id, templateId) =>
+    api.get(`/campaigns/${id}/wiki/templates/${encodeURIComponent(templateId)}`),
+  createWikiTemplate: (id, data) => api.post(`/campaigns/${id}/wiki/templates`, data),
+  updateWikiTemplate: (id, templateId, data) =>
+    api.patch(`/campaigns/${id}/wiki/templates/${encodeURIComponent(templateId)}`, data),
+  deleteWikiTemplate: (id, templateId) =>
+    api.delete(`/campaigns/${id}/wiki/templates/${encodeURIComponent(templateId)}`),
+  uploadWikiTemplate: (id, file) => api.upload(`/campaigns/${id}/wiki/templates/upload`, file),
+  exportWikiTemplate: (id, templateId, name) =>
+    api.download(
+      `/campaigns/${id}/wiki/templates/${encodeURIComponent(templateId)}/export`,
+      `${name || 'template'}.zip`
+    ),
+  useWikiTemplate: (id, templateId) =>
+    api.post(`/campaigns/${id}/wiki/templates/${encodeURIComponent(templateId)}/use`),
+  // The community catalogue.
+  browseWikiTemplates: (id, refresh) =>
+    api.get(`/campaigns/${id}/wiki/templates/browse${refresh ? '?refresh=true' : ''}`),
+  downloadWikiTemplate: (id, templateId) =>
+    api.post(`/campaigns/${id}/wiki/templates/download/${encodeURIComponent(templateId)}`),
+  setWikiTemplateSource: (id, indexUrl) =>
+    api.put(`/campaigns/${id}/wiki/templates/source`, { index_url: indexUrl }),
 
   // Categories (kind: 'note' | 'resource')
   listCategories: (id, kind) =>

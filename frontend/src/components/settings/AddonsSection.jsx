@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuArrowUp, LuDownload, LuRefreshCw, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
+import {
+  LuArrowUp,
+  LuDownload,
+  LuLink,
+  LuRefreshCw,
+  LuTrash2,
+  LuTriangleAlert,
+} from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import AddonInstallDialog from './AddonInstallDialog'
@@ -21,6 +28,9 @@ export default function AddonsSection() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [confirming, setConfirming] = useState(null)
+  // The index URL field is hidden until asked for — the default suits
+  // almost every install.
+  const [editingIndex, setEditingIndex] = useState(false)
 
   const load = useCallback(() => {
     api
@@ -99,25 +109,38 @@ export default function AddonsSection() {
   const installedIds = new Set(data.installed.map((a) => a.id))
   const pendingUpdates = data.installed.filter((a) => a.update_available).length
   const notInstalled = data.available.filter((a) => !installedIds.has(a.id))
+  // An older server may not report the default, in which case treat the
+  // configured URL as the default rather than crying "custom".
+  const isCustomIndex = !!data.default_index_url && indexUrl !== data.default_index_url
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          value={indexUrl}
-          onChange={(e) => setIndexUrl(e.target.value)}
-          aria-label={t('addons.indexUrl')}
-          placeholder={t('addons.indexUrl')}
+        {/* The default index is right for almost everyone, so the URL field
+            stays behind a button rather than sitting at the top of the page
+            inviting edits. */}
+        <span style={{ flex: 1, minWidth: 240, alignSelf: 'center', fontSize: 13 }}>
+          {isCustomIndex ? t('addons.indexCustom') : t('addons.indexDefault')}
+        </span>
+        <button
+          onClick={() => setEditingIndex((v) => !v)}
+          aria-label={t('addons.changeIndex')}
+          title={t('addons.changeIndex')}
+          aria-expanded={editingIndex}
           style={{
-            flex: 1,
-            minWidth: 240,
-            padding: '8px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '8px 12px',
             borderRadius: 6,
-            background: 'var(--bg-deep)',
-            color: 'var(--text)',
+            background: 'transparent',
+            color: 'var(--text-dim)',
             border: '1px solid var(--border)',
+            cursor: 'pointer',
           }}
-        />
+        >
+          <LuLink size={14} />
+        </button>
         <button
           onClick={refresh}
           disabled={busy}
@@ -158,6 +181,40 @@ export default function AddonsSection() {
           </button>
         )}
       </div>
+
+      {editingIndex && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          <input
+            value={indexUrl}
+            onChange={(e) => setIndexUrl(e.target.value)}
+            aria-label={t('addons.indexUrl')}
+            placeholder={t('addons.indexUrl')}
+            style={{
+              flex: 1,
+              minWidth: 240,
+              padding: '8px 10px',
+              borderRadius: 6,
+              background: 'var(--bg-deep)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
+          />
+          <button
+            onClick={() => setIndexUrl(data.default_index_url || '')}
+            disabled={busy || !isCustomIndex}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 6,
+              background: 'none',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+              cursor: busy || !isCustomIndex ? 'default' : 'pointer',
+            }}
+          >
+            {t('addons.indexReset')}
+          </button>
+        </div>
+      )}
 
       {error && (
         <p
