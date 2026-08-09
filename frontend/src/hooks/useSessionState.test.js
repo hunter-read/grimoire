@@ -91,5 +91,34 @@ describe('useSessionState', () => {
       expect(r2.current[0]).toBeInstanceOf(Set)
       expect(r2.current[0].size).toBe(0)
     })
+
+    it('does not write an object default to storage before it is set', () => {
+      renderHook(() => useSessionState(KEY, new Set()))
+      expect(sessionStorage.getItem(KEY)).toBeNull()
+    })
+  })
+
+  describe('restore option', () => {
+    it('ignores the stored value when restore is false', () => {
+      sessionStorage.setItem(KEY, JSON.stringify('stored'))
+      const { result } = renderHook(() => useSessionState(KEY, 'initial', { restore: false }))
+      expect(result.current[0]).toBe('initial')
+    })
+
+    it('still writes updates to storage when restore is false', () => {
+      sessionStorage.setItem(KEY, JSON.stringify('stored'))
+      const { result } = renderHook(() => useSessionState(KEY, 'initial', { restore: false }))
+      act(() => result.current[1]('typed'))
+      expect(JSON.parse(sessionStorage.getItem(KEY))).toBe('typed')
+      // A later mount that *does* restore sees the value written above.
+      const { result: r2 } = renderHook(() => useSessionState(KEY, 'initial'))
+      expect(r2.current[0]).toBe('typed')
+    })
+
+    it('restores by default', () => {
+      sessionStorage.setItem(KEY, JSON.stringify('stored'))
+      const { result } = renderHook(() => useSessionState(KEY, 'initial'))
+      expect(result.current[0]).toBe('stored')
+    })
   })
 })

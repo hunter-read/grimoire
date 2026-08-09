@@ -8,14 +8,22 @@ import { useState, useEffect, useRef } from 'react'
  * Supports plain values and Set objects.
  * Sets are stored as JSON arrays and rehydrated as Sets on load.
  *
+ * Pass `restore: false` to start from `initial` while still writing changes to
+ * storage — used by views that persist state only for a return trip (see
+ * useRestoredView), so a fresh navigation starts clean without discarding what
+ * a later return would want to read back.
+ *
  * @param {string} key        sessionStorage key
  * @param {*}      initial    initial value (used only when no stored value exists)
+ * @param {object} [opts]
+ * @param {boolean} [opts.restore=true] whether to seed from the stored value
  * @returns [value, setValue] — same API as useState
  */
-export default function useSessionState(key, initial) {
+export default function useSessionState(key, initial, { restore = true } = {}) {
   const isSet = initial instanceof Set
 
   const [value, setValueRaw] = useState(() => {
+    if (!restore) return initial
     try {
       const raw = sessionStorage.getItem(key)
       if (raw === null) return initial
@@ -26,8 +34,11 @@ export default function useSessionState(key, initial) {
     }
   })
 
-  // Track whether the value has been explicitly set at least once (i.e. data loaded).
-  const hasBeenSet = useRef(value !== initial)
+  // Track whether the value has been explicitly set at least once (i.e. data
+  // loaded). Object defaults (Set/array/object) are never reference-equal to a
+  // rehydrated value, so compare on identity only for primitives — otherwise a
+  // fresh mount would immediately write its own default back to storage.
+  const hasBeenSet = useRef(typeof initial === 'object' ? false : value !== initial)
 
   const setValue = (next) => {
     hasBeenSet.current = true
