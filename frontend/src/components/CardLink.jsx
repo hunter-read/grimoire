@@ -27,6 +27,16 @@ export function isModifiedClick(e) {
  * optional `download`) renders a plain <a> for non-route targets like file
  * downloads. `label` is the accessible name — the overlay has no text of its
  * own, so always pass one.
+ *
+ * Callers that pass `state={{ from: … }}` (so the reader's back button can
+ * return to the referring view) must capture it from `useLocation()` in the
+ * card's own render. A <Link> fixes its state at render time, unlike the
+ * `navigate()` handlers this replaced, which read `window.location` at click
+ * time and so could never go stale. That makes it correct only while the card
+ * re-renders on navigation: memoizing a card, or hoisting the `useLocation()`
+ * call into a parent that renders on a different cadence, would freeze `from`
+ * at its mount value and send the back button to a stale URL. See the
+ * regression test in PageHit.test.jsx.
  */
 export default function CardLink({ to, state, replace, href, download, label }) {
   const style = { position: 'absolute', inset: 0 }

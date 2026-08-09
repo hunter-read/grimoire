@@ -71,6 +71,7 @@ export default function BookRow({
     ) : (
       <CardLink
         to={`/library/book/${book.id}`}
+        // Must stay render-fresh — don't memoize this card (see CardLink).
         state={{ from: location.pathname }}
         label={t('bookRow.openBook', { title: book.title })}
       />

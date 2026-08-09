@@ -99,6 +99,7 @@ export default function ResourceRow({
   ) : (
     <Link
       to={RESOURCE_NAV[resource.resource_type]?.(resource.resource_id) ?? '/'}
+      // Must stay render-fresh — don't memoize this row (see CardLink).
       state={{ from: location.pathname }}
       aria-label={titleLabel}
       style={titleStyle}

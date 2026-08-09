@@ -21,6 +21,8 @@ export default function PageHit({ bookId, page }) {
     >
       <CardLink
         to={`/library/book/${bookId}?page=${page.page_number}`}
+        // Includes the query string: these results are identified by `?q=`.
+        // Must stay render-fresh — don't memoize this card (see CardLink).
         state={{ from: location.pathname + location.search }}
         label={pageLabel}
       />

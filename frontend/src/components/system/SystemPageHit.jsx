@@ -27,6 +27,7 @@ export default function SystemPageHit({ result }) {
     >
       <CardLink
         to={`/library/book/${result.id}?page=${result.page_number}`}
+        // Must stay render-fresh — don't memoize this card (see CardLink).
         state={{ from: location.pathname }}
         label={`${result.title} — ${t('common.pagePrefixed', { page: result.page_number })}`}
       />

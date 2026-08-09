@@ -35,7 +35,37 @@ vi.mock('../context/FavoritesContext', () => ({
 }))
 
 vi.mock('../components/DownloadArchiveModal', () => ({
-  default: () => null,
+  default: ({ title, onClose }) => (
+    <div data-testid="download-modal">
+      <span data-testid="dl-title">{title}</span>
+      <button onClick={onClose}>close dl</button>
+    </div>
+  ),
+}))
+
+// The bulk modals are exercised as mount/unmount wiring here; their own
+// behaviour is covered by their component tests.
+vi.mock('../components/AddToCampaignModal', () => ({
+  default: ({ items, onClose, onAdded }) => (
+    <div data-testid="add-to-campaign">
+      <span data-testid="atc-count">{items.length}</span>
+      <span data-testid="atc-payload">{items.map((i) => i.resource_id).join(',')}</span>
+      <button onClick={onClose}>close atc</button>
+      <button onClick={onAdded}>confirm atc</button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/BulkEditModal', () => ({
+  default: ({ type, items, onClose, onSaved }) => (
+    <div data-testid="bulk-edit">
+      <span data-testid="be-type">{type}</span>
+      <span data-testid="be-count">{items.length}</span>
+      <button onClick={onClose}>close be</button>
+      {/* applyEdits takes a map of id → patch, not an array. */}
+      <button onClick={() => onSaved({ t1: { filename: 'renamed.png' } })}>confirm be</button>
+    </div>
+  ),
 }))
 
 // LazyGrid uses IntersectionObserver which jsdom doesn't provide — render children directly.
@@ -172,6 +202,74 @@ describe('TokensView', () => {
 
     await toggleFavoritesFilter()
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
+  })
+
+  // Bulk mode: selecting tokens and opening the two bulk modals the view owns.
+  describe('bulk actions', () => {
+    async function enterBulkAndSelect(filename) {
+      await userEvent.click(screen.getByRole('button', { name: /^select$/i }))
+      await userEvent.click(screen.getByText(filename))
+    }
+
+    async function setupOneToken() {
+      setupTokens([
+        makeToken({ id: 't1', filename: 'goblin.png', relative_path: 'tokens/goblin.png' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('goblin.png')).toBeInTheDocument())
+      await enterBulkAndSelect('goblin.png')
+    }
+
+    it('opens the add-to-campaign modal with the selected tokens', async () => {
+      await setupOneToken()
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+
+      expect(screen.getByTestId('atc-count')).toHaveTextContent('1')
+      expect(screen.getByTestId('atc-payload')).toHaveTextContent('t1')
+    })
+
+    it('closes the add-to-campaign modal', async () => {
+      await setupOneToken()
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'close atc' }))
+
+      expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
+    })
+
+    // Adding leaves bulk mode, so the Select toggle returns to its idle label.
+    it('exits bulk mode once tokens are added to a campaign', async () => {
+      await setupOneToken()
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'confirm atc' }))
+
+      expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^select$/i })).toBeInTheDocument()
+    })
+
+    it('opens the bulk edit modal for the token type', async () => {
+      await setupOneToken()
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+
+      expect(screen.getByTestId('be-type')).toHaveTextContent('token')
+      expect(screen.getByTestId('be-count')).toHaveTextContent('1')
+    })
+
+    it('closes the bulk edit modal', async () => {
+      await setupOneToken()
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'close be' }))
+
+      expect(screen.queryByTestId('bulk-edit')).not.toBeInTheDocument()
+    })
+
+    it('applies bulk edits and exits bulk mode on save', async () => {
+      await setupOneToken()
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'confirm be' }))
+
+      expect(screen.queryByTestId('bulk-edit')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText('renamed.png')).toBeInTheDocument())
+    })
   })
 
   it('text filter and favorites filter compose correctly', async () => {

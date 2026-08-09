@@ -24,6 +24,7 @@ export default function BookFavorite({ item, grid }) {
   const cardLink = (
     <CardLink
       to={`/library/book/${item.item_id}`}
+      // Must stay render-fresh — don't memoize this card (see CardLink).
       state={{ from: location.pathname }}
       label={item.title}
     />

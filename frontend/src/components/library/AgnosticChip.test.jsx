@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import AgnosticChip from './AgnosticChip'
 
@@ -57,6 +58,18 @@ describe('AgnosticChip', () => {
     renderChip({ system: makeSystem(), to: '/library/one-page-rpgs' })
     const link = screen.getByRole('link')
     expect(link).toHaveAttribute('href', '/library/one-page-rpgs')
+  })
+
+  it('highlights the chip on hover and clears it on leave', async () => {
+    renderChip({ system: makeSystem(), to: '/library/one-page' })
+    const link = screen.getByRole('link')
+    const base = link.style.background
+
+    await userEvent.hover(link)
+    expect(link.style.background).toBe('var(--bg-card-hover)')
+
+    await userEvent.unhover(link)
+    expect(link.style.background).toBe(base)
   })
 
   it('counts nested systems instead of books for a container', () => {
