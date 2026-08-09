@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
@@ -7,7 +8,7 @@ import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
-import useLinkProps from '../../hooks/useLinkProps'
+import CardLink from '../CardLink'
 import BookActionsMenu from './BookActionsMenu'
 
 /**
@@ -18,7 +19,6 @@ import BookActionsMenu from './BookActionsMenu'
  */
 export default function BookRow({
   book,
-  onOpen,
   onEdit,
   onDetails,
   editing,
@@ -29,6 +29,7 @@ export default function BookRow({
   compact,
 }) {
   const { t } = useTranslation()
+  const location = useLocation()
   const [hovered, setHovered] = useState(false)
   const { isFavorite, toggleFavorite } = useFavorites()
   const isArchive = isArchiveBook(book)
@@ -38,39 +39,43 @@ export default function BookRow({
   const progress = book.page_count > 0 && lastPage > 1 ? Math.min(lastPage / book.page_count, 1) : 0
   const fav = isFavorite('book', book.id)
 
-  const handleClick = (e) => {
-    if (bulkMode) {
-      e.stopPropagation()
-      onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
-      return
-    }
-    // Archives have no reader view — open() downloads the file instead.
-    if (isArchive) {
-      const a = document.createElement('a')
-      a.href = mediaUrl(`/books/${book.id}/file`)
-      a.download = book.filename || ''
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      return
-    }
-    onOpen()
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      handleClick(e)
-    }
-  }
-
-  // Middle click / ctrl-click opens the reader in a new tab (issue #313).
-  // Archives have no reader page — clicking them downloads the file — and bulk
-  // mode claims the modifier keys for range select, so neither is linkable.
-  const linkProps = useLinkProps(
-    bulkMode || isArchive ? null : `/library/book/${book.id}`,
-    handleClick
-  )
+  // Outside bulk mode the row is a real link (a CardLink overlay), so middle
+  // click and ctrl/cmd-click open the reader in a new tab (issue #313).
+  // Archives have no reader view, so their link is a download anchor instead.
+  // Bulk mode claims the modifier keys for range select, so there the row stays
+  // a toggle button.
+  const toggle = (e) => onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+  const buttonProps = bulkMode
+    ? {
+        onClick: toggle,
+        onKeyDown: (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            toggle(e)
+          }
+        },
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': t('bookRow.openBook', { title: book.title }),
+        'aria-pressed': selected,
+      }
+    : {}
+  const cardLink =
+    !bulkMode &&
+    (isArchive ? (
+      <CardLink
+        href={mediaUrl(`/books/${book.id}/file`)}
+        download={book.filename || ''}
+        label={t('bookRow.openBook', { title: book.title })}
+      />
+    ) : (
+      <CardLink
+        to={`/library/book/${book.id}`}
+        // Must stay render-fresh — don't memoize this card (see CardLink).
+        state={{ from: location.pathname }}
+        label={t('bookRow.openBook', { title: book.title })}
+      />
+    ))
 
   // Overlaid checkbox shown over thumbnails in the grid layouts.
   const overlayCheckbox = bulkMode && (
@@ -100,7 +105,10 @@ export default function BookRow({
   // consolidated actions menu (edit / download / re-scan · re-OCR). The favorite
   // is deliberately prominent; the rest live in the kebab menu (issue #217).
   const listActions = () => (
-    <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexShrink: 0 }}>
+    // Positioned so the action buttons paint above the CardLink overlay.
+    <div
+      style={{ display: 'flex', gap: 2, alignItems: 'center', flexShrink: 0, position: 'relative' }}
+    >
       <button
         onClick={(e) => {
           e.stopPropagation()
@@ -131,12 +139,7 @@ export default function BookRow({
     const thumbHeight = compact ? 110 : 160
     return (
       <div
-        {...linkProps}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
-        aria-label={t('bookRow.openBook', { title: book.title })}
-        aria-pressed={bulkMode ? selected : undefined}
+        {...buttonProps}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -157,6 +160,7 @@ export default function BookRow({
           if (!selected) e.currentTarget.style.borderColor = 'var(--border)'
         }}
       >
+        {cardLink}
         {overlayCheckbox}
         {!bulkMode && <FavoriteButton type="book" id={book.id} cardHovered={hovered} />}
         <div
@@ -233,12 +237,15 @@ export default function BookRow({
               {book.page_count > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
             </span>
             {!bulkMode && (
-              <BookActionsMenu
-                book={book}
-                onEdit={onEdit}
-                onDetails={onDetails}
-                editing={editing}
-              />
+              // Positioned so the menu trigger paints above the CardLink overlay.
+              <div style={{ position: 'relative', display: 'flex' }}>
+                <BookActionsMenu
+                  book={book}
+                  onEdit={onEdit}
+                  onDetails={onDetails}
+                  editing={editing}
+                />
+              </div>
             )}
           </div>
           {/* Genres on full cards only (not compact). */}
@@ -264,11 +271,7 @@ export default function BookRow({
   // ----- List layout (default) -----
   return (
     <div
-      {...linkProps}
-      onKeyDown={handleKeyDown}
-      role="button"
-      tabIndex={0}
-      aria-label={t('bookRow.openBook', { title: book.title })}
+      {...buttonProps}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -285,6 +288,7 @@ export default function BookRow({
         overflow: 'hidden',
       }}
     >
+      {cardLink}
       {/* Reading progress bar at bottom of card */}
       {progress > 0 && (
         <div

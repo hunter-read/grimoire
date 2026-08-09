@@ -35,9 +35,12 @@ export const ROW_LIST_STYLE = { display: 'flex', flexDirection: 'column', gap: 8
 export const hoverIn = (e) => (e.currentTarget.style.borderColor = 'var(--border-light)')
 export const hoverOut = (e) => (e.currentTarget.style.borderColor = 'var(--border)')
 
-// Standard "static" placement for the FavoriteButton in row layouts.
+// Standard in-flow placement for the FavoriteButton in row layouts. Positioned
+// (not static) so the button paints above the row's CardLink overlay.
 export const rowFavoriteButtonStyle = {
-  position: 'static',
+  position: 'relative',
+  top: 'auto',
+  right: 'auto',
   background: 'none',
   width: 'auto',
   height: 'auto',

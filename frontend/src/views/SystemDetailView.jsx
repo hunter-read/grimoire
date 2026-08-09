@@ -205,7 +205,6 @@ export default function SystemDetailView() {
           viewMode={systemViewMode}
           canEdit={isEditor}
           onBack={() => navigate('/library')}
-          onOpenChild={(child) => navigate(`/library/system/${child.id}`)}
           onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
           headerExtra={<ViewModeToggle mode={systemViewMode} onCycle={cycleSystemViewMode} />}
         />
@@ -319,9 +318,6 @@ export default function SystemDetailView() {
     }))
 
   // Shared handlers passed down to the category sections.
-  const openBook = (book) =>
-    navigate(`/library/book/${book.id}`, { state: { from: window.location.pathname } })
-
   const saveBook = (bookId, updated) =>
     setSystem((s) => ({
       ...s,
@@ -791,16 +787,6 @@ export default function SystemDetailView() {
           booksContainerStyle={booksContainerStyle}
           card={card}
           compact={compact}
-          onOpenBook={(book) =>
-            navigate(`/library/book/${book.id}`, {
-              state: { from: window.location.pathname },
-            })
-          }
-          onOpenPage={(r) =>
-            navigate(`/library/book/${r.id}?page=${r.page_number}`, {
-              state: { from: window.location.pathname },
-            })
-          }
         />
 
         {/* Books, grouped by category (default) or as one flat sorted list. */}
@@ -837,7 +823,6 @@ export default function SystemDetailView() {
               list={list}
               booksContainerStyle={booksContainerStyle}
               isEditor={isEditor}
-              onOpenBook={openBook}
               onSaveBook={saveBook}
               onDownload={setDownloadModal}
               bulkMode={bulkMode}
@@ -861,7 +846,6 @@ export default function SystemDetailView() {
                 existingCategories={existingCategories}
                 systemGenres={system.genres || []}
                 isEditor={isEditor}
-                onOpenBook={openBook}
                 onSaveBook={saveBook}
                 bulkMode={bulkMode}
                 selectedBookIds={selectedBookIds}

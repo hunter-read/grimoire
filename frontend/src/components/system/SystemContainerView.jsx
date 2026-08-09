@@ -23,7 +23,6 @@ export default function SystemContainerView({
   system,
   viewMode,
   canEdit = false,
-  onOpenChild,
   onBack,
   onCoverChange,
   headerExtra,
@@ -161,7 +160,6 @@ export default function SystemContainerView({
               to={`/library/system/${child.id}`}
               compact={compact}
               list={list}
-              onClick={() => onOpenChild(child)}
             />
           ))}
         </div>

@@ -248,12 +248,14 @@ describe('CampaignDetailView owner actions', () => {
     window.confirm.mockRestore()
   })
 
-  it('navigates to notes', async () => {
+  it('renders a real link to notes (supports middle-click / ctrl-click)', async () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByText(/notes/i))
-    expect(mockNavigate).toHaveBeenCalledWith('/campaigns/c1/notes')
+    // The Open Notes button is now a <Link> so native browser affordances handle
+    // new-tab (middle click / ctrl-click) without JS (issue #313).
+    const notesLink = screen.getByRole('link', { name: /notes/i })
+    expect(notesLink.getAttribute('href')).toBe('/campaigns/c1/notes')
   })
 
   it('toggles the invite panel', async () => {

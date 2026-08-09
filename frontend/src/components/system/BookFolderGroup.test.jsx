@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import BookFolderGroup from './BookFolderGroup'
 import * as FavCtx from '../../context/FavoritesContext'
 import * as api from '../../api'
+
+// BookRow uses useLocation (for CardLink state), so a Router is required.
+const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: vi.fn(),
@@ -67,7 +71,6 @@ function makeProps(overrides = {}) {
     onToggle: vi.fn(),
     editingBookId: null,
     setEditingBookId: vi.fn(),
-    onOpenBook: vi.fn(),
     isEditor: false,
     onSaveBook: vi.fn(),
     onDownload: vi.fn(),
@@ -144,7 +147,11 @@ describe('BookFolderGroup', () => {
       books: [suppBook],
       collapsed: new Set(),
     })
-    rerender(<BookFolderGroup {...suppProps} />)
+    rerender(
+      <MemoryRouter>
+        <BookFolderGroup {...suppProps} />
+      </MemoryRouter>
+    )
     expect(screen.getByText(suppBook.title)).toBeInTheDocument()
   })
 
@@ -236,14 +243,14 @@ describe('BookFolderGroup', () => {
     expect(screen.getByText('Eyes of Empty Death')).toBeInTheDocument()
   })
 
-  // --- onOpenBook callback ---
+  // --- book links (onOpenBook prop removed; navigation is now via CardLink) ---
 
-  it('calls onOpenBook when a book row is clicked', async () => {
-    const onOpenBook = vi.fn()
-    const book = makeBook({ title: 'Ruins of Gauntlight' })
-    render(<BookFolderGroup {...makeProps({ books: [book], onOpenBook })} />)
-    await userEvent.click(screen.getByRole('button', { name: /ruins of gauntlight/i }))
-    expect(onOpenBook).toHaveBeenCalledWith(book)
+  it('each book row renders a real link to the reader for native navigation', () => {
+    const book = makeBook({ title: 'Ruins of Gauntlight', id: 'ruins-1' })
+    render(<BookFolderGroup {...makeProps({ books: [book] })} />)
+    // Non-bulk: CardLink renders with aria-label "Open {title}" pointing to the reader.
+    const link = screen.getByRole('link', { name: /open ruins of gauntlight/i })
+    expect(link).toHaveAttribute('href', '/library/book/ruins-1')
   })
 
   // --- Edit button ---
@@ -323,8 +330,8 @@ describe('BookFolderGroup', () => {
         })}
       />
     )
-    // In bulk mode clicking the row toggles its selection.
-    await userEvent.click(screen.getByRole('button', { name: /test book/i }))
+    // In bulk mode clicking the row (role=button, aria-label "Open {title}") toggles selection.
+    await userEvent.click(screen.getByRole('button', { name: /open test book/i }))
     expect(onToggleBook).toHaveBeenCalledWith(book.id, expect.anything())
   })
 

@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom'
 import { LuMap } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import FavoriteButton from '../FavoriteButton'
@@ -10,17 +9,16 @@ import {
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
 import LazyImg from '../LazyImg'
-import useLinkProps from '../../hooks/useLinkProps'
+import CardLink from '../CardLink'
 
 export default function MapFavorite({ item, grid }) {
-  const navigate = useNavigate()
-  const open = () => navigate(`/maps/${item.item_id}`)
-  // Middle click / ctrl-click opens this item in a new tab (issue #313).
-  const linkProps = useLinkProps(`/maps/${item.item_id}`, open)
+  // A real link: middle click / ctrl-click opens this item in a new tab (issue #313).
+  const cardLink = <CardLink to={`/maps/${item.item_id}`} label={item.filename} />
 
   if (!grid) {
     return (
-      <div {...linkProps} style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      <div style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+        {cardLink}
         <div
           style={{
             width: 56,
@@ -62,7 +60,8 @@ export default function MapFavorite({ item, grid }) {
   }
 
   return (
-    <div {...linkProps} style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+    <div style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      {cardLink}
       <div
         style={{
           width: '100%',

@@ -1,51 +1,47 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import TagListButton from './TagListButton'
 
 const tag = { internal: 'city watch', display: 'City Watch', count: 4 }
 
+const renderButton = (props) =>
+  render(
+    <MemoryRouter>
+      <TagListButton {...props} />
+    </MemoryRouter>
+  )
+
 describe('TagListButton', () => {
-  let open
-
-  beforeEach(() => {
-    open = vi.spyOn(window, 'open').mockImplementation(() => null)
-  })
-
-  afterEach(() => {
-    open.mockRestore()
-  })
-
   it('renders the tag label and its count', () => {
-    render(<TagListButton tag={tag} active={false} onSelect={vi.fn()} />)
+    renderButton({ tag, active: false })
 
     expect(screen.getByText('City Watch')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
   })
 
-  it('selects the tag by its internal key on a plain click', async () => {
-    const onSelect = vi.fn()
-    render(<TagListButton tag={tag} active={false} onSelect={onSelect} />)
+  // TagListButton is now a real <Link> — plain click is handled natively by
+  // the router; assert the href rather than an onSelect spy.
+  it('renders a link to the tag filtered URL', () => {
+    renderButton({ tag, active: false })
 
-    await userEvent.click(screen.getByRole('button'))
-
-    expect(onSelect).toHaveBeenCalledWith('city watch')
-    expect(open).not.toHaveBeenCalled()
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', '/tags?tag=city%20watch')
   })
 
-  it('opens the tag in a new tab on middle click, with the key URL-encoded', async () => {
-    const onSelect = vi.fn()
-    render(<TagListButton tag={tag} active={false} onSelect={onSelect} />)
+  // Middle-click opens a new tab natively because the component is a real anchor.
+  // No JS to test — just verify the anchor has the right href.
+  it('is a real anchor so middle click opens a new tab natively', () => {
+    renderButton({ tag, active: false })
 
-    await userEvent.pointer({ target: screen.getByRole('button'), keys: '[MouseMiddle]' })
-
-    expect(open).toHaveBeenCalledWith('/tags?tag=city%20watch', '_blank', 'noopener,noreferrer')
-    expect(onSelect).not.toHaveBeenCalled()
+    const link = screen.getByRole('link')
+    expect(link.tagName).toBe('A')
+    expect(link).toHaveAttribute('href', '/tags?tag=city%20watch')
   })
 
   it('marks the active tag as current', () => {
-    render(<TagListButton tag={tag} active onSelect={vi.fn()} />)
+    renderButton({ tag, active: true })
 
-    expect(screen.getByRole('button')).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('link')).toHaveAttribute('aria-current', 'true')
   })
 })

@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { LuBookOpen, LuTrash2, LuChevronRight } from 'react-icons/lu'
 import { campaigns, mediaUrl } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
 import NowPlayingIndicator from '../audio/NowPlayingIndicator'
 import LazyImg from '../LazyImg'
-import useLinkProps from '../../hooks/useLinkProps'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 
 /** A single linked campaign resource with owner controls (visibility, category, share). */
@@ -25,7 +24,7 @@ export default function ResourceRow({
   onDragStart,
 }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
+  const location = useLocation()
   const [hovered, setHovered] = useState(false)
   const { isCurrent, isPlayingId } = useAudioPlayer()
   const { Icon } = TYPE_ICONS[resource.resource_type] || { Icon: LuBookOpen }
@@ -49,25 +48,65 @@ export default function ResourceRow({
           )
         : null
 
-  const handleNav = () => {
-    if (isFile) {
-      window.open(campaigns.fileUrl(campaignId, resource.resource_id), '_blank')
-      return
-    }
-    navigate(RESOURCE_NAV[resource.resource_type]?.(resource.resource_id) ?? '/', {
-      state: { from: window.location.pathname },
-    })
-  }
-
-  // Middle click / ctrl-click opens the resource in a new tab (issue #313).
-  // Uploaded files already open in their own tab on any click, so they get no
-  // extra link target here.
-  const navLinkProps = useLinkProps(
-    isFile ? null : (RESOURCE_NAV[resource.resource_type]?.(resource.resource_id) ?? null),
-    handleNav
-  )
-
   const stop = (e) => e.stopPropagation()
+
+  // Row 1 — title, a real link so middle click / ctrl-click opens the resource
+  // in a new tab (issue #313). Uploaded files aren't app routes: they open in
+  // their own tab on any click via a plain anchor.
+  const titleStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: 'pointer',
+    minWidth: 0,
+    color: 'inherit',
+    textDecoration: 'none',
+  }
+  const titleLabel = `Open ${resource.name || resource.resource_id}`
+  const titleContent = (
+    <>
+      <span
+        style={{
+          flex: 1,
+          fontSize: 15,
+          fontWeight: isActiveTrack ? 600 : 500,
+          color: isActiveTrack ? 'var(--gold)' : undefined,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {resource.name || resource.resource_id}
+      </span>
+      {resource.subtitle && (
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
+          {resource.subtitle}
+        </span>
+      )}
+      <LuChevronRight size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+    </>
+  )
+  const titleLink = isFile ? (
+    <a
+      href={campaigns.fileUrl(campaignId, resource.resource_id)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={titleLabel}
+      style={titleStyle}
+    >
+      {titleContent}
+    </a>
+  ) : (
+    <Link
+      to={RESOURCE_NAV[resource.resource_type]?.(resource.resource_id) ?? '/'}
+      // Must stay render-fresh — don't memoize this row (see CardLink).
+      state={{ from: location.pathname }}
+      aria-label={titleLabel}
+      style={titleStyle}
+    >
+      {titleContent}
+    </Link>
+  )
 
   return (
     <div
@@ -115,40 +154,7 @@ export default function ResourceRow({
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Row 1 — title (clickable) */}
-        <div
-          {...navLinkProps}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              handleNav()
-            }
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label={`Open ${resource.name || resource.resource_id}`}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0 }}
-        >
-          <span
-            style={{
-              flex: 1,
-              fontSize: 15,
-              fontWeight: isActiveTrack ? 600 : 500,
-              color: isActiveTrack ? 'var(--gold)' : undefined,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {resource.name || resource.resource_id}
-          </span>
-          {resource.subtitle && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
-              {resource.subtitle}
-            </span>
-          )}
-          <LuChevronRight size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-        </div>
+        {titleLink}
 
         {/* Row 2 — options */}
         {isOwner ? (

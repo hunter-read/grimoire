@@ -39,7 +39,6 @@ export default function MediaFolderGroup({
   editingFolder,
   onSetEditingFolder,
   onSaveFolderTags,
-  onSelectItem,
   bulkMode,
   selectedIds,
   selectedFolderPaths,
@@ -418,7 +417,6 @@ export default function MediaFolderGroup({
                           key={item.id}
                           config={config}
                           item={item}
-                          onClick={() => onSelectItem(item.id)}
                           bulkMode={bulkMode}
                           selected={selectedIds?.has(item.id)}
                           onToggle={(mods) => onToggleItem(item.id, mods)}

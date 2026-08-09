@@ -16,7 +16,6 @@ import BookDetailsModal from './BookDetailsModal'
  *   allTags            – tag suggestions passed to BookEditor
  *   existingCategories – category suggestions passed to BookEditor
  *   isEditor           – whether the current user may edit
- *   onOpenBook         – (book) => void
  *   onSaveBook         – (bookId, updated) => void
  *   bulkMode           – bulk-select mode active
  *   selectedBookIds    – Set of selected book ids
@@ -33,7 +32,6 @@ export default function CategoryBookItem({
   existingCategories,
   systemGenres,
   isEditor,
-  onOpenBook,
   onSaveBook,
   bulkMode,
   selectedBookIds,
@@ -49,7 +47,6 @@ export default function CategoryBookItem({
         book={book}
         card={card}
         compact={compact}
-        onOpen={() => onOpenBook(book)}
         onEdit={isEditor ? () => setEditingBookId((id) => (id === book.id ? null : book.id)) : null}
         onDetails={() => setShowDetails(true)}
         editing={editing}

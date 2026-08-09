@@ -8,7 +8,7 @@ import DownloadButton from '../DownloadButton'
 import AudioPlayer from '../audio/AudioPlayer'
 import NowPlayingIndicator from '../audio/NowPlayingIndicator'
 import LazyImg from '../LazyImg'
-import useLinkProps from '../../hooks/useLinkProps'
+import CardLink from '../CardLink'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 
 const CORNER_POS = {
@@ -24,32 +24,33 @@ const CORNER_POS = {
  * across types; per-type differences (icon, thumbnail shape, badges, font size)
  * come from the `config` entry in mediaConfig.js.
  */
-export default function MediaCard({ config, item, onClick, bulkMode, selected, onToggle, list }) {
+export default function MediaCard({ config, item, bulkMode, selected, onToggle, list }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const { isCurrent, isPlayingId } = useAudioPlayer()
   const Icon = config.icon
 
-  const handleClick = (e) => {
-    if (bulkMode) {
-      e.stopPropagation()
-      onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
-      return
-    }
-    onClick()
-  }
-
-  const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      handleClick(e)
-    }
-  }
-
-  // Middle click / ctrl-click opens the detail page in a new tab (issue #313).
-  // Bulk mode claims the modifier keys for range and multi-select, so the card
-  // only acts as a link when a plain click would navigate.
-  const linkProps = useLinkProps(bulkMode ? null : config.detailPath(item.id), handleClick)
+  // Outside bulk mode the card is a real link (a CardLink overlay), so middle
+  // click and ctrl/cmd-click open the detail page in a new tab (issue #313).
+  // Bulk mode claims the modifier keys for range and multi-select, so there the
+  // card stays a toggle button.
+  const toggle = (e) => onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+  const buttonProps = bulkMode
+    ? {
+        onClick: toggle,
+        onKeyDown: (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            toggle(e)
+          }
+        },
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': item.filename,
+        'aria-pressed': selected,
+      }
+    : {}
+  const cardLink = !bulkMode && <CardLink to={config.detailPath(item.id)} label={item.filename} />
 
   // Badges that apply to this item, in config order.
   const activeBadges = config.badges.filter((b) => item[b.flag])
@@ -73,12 +74,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
   if (list) {
     return (
       <div
-        {...linkProps}
-        onKeyDown={onKeyDown}
-        role="button"
-        tabIndex={0}
-        aria-label={item.filename}
-        aria-pressed={bulkMode ? selected : undefined}
+        {...buttonProps}
         aria-current={isActiveTrack ? 'true' : undefined}
         data-now-playing={isActiveTrack ? 'true' : undefined}
         style={{
@@ -97,6 +93,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           position: 'relative',
         }}
       >
+        {cardLink}
         {bulkMode && (
           <div
             style={{
@@ -174,7 +171,16 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           </div>
         </div>
         {!bulkMode && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          // Positioned so the action buttons paint above the CardLink overlay.
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              flexShrink: 0,
+              position: 'relative',
+            }}
+          >
             {/* The row's metadata line already announces the state as text, so
                 the bars are decorative here. */}
             {isActiveTrack && (
@@ -206,12 +212,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
 
   return (
     <div
-      {...linkProps}
-      onKeyDown={onKeyDown}
-      role="button"
-      tabIndex={0}
-      aria-label={item.filename}
-      aria-pressed={bulkMode ? selected : undefined}
+      {...buttonProps}
       style={{
         background: selected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
         border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
@@ -230,6 +231,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
         if (!selected) e.currentTarget.style.borderColor = 'var(--border)'
       }}
     >
+      {cardLink}
       {!bulkMode && (
         <DownloadButton type={config.downloadType} id={item.id} cardHovered={hovered} />
       )}
@@ -255,6 +257,9 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           {selected && <LuCheck size={12} color="var(--bg-deep)" strokeWidth={3} />}
         </div>
       )}
+      {/* Positioned (to anchor the badges and audio overlay), which would paint
+          it above the CardLink overlay — pointerEvents:'none' lets clicks fall
+          through to the link; the audio overlay re-enables them for itself. */}
       <div
         style={{
           ...thumbStyle,
@@ -263,6 +268,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
+          pointerEvents: bulkMode ? undefined : 'none',
         }}
       >
         {hasThumbnail ? (
@@ -283,6 +289,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 1,
+              pointerEvents: 'auto',
             }}
           >
             <AudioPlayer track={track} />

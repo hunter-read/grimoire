@@ -4,7 +4,7 @@ import { LuLibrary, LuCheck } from 'react-icons/lu'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
-import useLinkProps from '../../hooks/useLinkProps'
+import CardLink from '../CardLink'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 import { systemCoverUrl } from '../../utils/systemCoverUrl'
 
@@ -17,14 +17,14 @@ import { systemCoverUrl } from '../../utils/systemCoverUrl'
  * shown. Tag chips on the full card link to the tags page (grid tag filtering
  * is handled by the Filters modal's Tags dropdown).
  *
- * `to` is the system's route; passing it lets middle click and ctrl/cmd-click
- * open the system in a new tab (issue #313). In bulk-select mode it is ignored,
- * since the card selects rather than navigates.
+ * `to` is the system's route. Outside bulk-select mode the card is a real link
+ * (a CardLink overlay), so middle click and ctrl/cmd-click open the system in a
+ * new tab (issue #313). In bulk-select mode the card selects rather than
+ * navigates, so no link is rendered.
  */
 export default function SystemCard({
   system,
   to,
-  onClick,
   compact,
   list,
   selectable = false,
@@ -53,18 +53,12 @@ export default function SystemCard({
       ? 'var(--gold)'
       : 'var(--border)'
 
-  const handleClick = (e) => {
-    if (selectable) {
-      e.stopPropagation()
-      onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
-      return
-    }
-    onClick()
-  }
-
-  // Selection mode owns the modifier keys (shift/cmd extend the selection), so
-  // the card only behaves as a link when it would actually navigate.
-  const linkProps = useLinkProps(selectable ? null : to, handleClick)
+  // Selection mode owns the click (shift/cmd extend the selection); outside it
+  // the CardLink overlay below handles navigation.
+  const toggleSelect = selectable
+    ? (e) => onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+    : undefined
+  const cardLink = !selectable && <CardLink to={to} label={displayName} />
 
   const checkbox = (overlay) => (
     <div
@@ -94,7 +88,7 @@ export default function SystemCard({
   if (list) {
     return (
       <div
-        {...linkProps}
+        onClick={toggleSelect}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -110,6 +104,7 @@ export default function SystemCard({
           position: 'relative',
         }}
       >
+        {cardLink}
         {selectable && checkbox(false)}
         <div
           style={{
@@ -172,7 +167,10 @@ export default function SystemCard({
             type="system"
             id={system.id}
             style={{
-              position: 'static',
+              // Positioned (not static) so it paints above the CardLink overlay.
+              position: 'relative',
+              top: 'auto',
+              right: 'auto',
               background: 'transparent',
               width: 28,
               height: 28,
@@ -187,7 +185,7 @@ export default function SystemCard({
   if (compact) {
     return (
       <div
-        {...linkProps}
+        onClick={toggleSelect}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -202,6 +200,7 @@ export default function SystemCard({
           flexDirection: 'column',
         }}
       >
+        {cardLink}
         {selectable ? (
           checkbox(true)
         ) : (
@@ -251,7 +250,7 @@ export default function SystemCard({
 
   return (
     <div
-      {...linkProps}
+      onClick={toggleSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -268,6 +267,7 @@ export default function SystemCard({
         flexDirection: 'column',
       }}
     >
+      {cardLink}
       {selectable && checkbox(true)}
       {coverUrl ? (
         <div

@@ -34,7 +34,7 @@ function getCategoryFolderName(book, depth = 2) {
  *   card, compact, list  – view-mode flags
  *   booksContainerStyle  – grid/list container style
  *   isEditor
- *   onOpenBook, onSaveBook, onDownload
+ *   onSaveBook, onDownload
  *   bulkMode, selectedBookIds, onToggleBook
  */
 export default function SystemCategorySection({
@@ -60,7 +60,6 @@ export default function SystemCategorySection({
   list,
   booksContainerStyle,
   isEditor,
-  onOpenBook,
   onSaveBook,
   onDownload,
   bulkMode,
@@ -97,7 +96,6 @@ export default function SystemCategorySection({
     existingCategories,
     systemGenres,
     isEditor,
-    onOpenBook,
     onSaveBook,
     bulkMode,
     selectedBookIds,
@@ -148,7 +146,6 @@ export default function SystemCategorySection({
               onToggle={onToggleSubfolder}
               editingBookId={editingBookId}
               setEditingBookId={setEditingBookId}
-              onOpenBook={onOpenBook}
               isEditor={isEditor}
               onSaveBook={onSaveBook}
               onDownload={onDownload}

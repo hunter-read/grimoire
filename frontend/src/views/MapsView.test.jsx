@@ -35,7 +35,37 @@ vi.mock('../context/FavoritesContext', () => ({
 }))
 
 vi.mock('../components/DownloadArchiveModal', () => ({
-  default: () => null,
+  default: ({ title, onClose }) => (
+    <div data-testid="download-modal">
+      <span data-testid="dl-title">{title}</span>
+      <button onClick={onClose}>close dl</button>
+    </div>
+  ),
+}))
+
+// The bulk modals are exercised as mount/unmount wiring here; their own
+// behaviour is covered by their component tests.
+vi.mock('../components/AddToCampaignModal', () => ({
+  default: ({ items, onClose, onAdded }) => (
+    <div data-testid="add-to-campaign">
+      <span data-testid="atc-count">{items.length}</span>
+      <span data-testid="atc-payload">{items.map((i) => i.resource_id).join(',')}</span>
+      <button onClick={onClose}>close atc</button>
+      <button onClick={onAdded}>confirm atc</button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/BulkEditModal', () => ({
+  default: ({ type, items, onClose, onSaved }) => (
+    <div data-testid="bulk-edit">
+      <span data-testid="be-type">{type}</span>
+      <span data-testid="be-count">{items.length}</span>
+      <button onClick={onClose}>close be</button>
+      {/* applyEdits takes a map of id → patch, not an array. */}
+      <button onClick={() => onSaved({ m1: { filename: 'renamed.png' } })}>confirm be</button>
+    </div>
+  ),
 }))
 
 // LazyGrid uses IntersectionObserver which jsdom doesn't provide — render children directly.
@@ -163,6 +193,100 @@ describe('MapsView', () => {
 
     await toggleFavoritesFilter()
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
+  })
+
+  // Bulk mode: selecting maps and opening the two bulk modals the view owns.
+  describe('bulk actions', () => {
+    async function enterBulkAndSelect(filename) {
+      await userEvent.click(screen.getByRole('button', { name: /^select$/i }))
+      await userEvent.click(screen.getByText(filename))
+    }
+
+    it('opens the add-to-campaign modal with the selected maps', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+
+      expect(screen.getByTestId('add-to-campaign')).toBeInTheDocument()
+      expect(screen.getByTestId('atc-count')).toHaveTextContent('1')
+    })
+
+    it('closes the add-to-campaign modal', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'close atc' }))
+
+      expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
+    })
+
+    it('opens the bulk edit modal for the map type', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+
+      expect(screen.getByTestId('be-type')).toHaveTextContent('map')
+      expect(screen.getByTestId('be-count')).toHaveTextContent('1')
+    })
+
+    it('closes the bulk edit modal', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'close be' }))
+
+      expect(screen.queryByTestId('bulk-edit')).not.toBeInTheDocument()
+    })
+
+    it('sends the selected maps as campaign resources', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+
+      expect(screen.getByTestId('atc-payload')).toHaveTextContent('m1')
+    })
+
+    // Adding leaves bulk mode, so the Select toggle returns to its idle label.
+    it('exits bulk mode once maps are added to a campaign', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'confirm atc' }))
+
+      expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^select$/i })).toBeInTheDocument()
+    })
+
+    it('applies bulk edits and exits bulk mode on save', async () => {
+      setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
+
+      await enterBulkAndSelect('cave.png')
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'confirm be' }))
+
+      expect(screen.queryByTestId('bulk-edit')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText('renamed.png')).toBeInTheDocument())
+    })
   })
 
   it('text filter and favorites filter compose correctly', async () => {

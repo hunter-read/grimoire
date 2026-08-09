@@ -30,7 +30,6 @@ import InvitePanel from '../components/campaigns/InvitePanel'
 import GuestPanel from '../components/campaigns/GuestPanel'
 import { utcTimeToLocal, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
-import useLinkProps from '../hooks/useLinkProps'
 
 const CARD = {
   background: 'var(--bg-card)',
@@ -136,10 +135,6 @@ export default function CampaignDetailView() {
   const [showInvite, setShowInvite] = useState(false)
   const [showGuests, setShowGuests] = useState(false)
   const [error, setError] = useState(null)
-  // Open Notes behaves like a link, so middle click opens it in a new tab (#313).
-  const notesLinkProps = useLinkProps(`/campaigns/${campaignId}/notes`, () =>
-    navigate(`/campaigns/${campaignId}/notes`)
-  )
 
   const load = () => {
     campaigns
@@ -447,24 +442,25 @@ export default function CampaignDetailView() {
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
-            <button
-              {...notesLinkProps}
+            {/* A real link, so middle click opens the notes in a new tab (#313). */}
+            <Link
+              to={`/campaigns/${campaignId}/notes`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
                 padding: '7px 14px',
                 background: 'var(--gold)',
-                border: 'none',
                 borderRadius: 8,
                 color: '#1a1209',
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 600,
+                textDecoration: 'none',
               }}
             >
               <LuNotebook size={15} /> {t('campaignDetail.openNotes')}
-            </button>
+            </Link>
             {canManage && (
               <button
                 onClick={() => setShowEditor(true)}

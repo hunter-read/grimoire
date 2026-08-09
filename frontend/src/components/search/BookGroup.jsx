@@ -4,7 +4,7 @@ import PageHit from './PageHit'
 import { cardStyle } from './searchStyles'
 
 /** A collapsible book result group in the search view: book header + page hits. */
-export default function BookGroup({ group, collapsed, onToggle, onNavigate }) {
+export default function BookGroup({ group, collapsed, onToggle }) {
   const { t } = useTranslation()
   const key = `book-${group.id}`
   const isCollapsed = collapsed[key]
@@ -53,7 +53,7 @@ export default function BookGroup({ group, collapsed, onToggle, onNavigate }) {
       {!isCollapsed && (
         <div style={{ marginLeft: 16, marginTop: 4, marginBottom: 4 }}>
           {group.pages.map((p, i) => (
-            <PageHit key={i} bookId={group.id} page={p} onOpen={() => onNavigate(p.page_number)} />
+            <PageHit key={i} bookId={group.id} page={p} />
           ))}
         </div>
       )}

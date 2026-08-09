@@ -356,12 +356,7 @@ export default function LibraryView() {
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {specialSystems.map((system) => (
-                <AgnosticChip
-                  key={system.id}
-                  system={system}
-                  to={`/library/system/${system.id}`}
-                  onClick={() => navigate(`/library/system/${system.id}`)}
-                />
+                <AgnosticChip key={system.id} system={system} to={`/library/system/${system.id}`} />
               ))}
             </div>
           </div>
@@ -485,7 +480,6 @@ export default function LibraryView() {
                     key={system.id}
                     system={system}
                     to={`/library/system/${system.id}`}
-                    onClick={() => navigate(`/library/system/${system.id}`)}
                     compact={compact}
                     list={list}
                     selectable={bulk.bulkMode}

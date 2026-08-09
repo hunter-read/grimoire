@@ -224,11 +224,6 @@ export default function SearchView() {
                         group={group}
                         collapsed={collapsed}
                         onToggle={toggleSection}
-                        onNavigate={(page) =>
-                          navigate(`/library/book/${group.id}?page=${page}`, {
-                            state: { from: window.location.pathname + window.location.search },
-                          })
-                        }
                       />
                     ))}
                 </div>
@@ -251,7 +246,6 @@ export default function SearchView() {
                         title={m.filename}
                         subtitle={m.relative_path}
                         tags={m.tags}
-                        onOpen={() => navigate(`/maps/${m.id}`)}
                       />
                     ))}
                 </div>
@@ -274,7 +268,6 @@ export default function SearchView() {
                         title={tok.filename}
                         subtitle={tok.relative_path}
                         tags={tok.tags}
-                        onOpen={() => navigate(`/tokens/${tok.id}`)}
                       />
                     ))}
                 </div>
@@ -297,7 +290,6 @@ export default function SearchView() {
                         title={a.title || a.filename}
                         subtitle={a.relative_path}
                         tags={a.tags}
-                        onOpen={() => navigate(`/audio/${a.id}`)}
                       />
                     ))}
                 </div>

@@ -13,8 +13,6 @@ import SystemPageHit from './SystemPageHit'
  *   matchedBooks       – books whose title/metadata match (rendered first)
  *   booksContainerStyle– grid/list style shared with the category grid
  *   card, compact      – view-mode layout flags for BookRow
- *   onOpenBook         – (book) => void
- *   onOpenPage         – (result) => void  (navigates to the page hit)
  */
 export default function SystemSearchResults({
   searchResults,
@@ -22,8 +20,6 @@ export default function SystemSearchResults({
   booksContainerStyle,
   card,
   compact,
-  onOpenBook,
-  onOpenPage,
 }) {
   const { t } = useTranslation()
   if (!searchResults) return null
@@ -44,7 +40,6 @@ export default function SystemSearchResults({
                 book={book}
                 card={card}
                 compact={compact}
-                onOpen={() => onOpenBook(book)}
                 onEdit={null}
                 editing={false}
                 bulkMode={false}
@@ -75,7 +70,7 @@ export default function SystemSearchResults({
             })}
           </div>
           {searchResults.results.map((r, i) => (
-            <SystemPageHit key={i} result={r} onOpen={() => onOpenPage(r)} />
+            <SystemPageHit key={i} result={r} />
           ))}
         </div>
       )}

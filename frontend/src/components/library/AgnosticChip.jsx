@@ -1,21 +1,20 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary } from 'react-icons/lu'
-import useLinkProps from '../../hooks/useLinkProps'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 
 /**
  * Compact pill for system-agnostic collections — no cover image, sits at the
- * top of the library for quick access. `to` is the collection's route, which
- * lets middle click open it in a new tab (issue #313).
+ * top of the library for quick access. A real link to the collection's route,
+ * so middle click opens it in a new tab (issue #313).
  */
-export default function AgnosticChip({ system, to, onClick }) {
+export default function AgnosticChip({ system, to }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
-  const linkProps = useLinkProps(to, onClick)
   return (
-    <div
-      {...linkProps}
+    <Link
+      to={to}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -28,6 +27,7 @@ export default function AgnosticChip({ system, to, onClick }) {
         padding: '8px 14px',
         cursor: 'pointer',
         transition: 'background 0.15s',
+        textDecoration: 'none',
       }}
     >
       <LuLibrary size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
@@ -51,6 +51,6 @@ export default function AgnosticChip({ system, to, onClick }) {
           ? t('systemContainer.count', { count: system.child_count || 0 })
           : t('library.bookCount', { count: system.book_count })}
       </span>
-    </div>
+    </Link>
   )
 }

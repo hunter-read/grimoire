@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Spinner from '../components/Spinner'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
@@ -13,7 +12,6 @@ import GalleryLayout from '../components/media/GalleryLayout'
 
 export default function MapsView() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { user } = useAuth()
   const isPlayer = user?.role === 'player'
   const config = MEDIA_CONFIGS.map
@@ -38,7 +36,6 @@ export default function MapsView() {
         isPlayer={isPlayer}
         title={t('maps.title')}
         subtitle={t('maps.subtitle', { count: gallery.data.total })}
-        onSelectItem={(id) => navigate(config.detailPath(id))}
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}
         onBulkEdit={() => setShowBulkEdit(true)}

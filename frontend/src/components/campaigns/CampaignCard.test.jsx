@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import CampaignCard from './CampaignCard'
 
 // Mirror the real bannerUrl: media URLs carry no ?token= (auth is via the
@@ -28,32 +28,30 @@ const campaign = (over = {}) => ({
   ...over,
 })
 
+function renderCard(props) {
+  return render(
+    <MemoryRouter>
+      <CampaignCard {...props} />
+    </MemoryRouter>
+  )
+}
+
 describe('CampaignCard', () => {
-  it('renders the name and calls onClick when activated', async () => {
-    const onClick = vi.fn()
-    render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={vi.fn()} />)
+  it('renders the campaign name', () => {
+    renderCard({ campaign: campaign() })
     expect(screen.getByText('Curse of Strahd')).toBeInTheDocument()
-    await userEvent.click(screen.getByText('Curse of Strahd'))
-    expect(onClick).toHaveBeenCalled()
   })
 
-  it('opens notes without bubbling to the card onClick', async () => {
-    const onClick = vi.fn()
-    const onOpenNotes = vi.fn()
-    render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={onOpenNotes} />)
-    await userEvent.click(screen.getByRole('button', { name: /notes/i }))
-    expect(onOpenNotes).toHaveBeenCalled()
-    expect(onClick).not.toHaveBeenCalled()
+  it('renders a CardLink overlay to the campaign overview', () => {
+    renderCard({ campaign: campaign() })
+    // CardLink renders an <a> with aria-label="Open campaign {name}"
+    const link = screen.getByRole('link', { name: /open campaign curse of strahd/i })
+    expect(link).toBeInTheDocument()
+    expect(link.getAttribute('href')).toBe('/campaigns/c1/overview')
   })
 
   it('renders a cache-busted banner (lazy) when has_banner', () => {
-    const { container } = render(
-      <CampaignCard
-        campaign={campaign({ has_banner: true })}
-        onClick={vi.fn()}
-        onOpenNotes={vi.fn()}
-      />
-    )
+    const { container } = renderCard({ campaign: campaign({ has_banner: true }) })
     const img = container.querySelector('img')
     // The cache-buster must be a real query param (leading '?'), not a bare
     // '&v=' appended to the path, or the URL doesn't route on the backend.
@@ -62,126 +60,64 @@ describe('CampaignCard', () => {
   })
 
   it('renders the description via WikiMarkdown and the badge label', () => {
-    render(
-      <CampaignCard
-        campaign={campaign({ description: 'Gothic horror' })}
-        onClick={vi.fn()}
-        onOpenNotes={vi.fn()}
-        badgeLabel="GM"
-      />
-    )
+    renderCard({
+      campaign: campaign({ description: 'Gothic horror' }),
+      badgeLabel: 'GM',
+    })
     expect(screen.getByTestId('wiki')).toHaveTextContent('Gothic horror')
     expect(screen.getByText('GM')).toBeInTheDocument()
   })
 
-  it('activates via the keyboard (Enter)', async () => {
-    const onClick = vi.fn()
-    render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={vi.fn()} />)
-    const card = screen.getByRole('button', { name: /open campaign/i })
-    card.focus()
-    await userEvent.keyboard('{Enter}')
-    expect(onClick).toHaveBeenCalled()
-  })
-
-  it('formats an upcoming session date and keeps description clicks from opening the card', async () => {
-    const onClick = vi.fn()
-    render(
-      <CampaignCard
-        campaign={campaign({ next_session: '2026-08-15', description: 'read me' })}
-        onClick={onClick}
-        onOpenNotes={vi.fn()}
-      />
-    )
-    // The formatted date renders (exercises formatSessionDate's non-empty path).
+  it('formats an upcoming session date', () => {
+    renderCard({ campaign: campaign({ next_session: '2026-08-15' }) })
     expect(screen.getByText(/Aug/)).toBeInTheDocument()
-    // Clicking inside the description must not bubble to the card's onClick.
-    await userEvent.click(screen.getByTestId('wiki'))
-    expect(onClick).not.toHaveBeenCalled()
   })
 
   it('shows the player count for a GM campaign owned by the viewer', () => {
-    render(
-      <CampaignCard
-        campaign={campaign({
-          is_gm_campaign: true,
-          members: [
-            { status: 'accepted', is_owner: false },
-            { status: 'accepted', is_owner: false },
-            { status: 'pending', is_owner: false },
-          ],
-        })}
-        userId="u1"
-        onClick={vi.fn()}
-        onOpenNotes={vi.fn()}
-      />
-    )
+    renderCard({
+      campaign: campaign({
+        is_gm_campaign: true,
+        members: [
+          { status: 'accepted', is_owner: false },
+          { status: 'accepted', is_owner: false },
+          { status: 'pending', is_owner: false },
+        ],
+      }),
+      userId: 'u1',
+    })
     expect(screen.getByText(/2/)).toBeInTheDocument()
   })
 
   it('marks an archived campaign with a badge', () => {
-    render(
-      <CampaignCard
-        campaign={campaign({ is_archived: true })}
-        onClick={vi.fn()}
-        onOpenNotes={vi.fn()}
-      />
-    )
+    renderCard({ campaign: campaign({ is_archived: true }) })
     expect(screen.getByText(/archived/i)).toBeInTheDocument()
   })
 
   it('shows no archived badge on an active campaign', () => {
-    render(<CampaignCard campaign={campaign()} onClick={vi.fn()} onOpenNotes={vi.fn()} />)
+    renderCard({ campaign: campaign() })
     expect(screen.queryByText(/archived/i)).toBeNull()
   })
 
-  // Issue #313 — the card and its Open Notes button lead to different pages.
-  describe('opening in a new tab', () => {
-    let open
-
-    beforeEach(() => {
-      open = vi.spyOn(window, 'open').mockImplementation(() => null)
+  // Issue #313 — the card and its Open Notes button are real links now.
+  // Native browser behavior handles middle click / ctrl-click (new tab) without JS.
+  describe('link hrefs for new-tab support', () => {
+    it('card overlay link points to the campaign overview', () => {
+      renderCard({ campaign: campaign() })
+      const link = screen.getByRole('link', { name: /open campaign curse of strahd/i })
+      expect(link.getAttribute('href')).toBe('/campaigns/c1/overview')
     })
 
-    afterEach(() => open.mockRestore())
-
-    it('middle click on the card opens the campaign overview in a new tab', async () => {
-      const onClick = vi.fn()
-      render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={vi.fn()} />)
-
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: /open campaign curse of strahd/i }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).toHaveBeenCalledWith('/campaigns/c1/overview', '_blank', 'noopener,noreferrer')
-      expect(onClick).not.toHaveBeenCalled()
+    it('Open Notes link points to the notes page, not the overview', () => {
+      renderCard({ campaign: campaign() })
+      const notesLink = screen.getByRole('link', { name: /notes/i })
+      expect(notesLink.getAttribute('href')).toBe('/campaigns/c1/notes')
     })
 
-    it('middle click on Open Notes opens the notes page, not the overview', async () => {
-      const onClick = vi.fn()
-      const onOpenNotes = vi.fn()
-      render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={onOpenNotes} />)
-
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: /^notes$/i }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).toHaveBeenCalledWith('/campaigns/c1/notes', '_blank', 'noopener,noreferrer')
-      expect(onOpenNotes).not.toHaveBeenCalled()
-      expect(onClick).not.toHaveBeenCalled()
-    })
-
-    it('still opens notes in place on a plain click', async () => {
-      const onClick = vi.fn()
-      const onOpenNotes = vi.fn()
-      render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={onOpenNotes} />)
-
-      await userEvent.click(screen.getByRole('button', { name: /^notes$/i }))
-
-      expect(onOpenNotes).toHaveBeenCalledTimes(1)
-      expect(onClick).not.toHaveBeenCalled()
-      expect(open).not.toHaveBeenCalled()
+    it('Open Notes link leads to a different URL than the card overlay', () => {
+      renderCard({ campaign: campaign() })
+      const cardLink = screen.getByRole('link', { name: /open campaign/i })
+      const notesLink = screen.getByRole('link', { name: /notes/i })
+      expect(notesLink.getAttribute('href')).not.toBe(cardLink.getAttribute('href'))
     })
   })
 })

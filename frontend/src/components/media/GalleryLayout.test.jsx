@@ -11,8 +11,8 @@ vi.mock('./MediaFolderGroup', () => ({
   default: ({ folder }) => <div data-testid="folder-group">{folder}</div>,
 }))
 vi.mock('./MediaCard', () => ({
-  default: ({ item, onClick, onToggle }) => (
-    <button data-testid="flat-card" onClick={onClick} onDoubleClick={() => onToggle({})}>
+  default: ({ item, onToggle }) => (
+    <button data-testid="flat-card" onDoubleClick={() => onToggle({})}>
       {item.filename}
     </button>
   ),
@@ -66,7 +66,6 @@ const baseProps = (over = {}) => ({
   isPlayer: false,
   title: 'Maps',
   subtitle: 'Battle maps',
-  onSelectItem: vi.fn(),
   onDownload: vi.fn(),
   onAddToCampaign: vi.fn(),
   onBulkEdit: vi.fn(),
@@ -91,14 +90,12 @@ describe('GalleryLayout', () => {
         { id: 'b', filename: 'dragon.png' },
       ],
     })
-    const onSelectItem = vi.fn()
-    render(<GalleryLayout {...baseProps({ gallery, onSelectItem })} />)
+    render(<GalleryLayout {...baseProps({ gallery })} />)
     expect(screen.queryByTestId('folder-group')).not.toBeInTheDocument()
     const cards = screen.getAllByTestId('flat-card')
     expect(cards.map((n) => n.textContent)).toEqual(['goblin.png', 'dragon.png'])
-    // Exercise the flat-card onClick / onToggle wiring.
-    fireEvent.click(cards[0])
-    expect(onSelectItem).toHaveBeenCalledWith('a')
+    // onSelectItem is removed; navigation is handled by real CardLink anchors.
+    // Exercise the onToggle wiring (still used for bulk selection).
     fireEvent.doubleClick(cards[1])
     expect(gallery.toggleSelect).toHaveBeenCalledWith('b', {})
   })

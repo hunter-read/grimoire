@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuFileText } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
@@ -12,22 +12,28 @@ import {
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
 import LazyImg from '../LazyImg'
-import useLinkProps from '../../hooks/useLinkProps'
+import CardLink from '../CardLink'
 
 export default function BookFavorite({ item, grid }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
+  const location = useLocation()
   const CatIcon = CATEGORY_ICONS[item.category] || LuFileText
-  const open = () =>
-    navigate(`/library/book/${item.item_id}`, { state: { from: window.location.pathname } })
-  // Middle click / ctrl-click opens the reader in a new tab (issue #313). The
-  // `from` state is in-page only; a new tab falls back to the reader's default
-  // back target, which is what a real link would do anyway.
-  const linkProps = useLinkProps(`/library/book/${item.item_id}`, open)
+  // A real link: middle click / ctrl-click opens the reader in a new tab (issue
+  // #313). The `from` state rides along on in-page navigations only; a new tab
+  // falls back to the reader's default back target, as any real link would.
+  const cardLink = (
+    <CardLink
+      to={`/library/book/${item.item_id}`}
+      // Must stay render-fresh — don't memoize this card (see CardLink).
+      state={{ from: location.pathname }}
+      label={item.title}
+    />
+  )
 
   if (grid) {
     return (
-      <div {...linkProps} style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      <div style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+        {cardLink}
         <div
           style={{
             width: '100%',
@@ -70,7 +76,8 @@ export default function BookFavorite({ item, grid }) {
   }
 
   return (
-    <div {...linkProps} style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+    <div style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      {cardLink}
       <div
         style={{
           width: 32,

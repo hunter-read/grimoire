@@ -27,7 +27,8 @@ describe('WikiMarkdown', () => {
     expect(screen.getByText('A')).toBeTruthy()
   })
 
-  it('renders an existing [[wiki link]] as a button and calls onOpenPage', () => {
+  // Without campaignId, a resolved link is still a button (no URL to link to).
+  it('renders an existing [[wiki link]] as a button and calls onOpenPage when no campaignId', () => {
     const onOpenPage = vi.fn()
     renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], onOpenPage })
     const link = screen.getByRole('button', { name: 'The Castle' })
@@ -35,53 +36,45 @@ describe('WikiMarkdown', () => {
     expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
   })
 
-  // Issue #313 — notes are addressable via ?note=, so a resolvable wiki link
-  // can open in its own tab.
-  describe('opening a [[wiki link]] in a new tab', () => {
-    it('middle click opens the linked note in a new tab', async () => {
-      const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+  // Issue #313 — notes are addressable via ?note=, so a resolvable [[link]] is a
+  // real <Link> when campaignId is provided. Middle/ctrl-click opens new tab natively.
+  describe('resolved [[wiki link]] with campaignId — real link behavior', () => {
+    it('renders as a real link with the correct href', () => {
       const onOpenPage = vi.fn()
       renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], campaignId: 'c1', onOpenPage })
-
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: 'The Castle' }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).toHaveBeenCalledWith(
-        '/campaigns/c1/notes?note=p-castle',
-        '_blank',
-        'noopener,noreferrer'
-      )
-      expect(onOpenPage).not.toHaveBeenCalled()
-      open.mockRestore()
+      const link = screen.getByRole('link', { name: 'The Castle' })
+      expect(link.getAttribute('href')).toBe('/campaigns/c1/notes?note=p-castle')
     })
 
-    it('falls back to in-place navigation for an unresolved link', async () => {
-      const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    it('plain click calls onOpenPage in place (href exists only for native new-tab)', () => {
+      const onOpenPage = vi.fn()
+      renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], campaignId: 'c1', onOpenPage })
+      const link = screen.getByRole('link', { name: 'The Castle' })
+
+      // fireEvent.click dispatches a primary (button=0, no modifiers) click.
+      // The component's onClick calls e.preventDefault() then openLink().
+      fireEvent.click(link)
+
+      expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
+      // The link href is there to enable native new-tab (middle/ctrl-click),
+      // but plain click is handled in JS.
+      expect(link.getAttribute('href')).toBe('/campaigns/c1/notes?note=p-castle')
+    })
+
+    it('falls back to in-place navigation for an unresolved link (still a button)', () => {
       const onOpenPage = vi.fn()
       renderMd({ body: '[[Nowhere]]', pages: [], campaignId: 'c1', onOpenPage })
-
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: 'Nowhere' }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).not.toHaveBeenCalled()
+      // Unresolved → button, not link.
+      const btn = screen.getByRole('button', { name: 'Nowhere' })
+      fireEvent.click(btn)
       expect(onOpenPage).toHaveBeenCalled()
-      open.mockRestore()
     })
 
-    it('still opens in place on a plain click', () => {
-      const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    it('still opens in place on a plain click (link href is for native new-tab only)', () => {
       const onOpenPage = vi.fn()
       renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], campaignId: 'c1', onOpenPage })
-
-      fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
-
-      expect(open).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('link', { name: 'The Castle' }))
       expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
-      open.mockRestore()
     })
   })
 
@@ -240,8 +233,8 @@ describe('WikiMarkdown', () => {
 
   it('renders a Grimoire embed as a content button, not a wiki link', () => {
     renderMd({ body: 'See [[book:abc123:5]] here.' })
-    // Embed renders a labeled button; no stub wiki link created.
-    expect(screen.getByRole('button')).toBeTruthy()
+    // Embed renders a labeled link/button; no stub wiki link created.
+    expect(screen.getByRole('link')).toBeTruthy()
   })
 
   it('renders an [[image:ID]] embed as an inline image when given a campaign id', () => {
@@ -252,10 +245,11 @@ describe('WikiMarkdown', () => {
     expect(img.getAttribute('src')).toContain('/campaigns/camp1/files/img789')
   })
 
-  it('renders a [[file:ID]] embed as a clickable download card', () => {
+  it('renders a [[file:ID]] embed as an anchor link to the file', () => {
     renderMd({ body: '[[file:doc555]]', campaignId: 'camp1' })
-    // A file embed is a button (opens the file), not an inline image.
-    expect(screen.getByRole('button')).toBeTruthy()
+    // A file embed is a real <a> (opens the file in a new tab), not an image.
+    const link = screen.getByRole('link')
+    expect(link.getAttribute('target')).toBe('_blank')
   })
 
   // List indentation is styling (index.css scopes it to .wiki-markdown, since the

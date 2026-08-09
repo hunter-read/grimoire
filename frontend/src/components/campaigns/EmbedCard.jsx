@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
 import api, { campaigns } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImg from '../LazyImg'
-import { useNewTabHandler, isNewTabClick } from '../../hooks/useLinkProps'
 
 const embedCardStyle = {
   display: 'inline-flex',
@@ -18,28 +18,18 @@ const embedCardStyle = {
   color: 'var(--text)',
   cursor: 'pointer',
   fontSize: 14,
+  textDecoration: 'none',
 }
 
 /**
  * Renders a [[book:ID]] / [[map:ID]] / [[token:ID]] / [[audio:ID]] / [[file:ID]] / [[image:ID]]
  * wiki embed as an inline image, an inline audio player, or a link/download card.
+ * Linkable embeds are real links, so middle click / ctrl-click opens them in a
+ * new tab (issue #313).
  */
-export default function EmbedCard({ spec, campaignId, onNavigate }) {
+export default function EmbedCard({ spec, campaignId }) {
   const { t } = useTranslation()
   const [type, id, page] = spec.split(':')
-
-  // Route each linkable embed type points at. Computed up here (rather than
-  // beside the card that uses it) so the new-tab hooks below sit above the early
-  // returns, as rules-of-hooks requires. Images and files aren't app routes.
-  const routes = {
-    audio: `/audio/${id}`,
-    book: page ? `/library/book/${id}?page=${page}` : `/library/book/${id}`,
-    map: `/maps/${id}`,
-    token: `/tokens/${id}`,
-  }
-  // Middle click / ctrl-click opens the embedded resource in a new tab (#313).
-  const audioNewTab = useNewTabHandler(routes.audio)
-  const cardNewTab = useNewTabHandler(routes[type] ?? null)
 
   // A book embed names the book, so its title is fetched here. It stays null if
   // the book can't be resolved (deleted or unreadable), and the card falls back
@@ -72,25 +62,21 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
         }}
       >
         <AudioPlayer track={{ id }} showPlayNext size={34} />
-        <button
-          type="button"
-          onClick={(e) => (isNewTabClick(e) ? audioNewTab(e) : onNavigate(routes.audio))}
-          onAuxClick={audioNewTab}
+        <Link
+          to={`/audio/${id}`}
           style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
             font: 'inherit',
             color: 'var(--text)',
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
+            textDecoration: 'none',
           }}
         >
           <LuMusic size={15} color="#f0a868" />
           {t('wiki.embed_audio')}
-        </button>
+        </Link>
       </span>
     )
   }
@@ -108,18 +94,19 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
     )
   }
 
-  // A non-image campaign file embeds as a download card opening the file.
+  // A non-image campaign file embeds as a card opening the file in a new tab.
   if (type === 'file') {
     if (!campaignId) return null
     return (
-      <button
-        type="button"
-        onClick={() => window.open(campaigns.fileUrl(campaignId, id), '_blank')}
+      <a
+        href={campaigns.fileUrl(campaignId, id)}
+        target="_blank"
+        rel="noopener noreferrer"
         style={embedCardStyle}
       >
         <LuFile size={15} color="#e0b341" />
         {t('wiki.embed_file')}
-      </button>
+      </a>
     )
   }
 
@@ -136,14 +123,9 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
   const name = type === 'book' && bookTitle ? bookTitle : t(`wiki.embed_${type}`)
   const label = type === 'book' && page ? t('wiki.embedBookPage', { title: name, page }) : name
   return (
-    <button
-      type="button"
-      onClick={(e) => (isNewTabClick(e) ? cardNewTab(e) : onNavigate(to))}
-      onAuxClick={cardNewTab}
-      style={embedCardStyle}
-    >
+    <Link to={to} style={embedCardStyle}>
       <Icon size={15} color={color} />
       {label}
-    </button>
+    </Link>
   )
 }

@@ -1,29 +1,24 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import ResultCard from './ResultCard'
 
+const renderCard = (props) =>
+  render(
+    <MemoryRouter>
+      <ResultCard {...props} />
+    </MemoryRouter>
+  )
+
 describe('ResultCard', () => {
-  let open
-
-  beforeEach(() => {
-    open = vi.spyOn(window, 'open').mockImplementation(() => null)
-  })
-
-  afterEach(() => {
-    open.mockRestore()
-  })
-
   it('renders the title, path and tags', () => {
-    render(
-      <ResultCard
-        to="/maps/5"
-        title="tavern.jpg"
-        subtitle="Maps/Taverns"
-        tags={['indoor']}
-        onOpen={vi.fn()}
-      />
-    )
+    renderCard({
+      to: '/maps/5',
+      title: 'tavern.jpg',
+      subtitle: 'Maps/Taverns',
+      tags: ['indoor'],
+    })
 
     expect(screen.getByText('tavern.jpg')).toBeInTheDocument()
     expect(screen.getByText('Maps/Taverns')).toBeInTheDocument()
@@ -31,23 +26,22 @@ describe('ResultCard', () => {
   })
 
   it('omits the tag list when the item has no tags', () => {
-    render(<ResultCard to="/maps/5" title="tavern.jpg" subtitle="Maps" onOpen={vi.fn()} />)
+    renderCard({ to: '/maps/5', title: 'tavern.jpg', subtitle: 'Maps' })
 
     expect(screen.getByText('tavern.jpg')).toBeInTheDocument()
   })
 
-  it('navigates in place on a plain click', async () => {
-    const onOpen = vi.fn()
-    render(<ResultCard to="/maps/5" title="tavern.jpg" subtitle="Maps" onOpen={onOpen} />)
+  // ResultCard is now a real <Link> via CardLink — assert the href rather than
+  // an onOpen spy. Plain click navigates in-place; middle/ctrl-click is native.
+  it('renders a link to the detail page', () => {
+    renderCard({ to: '/maps/5', title: 'tavern.jpg', subtitle: 'Maps' })
 
-    await userEvent.click(screen.getByText('tavern.jpg'))
-
-    expect(onOpen).toHaveBeenCalledTimes(1)
-    expect(open).not.toHaveBeenCalled()
+    const link = screen.getByRole('link', { name: 'tavern.jpg' })
+    expect(link.getAttribute('href')).toBe('/maps/5')
   })
 
   it('highlights on hover and restores the base background on leave', async () => {
-    render(<ResultCard to="/maps/5" title="tavern.jpg" subtitle="Maps" onOpen={vi.fn()} />)
+    renderCard({ to: '/maps/5', title: 'tavern.jpg', subtitle: 'Maps' })
     const card = screen.getByText('tavern.jpg').parentElement
 
     await userEvent.hover(card)
@@ -57,13 +51,12 @@ describe('ResultCard', () => {
     expect(card.style.background).toBe('var(--bg-card)')
   })
 
-  it('opens the detail page in a new tab on middle click', async () => {
-    const onOpen = vi.fn()
-    render(<ResultCard to="/tokens/8" title="goblin.png" subtitle="Tokens" onOpen={onOpen} />)
+  // Middle-click opens a new tab natively — no JS needed, just verify the href.
+  it('is a real anchor so middle click opens the detail page in a new tab natively', () => {
+    renderCard({ to: '/tokens/8', title: 'goblin.png', subtitle: 'Tokens' })
 
-    await userEvent.pointer({ target: screen.getByText('goblin.png'), keys: '[MouseMiddle]' })
-
-    expect(open).toHaveBeenCalledWith('/tokens/8', '_blank', 'noopener,noreferrer')
-    expect(onOpen).not.toHaveBeenCalled()
+    const link = screen.getByRole('link', { name: 'goblin.png' })
+    expect(link.tagName).toBe('A')
+    expect(link.getAttribute('href')).toBe('/tokens/8')
   })
 })

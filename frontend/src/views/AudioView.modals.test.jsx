@@ -4,14 +4,12 @@ import userEvent from '@testing-library/user-event'
 import AudioView from './AudioView'
 
 // Drive the three modal branches by mocking GalleryLayout to expose its callbacks.
-const navigate = vi.fn()
 vi.mock('../components/media/GalleryLayout', () => ({
-  default: ({ onDownload, onAddToCampaign, onBulkEdit, onSelectItem }) => (
+  default: ({ onDownload, onAddToCampaign, onBulkEdit }) => (
     <div>
       <button onClick={() => onDownload({ title: 'T', params: {} })}>fire-download</button>
       <button onClick={onAddToCampaign}>fire-campaign</button>
       <button onClick={onBulkEdit}>fire-bulk</button>
-      <button onClick={() => onSelectItem('a1')}>fire-select</button>
     </div>
   ),
 }))
@@ -30,7 +28,7 @@ vi.mock('../hooks/useMediaGallery', () => ({
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: 'admin' } }),
 }))
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
+vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 
 vi.mock('../components/DownloadArchiveModal', () => ({
   default: ({ onClose }) => (
@@ -86,9 +84,6 @@ describe('AudioView modals', () => {
     expect(bulkExit).toHaveBeenCalled()
   })
 
-  it('navigates to the track detail page on select', async () => {
-    render(<AudioView />)
-    await userEvent.click(screen.getByText('fire-select'))
-    expect(navigate).toHaveBeenCalledWith('/audio/a1')
-  })
+  // onSelectItem is removed; navigation to the track detail page is now handled
+  // by real CardLink anchors inside each MediaCard (native browser navigation).
 })
