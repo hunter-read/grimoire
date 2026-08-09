@@ -28,4 +28,28 @@ describe('BulkToggleButton', () => {
     await userEvent.click(screen.getByText('Select'))
     expect(onToggle).toHaveBeenCalled()
   })
+
+  // On mobile the toolbar row must fit on one line, so the label drops to
+  // the icon alone while the accessible name is preserved.
+  it('collapses to an icon with an accessible name on mobile', () => {
+    const realMatchMedia = window.matchMedia
+    window.matchMedia = (query) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })
+    try {
+      render(<BulkToggleButton active={false} onToggle={() => {}} />)
+      const btn = screen.getByRole('button', { name: 'Select' })
+      expect(btn.textContent).toBe('')
+      expect(btn.style.minWidth).toBe('')
+    } finally {
+      window.matchMedia = realMatchMedia
+    }
+  })
 })

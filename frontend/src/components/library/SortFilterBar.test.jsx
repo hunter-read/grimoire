@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -200,5 +200,102 @@ describe('SortFilterBar', () => {
   it('leaves the row transparent when not sticky', () => {
     render(<Harness />)
     expect(screen.getByTestId('sort-filter-bar').style.background).toBe('')
+  })
+
+  // An X attached to the Filters button clears everything in one click.
+  describe('clear-filters button', () => {
+    const clearBtn = () => screen.getByRole('button', { name: 'sortFilter.clearFilters' })
+
+    it('is disabled when no filters are set', () => {
+      render(<Harness />)
+      expect(clearBtn()).toBeDisabled()
+    })
+
+    it('is enabled once a filter is active', () => {
+      render(<Harness initial={{ sort: 'name', order: 'asc', filters: { genre: 'Fantasy' } }} />)
+      expect(clearBtn()).toBeEnabled()
+    })
+
+    it('ignores filter keys whose value is empty/any', () => {
+      render(
+        <Harness
+          initial={{
+            sort: 'name',
+            order: 'asc',
+            filters: { genre: '', tags: [], explicit: 'any' },
+          }}
+        />
+      )
+      expect(clearBtn()).toBeDisabled()
+    })
+
+    it('clears every active filter but leaves sort alone', async () => {
+      render(
+        <Harness
+          initial={{
+            sort: 'page_count',
+            order: 'desc',
+            filters: { genre: 'Fantasy', tags: ['osr'] },
+          }}
+        />
+      )
+      await userEvent.click(clearBtn())
+      const state = JSON.parse(screen.getByTestId('state').textContent)
+      expect(state.filters).toEqual({})
+      expect(state.sort).toBe('page_count')
+      expect(state.order).toBe('desc')
+    })
+
+    it('does nothing when clicked while disabled', async () => {
+      render(<Harness />)
+      await userEvent.click(clearBtn())
+      expect(screen.getByTestId('state').textContent).toContain('"filters":{}')
+    })
+  })
+
+  // Below the mobile breakpoint the row must stay on one line, so text
+  // labels collapse to their icons and the row stops wrapping.
+  describe('mobile layout', () => {
+    // The global setup stub always reports desktop; swap it per-test and put it
+    // back afterwards so the override never leaks into other tests.
+    const realMatchMedia = window.matchMedia
+    afterEach(() => {
+      window.matchMedia = realMatchMedia
+    })
+
+    const setViewport = (mobile) => {
+      window.matchMedia = (query) => ({
+        matches: mobile,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })
+    }
+
+    it('keeps the row on a single line and drops text labels', () => {
+      setViewport(true)
+      render(<Harness />)
+      const bar = screen.getByTestId('sort-filter-bar')
+      expect(bar).toHaveStyle({ flexWrap: 'nowrap' })
+      expect(screen.queryByText('sortFilter.sort')).not.toBeInTheDocument()
+      // Buttons keep their accessible names via aria-label, just not visible text.
+      expect(screen.getByRole('button', { name: 'sortFilter.filters' }).textContent).toBe('')
+      expect(screen.getByRole('button', { name: 'sortFilter.savedFilters' }).textContent).toBe('')
+    })
+
+    it('shows the full labels on desktop', () => {
+      setViewport(false)
+      render(<Harness />)
+      const bar = screen.getByTestId('sort-filter-bar')
+      expect(bar).toHaveStyle({ flexWrap: 'wrap' })
+      expect(screen.getByText('sortFilter.sort')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'sortFilter.filters' }).textContent).toContain(
+        'sortFilter.filters'
+      )
+    })
   })
 })
