@@ -6,6 +6,7 @@ import { campaigns, mediaUrl } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImg from '../LazyImg'
+import useLinkProps from '../../hooks/useLinkProps'
 
 /** A single linked campaign resource with owner controls (visibility, category, share). */
 export default function ResourceRow({
@@ -51,6 +52,14 @@ export default function ResourceRow({
       state: { from: window.location.pathname },
     })
   }
+
+  // Middle click / ctrl-click opens the resource in a new tab (issue #313).
+  // Uploaded files already open in their own tab on any click, so they get no
+  // extra link target here.
+  const navLinkProps = useLinkProps(
+    isFile ? null : (RESOURCE_NAV[resource.resource_type]?.(resource.resource_id) ?? null),
+    handleNav
+  )
 
   const stop = (e) => e.stopPropagation()
 
@@ -100,7 +109,7 @@ export default function ResourceRow({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Row 1 — title (clickable) */}
         <div
-          onClick={handleNav}
+          {...navLinkProps}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()

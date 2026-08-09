@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -288,6 +288,70 @@ describe('SystemCard', () => {
         />
       )
       expect(borderOf(container)).toContain('var(--gold-dim)')
+    })
+  })
+
+  // Issue #313: the card is a <div>, not an <a>, so new-tab behaviour is wired
+  // by hand and needs covering in each layout.
+  describe('opening in a new tab', () => {
+    let open
+
+    beforeEach(() => {
+      open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    })
+
+    afterEach(() => open.mockRestore())
+
+    it.each([
+      ['full', {}],
+      ['compact', { compact: true }],
+      ['list', { list: true }],
+    ])('middle click opens the system in a new tab from the %s layout', async (_name, layout) => {
+      const onClick = vi.fn()
+      const { container } = render(
+        <SystemCard
+          system={makeSystem()}
+          to="/library/system/sys-1"
+          onClick={onClick}
+          {...layout}
+        />
+      )
+
+      await userEvent.pointer({ target: container.firstChild, keys: '[MouseMiddle]' })
+
+      expect(open).toHaveBeenCalledWith('/library/system/sys-1', '_blank', 'noopener,noreferrer')
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('still navigates in place on a plain click', async () => {
+      const onClick = vi.fn()
+      const { container } = render(
+        <SystemCard system={makeSystem()} to="/library/system/sys-1" onClick={onClick} />
+      )
+
+      await userEvent.click(container.firstChild)
+
+      expect(onClick).toHaveBeenCalledTimes(1)
+      expect(open).not.toHaveBeenCalled()
+    })
+
+    it('selects rather than opening a tab while in bulk-select mode', async () => {
+      const onToggleSelect = vi.fn()
+      const { container } = render(
+        <SystemCard
+          system={makeSystem()}
+          to="/library/system/sys-1"
+          onClick={vi.fn()}
+          selectable
+          onToggleSelect={onToggleSelect}
+        />
+      )
+
+      await userEvent.pointer({ target: container.firstChild, keys: '[MouseMiddle]' })
+      expect(open).not.toHaveBeenCalled()
+
+      await userEvent.click(container.firstChild)
+      expect(onToggleSelect).toHaveBeenCalled()
     })
   })
 })

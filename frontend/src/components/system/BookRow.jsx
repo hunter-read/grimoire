@@ -7,6 +7,7 @@ import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
+import useLinkProps from '../../hooks/useLinkProps'
 import BookActionsMenu from './BookActionsMenu'
 
 /**
@@ -62,6 +63,14 @@ export default function BookRow({
       handleClick(e)
     }
   }
+
+  // Middle click / ctrl-click opens the reader in a new tab (issue #313).
+  // Archives have no reader page — clicking them downloads the file — and bulk
+  // mode claims the modifier keys for range select, so neither is linkable.
+  const linkProps = useLinkProps(
+    bulkMode || isArchive ? null : `/library/book/${book.id}`,
+    handleClick
+  )
 
   // Overlaid checkbox shown over thumbnails in the grid layouts.
   const overlayCheckbox = bulkMode && (
@@ -122,7 +131,7 @@ export default function BookRow({
     const thumbHeight = compact ? 110 : 160
     return (
       <div
-        onClick={handleClick}
+        {...linkProps}
         onKeyDown={handleKeyDown}
         role="button"
         tabIndex={0}
@@ -255,7 +264,7 @@ export default function BookRow({
   // ----- List layout (default) -----
   return (
     <div
-      onClick={handleClick}
+      {...linkProps}
       onKeyDown={handleKeyDown}
       role="button"
       tabIndex={0}

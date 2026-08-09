@@ -158,6 +158,7 @@ export default function SystemContainerView({
             <SystemCard
               key={child.id}
               system={child}
+              to={`/library/system/${child.id}`}
               compact={compact}
               list={list}
               onClick={() => onOpenChild(child)}

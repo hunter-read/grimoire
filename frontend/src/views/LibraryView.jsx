@@ -359,6 +359,7 @@ export default function LibraryView() {
                 <AgnosticChip
                   key={system.id}
                   system={system}
+                  to={`/library/system/${system.id}`}
                   onClick={() => navigate(`/library/system/${system.id}`)}
                 />
               ))}
@@ -483,6 +484,7 @@ export default function LibraryView() {
                   <SystemCard
                     key={system.id}
                     system={system}
+                    to={`/library/system/${system.id}`}
                     onClick={() => navigate(`/library/system/${system.id}`)}
                     compact={compact}
                     list={list}

@@ -7,6 +7,7 @@ import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImg from '../LazyImg'
+import useLinkProps from '../../hooks/useLinkProps'
 
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
@@ -42,6 +43,11 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
     }
   }
 
+  // Middle click / ctrl-click opens the detail page in a new tab (issue #313).
+  // Bulk mode claims the modifier keys for range and multi-select, so the card
+  // only acts as a link when a plain click would navigate.
+  const linkProps = useLinkProps(bulkMode ? null : config.detailPath(item.id), handleClick)
+
   // Badges that apply to this item, in config order.
   const activeBadges = config.badges.filter((b) => item[b.flag])
 
@@ -58,7 +64,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
   if (list) {
     return (
       <div
-        onClick={handleClick}
+        {...linkProps}
         onKeyDown={onKeyDown}
         role="button"
         tabIndex={0}
@@ -172,7 +178,7 @@ export default function MediaCard({ config, item, onClick, bulkMode, selected, o
 
   return (
     <div
-      onClick={handleClick}
+      {...linkProps}
       onKeyDown={onKeyDown}
       role="button"
       tabIndex={0}

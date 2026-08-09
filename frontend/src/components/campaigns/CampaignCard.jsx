@@ -13,6 +13,7 @@ import { campaigns } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import CampaignRoleBadge from './CampaignRoleBadge'
 import LazyImg from '../LazyImg'
+import useLinkProps, { useNewTabHandler } from '../../hooks/useLinkProps'
 
 function formatSessionDate(dateStr) {
   if (!dateStr) return ''
@@ -42,9 +43,14 @@ export default function CampaignCard({
     ? campaigns.bannerUrl(campaign.id, campaign.updated_at)
     : null
 
+  // The card body and the Open Notes button lead to different pages, so each
+  // gets its own new-tab target (issue #313).
+  const linkProps = useLinkProps(`/campaigns/${campaign.id}/overview`, onClick)
+  const notesNewTab = useNewTabHandler(`/campaigns/${campaign.id}/notes`)
+
   return (
     <div
-      onClick={onClick}
+      {...linkProps}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -213,8 +219,15 @@ export default function CampaignCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation()
+              // Ctrl/cmd-click opens the notes in a new tab instead; the handler
+              // no-ops on a plain click and leaves the normal path alone.
+              if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                notesNewTab(e)
+                return
+              }
               onOpenNotes()
             }}
+            onAuxClick={notesNewTab}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

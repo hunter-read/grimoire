@@ -30,6 +30,7 @@ import InvitePanel from '../components/campaigns/InvitePanel'
 import GuestPanel from '../components/campaigns/GuestPanel'
 import { utcTimeToLocal, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
+import useLinkProps from '../hooks/useLinkProps'
 
 const CARD = {
   background: 'var(--bg-card)',
@@ -135,6 +136,10 @@ export default function CampaignDetailView() {
   const [showInvite, setShowInvite] = useState(false)
   const [showGuests, setShowGuests] = useState(false)
   const [error, setError] = useState(null)
+  // Open Notes behaves like a link, so middle click opens it in a new tab (#313).
+  const notesLinkProps = useLinkProps(`/campaigns/${campaignId}/notes`, () =>
+    navigate(`/campaigns/${campaignId}/notes`)
+  )
 
   const load = () => {
     campaigns
@@ -443,7 +448,7 @@ export default function CampaignDetailView() {
 
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
             <button
-              onClick={() => navigate(`/campaigns/${campaignId}/notes`)}
+              {...notesLinkProps}
               style={{
                 display: 'flex',
                 alignItems: 'center',
