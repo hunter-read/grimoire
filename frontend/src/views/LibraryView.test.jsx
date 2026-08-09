@@ -347,6 +347,53 @@ describe('LibraryView', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument()
       expect(screen.getByText(/edit 1 item/i)).toBeInTheDocument()
     })
+
+    // Bulk tag/edit are undefined for a container (it holds systems, not books).
+    it('never sweeps a parent container into a shift-click range', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Alpha' }),
+        makeSystem({
+          id: 'ctr',
+          name: 'Dungeons & Dragons',
+          container_kind: 'parent',
+          book_count: 0,
+          child_count: 3,
+        }),
+        makeSystem({ id: 's2', name: 'Beta' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: /select/i }))
+      await userEvent.click(screen.getByText('Alpha'))
+      // Shift-click the far end: the range spans the container in display order.
+      await userEvent.click(screen.getByText('Beta'), { shiftKey: true })
+      await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
+
+      // Both ordinary systems, and only those two.
+      expect(screen.getByText(/edit 2 items/i)).toBeInTheDocument()
+    })
+
+    it('leaves a parent container clickable as a link in bulk mode', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Alpha' }),
+        makeSystem({
+          id: 'ctr',
+          name: 'Dungeons & Dragons',
+          container_kind: 'parent',
+          book_count: 0,
+          child_count: 3,
+        }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: /select/i }))
+      expect(screen.getByRole('link', { name: 'Dungeons & Dragons' })).toHaveAttribute(
+        'href',
+        '/library/system/ctr'
+      )
+    })
   })
 
   describe('recently opened', () => {

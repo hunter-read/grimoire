@@ -1,5 +1,4 @@
 import { LuLibrary } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
 import FavoriteButton from '../FavoriteButton'
 import {
   cardWrapperStyle,
@@ -10,11 +9,17 @@ import {
 } from './favoriteStyles'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
+import { systemCoverUrl } from '../../utils/systemCoverUrl'
 
 export default function SystemFavorite({ item, grid }) {
   const publisher = (item.publishers || []).map((p) => p.name).join(', ')
   // A real link: middle click / ctrl-click opens this item in a new tab (issue #313).
   const cardLink = <CardLink to={`/library/system/${item.item_id}`} label={item.name} />
+  // Same precedence as the library grid (folder art / upload beats a book
+  // thumbnail). Favorites key systems by `item_id`, so map it onto the `id` the
+  // shared helper expects. Parent containers have no books of their own, so the
+  // cover endpoint is the only art they have.
+  const coverUrl = systemCoverUrl({ ...item, id: item.item_id })
 
   if (grid) {
     return (
@@ -30,9 +35,9 @@ export default function SystemFavorite({ item, grid }) {
             justifyContent: 'center',
           }}
         >
-          {item.cover_book_id ? (
+          {coverUrl ? (
             <LazyImg
-              src={mediaUrl(`/books/${item.cover_book_id}/thumbnail`)}
+              src={coverUrl}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
@@ -88,9 +93,9 @@ export default function SystemFavorite({ item, grid }) {
           justifyContent: 'center',
         }}
       >
-        {item.cover_book_id ? (
+        {coverUrl ? (
           <LazyImg
-            src={mediaUrl(`/books/${item.cover_book_id}/thumbnail`)}
+            src={coverUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />

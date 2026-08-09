@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuLibrary, LuCheck } from 'react-icons/lu'
+import { LuLibrary, LuCheck, LuFolderTree } from 'react-icons/lu'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
@@ -14,8 +14,10 @@ import { systemCoverUrl } from '../../utils/systemCoverUrl'
  *
  * In bulk-select mode (`selectable`), clicking the card toggles its selection
  * (with shift / cmd-click modifiers) instead of navigating, and a checkbox is
- * shown. Tag chips on the full card link to the tags page (grid tag filtering
- * is handled by the Filters modal's Tags dropdown).
+ * shown. Parent containers opt out: bulk tagging and bulk edit are undefined
+ * for a shelf that holds systems rather than books, so they stay plain links
+ * and show no checkbox. Tag chips on the full card link to the tags page (grid
+ * tag filtering is handled by the Filters modal's Tags dropdown).
  *
  * `to` is the system's route. Outside bulk-select mode the card is a real link
  * (a CardLink overlay), so middle click and ctrl/cmd-click open the system in a
@@ -43,22 +45,51 @@ export default function SystemCard({
   const countLabel = system.container_kind
     ? t('systemContainer.count', { count: system.child_count || 0 })
     : t('library.bookCount', { count: system.book_count })
-  // Parent systems sit in the main grid alongside ordinary systems, so they get
-  // a gold border to signal "this opens onto more systems". One-page collections
-  // don't need it — they already live in their own Special Collections strip.
+  // Parent systems sit in the main grid alongside ordinary systems. They used to
+  // be marked with a gold border, but that reads identically to the gold
+  // selection border in bulk mode, so the distinction is carried by an explicit
+  // "collection" badge instead. One-page collections don't need it — they
+  // already live in their own Special Collections strip.
   const isParentContainer = system.container_kind === 'parent'
-  const borderColor = selected
-    ? 'var(--gold-dim)'
-    : isParentContainer
-      ? 'var(--gold)'
-      : 'var(--border)'
+  // Bulk tag/edit have no defined meaning for a container (it owns no books), so
+  // parent cards never enter selection mode — they stay navigable links.
+  const isSelectable = selectable && !isParentContainer
+  const borderColor = selected ? 'var(--gold-dim)' : 'var(--border)'
 
   // Selection mode owns the click (shift/cmd extend the selection); outside it
   // the CardLink overlay below handles navigation.
-  const toggleSelect = selectable
+  const toggleSelect = isSelectable
     ? (e) => onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
     : undefined
-  const cardLink = !selectable && <CardLink to={to} label={displayName} />
+  const cardLink = !isSelectable && <CardLink to={to} label={displayName} />
+
+  // An eyebrow label above the title, not a chip beside it. A chip on the
+  // title's row cost a narrow card enough width to wrap the name one letter per
+  // line, and gold text inside a gold chip was hard to read — bright gold
+  // straight on the card background carries the same meaning with real
+  // contrast, and the rule under it separates the label from the title.
+  const containerEyebrow = isParentContainer && (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'var(--gold-bright)',
+        borderBottom: '1px solid var(--border-light)',
+        paddingBottom: 6,
+        marginBottom: 8,
+      }}
+    >
+      <LuFolderTree size={12} style={{ flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {t('systemContainer.badge')}
+      </span>
+    </div>
+  )
 
   const checkbox = (overlay) => (
     <div
@@ -105,7 +136,7 @@ export default function SystemCard({
         }}
       >
         {cardLink}
-        {selectable && checkbox(false)}
+        {isSelectable && checkbox(false)}
         <div
           style={{
             width: 36,
@@ -130,6 +161,7 @@ export default function SystemCard({
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
+          {containerEyebrow}
           <div
             style={{
               fontSize: 16,
@@ -162,7 +194,7 @@ export default function SystemCard({
             {system.is_explicit && <span style={{ color: '#e07070' }}>18+</span>}
           </div>
         </div>
-        {!selectable && (
+        {!isSelectable && (
           <FavoriteButton
             type="system"
             id={system.id}
@@ -201,7 +233,7 @@ export default function SystemCard({
         }}
       >
         {cardLink}
-        {selectable ? (
+        {isSelectable ? (
           checkbox(true)
         ) : (
           <FavoriteButton type="system" id={system.id} cardHovered={hovered} />
@@ -228,6 +260,7 @@ export default function SystemCard({
           )}
         </div>
         <div style={{ padding: '8px 10px' }}>
+          {containerEyebrow}
           <div
             style={{
               fontSize: 13,
@@ -259,8 +292,8 @@ export default function SystemCard({
         borderRadius: 12,
         cursor: 'pointer',
         transition: 'all 0.2s',
-        transform: hovered && !selectable ? 'translateY(-2px)' : 'none',
-        boxShadow: hovered && !selectable ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
+        transform: hovered && !isSelectable ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered && !isSelectable ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
         overflow: 'hidden',
         position: 'relative',
         display: 'flex',
@@ -268,7 +301,7 @@ export default function SystemCard({
       }}
     >
       {cardLink}
-      {selectable && checkbox(true)}
+      {isSelectable && checkbox(true)}
       {coverUrl ? (
         <div
           style={{
@@ -306,8 +339,9 @@ export default function SystemCard({
         </div>
       )}
 
-      {!selectable && <FavoriteButton type="system" id={system.id} cardHovered={hovered} />}
+      {!isSelectable && <FavoriteButton type="system" id={system.id} cardHovered={hovered} />}
       <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {containerEyebrow}
         <div
           style={{
             display: 'flex',

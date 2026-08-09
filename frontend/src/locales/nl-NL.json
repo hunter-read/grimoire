@@ -144,6 +144,7 @@
     "filterByTag": "Filteren op {{tag}}"
   },
   "systemContainer": {
+    "badge": "Systeemcollectie",
     "subtitle_one": "{{count}} systeem in deze collectie",
     "subtitle_other": "{{count}} systemen in deze collectie",
     "empty": "Nog geen systemen gevonden in deze collectie.",

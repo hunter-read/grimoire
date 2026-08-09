@@ -8,6 +8,7 @@ from ...auth import get_current_user, CurrentUser
 from ...models import Favorite, Book, GenericMap, Token, Audio, GameSystem
 from ...services import tag_service
 from ..systems._helpers import resolve_cover_book_id
+from ..systems.covers import has_cover_file
 from ._schemas import FavoriteIn
 
 router = APIRouter()
@@ -101,6 +102,13 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
                     "name": s.name,
                     "publishers": s.publishers or [],
                     "cover_book_id": resolve_cover_book_id(db, s),
+                    # Container folders (issues #261, #262) own no books, so
+                    # `cover_book_id` is always null for them and folder art /
+                    # an upload served by GET /systems/{id}/cover is their only
+                    # cover source. Without this flag they rendered art-less
+                    # here while showing a cover everywhere else.
+                    "has_cover": has_cover_file(s),
+                    "container_kind": s.container_kind or "",
                 }
             )
         elif r.item_type == "tag" and r.item_id in tag_meta:

@@ -240,20 +240,28 @@ describe('SystemCard', () => {
     })
   })
 
-  describe('parent-system border', () => {
+  // Parent containers used to be marked with a gold border, which was
+  // indistinguishable from the gold selection border in bulk mode. They now
+  // carry an eyebrow label above the title and never take part in a selection.
+  describe('parent-system marker', () => {
     const borderOf = (container) => container.firstChild.style.border
+    const parent = () => makeSystem({ container_kind: 'parent', child_count: 3 })
 
-    it('gives a parent-system container a gold border', () => {
-      const { container } = render(
-        <SystemCard
-          system={makeSystem({ container_kind: 'parent', child_count: 3 })}
-          to="/library/system/sys-1"
-        />
-      )
-      expect(borderOf(container)).toContain('var(--gold)')
+    it.each([
+      ['full', {}],
+      ['compact', { compact: true }],
+      ['list', { list: true }],
+    ])('labels a parent-system container in the %s layout', (_name, layout) => {
+      render(<SystemCard system={parent()} to="/library/system/sys-1" {...layout} />)
+      expect(screen.getByText('System Collection')).toBeInTheDocument()
     })
 
-    it('leaves one-page collections with the default border', () => {
+    it('no longer distinguishes a parent container by border colour', () => {
+      const { container } = render(<SystemCard system={parent()} to="/library/system/sys-1" />)
+      expect(borderOf(container)).toContain('var(--border)')
+    })
+
+    it('leaves one-page collections unlabelled with the default border', () => {
       const { container } = render(
         <SystemCard
           system={makeSystem({ container_kind: 'one-page', child_count: 9 })}
@@ -261,37 +269,66 @@ describe('SystemCard', () => {
         />
       )
       expect(borderOf(container)).toContain('var(--border)')
-      expect(borderOf(container)).not.toContain('var(--gold)')
+      expect(screen.queryByText('System Collection')).not.toBeInTheDocument()
     })
 
-    it('leaves ordinary systems with the default border', () => {
+    it('leaves ordinary systems unlabelled with the default border', () => {
       const { container } = render(<SystemCard system={makeSystem()} to="/library/system/sys-1" />)
       expect(borderOf(container)).toContain('var(--border)')
+      expect(screen.queryByText('System Collection')).not.toBeInTheDocument()
     })
 
-    it('applies the gold border in compact and list layouts too', () => {
-      const parent = makeSystem({ container_kind: 'parent', child_count: 3 })
-      const { container: compactEl } = render(
-        <SystemCard system={parent} to="/library/system/sys-1" compact />
-      )
-      expect(borderOf(compactEl)).toContain('var(--gold)')
-
-      const { container: listEl } = render(
-        <SystemCard system={parent} to="/library/system/sys-1" list />
-      )
-      expect(borderOf(listEl)).toContain('var(--gold)')
-    })
-
-    it('selection styling still wins over the container border', () => {
+    it('keeps the gold selection border meaning "selected" alone', () => {
       const { container } = render(
-        <SystemCard
-          system={makeSystem({ container_kind: 'parent', child_count: 3 })}
-          to="/library/system/sys-1"
-          selectable
-          selected
-        />
+        <SystemCard system={makeSystem()} to="/library/system/sys-1" selectable selected />
       )
       expect(borderOf(container)).toContain('var(--gold-dim)')
+    })
+  })
+
+  // Bulk tag/edit have no defined meaning for a shelf that holds systems rather
+  // than books, so parent containers opt out of selection entirely.
+  describe('parent systems are excluded from bulk select', () => {
+    const parent = () => makeSystem({ container_kind: 'parent', child_count: 3 })
+
+    it.each([
+      ['full', {}],
+      ['compact', { compact: true }],
+      ['list', { list: true }],
+    ])('stays a navigable link in bulk mode in the %s layout', (_name, layout) => {
+      const onToggleSelect = vi.fn()
+      render(
+        <SystemCard
+          system={parent()}
+          to="/library/system/sys-1"
+          selectable
+          onToggleSelect={onToggleSelect}
+          {...layout}
+        />
+      )
+      expect(screen.getByRole('link', { name: 'Dungeons & Dragons' })).toHaveAttribute(
+        'href',
+        '/library/system/sys-1'
+      )
+    })
+
+    it('does not toggle selection when clicked in bulk mode', async () => {
+      const onToggleSelect = vi.fn()
+      render(
+        <SystemCard
+          system={parent()}
+          to="/library/system/sys-1"
+          selectable
+          onToggleSelect={onToggleSelect}
+        />
+      )
+      await userEvent.click(screen.getByText('Dungeons & Dragons'))
+      expect(onToggleSelect).not.toHaveBeenCalled()
+    })
+
+    it('keeps the favorite button instead of showing a checkbox in bulk mode', () => {
+      render(<SystemCard system={parent()} to="/library/system/sys-1" selectable />)
+      expect(screen.getByRole('button', { name: /favorite/i })).toBeInTheDocument()
     })
   })
 

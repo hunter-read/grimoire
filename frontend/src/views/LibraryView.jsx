@@ -103,6 +103,11 @@ export default function LibraryView() {
     { isFavorite: isFavSystem }
   )
 
+  // Bulk tagging and bulk edit are undefined for a parent container (it holds
+  // systems, not books of its own), so it never takes part in a selection —
+  // including as a member of a shift-click range.
+  const selectableSystems = normalSystems.filter((s) => s.container_kind !== 'parent')
+
   // Special collections keep a simple A–Z ordering.
   const specialSystems = systems
     .filter((s) => visible(s) && isSpecial(s))
@@ -487,7 +492,10 @@ export default function LibraryView() {
                     onToggleSelect={(mods) =>
                       bulk.toggleItem(system.id, {
                         ...mods,
-                        orderedIds: normalSystems.map((s) => s.id),
+                        // Parent containers are excluded from bulk actions, so
+                        // they're left out of the range list too — a shift-drag
+                        // across one must not sweep it into the selection.
+                        orderedIds: selectableSystems.map((s) => s.id),
                       })
                     }
                   />
