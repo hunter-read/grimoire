@@ -431,6 +431,13 @@ describe('WikiView create / delete / search', () => {
     ])
     renderView()
     await screen.findByText('Kobolds')
+    // The assertion below rests on the auto-opened page having rendered its
+    // heading. That lands a tick after the sidebar (the note id round-trips
+    // through the URL before the body is fetched), so wait for the heading
+    // itself rather than inferring it from the sidebar row.
+    await waitFor(() =>
+      expect(screen.getAllByText('Dragons').some((n) => n.tagName === 'H2')).toBe(true)
+    )
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'kobold' } })
     // The non-matching sidebar entry is filtered out; Kobolds remains.
     expect(screen.getByText('Kobolds')).toBeInTheDocument()
