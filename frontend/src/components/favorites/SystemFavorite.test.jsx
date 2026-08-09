@@ -56,4 +56,27 @@ describe('SystemFavorite', () => {
     expect(container.querySelector('img')).toBeNull()
     expect(container.querySelector('svg')).toBeTruthy()
   })
+
+  // Parent containers own no books, so `cover_book_id` is always null for them
+  // and the /systems/{id}/cover endpoint is their only art. Favorites used to
+  // check cover_book_id alone, leaving containers blank here while they showed
+  // a cover everywhere else.
+  describe('cover precedence', () => {
+    it.each([
+      ['grid', true],
+      ['row', false],
+    ])('uses the system cover endpoint in %s mode when has_cover is set', (_name, grid) => {
+      const { container } = renderSystem({ item: item({ has_cover: true }), grid })
+      const img = container.querySelector('img')
+      expect(img.getAttribute('src')).toContain('/systems/s1/cover')
+    })
+
+    it('prefers the system cover over a book thumbnail', () => {
+      const { container } = renderSystem({
+        item: item({ has_cover: true, cover_book_id: 'b9' }),
+        grid: true,
+      })
+      expect(container.querySelector('img').getAttribute('src')).toContain('/systems/s1/cover')
+    })
+  })
 })

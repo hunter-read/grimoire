@@ -158,6 +158,51 @@ class TestFavoritesEnrichedShape:
         assert system_items
         assert system_items[0]["cover_book_id"] == cover.id
 
+    def test_container_reports_has_cover_so_the_client_can_show_folder_art(
+        self, client, admin_headers, monkeypatch
+    ):
+        # A parent container owns no books, so `cover_book_id` is always null for
+        # it and GET /systems/{id}/cover is its only cover source. Without
+        # `has_cover` the favorites page had nothing to render (it showed the
+        # placeholder icon while the library grid showed the cover).
+        container = make_game_system(container_kind="parent")
+        monkeypatch.setattr(
+            "backend.routers.favorites.core.has_cover_file", lambda system: True
+        )
+        client.post(
+            "/api/favorites",
+            json={"item_type": "system", "item_id": container.id},
+            headers=admin_headers,
+        )
+        resp = client.get("/api/favorites", headers=admin_headers)
+        items = [
+            i
+            for i in resp.json()["items"]
+            if i.get("item_type") == "system" and i["item_id"] == container.id
+        ]
+        assert items
+        assert items[0]["has_cover"] is True
+        assert items[0]["container_kind"] == "parent"
+        assert items[0]["cover_book_id"] is None
+
+    def test_ordinary_system_without_art_reports_no_cover(
+        self, client, admin_headers, fav_system
+    ):
+        client.post(
+            "/api/favorites",
+            json={"item_type": "system", "item_id": fav_system.id},
+            headers=admin_headers,
+        )
+        resp = client.get("/api/favorites", headers=admin_headers)
+        items = [
+            i
+            for i in resp.json()["items"]
+            if i.get("item_type") == "system" and i["item_id"] == fav_system.id
+        ]
+        assert items
+        assert items[0]["has_cover"] is False
+        assert items[0]["container_kind"] == ""
+
 
 class TestFavoritesArePersisted:
     def test_added_book_appears_in_list(self, client, gm_headers, fav_book):
