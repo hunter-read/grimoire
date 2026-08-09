@@ -76,7 +76,7 @@ describe('FavoritesView', () => {
     expect(screen.getByText('Core Rules')).toBeInTheDocument()
   })
 
-  it('renders favorited tags as badge buttons that link to the tags page', () => {
+  it('renders favorited tags as badge links that link to the tags page', () => {
     const aTag = {
       item_type: 'tag',
       item_id: 'draw steel',
@@ -85,7 +85,9 @@ describe('FavoritesView', () => {
       count: 4,
     }
     renderWith([aTag])
-    const link = screen.getByRole('button', { name: 'Draw Steel' })
+    // Tags are now real <Link> anchors (not buttons) so middle-click works natively.
+    const link = screen.getByRole('link', { name: 'Draw Steel' })
     expect(link).toBeInTheDocument()
+    expect(link).toHaveAttribute('href', '/tags?tag=draw%20steel')
   })
 })

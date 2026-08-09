@@ -23,7 +23,6 @@ export default function GalleryLayout({
   isPlayer,
   title,
   subtitle,
-  onSelectItem,
   onDownload,
   onAddToCampaign,
   onBulkEdit,
@@ -169,7 +168,6 @@ export default function GalleryLayout({
                 onSetEditingFolder={isPlayer ? () => {} : gallery.setEditingFolder}
                 onSaveFolderTags={isPlayer ? () => {} : gallery.saveFolderTags}
                 canTag={!isPlayer}
-                onSelectItem={onSelectItem}
                 bulkMode={bulkMode}
                 selectedIds={gallery.selectedIds}
                 selectedFolderPaths={gallery.selectedFolderPaths}
@@ -196,7 +194,6 @@ export default function GalleryLayout({
                       key={item.id}
                       config={config}
                       item={item}
-                      onClick={() => onSelectItem(item.id)}
                       bulkMode={bulkMode}
                       selected={gallery.selectedIds?.has(item.id)}
                       onToggle={(mods) => gallery.toggleSelect(item.id, mods)}

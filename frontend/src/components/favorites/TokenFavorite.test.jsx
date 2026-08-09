@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import TokenFavorite from './TokenFavorite'
 
-const navigate = vi.fn()
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
 vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
 vi.mock('../FavoriteButton', () => ({ default: () => <button>fav</button> }))
 
@@ -17,29 +15,38 @@ const item = (over = {}) => ({
   ...over,
 })
 
+function renderToken(props) {
+  return render(
+    <MemoryRouter>
+      <TokenFavorite {...props} />
+    </MemoryRouter>
+  )
+}
+
 describe('TokenFavorite', () => {
-  it('renders the filename in grid mode and navigates on click', async () => {
-    render(<TokenFavorite item={item()} grid />)
+  it('renders the filename in grid mode as a real link', () => {
+    renderToken({ item: item(), grid: true })
     expect(screen.getByText('goblin.png')).toBeInTheDocument()
-    await userEvent.click(screen.getByText('goblin.png'))
-    expect(navigate).toHaveBeenCalledWith('/tokens/t1')
+    // CardLink renders a real anchor; middle-click / ctrl-click works natively.
+    const link = screen.getByRole('link', { name: 'goblin.png' })
+    expect(link).toHaveAttribute('href', '/tokens/t1')
   })
 
-  it('renders in row mode and navigates on click', async () => {
-    render(<TokenFavorite item={item()} grid={false} />)
-    await userEvent.click(screen.getByText('goblin.png'))
-    expect(navigate).toHaveBeenCalledWith('/tokens/t1')
+  it('renders in row mode as a real link', () => {
+    renderToken({ item: item(), grid: false })
+    const link = screen.getByRole('link', { name: 'goblin.png' })
+    expect(link).toHaveAttribute('href', '/tokens/t1')
   })
 
   it('renders the thumbnail (lazy) when has_thumbnail is set', () => {
-    const { container } = render(<TokenFavorite item={item({ has_thumbnail: true })} grid />)
+    const { container } = renderToken({ item: item({ has_thumbnail: true }), grid: true })
     const img = container.querySelector('img')
     expect(img.getAttribute('src')).toContain('/tokens/t1/thumbnail')
     expect(img).toHaveAttribute('loading', 'lazy')
   })
 
   it('falls back to an icon when no thumbnail', () => {
-    const { container } = render(<TokenFavorite item={item()} grid />)
+    const { container } = renderToken({ item: item(), grid: true })
     expect(container.querySelector('img')).toBeNull()
     expect(container.querySelector('svg')).toBeTruthy()
   })

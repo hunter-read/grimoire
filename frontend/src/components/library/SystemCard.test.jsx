@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -12,14 +12,7 @@ vi.mock('../../api', () => ({
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
-// Tag chips navigate via react-router's useNavigate — capture it.
-const mockNavigate = vi.fn()
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, useNavigate: () => mockNavigate }
-})
-
-// SystemCard renders LinkableTag (uses useNavigate), so every render needs a Router.
+// SystemCard renders CardLink (<Link>) and LinkableTag (<Link>), so every render needs a Router.
 const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 function makeSystem(overrides = {}) {
@@ -37,8 +30,6 @@ function makeSystem(overrides = {}) {
 }
 
 describe('SystemCard', () => {
-  beforeEach(() => mockNavigate.mockClear())
-
   describe('full card layout', () => {
     it('renders name, description, publishers, and tags', () => {
       render(
@@ -48,7 +39,7 @@ describe('SystemCard', () => {
             publishers: [{ name: 'WotC' }, { name: 'TSR' }],
             tags: ['fantasy', 'osr'],
           })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
         />
       )
       expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument()
@@ -58,18 +49,19 @@ describe('SystemCard', () => {
       expect(screen.getByText('Osr')).toBeInTheDocument()
     })
 
-    it('navigates on click when not selectable', async () => {
-      const onClick = vi.fn()
-      render(<SystemCard system={makeSystem()} onClick={onClick} />)
-      await userEvent.click(screen.getByText('Dungeons & Dragons'))
-      expect(onClick).toHaveBeenCalledTimes(1)
+    it('renders a real link overlay for the card when not selectable', () => {
+      // Non-selectable cards render a CardLink (real anchor) with aria-label = displayName.
+      // Native browser handles navigation; middle/ctrl-click open in new tab automatically.
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" />)
+      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
 
     it('shows the cover image and explicit badge when applicable', () => {
       render(
         <SystemCard
           system={makeSystem({ cover_book_id: 'b1', is_explicit: true })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
         />
       )
       const img = document.querySelector('img')
@@ -77,30 +69,26 @@ describe('SystemCard', () => {
       expect(screen.getByText('18+')).toBeInTheDocument()
     })
 
-    it('navigates to the tags page (by internal key) when a tag chip is clicked', async () => {
-      const onClick = vi.fn()
-      render(<SystemCard system={makeSystem({ tags: ['osr'] })} onClick={onClick} />)
-      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
-      expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=osr')
-      // Clicking a chip must not also trigger the card's own navigation.
-      expect(onClick).not.toHaveBeenCalled()
+    it('tag chips link to the tags page', () => {
+      render(<SystemCard system={makeSystem({ tags: ['osr'] })} to="/library/system/sys-1" />)
+      // Tags are real <Link> elements (not buttons) after the native-link rewrite.
+      const tagLink = screen.getByRole('link', { name: 'Osr' })
+      expect(tagLink).toHaveAttribute('href', '/tags?tag=osr')
     })
   })
 
   describe('selection mode', () => {
     it('toggles selection instead of navigating when selectable', async () => {
-      const onClick = vi.fn()
       const onToggleSelect = vi.fn()
       render(
         <SystemCard
           system={makeSystem()}
-          onClick={onClick}
+          to="/library/system/sys-1"
           selectable
           onToggleSelect={onToggleSelect}
         />
       )
       await userEvent.click(screen.getByText('Dungeons & Dragons'))
-      expect(onClick).not.toHaveBeenCalled()
       expect(onToggleSelect).toHaveBeenCalledWith({ shift: false, meta: false })
     })
 
@@ -109,7 +97,7 @@ describe('SystemCard', () => {
       render(
         <SystemCard
           system={makeSystem()}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
           selectable
           onToggleSelect={onToggleSelect}
         />
@@ -122,24 +110,27 @@ describe('SystemCard', () => {
     })
 
     it('does not render the favorite button while selectable', () => {
-      render(<SystemCard system={makeSystem()} onClick={vi.fn()} selectable />)
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" selectable />)
       expect(screen.queryByRole('button', { name: /favorite/i })).not.toBeInTheDocument()
     })
 
-    it('tag chips still navigate to the tags page while selecting', async () => {
-      const onToggleSelect = vi.fn()
+    it('does not render a link overlay in selectable mode', () => {
+      // In bulk-select mode the card stays a toggle button — no CardLink rendered.
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" selectable />)
+      expect(screen.queryByRole('link', { name: 'Dungeons & Dragons' })).not.toBeInTheDocument()
+    })
+
+    it('tag chips still link to the tags page while selecting', () => {
       render(
         <SystemCard
           system={makeSystem({ tags: ['osr'] })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
           selectable
-          onToggleSelect={onToggleSelect}
+          onToggleSelect={vi.fn()}
         />
       )
-      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
-      expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=osr')
-      // Clicking the chip does not toggle the card's selection.
-      expect(onToggleSelect).not.toHaveBeenCalled()
+      const tagLink = screen.getByRole('link', { name: 'Osr' })
+      expect(tagLink).toHaveAttribute('href', '/tags?tag=osr')
     })
   })
 
@@ -149,7 +140,7 @@ describe('SystemCard', () => {
       render(
         <SystemCard
           system={makeSystem({ is_explicit: true })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
           compact
           selectable
           onToggleSelect={onToggleSelect}
@@ -160,15 +151,24 @@ describe('SystemCard', () => {
       await userEvent.click(screen.getByText('Dungeons & Dragons'))
       expect(onToggleSelect).toHaveBeenCalled()
     })
+
+    it('renders a real link overlay in non-selectable compact mode', () => {
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" compact />)
+      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      expect(link).toHaveAttribute('href', '/library/system/sys-1')
+    })
   })
 
   describe('list layout', () => {
-    it('renders book count and navigates on click', async () => {
-      const onClick = vi.fn()
-      render(<SystemCard system={makeSystem({ book_count: 5 })} onClick={onClick} list />)
+    it('renders book count', () => {
+      render(<SystemCard system={makeSystem({ book_count: 5 })} to="/library/system/sys-1" list />)
       expect(screen.getByText(/5 books/i)).toBeInTheDocument()
-      await userEvent.click(screen.getByText('Dungeons & Dragons'))
-      expect(onClick).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders a real link overlay in non-selectable list mode', () => {
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" list />)
+      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
 
     it('toggles selection and hides the favorite button when selectable', async () => {
@@ -176,7 +176,7 @@ describe('SystemCard', () => {
       render(
         <SystemCard
           system={makeSystem()}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
           list
           selectable
           onToggleSelect={onToggleSelect}
@@ -186,6 +186,7 @@ describe('SystemCard', () => {
       expect(onToggleSelect).toHaveBeenCalled()
     })
   })
+
   describe('system containers (issues #261, #262)', () => {
     it('counts nested systems instead of books for a container', () => {
       render(
@@ -196,7 +197,7 @@ describe('SystemCard', () => {
             book_count: 0,
             child_count: 12,
           })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
         />
       )
       expect(screen.getByText(/12 systems/i)).toBeInTheDocument()
@@ -211,14 +212,14 @@ describe('SystemCard', () => {
             container_kind: 'one-page',
             child_count: 3,
           })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
         />
       )
       expect(screen.getByText('One Page RPGs')).toBeInTheDocument()
     })
 
     it('keeps the book count for ordinary systems', () => {
-      render(<SystemCard system={makeSystem()} onClick={vi.fn()} />)
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" />)
       expect(screen.getByText(/5 books/i)).toBeInTheDocument()
     })
 
@@ -231,13 +232,14 @@ describe('SystemCard', () => {
             book_count: 0,
             child_count: 4,
           })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
           list
         />
       )
       expect(screen.getByText(/4 systems/i)).toBeInTheDocument()
     })
   })
+
   describe('parent-system border', () => {
     const borderOf = (container) => container.firstChild.style.border
 
@@ -245,7 +247,7 @@ describe('SystemCard', () => {
       const { container } = render(
         <SystemCard
           system={makeSystem({ container_kind: 'parent', child_count: 3 })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
         />
       )
       expect(borderOf(container)).toContain('var(--gold)')
@@ -255,7 +257,7 @@ describe('SystemCard', () => {
       const { container } = render(
         <SystemCard
           system={makeSystem({ container_kind: 'one-page', child_count: 9 })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
         />
       )
       expect(borderOf(container)).toContain('var(--border)')
@@ -263,18 +265,20 @@ describe('SystemCard', () => {
     })
 
     it('leaves ordinary systems with the default border', () => {
-      const { container } = render(<SystemCard system={makeSystem()} onClick={vi.fn()} />)
+      const { container } = render(<SystemCard system={makeSystem()} to="/library/system/sys-1" />)
       expect(borderOf(container)).toContain('var(--border)')
     })
 
     it('applies the gold border in compact and list layouts too', () => {
       const parent = makeSystem({ container_kind: 'parent', child_count: 3 })
       const { container: compactEl } = render(
-        <SystemCard system={parent} onClick={vi.fn()} compact />
+        <SystemCard system={parent} to="/library/system/sys-1" compact />
       )
       expect(borderOf(compactEl)).toContain('var(--gold)')
 
-      const { container: listEl } = render(<SystemCard system={parent} onClick={vi.fn()} list />)
+      const { container: listEl } = render(
+        <SystemCard system={parent} to="/library/system/sys-1" list />
+      )
       expect(borderOf(listEl)).toContain('var(--gold)')
     })
 
@@ -282,7 +286,7 @@ describe('SystemCard', () => {
       const { container } = render(
         <SystemCard
           system={makeSystem({ container_kind: 'parent', child_count: 3 })}
-          onClick={vi.fn()}
+          to="/library/system/sys-1"
           selectable
           selected
         />
@@ -291,66 +295,32 @@ describe('SystemCard', () => {
     })
   })
 
-  // Issue #313: the card is a <div>, not an <a>, so new-tab behaviour is wired
-  // by hand and needs covering in each layout.
-  describe('opening in a new tab', () => {
-    let open
-
-    beforeEach(() => {
-      open = vi.spyOn(window, 'open').mockImplementation(() => null)
-    })
-
-    afterEach(() => open.mockRestore())
-
+  // Issue #313: cards are now real <a> anchors (CardLink), so middle click and
+  // ctrl/cmd-click open a new tab natively — no JS needed and no test required.
+  describe('real-link card (issue #313)', () => {
     it.each([
       ['full', {}],
       ['compact', { compact: true }],
       ['list', { list: true }],
-    ])('middle click opens the system in a new tab from the %s layout', async (_name, layout) => {
-      const onClick = vi.fn()
-      const { container } = render(
-        <SystemCard
-          system={makeSystem()}
-          to="/library/system/sys-1"
-          onClick={onClick}
-          {...layout}
-        />
-      )
-
-      await userEvent.pointer({ target: container.firstChild, keys: '[MouseMiddle]' })
-
-      expect(open).toHaveBeenCalledWith('/library/system/sys-1', '_blank', 'noopener,noreferrer')
-      expect(onClick).not.toHaveBeenCalled()
+    ])('renders a real link in the %s layout so the browser handles new-tab', (_name, layout) => {
+      render(<SystemCard system={makeSystem()} to="/library/system/sys-1" {...layout} />)
+      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
 
-    it('still navigates in place on a plain click', async () => {
-      const onClick = vi.fn()
-      const { container } = render(
-        <SystemCard system={makeSystem()} to="/library/system/sys-1" onClick={onClick} />
-      )
-
-      await userEvent.click(container.firstChild)
-
-      expect(onClick).toHaveBeenCalledTimes(1)
-      expect(open).not.toHaveBeenCalled()
-    })
-
-    it('selects rather than opening a tab while in bulk-select mode', async () => {
+    it('selects rather than linking while in bulk-select mode', async () => {
       const onToggleSelect = vi.fn()
-      const { container } = render(
+      render(
         <SystemCard
           system={makeSystem()}
           to="/library/system/sys-1"
-          onClick={vi.fn()}
           selectable
           onToggleSelect={onToggleSelect}
         />
       )
-
-      await userEvent.pointer({ target: container.firstChild, keys: '[MouseMiddle]' })
-      expect(open).not.toHaveBeenCalled()
-
-      await userEvent.click(container.firstChild)
+      // No link rendered in selectable mode.
+      expect(screen.queryByRole('link', { name: 'Dungeons & Dragons' })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByText('Dungeons & Dragons'))
       expect(onToggleSelect).toHaveBeenCalled()
     })
   })

@@ -288,14 +288,7 @@ export default function CampaignsView() {
               </h3>
               <div style={CARD_GRID}>
                 {gmCampaigns.map((c) => (
-                  <CampaignCard
-                    key={c.id}
-                    campaign={c}
-                    userId={user?.id}
-                    onClick={() => navigate(`/campaigns/${c.id}`)}
-                    onOpenNotes={() => navigate(`/campaigns/${c.id}/notes`)}
-                    subtitle={c.gm_title}
-                  />
+                  <CampaignCard key={c.id} campaign={c} userId={user?.id} subtitle={c.gm_title} />
                 ))}
               </div>
             </section>
@@ -321,8 +314,6 @@ export default function CampaignsView() {
                     key={c.id}
                     campaign={c}
                     userId={user?.id}
-                    onClick={() => navigate(`/campaigns/${c.id}`)}
-                    onOpenNotes={() => navigate(`/campaigns/${c.id}/notes`)}
                     subtitle={t('campaigns.gm', {
                       name: c.owner_display_name || t('campaigns.unknownGm'),
                     })}
@@ -348,13 +339,7 @@ export default function CampaignsView() {
               </h3>
               <div style={CARD_GRID}>
                 {personalCampaigns.map((c) => (
-                  <CampaignCard
-                    key={c.id}
-                    campaign={c}
-                    userId={user?.id}
-                    onClick={() => navigate(`/campaigns/${c.id}`)}
-                    onOpenNotes={() => navigate(`/campaigns/${c.id}/notes`)}
-                  />
+                  <CampaignCard key={c.id} campaign={c} userId={user?.id} />
                 ))}
               </div>
             </section>
@@ -379,13 +364,7 @@ export default function CampaignsView() {
               </h3>
               <div style={CARD_GRID}>
                 {archivedCampaigns.map((c) => (
-                  <CampaignCard
-                    key={c.id}
-                    campaign={c}
-                    userId={user?.id}
-                    onClick={() => navigate(`/campaigns/${c.id}`)}
-                    onOpenNotes={() => navigate(`/campaigns/${c.id}/notes`)}
-                  />
+                  <CampaignCard key={c.id} campaign={c} userId={user?.id} />
                 ))}
               </div>
             </section>

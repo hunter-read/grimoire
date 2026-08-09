@@ -5,12 +5,11 @@ import CategoryBookItem from './CategoryBookItem'
 // BookRow / BookEditor have their own coverage; stub them to keep this focused
 // on CategoryBookItem's wiring (edit toggle, save/close, selection).
 vi.mock('./BookRow', () => ({
-  default: ({ book, editing, onOpen, onEdit, onDetails, onToggle, selected }) => (
+  default: ({ book, editing, onEdit, onDetails, onToggle, selected }) => (
     <div data-testid="book-row">
       <span>{book.title}</span>
       <span data-testid="editing">{String(editing)}</span>
       <span data-testid="selected">{String(selected)}</span>
-      <button onClick={onOpen}>open</button>
       {onEdit && <button onClick={onEdit}>edit</button>}
       {onDetails && <button onClick={onDetails}>details</button>}
       <button onClick={() => onToggle({ shift: true })}>toggle</button>
@@ -49,7 +48,6 @@ function baseProps(overrides = {}) {
     allTags: [],
     existingCategories: [],
     isEditor: true,
-    onOpenBook: vi.fn(),
     onSaveBook: vi.fn(),
     bulkMode: false,
     selectedBookIds: new Set(),
@@ -70,13 +68,6 @@ describe('CategoryBookItem', () => {
     render(<CategoryBookItem {...baseProps({ editingBookId: 'b1' })} />)
     expect(screen.getByTestId('book-editor')).toBeInTheDocument()
     expect(screen.getByTestId('editing')).toHaveTextContent('true')
-  })
-
-  it('opens the book via onOpenBook', () => {
-    const onOpenBook = vi.fn()
-    render(<CategoryBookItem {...baseProps({ onOpenBook })} />)
-    fireEvent.click(screen.getByText('open'))
-    expect(onOpenBook).toHaveBeenCalledWith(book)
   })
 
   it('toggles the editor id when edit is clicked', () => {

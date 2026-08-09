@@ -181,7 +181,7 @@ describe('WikiView visibility editor', () => {
     expect(screen.queryByRole('button', { name: 'Change visibility' })).toBeNull()
   })
 
-  it('tints the page-title icon with the page’s own colour, not its visibility', async () => {
+  it("tints the page-title icon with the page's own colour, not its visibility", async () => {
     // Visibility is carried by its own glyph now; the icon colour is a user
     // choice, so it must be identical across visibility levels.
     for (const visibility of ['gm', 'group', 'members']) {
@@ -277,7 +277,7 @@ describe('WikiView nested tree', () => {
 
     // Drag Beta and drop it above Alpha (top third → "before").
     // "Alpha" also appears as the main-pane heading; the sidebar rows are the
-    // <button> elements inside a draggable wrapper.
+    // draggable wrapper divs containing a link.
     const rowFor = (title) =>
       screen
         .getAllByText(title)
@@ -301,8 +301,6 @@ describe('WikiView nested tree', () => {
     renderView()
     await screen.findByText('Alpha')
 
-    // "Alpha" also appears as the main-pane heading; the sidebar rows are the
-    // <button> elements inside a draggable wrapper.
     const rowFor = (title) =>
       screen
         .getAllByText(title)
@@ -430,6 +428,7 @@ describe('WikiView create / delete / search', () => {
       { ...page, id: 'p2', title: 'Kobolds', slug: 'kobolds' },
     ])
     renderView()
+    // Wait for both sidebar and the auto-opened Dragons pane to render.
     await screen.findByText('Kobolds')
     // The assertion below rests on the auto-opened page having rendered its
     // heading. That lands a tick after the sidebar (the note id round-trips
@@ -446,7 +445,7 @@ describe('WikiView create / delete / search', () => {
     expect(dragonNodes.every((n) => n.tagName === 'H2')).toBe(true)
   })
 
-  it('navigates to a page by clicking its sidebar entry', async () => {
+  it('navigates to a page by clicking its sidebar link', async () => {
     campaigns.listWikiPages.mockResolvedValue([
       { ...page, id: 'p1', title: 'Dragons', slug: 'dragons' },
       { ...page, id: 'p2', title: 'Kobolds', slug: 'kobolds' },
@@ -457,7 +456,8 @@ describe('WikiView create / delete / search', () => {
     renderView()
     await screen.findByText('Kobolds')
     campaigns.getWikiPage.mockClear()
-    fireEvent.click(screen.getByText('Kobolds'))
+    // Sidebar row is a <Link> — clicking it navigates (URL change triggers load).
+    fireEvent.click(screen.getByRole('link', { name: 'Kobolds' }))
     await waitFor(() => expect(campaigns.getWikiPage).toHaveBeenCalledWith('c1', 'p2'))
   })
 })
@@ -509,8 +509,8 @@ describe('WikiView tree row chrome', () => {
     campaigns.getWikiPage.mockResolvedValue({ ...page, id: 'pub', visibility: 'group' })
     renderView()
 
-    const publicTitle = await screen.findByText('Public page')
-    const secretTitle = screen.getByText('Secret page')
+    const publicTitle = await screen.findByRole('link', { name: 'Public page' })
+    const secretTitle = screen.getByRole('link', { name: 'Secret page' })
     const opacityOf = (el) => Number(el.style.opacity || '1')
     expect(opacityOf(secretTitle)).toBeLessThan(1)
     // The selected row keeps full contrast, so compare against an unselected one.
@@ -649,7 +649,8 @@ describe('WikiView sidebar scrolling', () => {
     const tree = screen.getByTestId('wiki-page-tree')
     tree.scrollTop = 120
 
-    fireEvent.click(screen.getByRole('button', { name: 'Goblins' }))
+    // Sidebar row is now a Link; clicking it updates the URL.
+    fireEvent.click(screen.getByRole('link', { name: 'Goblins' }))
     await screen.findByText('Small and mean')
 
     // The scroll container survived the re-render rather than remounting, so
@@ -738,7 +739,8 @@ describe('WikiView resizable sidebar', () => {
     const { container } = renderView()
     await screen.findByText('Dragons')
     dragDivider(300, 400)
-    fireEvent.click(screen.getByRole('button', { name: 'Dragons' }))
+    // Sidebar row is a Link now.
+    fireEvent.click(screen.getByRole('link', { name: 'Dragons' }))
     await screen.findByText('Here be dragons')
     expect(sidebarOf(container).style.flex).toBe('0 0 340px')
   })
@@ -802,9 +804,9 @@ describe('WikiView embed stability across re-renders', () => {
     const title = await screen.findByText("Player's Handbook")
 
     // Hover across the rows, as a user scanning the list would.
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Goblins' }))
-    fireEvent.mouseLeave(screen.getByRole('button', { name: 'Goblins' }))
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Dragons' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'Goblins' }))
+    fireEvent.mouseLeave(screen.getByRole('link', { name: 'Goblins' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'Dragons' }))
 
     // Same element throughout: the card never remounted, so the title never
     // fell back to the generic label.
@@ -817,8 +819,8 @@ describe('WikiView embed stability across re-renders', () => {
     await screen.findByText("Player's Handbook")
     expect(apiGet).toHaveBeenCalledTimes(1)
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Goblins' }))
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Dragons' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'Goblins' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'Dragons' }))
 
     // A remount would re-run the effect and fetch again.
     expect(apiGet).toHaveBeenCalledTimes(1)
@@ -864,7 +866,7 @@ describe('WikiView community note templates', () => {
 
   it('hides Templates from a non-owner, as it writes pages', async () => {
     renderView({ isOwner: false })
-    await screen.findByRole('button', { name: 'Dragons' })
+    await screen.findByRole('link', { name: 'Dragons' })
     expect(screen.queryByRole('button', { name: /Templates/ })).toBeNull()
   })
 
@@ -874,7 +876,7 @@ describe('WikiView community note templates', () => {
         <WikiView campaign={{ ...campaign, is_archived: true }} isOwner />
       </MemoryRouter>
     )
-    await screen.findByRole('button', { name: 'Dragons' })
+    await screen.findByRole('link', { name: 'Dragons' })
     expect(screen.queryByRole('button', { name: /Templates/ })).toBeNull()
   })
 

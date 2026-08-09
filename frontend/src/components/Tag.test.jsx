@@ -1,14 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Tag from './Tag'
-
-const mockNavigate = vi.fn()
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
-  return { ...actual, useNavigate: () => mockNavigate }
-})
 
 const renderTag = (props) =>
   render(
@@ -18,8 +11,6 @@ const renderTag = (props) =>
   )
 
 describe('Tag', () => {
-  beforeEach(() => mockNavigate.mockClear())
-
   it('renders the label text', () => {
     renderTag({ label: 'fantasy' })
     expect(screen.getByText('Fantasy')).toBeInTheDocument()
@@ -49,10 +40,11 @@ describe('Tag', () => {
     expect(el.style.background).toBe('rgb(255, 0, 0)')
   })
 
-  it('navigates to the tags page (by internal key) when a linkable tag is clicked', async () => {
+  // LinkableTag is now a real <Link> — assert the href rather than a navigate spy.
+  it('renders a link to the tags page (by internal key) for a linkable tag', () => {
     renderTag({ label: 'Draw Steel' })
-    await userEvent.click(screen.getByText('Draw Steel'))
-    expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=draw%20steel')
+    const link = screen.getByRole('link', { name: 'Draw Steel' })
+    expect(link).toHaveAttribute('href', '/tags?tag=draw%20steel')
   })
 
   it('renders a non-interactive span when linkable is false', () => {
@@ -61,15 +53,12 @@ describe('Tag', () => {
     expect(el.tagName).toBe('SPAN')
   })
 
-  // Issue #313 — tag chips are <button>s, so new-tab behaviour is wired by hand.
-  it('opens the tags page in a new tab on middle click', async () => {
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+  // Middle-click now opens a new tab natively because the chip is a real <a>.
+  // No JS needed — we just verify the element is an anchor with the right href.
+  it('is a real anchor so middle click opens a new tab natively', () => {
     renderTag({ label: 'Draw Steel' })
-
-    await userEvent.pointer({ target: screen.getByText('Draw Steel'), keys: '[MouseMiddle]' })
-
-    expect(open).toHaveBeenCalledWith('/tags?tag=draw%20steel', '_blank', 'noopener,noreferrer')
-    expect(mockNavigate).not.toHaveBeenCalled()
-    open.mockRestore()
+    const link = screen.getByRole('link', { name: 'Draw Steel' })
+    expect(link.tagName).toBe('A')
+    expect(link).toHaveAttribute('href', '/tags?tag=draw%20steel')
   })
 })

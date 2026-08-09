@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuScroll,
@@ -13,7 +14,7 @@ import { campaigns } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import CampaignRoleBadge from './CampaignRoleBadge'
 import LazyImg from '../LazyImg'
-import useLinkProps, { useNewTabHandler } from '../../hooks/useLinkProps'
+import CardLink from '../CardLink'
 
 function formatSessionDate(dateStr) {
   if (!dateStr) return ''
@@ -24,15 +25,13 @@ function formatSessionDate(dateStr) {
   })
 }
 
-/** A campaign summary card for the campaigns grid. */
-export default function CampaignCard({
-  campaign,
-  onClick,
-  onOpenNotes,
-  userId,
-  badgeLabel,
-  subtitle,
-}) {
+/**
+ * A campaign summary card for the campaigns grid. The card is a real link to
+ * the campaign overview (a CardLink overlay), and the Open Notes button is a
+ * link of its own, so both support middle click / ctrl-click into a new tab
+ * (issue #313).
+ */
+export default function CampaignCard({ campaign, userId, badgeLabel, subtitle }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const acceptedCount =
@@ -43,23 +42,8 @@ export default function CampaignCard({
     ? campaigns.bannerUrl(campaign.id, campaign.updated_at)
     : null
 
-  // The card body and the Open Notes button lead to different pages, so each
-  // gets its own new-tab target (issue #313).
-  const linkProps = useLinkProps(`/campaigns/${campaign.id}/overview`, onClick)
-  const notesNewTab = useNewTabHandler(`/campaigns/${campaign.id}/notes`)
-
   return (
     <div
-      {...linkProps}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onClick()
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open campaign ${campaign.name}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -71,9 +55,16 @@ export default function CampaignCard({
         transform: hovered ? 'translateY(-1px)' : 'none',
         boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.25)' : 'none',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
-      {/* Banner header — 2:1 (wide:tall) aspect ratio */}
+      <CardLink
+        to={`/campaigns/${campaign.id}/overview`}
+        label={`Open campaign ${campaign.name}`}
+      />
+      {/* Banner header — 2:1 (wide:tall) aspect ratio. Positioned (which would
+          paint it above the CardLink overlay), so pointerEvents:'none' lets
+          clicks fall through to the link. */}
       <div
         style={{
           aspectRatio: '2 / 1',
@@ -83,6 +74,7 @@ export default function CampaignCard({
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
+          pointerEvents: 'none',
         }}
       >
         {bannerSrc ? (
@@ -152,9 +144,8 @@ export default function CampaignCard({
           <div
             // Scrollable markdown preview, capped near the banner height so a
             // long description doesn't push the meta row (type/system/schedule)
-            // out of view. Clicks inside don't open the campaign.
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
+            // out of view. Positioned so it sits above the CardLink overlay:
+            // clicks and wheel-scrolling inside don't open the campaign.
             style={{
               fontSize: 13,
               color: 'var(--text-dim)',
@@ -162,6 +153,7 @@ export default function CampaignCard({
               maxHeight: 96,
               overflowY: 'auto',
               marginBottom: 10,
+              position: 'relative',
             }}
           >
             <WikiMarkdown body={campaign.description} />
@@ -214,37 +206,28 @@ export default function CampaignCard({
           </div>
 
           {/* Jump straight to this campaign's notes without opening the overview.
-              Matches the gold "Open Notes" action on the campaign overview page. */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              // Ctrl/cmd-click opens the notes in a new tab instead; the handler
-              // no-ops on a plain click and leaves the normal path alone.
-              if (e.ctrlKey || e.metaKey || e.shiftKey) {
-                notesNewTab(e)
-                return
-              }
-              onOpenNotes()
-            }}
-            onAuxClick={notesNewTab}
+              Matches the gold "Open Notes" action on the campaign overview page.
+              Positioned so it paints above the CardLink overlay. */}
+          <Link
+            to={`/campaigns/${campaign.id}/notes`}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
               padding: '7px 14px',
               background: 'var(--gold)',
-              border: 'none',
               borderRadius: 8,
               color: '#1a1209',
               cursor: 'pointer',
               fontSize: 13,
               fontWeight: 600,
               flexShrink: 0,
+              textDecoration: 'none',
+              position: 'relative',
             }}
           >
             <LuNotebook size={15} aria-hidden="true" /> {t('campaigns.openNotes')}
-          </button>
+          </Link>
         </div>
       </div>
     </div>

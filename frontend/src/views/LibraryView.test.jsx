@@ -290,7 +290,6 @@ describe('LibraryView', () => {
     })
 
     it('clicking a tag on a card navigates to the tags page (issue #235.7)', async () => {
-      mockNavigate.mockClear()
       api.get.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha', tags: ['osr'] }),
         makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
@@ -298,9 +297,10 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
-      // Card tag chips now link to the tags page rather than filtering in place.
-      await userEvent.click(screen.getByRole('button', { name: 'Osr' }))
-      expect(mockNavigate).toHaveBeenCalledWith('/tags?tag=osr')
+      // Card tag chips are now real <Link> anchors to the tags page (not buttons).
+      // Middle-click / ctrl-click opens in a new tab natively — no JS needed.
+      const tagLink = screen.getByRole('link', { name: 'Osr' })
+      expect(tagLink).toHaveAttribute('href', '/tags?tag=osr')
     })
   })
 

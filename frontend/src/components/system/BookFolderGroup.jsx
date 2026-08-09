@@ -47,7 +47,6 @@ export default function BookFolderGroup({
   onToggle,
   editingBookId,
   setEditingBookId,
-  onOpenBook,
   isEditor,
   onSaveBook,
   onDownload,
@@ -90,7 +89,6 @@ export default function BookFolderGroup({
     onToggle,
     editingBookId,
     setEditingBookId,
-    onOpenBook,
     isEditor,
     onSaveBook,
     onDownload,
@@ -222,7 +220,6 @@ export default function BookFolderGroup({
                 book={book}
                 card={card}
                 compact={compact}
-                onOpen={() => onOpenBook(book)}
                 onEdit={
                   isEditor
                     ? () => setEditingBookId((id) => (id === book.id ? null : book.id))

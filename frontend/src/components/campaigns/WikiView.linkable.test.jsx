@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import WikiView from './WikiView'
 
@@ -96,7 +95,8 @@ describe('WikiView linkable notes (issue #313)', () => {
     // Desktop auto-opens the first page, which is itself recorded in the URL.
     await waitFor(() => expect(url()).toContain('note=p1'))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Goblins' }))
+    // Sidebar row is now a real <Link>; clicking it updates the URL.
+    fireEvent.click(screen.getByRole('link', { name: 'Goblins' }))
 
     await waitFor(() => expect(url()).toContain('note=p2'))
     expect(url()).toBe('/campaigns/c1/notes?note=p2')
@@ -137,64 +137,40 @@ describe('WikiView linkable notes (issue #313)', () => {
     )
 
     await waitFor(() => expect(url()).toContain('note=p1'))
-    await userEvent.click(screen.getByRole('button', { name: 'Goblins' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Goblins' }))
     await waitFor(() => expect(url()).toContain('note=p2'))
 
     // Two notes were opened, yet the stack never grew past its starting entry.
     expect(new Set(seenIdx).size).toBe(1)
   })
 
-  describe('opening a note in a new tab', () => {
-    let open
-
-    beforeEach(() => {
-      open = vi.spyOn(window, 'open').mockImplementation(() => null)
-    })
-
-    afterEach(() => open.mockRestore())
-
-    it('middle click on a sidebar row opens that note in a new tab', async () => {
+  // Issue #313 — sidebar rows and backlink chips are real <Link> elements.
+  // Middle click / ctrl-click opens in a new tab natively (no JS needed).
+  describe('real link hrefs for new-tab support', () => {
+    it('sidebar row is a real link with the correct href', async () => {
       renderAt()
       await waitFor(() => expect(url()).toContain('note=p1'))
 
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: 'Goblins' }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).toHaveBeenCalledWith(
-        '/campaigns/c1/notes?note=p2',
-        '_blank',
-        'noopener,noreferrer'
-      )
-      // The current tab stays on the note it was already showing.
-      expect(url()).toBe('/campaigns/c1/notes?note=p1')
+      const link = screen.getByRole('link', { name: 'Goblins' })
+      expect(link.getAttribute('href')).toBe('/campaigns/c1/notes?note=p2')
     })
 
-    it('exposes each sidebar row target as data-href', async () => {
-      renderAt()
-      await waitFor(() => expect(url()).toContain('note=p1'))
-
-      expect(screen.getByRole('button', { name: 'Goblins' })).toHaveAttribute(
-        'data-href',
-        '/campaigns/c1/notes?note=p2'
-      )
-    })
-
-    it('middle click on a backlink chip opens that note in a new tab', async () => {
+    it('backlink chip is a real link with the correct href', async () => {
       campaigns.getWikiPage.mockResolvedValue(
         makePage({ backlinks: [{ id: 'p2', title: 'Goblins' }] })
       )
       renderAt()
 
-      const chip = await screen.findByRole('button', { name: 'Goblins' })
-      await userEvent.pointer({ target: chip, keys: '[MouseMiddle]' })
+      const chip = await screen.findByRole('link', { name: 'Goblins' })
+      expect(chip.getAttribute('href')).toBe('/campaigns/c1/notes?note=p2')
+    })
 
-      expect(open).toHaveBeenCalledWith(
-        '/campaigns/c1/notes?note=p2',
-        '_blank',
-        'noopener,noreferrer'
-      )
+    it('plain click on a sidebar row navigates in place (URL updates)', async () => {
+      renderAt()
+      await waitFor(() => expect(url()).toContain('note=p1'))
+
+      fireEvent.click(screen.getByRole('link', { name: 'Goblins' }))
+      await waitFor(() => expect(url()).toContain('note=p2'))
     })
 
     it('plain click on a backlink chip still opens it in place', async () => {
@@ -205,11 +181,10 @@ describe('WikiView linkable notes (issue #313)', () => {
       )
       renderAt()
 
-      const chip = await screen.findByRole('button', { name: 'Goblins' })
-      await userEvent.click(chip)
+      const chip = await screen.findByRole('link', { name: 'Goblins' })
+      fireEvent.click(chip)
 
       await waitFor(() => expect(url()).toContain('note=p2'))
-      expect(open).not.toHaveBeenCalled()
     })
   })
 })

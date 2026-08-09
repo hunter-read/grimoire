@@ -941,12 +941,14 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     )
   })
 
-  it('navigates into a child system when its card is clicked', async () => {
+  it('child system card is a real link to the system route', async () => {
     api.get.mockResolvedValue(makeContainer())
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
-    await userEvent.click(screen.getByText('Honey Heist'))
-    expect(mockNavigate).toHaveBeenCalledWith('/library/system/c1')
+    // SystemCard now uses a CardLink overlay (real anchor) instead of an onClick
+    // that called navigate(). Middle-click / ctrl-click opens in a new tab natively.
+    const link = screen.getByRole('link', { name: 'Honey Heist' })
+    expect(link).toHaveAttribute('href', '/library/system/c1')
   })
 
   it('navigates back to the library from a container', async () => {

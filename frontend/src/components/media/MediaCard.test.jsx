@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render as rtlRender, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import MediaCard from './MediaCard'
 import { MEDIA_CONFIGS } from './mediaConfig'
@@ -16,6 +17,9 @@ vi.mock('../audio/AudioPlayer', () => ({
     </span>
   ),
 }))
+
+// MediaCard renders CardLink (<Link>) in non-bulk mode, so a Router is required.
+const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 const audioItem = (over = {}) => ({
   id: 'a1',
@@ -42,24 +46,18 @@ const mapItem = (over = {}) => ({
 
 describe('MediaCard — audio', () => {
   it('renders an audio player in grid mode', () => {
-    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} onClick={vi.fn()} />)
+    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} />)
     expect(screen.getByTestId('audio-player')).toHaveTextContent('a1')
     expect(screen.getByText('tavern.mp3')).toBeInTheDocument()
   })
 
   it('renders an audio player with Play Next in list mode', () => {
-    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} onClick={vi.fn()} list />)
+    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} list />)
     expect(screen.getByTestId('audio-player')).toHaveTextContent('a1:next')
   })
 
   it('hides the player for a missing audio file', () => {
-    render(
-      <MediaCard
-        config={MEDIA_CONFIGS.audio}
-        item={audioItem({ is_missing: true })}
-        onClick={vi.fn()}
-      />
-    )
+    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem({ is_missing: true })} />)
     expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument()
   })
 
@@ -68,7 +66,6 @@ describe('MediaCard — audio', () => {
       <MediaCard
         config={MEDIA_CONFIGS.audio}
         item={audioItem({ filename: 'ambience.zip', is_archive: true })}
-        onClick={vi.fn()}
       />
     )
     expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument()
@@ -76,38 +73,40 @@ describe('MediaCard — audio', () => {
 
   it('shows artwork when has_artwork is set', () => {
     const { container } = render(
-      <MediaCard
-        config={MEDIA_CONFIGS.audio}
-        item={audioItem({ has_artwork: true })}
-        onClick={vi.fn()}
-      />
+      <MediaCard config={MEDIA_CONFIGS.audio} item={audioItem({ has_artwork: true })} />
     )
     const img = container.querySelector('img')
     expect(img?.getAttribute('src')).toContain('/audio/a1/artwork')
+  })
+
+  it('renders a real link to the audio detail page', () => {
+    // Non-bulk: CardLink renders an <a> overlay with aria-label = item.filename.
+    // Middle/ctrl-click open a new tab natively (no JS needed).
+    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} />)
+    const link = screen.getByRole('link', { name: 'tavern.mp3' })
+    expect(link).toHaveAttribute('href', '/audio/a1')
   })
 })
 
 describe('MediaCard — map (no audio controls)', () => {
   it('renders no audio player for a map', () => {
-    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} onClick={vi.fn()} />)
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} />)
     expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument()
   })
 
-  it('fires onClick when activated', async () => {
-    const onClick = vi.fn()
-    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} onClick={onClick} />)
-    await userEvent.click(screen.getByText('cave.png'))
-    expect(onClick).toHaveBeenCalled()
+  it('renders a real link to the map detail page', () => {
+    // Non-bulk: CardLink overlay with aria-label = item.filename.
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} />)
+    const link = screen.getByRole('link', { name: 'cave.png' })
+    expect(link).toHaveAttribute('href', '/maps/m1')
   })
 
-  it('toggles selection in bulk mode instead of opening', async () => {
-    const onClick = vi.fn()
+  it('toggles selection in bulk mode instead of linking', async () => {
     const onToggle = vi.fn()
     render(
       <MediaCard
         config={MEDIA_CONFIGS.map}
         item={mapItem()}
-        onClick={onClick}
         bulkMode
         selected={false}
         onToggle={onToggle}
@@ -115,29 +114,19 @@ describe('MediaCard — map (no audio controls)', () => {
     )
     await userEvent.click(screen.getByText('cave.png'))
     expect(onToggle).toHaveBeenCalled()
-    expect(onClick).not.toHaveBeenCalled()
+    // No CardLink in bulk mode.
+    expect(screen.queryByRole('link', { name: 'cave.png' })).not.toBeInTheDocument()
   })
 
   it('renders in list mode with a thumbnail', () => {
     const { container } = render(
-      <MediaCard
-        config={MEDIA_CONFIGS.map}
-        item={mapItem({ has_thumbnail: true })}
-        onClick={vi.fn()}
-        list
-      />
+      <MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ has_thumbnail: true })} list />
     )
     expect(container.querySelector('img')?.getAttribute('src')).toContain('/maps/m1/thumbnail')
   })
 
   it('shows the missing badge for a missing item', () => {
-    render(
-      <MediaCard
-        config={MEDIA_CONFIGS.map}
-        item={mapItem({ is_missing: true })}
-        onClick={vi.fn()}
-      />
-    )
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ is_missing: true })} />)
     expect(screen.getByText(/missing/i)).toBeInTheDocument()
   })
 
@@ -146,7 +135,6 @@ describe('MediaCard — map (no audio controls)', () => {
       <MediaCard
         config={MEDIA_CONFIGS.map}
         item={mapItem({ filename: 'pack.zip', is_archive: true })}
-        onClick={vi.fn()}
       />
     )
     expect(screen.getByText(/archive/i)).toBeInTheDocument()
@@ -157,7 +145,6 @@ describe('MediaCard — map (no audio controls)', () => {
       <MediaCard
         config={MEDIA_CONFIGS.map}
         item={mapItem({ filename: 'pack.zip', is_archive: true })}
-        onClick={vi.fn()}
         bulkMode
         selected={false}
         onToggle={vi.fn()}
@@ -171,74 +158,55 @@ describe('MediaCard — map (no audio controls)', () => {
       <MediaCard
         config={MEDIA_CONFIGS.map}
         item={mapItem({ filename: 'pack.zip', is_archive: true })}
-        onClick={vi.fn()}
         list
       />
     )
     expect(screen.getByText(/archive/i)).toBeInTheDocument()
   })
 
-  it('opens on Enter key', async () => {
-    const onClick = vi.fn()
-    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} onClick={onClick} />)
-    // The focusable card is the role=button element labelled by the filename.
+  it('toggles on Enter key in bulk mode', async () => {
+    const onToggle = vi.fn()
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem()}
+        bulkMode
+        selected={false}
+        onToggle={onToggle}
+      />
+    )
+    // In bulk mode the card renders role=button.
     screen.getByRole('button', { name: 'cave.png' }).focus()
     await userEvent.keyboard('{Enter}')
-    expect(onClick).toHaveBeenCalled()
+    expect(onToggle).toHaveBeenCalled()
   })
 
-  // Issue #313 — the card is a <div>, so new-tab behaviour is wired by hand.
-  describe('opening in a new tab', () => {
-    let open
-
-    beforeEach(() => {
-      open = vi.spyOn(window, 'open').mockImplementation(() => null)
-    })
-
-    afterEach(() => open.mockRestore())
-
+  // Issue #313 — cards are now real <a> anchors, so the browser handles new-tab
+  // natively. Tests verify the correct href; no window.open assertions needed.
+  describe('real link card (issue #313)', () => {
     it.each([
       ['map', 'map', mapItem, '/maps/m1'],
       ['audio', 'audio', audioItem, '/audio/a1'],
-    ])('middle click opens a %s in a new tab', async (_label, key, makeItem, href) => {
-      const onClick = vi.fn()
-      render(<MediaCard config={MEDIA_CONFIGS[key]} item={makeItem()} onClick={onClick} />)
+    ])(
+      'non-bulk %s card has the right href for native new-tab support',
+      (_label, key, makeItem, href) => {
+        render(<MediaCard config={MEDIA_CONFIGS[key]} item={makeItem()} />)
+        const link = screen.getByRole('link', { name: makeItem().filename })
+        expect(link).toHaveAttribute('href', href)
+      }
+    )
 
-      await userEvent.pointer({ target: screen.getAllByRole('button')[0], keys: '[MouseMiddle]' })
-
-      expect(open).toHaveBeenCalledWith(href, '_blank', 'noopener,noreferrer')
-      expect(onClick).not.toHaveBeenCalled()
+    it('list-layout map card has the right href', () => {
+      render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} list />)
+      const link = screen.getByRole('link', { name: 'cave.png' })
+      expect(link).toHaveAttribute('href', '/maps/m1')
     })
 
-    it('opens in a new tab from the list layout too', async () => {
-      render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} onClick={vi.fn()} list />)
-
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: 'cave.png' }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).toHaveBeenCalledWith('/maps/m1', '_blank', 'noopener,noreferrer')
-    })
-
-    it('selects instead of opening a tab in bulk mode', async () => {
+    it('bulk mode renders a button, not a link', () => {
       const onToggle = vi.fn()
-      render(
-        <MediaCard
-          config={MEDIA_CONFIGS.map}
-          item={mapItem()}
-          onClick={vi.fn()}
-          bulkMode
-          onToggle={onToggle}
-        />
-      )
-
-      await userEvent.pointer({
-        target: screen.getByRole('button', { name: 'cave.png' }),
-        keys: '[MouseMiddle]',
-      })
-
-      expect(open).not.toHaveBeenCalled()
+      render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} bulkMode onToggle={onToggle} />)
+      expect(screen.getByRole('button', { name: 'cave.png' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'cave.png' })).not.toBeInTheDocument()
     })
   })
 })

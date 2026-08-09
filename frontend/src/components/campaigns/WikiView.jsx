@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuPlus,
@@ -19,7 +19,6 @@ import {
 import { campaigns } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
-import { isNewTabClick } from '../../hooks/useLinkProps'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
@@ -73,29 +72,15 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     },
     [setSearchParams]
   )
-  // Absolute URL for a note, used by the new-tab paths below. Built from the
-  // notes route rather than the live location so it is correct no matter which
-  // note (if any) is currently open.
+  // URL for a note, used by the note-linking controls below (sidebar rows,
+  // backlink chips), which are real links so middle click / ctrl-click opens a
+  // note in its own tab (issue #313). Built from the notes route rather than
+  // the live location so it is correct no matter which note is currently open.
   const noteHref = useCallback(
     (id) => `/campaigns/${campaign.id}/notes?note=${encodeURIComponent(id)}`,
     [campaign.id]
   )
   const [page, setPage] = useState(null)
-
-  // Open a note from a click on any note-linking control. Middle click and
-  // ctrl/cmd-click open it in a new tab (issue #313); anything else selects it
-  // in place. Returns true when it handled the event as a new-tab open, so
-  // callers can skip their own in-place work.
-  const openNoteFromClick = (e, id) => {
-    if (!isNewTabClick(e)) {
-      setSelectedId(id)
-      return false
-    }
-    e.preventDefault()
-    e.stopPropagation()
-    window.open(noteHref(id), '_blank', 'noopener,noreferrer')
-    return true
-  }
   const [editing, setEditing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createParentId, setCreateParentId] = useState('')
@@ -454,12 +439,6 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     const kids = flat ? [] : (childrenOf[p.id] || []).filter((c) => idSet.has(c.id))
     const hasKids = kids.length > 0
     const isCollapsed = collapsed.has(p.id)
-    // Middle click / ctrl-click opens the note in its own tab (issue #313);
-    // otherwise it opens in place, leaving any in-progress create.
-    const selectPage = (e) => {
-      if (openNoteFromClick(e, p.id)) return
-      setCreating(false)
-    }
     // Reordering only applies in the nested tree, not the flattened search view.
     const canDrag = isOwner && !flat
     const indicator = dropTarget?.id === p.id ? dropTarget.where : null
@@ -560,29 +539,30 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               style={{ flexShrink: 0, color: resolveIconColor(p.icon_color) }}
             />
           )}
-          <button
-            type="button"
-            onClick={selectPage}
-            onAuxClick={selectPage}
-            data-href={noteHref(p.id)}
+          {/* A real link (selecting a note is a `?note=` URL change), so middle
+              click / ctrl-click opens it in a new tab (issue #313). `replace`
+              matches setSelectedId, so browsing notes doesn't pile up history.
+              A plain click also abandons any in-progress create. */}
+          <Link
+            to={noteHref(p.id)}
+            replace
+            onClick={() => setCreating(false)}
             style={{
               flex: 1,
               minWidth: 0,
               textAlign: 'left',
-              background: 'transparent',
-              border: 'none',
               color: 'inherit',
               opacity: restricted && !active ? 0.72 : 1,
               cursor: 'pointer',
               font: 'inherit',
-              padding: 0,
+              textDecoration: 'none',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
           >
             {p.title}
-          </button>
+          </Link>
           {isOwner && (
             <button
               type="button"
@@ -1042,11 +1022,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {page.backlinks.map((b) => (
-                    <button
+                    <Link
                       key={b.id}
-                      onClick={(e) => openNoteFromClick(e, b.id)}
-                      onAuxClick={(e) => openNoteFromClick(e, b.id)}
-                      data-href={noteHref(b.id)}
+                      to={noteHref(b.id)}
+                      replace
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -1058,10 +1037,11 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                         color: 'var(--text-dim)',
                         cursor: 'pointer',
                         fontSize: 12,
+                        textDecoration: 'none',
                       }}
                     >
                       {b.title}
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </div>

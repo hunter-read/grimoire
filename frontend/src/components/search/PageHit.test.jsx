@@ -1,45 +1,50 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import PageHit from './PageHit'
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (k, o) => {
+      if (k === 'common.pagePrefixed') return `p. ${o.page}`
+      return k
+    },
+  }),
+}))
 
 const page = { page_number: 12, snippet: 'the <b>lich</b> waits' }
 
+const renderHit = (props) =>
+  render(
+    <MemoryRouter>
+      <PageHit {...props} />
+    </MemoryRouter>
+  )
+
 describe('PageHit', () => {
-  let open
-
-  beforeEach(() => {
-    open = vi.spyOn(window, 'open').mockImplementation(() => null)
-  })
-
-  afterEach(() => {
-    open.mockRestore()
-  })
-
   it('renders the page number and snippet markup', () => {
-    render(<PageHit bookId="b7" page={page} onOpen={vi.fn()} />)
+    renderHit({ bookId: 'b7', page })
 
     expect(screen.getByText('p. 12')).toBeInTheDocument()
     expect(screen.getByText('lich')).toBeInTheDocument()
   })
 
-  it('opens the page in place on a plain click', async () => {
-    const onOpen = vi.fn()
-    render(<PageHit bookId="b7" page={page} onOpen={onOpen} />)
+  // PageHit is now a real <Link> via CardLink — assert the href rather than an
+  // onOpen spy. Plain click navigates in-place via the router; middle click and
+  // ctrl/cmd-click open a new tab natively.
+  it('renders a link to the reader at the given page', () => {
+    renderHit({ bookId: 'b7', page })
 
-    await userEvent.click(screen.getByText('p. 12'))
-
-    expect(onOpen).toHaveBeenCalledTimes(1)
-    expect(open).not.toHaveBeenCalled()
+    const link = screen.getByRole('link', { name: 'p. 12' })
+    expect(link.getAttribute('href')).toBe('/library/book/b7?page=12')
   })
 
-  it('opens the reader at that page in a new tab on middle click', async () => {
-    const onOpen = vi.fn()
-    render(<PageHit bookId="b7" page={page} onOpen={onOpen} />)
+  // Middle-click opens a new tab natively — no JS needed, just verify the href.
+  it('is a real anchor so middle click opens the reader in a new tab natively', () => {
+    renderHit({ bookId: 'b7', page })
 
-    await userEvent.pointer({ target: screen.getByText('p. 12'), keys: '[MouseMiddle]' })
-
-    expect(open).toHaveBeenCalledWith('/library/book/b7?page=12', '_blank', 'noopener,noreferrer')
-    expect(onOpen).not.toHaveBeenCalled()
+    const link = screen.getByRole('link', { name: 'p. 12' })
+    expect(link.tagName).toBe('A')
+    expect(link.getAttribute('href')).toBe('/library/book/b7?page=12')
   })
 })

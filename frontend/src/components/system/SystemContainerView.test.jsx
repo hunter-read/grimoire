@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render as rtlRender, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import SystemContainerView from './SystemContainerView'
+
+// SystemCard renders CardLink (<Link>) so every render needs a Router.
+const render = (ui, opts) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>, opts)
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -40,7 +44,7 @@ const makeContainer = (over = {}) => ({
 
 describe('SystemContainerView', () => {
   it('prettifies the container name in the heading', () => {
-    render(<SystemContainerView system={makeContainer()} onOpenChild={vi.fn()} onBack={vi.fn()} />)
+    render(<SystemContainerView system={makeContainer()} onBack={vi.fn()} />)
     expect(screen.getByRole('heading', { name: 'One Page RPGs' })).toBeInTheDocument()
   })
 
@@ -50,7 +54,6 @@ describe('SystemContainerView', () => {
         system={makeContainer({
           children: [child(), child({ id: 'c2', name: 'Lasers And Feelings' })],
         })}
-        onOpenChild={vi.fn()}
         onBack={vi.fn()}
       />
     )
@@ -58,8 +61,15 @@ describe('SystemContainerView', () => {
     expect(screen.getByText('Lasers And Feelings')).toBeInTheDocument()
   })
 
+  it('each child card is a real link to the child system route', () => {
+    render(<SystemContainerView system={makeContainer()} onBack={vi.fn()} />)
+    // Child cards use CardLink; navigation is native — no onOpenChild callback needed.
+    const link = screen.getByRole('link', { name: 'Honey Heist' })
+    expect(link).toHaveAttribute('href', '/library/system/c1')
+  })
+
   it('summarises how many systems the collection holds', () => {
-    render(<SystemContainerView system={makeContainer()} onOpenChild={vi.fn()} onBack={vi.fn()} />)
+    render(<SystemContainerView system={makeContainer()} onBack={vi.fn()} />)
     expect(screen.getByText('1 systems in this collection')).toBeInTheDocument()
   })
 
@@ -67,37 +77,21 @@ describe('SystemContainerView', () => {
     render(
       <SystemContainerView
         system={makeContainer({ description: 'My tiny games shelf.' })}
-        onOpenChild={vi.fn()}
         onBack={vi.fn()}
       />
     )
     expect(screen.getByText('My tiny games shelf.')).toBeInTheDocument()
   })
 
-  it('opens a child when its card is clicked', async () => {
-    const onOpenChild = vi.fn()
-    render(
-      <SystemContainerView system={makeContainer()} onOpenChild={onOpenChild} onBack={vi.fn()} />
-    )
-    await userEvent.click(screen.getByText('Honey Heist'))
-    expect(onOpenChild).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1' }))
-  })
-
   it('goes back to the library', async () => {
     const onBack = vi.fn()
-    render(<SystemContainerView system={makeContainer()} onOpenChild={vi.fn()} onBack={onBack} />)
+    render(<SystemContainerView system={makeContainer()} onBack={onBack} />)
     await userEvent.click(screen.getByText('systemDetail.backToLibrary'))
     expect(onBack).toHaveBeenCalled()
   })
 
   it('shows an empty state when the container has no children', () => {
-    render(
-      <SystemContainerView
-        system={makeContainer({ children: [] })}
-        onOpenChild={vi.fn()}
-        onBack={vi.fn()}
-      />
-    )
+    render(<SystemContainerView system={makeContainer({ children: [] })} onBack={vi.fn()} />)
     expect(screen.getByText('systemContainer.empty')).toBeInTheDocument()
   })
 
@@ -110,7 +104,6 @@ describe('SystemContainerView', () => {
           container_kind: 'parent',
           children: [child({ id: 'e1', name: 'Dungeons & Dragons 5e' })],
         })}
-        onOpenChild={vi.fn()}
         onBack={vi.fn()}
       />
     )
@@ -122,7 +115,6 @@ describe('SystemContainerView', () => {
     render(
       <SystemContainerView
         system={makeContainer()}
-        onOpenChild={vi.fn()}
         onBack={vi.fn()}
         headerExtra={<span>toggle-here</span>}
       />
@@ -131,40 +123,23 @@ describe('SystemContainerView', () => {
   })
   describe('cover art', () => {
     it('shows the container cover when it has one', () => {
-      render(
-        <SystemContainerView
-          system={makeContainer({ has_cover: true })}
-          onOpenChild={vi.fn()}
-          onBack={vi.fn()}
-        />
-      )
+      render(<SystemContainerView system={makeContainer({ has_cover: true })} onBack={vi.fn()} />)
       const img = document.querySelector('img')
       expect(img).toHaveAttribute('src', '/systems/container-1/cover')
     })
 
     it('renders no cover image when the container has none', () => {
-      render(
-        <SystemContainerView system={makeContainer()} onOpenChild={vi.fn()} onBack={vi.fn()} />
-      )
+      render(<SystemContainerView system={makeContainer()} onBack={vi.fn()} />)
       expect(document.querySelector('img')).toBeNull()
     })
 
     it('hides the cover control from non-editors', () => {
-      render(
-        <SystemContainerView system={makeContainer()} onOpenChild={vi.fn()} onBack={vi.fn()} />
-      )
+      render(<SystemContainerView system={makeContainer()} onBack={vi.fn()} />)
       expect(screen.queryByText('systemEditor.uploadCover')).not.toBeInTheDocument()
     })
 
     it('lets an editor open the cover uploader', async () => {
-      render(
-        <SystemContainerView
-          system={makeContainer()}
-          canEdit
-          onOpenChild={vi.fn()}
-          onBack={vi.fn()}
-        />
-      )
+      render(<SystemContainerView system={makeContainer()} canEdit onBack={vi.fn()} />)
       await userEvent.click(screen.getByText('systemEditor.uploadCover'))
       expect(screen.getByTestId('cover-upload-input')).toBeInTheDocument()
     })

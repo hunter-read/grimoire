@@ -1,12 +1,12 @@
 import { Fragment, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LuFileQuestion } from 'react-icons/lu'
 import EmbedCard from './EmbedCard'
 import LazyImg from '../LazyImg'
-import { isNewTabClick } from '../../hooks/useLinkProps'
+import { isModifiedClick } from '../CardLink'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
 
@@ -117,7 +117,6 @@ export default function WikiMarkdown({
   currentPageId = null,
   onOpenPage,
 }) {
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const segments = useMemo(() => splitSecrets(body), [body])
 
@@ -131,29 +130,16 @@ export default function WikiMarkdown({
   }, [])
 
   const openLink = useCallback(
-    (rawTarget, e) => {
+    (rawTarget) => {
       const link = parseTarget(rawTarget)
       const target = resolvePage(link, pages)
-      // Notes are URL-addressable (`?note=`), so a resolvable [[link]] can open
-      // in its own tab on middle click / ctrl-click like any other link (#313).
-      // An unresolved target has no URL to open, so it falls through.
-      if (target && campaignId && isNewTabClick(e)) {
-        e.preventDefault()
-        e.stopPropagation()
-        window.open(
-          `/campaigns/${campaignId}/notes?note=${encodeURIComponent(target.id)}`,
-          '_blank',
-          'noopener,noreferrer'
-        )
-        return
-      }
       if (target && target.id === currentPageId && link.heading) {
         scrollToHeading(link.heading)
         return
       }
       onOpenPage?.(target, link.heading, link)
     },
-    [pages, currentPageId, onOpenPage, scrollToHeading, campaignId]
+    [pages, currentPageId, onOpenPage, scrollToHeading]
   )
 
   const components = useMemo(
@@ -188,11 +174,40 @@ export default function WikiMarkdown({
           const target = resolvePage(link, pages)
           // A pinned link whose page is gone is broken; so is an unknown title.
           const exists = !!target
+          // Notes are URL-addressable (`?note=`), so a resolvable [[link]] is a
+          // real link: middle click / ctrl-click opens it in a new tab (#313).
+          // A plain click still goes through openLink, which knows how to
+          // scroll to a same-page heading instead of navigating.
+          if (exists && campaignId) {
+            return (
+              <Link
+                to={`/campaigns/${campaignId}/notes?note=${encodeURIComponent(target.id)}`}
+                onClick={(e) => {
+                  if (isModifiedClick(e)) return
+                  e.preventDefault()
+                  openLink(rawTarget)
+                }}
+                title={
+                  link.heading ? t('wiki.headingLinkHint', { heading: link.heading }) : undefined
+                }
+                style={{
+                  font: 'inherit',
+                  cursor: 'pointer',
+                  color: 'var(--gold)',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid var(--gold-dim, var(--gold))',
+                }}
+              >
+                {children}
+              </Link>
+            )
+          }
+          // An unresolved target has no URL; it stays a button (a plain click
+          // can still auto-create an unpinned page on save).
           return (
             <button
               type="button"
-              onClick={(e) => openLink(rawTarget, e)}
-              onAuxClick={(e) => openLink(rawTarget, e)}
+              onClick={() => openLink(rawTarget)}
               title={
                 exists
                   ? link.heading
@@ -220,13 +235,7 @@ export default function WikiMarkdown({
           )
         }
         if (href?.startsWith('grimoire-embed:')) {
-          return (
-            <EmbedCard
-              spec={href.slice('grimoire-embed:'.length)}
-              campaignId={campaignId}
-              onNavigate={navigate}
-            />
-          )
+          return <EmbedCard spec={href.slice('grimoire-embed:'.length)} campaignId={campaignId} />
         }
         // Ordinary external/internal links.
         const external = href && /^https?:\/\//.test(href)
@@ -313,7 +322,7 @@ export default function WikiMarkdown({
         )
       },
     }),
-    [pages, openLink, navigate, t, campaignId]
+    [pages, openLink, t, campaignId]
   )
 
   if (!body?.trim()) {

@@ -1,17 +1,18 @@
 import { useTranslation } from 'react-i18next'
-import useLinkProps from '../../hooks/useLinkProps'
+import { useLocation } from 'react-router-dom'
+import CardLink from '../CardLink'
 
 /**
- * One full-text page hit in the in-system search results. Behaves like a link:
- * a plain click opens the reader at that page, middle click and ctrl/cmd-click
- * open it in a new tab (issue #313).
+ * One full-text page hit in the in-system search results. A real link: a plain
+ * click opens the reader at that page, middle click and ctrl/cmd-click open it
+ * in a new tab (issue #313). The current location rides along as `from` state
+ * so the reader's back button returns here.
  */
-export default function SystemPageHit({ result, onOpen }) {
+export default function SystemPageHit({ result }) {
   const { t } = useTranslation()
-  const linkProps = useLinkProps(`/library/book/${result.id}?page=${result.page_number}`, onOpen)
+  const location = useLocation()
   return (
     <div
-      {...linkProps}
       style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border)',
@@ -19,10 +20,16 @@ export default function SystemPageHit({ result, onOpen }) {
         padding: 14,
         marginBottom: 8,
         cursor: 'pointer',
+        position: 'relative',
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
     >
+      <CardLink
+        to={`/library/book/${result.id}?page=${result.page_number}`}
+        state={{ from: location.pathname }}
+        label={`${result.title} — ${t('common.pagePrefixed', { page: result.page_number })}`}
+      />
       <div
         style={{
           display: 'flex',

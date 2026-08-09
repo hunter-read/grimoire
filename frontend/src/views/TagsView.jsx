@@ -432,11 +432,7 @@ export default function TagsView() {
                               >
                                 <LuHeart size={13} fill={fav ? 'var(--gold)' : 'none'} />
                               </button>
-                              <TagListButton
-                                tag={tg}
-                                active={tg.internal === activeTag}
-                                onSelect={selectTag}
-                              />
+                              <TagListButton tag={tg} active={tg.internal === activeTag} />
                             </div>
                           )
                         })}
