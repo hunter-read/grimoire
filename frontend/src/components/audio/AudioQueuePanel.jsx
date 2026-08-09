@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuMusic, LuVolume2, LuGripVertical } from 'react-icons/lu'
+import { LuX, LuMusic, LuGripVertical } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import LazyImg from '../LazyImg'
+import NowPlayingIndicator from './NowPlayingIndicator'
 
 /**
  * The expandable "upcoming tracks" list shown above the global player bar.
@@ -13,7 +14,7 @@ import LazyImg from '../LazyImg'
  */
 export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
   const { t } = useTranslation()
-  const { queue, currentIndex, jumpTo, removeAt, moveTrack } = useAudioPlayer()
+  const { queue, currentIndex, isPlaying, jumpTo, removeAt, moveTrack } = useAudioPlayer()
 
   const dragFrom = useRef(null)
   const [dragOver, setDragOver] = useState(null)
@@ -172,7 +173,7 @@ export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
                     </span>
                   )}
                 </span>
-                {isCurrent && <LuVolume2 size={14} color="var(--gold)" style={{ flexShrink: 0 }} />}
+                {isCurrent && <NowPlayingIndicator playing={isPlaying} size={14} />}
               </button>
               <button
                 type="button"

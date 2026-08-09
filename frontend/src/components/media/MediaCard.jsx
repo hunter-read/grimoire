@@ -6,8 +6,10 @@ import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
 import AudioPlayer from '../audio/AudioPlayer'
+import NowPlayingIndicator from '../audio/NowPlayingIndicator'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
+import { useAudioPlayer } from '../../context/AudioPlayerContext'
 
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
@@ -25,6 +27,7 @@ const CORNER_POS = {
 export default function MediaCard({ config, item, bulkMode, selected, onToggle, list }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
+  const { isCurrent, isPlayingId } = useAudioPlayer()
   const Icon = config.icon
 
   // Outside bulk mode the card is a real link (a CardLink overlay), so middle
@@ -62,17 +65,28 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
     ? { id: item.id, title: item.title || item.filename, artwork: item.has_artwork }
     : null
 
+  // "Active" (this is the loaded track — keeps the row findable even when
+  // paused) is a separate signal from "playing" (drives the animation). Gated on
+  // audio so map/token rows are untouched.
+  const isActiveTrack = isAudio && isCurrent(item.id)
+  const isPlayingTrack = isAudio && isPlayingId(item.id)
+
   if (list) {
     return (
       <div
         {...buttonProps}
+        aria-current={isActiveTrack ? 'true' : undefined}
+        data-now-playing={isActiveTrack ? 'true' : undefined}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 16,
           padding: '10px 14px',
-          background: selected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-          border: selected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
+          background: selected || isActiveTrack ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+          border:
+            selected || isActiveTrack ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
+          // Left accent bar — a second, non-color-dependent cue for the active row.
+          borderLeft: isActiveTrack ? '3px solid var(--gold)' : undefined,
           borderRadius: 8,
           cursor: bulkMode ? 'default' : 'pointer',
           transition: 'border-color 0.15s',
@@ -127,6 +141,8 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              color: isActiveTrack ? 'var(--gold)' : undefined,
+              fontWeight: isActiveTrack ? 600 : undefined,
             }}
           >
             {item.filename}
@@ -142,6 +158,11 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             }}
           >
             <span>{formatSize(item.file_size)}</span>
+            {isActiveTrack && (
+              <span style={{ color: 'var(--gold)' }}>
+                {t(isPlayingTrack ? 'audio.nowPlaying' : 'audio.nowPlayingPaused')}
+              </span>
+            )}
             {activeBadges.map((b) => (
               <span key={b.flag} style={{ color: b.inlineColor }}>
                 {t(b.labelKey || `${config.i18n}.${b.label}`)}
@@ -160,6 +181,13 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               position: 'relative',
             }}
           >
+            {/* The row's metadata line already announces the state as text, so
+                the bars are decorative here. */}
+            {isActiveTrack && (
+              <span aria-hidden="true" style={{ display: 'inline-flex', marginRight: 4 }}>
+                <NowPlayingIndicator playing={isPlayingTrack} size={14} />
+              </span>
+            )}
             {isAudio && !item.is_missing && <AudioPlayer track={track} showPlayNext size={30} />}
             <DownloadButton
               type={config.downloadType}

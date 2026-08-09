@@ -12,7 +12,20 @@ vi.mock('../audio/AudioPlayer', () => ({
   default: ({ track }) => <span data-testid="audio-player">{track?.id}</span>,
 }))
 
-beforeEach(() => vi.clearAllMocks())
+let currentId = null
+let playingId = null
+vi.mock('../../context/AudioPlayerContext', () => ({
+  useAudioPlayer: () => ({
+    isCurrent: (id) => id === currentId,
+    isPlayingId: (id) => id === playingId,
+  }),
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  currentId = null
+  playingId = null
+})
 
 const resource = (over = {}) => ({
   id: 'r1',
@@ -133,5 +146,47 @@ describe('ResourceRow — other types', () => {
     )
     // The visibility text label is shown instead of editor controls.
     expect(screen.getByText(/public/i)).toBeInTheDocument()
+  })
+})
+
+describe('ResourceRow — now playing', () => {
+  // The row's title is a real <Link>, so it needs a router context.
+  const renderRow = (over) =>
+    render(
+      <MemoryRouter>
+        <ResourceRow {...baseProps()} resource={resource(over)} />
+      </MemoryRouter>
+    )
+
+  it('shows an animated indicator for the playing resource', () => {
+    currentId = 'a1'
+    playingId = 'a1'
+    renderRow()
+    expect(screen.getByRole('img', { name: 'Now playing' })).toBeInTheDocument()
+  })
+
+  it('reports a current-but-paused resource as paused', () => {
+    currentId = 'a1'
+    playingId = null
+    renderRow()
+    expect(screen.getByRole('img', { name: 'Current track, paused' })).toBeInTheDocument()
+  })
+
+  it('shows no indicator for a resource that is not the current track', () => {
+    currentId = 'other'
+    playingId = 'other'
+    renderRow()
+    expect(screen.queryByRole('img', { name: /now playing|paused/i })).not.toBeInTheDocument()
+  })
+
+  it('does not mark a non-audio resource sharing the current track id', () => {
+    currentId = 'a1'
+    playingId = 'a1'
+    render(
+      <MemoryRouter>
+        <ResourceRow {...baseProps()} resource={resource({ resource_type: 'book' })} />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole('img', { name: /now playing|paused/i })).not.toBeInTheDocument()
   })
 })
