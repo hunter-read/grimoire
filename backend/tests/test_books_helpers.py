@@ -5,6 +5,7 @@ best-effort close of an evicted document), the book-info memo cache, and the
 explicit-content permission lookup.
 """
 import os
+import threading
 import uuid
 from unittest.mock import MagicMock
 
@@ -117,3 +118,101 @@ class TestAllowExplicit:
             assert _helpers._allow_explicit(db, blocked) is False
         finally:
             db.close()
+
+
+class TestPageRenderReclaim:
+    """The render-memory reclaim counter (issue: reader memory growth).
+
+    MuPDF is a C library, so the memory a render leaves behind is invisible to
+    Python's GC and isn't freed by closing the document. These tests cover the
+    interval bookkeeping and the guards around the two native calls; the actual
+    RSS reduction is a property of MuPDF/glibc and isn't asserted here.
+    """
+
+    def setup_method(self):
+        _helpers._render_count = 0
+
+    def test_reclaims_on_the_configured_interval(self, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_RECLAIM_INTERVAL", 3)
+        calls = []
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", lambda: calls.append(1))
+        results = [_helpers.note_page_render() for _ in range(3)]
+        assert results == [False, False, True]
+        assert len(calls) == 1
+
+    def test_counter_resets_after_each_reclaim(self, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_RECLAIM_INTERVAL", 2)
+        calls = []
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", lambda: calls.append(1))
+        for _ in range(6):
+            _helpers.note_page_render()
+        assert len(calls) == 3
+
+    def test_zero_interval_disables_reclaim(self, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_RECLAIM_INTERVAL", 0)
+        calls = []
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", lambda: calls.append(1))
+        assert _helpers.note_page_render() is False
+        assert calls == []
+
+    def test_counter_is_threadsafe(self, monkeypatch):
+        # Page handlers are sync defs run across the threadpool, so the counter
+        # is shared. Every render must be accounted for exactly once.
+        monkeypatch.setattr(_helpers, "PAGE_RECLAIM_INTERVAL", 10)
+        calls = []
+        lock = threading.Lock()
+
+        def _record():
+            with lock:
+                calls.append(1)
+
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", _record)
+        threads = [
+            threading.Thread(target=lambda: [_helpers.note_page_render() for _ in range(20)])
+            for _ in range(5)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        # 5 threads x 20 renders = 100 renders / interval 10 = exactly 10 reclaims.
+        assert len(calls) == 10
+
+    def test_reclaim_survives_missing_store_shrink(self, monkeypatch):
+        # store_shrink availability varies by PyMuPDF build; a failure must not
+        # propagate into the request that triggered it.
+        def _boom(_):
+            raise RuntimeError("no store_shrink in this build")
+
+        monkeypatch.setattr(fitz.TOOLS, "store_shrink", _boom)
+        monkeypatch.setattr(_helpers, "_malloc_trim", None)
+        _helpers._reclaim_render_memory()  # must not raise
+
+    def test_reclaim_survives_malloc_trim_failure(self, monkeypatch):
+        def _boom(_):
+            raise OSError("trim failed")
+
+        monkeypatch.setattr(_helpers, "_malloc_trim", _boom)
+        _helpers._reclaim_render_memory()  # must not raise
+
+    def test_calls_both_native_reclaims_when_available(self, monkeypatch):
+        seen = []
+        monkeypatch.setattr(fitz.TOOLS, "store_shrink", lambda pct: seen.append(("shrink", pct)))
+        monkeypatch.setattr(_helpers, "_malloc_trim", lambda n: seen.append(("trim", n)))
+        _helpers._reclaim_render_memory()
+        # Order matters: free MuPDF's store first, then return the arenas.
+        assert seen == [("shrink", 100), ("trim", 0)]
+
+    def test_malloc_trim_absent_off_linux(self, monkeypatch):
+        monkeypatch.setattr(_helpers.platform, "system", lambda: "Darwin")
+        assert _helpers._resolve_malloc_trim() is None
+
+    def test_malloc_trim_absent_without_glibc(self, monkeypatch):
+        # musl (Alpine) has no libc.so.6 to load.
+        monkeypatch.setattr(_helpers.platform, "system", lambda: "Linux")
+
+        def _no_libc(_name):
+            raise OSError("not found")
+
+        monkeypatch.setattr(_helpers.ctypes, "CDLL", _no_libc)
+        assert _helpers._resolve_malloc_trim() is None
