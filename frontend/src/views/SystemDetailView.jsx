@@ -91,7 +91,12 @@ export default function SystemDetailView() {
     { restore: restoreView }
   )
   const [defaultApplied, setDefaultApplied] = useState(restoreView)
+  // Two independent view modes: the book list below uses the "book" preference,
+  // while a container system's child-system grid uses the "system" one — the same
+  // setting the main library grid uses (issue #296). Sharing one mode made
+  // changing the system layout silently restyle every book list.
   const [viewMode, cycleViewMode] = useViewMode('book')
+  const [systemViewMode, cycleSystemViewMode] = useViewMode('system')
   const [searchQuery, setSearchQuery] = useSessionState(
     `grimoire:system:${systemId}:search-query`,
     '',
@@ -197,12 +202,12 @@ export default function SystemDetailView() {
       <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
         <SystemContainerView
           system={system}
-          viewMode={viewMode}
+          viewMode={systemViewMode}
           canEdit={isEditor}
           onBack={() => navigate('/library')}
           onOpenChild={(child) => navigate(`/library/system/${child.id}`)}
           onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
-          headerExtra={<ViewModeToggle mode={viewMode} onCycle={cycleViewMode} />}
+          headerExtra={<ViewModeToggle mode={systemViewMode} onCycle={cycleSystemViewMode} />}
         />
       </div>
     )
