@@ -67,6 +67,41 @@ describe('GrimoireEmbedPicker', () => {
     expect(onInsert).toHaveBeenCalledWith('[[book:b1:42]]')
   })
 
+  it('focuses the page input as soon as "at page" is clicked', async () => {
+    campaigns.listResources.mockResolvedValue([
+      { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
+    ])
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => screen.getByText('PHB'))
+    await userEvent.click(screen.getByRole('button', { name: /at page/i }))
+    expect(screen.getByPlaceholderText(/page/i)).toHaveFocus()
+  })
+
+  it('inserts the book embed when Enter is pressed in the page input', async () => {
+    campaigns.listResources.mockResolvedValue([
+      { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
+    ])
+    const onInsert = vi.fn()
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={onInsert} onClose={vi.fn()} />)
+    await waitFor(() => screen.getByText('PHB'))
+    await userEvent.click(screen.getByRole('button', { name: /at page/i }))
+    // The input is already focused, so typing goes straight to it.
+    await userEvent.keyboard('42{Enter}')
+    expect(onInsert).toHaveBeenCalledWith('[[book:b1:42]]')
+  })
+
+  it('inserts without a page when Enter is pressed on an empty page input', async () => {
+    campaigns.listResources.mockResolvedValue([
+      { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
+    ])
+    const onInsert = vi.fn()
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={onInsert} onClose={vi.fn()} />)
+    await waitFor(() => screen.getByText('PHB'))
+    await userEvent.click(screen.getByRole('button', { name: /at page/i }))
+    await userEvent.keyboard('{Enter}')
+    expect(onInsert).toHaveBeenCalledWith('[[book:b1]]')
+  })
+
   it('opens the image upload panel', async () => {
     campaigns.listResources.mockResolvedValue([])
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
