@@ -1,17 +1,24 @@
+# Patterns are matched against the whole path, so a bare `__pycache__` only
+# excludes a root-level one. Anything that can appear at any depth needs `**/`.
 .git
 .gitignore
 library/
 data/
-*.md
+**/*.md
 LICENSE
 .env
-__pycache__
-*.pyc
+**/__pycache__
+**/*.pyc
 .vscode
 .idea
 frontend/node_modules
 frontend/dist
+frontend/coverage
 backend/tests
-.pytest_cache
+**/.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+coverage.json
 pytest.ini
 requirements-test.txt
