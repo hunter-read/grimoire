@@ -10,15 +10,17 @@ const removeAt = vi.fn()
 const moveTrack = vi.fn()
 let queue = []
 let currentIndex = 0
+let isPlaying = true
 
 vi.mock('../../context/AudioPlayerContext', () => ({
-  useAudioPlayer: () => ({ queue, currentIndex, jumpTo, removeAt, moveTrack }),
+  useAudioPlayer: () => ({ queue, currentIndex, isPlaying, jumpTo, removeAt, moveTrack }),
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
   queue = []
   currentIndex = 0
+  isPlaying = true
 })
 
 describe('AudioQueuePanel', () => {
@@ -98,5 +100,32 @@ describe('AudioQueuePanel', () => {
     fireEvent.dragOver(ownRow)
     fireEvent.drop(ownRow)
     expect(moveTrack).not.toHaveBeenCalled()
+  })
+})
+
+describe('AudioQueuePanel — now playing indicator', () => {
+  const twoTracks = () => [
+    { id: 'a', title: 'First' },
+    { id: 'b', title: 'Second' },
+  ]
+
+  it('marks only the current row', () => {
+    queue = twoTracks()
+    currentIndex = 1
+    render(<AudioQueuePanel />)
+    expect(screen.getAllByRole('img', { name: /now playing|paused/i })).toHaveLength(1)
+  })
+
+  it('animates while playing and freezes when paused', () => {
+    queue = twoTracks()
+    currentIndex = 0
+    const { container, rerender } = render(<AudioQueuePanel />)
+    expect(screen.getByRole('img', { name: 'Now playing' })).toBeInTheDocument()
+    expect(container.querySelectorAll('.grimoire-eq-bar')).toHaveLength(3)
+
+    isPlaying = false
+    rerender(<AudioQueuePanel />)
+    expect(screen.getByRole('img', { name: 'Current track, paused' })).toBeInTheDocument()
+    expect(container.querySelectorAll('.grimoire-eq-bar')).toHaveLength(0)
   })
 })

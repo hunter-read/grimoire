@@ -17,6 +17,15 @@ vi.mock('../audio/AudioPlayer', () => ({
   ),
 }))
 
+let currentId = null
+let playingId = null
+vi.mock('../../context/AudioPlayerContext', () => ({
+  useAudioPlayer: () => ({
+    isCurrent: (id) => id === currentId,
+    isPlayingId: (id) => id === playingId,
+  }),
+}))
+
 const audioItem = (over = {}) => ({
   id: 'a1',
   filename: 'tavern.mp3',
@@ -240,5 +249,63 @@ describe('MediaCard — map (no audio controls)', () => {
 
       expect(open).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('MediaCard — now playing (audio list rows)', () => {
+  beforeEach(() => {
+    currentId = null
+    playingId = null
+  })
+
+  const renderRow = (over) =>
+    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem(over)} onClick={vi.fn()} list />)
+
+  const row = () => screen.getByRole('button', { name: 'tavern.mp3' })
+
+  it('leaves an unrelated row unmarked', () => {
+    currentId = 'other'
+    playingId = 'other'
+    renderRow()
+    expect(row()).not.toHaveAttribute('aria-current')
+    expect(screen.queryByText('Now playing')).not.toBeInTheDocument()
+  })
+
+  it('marks the active row with aria-current and an accent bar', () => {
+    currentId = 'a1'
+    playingId = 'a1'
+    renderRow()
+    expect(row()).toHaveAttribute('aria-current', 'true')
+    expect(row().style.borderLeft).toBe('3px solid var(--gold)')
+  })
+
+  it('states the playing status as text, not colour alone', () => {
+    currentId = 'a1'
+    playingId = 'a1'
+    renderRow()
+    expect(screen.getByText('Now playing')).toBeInTheDocument()
+  })
+
+  it('keeps a current-but-paused row marked but reports it as paused', () => {
+    currentId = 'a1'
+    playingId = null
+    renderRow()
+    expect(row()).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByText('Current track, paused')).toBeInTheDocument()
+    expect(screen.queryByText('Now playing')).not.toBeInTheDocument()
+  })
+
+  it('does not mark non-audio rows that share an id with the current track', () => {
+    currentId = 'm1'
+    playingId = 'm1'
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} onClick={vi.fn()} list />)
+    expect(screen.getByRole('button', { name: 'cave.png' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('does not mark an audio archive row', () => {
+    currentId = 'a1'
+    playingId = 'a1'
+    renderRow({ is_archive: true })
+    expect(row()).not.toHaveAttribute('aria-current')
   })
 })

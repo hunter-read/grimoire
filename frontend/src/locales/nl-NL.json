@@ -1552,6 +1552,9 @@
     "missing": "Ontbreekt",
     "play": "Afspelen",
     "pause": "Pauzeren",
+    "nowPlaying": "Wordt nu afgespeeld",
+    "nowPlayingPaused": "Huidige track, gepauzeerd",
+    "jumpToNowPlaying": "Ga naar wat nu speelt",
     "detail": {
       "title": "Trackdetails",
       "back": "Terug naar audio",

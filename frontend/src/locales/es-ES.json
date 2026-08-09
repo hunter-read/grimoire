@@ -1552,6 +1552,9 @@
     "missing": "Ausente",
     "play": "Reproducir",
     "pause": "Pausar",
+    "nowPlaying": "Reproduciendo ahora",
+    "nowPlayingPaused": "Pista actual, en pausa",
+    "jumpToNowPlaying": "Ir a la reproducción actual",
     "detail": {
       "title": "Detalles de la pista",
       "back": "Volver al audio",
