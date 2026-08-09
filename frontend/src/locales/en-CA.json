@@ -1552,6 +1552,9 @@
     "missing": "Missing",
     "play": "Play",
     "pause": "Pause",
+    "nowPlaying": "Now playing",
+    "nowPlayingPaused": "Current track, paused",
+    "jumpToNowPlaying": "Jump to now playing",
     "detail": {
       "title": "Track Details",
       "back": "Back to audio",

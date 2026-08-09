@@ -1552,6 +1552,9 @@
     "missing": "Fehlend",
     "play": "Abspielen",
     "pause": "Pause",
+    "nowPlaying": "Wird abgespielt",
+    "nowPlayingPaused": "Aktueller Titel, pausiert",
+    "jumpToNowPlaying": "Zur aktuellen Wiedergabe springen",
     "detail": {
       "title": "Titeldetails",
       "back": "Zurück zu Audio",

@@ -5,8 +5,10 @@ import { LuBookOpen, LuTrash2, LuChevronRight } from 'react-icons/lu'
 import { campaigns, mediaUrl } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
+import NowPlayingIndicator from '../audio/NowPlayingIndicator'
 import LazyImg from '../LazyImg'
 import useLinkProps from '../../hooks/useLinkProps'
+import { useAudioPlayer } from '../../context/AudioPlayerContext'
 
 /** A single linked campaign resource with owner controls (visibility, category, share). */
 export default function ResourceRow({
@@ -25,11 +27,15 @@ export default function ResourceRow({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
+  const { isCurrent, isPlayingId } = useAudioPlayer()
   const { Icon } = TYPE_ICONS[resource.resource_type] || { Icon: LuBookOpen }
   const isBook = resource.resource_type === 'book'
   const isFile = resource.resource_type === 'file'
   const isAudio = resource.resource_type === 'audio'
   const isImage = isFile && resource.is_image
+
+  const isActiveTrack = isAudio && isCurrent(resource.resource_id)
+  const isPlayingTrack = isAudio && isPlayingId(resource.resource_id)
 
   // Audio serves folder/embedded artwork from its own endpoint; other media use
   // the standard /<collection>/:id/thumbnail route.
@@ -69,13 +75,15 @@ export default function ResourceRow({
       onDragStart={(e) => onDragStart?.(e, resource)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      aria-current={isActiveTrack ? 'true' : undefined}
       style={{
         display: 'flex',
         alignItems: 'stretch',
         gap: 10,
         padding: '10px 12px',
-        background: hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-        border: '1px solid var(--border)',
+        background: hovered || isActiveTrack ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+        border: isActiveTrack ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
+        borderLeft: isActiveTrack ? '3px solid var(--gold)' : undefined,
         borderRadius: 8,
         transition: 'background 0.15s',
         marginBottom: 6,
@@ -125,7 +133,8 @@ export default function ResourceRow({
             style={{
               flex: 1,
               fontSize: 15,
-              fontWeight: 500,
+              fontWeight: isActiveTrack ? 600 : 500,
+              color: isActiveTrack ? 'var(--gold)' : undefined,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -248,6 +257,8 @@ export default function ResourceRow({
           role="presentation"
           style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
         >
+          {/* No text state line in this row, so the indicator keeps its label. */}
+          {isActiveTrack && <NowPlayingIndicator playing={isPlayingTrack} size={14} />}
           <AudioPlayer
             track={{
               id: resource.resource_id,

@@ -8,6 +8,8 @@ const playNext = vi.fn()
 const togglePlay = vi.fn()
 let isCurrentReturn = false
 let isPlayingReturn = false
+let currentTimeReturn = 0
+let durationReturn = 0
 
 vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({
@@ -16,6 +18,8 @@ vi.mock('../../context/AudioPlayerContext', () => ({
     togglePlay,
     isCurrent: () => isCurrentReturn,
     isPlayingId: () => isPlayingReturn,
+    currentTime: currentTimeReturn,
+    duration: durationReturn,
   }),
 }))
 
@@ -24,6 +28,8 @@ describe('AudioPlayer (controller)', () => {
     vi.clearAllMocks()
     isCurrentReturn = false
     isPlayingReturn = false
+    currentTimeReturn = 0
+    durationReturn = 0
   })
 
   it('renders a play button for a track', () => {
@@ -54,5 +60,53 @@ describe('AudioPlayer (controller)', () => {
   it('renders nothing without a valid track', () => {
     const { container } = render(<AudioPlayer track={null} />)
     expect(container).toBeEmptyDOMElement()
+  })
+
+  describe('progress ring', () => {
+    const ring = (container) => container.firstChild
+
+    it('draws no ring for a track that is not current', () => {
+      currentTimeReturn = 30
+      durationReturn = 60
+      const { container } = render(<AudioPlayer track={{ id: 'a1' }} />)
+      expect(ring(container)).toHaveStyle({ background: 'transparent' })
+    })
+
+    it('sweeps the ring to the fraction of the track played', () => {
+      isCurrentReturn = true
+      currentTimeReturn = 30
+      durationReturn = 120
+      const { container } = render(<AudioPlayer track={{ id: 'a1' }} />)
+      // 25% played → a quarter turn.
+      expect(ring(container).style.background).toContain('90deg')
+    })
+
+    it('leaves the ring empty when the duration is not known yet', () => {
+      isCurrentReturn = true
+      currentTimeReturn = 5
+      durationReturn = 0
+      const { container } = render(<AudioPlayer track={{ id: 'a1' }} />)
+      expect(ring(container).style.background).toContain('0deg')
+    })
+
+    it('clamps progress past the end of the track to a full ring', () => {
+      isCurrentReturn = true
+      currentTimeReturn = 130
+      durationReturn = 120
+      const { container } = render(<AudioPlayer track={{ id: 'a1' }} />)
+      expect(ring(container).style.background).toContain('360deg')
+    })
+
+    it('insets the button so the ring stays visible around it', () => {
+      isCurrentReturn = true
+      durationReturn = 60
+      const { container } = render(<AudioPlayer track={{ id: 'a1' }} size={44} />)
+      // size 44 − 2×round(44×0.07) → 44 − 6.
+      expect(screen.getByRole('button', { name: /play/i })).toHaveStyle({
+        width: '38px',
+        height: '38px',
+      })
+      expect(ring(container)).toHaveStyle({ width: '44px', height: '44px' })
+    })
   })
 })

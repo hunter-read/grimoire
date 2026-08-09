@@ -14,11 +14,19 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext'
  */
 export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) {
   const { t } = useTranslation()
-  const { playQueue, playNext, togglePlay, isCurrent, isPlayingId } = useAudioPlayer()
+  const { playQueue, playNext, togglePlay, isCurrent, isPlayingId, currentTime, duration } =
+    useAudioPlayer()
 
   if (!track || !track.id) return null
 
   const playing = isPlayingId(track.id)
+  const current = isCurrent(track.id)
+
+  // Progress ring around the button, so a glance at the control also says how
+  // far into the track you are. Only the current track has meaningful progress;
+  // a zero/unknown duration (still loading, or a stream) leaves the ring empty.
+  const progress = current && duration > 0 ? Math.min(Math.max(currentTime / duration, 0), 1) : 0
+  const ringWidth = Math.max(2, Math.round(size * 0.07))
 
   const onToggle = (e) => {
     e.stopPropagation()
@@ -36,31 +44,50 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) 
 
   return (
     <>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={playing ? t('audio.pause') : t('audio.play')}
+      <div
+        // The ring is a conic-gradient disc masked by the button sitting on top
+        // of it, which avoids an SVG and scales with `size`.
         style={{
+          position: 'relative',
           width: size,
           height: size,
           borderRadius: '50%',
-          border: 'none',
-          background: 'rgba(0,0,0,0.6)',
-          color: '#fff',
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-          flexShrink: 0,
+          background: current
+            ? `conic-gradient(var(--gold) ${progress * 360}deg, var(--border) 0deg)`
+            : 'transparent',
         }}
       >
-        {playing ? (
-          <LuPause size={size * 0.45} />
-        ) : (
-          <LuPlay size={size * 0.45} style={{ marginLeft: 2 }} />
-        )}
-      </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={playing ? t('audio.pause') : t('audio.play')}
+          style={{
+            width: current ? size - ringWidth * 2 : size,
+            height: current ? size - ringWidth * 2 : size,
+            borderRadius: '50%',
+            border: 'none',
+            background: 'rgba(0,0,0,0.6)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            flexShrink: 0,
+            padding: 0,
+          }}
+        >
+          {playing ? (
+            <LuPause size={size * 0.45} />
+          ) : (
+            <LuPlay size={size * 0.45} style={{ marginLeft: 2 }} />
+          )}
+        </button>
+      </div>
       {showPlayNext && (
         <button
           type="button"
