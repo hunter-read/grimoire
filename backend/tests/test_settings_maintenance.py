@@ -420,6 +420,149 @@ class TestCleanupOrphanedSystems:
 
 
 # ---------------------------------------------------------------------------
+# POST /api/maintenance/cleanup-missing — system containers (issue #309)
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupSystemContainers:
+    """A container holds no books itself, so the plain "no books" orphan test
+    used to prune it — cascading through ``children`` and deleting the editions
+    and their books along with it."""
+
+    def _tree(self, tmp_path, kind="parent"):
+        """A container with two book-backed edition children. Returns ids."""
+        uid = uuid.uuid4().hex
+        first_pdf = tmp_path / f"edition-a-{uid}.pdf"
+        second_pdf = tmp_path / f"edition-b-{uid}.pdf"
+        first_pdf.write_bytes(b"%PDF-1.4")
+        second_pdf.write_bytes(b"%PDF-1.4")
+        container = make_game_system(container_kind=kind)
+        first = make_game_system(parent_id=container.id)
+        second = make_game_system(parent_id=container.id)
+        make_book(system_id=first.id, filepath=str(first_pdf))
+        make_book(system_id=second.id, filepath=str(second_pdf))
+        return container.id, first.id, second.id
+
+    def test_keeps_parent_container_with_book_backed_editions(
+        self, client, admin_headers, tmp_path
+    ):
+        container_id, first_id, second_id = self._tree(tmp_path)
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=container_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=first_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=second_id).first() is not None
+        db.close()
+
+    def test_keeps_one_page_container_with_surviving_children(
+        self, client, admin_headers, tmp_path
+    ):
+        container_id, first_id, _ = self._tree(tmp_path, kind="one-page")
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=container_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=first_id).first() is not None
+        db.close()
+
+    def test_keeps_editions_books_intact(self, client, admin_headers, tmp_path):
+        # The cascade was the damaging part: books under the editions survive.
+        _, first_id, _ = self._tree(tmp_path)
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        from backend.models import Book
+
+        assert db.query(Book).filter_by(game_system_id=first_id).count() == 1
+        db.close()
+
+    def test_keeps_container_when_one_edition_is_emptied(
+        self, client, admin_headers, tmp_path
+    ):
+        # One edition's files vanish, the other's remain: the emptied edition is
+        # pruned but the container and its surviving sibling stay.
+        pdf = tmp_path / "kept.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+        container = make_game_system(container_kind="parent")
+        kept = make_game_system(parent_id=container.id)
+        gone = make_game_system(parent_id=container.id)
+        make_book(system_id=kept.id, filepath=str(pdf))
+        make_book(
+            system_id=gone.id,
+            filepath="/tmp/nonexistent-edition-" + uuid.uuid4().hex + ".pdf",
+        )
+        container_id, kept_id, gone_id = container.id, kept.id, gone.id
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=container_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=kept_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=gone_id).first() is None
+        db.close()
+
+    def test_prunes_container_when_all_editions_are_emptied(
+        self, client, admin_headers
+    ):
+        # Deepest-first ordering means the container is collected in the same
+        # pass once its last child goes.
+        container = make_game_system(container_kind="parent")
+        child = make_game_system(parent_id=container.id)
+        make_book(
+            system_id=child.id,
+            filepath="/tmp/nonexistent-all-gone-" + uuid.uuid4().hex + ".pdf",
+        )
+        container_id, child_id = container.id, child.id
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=child_id).first() is None
+        assert db.query(GameSystem).filter_by(id=container_id).first() is None
+        db.close()
+
+    def test_keeps_container_whose_edition_is_campaign_referenced(
+        self, client, admin_headers, admin_id
+    ):
+        # The child survives on a campaign reference, so the container must too.
+        container = make_game_system(container_kind="parent")
+        child = make_game_system(parent_id=container.id)
+        make_campaign(owner_id=admin_id, system_id=child.id)
+        container_id, child_id = container.id, child.id
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=child_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=container_id).first() is not None
+        db.close()
+
+    def test_prunes_childless_empty_container(self, client, admin_headers):
+        # A container with nothing under it is a genuine orphan.
+        container = make_game_system(container_kind="parent")
+        container_id = container.id
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=container_id).first() is None
+        db.close()
+
+    def test_survives_parent_id_cycle(self, client, admin_headers):
+        # A corrupt parent_id cycle must not hang the depth walk.
+        a = make_game_system(container_kind="parent")
+        b = make_game_system(parent_id=a.id)
+        db = SessionLocal()
+        db.query(GameSystem).filter_by(id=a.id).update({"parent_id": b.id})
+        db.commit()
+        db.close()
+
+        resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
 # run_cleanup_sync — scheduler callable
 # ---------------------------------------------------------------------------
 
