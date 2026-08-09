@@ -31,6 +31,13 @@ export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
   const [pageFor, setPageFor] = useState(null) // book item awaiting a page number
   const [pageNum, setPageNum] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
+  const pageInputRef = useRef(null)
+
+  // Clicking "at page" reveals the page input — focus it so the number can be
+  // typed right away instead of requiring a second click.
+  useEffect(() => {
+    if (pageFor !== null) pageInputRef.current?.focus()
+  }, [pageFor])
 
   useEffect(() => {
     campaigns
@@ -222,10 +229,17 @@ export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
                       {awaitingPage ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <input
+                            ref={pageInputRef}
                             type="number"
                             min="1"
                             value={pageNum}
                             onChange={(e) => setPageNum(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                insert(item, pageNum || null)
+                              }
+                            }}
                             placeholder={t('wiki.pageNum')}
                             aria-label={t('wiki.pageNum')}
                             style={{
