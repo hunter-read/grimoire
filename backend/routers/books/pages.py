@@ -13,9 +13,21 @@ import fitz  # type: ignore[import-untyped]
 from PIL import Image  # type: ignore[import-untyped]
 
 from ...auth import CurrentUser, get_current_user
-from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, _valkey, logger, get_db
+from ...config import (
+    _PAGE_CACHE_HEADERS,
+    PAGE_CACHE_DIR,
+    _valkey,
+    get_db,
+    logger,
+    valkey_cache_set,
+)
 from ...models import Book
-from ._helpers import _assert_book_access, _cached_book_info, _get_pdf_doc
+from ._helpers import (
+    _assert_book_access,
+    _cached_book_info,
+    _get_pdf_doc,
+    note_page_render,
+)
 
 
 def _authorize_book(db: Session, book_id: str, user) -> None:
@@ -116,9 +128,9 @@ def serve_book_page(
         if _valkey is not None:
             try:
                 with open(cache_path, "rb") as f:
-                    _valkey.set(valkey_key, f.read())
-            except Exception as e:
-                logger.warning(f"Valkey set error: {e}")
+                    valkey_cache_set(valkey_key, f.read())
+            except OSError as e:
+                logger.warning(f"Page cache read error: {e}")
         return FileResponse(cache_path, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
 
     if not os.path.exists(filepath):
@@ -138,15 +150,13 @@ def serve_book_page(
         buf, format="webp", quality=85, method=0
     )
     img_bytes = buf.getvalue()
+    # Drop the pixmap before reclaiming so its buffer is part of what's freed.
+    del pix
+    note_page_render()
 
-    if _valkey is not None:
-        try:
-            _valkey.set(valkey_key, img_bytes)
-        except Exception as e:
-            logger.warning(f"Valkey set error: {e}")
-            with open(cache_path, "wb") as f:
-                f.write(img_bytes)
-    else:
+    # Fall back to the disk cache when Valkey is absent or the write failed, so
+    # a Valkey outage degrades to the on-disk path instead of losing the render.
+    if not valkey_cache_set(valkey_key, img_bytes):
         with open(cache_path, "wb") as f:
             f.write(img_bytes)
 

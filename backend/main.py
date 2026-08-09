@@ -22,6 +22,7 @@ from .config import (
     VERSION,
     _valkey,
     logger,
+    purge_valkey_page_cache,
 )
 from .routers import (
     addons as addons_router,
@@ -103,6 +104,12 @@ async def lifespan(app: FastAPI):
         lock_file.close()
         yield
         return
+
+    # Drop cached renders from a previous run. Page keys carry no content hash,
+    # so a file replaced while the server was down would otherwise be served
+    # stale indefinitely — the responses are marked immutable. Only this worker
+    # holds the lock, so the purge runs once per startup rather than per worker.
+    purge_valkey_page_cache()
 
     def do_scan():
         from .routers.library._helpers import clear_stop, _set_status, _DEFAULT_STATUS

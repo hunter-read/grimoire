@@ -77,6 +77,42 @@ def _read_ocr_dpi() -> float:
 
 
 OCR_DPI = _read_ocr_dpi()
+
+
+#   PAGE_RECLAIM_INTERVAL — how many page rasterizations to run between memory
+#             reclaims. MuPDF is a C library: pixmaps and the images it decodes
+#             to build them are allocated outside Python's heap, so gc.collect()
+#             and even doc.close() free none of it. A single illustrated page can
+#             decode >190MB of raw RGB (a 1.8MB JPEG becomes 32MB), and MuPDF's
+#             store is process-global, so RSS climbs and then never falls back.
+#             Reclaiming needs both halves: TOOLS.store_shrink() to release
+#             MuPDF's C-side store, then malloc_trim() to hand the freed glibc
+#             arenas back to the OS. Measured on a 300MB illustrated rulebook,
+#             reclaiming every 10 renders cut peak RSS 396->264MB and the
+#             settled floor 377->66MB for ~4% render time. 0 disables it.
+def _read_page_reclaim_interval() -> int:
+    try:
+        return max(0, int(os.environ.get("PAGE_RECLAIM_INTERVAL", "10")))
+    except ValueError:
+        return 10
+
+
+PAGE_RECLAIM_INTERVAL = _read_page_reclaim_interval()
+
+
+#   PAGE_CACHE_TTL — seconds a rendered page stays in Valkey. Rendered pages are
+#             a regenerable cache, not durable data: without an expiry they
+#             accumulate until Valkey hits maxmemory and starts evicting under
+#             pressure (or OOMs, if no eviction policy is set). Defaults to 7
+#             days; 0 means no expiry (the old behaviour).
+def _read_page_cache_ttl() -> int:
+    try:
+        return max(0, int(os.environ.get("PAGE_CACHE_TTL", str(7 * 24 * 3600))))
+    except ValueError:
+        return 7 * 24 * 3600
+
+
+PAGE_CACHE_TTL = _read_page_cache_ttl()
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
 # Optional override for password authentication. When the env var is set,
@@ -361,3 +397,69 @@ if VALKEY_URL:
     except Exception as e:
         logger.warning(f"Valkey connection failed, falling back to disk cache: {e}")
         _valkey = None
+
+
+# Key prefixes for regenerable render caches. Scan state lives under "grimoire:"
+# and is deliberately excluded — purging it would wipe a running scan's status.
+_CACHE_KEY_PREFIXES = ("page:", "mappage:")
+
+
+def valkey_cache_set(key: str, value: bytes) -> bool:
+    """Store a rendered page in Valkey under the configured TTL.
+
+    Returns whether the write succeeded, so callers can fall back to the disk
+    cache. Errors are logged rather than raised: the cache is an optimisation
+    and a Valkey blip must never fail the request populating it.
+    """
+    if _valkey is None:
+        return False
+    try:
+        if PAGE_CACHE_TTL > 0:
+            _valkey.set(key, value, ex=PAGE_CACHE_TTL)  # type: ignore[attr-defined]
+        else:
+            _valkey.set(key, value)  # type: ignore[attr-defined]
+        return True
+    except Exception as e:
+        logger.warning(f"Valkey set error: {e}")
+        return False
+
+
+def purge_valkey_page_cache() -> int:
+    """Drop every cached render from Valkey. Returns the number of keys removed.
+
+    Runs once at startup. Cached pages key off the book id and render width but
+    carry no content hash, so a page edited/replaced on disk while the server was
+    down would otherwise be served stale forever — the entries never expired
+    before this and the HTTP response is marked immutable. Clearing on boot makes
+    a restart the reliable way to invalidate them.
+
+    Uses SCAN rather than KEYS so a large cache doesn't block the Valkey server,
+    and UNLINK (falling back to DEL) so reclaim happens off the main thread.
+    """
+    if _valkey is None:
+        return 0
+    removed = 0
+    try:
+        for prefix in _CACHE_KEY_PREFIXES:
+            batch: list = []
+            for key in _valkey.scan_iter(match=f"{prefix}*", count=500):  # type: ignore[attr-defined]
+                batch.append(key)
+                if len(batch) >= 500:
+                    removed += _valkey_unlink(batch)
+                    batch = []
+            if batch:
+                removed += _valkey_unlink(batch)
+    except Exception as e:
+        logger.warning(f"Valkey page-cache purge failed: {e}")
+        return removed
+    if removed:
+        logger.info(f"Cleared {removed} cached page render(s) from Valkey")
+    return removed
+
+
+def _valkey_unlink(keys: list) -> int:
+    """UNLINK a batch of keys, falling back to DEL on older servers."""
+    try:
+        return int(_valkey.unlink(*keys))  # type: ignore[attr-defined]
+    except Exception:
+        return int(_valkey.delete(*keys))  # type: ignore[attr-defined]

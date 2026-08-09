@@ -20,7 +20,13 @@ import ReaderToolbar from '../components/reader/ReaderToolbar'
 import SpreadPage from '../components/reader/SpreadPage'
 import SinglePage from '../components/reader/SinglePage'
 import ImageBookViewer from '../components/reader/ImageBookViewer'
-import { PAGE_WIDTH, SPREAD_WIDTH } from '../components/reader/pageRender'
+import {
+  PAGE_WIDTH,
+  PRELOAD_CACHE_MAX,
+  SPREAD_WIDTH,
+  TEXT_CACHE_MAX,
+  pruneCache,
+} from '../components/reader/pageRender'
 
 // Inject page-turn keyframes once at module load
 if (typeof document !== 'undefined' && !document.getElementById('reader-anim')) {
@@ -163,10 +169,12 @@ export default function ReaderView() {
         .get(`/books/${bookId}/page/${p}/text`)
         .then((data) => {
           pageTextCacheRef.current[p] = data.text || ''
+          pruneCache(pageTextCacheRef, TEXT_CACHE_MAX)
           setPageTextVersion((v) => v + 1)
         })
         .catch(() => {
           pageTextCacheRef.current[p] = ''
+          pruneCache(pageTextCacheRef, TEXT_CACHE_MAX)
         })
     })
   }, [currentPage, mode, spreadOffset, book, bookId, totalPages])
@@ -187,10 +195,12 @@ export default function ReaderView() {
         .get(`/books/${bookId}/page/${p}/words`)
         .then((data) => {
           wordsCacheRef.current[p] = data
+          pruneCache(wordsCacheRef, TEXT_CACHE_MAX)
           setWordsVersion((v) => v + 1)
         })
         .catch(() => {
           wordsCacheRef.current[p] = null
+          pruneCache(wordsCacheRef, TEXT_CACHE_MAX)
         })
     })
   }, [currentPage, mode, spreadOffset, book, bookId, totalPages])
@@ -259,6 +269,9 @@ export default function ReaderView() {
         preloadCacheRef.current[key] = img
       }
     }
+    // Drop the oldest decoded bitmaps so a long flip-through doesn't pin every
+    // page it passed in memory (each is ~12MB decoded, WebP size notwithstanding).
+    pruneCache(preloadCacheRef, PRELOAD_CACHE_MAX)
   }, [currentPage, mode, book, bookId, totalPages])
 
   useEffect(() => {

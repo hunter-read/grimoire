@@ -9,9 +9,9 @@ from typing import Optional
 import fitz  # type: ignore[import-untyped]
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
-from ...config import PAGE_CACHE_DIR, _valkey, logger
+from ...config import PAGE_CACHE_DIR, _valkey, logger, valkey_cache_set
 from ...indexer import archive_ext
-from ..books._helpers import _get_pdf_doc
+from ..books._helpers import _get_pdf_doc, note_page_render
 
 
 def _is_pdf(filepath: str) -> bool:
@@ -40,11 +40,7 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             data = f.read()
-        if _valkey is not None:
-            try:
-                _valkey.set(valkey_key, data)
-            except Exception as e:
-                logger.warning(f"Valkey set error: {e}")
+        valkey_cache_set(valkey_key, data)
         return data
 
     doc = _get_pdf_doc(filepath)
@@ -58,15 +54,12 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
         buf, format="webp", quality=85, method=0
     )
     img_bytes = buf.getvalue()
+    # Shares the books' reclaim counter: both paths rasterize through the same
+    # process-global MuPDF store, so they must be accounted for together.
+    del pix
+    note_page_render()
 
-    if _valkey is not None:
-        try:
-            _valkey.set(valkey_key, img_bytes)
-        except Exception as e:
-            logger.warning(f"Valkey set error: {e}")
-            with open(cache_path, "wb") as f:
-                f.write(img_bytes)
-    else:
+    if not valkey_cache_set(valkey_key, img_bytes):
         with open(cache_path, "wb") as f:
             f.write(img_bytes)
 
