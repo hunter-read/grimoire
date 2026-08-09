@@ -980,6 +980,34 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
   })
+  // Issue #296: the child-systems grid is driven by the "system" view-mode
+  // preference, not the "book" one, so the two settings stay independent.
+  it('cycles the container grid through the system view mode, not the book one', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+
+    // Systems default to card view (books default to list).
+    const toggle = screen.getByRole('button', { name: /change view/i })
+    expect(toggle).toHaveAccessibleName(/cards/i)
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAccessibleName(/compact/i)
+    expect(sessionStorage.getItem('grimoire:view-mode:system')).toBe('compact')
+    // The book preference is untouched by cycling the system grid.
+    expect(sessionStorage.getItem('grimoire:view-mode:book')).toBeNull()
+  })
+
+  it('leaves the book view mode alone when the system view mode is set', async () => {
+    sessionStorage.setItem('grimoire:view-mode:system', 'compact')
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    // Books still use their own default (list), not the system setting.
+    expect(screen.getByRole('button', { name: /change view/i })).toHaveAccessibleName(/list/i)
+  })
+
   it('reflects a container cover upload without leaving the view', async () => {
     api.get.mockResolvedValue(makeContainer())
     api.upload.mockResolvedValue({ cover_image: 'system-1.png' })
