@@ -12,6 +12,7 @@ import {
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
 import LazyImg from '../LazyImg'
+import useLinkProps from '../../hooks/useLinkProps'
 
 export default function BookFavorite({ item, grid }) {
   const { t } = useTranslation()
@@ -19,10 +20,14 @@ export default function BookFavorite({ item, grid }) {
   const CatIcon = CATEGORY_ICONS[item.category] || LuFileText
   const open = () =>
     navigate(`/library/book/${item.item_id}`, { state: { from: window.location.pathname } })
+  // Middle click / ctrl-click opens the reader in a new tab (issue #313). The
+  // `from` state is in-page only; a new tab falls back to the reader's default
+  // back target, which is what a real link would do anyway.
+  const linkProps = useLinkProps(`/library/book/${item.item_id}`, open)
 
   if (grid) {
     return (
-      <div onClick={open} style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      <div {...linkProps} style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
         <div
           style={{
             width: '100%',
@@ -65,7 +70,7 @@ export default function BookFavorite({ item, grid }) {
   }
 
   return (
-    <div onClick={open} style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+    <div {...linkProps} style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
       <div
         style={{
           width: 32,

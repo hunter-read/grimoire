@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MediaCard from './MediaCard'
@@ -185,5 +185,60 @@ describe('MediaCard — map (no audio controls)', () => {
     screen.getByRole('button', { name: 'cave.png' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(onClick).toHaveBeenCalled()
+  })
+
+  // Issue #313 — the card is a <div>, so new-tab behaviour is wired by hand.
+  describe('opening in a new tab', () => {
+    let open
+
+    beforeEach(() => {
+      open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    })
+
+    afterEach(() => open.mockRestore())
+
+    it.each([
+      ['map', 'map', mapItem, '/maps/m1'],
+      ['audio', 'audio', audioItem, '/audio/a1'],
+    ])('middle click opens a %s in a new tab', async (_label, key, makeItem, href) => {
+      const onClick = vi.fn()
+      render(<MediaCard config={MEDIA_CONFIGS[key]} item={makeItem()} onClick={onClick} />)
+
+      await userEvent.pointer({ target: screen.getAllByRole('button')[0], keys: '[MouseMiddle]' })
+
+      expect(open).toHaveBeenCalledWith(href, '_blank', 'noopener,noreferrer')
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('opens in a new tab from the list layout too', async () => {
+      render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} onClick={vi.fn()} list />)
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: 'cave.png' }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).toHaveBeenCalledWith('/maps/m1', '_blank', 'noopener,noreferrer')
+    })
+
+    it('selects instead of opening a tab in bulk mode', async () => {
+      const onToggle = vi.fn()
+      render(
+        <MediaCard
+          config={MEDIA_CONFIGS.map}
+          item={mapItem()}
+          onClick={vi.fn()}
+          bulkMode
+          onToggle={onToggle}
+        />
+      )
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: 'cave.png' }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).not.toHaveBeenCalled()
+    })
   })
 })

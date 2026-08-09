@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuPlus,
@@ -18,6 +19,7 @@ import {
 import { campaigns } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import { isNewTabClick } from '../../hooks/useLinkProps'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
@@ -46,8 +48,54 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const { playQueue } = useAudioPlayer()
   const isMobile = useIsMobile()
   const [pages, setPages] = useState(null)
-  const [selectedId, setSelectedId] = useState(null)
+  // The open note lives in the URL (`?note=<id>`) so a note is linkable: it can
+  // be opened in a new tab, bookmarked, and shared (issue #313). The param is
+  // the single source of truth — there is no mirrored state to drift from it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedId = searchParams.get('note')
+  // Same contract as a useState setter, including the functional-updater form,
+  // so every existing call site is unchanged. Replaces history entries rather
+  // than pushing: clicking through the sidebar shouldn't bury the page the user
+  // arrived from under one back-step per note.
+  const setSelectedId = useCallback(
+    (next) => {
+      setSearchParams(
+        (prev) => {
+          const current = prev.get('note')
+          const value = typeof next === 'function' ? next(current) : next
+          if (value === current) return prev
+          const params = new URLSearchParams(prev)
+          value ? params.set('note', value) : params.delete('note')
+          return params
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
+  // Absolute URL for a note, used by the new-tab paths below. Built from the
+  // notes route rather than the live location so it is correct no matter which
+  // note (if any) is currently open.
+  const noteHref = useCallback(
+    (id) => `/campaigns/${campaign.id}/notes?note=${encodeURIComponent(id)}`,
+    [campaign.id]
+  )
   const [page, setPage] = useState(null)
+
+  // Open a note from a click on any note-linking control. Middle click and
+  // ctrl/cmd-click open it in a new tab (issue #313); anything else selects it
+  // in place. Returns true when it handled the event as a new-tab open, so
+  // callers can skip their own in-place work.
+  const openNoteFromClick = (e, id) => {
+    if (!isNewTabClick(e)) {
+      setSelectedId(id)
+      return false
+    }
+    e.preventDefault()
+    e.stopPropagation()
+    window.open(noteHref(id), '_blank', 'noopener,noreferrer')
+    return true
+  }
   const [editing, setEditing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createParentId, setCreateParentId] = useState('')
@@ -142,7 +190,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
         })
       })
     },
-    [campaign.id]
+    // setSelectedId is itself memoized on the (stable) setSearchParams, so
+    // listing it here doesn't cost this callback its identity stability.
+    [campaign.id, setSelectedId]
   )
 
   useEffect(() => {
@@ -190,7 +240,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
       setPendingHeading(heading || null)
       setSelectedId(target.id)
     },
-    [loadList]
+    [loadList, setSelectedId]
   )
 
   // Scroll to the heading a cross-page [[Page:#Heading]] link asked for, once the
@@ -404,9 +454,11 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     const kids = flat ? [] : (childrenOf[p.id] || []).filter((c) => idSet.has(c.id))
     const hasKids = kids.length > 0
     const isCollapsed = collapsed.has(p.id)
-    const selectPage = () => {
+    // Middle click / ctrl-click opens the note in its own tab (issue #313);
+    // otherwise it opens in place, leaving any in-progress create.
+    const selectPage = (e) => {
+      if (openNoteFromClick(e, p.id)) return
       setCreating(false)
-      setSelectedId(p.id)
     }
     // Reordering only applies in the nested tree, not the flattened search view.
     const canDrag = isOwner && !flat
@@ -511,6 +563,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           <button
             type="button"
             onClick={selectPage}
+            onAuxClick={selectPage}
+            data-href={noteHref(p.id)}
             style={{
               flex: 1,
               minWidth: 0,
@@ -990,7 +1044,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                   {page.backlinks.map((b) => (
                     <button
                       key={b.id}
-                      onClick={() => setSelectedId(b.id)}
+                      onClick={(e) => openNoteFromClick(e, b.id)}
+                      onAuxClick={(e) => openNoteFromClick(e, b.id)}
+                      data-href={noteHref(b.id)}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',

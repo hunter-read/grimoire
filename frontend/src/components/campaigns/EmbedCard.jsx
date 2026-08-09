@@ -4,6 +4,7 @@ import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
 import api, { campaigns } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImg from '../LazyImg'
+import { useNewTabHandler, isNewTabClick } from '../../hooks/useLinkProps'
 
 const embedCardStyle = {
   display: 'inline-flex',
@@ -26,6 +27,19 @@ const embedCardStyle = {
 export default function EmbedCard({ spec, campaignId, onNavigate }) {
   const { t } = useTranslation()
   const [type, id, page] = spec.split(':')
+
+  // Route each linkable embed type points at. Computed up here (rather than
+  // beside the card that uses it) so the new-tab hooks below sit above the early
+  // returns, as rules-of-hooks requires. Images and files aren't app routes.
+  const routes = {
+    audio: `/audio/${id}`,
+    book: page ? `/library/book/${id}?page=${page}` : `/library/book/${id}`,
+    map: `/maps/${id}`,
+    token: `/tokens/${id}`,
+  }
+  // Middle click / ctrl-click opens the embedded resource in a new tab (#313).
+  const audioNewTab = useNewTabHandler(routes.audio)
+  const cardNewTab = useNewTabHandler(routes[type] ?? null)
 
   // A book embed names the book, so its title is fetched here. It stays null if
   // the book can't be resolved (deleted or unreadable), and the card falls back
@@ -60,7 +74,8 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
         <AudioPlayer track={{ id }} showPlayNext size={34} />
         <button
           type="button"
-          onClick={() => onNavigate(`/audio/${id}`)}
+          onClick={(e) => (isNewTabClick(e) ? audioNewTab(e) : onNavigate(routes.audio))}
+          onAuxClick={audioNewTab}
           style={{
             background: 'none',
             border: 'none',
@@ -121,7 +136,12 @@ export default function EmbedCard({ spec, campaignId, onNavigate }) {
   const name = type === 'book' && bookTitle ? bookTitle : t(`wiki.embed_${type}`)
   const label = type === 'book' && page ? t('wiki.embedBookPage', { title: name, page }) : name
   return (
-    <button type="button" onClick={() => onNavigate(to)} style={embedCardStyle}>
+    <button
+      type="button"
+      onClick={(e) => (isNewTabClick(e) ? cardNewTab(e) : onNavigate(to))}
+      onAuxClick={cardNewTab}
+      style={embedCardStyle}
+    >
       <Icon size={15} color={color} />
       {label}
     </button>

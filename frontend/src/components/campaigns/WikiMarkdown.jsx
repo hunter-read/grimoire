@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import { LuFileQuestion } from 'react-icons/lu'
 import EmbedCard from './EmbedCard'
 import LazyImg from '../LazyImg'
+import { isNewTabClick } from '../../hooks/useLinkProps'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
 
@@ -130,16 +131,29 @@ export default function WikiMarkdown({
   }, [])
 
   const openLink = useCallback(
-    (rawTarget) => {
+    (rawTarget, e) => {
       const link = parseTarget(rawTarget)
       const target = resolvePage(link, pages)
+      // Notes are URL-addressable (`?note=`), so a resolvable [[link]] can open
+      // in its own tab on middle click / ctrl-click like any other link (#313).
+      // An unresolved target has no URL to open, so it falls through.
+      if (target && campaignId && isNewTabClick(e)) {
+        e.preventDefault()
+        e.stopPropagation()
+        window.open(
+          `/campaigns/${campaignId}/notes?note=${encodeURIComponent(target.id)}`,
+          '_blank',
+          'noopener,noreferrer'
+        )
+        return
+      }
       if (target && target.id === currentPageId && link.heading) {
         scrollToHeading(link.heading)
         return
       }
       onOpenPage?.(target, link.heading, link)
     },
-    [pages, currentPageId, onOpenPage, scrollToHeading]
+    [pages, currentPageId, onOpenPage, scrollToHeading, campaignId]
   )
 
   const components = useMemo(
@@ -177,7 +191,8 @@ export default function WikiMarkdown({
           return (
             <button
               type="button"
-              onClick={() => openLink(rawTarget)}
+              onClick={(e) => openLink(rawTarget, e)}
+              onAuxClick={(e) => openLink(rawTarget, e)}
               title={
                 exists
                   ? link.heading

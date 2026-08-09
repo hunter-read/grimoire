@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import BookRow from './BookRow'
 import * as FavCtx from '../../context/FavoritesContext'
 import * as api from '../../api'
@@ -395,5 +396,55 @@ describe('BookRow', () => {
     render(<BookRow book={makeBook({ tags: ['official', 'errata'] })} onOpen={() => {}} />)
     expect(screen.getByText('Official')).toBeInTheDocument()
     expect(screen.getByText('Errata')).toBeInTheDocument()
+  })
+
+  // Issue #313 — the row is a <div>, so new-tab behaviour is wired by hand.
+  describe('opening in a new tab', () => {
+    let open
+
+    beforeEach(() => {
+      open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    })
+
+    afterEach(() => open.mockRestore())
+
+    it.each([
+      ['list', {}],
+      ['card', { card: true }],
+      ['compact', { compact: true }],
+    ])('middle click opens the reader in a new tab from the %s layout', async (_name, layout) => {
+      const onOpen = vi.fn()
+      render(<BookRow book={makeBook()} onOpen={onOpen} {...layout} />)
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: /open player's handbook/i }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).toHaveBeenCalledWith('/library/book/book-1', '_blank', 'noopener,noreferrer')
+      expect(onOpen).not.toHaveBeenCalled()
+    })
+
+    it('does not offer a new tab for an archive, which downloads instead', async () => {
+      render(<BookRow book={archiveBook()} onOpen={vi.fn()} />)
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: /open lancer bundle/i }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).not.toHaveBeenCalled()
+    })
+
+    it('does not offer a new tab in bulk-select mode', async () => {
+      render(<BookRow book={makeBook()} onOpen={vi.fn()} bulkMode onToggle={vi.fn()} />)
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: /open player's handbook/i }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).not.toHaveBeenCalled()
+    })
   })
 })

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import BookRow from './BookRow'
+import SystemPageHit from './SystemPageHit'
 
 /**
  * The search-results view shown inside SystemDetailView when a full-text search
@@ -74,45 +75,7 @@ export default function SystemSearchResults({
             })}
           </div>
           {searchResults.results.map((r, i) => (
-            <div
-              key={i}
-              onClick={() => onOpenPage(r)}
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                padding: 14,
-                marginBottom: 8,
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ fontWeight: 600, fontSize: 15 }}>{r.title}</span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: 'var(--text-muted)',
-                    flexShrink: 0,
-                    marginLeft: 12,
-                  }}
-                >
-                  {t('common.pagePrefixed', { page: r.page_number })}
-                </span>
-              </div>
-              <div
-                style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5 }}
-                dangerouslySetInnerHTML={{ __html: r.snippet }}
-              />
-            </div>
+            <SystemPageHit key={i} result={r} onOpen={() => onOpenPage(r)} />
           ))}
         </div>
       )}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import WikiMarkdown from './WikiMarkdown'
 
@@ -32,6 +33,56 @@ describe('WikiMarkdown', () => {
     const link = screen.getByRole('button', { name: 'The Castle' })
     fireEvent.click(link)
     expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
+  })
+
+  // Issue #313 — notes are addressable via ?note=, so a resolvable wiki link
+  // can open in its own tab.
+  describe('opening a [[wiki link]] in a new tab', () => {
+    it('middle click opens the linked note in a new tab', async () => {
+      const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+      const onOpenPage = vi.fn()
+      renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], campaignId: 'c1', onOpenPage })
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: 'The Castle' }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).toHaveBeenCalledWith(
+        '/campaigns/c1/notes?note=p-castle',
+        '_blank',
+        'noopener,noreferrer'
+      )
+      expect(onOpenPage).not.toHaveBeenCalled()
+      open.mockRestore()
+    })
+
+    it('falls back to in-place navigation for an unresolved link', async () => {
+      const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+      const onOpenPage = vi.fn()
+      renderMd({ body: '[[Nowhere]]', pages: [], campaignId: 'c1', onOpenPage })
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: 'Nowhere' }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).not.toHaveBeenCalled()
+      expect(onOpenPage).toHaveBeenCalled()
+      open.mockRestore()
+    })
+
+    it('still opens in place on a plain click', () => {
+      const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+      const onOpenPage = vi.fn()
+      renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], campaignId: 'c1', onOpenPage })
+
+      fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
+
+      expect(open).not.toHaveBeenCalled()
+      expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
+      open.mockRestore()
+    })
   })
 
   it('supports [[Target|label]] aliasing', () => {

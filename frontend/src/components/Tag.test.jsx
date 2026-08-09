@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -18,6 +18,8 @@ const renderTag = (props) =>
   )
 
 describe('Tag', () => {
+  beforeEach(() => mockNavigate.mockClear())
+
   it('renders the label text', () => {
     renderTag({ label: 'fantasy' })
     expect(screen.getByText('Fantasy')).toBeInTheDocument()
@@ -57,5 +59,17 @@ describe('Tag', () => {
     renderTag({ label: 'fantasy', linkable: false })
     const el = screen.getByText('Fantasy')
     expect(el.tagName).toBe('SPAN')
+  })
+
+  // Issue #313 — tag chips are <button>s, so new-tab behaviour is wired by hand.
+  it('opens the tags page in a new tab on middle click', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    renderTag({ label: 'Draw Steel' })
+
+    await userEvent.pointer({ target: screen.getByText('Draw Steel'), keys: '[MouseMiddle]' })
+
+    expect(open).toHaveBeenCalledWith('/tags?tag=draw%20steel', '_blank', 'noopener,noreferrer')
+    expect(mockNavigate).not.toHaveBeenCalled()
+    open.mockRestore()
   })
 })

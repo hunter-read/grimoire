@@ -13,8 +13,8 @@ import {
 import api from '../api'
 import Spinner from '../components/Spinner'
 import BookGroup from '../components/search/BookGroup'
-import TagList from '../components/search/TagList'
-import { sectionHeadStyle, cardStyle, controlStyle } from '../components/search/searchStyles'
+import ResultCard from '../components/search/ResultCard'
+import { sectionHeadStyle, controlStyle } from '../components/search/searchStyles'
 
 export default function SearchView() {
   const { t } = useTranslation()
@@ -245,21 +245,14 @@ export default function SearchView() {
                   </button>
                   {!collapsed.maps &&
                     maps.map((m) => (
-                      <div
+                      <ResultCard
                         key={m.id}
-                        onClick={() => navigate(`/maps/${m.id}`)}
-                        style={cardStyle}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                      >
-                        <div style={{ fontWeight: 500, fontSize: 15 }}>{m.filename}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-                          {m.relative_path}
-                        </div>
-                        {m.tags?.length > 0 && <TagList tags={m.tags} />}
-                      </div>
+                        to={`/maps/${m.id}`}
+                        title={m.filename}
+                        subtitle={m.relative_path}
+                        tags={m.tags}
+                        onOpen={() => navigate(`/maps/${m.id}`)}
+                      />
                     ))}
                 </div>
               )}
@@ -275,21 +268,14 @@ export default function SearchView() {
                   </button>
                   {!collapsed.tokens &&
                     tokens.map((tok) => (
-                      <div
+                      <ResultCard
                         key={tok.id}
-                        onClick={() => navigate(`/tokens/${tok.id}`)}
-                        style={cardStyle}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                      >
-                        <div style={{ fontWeight: 500, fontSize: 15 }}>{tok.filename}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-                          {tok.relative_path}
-                        </div>
-                        {tok.tags?.length > 0 && <TagList tags={tok.tags} />}
-                      </div>
+                        to={`/tokens/${tok.id}`}
+                        title={tok.filename}
+                        subtitle={tok.relative_path}
+                        tags={tok.tags}
+                        onOpen={() => navigate(`/tokens/${tok.id}`)}
+                      />
                     ))}
                 </div>
               )}
@@ -305,21 +291,14 @@ export default function SearchView() {
                   </button>
                   {!collapsed.audio &&
                     audio.map((a) => (
-                      <div
+                      <ResultCard
                         key={a.id}
-                        onClick={() => navigate(`/audio/${a.id}`)}
-                        style={cardStyle}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                      >
-                        <div style={{ fontWeight: 500, fontSize: 15 }}>{a.title || a.filename}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-                          {a.relative_path}
-                        </div>
-                        {a.tags?.length > 0 && <TagList tags={a.tags} />}
-                      </div>
+                        to={`/audio/${a.id}`}
+                        title={a.title || a.filename}
+                        subtitle={a.relative_path}
+                        tags={a.tags}
+                        onOpen={() => navigate(`/audio/${a.id}`)}
+                      />
                     ))}
                 </div>
               )}

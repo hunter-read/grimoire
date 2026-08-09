@@ -4,6 +4,7 @@ import { LuLibrary, LuCheck } from 'react-icons/lu'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
+import useLinkProps from '../../hooks/useLinkProps'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 import { systemCoverUrl } from '../../utils/systemCoverUrl'
 
@@ -15,9 +16,14 @@ import { systemCoverUrl } from '../../utils/systemCoverUrl'
  * (with shift / cmd-click modifiers) instead of navigating, and a checkbox is
  * shown. Tag chips on the full card link to the tags page (grid tag filtering
  * is handled by the Filters modal's Tags dropdown).
+ *
+ * `to` is the system's route; passing it lets middle click and ctrl/cmd-click
+ * open the system in a new tab (issue #313). In bulk-select mode it is ignored,
+ * since the card selects rather than navigates.
  */
 export default function SystemCard({
   system,
+  to,
   onClick,
   compact,
   list,
@@ -56,6 +62,10 @@ export default function SystemCard({
     onClick()
   }
 
+  // Selection mode owns the modifier keys (shift/cmd extend the selection), so
+  // the card only behaves as a link when it would actually navigate.
+  const linkProps = useLinkProps(selectable ? null : to, handleClick)
+
   const checkbox = (overlay) => (
     <div
       style={{
@@ -84,7 +94,7 @@ export default function SystemCard({
   if (list) {
     return (
       <div
-        onClick={handleClick}
+        {...linkProps}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -177,7 +187,7 @@ export default function SystemCard({
   if (compact) {
     return (
       <div
-        onClick={handleClick}
+        {...linkProps}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -241,7 +251,7 @@ export default function SystemCard({
 
   return (
     <div
-      onClick={handleClick}
+      {...linkProps}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

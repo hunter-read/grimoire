@@ -1,18 +1,21 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary } from 'react-icons/lu'
+import useLinkProps from '../../hooks/useLinkProps'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 
 /**
  * Compact pill for system-agnostic collections — no cover image, sits at the
- * top of the library for quick access.
+ * top of the library for quick access. `to` is the collection's route, which
+ * lets middle click open it in a new tab (issue #313).
  */
-export default function AgnosticChip({ system, onClick }) {
+export default function AgnosticChip({ system, to, onClick }) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
+  const linkProps = useLinkProps(to, onClick)
   return (
     <div
-      onClick={onClick}
+      {...linkProps}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

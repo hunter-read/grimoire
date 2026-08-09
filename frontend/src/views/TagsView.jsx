@@ -16,6 +16,7 @@ import { useFavorites } from '../context/FavoritesContext'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import Spinner from '../components/Spinner'
 import TagDetail from '../components/tags/TagDetail'
+import TagListButton from '../components/tags/TagListButton'
 
 const CATS_COLLAPSED_KEY = 'tagsCategoryCollapsed'
 
@@ -431,44 +432,11 @@ export default function TagsView() {
                               >
                                 <LuHeart size={13} fill={fav ? 'var(--gold)' : 'none'} />
                               </button>
-                              <button
-                                onClick={() => selectTag(tg.internal)}
-                                aria-current={tg.internal === activeTag}
-                                style={{
-                                  flex: 1,
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  gap: 8,
-                                  padding: '7px 10px 7px 2px',
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: 'var(--text)',
-                                  fontSize: 14,
-                                  textAlign: 'left',
-                                  minWidth: 0,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {tg.display}
-                                </span>
-                                <span
-                                  style={{
-                                    color: 'var(--text-muted)',
-                                    fontSize: 12,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {tg.count}
-                                </span>
-                              </button>
+                              <TagListButton
+                                tag={tg}
+                                active={tg.internal === activeTag}
+                                onSelect={selectTag}
+                              />
                             </div>
                           )
                         })}

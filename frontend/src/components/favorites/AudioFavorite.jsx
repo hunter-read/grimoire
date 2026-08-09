@@ -10,15 +10,18 @@ import {
   rowFavoriteButtonStyle,
 } from './favoriteStyles'
 import LazyImg from '../LazyImg'
+import useLinkProps from '../../hooks/useLinkProps'
 
 export default function AudioFavorite({ item, grid }) {
   const navigate = useNavigate()
   const open = () => navigate(`/audio/${item.item_id}`)
+  // Middle click / ctrl-click opens this item in a new tab (issue #313).
+  const linkProps = useLinkProps(`/audio/${item.item_id}`, open)
   const label = item.title || item.filename
 
   if (!grid) {
     return (
-      <div onClick={open} style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      <div {...linkProps} style={rowWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
         <div
           style={{
             width: 40,
@@ -60,7 +63,7 @@ export default function AudioFavorite({ item, grid }) {
   }
 
   return (
-    <div onClick={open} style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+    <div {...linkProps} style={cardWrapperStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
       <div
         style={{
           width: '100%',

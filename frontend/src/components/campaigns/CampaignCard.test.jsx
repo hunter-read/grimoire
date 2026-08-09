@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CampaignCard from './CampaignCard'
@@ -132,5 +132,56 @@ describe('CampaignCard', () => {
   it('shows no archived badge on an active campaign', () => {
     render(<CampaignCard campaign={campaign()} onClick={vi.fn()} onOpenNotes={vi.fn()} />)
     expect(screen.queryByText(/archived/i)).toBeNull()
+  })
+
+  // Issue #313 — the card and its Open Notes button lead to different pages.
+  describe('opening in a new tab', () => {
+    let open
+
+    beforeEach(() => {
+      open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    })
+
+    afterEach(() => open.mockRestore())
+
+    it('middle click on the card opens the campaign overview in a new tab', async () => {
+      const onClick = vi.fn()
+      render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={vi.fn()} />)
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: /open campaign curse of strahd/i }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).toHaveBeenCalledWith('/campaigns/c1/overview', '_blank', 'noopener,noreferrer')
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('middle click on Open Notes opens the notes page, not the overview', async () => {
+      const onClick = vi.fn()
+      const onOpenNotes = vi.fn()
+      render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={onOpenNotes} />)
+
+      await userEvent.pointer({
+        target: screen.getByRole('button', { name: /^notes$/i }),
+        keys: '[MouseMiddle]',
+      })
+
+      expect(open).toHaveBeenCalledWith('/campaigns/c1/notes', '_blank', 'noopener,noreferrer')
+      expect(onOpenNotes).not.toHaveBeenCalled()
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('still opens notes in place on a plain click', async () => {
+      const onClick = vi.fn()
+      const onOpenNotes = vi.fn()
+      render(<CampaignCard campaign={campaign()} onClick={onClick} onOpenNotes={onOpenNotes} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /^notes$/i }))
+
+      expect(onOpenNotes).toHaveBeenCalledTimes(1)
+      expect(onClick).not.toHaveBeenCalled()
+      expect(open).not.toHaveBeenCalled()
+    })
   })
 })
