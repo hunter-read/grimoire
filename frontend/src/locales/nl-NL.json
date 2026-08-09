@@ -1609,6 +1609,7 @@
     "descending": "Descending",
     "filters": "Filters",
     "clear": "Clear",
+    "clearFilters": "Filters wissen",
     "savedFilters": "Saved filters",
     "saveCurrent": "Save current…",
     "savePrompt": "Name this filter",

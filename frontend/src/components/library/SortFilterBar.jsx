@@ -10,6 +10,7 @@ import {
   LuFilter,
 } from 'react-icons/lu'
 import FilterModal from './FilterModal'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * Compact, stash-inspired sort + filter toolbar with server-backed saved
@@ -51,6 +52,9 @@ export default function SortFilterBar({
   const { t } = useTranslation()
   const [showSaved, setShowSaved] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  // On narrow screens the row collapses to icon-only buttons so everything
+  // still fits on a single line instead of wrapping into a tall block.
+  const isMobile = useIsMobile()
   const filters = state.filters || {}
   const setSort = (sort) => onChange({ ...state, sort })
   const toggleOrder = () => onChange({ ...state, order: state.order === 'asc' ? 'desc' : 'asc' })
@@ -62,6 +66,7 @@ export default function SortFilterBar({
     v !== 'any' &&
     !(Array.isArray(v) && v.length === 0)
   const activeFilterCount = Object.values(filters).filter(isActive).length
+  const clearFilters = () => onChange({ ...state, filters: {} })
 
   const controlStyle = {
     fontSize: 13,
@@ -99,8 +104,8 @@ export default function SortFilterBar({
         className={sticky ? 'sort-filter-bar-sticky' : undefined}
         style={{
           display: 'flex',
-          flexWrap: 'wrap',
-          gap: 10,
+          flexWrap: isMobile ? 'nowrap' : 'wrap',
+          gap: isMobile ? 6 : 10,
           alignItems: 'center',
           marginBottom: 16,
           ...(sticky
@@ -113,13 +118,17 @@ export default function SortFilterBar({
             : null),
         }}
       >
-        {/* Sort group: label + icon + connected select/order button. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={groupLabelStyle}>
-            <LuArrowDownUp size={12} />
-            {t('sortFilter.sort')}
-          </span>
-          <div style={{ display: 'flex' }}>
+        {/* Sort group: label + icon + connected select/order button. The text
+            label drops on mobile (the icon carries the meaning) and the select
+            is allowed to shrink so the row stays on one line. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          {!isMobile && (
+            <span style={groupLabelStyle}>
+              <LuArrowDownUp size={12} />
+              {t('sortFilter.sort')}
+            </span>
+          )}
+          <div style={{ display: 'flex', minWidth: 0 }}>
             <select
               aria-label={t('sortFilter.sort')}
               value={state.sort}
@@ -129,6 +138,7 @@ export default function SortFilterBar({
                 borderTopRightRadius: 0,
                 borderBottomRightRadius: 0,
                 borderRight: 'none',
+                ...(isMobile ? { minWidth: 0, maxWidth: 110 } : null),
               }}
             >
               {sortOptions.map((o) => (
@@ -158,47 +168,73 @@ export default function SortFilterBar({
           </div>
         </div>
 
-        {/* Filters button → modal. Shows the active-filter count. `marginLeft: auto`
-          pushes it (and the saved-filters menu) to the right, leaving Sort left. */}
-        <button
-          type="button"
-          onClick={() => setShowFilters(true)}
-          aria-label={t('sortFilter.filters')}
-          style={{
-            ...controlStyle,
-            marginLeft: 'auto',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            color: activeFilterCount ? 'var(--gold)' : 'var(--text)',
-          }}
-        >
-          <LuFilter size={13} />
-          {t('sortFilter.filters')}
-          {activeFilterCount > 0 && (
-            <span
-              style={{
-                fontSize: 11,
-                minWidth: 16,
-                height: 16,
-                padding: '0 4px',
-                borderRadius: 8,
-                background: 'var(--gold-dim)',
-                color: 'var(--bg-deep)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-              }}
-            >
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
+        {/* Filters button → modal, with an attached X that clears every active
+            filter in one click (disabled while nothing is set). `marginLeft: auto`
+            pushes the pair (and the saved-filters menu) to the right, leaving
+            Sort left. */}
+        <div style={{ display: 'flex', marginLeft: 'auto', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setShowFilters(true)}
+            aria-label={t('sortFilter.filters')}
+            style={{
+              ...controlStyle,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              color: activeFilterCount ? 'var(--gold)' : 'var(--text)',
+              borderTopRightRadius: 0,
+              borderBottomRightRadius: 0,
+              borderRight: 'none',
+            }}
+          >
+            <LuFilter size={13} />
+            {!isMobile && t('sortFilter.filters')}
+            {activeFilterCount > 0 && (
+              <span
+                style={{
+                  fontSize: 11,
+                  minWidth: 16,
+                  height: 16,
+                  padding: '0 4px',
+                  borderRadius: 8,
+                  background: 'var(--gold-dim)',
+                  color: 'var(--bg-deep)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={clearFilters}
+            disabled={activeFilterCount === 0}
+            aria-label={t('sortFilter.clearFilters')}
+            title={t('sortFilter.clearFilters')}
+            style={{
+              ...controlStyle,
+              cursor: activeFilterCount ? 'pointer' : 'not-allowed',
+              opacity: activeFilterCount ? 1 : 0.4,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '5px 7px',
+              color: activeFilterCount ? 'var(--gold)' : 'var(--text-muted)',
+              borderTopLeftRadius: 0,
+              borderBottomLeftRadius: 0,
+            }}
+          >
+            <LuX size={13} />
+          </button>
+        </div>
 
         {/* Saved filters menu. */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
           <button
             type="button"
             onClick={() => setShowSaved((v) => !v)}
@@ -211,7 +247,8 @@ export default function SortFilterBar({
               gap: 4,
             }}
           >
-            <LuBookmark size={13} /> {t('sortFilter.savedFilters')}
+            <LuBookmark size={13} />
+            {!isMobile && t('sortFilter.savedFilters')}
           </button>
           {showSaved && (
             <div
@@ -302,7 +339,11 @@ export default function SortFilterBar({
         </div>
 
         {/* Page-supplied controls (multi-select, view-mode, …) close out the row. */}
-        {trailing}
+        {trailing && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {trailing}
+          </div>
+        )}
 
         {showFilters && (
           <FilterModal
