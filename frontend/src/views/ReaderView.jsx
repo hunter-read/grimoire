@@ -53,6 +53,15 @@ export default function ReaderView() {
   // regardless of how many jump-navigation history entries were pushed (ToC, bookmarks, search).
   const backPathRef = useRef(location.state?.from ?? null)
 
+  // Exiting the reader is a *return* to the referring view, not a fresh visit, so
+  // flag it: views that persist transient state (in-system search, sort/filter)
+  // restore it only when this flag is present. Falling back to history.back()
+  // preserves that state implicitly, since the entry is still on the stack.
+  const goBack = () =>
+    backPathRef.current
+      ? navigate(backPathRef.current, { state: { restoreView: true } })
+      : navigate(-1)
+
   const _prefs = getBookPrefs(bookId)
   const _userPrefs = getUserPrefs()
   const initialPage = parseInt(searchParams.get('page')) || _prefs.page || 1
@@ -385,7 +394,7 @@ export default function ReaderView() {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
         <button
-          onClick={() => (backPathRef.current ? navigate(backPathRef.current) : navigate(-1))}
+          onClick={goBack}
           aria-label={t('common.back')}
           style={{
             background: 'none',
@@ -463,7 +472,7 @@ export default function ReaderView() {
         isMobilePhone={isMobilePhone}
         showShortcuts={showShortcuts}
         onToggleShortcuts={() => setShowShortcuts((v) => !v)}
-        onBack={() => (backPathRef.current ? navigate(backPathRef.current) : navigate(-1))}
+        onBack={goBack}
         isFavorite={isFavorite('book', bookId)}
         onToggleFavorite={() => toggleFavorite('book', bookId)}
         onBookmarkPage={() => {

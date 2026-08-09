@@ -146,9 +146,19 @@ function makeSystem(books = []) {
   }
 }
 
-function renderView() {
+// `restoreView` mimics arriving via the reader's back button, which is the only
+// way persisted search/sort/filter state is restored; the default is a fresh
+// navigation, which always starts clean.
+function renderView({ restoreView = false } = {}) {
   return render(
-    <MemoryRouter initialEntries={['/library/system/system-1']}>
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: '/library/system/system-1',
+          state: restoreView ? { restoreView: true } : null,
+        },
+      ]}
+    >
       <SystemDetailView />
     </MemoryRouter>
   )
@@ -524,28 +534,39 @@ describe('SystemDetailView — in-system search persistence', () => {
     await waitFor(() => expect(sessionStorage.getItem(SESSION_KEY)).toBe(JSON.stringify('fi')))
   })
 
-  it('re-runs the search on mount when a query is stored in sessionStorage', async () => {
+  it('re-runs the search on mount when returning with a stored query', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('fireball'))
     setupSearchMock('Spell Compendium')
-    renderView()
+    renderView({ restoreView: true })
 
     await waitFor(() => expect(screen.getByText('Spell Compendium')).toBeInTheDocument())
     expect(api.get).toHaveBeenCalledWith(expect.stringContaining('q=fireball'))
   })
 
-  it('pre-fills the search input from sessionStorage on mount', async () => {
+  it('pre-fills the search input when returning to the view', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('fireball'))
     setupSearchMock()
-    renderView()
+    renderView({ restoreView: true })
 
     await waitFor(() => screen.getByLabelText(/search within/i))
     expect(screen.getByLabelText(/search within/i).value).toBe('fireball')
   })
 
+  it('ignores a stored query on a fresh navigation', async () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify('fireball'))
+    setupSearchMock()
+    renderView()
+
+    await waitFor(() => screen.getByText('PHB'))
+    // Box is empty and no search was issued — the book grid renders as normal.
+    expect(screen.getByLabelText(/search within/i).value).toBe('')
+    expect(api.get.mock.calls.filter(([url]) => url.includes('/search'))).toHaveLength(0)
+  })
+
   it('does not run a search on mount when the stored query is too short', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('x'))
     api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
-    renderView()
+    renderView({ restoreView: true })
 
     await waitFor(() => screen.getByText('PHB'))
     const searchCalls = api.get.mock.calls.filter(([url]) => url.includes('/search'))
@@ -578,7 +599,7 @@ describe('SystemDetailView — in-system search persistence', () => {
         makeSystem([makeBook({ id: 'fb', title: 'Fireball Grimoire' }), makeBook({ title: 'PHB' })])
       )
     })
-    renderView()
+    renderView({ restoreView: true })
 
     // The matching book title appears (from the book grid, not the page hit).
     await waitFor(() => expect(screen.getByText('Fireball Grimoire')).toBeInTheDocument())
@@ -603,9 +624,61 @@ describe('SystemDetailView — in-system search persistence', () => {
       }
       return Promise.resolve(makeSystem([makeBook({ title: 'PHB' })]))
     })
-    renderView()
+    renderView({ restoreView: true })
 
     await waitFor(() => expect(screen.getByText(/no results found/i)).toBeInTheDocument())
+  })
+})
+
+describe('SystemDetailView — sort/filter persistence', () => {
+  const FILTER_KEY = 'grimoire:system:system-1:book-filter'
+  const storedFilter = { sort: 'year', order: 'desc', filters: {} }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsFavorite.mockReturnValue(false)
+    sessionStorage.clear()
+    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+  })
+
+  it('restores the stored sort/filter when returning to the view', async () => {
+    sessionStorage.setItem(FILTER_KEY, JSON.stringify(storedFilter))
+    renderView({ restoreView: true })
+
+    await waitFor(() => screen.getByText('PHB'))
+    // The sort select reflects the restored filter state rather than the default.
+    expect(screen.getByLabelText(/^sort$/i).value).toBe('year')
+  })
+
+  it('ignores the stored sort/filter on a fresh navigation', async () => {
+    sessionStorage.setItem(FILTER_KEY, JSON.stringify(storedFilter))
+    renderView()
+
+    await waitFor(() => screen.getByText('PHB'))
+    expect(screen.getByLabelText(/^sort$/i).value).toBe('title')
+  })
+
+  it('restores an active filter, not just the sort, when returning', async () => {
+    // A favourites-only filter hides the (non-favourite) book on return…
+    sessionStorage.setItem(
+      FILTER_KEY,
+      JSON.stringify({ sort: 'title', order: 'asc', filters: { favorites: true } })
+    )
+    renderView({ restoreView: true })
+
+    await waitFor(() => screen.getByLabelText(/^sort$/i))
+    expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+  })
+
+  it('does not apply a stored filter on a fresh navigation', async () => {
+    // …but the same stored filter is ignored when arriving fresh.
+    sessionStorage.setItem(
+      FILTER_KEY,
+      JSON.stringify({ sort: 'title', order: 'asc', filters: { favorites: true } })
+    )
+    renderView()
+
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
   })
 })
 

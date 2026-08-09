@@ -290,7 +290,10 @@ describe('ReaderView — back button navigation', () => {
 
     await userEvent.click(screen.getByLabelText('Back'))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/library/system/system-1')
+    // Flagged as a return so the referring view restores its search/sort/filter.
+    expect(mockNavigate).toHaveBeenCalledWith('/library/system/system-1', {
+      state: { restoreView: true },
+    })
     expect(mockNavigate).not.toHaveBeenCalledWith(-1)
   })
 

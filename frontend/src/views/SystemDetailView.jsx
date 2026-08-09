@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
+import useRestoredView from '../hooks/useRestoredView'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft,
@@ -55,6 +56,9 @@ export default function SystemDetailView() {
   const { user } = useAuth()
   const { isFavorite } = useFavorites()
   const isEditor = user?.role === 'admin' || user?.role === 'gm'
+  // Returning from the reader restores the search/sort/filter you left behind;
+  // navigating here fresh always starts clean.
+  const restoreView = useRestoredView()
   const [system, setSystem] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
@@ -78,12 +82,20 @@ export default function SystemDetailView() {
   // Books sort/filter now flow through the shared SortFilterBar state, with
   // server-backed saved presets (scope "books"). Favourites/tags/explicit/genre
   // all live in filters; the category grouping below is preserved.
-  const [bookFilter, setBookFilter] = useState(DEFAULT_BOOK_FILTER)
-  const [defaultApplied, setDefaultApplied] = useState(false)
+  // Persisted only for a return trip from the reader (issue: a search/filter set
+  // before opening a book should still be there on back, but a fresh visit to the
+  // system starts from the user's default preset).
+  const [bookFilter, setBookFilter] = useSessionState(
+    `grimoire:system:${systemId}:book-filter`,
+    DEFAULT_BOOK_FILTER,
+    { restore: restoreView }
+  )
+  const [defaultApplied, setDefaultApplied] = useState(restoreView)
   const [viewMode, cycleViewMode] = useViewMode('book')
   const [searchQuery, setSearchQuery] = useSessionState(
     `grimoire:system:${systemId}:search-query`,
-    ''
+    '',
+    { restore: restoreView }
   )
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
@@ -150,9 +162,10 @@ export default function SystemDetailView() {
     [systemId]
   )
 
-  // Re-run the search on mount if a query was persisted from a previous visit.
+  // Re-run the search on mount only when returning to the view (e.g. back from
+  // the reader); a fresh navigation starts with an empty box.
   useEffect(() => {
-    if (searchQuery && searchQuery.length >= 2) doSearch(searchQuery)
+    if (restoreView && searchQuery && searchQuery.length >= 2) doSearch(searchQuery)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchInput = (e) => {
@@ -163,6 +176,7 @@ export default function SystemDetailView() {
   }
 
   const clearSearch = () => {
+    clearTimeout(searchTimer.current)
     setSearchQuery('')
     setSearchResults(null)
   }
