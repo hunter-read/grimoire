@@ -46,6 +46,27 @@ describe('SegmentControl', () => {
     fireEvent.click(screen.getByText('B'))
     expect(onChange).toHaveBeenCalledWith('b')
   })
+
+  it('stays plain buttons unless asTabs is set', () => {
+    const options = [
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+    ]
+    render(<SegmentControl value="a" options={options} onChange={vi.fn()} />)
+    expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.queryByRole('tablist')).toBeNull()
+  })
+
+  it('exposes tab semantics when asTabs is set', () => {
+    const options = [
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+    ]
+    render(<SegmentControl value="a" options={options} onChange={vi.fn()} asTabs label="Groups" />)
+    expect(screen.getByRole('tablist', { name: 'Groups' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'A' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: 'B' }).getAttribute('aria-selected')).toBe('false')
+  })
 })
 
 describe('ScheduleEditor', () => {

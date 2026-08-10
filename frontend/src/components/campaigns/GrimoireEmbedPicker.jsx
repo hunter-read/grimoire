@@ -15,7 +15,9 @@ import {
 import { campaigns, mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import ImageUploadPanel from './ImageUploadPanel'
+import SegmentControl from './SegmentControl'
 import { miniBtn, miniBtnGhost } from './embedPickerStyles'
+import { buildEmbedGroups } from './embedPickerGroups'
 import LazyImg from '../LazyImg'
 
 const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser, audio: LuMusic, file: LuFile }
@@ -24,10 +26,12 @@ const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser, audio: LuMusic,
 // [[...]] embed token to insert into a wiki note. Only resources already linked
 // to this campaign are listed — to embed new library content, link it first in
 // the Resources panel.
-export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
+export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, onClose }) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [resources, setResources] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [activeGroup, setActiveGroup] = useState(null) // null until groups load
   const [pageFor, setPageFor] = useState(null) // book item awaiting a page number
   const [pageNum, setPageNum] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -44,6 +48,12 @@ export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
       .listResources(campaignId)
       .then((list) => setResources(list || []))
       .catch(() => setResources([]))
+    // Categories only affect how rows are grouped, so a failure here degrades
+    // to the built-in type tabs rather than blocking the picker.
+    campaigns
+      .listCategories(campaignId, 'resource')
+      .then((list) => setCategories(list || []))
+      .catch(() => setCategories([]))
   }, [campaignId])
 
   // The embed token for a resource. Images use the `image:` prefix so they render
@@ -66,9 +76,31 @@ export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
     onInsert(`[[image:${created.resource_id}]]`)
   }
 
-  const filtered = (resources || []).filter((r) =>
-    (r.name || '').toLowerCase().includes(query.trim().toLowerCase())
+  const TYPE_LABELS = {
+    book: t('resources.books'),
+    map: t('resources.maps'),
+    token: t('resources.tokens'),
+    audio: t('resources.audio'),
+    file: t('resources.files'),
+  }
+
+  const search = query.trim().toLowerCase()
+  const matchesQuery = (r) => (r.name || '').toLowerCase().includes(search)
+
+  const groups = buildEmbedGroups(
+    resources || [],
+    categories,
+    groupOrder,
+    (type) => TYPE_LABELS[type] || type
   )
+
+  // The first group is shown by default, and a tab that disappears (its last
+  // match filtered away) falls back to the first one that's still there.
+  const current = groups.find((g) => g.key === activeGroup) || groups[0]
+
+  // Searching spans every category — scoping it to the open tab would hide
+  // matches behind tabs the user can't see, which reads as "no results".
+  const filtered = search ? (resources || []).filter(matchesQuery) : current ? current.items : []
 
   return (
     <div
@@ -162,6 +194,24 @@ export default function GrimoireEmbedPicker({ campaignId, onInsert, onClose }) {
                 <LuImage size={14} /> {t('wiki.uploadImage')}
               </button>
             </div>
+
+            {/* While searching, results span every category, so the tabs
+                would no longer describe what's listed below. */}
+            {!search && groups.length > 1 && (
+              <div style={{ marginBottom: 12 }}>
+                <SegmentControl
+                  value={current?.key}
+                  options={groups.map((g) => ({
+                    key: g.key,
+                    label: `${g.label} (${g.items.length})`,
+                  }))}
+                  onChange={setActiveGroup}
+                  equalWidth={false}
+                  asTabs
+                  label={t('wiki.embedCategoryTabs')}
+                />
+              </div>
+            )}
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {resources === null ? (

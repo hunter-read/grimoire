@@ -5,12 +5,19 @@ import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import { campaigns } from '../../api'
 
 vi.mock('../../api', () => ({
-  campaigns: { listResources: vi.fn(), fileUrl: (cid, id) => `http://localhost/c/${cid}/f/${id}` },
+  campaigns: {
+    listResources: vi.fn(),
+    listCategories: vi.fn(),
+    fileUrl: (cid, id) => `http://localhost/c/${cid}/f/${id}`,
+  },
   mediaUrl: (p) => `http://localhost${p}`,
 }))
 vi.mock('./ImageUploadPanel', () => ({ default: () => <div>upload-panel</div> }))
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  campaigns.listCategories.mockResolvedValue([])
+})
 
 const resources = [
   { id: 'r1', resource_type: 'audio', resource_id: 'a1', name: 'Tavern', has_thumbnail: true },
@@ -19,32 +26,79 @@ const resources = [
 ]
 
 describe('GrimoireEmbedPicker', () => {
-  it('lists linked resources', async () => {
+  it('shows the first category by default and hides the others', async () => {
     campaigns.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText('Tavern')).toBeInTheDocument())
+    // Books lead the built-in type order, so the book is the only row visible.
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+    expect(screen.queryByText('Cave')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tavern')).not.toBeInTheDocument()
+  })
+
+  it('switches the listed resources when another category tab is picked', async () => {
+    campaigns.listResources.mockResolvedValue(resources)
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => screen.getByText('PHB'))
+    await userEvent.click(screen.getByRole('tab', { name: /maps/i }))
     expect(screen.getByText('Cave')).toBeInTheDocument()
-    expect(screen.getByText('PHB')).toBeInTheDocument()
+    expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+  })
+
+  it('labels each category tab with its item count', async () => {
+    campaigns.listResources.mockResolvedValue(resources)
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => screen.getByText('PHB'))
+    expect(screen.getByRole('tab', { name: /books \(1\)/i })).toBeInTheDocument()
+  })
+
+  it('groups by the campaign’s custom resource categories', async () => {
+    campaigns.listResources.mockResolvedValue([
+      { id: 'r1', resource_type: 'map', resource_id: 'm1', name: 'Cave', category_id: 'c9' },
+      { id: 'r2', resource_type: 'book', resource_id: 'b1', name: 'PHB' },
+    ])
+    campaigns.listCategories.mockResolvedValue([{ id: 'c9', name: 'Handouts', sort_order: 1 }])
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    // Custom categories lead, so the Handouts map shows before the book group.
+    await waitFor(() => expect(screen.getByText('Cave')).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /handouts/i })).toBeInTheDocument()
+    expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+  })
+
+  it('still lists resources when the categories request fails', async () => {
+    campaigns.listResources.mockResolvedValue(resources)
+    campaigns.listCategories.mockRejectedValue(new Error('nope'))
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
   })
 
   it('inserts an [[audio:ID]] token when an audio resource is picked', async () => {
     campaigns.listResources.mockResolvedValue(resources)
     const onInsert = vi.fn()
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={onInsert} onClose={vi.fn()} />)
-    await waitFor(() => screen.getByText('Tavern'))
-    // Resources render in order, so the first Insert button is the audio row's.
-    const insertButtons = screen.getAllByRole('button', { name: /insert/i })
-    await userEvent.click(insertButtons[0])
+    await waitFor(() => screen.getByText('PHB'))
+    await userEvent.click(screen.getByRole('tab', { name: /audio/i }))
+    await userEvent.click(screen.getByRole('button', { name: /insert/i }))
     expect(onInsert).toHaveBeenCalledWith('[[audio:a1]]')
   })
 
-  it('filters resources by the search query', async () => {
+  it('searches across every category, not just the open tab', async () => {
     campaigns.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
-    await waitFor(() => screen.getByText('Tavern'))
+    await waitFor(() => screen.getByText('PHB'))
+    // "Cave" is a map, behind another tab — searching must still surface it.
     await userEvent.type(screen.getByPlaceholderText(/search/i), 'cave')
-    expect(screen.queryByText('Tavern')).not.toBeInTheDocument()
     expect(screen.getByText('Cave')).toBeInTheDocument()
+    expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tavern')).not.toBeInTheDocument()
+  })
+
+  it('hides the category tabs while a search is active', async () => {
+    campaigns.listResources.mockResolvedValue(resources)
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => screen.getByText('PHB'))
+    expect(screen.getAllByRole('tab').length).toBeGreaterThan(1)
+    await userEvent.type(screen.getByPlaceholderText(/search/i), 'cave')
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
   it('shows an empty state when no resources are linked', async () => {
