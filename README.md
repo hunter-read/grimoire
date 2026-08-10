@@ -33,6 +33,7 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **View Modes** - Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
 - **Metadata Editor** - Rich metadata for systems (multiple genres, dice/materials, system family, parent system + edition, license, year, and multiple generic + character-builder links) and books (authors, artists, genres, ISBN, version, language, a per-book license override, a variable-precision publication date, and multiple links). Genres, system families, parent systems, licenses, and dice/materials are drawn from curated lists you manage in **Settings → Metadata** (each section collapsible; defaults plus your own custom values). A *parent system* groups related systems (e.g. D&D 5e and AD&D under "Dungeons & Dragons"), and an *edition* string combines with it for display ("Cyberpunk" + "Red" → "Cyberpunk Red")
 - **Community Add-ons** - Install metadata scrapers contributed by the community to fill in game system and book details from external sources (TTRPG Wiki for systems, DriveThruRPG for books). Open a system or book, hit **Fetch metadata**, pick a match, and review a field-by-field diff before anything is written - values you have already set are never pre-selected. Definitions live in the separate [community-add-ons](https://github.com/grimoire-codex/community-add-ons) repo, so a source that changes can be fixed without waiting for a Grimoire release. Manage and update them in **Settings → Add-ons**; see [`docs/addons.md`](docs/addons.md)
+- **Wiki Note Templates** - Start a campaign wiki page from a template instead of a blank note. Browse a community catalogue as a folder tree (Generic, Draw Steel, Dungeons & Dragons 5e, …) and download copies into your campaign, write your own, or upload a Markdown file or template `.zip`. Templates belong to the campaign, so you can edit a downloaded one freely; any template exports as a ready-to-contribute folder that uploads straight back in. Downloading can be turned off with `WIKI_TEMPLATES_DOWNLOAD_DISABLED` while authoring and upload keep working; see [`docs/wiki-templates.md`](docs/wiki-templates.md)
 - **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on. Sort, filters, saved presets, multi-select, and the view switcher share a single toolbar row that stays pinned to the top of the page as you scroll, so bulk-selecting entries near the bottom of a long library no longer means scrolling back up
 - **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. An "apply to all" button opens a checklist of fields to copy from the item you are on to the whole selection - tick Category and every selected book moves at once - and books and systems can pull metadata from an installed add-on without leaving the carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
 - **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
@@ -276,7 +277,7 @@ The **one-page / small RPG** collections behave differently: they are *system co
 
 #### System containers (parent systems & sub-libraries)
 
-Sometimes a folder isn't a game system - it's a shelf holding several. Grimoire supports two flavours, and in both cases the folder's immediate children become game systems in their own right, each with its own metadata, tags, cover, and place in the system filters.
+Sometimes a folder isn't a game system - it's a shelf holding several. Grimoire supports five flavours, and in every case the folder's immediate children become game systems in their own right, each with its own metadata, tags, cover, and place in the system filters.
 
 **Parent systems** group the editions of one game:
 
@@ -293,6 +294,42 @@ books/
 ```
 
 This yields two systems - "Dungeons & Dragons 3e" and "Dungeons & Dragons 5e" - each with `Parent System` set to "Dungeons & Dragons" and `Edition` set to the folder name, so you can filter the library by either. Category folders (`core`, `adventure`, …) work normally *inside* each edition.
+
+**System families** group related but *distinct* systems that share a lineage - not editions of one game:
+
+```
+books/
+└── d20 System/                    ← .system-family-container
+    ├── Pathfinder/                ← .parent-system-container (nesting is fine)
+    │   ├── 1e/
+    │   └── 2e/
+    ├── Mutants & Masterminds/
+    └── d20 Modern/
+```
+
+Each child is an independent system, and the container's name fills in its `System Family` field - so the folder structure and the family filter finally line up. Children keep their own names (no `{Parent} {Child}` prefixing) and get no `Edition`/`Parent System`, because they aren't variants of anything. As shown above, a family can hold a multi-edition system: the nested `.parent-system-container` resolves its editions normally, and inherits the family name itself.
+
+**Publisher containers** group the systems one company puts out:
+
+```
+books/
+└── Paizo/                         ← .publisher-container
+    ├── Pathfinder 2e/
+    └── Starfinder/
+```
+
+Each child is an independent system with the container's name recorded as its `Publisher`.
+
+> Family and publisher containers only *fill in* metadata a system doesn't already have. If a book's OPF sidecar, an add-on, or your own edit already set the family or publisher, a rescan leaves it alone.
+
+**Generic containers** are the escape hatch. A bare `.container` marker says only "the folders in here are systems" and claims nothing about how they relate, so it propagates no metadata at all - use it when your shelf doesn't fit any of the named kinds:
+
+```
+books/
+└── Kickstarter Hauls/             ← .container
+    ├── Mörk Borg/
+    └── Mothership/
+```
 
 **One-page / micro-RPG collections** are sub-libraries of many tiny games. Here, *both* subfolders and loose files at the root become systems:
 
@@ -316,11 +353,19 @@ A single-file game becomes a system holding that one book; a folder-backed game 
 |---|---|---|
 | Marker file | `books/D&D/.parent-system-container` | Parent system |
 | Marker file | `books/Itch Bundle/.one-page-container` | One-page collection |
+| Marker file | `books/d20 System/.system-family-container` | System family |
+| Marker file | `books/Paizo/.publisher-container` | Publisher |
+| Marker file | `books/Kickstarter Hauls/.container` | Generic |
 | Folder-name suffix | `books/Cyberpunk (parent-system)/` | Parent system |
 | Folder-name suffix | `books/Jam Games (one-page)/` | One-page collection |
+| Folder-name suffix | `books/Powered by the Apocalypse (system-family)/` | System family |
+| Folder-name suffix | `books/Chaosium (publisher)/` | Publisher |
+| Folder-name suffix | `books/My Shelf (container)/` | Generic |
 | Recognized name | `books/One-Page RPGs/` | One-page collection |
 
-**Naming.** Child systems get a sensible default name - `{Parent} {Edition}` for parent systems, the prettified file/folder name for one-page games. Rename any of them in the UI and your name sticks: rescans never overwrite a system you've renamed, so "Dungeons & Dragons 2e" can become "Advanced Dungeons & Dragons".
+If a folder somehow carries more than one declaration, the most specific kind wins, in this order: **parent system → one-page → system family → publisher → generic**. Every recognized suffix is stripped from the stored name either way, so a stray `(publisher)` never shows up in the UI.
+
+**Naming.** Child systems get a sensible default name - `{Parent} {Edition}` for parent systems, the prettified file/folder name for one-page games, and their own folder name for family, publisher, and generic children. Rename any of them in the UI and your name sticks: rescans never overwrite a system you've renamed, so "Dungeons & Dragons 2e" can become "Advanced Dungeons & Dragons".
 
 **Reorganizing an existing library.** If you move a flat `books/Dungeons & Dragons 5e/` into `books/Dungeons & Dragons/5e/`, the generated child name matches the system you already have - so Grimoire adopts that existing system rather than creating a duplicate. Its books, metadata, tags, and cover all follow it into the container.
 
@@ -335,6 +380,10 @@ books/
 ```
 
 Or upload one from the container's page (**Cover image**, GM/admin only). A `cover.*`/`folder.*` file in the library folder takes precedence over an upload, and both beat the book thumbnail an ordinary system falls back to. This works for any system, not just containers.
+
+**Grouping toggle.** Containers are a way to organize the grid, not a cage. The **Group collections** switch beside the "Your Collection" heading (shown only when you actually have a container) flattens them: the container cards drop out and their child systems take their place, so you get a plain A-Z list of every real system with the usual sorting and filters applied. Switch it back on to return to the drill-down view. Your choice is remembered across sessions.
+
+One-page collections are the deliberate exception - they stay grouped either way. Keeping a pile of tiny one-book games out of the main grid is the whole reason that collection exists, so flattening leaves its chip in the Special Collections strip and its games reachable by drilling in.
 
 > **Note:** systems nested inside a container count toward your library's game-system total. If you already used a `One-Page RPGs` folder, expect that number to rise after the first rescan as each game inside it becomes its own system.
 
@@ -556,6 +605,7 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `ALLOW_PASSWORD_AUTHENTICATION` | - | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
 | `GUEST_ACCESS_ENABLED` | - | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
 | `DISABLE_FOLDER_CATEGORY_INFERENCE` | - | Optional, `true` or `false`. When set, pins folder-name category inference on or off and overrides the toggle in Settings → Maintenance (shown read-only). When `true`, books are not auto-assigned a category from their folder names and fall back to `uncategorized`. A per-system `.no-auto-category` marker file disables inference for just that system. |
+| `WIKI_TEMPLATES_DOWNLOAD_DISABLED` | `false` | Optional, `true` or `false`. When `true`, Grimoire never fetches wiki note templates from a community catalogue: the wiki's **Browse** tab disappears and the catalogue endpoints refuse. Writing templates in the app and uploading a `.md` still work, so a GM can hand-copy a template in. See [Wiki note templates](docs/wiki-templates.md). |
 | `OIDC_*` env vars | - | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
 | `AUTH_RATE_LIMIT` | `10/minute` | Per-IP throttle applied to the credential-checking endpoints (`/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats`). Exceeding it returns `429`. Uses a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string like `20/minute` or `100/hour`. See [Security hardening](#security-hardening) below. |
 | `RATE_LIMIT_ENABLED` | `true` | Optional. Set to `false` to disable auth rate limiting entirely. |
@@ -728,6 +778,23 @@ Grimoire has a built-in campaign tracker with two modes:
 
 Campaign creation uses a short wizard: pick a system, then choose resources - the system's core books are suggested by default and anything can be added (with a search) or removed, each set to **Shared with players**, **GM only**, or **Private**. The campaign **description** supports markdown, and you can name a **custom game system** that isn't in your library (handy for keeping notes on a system you don't own).
 
+A personal campaign can be **converted to a group campaign** later (**Convert to group** on the campaign page, GMs and admins only) - useful when solo prep turns into a game you want to run. Everything already in it (resources, wiki, sessions) carries over untouched, and invitations, guests, and scheduling unlock. This is **one-way**: a group campaign can't be turned back into a personal one, since that would strand its members and schedule.
+
+### Archiving campaigns
+
+Finished a game? **Archive** it from the campaign page instead of deleting it. An archived campaign:
+
+- Is **hidden from everyone's campaign list** - yours and your players' - until you switch on the **Archived** toggle above the list, which shows archived campaigns alongside the active ones. It is tucked away, not gone: anyone who was in it can still open it from there.
+- Becomes **read-only for everyone, including you**: the wiki, session notes, resources, and roster stay exactly as they were left. Pending invitations to it stop appearing in the invite banner.
+- Stays **fully readable** - open it any time to reread notes.
+
+Two things a player can always do, archived or not:
+
+- **Leave the campaign** (**Leave campaign** on the campaign page). Archiving never traps anyone in a game they're done with. The GM removing *someone else* is still a roster edit, so that waits for an unarchive.
+- **Export the wiki** (**Export** in the wiki sidebar, Markdown zip or JSON) - so anyone can take their own copy of a campaign with them, including when moving to another platform. A player's export contains exactly what they can see in the app: GM-only pages are left out and `||GM secrets||` are stripped. The GM's export is the complete wiki. Importing writes pages, so it stays GM-only and is unavailable while archived.
+
+Archiving is reversible: **Unarchive** restores writes and puts it back in the normal list. Deleting an archived campaign still works if you want it gone for good.
+
 When a GM invites you to a campaign, an **invite banner** appears at the top of the app so you can **accept** (join the campaign) or **decline** it from anywhere. You can dismiss the banner for the current browser session; it reappears the next time you open the app while an invite is still pending.
 
 Campaign members can set a **character name** per campaign (editable by both the GM and the player), upload **character art** (shown as their avatar) and a **character sheet** (PDF or image). A player can also **create a sheet from a template** - duplicating a form-fillable PDF from the library's Character Sheets category (filtered to the campaign's system) or a campaign file - and **fill it in directly in the app**: the real PDF is rendered in the browser and the player types into the form fields on the page itself, then saves a filled copy. The same in-app editing works for any form-fillable PDF a player uploads, so sheets can be updated as characters advance. Sheets can be downloaded at any time, and re-uploading prompts a warning (with an option to download the current version first) before the previous one is replaced. Users can also set a **display name** in Account Settings that appears in place of their username across the app.
@@ -762,9 +829,12 @@ Each campaign has a full-page markdown **wiki** (opened from the campaign overvi
 - **Custom icons per entry** - give any page (or resource category) its own icon so a long sidebar is easy to scan. The picker is searchable - search by concept, not just name ("tree" finds the pine, "disguise" finds the mask) - and offers a **built-in** set of 200+ icons plus an **emoji** tab. Tint any icon with a preset colour or a custom hex value.
 - **GM secrets inline** - wrap text in `||double pipes||` (or use the **GM secret** button) to hide just that span inside an otherwise shared page. The GM sees it highlighted; players never receive it - it's stripped on the server before the page is sent. (Personal campaigns keep everything, since only you can read them.)
 - **Nested pages** - organize the sidebar as a tree: any page can hold subpages, to any depth (a "category" is just a page with children). Drag pages to re-nest them, add a subpage from the parent row, and collapse/expand branches. Deleting a page lifts its subpages up to the parent rather than removing them.
-- **Page links** - write `[[Page Title]]` to link pages; missing targets are auto-created as stubs, and each page shows what links back to it.
+- **Page links** - write `[[Page Title]]` to link pages; missing targets are auto-created as stubs, and each page shows what links back to it. Type `[[` and a **suggestion list** appears, matching page titles as you type (on any word, so `[[gob` finds *Boblin the Goblin*) - pick with the arrow keys and Enter. Links follow their target: **renaming** a page updates the links pointing at it instead of leaving them dangling, and where two pages share a title the suggestions show each one's parent page in brackets - *Ancient Ruins (Northlands)* vs *Ancient Ruins (Southmarch)* - and add a hidden id (`[[Page Title:id-…]]`) so you always link the one you picked.
+- **Link to a heading** - suggestions include the headings inside each page, so you can point at a specific section: `[[Bestiary:#Goblins]]` opens *Bestiary* scrolled to its *Goblins* heading. Titles containing a colon (`[[Ancient Ruins: The Depths]]`) and headings starting with `#` (`[[Prices:## of coin]]` for a `# # of coin` heading) work without escaping.
 - **Grimoire embeds** - drop a book (optionally at a page), map, token, audio track (plays in the global player; a note with several can be played as a playlist via "Play all"), or campaign file straight into a page. The embed picker lists the campaign's **linked resources** (link new library content in the Resources panel first). You can also **upload an image** right from the picker - it's embedded inline and added to your linked resources, filed under an existing category or a new one you name on the spot (e.g. *NPC art*).
 - **Import & export** (GM only) - export the whole wiki as a Markdown `.zip` (one file per page with YAML frontmatter - an Obsidian-style vault) or a JSON bundle, and import pages from Markdown, a Grimoire JSON bundle, or a **LegendKeeper** export (`.json`, `.lk`, or `.zip` - both the per-page export and the current `{version, resources}` bundle). LegendKeeper HTML and ProseMirror page bodies are converted to Markdown and the page hierarchy is preserved; LegendKeeper-only block types (e.g. secrets, embeds) are dropped, matching LegendKeeper's own export caveats. Imports are non-destructive - pages are always added, never overwritten.
+
+- **Note templates** (GM only) - **Templates** in the wiki sidebar starts a page from a template instead of a blank one. Templates belong to the campaign and arrive three ways: **downloaded** from a community catalogue (browsed as a collapsible folder tree - Generic first, then a folder per game system, with the campaign's own system opened for you), **written** in the app, or **uploaded** as a `.md` file or a `.zip`. Each is a working copy, so editing a downloaded template never touches another campaign's. Any template **exports** as a `.zip` in the community repo's folder layout, ready to contribute back or keep in your own fork - and that same `.zip` uploads straight back in, so export/upload doubles as copying a template between campaigns. Downloading obeys `WIKI_TEMPLATES_DOWNLOAD_DISABLED` - with it set, browsing is off but authoring and upload still work, so you can hand-copy a `.md` from the repo. Picking a template opens an unsaved page editor rather than creating the page, so a mis-click costs a cancel instead of a delete; like every other wiki import it is non-destructive. See [`docs/wiki-templates.md`](docs/wiki-templates.md)
 
 Existing session notes are automatically rolled into wiki pages (nested under a "Session Notes" page) the first time the new version starts; empty notes are discarded.
 
