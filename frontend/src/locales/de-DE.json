@@ -1477,7 +1477,11 @@
     "applySelected_other": "{{count}} Felder anwenden",
     "selectAll": "Alle auswählen",
     "selectNone": "Keine auswählen",
-    "emptyValue": "leer"
+    "emptyValue": "leer",
+    "discardTitle": "Nicht gespeicherte Änderungen verwerfen?",
+    "discardHint": "Du hast nicht gespeicherte Änderungen in dieser Sammelbearbeitung. Beim Schließen gehen sie verloren.",
+    "keepEditing": "Weiter bearbeiten",
+    "discardChanges": "Änderungen verwerfen"
   },
   "guests": {
     "guests": "Gäste",

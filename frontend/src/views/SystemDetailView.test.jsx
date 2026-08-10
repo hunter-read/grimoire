@@ -885,8 +885,10 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(bulk.addTags).toHaveBeenCalledTimes(1))
     expect(bulk.addTags).toHaveBeenCalledWith('book', ['b1', 'b2'], ['fresh'])
     expect(api.patch).not.toHaveBeenCalled()
-    // Selection is cleared after applying (count resets to 0).
-    await waitFor(() => expect(screen.getByTestId('bulk-count').textContent).toBe('0'))
+    // Issue #256: the selection survives applying tags, so another tag can be
+    // added to the same batch without re-picking every book.
+    await waitFor(() => expect(bulk.addTags).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('bulk-count').textContent).toBe('2')
   })
 
   it('applies bulk edits from the bulk edit modal', async () => {
@@ -900,9 +902,11 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     expect(screen.getByTestId('bulk-edit-modal')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('bulk-save'))
-    // Edits merge into the book and the bulk UI closes.
+    // Edits merge into the book and the modal closes, but issue #256 keeps the
+    // bulk bar and the selection up so a mistake can be corrected immediately.
     await waitFor(() => expect(screen.queryByTestId('bulk-edit-modal')).not.toBeInTheDocument())
-    await waitFor(() => expect(screen.queryByTestId('bulk-bar')).not.toBeInTheDocument())
+    expect(screen.getByTestId('bulk-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('bulk-count').textContent).toBe('1')
   })
 })
 

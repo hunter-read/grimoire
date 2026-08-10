@@ -305,7 +305,8 @@ export default function SystemDetailView() {
         ...s,
         books: s.books.map((b) => (tags?.[b.id] ? { ...b, tags: tags[b.id] } : b)),
       }))
-      bulk.clear()
+      // Selection is deliberately kept so tags can be applied one at a time to
+      // the same batch (issue #256).
     } finally {
       setBulkApplying(false)
     }
@@ -886,10 +887,7 @@ export default function SystemDetailView() {
         <AddToCampaignModal
           items={selectedBookObjects().map((b) => ({ resource_type: 'book', resource_id: b.id }))}
           onClose={() => setShowAddToCampaign(false)}
-          onAdded={() => {
-            setShowAddToCampaign(false)
-            bulk.exit()
-          }}
+          onAdded={() => setShowAddToCampaign(false)}
         />
       )}
 
@@ -903,7 +901,6 @@ export default function SystemDetailView() {
           onSaved={(edited) => {
             applyBookEdits(edited)
             setShowBulkEdit(false)
-            bulk.exit()
           }}
         />
       )}

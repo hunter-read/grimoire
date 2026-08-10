@@ -591,7 +591,6 @@ export default function LibraryView() {
           onSaved={(edited) => {
             library.applyEdits(edited)
             setShowBulkEdit(false)
-            bulk.exit()
           }}
         />
       )}

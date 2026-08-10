@@ -1477,7 +1477,11 @@
     "applySelected_other": "Aplicar {{count}} campos",
     "selectAll": "Selecionar tudo",
     "selectNone": "Não selecionar nada",
-    "emptyValue": "vazio"
+    "emptyValue": "vazio",
+    "discardTitle": "Descartar alterações não salvas?",
+    "discardHint": "Você tem edições não salvas nesta edição em massa. Fechar agora vai perdê-las.",
+    "keepEditing": "Continuar editando",
+    "discardChanges": "Descartar alterações"
   },
   "guests": {
     "guests": "Convidados",

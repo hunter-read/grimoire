@@ -1477,7 +1477,11 @@
     "applySelected_other": "Apply {{count}} fields",
     "selectAll": "Select all",
     "selectNone": "Select none",
-    "emptyValue": "empty"
+    "emptyValue": "empty",
+    "discardTitle": "Discard unsaved changes?",
+    "discardHint": "You have unsaved edits in this bulk edit. Closing now will lose them.",
+    "keepEditing": "Keep editing",
+    "discardChanges": "Discard changes"
   },
   "guests": {
     "guests": "Guests",
