@@ -595,6 +595,7 @@ export default function PageEditor({
       {showEmbedPicker && (
         <GrimoireEmbedPicker
           campaignId={campaign.id}
+          groupOrder={campaign.resource_group_order}
           onInsert={(token) => {
             insertAtCursor(token)
             setShowEmbedPicker(false)
