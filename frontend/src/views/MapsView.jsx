@@ -55,10 +55,7 @@ export default function MapsView() {
             .selectedObjects()
             .map((m) => ({ resource_type: 'map', resource_id: m.id }))}
           onClose={() => setShowAddToCampaign(false)}
-          onAdded={() => {
-            setShowAddToCampaign(false)
-            gallery.bulk.exit()
-          }}
+          onAdded={() => setShowAddToCampaign(false)}
         />
       )}
 
@@ -70,7 +67,6 @@ export default function MapsView() {
           onSaved={(edited) => {
             gallery.applyEdits(edited)
             setShowBulkEdit(false)
-            gallery.bulk.exit()
           }}
         />
       )}

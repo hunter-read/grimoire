@@ -59,7 +59,8 @@ export default function useSystemLibrary(systems, setSystems) {
       // The server returns each system's resulting tag list, so local state is
       // patched from what actually landed rather than a client-side guess.
       applyEdits(Object.fromEntries(ids.map((id) => [id, { tags: tags?.[id] || [] }])))
-      bulk.clear()
+      // Selection is deliberately kept so tags can be applied one at a time to
+      // the same batch (issue #256).
     } finally {
       setApplying(false)
     }

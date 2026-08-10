@@ -54,10 +54,7 @@ export default function TokensView() {
             .selectedObjects()
             .map((tok) => ({ resource_type: 'token', resource_id: tok.id }))}
           onClose={() => setShowAddToCampaign(false)}
-          onAdded={() => {
-            setShowAddToCampaign(false)
-            gallery.bulk.exit()
-          }}
+          onAdded={() => setShowAddToCampaign(false)}
         />
       )}
 
@@ -69,7 +66,6 @@ export default function TokensView() {
           onSaved={(edited) => {
             gallery.applyEdits(edited)
             setShowBulkEdit(false)
-            gallery.bulk.exit()
           }}
         />
       )}

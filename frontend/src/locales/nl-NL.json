@@ -1477,7 +1477,11 @@
     "applySelected_other": "{{count}} velden toepassen",
     "selectAll": "Alles selecteren",
     "selectNone": "Niets selecteren",
-    "emptyValue": "leeg"
+    "emptyValue": "leeg",
+    "discardTitle": "Niet-opgeslagen wijzigingen negeren?",
+    "discardHint": "Je hebt niet-opgeslagen bewerkingen in deze bulkbewerking. Als je nu sluit, gaan ze verloren.",
+    "keepEditing": "Verder bewerken",
+    "discardChanges": "Wijzigingen negeren"
   },
   "guests": {
     "guests": "Gasten",

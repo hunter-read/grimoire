@@ -132,7 +132,9 @@ describe('useSystemLibrary', () => {
       expect(view.latest.find((s) => s.id === 's2').tags).toEqual(['scifi'])
     })
 
-    it('clears the selection after a successful apply', async () => {
+    // Issue #256: applying tags keeps the selection so the same batch can be
+    // tagged again — one tag at a time, or to correct a typo.
+    it('keeps the selection after a successful apply', async () => {
       const { result } = setup()
       act(() => result.current.bulk.toggleItem('s1'))
 
@@ -140,7 +142,8 @@ describe('useSystemLibrary', () => {
         await result.current.applyTags(['new'])
       })
 
-      expect(result.current.bulk.count).toBe(0)
+      expect(result.current.bulk.count).toBe(1)
+      expect(result.current.bulk.selectedIds.has('s1')).toBe(true)
     })
 
     it('does nothing while the systems list is still loading', async () => {

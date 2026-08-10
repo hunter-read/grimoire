@@ -236,14 +236,16 @@ describe('TokensView', () => {
       expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
     })
 
-    // Adding leaves bulk mode, so the Select toggle returns to its idle label.
-    it('exits bulk mode once tokens are added to a campaign', async () => {
+    // Issue #256: the modal closes but bulk mode and the selection stay up, so
+    // the same batch can be sent to another campaign without re-picking it.
+    it('keeps bulk mode once tokens are added to a campaign', async () => {
       await setupOneToken()
       await userEvent.click(screen.getByRole('button', { name: /add to campaign/i }))
       await userEvent.click(screen.getByRole('button', { name: 'confirm atc' }))
 
       expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /^select$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^done$/i })).toBeInTheDocument()
+      expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
     })
 
     it('opens the bulk edit modal for the token type', async () => {

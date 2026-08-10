@@ -261,8 +261,9 @@ describe('MapsView', () => {
       expect(screen.getByTestId('atc-payload')).toHaveTextContent('m1')
     })
 
-    // Adding leaves bulk mode, so the Select toggle returns to its idle label.
-    it('exits bulk mode once maps are added to a campaign', async () => {
+    // Issue #256: the modal closes but bulk mode and the selection stay up, so
+    // the same batch can be sent to another campaign without re-picking it.
+    it('keeps bulk mode once maps are added to a campaign', async () => {
       setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
       renderView()
       await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
@@ -272,10 +273,11 @@ describe('MapsView', () => {
       await userEvent.click(screen.getByRole('button', { name: 'confirm atc' }))
 
       expect(screen.queryByTestId('add-to-campaign')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /^select$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^done$/i })).toBeInTheDocument()
+      expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
     })
 
-    it('applies bulk edits and exits bulk mode on save', async () => {
+    it('applies bulk edits and keeps the selection on save', async () => {
       setupMaps([makeMap({ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png' })])
       renderView()
       await waitFor(() => expect(screen.getByText('cave.png')).toBeInTheDocument())
@@ -286,6 +288,8 @@ describe('MapsView', () => {
 
       expect(screen.queryByTestId('bulk-edit')).not.toBeInTheDocument()
       await waitFor(() => expect(screen.getByText('renamed.png')).toBeInTheDocument())
+      // Issue #256: still in bulk mode with the map selected.
+      expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
     })
   })
 

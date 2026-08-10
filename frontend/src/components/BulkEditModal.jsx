@@ -170,6 +170,40 @@ const stringToTags = (s) =>
     .filter(Boolean)
 
 /**
+ * Build the { id: changedFields } patch map for a set of drafts — every field
+ * whose draft value differs from the item's current value. Shared by the save
+ * path and the unsaved-changes check behind Cancel (issue #256).
+ */
+const diffDrafts = (items, drafts, cfg) => {
+  const changedById = {}
+  for (const it of items) {
+    const d = drafts[it.id]
+    const patch = {}
+    for (const f of cfg.fields) {
+      if (f === 'tags') {
+        const next = cfg.custom ? d.tags : stringToTags(d.tags)
+        if (tagsToString(next) !== tagsToString(it.tags)) patch.tags = next
+      } else if (STRUCTURED_FIELDS.has(f)) {
+        const next = cleanStructured(f, d[f])
+        if (JSON.stringify(next) !== JSON.stringify(it[f] || [])) patch[f] = next
+      } else if (f === 'is_explicit') {
+        if (!!d.is_explicit !== !!it.is_explicit) patch.is_explicit = !!d.is_explicit
+      } else if (f === 'cover_book_id') {
+        if ((d.cover_book_id ?? null) !== (it.cover_book_id ?? null))
+          patch.cover_book_id = d.cover_book_id ?? null
+      } else if (f === 'year' || f === 'month' || f === 'day') {
+        const next = d[f] === '' || d[f] == null ? null : Number(d[f])
+        if (next !== (it[f] ?? null)) patch[f] = next
+      } else if ((d[f] ?? '') !== (it[f] ?? '')) {
+        patch[f] = d[f]
+      }
+    }
+    if (Object.keys(patch).length) changedById[it.id] = patch
+  }
+  return changedById
+}
+
+/**
  * Edit a set of items one at a time via a carousel. Receives the selected item
  * objects and a `type` (book|map|token|audio|system). On save, persists every
  * changed item in a single bulk request and calls `onSaved` with a map of
@@ -287,6 +321,15 @@ export default function BulkEditModal({
   const [applyingAll, setApplyingAll] = useState(false)
   const metadataKind = cfg.metadataKind
 
+  // Dismissing the modal throws the drafts away, which is punishing after
+  // editing a large selection — so a dirty modal asks first (issue #256).
+  // Checked lazily on dismiss rather than tracked per keystroke.
+  const [confirmingClose, setConfirmingClose] = useState(false)
+  const requestClose = () => {
+    if (Object.keys(diffDrafts(items, drafts, cfg)).length) setConfirmingClose(true)
+    else onClose()
+  }
+
   useEffect(() => {
     if (!metadataKind) return undefined
     let active = true
@@ -319,31 +362,7 @@ export default function BulkEditModal({
     setSaving(true)
     setError(null)
     try {
-      const changedById = {}
-      for (const it of items) {
-        const d = drafts[it.id]
-        const patch = {}
-        for (const f of cfg.fields) {
-          if (f === 'tags') {
-            const next = cfg.custom ? d.tags : stringToTags(d.tags)
-            if (tagsToString(next) !== tagsToString(it.tags)) patch.tags = next
-          } else if (STRUCTURED_FIELDS.has(f)) {
-            const next = cleanStructured(f, d[f])
-            if (JSON.stringify(next) !== JSON.stringify(it[f] || [])) patch[f] = next
-          } else if (f === 'is_explicit') {
-            if (!!d.is_explicit !== !!it.is_explicit) patch.is_explicit = !!d.is_explicit
-          } else if (f === 'cover_book_id') {
-            if ((d.cover_book_id ?? null) !== (it.cover_book_id ?? null))
-              patch.cover_book_id = d.cover_book_id ?? null
-          } else if (f === 'year' || f === 'month' || f === 'day') {
-            const next = d[f] === '' || d[f] == null ? null : Number(d[f])
-            if (next !== (it[f] ?? null)) patch[f] = next
-          } else if ((d[f] ?? '') !== (it[f] ?? '')) {
-            patch[f] = d[f]
-          }
-        }
-        if (Object.keys(patch).length) changedById[it.id] = patch
-      }
+      const changedById = diffDrafts(items, drafts, cfg)
 
       const changes = Object.entries(changedById).map(([id, patch]) => ({ id, ...patch }))
       if (changes.length) {
@@ -373,14 +392,14 @@ export default function BulkEditModal({
       role="dialog"
       aria-modal="true"
       style={overlay}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && requestClose()}
     >
       <div style={panel}>
         <div style={header}>
           <span style={{ fontSize: 15, fontWeight: 600 }}>
             {t('bulkEdit.title', { count: items.length })}
           </span>
-          <button onClick={onClose} style={closeBtn} aria-label={t('common.close')}>
+          <button onClick={requestClose} style={closeBtn} aria-label={t('common.close')}>
             <LuX size={16} />
           </button>
         </div>
@@ -488,7 +507,7 @@ export default function BulkEditModal({
               {t('bookEditor.fetchMetadata')}
             </button>
           )}
-          <button onClick={onClose} style={{ ...cancelBtn, marginLeft: 'auto' }}>
+          <button onClick={requestClose} style={{ ...cancelBtn, marginLeft: 'auto' }}>
             {t('common.cancel')}
           </button>
           <button
@@ -518,6 +537,33 @@ export default function BulkEditModal({
           onApply={handleFetched}
           onClose={() => setFetching(false)}
         />
+      )}
+
+      {confirmingClose && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="bulk-discard-title"
+          style={confirmOverlay}
+          onClick={(e) => e.target === e.currentTarget && setConfirmingClose(false)}
+        >
+          <div style={confirmPanel}>
+            <div id="bulk-discard-title" style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>
+              {t('bulkEdit.discardTitle')}
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
+              {t('bulkEdit.discardHint')}
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmingClose(false)} style={cancelBtn}>
+                {t('bulkEdit.keepEditing')}
+              </button>
+              <button onClick={onClose} style={dangerBtn}>
+                {t('bulkEdit.discardChanges')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -627,6 +673,36 @@ const goldBtn = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--gold-dim)',
+  border: 'none',
+  color: 'var(--bg-deep)',
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: 'pointer',
+}
+const confirmOverlay = {
+  position: 'fixed',
+  inset: 0,
+  // Above the bulk-edit modal itself (1200), matching ApplyToAllDialog.
+  zIndex: 1300,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'rgba(0,0,0,0.55)',
+  padding: 16,
+}
+const confirmPanel = {
+  background: 'var(--bg-panel)',
+  border: '1px solid var(--border)',
+  borderRadius: 10,
+  padding: 24,
+  width: 400,
+  maxWidth: '94vw',
+  boxSizing: 'border-box',
+}
+const dangerBtn = {
+  padding: '7px 18px',
+  borderRadius: 6,
+  background: 'var(--danger)',
   border: 'none',
   color: 'var(--bg-deep)',
   fontSize: 14,

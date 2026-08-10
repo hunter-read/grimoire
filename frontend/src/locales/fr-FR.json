@@ -1477,7 +1477,11 @@
     "applySelected_other": "Appliquer {{count}} champs",
     "selectAll": "Tout sélectionner",
     "selectNone": "Tout désélectionner",
-    "emptyValue": "vide"
+    "emptyValue": "vide",
+    "discardTitle": "Abandonner les modifications non enregistrées ?",
+    "discardHint": "Vous avez des modifications non enregistrées dans cette édition groupée. Les perdre en fermant ?",
+    "keepEditing": "Continuer l'édition",
+    "discardChanges": "Abandonner les modifications"
   },
   "guests": {
     "guests": "Invités",

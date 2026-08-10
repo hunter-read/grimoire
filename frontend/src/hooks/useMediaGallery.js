@@ -134,8 +134,9 @@ export default function useMediaGallery(config) {
             : item
         ),
       }))
-
-      bulk.clear()
+      // Selection is deliberately kept so tags can be applied one at a time to
+      // the same batch, and a typo can be corrected without re-picking every
+      // item (issue #256). The bar's input clears itself instead.
     } finally {
       // Always released, so a failed apply re-enables the button instead of
       // leaving it stuck on "Applying" (issue #270).

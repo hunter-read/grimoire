@@ -359,4 +359,70 @@ describe('BulkEditModal', () => {
       expect(get).not.toHaveBeenCalledWith(expect.stringContaining('metadata-sources'))
     })
   })
+
+  // Issue #256: dismissing threw the drafts away silently, which is punishing
+  // after editing a large selection, so a dirty modal confirms first.
+  describe('unsaved-changes guard', () => {
+    const dirty = () =>
+      fireEvent.change(screen.getByPlaceholderText('Comma-separated tags'), {
+        target: { value: 'old, new' },
+      })
+
+    it('closes straight away when nothing was edited', () => {
+      const onClose = vi.fn()
+      renderModal({ onClose })
+
+      fireEvent.click(screen.getByText('Cancel'))
+
+      expect(onClose).toHaveBeenCalled()
+      expect(screen.queryByText('Discard unsaved changes?')).toBeNull()
+    })
+
+    it('asks before discarding edits instead of closing', () => {
+      const onClose = vi.fn()
+      renderModal({ onClose })
+      dirty()
+
+      fireEvent.click(screen.getByText('Cancel'))
+
+      expect(onClose).not.toHaveBeenCalled()
+      expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument()
+    })
+
+    it('keeps the edits when the user backs out of the confirmation', () => {
+      const onClose = vi.fn()
+      renderModal({ onClose })
+      dirty()
+      fireEvent.click(screen.getByText('Cancel'))
+
+      fireEvent.click(screen.getByText('Keep editing'))
+
+      expect(onClose).not.toHaveBeenCalled()
+      expect(screen.queryByText('Discard unsaved changes?')).toBeNull()
+      // The draft survived the round trip through the confirmation.
+      expect(screen.getByPlaceholderText('Comma-separated tags')).toHaveValue('old, new')
+    })
+
+    it('closes once the discard is confirmed', () => {
+      const onClose = vi.fn()
+      renderModal({ onClose })
+      dirty()
+      fireEvent.click(screen.getByText('Cancel'))
+
+      fireEvent.click(screen.getByText('Discard changes'))
+
+      expect(onClose).toHaveBeenCalled()
+    })
+
+    it('guards the X button too', () => {
+      const onClose = vi.fn()
+      renderModal({ onClose })
+      dirty()
+
+      fireEvent.click(screen.getByLabelText('Close'))
+
+      expect(onClose).not.toHaveBeenCalled()
+      expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument()
+    })
+  })
 })

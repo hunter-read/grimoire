@@ -73,7 +73,10 @@ describe('AudioView modals', () => {
     expect(modal).toHaveTextContent('audio:a1')
     expect(modal).toHaveTextContent('audio:a2')
     await userEvent.click(screen.getByText('x'))
-    expect(bulkExit).toHaveBeenCalled()
+    // Issue #256: the modal closes but the selection is left alone, so the same
+    // batch can be added to another campaign without re-picking it.
+    expect(screen.queryByTestId('campaign-modal')).not.toBeInTheDocument()
+    expect(bulkExit).not.toHaveBeenCalled()
   })
 
   it('opens the bulk-edit modal with type=audio and saves edits', async () => {
@@ -81,7 +84,10 @@ describe('AudioView modals', () => {
     await userEvent.click(screen.getByText('fire-bulk'))
     expect(screen.getByTestId('bulk-modal')).toHaveTextContent('audio')
     await userEvent.click(screen.getByText('save-bulk'))
-    expect(bulkExit).toHaveBeenCalled()
+    // Issue #256: saving closes the modal but keeps the selection, so a typo can
+    // be corrected without re-picking every track.
+    expect(screen.queryByTestId('bulk-modal')).not.toBeInTheDocument()
+    expect(bulkExit).not.toHaveBeenCalled()
   })
 
   // onSelectItem is removed; navigation to the track detail page is now handled

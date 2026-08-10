@@ -54,10 +54,7 @@ export default function AudioView() {
             .selectedObjects()
             .map((a) => ({ resource_type: 'audio', resource_id: a.id }))}
           onClose={() => setShowAddToCampaign(false)}
-          onAdded={() => {
-            setShowAddToCampaign(false)
-            gallery.bulk.exit()
-          }}
+          onAdded={() => setShowAddToCampaign(false)}
         />
       )}
 
@@ -69,7 +66,6 @@ export default function AudioView() {
           onSaved={(edited) => {
             gallery.applyEdits(edited)
             setShowBulkEdit(false)
-            gallery.bulk.exit()
           }}
         />
       )}
