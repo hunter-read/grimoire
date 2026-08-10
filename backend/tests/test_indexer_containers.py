@@ -498,3 +498,277 @@ class TestUpgradingAnExistingOnePageCollection:
         _scan(lib, tmp)
         assert len(_books_for("one-page-rpgs--solo-game", lib)) == 1
         assert _books_for("one-page-rpgs", lib) == []
+
+
+class TestSystemFamilyContainer:
+    """books/<family>/<system>/<category>/ via the .system-family-container marker (issue #301)."""
+
+    def _build(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Fam d20 System")
+        (root / ".system-family-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Fam d20 System", "Mutants & Masterminds", "core"), "mm.pdf")
+        _touch_pdf(_books_dir(lib, "Fam d20 System", "d20 Modern", "core"), "d20m.pdf")
+        _scan(lib, tmp)
+        return tmp, lib
+
+    def test_container_row_marked_family(self):
+        _, lib = self._build()
+        container = _system("fam-d20-system")
+        assert container is not None
+        assert container.container_kind == "family"
+        assert _books_for("fam-d20-system", lib) == []
+
+    def test_children_are_independent_systems_not_editions(self):
+        self._build()
+        child = _system("fam-d20-system--d20-modern")
+        assert child is not None
+        assert child.container_kind == ""
+        # A family member is its own game, so it carries no edition attribution.
+        assert child.edition == ""
+        assert child.parent_system == ""
+
+    def test_child_name_is_not_prefixed_with_the_family(self):
+        """A family member stands alone, unlike an edition ("D&D" + "5e")."""
+        self._build()
+        name = _system("fam-d20-system--d20-modern").name
+        assert not name.startswith("Fam d20 System")
+        # Prettified like any other standalone collection name.
+        assert name == "D20 Modern"
+
+    def test_container_name_populates_child_system_family(self):
+        self._build()
+        assert _system("fam-d20-system--d20-modern").system_family == "Fam d20 System"
+        assert _system("fam-d20-system--mutants-masterminds").system_family == "Fam d20 System"
+
+    def test_books_land_under_their_own_system(self):
+        _, lib = self._build()
+        books = _books_for("fam-d20-system--d20-modern", lib)
+        assert [b.filename for b in books] == ["d20m.pdf"]
+        assert [b.category for b in books] == ["core"]
+
+    def test_folder_name_suffix_is_equivalent_to_the_marker(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Sfx Lineage (system-family)", "Game A", "core"), "a.pdf")
+        _scan(lib, tmp)
+        container = _system("sfx-lineage")
+        assert container.container_kind == "family"
+        # The suffix comes off the stored name.
+        assert container.name == "Sfx Lineage"
+        assert _system("sfx-lineage--game-a").system_family == "Sfx Lineage"
+
+
+class TestPublisherContainer:
+    """books/<publisher>/<system>/ via the .publisher-container marker."""
+
+    def _build(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Pub Paizo")
+        (root / ".publisher-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Pub Paizo", "Starfinder", "core"), "sf.pdf")
+        _scan(lib, tmp)
+        return tmp, lib
+
+    def test_container_row_marked_publisher(self):
+        _, lib = self._build()
+        container = _system("pub-paizo")
+        assert container.container_kind == "publisher"
+        assert _books_for("pub-paizo", lib) == []
+
+    def test_children_are_independent_systems(self):
+        self._build()
+        child = _system("pub-paizo--starfinder")
+        assert child.container_kind == ""
+        assert child.name == "Starfinder"
+        assert child.edition == ""
+        assert child.parent_system == ""
+
+    def test_container_name_populates_child_publisher(self):
+        self._build()
+        assert _system("pub-paizo--starfinder").publishers == [{"name": "Pub Paizo"}]
+
+    def test_folder_name_suffix_is_equivalent_to_the_marker(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Sfx House (publisher)", "Game B", "core"), "b.pdf")
+        _scan(lib, tmp)
+        assert _system("sfx-house").container_kind == "publisher"
+        assert _system("sfx-house").name == "Sfx House"
+        assert _system("sfx-house--game-b").publishers == [{"name": "Sfx House"}]
+
+
+class TestNestedContainers:
+    """A parent-system container nested inside a family container (issue #301)."""
+
+    def _build(self):
+        tmp, lib = _mk_lib()
+        fam = _books_dir(lib, "Nest d20")
+        (fam / ".system-family-container").write_text("")
+        pf = _books_dir(lib, "Nest d20", "Nested Pathfinder")
+        (pf / ".parent-system-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Nest d20", "Nested Pathfinder", "1e", "core"), "pf1.pdf")
+        _touch_pdf(_books_dir(lib, "Nest d20", "Nested Pathfinder", "2e", "core"), "pf2.pdf")
+        _scan(lib, tmp)
+        return tmp, lib
+
+    def test_nested_container_keeps_its_own_kind(self):
+        _, lib = self._build()
+        inner = _system("nest-d20--nested-pathfinder")
+        assert inner is not None
+        assert inner.container_kind == "parent"
+        assert _books_for("nest-d20--nested-pathfinder", lib) == []
+
+    def test_nested_container_gets_the_family_name(self):
+        self._build()
+        assert _system("nest-d20--nested-pathfinder").system_family == "Nest d20"
+
+    def test_editions_resolve_below_the_nested_container(self):
+        """The grandchildren are editions, not book categories."""
+        _, lib = self._build()
+        edition = _system("nest-d20--nested-pathfinder--1e")
+        assert edition is not None
+        assert edition.container_kind == ""
+        assert edition.edition == "1e"
+        # Attributed to its own parent system, not the family two levels up.
+        assert edition.parent_system == "Nested Pathfinder"
+        assert [b.filename for b in _books_for("nest-d20--nested-pathfinder--1e", lib)] == ["pf1.pdf"]
+
+    def test_edition_books_are_categorized_normally(self):
+        _, lib = self._build()
+        assert [b.category for b in _books_for("nest-d20--nested-pathfinder--2e", lib)] == ["core"]
+
+
+class TestContainerPrecedence:
+    """A folder carrying more than one container declaration resolves deterministically."""
+
+    def test_parent_marker_wins_over_publisher_marker(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Prec Both")
+        (root / ".parent-system-container").write_text("")
+        (root / ".publisher-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Prec Both", "5e", "core"), "x.pdf")
+        _scan(lib, tmp)
+        assert _system("prec-both").container_kind == "parent"
+
+    def test_family_marker_wins_over_publisher_marker(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Prec Fam")
+        (root / ".system-family-container").write_text("")
+        (root / ".publisher-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Prec Fam", "Game C", "core"), "c.pdf")
+        _scan(lib, tmp)
+        assert _system("prec-fam").container_kind == "family"
+
+    def test_multiple_suffixes_resolve_by_precedence_and_all_are_stripped(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(
+            _books_dir(lib, "Prec Sfx (publisher) (parent-system)", "5e", "core"), "y.pdf"
+        )
+        _scan(lib, tmp)
+        container = _system("prec-sfx")
+        assert container is not None
+        assert container.container_kind == "parent"
+        # Neither suffix may survive into the display name.
+        assert container.name == "Prec Sfx"
+
+
+class TestGenericContainer:
+    """books/<shelf>/<system>/ via the bare .container marker.
+
+    The escape hatch: it declares "my children are systems" and claims nothing
+    about how they relate, so unlike the named kinds it propagates no metadata.
+    """
+
+    def _build(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Gen Shelf")
+        (root / ".container").write_text("")
+        _touch_pdf(_books_dir(lib, "Gen Shelf", "Game D", "core"), "d.pdf")
+        _touch_pdf(_books_dir(lib, "Gen Shelf", "Game E", "core"), "e.pdf")
+        _scan(lib, tmp)
+        return tmp, lib
+
+    def test_container_row_marked_generic(self):
+        _, lib = self._build()
+        container = _system("gen-shelf")
+        assert container is not None
+        assert container.container_kind == "generic"
+        assert _books_for("gen-shelf", lib) == []
+
+    def test_children_are_independent_systems(self):
+        self._build()
+        child = _system("gen-shelf--game-d")
+        assert child is not None
+        assert child.container_kind == ""
+        assert child.name == "Game D"
+
+    def test_one_page_children_are_not_attributed_as_variants(self):
+        """A one-page game is not an edition of the collection holding it.
+
+        Setting parent_system here would put the collection into the Parent
+        System filter as though its games were variants of it.
+        """
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Gen OnePage")
+        (root / ".one-page-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Gen OnePage", "tiny-game"), "rules.pdf")
+        _touch_pdf(root, "loose-game.pdf")
+        _scan(lib, tmp)
+        assert _system("gen-onepage--tiny-game").parent_system == ""
+        assert _system("gen-onepage--loose-game").parent_system == ""
+
+    def test_no_metadata_is_propagated(self):
+        """The whole point of the generic kind: grouping without a claim."""
+        self._build()
+        child = _system("gen-shelf--game-d")
+        assert child.system_family == ""
+        assert child.publishers == []
+        assert child.edition == ""
+        assert child.parent_system == ""
+
+    def test_books_land_under_their_own_system(self):
+        _, lib = self._build()
+        books = _books_for("gen-shelf--game-e", lib)
+        assert [b.filename for b in books] == ["e.pdf"]
+        assert [b.category for b in books] == ["core"]
+
+    def test_folder_name_suffix_is_equivalent_to_the_marker(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Gen Sfx (container)", "Game F", "core"), "f.pdf")
+        _scan(lib, tmp)
+        container = _system("gen-sfx")
+        assert container.container_kind == "generic"
+        assert container.name == "Gen Sfx"
+        assert _system("gen-sfx--game-f") is not None
+
+    def test_named_kinds_outrank_the_generic_marker(self):
+        """`.container` is the weakest claim, so any named kind wins."""
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Gen Prec")
+        (root / ".container").write_text("")
+        (root / ".publisher-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Gen Prec", "Game G", "core"), "g.pdf")
+        _scan(lib, tmp)
+        assert _system("gen-prec").container_kind == "publisher"
+
+    def test_generic_marker_is_not_confused_with_the_named_markers(self):
+        """`.container` is a literal suffix of `.parent-system-container`."""
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Gen Only Parent")
+        (root / ".parent-system-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Gen Only Parent", "5e", "core"), "h.pdf")
+        _scan(lib, tmp)
+        assert _system("gen-only-parent").container_kind == "parent"
+
+    def test_can_nest_a_named_container(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Gen Outer")
+        (root / ".container").write_text("")
+        inner = _books_dir(lib, "Gen Outer", "Inner Game")
+        (inner / ".parent-system-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Gen Outer", "Inner Game", "2e", "core"), "i.pdf")
+        _scan(lib, tmp)
+        assert _system("gen-outer--inner-game").container_kind == "parent"
+        edition = _system("gen-outer--inner-game--2e")
+        assert edition is not None
+        assert edition.edition == "2e"
+        assert [b.category for b in _books_for("gen-outer--inner-game--2e", lib)] == ["core"]

@@ -59,13 +59,21 @@ class GameSystem(Base):
     # in the library view. Set by the indexer from the folder name.
     is_one_page = Column(Boolean, default=False)
 
-    # System containers (issues #261, #262). A container is a folder whose
+    # System containers (issues #261, #262, #301). A container is a folder whose
     # immediate children are systems in their own right rather than categories:
     #   ""          - an ordinary system (the default; unchanged behaviour)
     #   "parent"    - a parent system whose subfolders are editions
     #                 (books/Dungeons & Dragons/5e/core/ -> system "D&D 5e")
     #   "one-page"  - the one-page/micro-RPG collection, where each subfolder AND
     #                 each loose file at the root is its own small system
+    #   "family"    - related but distinct systems sharing a lineage; the
+    #                 container name fills in each child's system_family
+    #   "publisher" - one company's systems; fills in each child's publishers
+    #   "generic"   - a bare ".container" shelf; groups without claiming any
+    #                 relationship, so it propagates no metadata at all
+    # Containers may nest (a family holding a parent system, issue #301). Only
+    # "parent" sets its children's parent_system; the rest hold independent
+    # systems rather than variants of the shelf.
     container_kind = Column(String(20), default="")
     # Set on the *children* of a container, pointing at the container row.
     parent_id = Column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)

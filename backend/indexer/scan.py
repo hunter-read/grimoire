@@ -49,8 +49,10 @@ from .categories import (
 from .constants import (
     ARCHIVE_EXTS,
     AUDIO_EXTS,
+    CONTAINER_FAMILY,
     CONTAINER_ONE_PAGE,
     CONTAINER_PARENT,
+    CONTAINER_PUBLISHER,
     DOC_EXTS,
     IMAGE_EXTS,
     MAP_IMAGE_EXTS,
@@ -275,6 +277,9 @@ def _register_system(
     display_name: str | None = None,
     parent: Optional[GameSystem] = None,
     edition: str = "",
+    system_family: str = "",
+    publisher: str = "",
+    attribute_parent: bool = True,
 ) -> Optional[GameSystem]:
     """Insert or update the GameSystem row for one folder. None on DB failure.
 
@@ -282,6 +287,17 @@ def _register_system(
     "Dungeons & Dragons 5e" for the ``5e`` folder). It is only ever applied to a
     freshly created row or one whose ``name_is_custom`` is false, so a user's
     rename survives every subsequent rescan.
+
+    ``system_family``/``publisher`` carry a family or publisher container's name
+    down onto its children (issue #301), so the folder structure populates the
+    metadata fields that already exist. Both follow the same rule as ``edition``:
+    filled in only when the child has no value of its own, so metadata from an
+    OPF sidecar, an add-on, or a manual edit is never overwritten by a rescan.
+
+    ``attribute_parent`` is whether the container's name means "this child is a
+    variant of X" — true only for a parent-system shelf. Family, publisher, and
+    generic shelves hold independent systems, so they leave ``parent_system``
+    empty rather than implying an edition relationship that isn't there.
     """
     session = ctx.session
     stats = ctx.stats
@@ -329,8 +345,10 @@ def _register_system(
             is_one_page=is_one_page,
             container_kind=folder.container_kind,
             parent_id=parent.id if parent else None,
-            parent_system=parent.name if parent else "",
+            parent_system=parent.name if parent and attribute_parent else "",
             edition=edition,
+            system_family=system_family,
+            publishers=[{"name": publisher}] if publisher else [],
         )
         session.add(system)
         logger.debug(f"DB: flushing new system '{name}'")
@@ -358,10 +376,15 @@ def _register_system(
         if not system.name_is_custom and system.name != name:
             system.name = name
         if parent is not None:
-            if not system.parent_system:
+            # Only edition containers imply a parent_system; see the insert path.
+            if not system.parent_system and attribute_parent:
                 system.parent_system = parent.name
             if edition and not system.edition:
                 system.edition = edition
+        if system_family and not system.system_family:
+            system.system_family = system_family
+        if publisher and not system.publishers:
+            system.publishers = [{"name": publisher}]
 
     # Folder cover convention: a cover.*/folder.* image at the system root
     # becomes the system's cover (precedence: folder > uploaded > book cover).
@@ -433,7 +456,9 @@ def _child_display_name(container: GameSystem, folder: _SystemFolder, kind: str)
     edition folder alone ("5e") is meaningless out of context:
     "Dungeons & Dragons" + "5e" → "Dungeons & Dragons 5e". One-page children are
     standalone games, so their folder/file name is prettified and used as-is
-    ("honey-heist" → "Honey Heist").
+    ("honey-heist" → "Honey Heist"). Family, publisher, and generic children are
+    likewise whole systems with names that already stand alone ("Pathfinder"
+    inside "d20 System"), so they are never prefixed with the container's name.
 
     Either way this is only a *default* — the name is user-editable afterwards,
     which is how irregular cases get handled (D&D's "2e" folder renamed to
@@ -450,6 +475,7 @@ def _scan_container(
     container_folder: _SystemFolder,
     category_inference_off: bool,
     scope_parts: tuple[str, ...],
+    depth: int = 1,
 ) -> bool:
     """Register a container folder's children as systems. True if stop requested.
 
@@ -463,9 +489,24 @@ def _scan_container(
     Loose files at a *parent-system* container's root have no such meaning, so
     they stay attached to the container row as ordinary books rather than being
     silently dropped.
+
+    A child that is itself a container is recursed into rather than scanned for
+    books — a family holding a multi-edition system ("d20 System" → "Pathfinder"
+    → 1e/2e) is the realistic case for family and publisher containers (issue
+    #301). ``depth`` counts the containers above a child so category inference
+    still starts at the folder *below* the system, however deep the nesting.
     """
     kind = container_folder.container_kind
     container_dir = container_folder.path
+    # Family and publisher containers push their name onto each child's
+    # metadata; edition and one-page containers carry no such attribution.
+    child_family = container.name if kind == CONTAINER_FAMILY else ""
+    child_publisher = container.name if kind == CONTAINER_PUBLISHER else ""
+    # Only a parent-system shelf means "this child is a variant of me". The
+    # other kinds hold independent games, so claiming "Honey Heist" is a
+    # variant of "One-Page RPGs" would be wrong — and would surface a bogus
+    # entry in the Parent System filter.
+    attribute_parent = kind == CONTAINER_PARENT
     # A rescan scoped inside the container (books/<container>/<child>/…) should
     # only touch that child.
     scoped_child = scope_parts[2] if len(scope_parts) > 2 else None
@@ -488,8 +529,20 @@ def _scan_container(
             display_name=_child_display_name(container, child_folder, kind),
             parent=container,
             edition=child_folder.name if kind == CONTAINER_PARENT else "",
+            system_family=child_family,
+            publisher=child_publisher,
+            attribute_parent=attribute_parent,
         )
         if child is None:
+            continue
+        if child_folder.container_kind:
+            # Nested container (e.g. a parent-system inside a family). Recurse
+            # so its own children register as systems rather than treating the
+            # edition folders as book categories.
+            if _scan_container(
+                ctx, child, child_folder, category_inference_off, scope_parts[1:], depth + 1
+            ):
+                return True
             continue
         child_category_off = category_inference_off or (
             child_dir / NO_AUTO_CATEGORY_MARKER
@@ -501,7 +554,7 @@ def _scan_container(
             child_category_off,
             False,
             child_dir,
-            system_depth=3,
+            system_depth=2 + depth,
         ):
             return True
 
@@ -511,7 +564,7 @@ def _scan_container(
     loose_files = [f for f in entries if f.is_file() and not f.name.startswith(".")]
     if kind == CONTAINER_ONE_PAGE:
         return _scan_one_page_loose_files(ctx, container, container_folder, loose_files)
-    # Parent-system container: loose files belong to the container itself.
+    # Every other container kind: loose files belong to the container itself.
     return _scan_books_in_system(
         ctx,
         container,
@@ -552,6 +605,8 @@ def _scan_one_page_loose_files(
             child_folder,
             display_name=prettify_collection_name(stem),
             parent=container,
+            # A one-page game is not a variant of the collection holding it.
+            attribute_parent=False,
         )
         if child is None:
             continue

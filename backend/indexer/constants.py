@@ -46,11 +46,22 @@ UNCATEGORIZED = "uncategorized"
 NO_AUTO_CATEGORY_MARKER = ".no-auto-category"
 
 # Marker files declaring a folder to be a *system container* — a folder whose
-# immediate children are systems rather than categories (issues #261, #262).
-# Each has an equivalent folder-name suffix (see _CONTAINER_SUFFIXES) so the
-# convention works for users who can't easily create dotfiles.
+# immediate children are systems rather than categories (issues #261, #262,
+# #301). Each has an equivalent folder-name suffix (see _CONTAINER_SUFFIXES) so
+# the convention works for users who can't easily create dotfiles.
 PARENT_SYSTEM_MARKER = ".parent-system-container"
 ONE_PAGE_MARKER = ".one-page-container"
+# A *family* groups related but distinct systems that share a lineage
+# ("d20 System" holding Pathfinder and Mutants & Masterminds) — unlike a parent
+# system, whose children are editions of one game (issue #301).
+SYSTEM_FAMILY_MARKER = ".system-family-container"
+# A *publisher* groups the systems one company puts out ("Paizo" holding
+# Pathfinder and Starfinder).
+PUBLISHER_MARKER = ".publisher-container"
+# A *generic* container is the escape hatch: "these children are systems" and
+# nothing more. It claims no relationship between them, so it propagates no
+# metadata — for users whose shelf doesn't fit the named kinds.
+GENERIC_MARKER = ".container"
 
 # Marker file equivalent to the ``(nsfw)`` folder-name suffix, for parity with
 # the other folder-level indicators.
@@ -59,12 +70,42 @@ NSFW_MARKER = ".nsfw"
 # Container kinds stored in ``GameSystem.container_kind``.
 CONTAINER_PARENT = "parent"
 CONTAINER_ONE_PAGE = "one-page"
+CONTAINER_FAMILY = "family"
+CONTAINER_PUBLISHER = "publisher"
+CONTAINER_GENERIC = "generic"
+
+# Precedence when a folder carries more than one container declaration, most
+# specific first: a folder claiming both "parent system" and "publisher" is
+# read as the parent system, because that makes the stronger claim about how
+# its children relate to each other (issue #301). Marker files and folder-name
+# suffixes are resolved against this same order, so the two spellings can never
+# disagree about which kind wins. The generic kind is last — it claims only
+# "these are systems", so any named kind outranks it.
+CONTAINER_PRECEDENCE = (
+    CONTAINER_PARENT,
+    CONTAINER_ONE_PAGE,
+    CONTAINER_FAMILY,
+    CONTAINER_PUBLISHER,
+    CONTAINER_GENERIC,
+)
+
+# Marker file for each container kind, keyed by kind.
+CONTAINER_MARKERS = {
+    CONTAINER_PARENT: PARENT_SYSTEM_MARKER,
+    CONTAINER_ONE_PAGE: ONE_PAGE_MARKER,
+    CONTAINER_FAMILY: SYSTEM_FAMILY_MARKER,
+    CONTAINER_PUBLISHER: PUBLISHER_MARKER,
+    CONTAINER_GENERIC: GENERIC_MARKER,
+}
 
 # Folder-name suffixes (matched case-insensitively, like ``(nsfw)``) that
 # declare a container without needing a marker file.
 _CONTAINER_SUFFIXES = {
     "parent-system": CONTAINER_PARENT,
     "one-page": CONTAINER_ONE_PAGE,
+    "system-family": CONTAINER_FAMILY,
+    "publisher": CONTAINER_PUBLISHER,
+    "container": CONTAINER_GENERIC,
 }
 
 CATEGORY_MAP = {

@@ -9,12 +9,11 @@ from .. import config
 from ..models import AppSetting
 from .constants import (
     CATEGORY_MAP,
+    CONTAINER_MARKERS,
     CONTAINER_ONE_PAGE,
-    CONTAINER_PARENT,
+    CONTAINER_PRECEDENCE,
     NO_AUTO_CATEGORY_MARKER,  # noqa: F401  (re-exported for callers)
     NSFW_MARKER,
-    ONE_PAGE_MARKER,
-    PARENT_SYSTEM_MARKER,
     UNCATEGORIZED,
     _CONTAINER_SUFFIXES,
     _ONE_PAGE_SLUGS,
@@ -81,18 +80,29 @@ def prettify_collection_name(name: str) -> str:
 
 
 def strip_container_suffix(name: str) -> tuple[str, str]:
-    """Split a ``(parent-system)``/``(one-page)`` suffix off a folder name.
+    """Split a container suffix (``(parent-system)``, ``(publisher)``, …) off a name.
 
     Returns ``(clean_name, container_kind)`` where ``container_kind`` is one of
-    ``CONTAINER_PARENT``/``CONTAINER_ONE_PAGE``, or ``""`` when the name carries
-    no container suffix. Matched case-insensitively anywhere in the name, exactly
-    like the ``(nsfw)`` marker it mirrors.
+    the ``CONTAINER_*`` kinds, or ``""`` when the name carries no container
+    suffix. Matched case-insensitively anywhere in the name, exactly like the
+    ``(nsfw)`` marker it mirrors.
+
+    A name carrying more than one suffix resolves to the most specific kind per
+    ``CONTAINER_PRECEDENCE``, and *every* recognised suffix is stripped either
+    way — a leftover ``(publisher)`` in the stored system name would be a
+    display bug, not a second declaration.
     """
+    matched: list[str] = []
+    clean = name
     for suffix, kind in _CONTAINER_SUFFIXES.items():
         pattern = rf"\s*\({re.escape(suffix)}\)\s*"
-        if re.search(pattern, name, re.IGNORECASE):
-            return re.sub(pattern, " ", name, flags=re.IGNORECASE).strip(), kind
-    return name, ""
+        if re.search(pattern, clean, re.IGNORECASE):
+            matched.append(kind)
+            clean = re.sub(pattern, " ", clean, flags=re.IGNORECASE)
+    if not matched:
+        return name, ""
+    winner = next(k for k in CONTAINER_PRECEDENCE if k in matched)
+    return clean.strip(), winner
 
 
 def detect_container_kind(system_dir: Path, folder_name: str) -> str:
@@ -101,21 +111,23 @@ def detect_container_kind(system_dir: Path, folder_name: str) -> str:
     A folder becomes a container of systems (rather than a system holding
     categories) through any of three equivalent declarations:
 
-    1. a marker file at the folder root (``.parent-system-container`` /
-       ``.one-page-container``),
-    2. a ``(parent-system)``/``(one-page)`` suffix on the folder name — handled
-       by ``strip_container_suffix`` before this is called, since the suffix has
-       to come off the stored system name either way,
+    1. a marker file at the folder root (``.parent-system-container``,
+       ``.one-page-container``, ``.system-family-container``,
+       ``.publisher-container``),
+    2. an equivalent folder-name suffix (``(parent-system)``, ``(publisher)``,
+       …) — handled by ``strip_container_suffix`` before this is called, since
+       the suffix has to come off the stored system name either way,
     3. one of the reserved one-page collection slugs (``one-page-rpgs``,
        ``micro-rpgs``, …), which imply a one-page container.
 
-    Marker files are checked first so a user can force a reserved-slug folder
-    into the parent-system flavour instead.
+    When a folder carries several markers the most specific kind wins, per
+    ``CONTAINER_PRECEDENCE``. Marker files are all checked before the
+    reserved-slug fallback, so a user can force a reserved-slug folder into
+    another flavour instead.
     """
-    if (system_dir / PARENT_SYSTEM_MARKER).exists():
-        return CONTAINER_PARENT
-    if (system_dir / ONE_PAGE_MARKER).exists():
-        return CONTAINER_ONE_PAGE
+    for kind in CONTAINER_PRECEDENCE:
+        if (system_dir / CONTAINER_MARKERS[kind]).exists():
+            return kind
     if is_one_page_folder(folder_name):
         return CONTAINER_ONE_PAGE
     return ""

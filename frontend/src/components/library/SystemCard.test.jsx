@@ -286,6 +286,96 @@ describe('SystemCard', () => {
     })
   })
 
+  // Family and publisher shelves make different claims about how their children
+  // relate, so each carries its own wording rather than a generic label.
+  describe('family and publisher containers (issue #301)', () => {
+    const borderOf = (container) => container.firstChild.style.border
+
+    it.each([
+      ['full', {}],
+      ['compact', { compact: true }],
+      ['list', { list: true }],
+    ])('labels a system-family container in the %s layout', (_name, layout) => {
+      render(
+        <SystemCard
+          system={makeSystem({ container_kind: 'family', child_count: 3 })}
+          to="/library/system/sys-1"
+          {...layout}
+        />
+      )
+      expect(screen.getByText('System Family')).toBeInTheDocument()
+    })
+
+    it.each([
+      ['full', {}],
+      ['compact', { compact: true }],
+      ['list', { list: true }],
+    ])('labels a publisher container in the %s layout', (_name, layout) => {
+      render(
+        <SystemCard
+          system={makeSystem({ container_kind: 'publisher', child_count: 3 })}
+          to="/library/system/sys-1"
+          {...layout}
+        />
+      )
+      expect(screen.getByText('Publisher')).toBeInTheDocument()
+    })
+
+    it.each([
+      ['full', {}],
+      ['compact', { compact: true }],
+      ['list', { list: true }],
+    ])('labels a generic .container shelf in the %s layout', (_name, layout) => {
+      render(
+        <SystemCard
+          system={makeSystem({ container_kind: 'generic', child_count: 3 })}
+          to="/library/system/sys-1"
+          {...layout}
+        />
+      )
+      expect(screen.getByText('Collection')).toBeInTheDocument()
+    })
+
+    it.each(['family', 'publisher'])('counts nested systems for a %s container', (kind) => {
+      render(
+        <SystemCard
+          system={makeSystem({ container_kind: kind, book_count: 0, child_count: 7 })}
+          to="/library/system/sys-1"
+        />
+      )
+      expect(screen.getByText(/7 systems/i)).toBeInTheDocument()
+    })
+
+    it.each(['family', 'publisher'])('does not border-mark a %s container', (kind) => {
+      const { container } = render(
+        <SystemCard
+          system={makeSystem({ container_kind: kind, child_count: 3 })}
+          to="/library/system/sys-1"
+        />
+      )
+      expect(borderOf(container)).toContain('var(--border)')
+    })
+
+    it.each(['family', 'publisher'])(
+      'keeps a %s container a navigable link in bulk mode',
+      (kind) => {
+        const onToggleSelect = vi.fn()
+        render(
+          <SystemCard
+            system={makeSystem({ name: 'Shelf', container_kind: kind, child_count: 3 })}
+            to="/library/system/sys-1"
+            selectable
+            onToggleSelect={onToggleSelect}
+          />
+        )
+        expect(screen.getByRole('link', { name: 'Shelf' })).toHaveAttribute(
+          'href',
+          '/library/system/sys-1'
+        )
+      }
+    )
+  })
+
   // Bulk tag/edit have no defined meaning for a shelf that holds systems rather
   // than books, so parent containers opt out of selection entirely.
   describe('parent systems are excluded from bulk select', () => {

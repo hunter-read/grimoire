@@ -1,12 +1,29 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuLibrary, LuCheck, LuFolderTree } from 'react-icons/lu'
+import { LuLibrary, LuCheck, LuFolderTree, LuNetwork, LuBuilding2, LuFolder } from 'react-icons/lu'
 import Tag from '../Tag'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 import { systemCoverUrl } from '../../utils/systemCoverUrl'
+
+// Eyebrow badge per container kind (issues #261, #262, #301). One-page
+// collections are absent on purpose: they render as chips in the Special
+// Collections strip, which already identifies them.
+const CONTAINER_BADGE_KEYS = {
+  parent: 'systemContainer.badge',
+  family: 'systemContainer.familyBadge',
+  publisher: 'systemContainer.publisherBadge',
+  generic: 'systemContainer.genericBadge',
+}
+
+const CONTAINER_BADGE_ICONS = {
+  parent: LuFolderTree,
+  family: LuNetwork,
+  publisher: LuBuilding2,
+  generic: LuFolder,
+}
 
 /**
  * Game-system card for the library grid. Renders one of three layouts —
@@ -45,15 +62,17 @@ export default function SystemCard({
   const countLabel = system.container_kind
     ? t('systemContainer.count', { count: system.child_count || 0 })
     : t('library.bookCount', { count: system.book_count })
-  // Parent systems sit in the main grid alongside ordinary systems. They used to
-  // be marked with a gold border, but that reads identically to the gold
+  // Container folders sit in the main grid alongside ordinary systems. They used
+  // to be marked with a gold border, but that reads identically to the gold
   // selection border in bulk mode, so the distinction is carried by an explicit
-  // "collection" badge instead. One-page collections don't need it — they
+  // badge instead — worded per kind, since "System Collection" (editions),
+  // "System Family" (related systems), and "Publisher" claim different things
+  // about how the children relate. One-page collections don't need it — they
   // already live in their own Special Collections strip.
-  const isParentContainer = system.container_kind === 'parent'
+  const badgeKey = CONTAINER_BADGE_KEYS[system.container_kind]
   // Bulk tag/edit have no defined meaning for a container (it owns no books), so
-  // parent cards never enter selection mode — they stay navigable links.
-  const isSelectable = selectable && !isParentContainer
+  // container cards never enter selection mode — they stay navigable links.
+  const isSelectable = selectable && !badgeKey
   const borderColor = selected ? 'var(--gold-dim)' : 'var(--border)'
 
   // Selection mode owns the click (shift/cmd extend the selection); outside it
@@ -68,7 +87,8 @@ export default function SystemCard({
   // line, and gold text inside a gold chip was hard to read — bright gold
   // straight on the card background carries the same meaning with real
   // contrast, and the rule under it separates the label from the title.
-  const containerEyebrow = isParentContainer && (
+  const BadgeIcon = CONTAINER_BADGE_ICONS[system.container_kind]
+  const containerEyebrow = badgeKey && (
     <div
       style={{
         display: 'flex',
@@ -84,9 +104,9 @@ export default function SystemCard({
         marginBottom: 8,
       }}
     >
-      <LuFolderTree size={12} style={{ flexShrink: 0 }} />
+      <BadgeIcon size={12} style={{ flexShrink: 0 }} />
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {t('systemContainer.badge')}
+        {t(badgeKey)}
       </span>
     </div>
   )
