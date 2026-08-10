@@ -10,6 +10,7 @@ import {
   isMergedField,
   labelKey,
 } from './metadataFieldValue'
+import useMetadataSources from './useMetadataSources'
 
 /**
  * Review-and-merge dialog for fetching metadata from an add-on (issue #203).
@@ -32,7 +33,11 @@ import {
  */
 export default function MetadataFetchDialog({ resource, kind = 'systems', onApply, onClose }) {
   const { t } = useTranslation()
-  const [sources, setSources] = useState([])
+  const {
+    sources,
+    loading: loadingSources,
+    error: sourcesError,
+  } = useMetadataSources(kind, resource.id)
   const [sourceId, setSourceId] = useState('')
   const [query, setQuery] = useState(resource.name || resource.title || '')
   const [results, setResults] = useState(null)
@@ -56,15 +61,11 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // Default to the first source once the list is known, without clobbering a
+  // choice the user already made.
   useEffect(() => {
-    api
-      .get(`/${kind}/${resource.id}/metadata-sources`)
-      .then((data) => {
-        setSources(data.sources || [])
-        if (data.sources?.length) setSourceId(data.sources[0].id)
-      })
-      .catch((e) => setError(e.message))
-  }, [kind, resource.id])
+    if (sources.length && !sources.some((s) => s.id === sourceId)) setSourceId(sources[0].id)
+  }, [sources, sourceId])
 
   const runSearch = useCallback(() => {
     if (!sourceId) return
@@ -199,7 +200,12 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
           </button>
         </div>
 
-        {sources.length === 0 && !error && (
+        {/* Only claim there are no sources once we actually know — showing this
+            while the list is still loading reads as "no scrapers installed"
+            and then flips, which is worse than showing nothing. */}
+        {loadingSources && <Spinner />}
+
+        {!loadingSources && sources.length === 0 && !error && !sourcesError && (
           <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>{t('metadataFetch.noSources')}</p>
         )}
 
@@ -324,7 +330,7 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
           </div>
         )}
 
-        {error && (
+        {(error || sourcesError) && (
           <p
             role="alert"
             style={{
@@ -337,7 +343,7 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
             }}
           >
             <LuTriangleAlert size={14} />
-            {error}
+            {error || sourcesError}
           </p>
         )}
 

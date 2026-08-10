@@ -12,6 +12,7 @@ import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 import MetadataFetchDialog from './MetadataFetchDialog'
+import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
 
 export default function BookEditor({
@@ -45,16 +46,11 @@ export default function BookEditor({
   })
   const [tags, setTags] = useState(book.tags || [])
   // "Fetch metadata" only appears when a source is actually available, so the
-  // button never promises something the server cannot do.
-  const [hasSources, setHasSources] = useState(false)
+  // button never promises something the server cannot do. Cached per kind, so
+  // reopening an editor doesn't re-ask and the button doesn't pop in late.
+  const { sources: metadataSources } = useMetadataSources('books', book.id)
+  const hasSources = metadataSources.length > 0
   const [fetching, setFetching] = useState(false)
-
-  useEffect(() => {
-    api
-      .get(`/books/${book.id}/metadata-sources`)
-      .then((data) => setHasSources((data.sources || []).length > 0))
-      .catch(() => setHasSources(false))
-  }, [book.id])
 
   // Applied fields arrive in API shape (arrays, numbers); the form holds some
   // of them as text, so they are converted before merging in. Tags live in

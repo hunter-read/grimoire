@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuImage, LuX, LuPlus } from 'react-icons/lu'
-import api, { mediaUrl } from '../../api'
-import LazyImg from '../LazyImg'
+import { LuX, LuPlus } from 'react-icons/lu'
+import api from '../../api'
+import CoverPicker from './CoverPicker'
 import GenrePicker from '../metadata/GenrePicker'
 import LinkListEditor from '../metadata/LinkListEditor'
 import LookupCombobox from '../metadata/LookupCombobox'
@@ -71,8 +71,6 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
       'publishers',
       publishers.filter((_, i) => i !== idx)
     )
-
-  const booksWithThumbnails = (books || []).filter((b) => b.has_thumbnail)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -263,42 +261,19 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
         </span>
       </label>
 
-      {booksWithThumbnails.length > 0 && (
-        <div>
-          <label style={{ ...label, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <LuImage size={14} /> {t('systemEditor.coverImage')}
-          </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {booksWithThumbnails.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() =>
-                  setField('cover_book_id', draft.cover_book_id === b.id ? null : b.id)
-                }
-                title={b.title}
-                style={{
-                  padding: 0,
-                  border: `2px solid ${draft.cover_book_id === b.id ? 'var(--gold)' : 'var(--border)'}`,
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  background: 'none',
-                  width: 60,
-                  height: 80,
-                  flexShrink: 0,
-                }}
-              >
-                <LazyImg
-                  src={mediaUrl(`/books/${b.id}/thumbnail`)}
-                  alt={b.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Same picker the single-system editor uses: core books first, paged,
+          with hover previews. Eight per page rather than the default ten —
+          this modal is narrower, so ten wraps to a third row. `books` is null
+          until the lazy fetch lands, which is what `loading` reserves space
+          for: without it the section appears from nothing and pushes the
+          modal's buttons down just as you go to click them. */}
+      <CoverPicker
+        books={books || []}
+        value={draft.cover_book_id ?? null}
+        onChange={(id) => setField('cover_book_id', id)}
+        pageSize={8}
+        loading={books === null}
+      />
     </div>
   )
 }
