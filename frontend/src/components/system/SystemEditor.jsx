@@ -5,6 +5,7 @@ import api from '../../api'
 import CoverPicker from './CoverPicker'
 import CoverUpload from './CoverUpload'
 import MetadataFetchDialog from './MetadataFetchDialog'
+import useMetadataSources from './useMetadataSources'
 import GenrePicker from '../metadata/GenrePicker'
 import TagPicker from '../metadata/TagPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -45,16 +46,11 @@ export default function SystemEditor({ system, onSave, onCoverChange }) {
     is_explicit: system.is_explicit || false,
   })
   // "Fetch metadata" only appears when a source is actually available, so the
-  // button never promises something the server cannot do.
-  const [hasSources, setHasSources] = useState(false)
+  // button never promises something the server cannot do. Cached per kind, so
+  // reopening an editor doesn't re-ask and the button doesn't pop in late.
+  const { sources: metadataSources } = useMetadataSources('systems', system.id)
+  const hasSources = metadataSources.length > 0
   const [fetching, setFetching] = useState(false)
-
-  useEffect(() => {
-    api
-      .get(`/systems/${system.id}/metadata-sources`)
-      .then((data) => setHasSources((data.sources || []).length > 0))
-      .catch(() => setHasSources(false))
-  }, [system.id])
 
   // Merge applied fields into the form so the editor reflects them immediately,
   // and tell the parent so its copy of the system stays in step.

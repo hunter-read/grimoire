@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import BulkEditModal from './BulkEditModal'
+import { clearMetadataSourcesCache } from './system/useMetadataSources'
 
 const patch = vi.fn(() => Promise.resolve({}))
 const post = vi.fn(() => Promise.resolve({ id: 'g1', name: 'Fantasy' }))
@@ -50,6 +51,9 @@ describe('BulkEditModal', () => {
   beforeEach(() => {
     patch.mockClear()
     get.mockClear()
+    // Sources are cached per kind for the session; without this, the first
+    // test's mocked list would answer for every later one.
+    clearMetadataSourcesCache()
     bulkUpdate.mockClear()
     bulkUpdate.mockResolvedValue({ updated: [], errors: [] })
     get.mockImplementation(defaultGet)

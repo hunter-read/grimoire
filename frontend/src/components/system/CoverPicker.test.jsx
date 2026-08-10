@@ -34,6 +34,19 @@ describe('CoverPicker', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  // Collapsing to nothing and then expanding once the books arrive is what
+  // pushed the bulk-edit modal's buttons down under the cursor.
+  it('holds its space while books are still loading', () => {
+    const { container } = render(<CoverPicker books={[]} value={null} onChange={vi.fn()} loading />)
+    expect(container).not.toBeEmptyDOMElement()
+    expect(screen.getByText('systemEditor.coverImage')).toBeInTheDocument()
+  })
+
+  it('collapses once loading finishes with nothing to show', () => {
+    const { container } = render(<CoverPicker books={[]} value={null} onChange={vi.fn()} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
   it('shows the whole list when it is short', () => {
     render(<CoverPicker books={books(4)} value={null} onChange={vi.fn()} />)
     expect(screen.getAllByRole('button', { name: /Book/ })).toHaveLength(4)
@@ -63,6 +76,20 @@ describe('CoverPicker', () => {
       render(<CoverPicker books={books(12)} value={null} onChange={vi.fn()} />)
       await user.click(screen.getByText('systemEditor.loadMoreCovers:2'))
       expect(screen.queryByText(/loadMoreCovers/)).toBeNull()
+    })
+
+    // The bulk-edit modal is narrower and asks for a smaller page.
+    it('honours a caller-supplied page size', () => {
+      render(<CoverPicker books={books(25)} value={null} onChange={vi.fn()} pageSize={8} />)
+      expect(screen.getAllByRole('button', { name: /Book/ })).toHaveLength(8)
+      expect(screen.getByText('systemEditor.loadMoreCovers:17')).toBeInTheDocument()
+    })
+
+    it('pages by the supplied size on each reveal', async () => {
+      const user = userEvent.setup()
+      render(<CoverPicker books={books(25)} value={null} onChange={vi.fn()} pageSize={8} />)
+      await user.click(screen.getByText('systemEditor.loadMoreCovers:17'))
+      expect(screen.getAllByRole('button', { name: /Book/ })).toHaveLength(16)
     })
 
     it('keeps the selected cover visible even when it sorts late', () => {

@@ -77,6 +77,22 @@ describe('SystemBulkEditFields', () => {
     expect(draft.cover_book_id).toBeNull()
   })
 
+  // Rendering every thumbnail at once made the modal's footer buttons shift as
+  // covers streamed in, so bulk edit pages exactly like the single-system
+  // editor does.
+  it('pages covers at eight rather than rendering the whole library', () => {
+    const books = Array.from({ length: 20 }, (_, i) => ({
+      id: `b${i}`,
+      title: `Book ${i}`,
+      has_thumbnail: true,
+    }))
+    const draft = { tags: [], publishers: [], cover_book_id: null }
+    render(<Harness system={withBooks(books)} initialDraft={draft} />)
+
+    expect(screen.getAllByRole('button', { name: /^Book \d+$/ })).toHaveLength(8)
+    expect(screen.getByText('Show 12 more')).toBeInTheDocument()
+  })
+
   it('edits the system family via the combobox', () => {
     const draft = { tags: [], publishers: [], system_family: '' }
     render(<Harness system={withBooks([])} initialDraft={draft} />)
@@ -112,5 +128,29 @@ describe('SystemBulkEditFields', () => {
 
     await waitFor(() => expect(get).toHaveBeenCalledWith('/systems/s1'))
     await screen.findByRole('button', { name: 'Fetched' })
+  })
+
+  // A system whose books fail to load still has to be editable — the cover
+  // picker just has nothing to offer.
+  it('degrades to no covers when the book lookup fails', async () => {
+    get.mockImplementation((path) => {
+      if (path === '/systems/s1') return Promise.reject(new Error('nope'))
+      if (path?.includes('genres')) return Promise.resolve({ genres: [] })
+      return Promise.resolve({ families: [] })
+    })
+    const draft = { tags: [], publishers: [], cover_book_id: null }
+    render(<Harness system={{ id: 's1', name: 'Alpha' }} initialDraft={draft} />)
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/systems/s1'))
+    expect(screen.queryByText('Cover image')).toBeNull()
+  })
+
+  it('reuses books already carried on the system without refetching', async () => {
+    const books = [{ id: 'b1', title: 'Core', has_thumbnail: true }]
+    const draft = { tags: [], publishers: [], cover_book_id: null }
+    render(<Harness system={withBooks(books)} initialDraft={draft} />)
+
+    await screen.findByRole('button', { name: 'Core' })
+    expect(get).not.toHaveBeenCalledWith('/systems/s1')
   })
 })

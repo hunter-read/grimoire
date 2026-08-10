@@ -6,6 +6,7 @@ import SystemBulkEditFields from './system/SystemBulkEditFields'
 import BookBulkEditFields from './system/BookBulkEditFields'
 import ApplyToAllDialog from './system/ApplyToAllDialog'
 import MetadataFetchDialog from './system/MetadataFetchDialog'
+import useMetadataSources from './system/useMetadataSources'
 import { intoBookForm } from './system/metadataFieldValue'
 import { cleanLinks } from './metadata/metadataUtils'
 
@@ -316,10 +317,13 @@ export default function BulkEditModal({
   // "Fetch metadata", mirroring the single-item editors. Only offered when the
   // current item actually has an add-on source, so the button never promises
   // something the server cannot do.
-  const [hasSources, setHasSources] = useState(false)
+  // Cached per kind, so paging through the carousel neither refetches per item
+  // nor makes the button pop in a beat after each system renders.
+  const metadataKind = cfg.metadataKind
+  const { sources: metadataSources } = useMetadataSources(metadataKind, current.id)
+  const hasSources = metadataSources.length > 0
   const [fetching, setFetching] = useState(false)
   const [applyingAll, setApplyingAll] = useState(false)
-  const metadataKind = cfg.metadataKind
 
   // Dismissing the modal throws the drafts away, which is punishing after
   // editing a large selection — so a dirty modal asks first (issue #256).
@@ -329,18 +333,6 @@ export default function BulkEditModal({
     if (Object.keys(diffDrafts(items, drafts, cfg)).length) setConfirmingClose(true)
     else onClose()
   }
-
-  useEffect(() => {
-    if (!metadataKind) return undefined
-    let active = true
-    api
-      .get(`/${metadataKind}/${current.id}/metadata-sources`)
-      .then((data) => active && setHasSources((data.sources || []).length > 0))
-      .catch(() => active && setHasSources(false))
-    return () => {
-      active = false
-    }
-  }, [metadataKind, current.id])
 
   // The fetch dialog PATCHes the fields it applies, so the draft is refreshed
   // to match rather than left holding pre-fetch values that "Save all" would

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MetadataFetchDialog from './MetadataFetchDialog'
+import { clearMetadataSourcesCache } from './useMetadataSources'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -72,6 +73,9 @@ async function openDiff(user) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Sources are cached per kind for the session; without this, the first
+  // test's mocked list would answer for every later one.
+  clearMetadataSourcesCache()
 })
 
 describe('MetadataFetchDialog', () => {
@@ -86,6 +90,17 @@ describe('MetadataFetchDialog', () => {
     api.get.mockResolvedValue({ sources: [] })
     render(<MetadataFetchDialog resource={SYSTEM} onApply={vi.fn()} onClose={vi.fn()} />)
     expect(await screen.findByText('metadataFetch.noSources')).toBeInTheDocument()
+  })
+
+  // The message used to render while the lookup was still in flight, so every
+  // bulk-edit scrape flashed "an admin can install a metadata scraper" first.
+  it('does not claim there are no sources while still loading', () => {
+    let resolve
+    api.get.mockReturnValue(new Promise((r) => (resolve = r)))
+    render(<MetadataFetchDialog resource={SYSTEM} onApply={vi.fn()} onClose={vi.fn()} />)
+
+    expect(screen.queryByText('metadataFetch.noSources')).toBeNull()
+    resolve({ sources: [] })
   })
 
   it('lists candidates returned by a search', async () => {

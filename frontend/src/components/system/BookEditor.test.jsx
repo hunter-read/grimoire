@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import BookEditor from './BookEditor'
+import { clearMetadataSourcesCache } from './useMetadataSources'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k) => k }),
@@ -59,6 +60,9 @@ describe('BookEditor category combobox', () => {
   beforeEach(() => {
     mockPatch.mockClear()
     mockPatch.mockResolvedValue({})
+    // Sources are cached per kind for the session; without this, the first
+    // test's mocked list would answer for every later one.
+    clearMetadataSourcesCache()
     // Reset to the default lookup responses; the metadata-source tests below
     // override this per case.
     mockGet.mockReset()

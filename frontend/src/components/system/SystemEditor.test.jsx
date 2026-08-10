@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SystemEditor from './SystemEditor'
+import { clearMetadataSourcesCache } from './useMetadataSources'
 import api from '../../api'
 
 vi.mock('../../api', () => ({
@@ -12,6 +13,9 @@ vi.mock('../../api', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Sources are cached per kind for the session; without this, the first
+  // test's mocked list would answer for every later one.
+  clearMetadataSourcesCache()
   api.patch.mockResolvedValue({})
   // useLookups loads genres + system families on mount.
   api.get.mockImplementation((path) =>
