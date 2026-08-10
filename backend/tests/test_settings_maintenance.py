@@ -466,6 +466,71 @@ class TestCleanupSystemContainers:
         assert db.query(GameSystem).filter_by(id=first_id).first() is not None
         db.close()
 
+    # Protection keys off surviving children, not container_kind, so the newer
+    # kinds are covered by construction (issue #301) — pinned here so a future
+    # kind-specific shortcut in the pruner can't quietly regress them.
+    def _assert_tree_survives(self, client, admin_headers, tmp_path, kind):
+        container_id, first_id, second_id = self._tree(tmp_path, kind=kind)
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=container_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=first_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=second_id).first() is not None
+        db.close()
+
+    def test_keeps_family_container_with_surviving_children(
+        self, client, admin_headers, tmp_path
+    ):
+        self._assert_tree_survives(client, admin_headers, tmp_path, "family")
+
+    def test_keeps_publisher_container_with_surviving_children(
+        self, client, admin_headers, tmp_path
+    ):
+        self._assert_tree_survives(client, admin_headers, tmp_path, "publisher")
+
+    def test_keeps_a_nested_container_tree(self, client, admin_headers, tmp_path):
+        """A family holding a parent-system container (issue #301).
+
+        Neither shelf owns a book, so both depend on the deepest-first walk
+        seeing a surviving descendant two levels down.
+        """
+        uid = uuid.uuid4().hex
+        pdf = tmp_path / f"nested-{uid}.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+        family = make_game_system(container_kind="family")
+        inner = make_game_system(container_kind="parent", parent_id=family.id)
+        edition = make_game_system(parent_id=inner.id)
+        make_book(system_id=edition.id, filepath=str(pdf))
+        family_id, inner_id, edition_id = family.id, inner.id, edition.id
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=family_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=inner_id).first() is not None
+        assert db.query(GameSystem).filter_by(id=edition_id).first() is not None
+        db.close()
+
+    def test_prunes_a_nested_container_tree_once_fully_empty(
+        self, client, admin_headers, tmp_path
+    ):
+        """The flip side: nothing survives, so the whole tree goes in one pass."""
+        missing = tmp_path / "gone.pdf"  # never created
+        family = make_game_system(container_kind="family")
+        inner = make_game_system(container_kind="parent", parent_id=family.id)
+        edition = make_game_system(parent_id=inner.id)
+        make_book(system_id=edition.id, filepath=str(missing))
+        family_id, inner_id, edition_id = family.id, inner.id, edition.id
+
+        client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
+
+        db = SessionLocal()
+        assert db.query(GameSystem).filter_by(id=edition_id).first() is None
+        assert db.query(GameSystem).filter_by(id=inner_id).first() is None
+        assert db.query(GameSystem).filter_by(id=family_id).first() is None
+        db.close()
+
     def test_keeps_editions_books_intact(self, client, admin_headers, tmp_path):
         # The cascade was the damaging part: books under the editions survive.
         _, first_id, _ = self._tree(tmp_path)

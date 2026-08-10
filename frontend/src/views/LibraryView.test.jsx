@@ -396,6 +396,182 @@ describe('LibraryView', () => {
     })
   })
 
+  // A container card and its children are never both in the grid: grouped shows
+  // the container, flattened shows the children in its place (issue #301).
+  describe('container group toggle', () => {
+    const withContainer = () => [
+      makeSystem({ id: 's1', name: 'Standalone' }),
+      makeSystem({
+        id: 'ctr',
+        name: 'Dungeons & Dragons',
+        container_kind: 'parent',
+        book_count: 0,
+        child_count: 2,
+      }),
+      makeSystem({ id: 'c1', name: 'D&D 5e', parent_id: 'ctr' }),
+      makeSystem({ id: 'c2', name: 'D&D 4e', parent_id: 'ctr' }),
+    ]
+
+    const toggle = () => screen.getByRole('switch', { name: /group collections/i })
+
+    it('shows the container and hides its children by default', async () => {
+      api.get.mockResolvedValue(withContainer())
+      renderView()
+      await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
+
+      expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument()
+      expect(screen.queryByText('D&D 5e')).not.toBeInTheDocument()
+    })
+
+    it('swaps the container for its children when toggled off', async () => {
+      api.get.mockResolvedValue(withContainer())
+      renderView()
+      await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
+
+      await userEvent.click(toggle())
+
+      expect(screen.getByText('D&D 5e')).toBeInTheDocument()
+      expect(screen.getByText('D&D 4e')).toBeInTheDocument()
+      expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument()
+      // Systems outside any container are unaffected either way.
+      expect(screen.getByText('Standalone')).toBeInTheDocument()
+    })
+
+    it('persists the choice as a user preference', async () => {
+      api.get.mockResolvedValue(withContainer())
+      renderView()
+      await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
+
+      await userEvent.click(toggle())
+
+      expect(mockUserPrefs.systemsGrouped).toBe(false)
+    })
+
+    it('starts flattened when the stored preference says so', async () => {
+      mockUserPrefs = { ...mockUserPrefs, systemsGrouped: false }
+      api.get.mockResolvedValue(withContainer())
+      renderView()
+      await waitFor(() => expect(screen.getByText('D&D 5e')).toBeInTheDocument())
+
+      expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument()
+    })
+
+    it('hides the toggle when no container is present', async () => {
+      api.get.mockResolvedValue([makeSystem({ id: 's1', name: 'Standalone' })])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
+
+      expect(screen.queryByRole('switch', { name: /group collections/i })).not.toBeInTheDocument()
+    })
+
+    // A family holding a parent-system container (issue #301): flattening must
+    // reach the leaf systems, not surface the inner shelf as if it were a game.
+    it('flattens nested containers down to their leaf systems', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({
+          id: 'fam',
+          name: 'd20 System',
+          container_kind: 'family',
+          book_count: 0,
+          child_count: 1,
+        }),
+        makeSystem({
+          id: 'pf',
+          name: 'Pathfinder',
+          container_kind: 'parent',
+          parent_id: 'fam',
+          book_count: 0,
+          child_count: 2,
+        }),
+        makeSystem({ id: 'pf1', name: 'Pathfinder 1e', parent_id: 'pf' }),
+        makeSystem({ id: 'pf2', name: 'Pathfinder 2e', parent_id: 'pf' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('d20 System')).toBeInTheDocument())
+
+      await userEvent.click(toggle())
+
+      expect(screen.getByText('Pathfinder 1e')).toBeInTheDocument()
+      expect(screen.getByText('Pathfinder 2e')).toBeInTheDocument()
+      // Neither shelf remains: both are containers, not games.
+      expect(screen.queryByText('d20 System')).not.toBeInTheDocument()
+      expect(screen.queryByText('Pathfinder')).not.toBeInTheDocument()
+    })
+
+    // The one-page collection exists precisely to keep a pile of tiny games out
+    // of the main grid, so flattening must not spill them into it.
+    it('never flattens a one-page collection into the grid', async () => {
+      api.get.mockResolvedValue([
+        // A flattenable container, so the toggle is present at all.
+        makeSystem({
+          id: 'ctr',
+          name: 'Dungeons & Dragons',
+          container_kind: 'parent',
+          book_count: 0,
+          child_count: 1,
+        }),
+        makeSystem({ id: 'c1', name: 'D&D 5e', parent_id: 'ctr' }),
+        makeSystem({
+          id: 'op',
+          name: 'One-Page RPGs',
+          container_kind: 'one-page',
+          is_one_page: true,
+          book_count: 0,
+          child_count: 2,
+        }),
+        makeSystem({ id: 'h1', name: 'Honey Heist', parent_id: 'op', parent_is_one_page: true }),
+        makeSystem({
+          id: 'h2',
+          name: 'Lasers And Feelings',
+          parent_id: 'op',
+          parent_is_one_page: true,
+        }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
+
+      await userEvent.click(toggle())
+
+      expect(screen.queryByText('Honey Heist')).not.toBeInTheDocument()
+      expect(screen.queryByText('Lasers And Feelings')).not.toBeInTheDocument()
+      // The collection keeps its chip in the Special Collections strip, and the
+      // ordinary container still flattens as usual.
+      // Chips prettify the stored slug-like name ("One-Page RPGs" → "One Page RPGs").
+      expect(screen.getByText('One Page RPGs')).toBeInTheDocument()
+      expect(screen.getByText('D&D 5e')).toBeInTheDocument()
+    })
+
+    it('flattens a generic .container shelf like any other', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({
+          id: 'gen',
+          name: 'My Shelf',
+          container_kind: 'generic',
+          book_count: 0,
+          child_count: 2,
+        }),
+        makeSystem({ id: 'g1', name: 'Game D', parent_id: 'gen' }),
+        makeSystem({ id: 'g2', name: 'Game E', parent_id: 'gen' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('My Shelf')).toBeInTheDocument())
+
+      await userEvent.click(toggle())
+
+      expect(screen.getByText('Game D')).toBeInTheDocument()
+      expect(screen.getByText('Game E')).toBeInTheDocument()
+      expect(screen.queryByText('My Shelf')).not.toBeInTheDocument()
+    })
+
+    it('requests children so flattening needs no second fetch', async () => {
+      api.get.mockResolvedValue(withContainer())
+      renderView()
+      await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
+
+      expect(api.get).toHaveBeenCalledWith('/systems?include_children=true')
+    })
+  })
+
   describe('recently opened', () => {
     beforeEach(() => {
       mockRecentBooks = [{ id: 'b1', title: 'Recent Book', has_thumbnail: false, page_count: 10 }]

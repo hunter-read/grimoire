@@ -15,6 +15,7 @@ import useSystemLibrary from '../hooks/useSystemLibrary'
 import useSavedFilters from '../hooks/useSavedFilters'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import SystemCard from '../components/library/SystemCard'
+import SystemGroupToggle from '../components/library/SystemGroupToggle'
 import AgnosticChip from '../components/library/AgnosticChip'
 import SortFilterBar from '../components/library/SortFilterBar'
 import { applySystemSortFilter } from '../components/library/applySystemSortFilter'
@@ -36,6 +37,10 @@ export default function LibraryView() {
   const [recentCollapsed, setRecentCollapsed] = useState(
     () => getUserPrefs().recentCollapsed === true
   )
+  // Whether container folders show as single cards (default) or are flattened
+  // into their child systems. A lasting browsing preference, so it persists
+  // across reloads rather than only for the session.
+  const [grouped, setGrouped] = useState(() => getUserPrefs().systemsGrouped !== false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [sortFilter, setSortFilter] = useState(DEFAULT_SORT_FILTER)
   // Tracks whether we've applied the server-side default preset for this mount,
@@ -54,8 +59,10 @@ export default function LibraryView() {
     remove: removePreset,
   } = useSavedFilters('systems')
 
+  // Children are fetched up front so the group toggle can flatten containers
+  // without a second round trip; the grouped view filters them back out.
   useEffect(() => {
-    api.get('/systems').then(setSystems)
+    api.get('/systems?include_children=true').then(setSystems)
   }, [])
 
   // On load, apply the user's default preset (if any) exactly once.
@@ -92,53 +99,63 @@ export default function LibraryView() {
 
   // "Special" collections (system-agnostic + one-page/small RPGs) are grouped
   // together above the regular game systems and shown as compact chips.
-  // Parent-system containers ("Dungeons & Dragons" holding its editions) are
-  // ordinary library entries and stay in the main grid.
+  // Container folders ("Dungeons & Dragons" holding its editions, "d20 System"
+  // holding its family members) are ordinary library entries in the main grid.
   const isSpecial = (s) => s.is_system_agnostic || s.is_one_page
 
-  // The bar filters (genre/family/explicit/favorites/tags), then sorts.
-  const normalSystems = applySystemSortFilter(
-    systems.filter((s) => visible(s) && !isSpecial(s)),
-    sortFilter,
-    { isFavorite: isFavSystem }
-  )
+  // One-page collections are the exception to flattening. Their whole purpose
+  // is to keep a pile of tiny one-book games out of the main grid, so spilling
+  // dozens of them into it is exactly what the collection exists to prevent —
+  // the container keeps its chip in the Special Collections strip and its
+  // children stay reachable by drilling in, grouped or not.
+  const isOnePageChild = (s) => s.parent_id && s.parent_is_one_page
 
-  // Bulk tagging and bulk edit are undefined for a parent container (it holds
-  // systems, not books of its own), so it never takes part in a selection —
-  // including as a member of a shift-click range.
-  const selectableSystems = normalSystems.filter((s) => s.container_kind !== 'parent')
+  // Grouped (default): containers show as one card and their children are
+  // reached by drilling in, so the children stay out of the grid. Flattened:
+  // the containers themselves drop out and their children take their place, so
+  // the grid is a plain list of real systems (never both, which would show the
+  // same games twice). Special collections keep their own chip strip either way.
+  const inGrid = (s) =>
+    visible(s) &&
+    !isSpecial(s) &&
+    !isOnePageChild(s) &&
+    (grouped ? !s.parent_id : !s.container_kind)
+
+  // The bar filters (genre/family/explicit/favorites/tags), then sorts.
+  const normalSystems = applySystemSortFilter(systems.filter(inGrid), sortFilter, {
+    isFavorite: isFavSystem,
+  })
+
+  // Bulk tagging and bulk edit are undefined for a container (it holds systems,
+  // not books of its own), so it never takes part in a selection — including as
+  // a member of a shift-click range. One-page containers live in the special
+  // strip, so in practice this covers parent/family/publisher shelves.
+  const selectableSystems = normalSystems.filter((s) => !s.container_kind)
+
+  // The toggle only means something once a container exists to flatten, so a
+  // library of plain systems doesn't carry a control that changes nothing.
+  const hasContainers = systems.some((s) => s.container_kind && !isSpecial(s) && s.child_count > 0)
 
   // Special collections keep a simple A–Z ordering.
   const specialSystems = systems
     .filter((s) => visible(s) && isSpecial(s))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  // Filter dropdown options derived from the loaded systems (regular only).
-  const genreOptions = [
-    ...new Set(systems.filter((s) => !isSpecial(s)).flatMap((s) => s.genres || [])),
-  ]
-    .sort((a, b) => a.localeCompare(b))
-    .map((g) => ({ value: g, label: g }))
-  const familyOptions = [
-    ...new Set(systems.filter((s) => !isSpecial(s) && s.system_family).map((s) => s.system_family)),
-  ]
-    .sort((a, b) => a.localeCompare(b))
-    .map((f) => ({ value: f, label: f }))
-  const parentSystemOptions = [
-    ...new Set(systems.filter((s) => !isSpecial(s) && s.parent_system).map((s) => s.parent_system)),
-  ]
-    .sort((a, b) => a.localeCompare(b))
-    .map((p) => ({ value: p, label: p }))
-  const editionOptions = [
-    ...new Set(systems.filter((s) => !isSpecial(s) && s.edition).map((s) => s.edition)),
-  ]
-    .sort((a, b) => a.localeCompare(b))
-    .map((e) => ({ value: e, label: e }))
-  const diceOptions = [
-    ...new Set(systems.filter((s) => !isSpecial(s)).flatMap((s) => s.dice_materials || [])),
-  ]
-    .sort((a, b) => a.localeCompare(b))
-    .map((d) => ({ value: d, label: d }))
+  // Filter dropdown options are derived from the rows actually in the grid, so
+  // flattening a container surfaces its children's families/editions and
+  // grouping hides them again — an option that can never match is worse than a
+  // missing one.
+  const gridSystems = systems.filter(inGrid)
+  const optionsFrom = (pick) =>
+    [...new Set(gridSystems.flatMap((s) => [pick(s)].flat().filter(Boolean)))]
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }))
+
+  const genreOptions = optionsFrom((s) => s.genres || [])
+  const familyOptions = optionsFrom((s) => s.system_family)
+  const parentSystemOptions = optionsFrom((s) => s.parent_system)
+  const editionOptions = optionsFrom((s) => s.edition)
+  const diceOptions = optionsFrom((s) => s.dice_materials || [])
   const tagOptions = allTags.map((tg) => ({
     value: tg,
     label: systemTagLabels[tg] || titleCaseTag(tg),
@@ -149,8 +166,10 @@ export default function LibraryView() {
   // all, ignoring the favorites/tag filters — drives the "Game Systems" section
   // (its toolbar, tag filter, and empty states). Special-only libraries skip it
   // and rely on the special-collection chips section above.
-  const hasNormalSystems = systems.some((s) => visible(s) && !isSpecial(s))
+  const hasNormalSystems = systems.some(inGrid)
   // Whether the library is completely empty (no browsable systems of any kind).
+  // Container children count here even while grouped: a library holding only a
+  // container is not empty, it just needs drilling into.
   const isEmptyLibrary = !systems.some(visible)
 
   const compact = viewMode === 'compact'
@@ -371,7 +390,30 @@ export default function LibraryView() {
         {hasNormalSystems && (
           <>
             <div style={{ marginBottom: 24 }}>
-              <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
+              {/* The grouping toggle sits on the heading row, right-aligned: it
+                  reshapes what the section *contains*, unlike the sort/filter
+                  bar's controls which act on a fixed set of rows. */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 8,
+                }}
+              >
+                <h2 style={{ fontSize: 28, margin: 0 }}>{t('library.title')}</h2>
+                {hasContainers && (
+                  <SystemGroupToggle
+                    grouped={grouped}
+                    onToggle={(next) => {
+                      setGrouped(next)
+                      saveUserPref('systemsGrouped', next)
+                    }}
+                  />
+                )}
+              </div>
               <p
                 style={{
                   color: 'var(--text-dim)',

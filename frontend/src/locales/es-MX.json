@@ -141,10 +141,14 @@
     },
     "cancelBulk": "Cancelar",
     "noTagMatch": "Ningún sistema coincide con las etiquetas seleccionadas.",
-    "filterByTag": "Filtrar por {{tag}}"
+    "filterByTag": "Filtrar por {{tag}}",
+    "groupContainers": "Agrupar colecciones"
   },
   "systemContainer": {
     "badge": "Colección de sistemas",
+    "familyBadge": "Familia de sistemas",
+    "publisherBadge": "Editorial",
+    "genericBadge": "Colección",
     "subtitle_one": "{{count}} sistema en esta colección",
     "subtitle_other": "{{count}} sistemas en esta colección",
     "empty": "Todavía no se han encontrado sistemas en esta colección.",

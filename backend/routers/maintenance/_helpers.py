@@ -38,7 +38,7 @@ def _prune_orphaned_systems(db) -> int:
 
     * it still has books;
     * a campaign references it, so deleting would dangle ``system_id``;
-    * it is a container (parent-system / one-page) with a surviving descendant.
+    * it has a surviving child, which is what keeps a container alive.
 
     That last rule is what issue #309 was about. A container folder holds no
     books of its own — the books sit under its children — so the plain
@@ -46,6 +46,12 @@ def _prune_orphaned_systems(db) -> int:
     cascaded through ``GameSystem.children`` (``delete-orphan``) and took the
     editions *and their books* with it, making a whole system tree vanish on
     the first cleanup after a scan.
+
+    Note the rule is deliberately phrased over ``parent_id`` rather than
+    ``container_kind``: every container kind is protected the same way, so
+    kinds added later (system-family and publisher, issue #301) are covered
+    without touching this function. Nested containers work for the same reason
+    — the deepest-first walk resolves the inner shelf before the outer one.
 
     Systems are walked deepest-first so that a container whose children all get
     pruned in this pass is still collected in the same pass.

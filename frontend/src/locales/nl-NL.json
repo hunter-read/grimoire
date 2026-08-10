@@ -141,10 +141,14 @@
     },
     "cancelBulk": "Annuleren",
     "noTagMatch": "Geen systemen komen overeen met de geselecteerde labels.",
-    "filterByTag": "Filteren op {{tag}}"
+    "filterByTag": "Filteren op {{tag}}",
+    "groupContainers": "Collecties groeperen"
   },
   "systemContainer": {
     "badge": "Systeemcollectie",
+    "familyBadge": "Systeemfamilie",
+    "publisherBadge": "Uitgever",
+    "genericBadge": "Collectie",
     "subtitle_one": "{{count}} systeem in deze collectie",
     "subtitle_other": "{{count}} systemen in deze collectie",
     "empty": "Nog geen systemen gevonden in deze collectie.",
