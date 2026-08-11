@@ -14,8 +14,7 @@ jobs:
     # A direct push to `dev` while the `dev -> main` PR is open makes CI run
     # twice for the same commit: once for `push` and once for `pull_request`.
     # Skip the redundant `pull_request` run when its head branch is `dev` — the
-    # `push` run already covers that commit. This also stops `edge.yml` from
-    # being triggered twice (once per CI completion) and racing on the build cache.
+    # `push` run already covers that commit.
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'

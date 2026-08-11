@@ -19,6 +19,7 @@ import SystemGroupToggle from '../components/library/SystemGroupToggle'
 import AgnosticChip from '../components/library/AgnosticChip'
 import SortFilterBar from '../components/library/SortFilterBar'
 import { applySystemSortFilter } from '../components/library/applySystemSortFilter'
+import { isSpecialFilter } from '../components/library/specialFilters'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkEditModal from '../components/BulkEditModal'
 import LazyImg from '../components/LazyImg'
@@ -88,8 +89,11 @@ export default function LibraryView() {
 
   // Favorites and tags now live in the SortFilterBar filter section.
   const activeFilters = sortFilter.filters || {}
-  // Tags currently filtering the grid (set via the Filters modal's Tags dropdown).
-  const selectedTags = new Set((activeFilters.tags || []).map((tg) => tg.toLowerCase()))
+  // Tags currently filtering the grid (set via the Filters modal's Tags
+  // dropdown). Presence sentinels aren't tags, so they stay out of this set.
+  const selectedTags = new Set(
+    (activeFilters.tags || []).filter((tg) => !isSpecialFilter(tg)).map((tg) => tg.toLowerCase())
+  )
   const favOnly = activeFilters.favorites === true
   const isFavSystem = (id) => isFavorite('system', id)
 
@@ -142,9 +146,10 @@ export default function LibraryView() {
     .sort((a, b) => a.name.localeCompare(b.name))
 
   // Filter dropdown options are derived from the rows actually in the grid, so
-  // flattening a container surfaces its children's families/editions and
-  // grouping hides them again — an option that can never match is worse than a
-  // missing one.
+  // flattening a container surfaces its children's families/genres and grouping
+  // hides them again — an option that can never match is worse than a missing
+  // one. (Edition is deliberately not offered: it isn't recorded consistently
+  // enough across systems to filter on.)
   const gridSystems = systems.filter(inGrid)
   const optionsFrom = (pick) =>
     [...new Set(gridSystems.flatMap((s) => [pick(s)].flat().filter(Boolean)))]
@@ -154,7 +159,6 @@ export default function LibraryView() {
   const genreOptions = optionsFrom((s) => s.genres || [])
   const familyOptions = optionsFrom((s) => s.system_family)
   const parentSystemOptions = optionsFrom((s) => s.parent_system)
-  const editionOptions = optionsFrom((s) => s.edition)
   const diceOptions = optionsFrom((s) => s.dice_materials || [])
   const tagOptions = allTags.map((tg) => ({
     value: tg,
@@ -468,16 +472,6 @@ export default function LibraryView() {
                         label: t('sortFilter.filterParentSystem'),
                         allLabel: t('sortFilter.allParentSystems'),
                         options: parentSystemOptions,
-                      },
-                    ]
-                  : []),
-                ...(editionOptions.length
-                  ? [
-                      {
-                        key: 'edition',
-                        label: t('sortFilter.filterEdition'),
-                        allLabel: t('sortFilter.allEditions'),
-                        options: editionOptions,
                       },
                     ]
                   : []),

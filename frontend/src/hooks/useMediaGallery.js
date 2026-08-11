@@ -7,6 +7,7 @@ import useSavedFilters from './useSavedFilters'
 import { useFavorites } from '../context/FavoritesContext'
 // (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
 import { getFolderPath, getTopFolder, getSubPath } from '../components/media/mediaConfig'
+import { splitSpecial, isSpecialFilter } from '../components/library/specialFilters'
 
 const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
 
@@ -48,7 +49,12 @@ export default function useMediaGallery(config) {
   const activeFilters = sortFilter.filters || {}
   const filter = activeFilters.search || ''
   const favOnly = activeFilters.favorites === true
-  const selectedTags = new Set((activeFilters.tags || []).map((tg) => tg.toLowerCase()))
+  const rawSelectedTags = activeFilters.tags || []
+  // The inline tag chips only know about real tags — the special sentinels are
+  // kept out of this set so they never render as a highlighted chip.
+  const selectedTags = new Set(
+    rawSelectedTags.filter((tg) => !isSpecialFilter(tg)).map((tg) => tg.toLowerCase())
+  )
   const setFilter = (v) =>
     setSortFilter((s) => ({ ...s, filters: { ...s.filters, search: v || undefined } }))
   const toggleTag = (tag) =>
@@ -176,13 +182,16 @@ export default function useMediaGallery(config) {
       (item.tags || []).some((tag) => tag.toLowerCase().includes(q)) ||
       (folderTags[getFolderPath(item)] || []).some((tag) => tag.toLowerCase().includes(q))
     const tagMatch =
-      selectedTags.size === 0 ||
+      rawSelectedTags.length === 0 ||
       (() => {
-        const itemTagSet = new Set((item.tags || []).map((t) => t.toLowerCase()))
-        const folderTagSet = new Set(
-          (folderTags[getFolderPath(item)] || []).map((t) => t.toLowerCase())
-        )
-        return [...selectedTags].some((tag) => itemTagSet.has(tag) || folderTagSet.has(tag))
+        // An item's effective tags are its own plus its folder's, so the
+        // special "untagged"/"tagged" sentinels test that combined set.
+        const effective = [...(item.tags || []), ...(folderTags[getFolderPath(item)] || [])]
+        const { values, pass } = splitSpecial(rawSelectedTags, effective)
+        if (!pass) return false
+        if (values.length === 0) return true
+        const effectiveSet = new Set(effective.map((t) => t.toLowerCase()))
+        return values.some((tag) => effectiveSet.has(String(tag).toLowerCase()))
       })()
     const favMatch = !favOnly || isFavorite(type, item.id)
     return textMatch && tagMatch && favMatch

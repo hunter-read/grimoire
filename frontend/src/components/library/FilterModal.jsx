@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuSearch } from 'react-icons/lu'
 import MultiSelectDropdown from '../metadata/MultiSelectDropdown'
+import { FILTER_NONE, FILTER_ANY } from './specialFilters'
 
 /**
  * Modal housing all filter controls for a scope, plus a "save as filter"
@@ -149,6 +150,18 @@ export default function FilterModal({
                 style={control}
               >
                 <option value="">{f.allLabel}</option>
+                {/* Presence filters sit at the very top, separated from the
+                    concrete values below them. */}
+                {f.special !== false && (
+                  <optgroup label={t('sortFilter.specialGroup')}>
+                    <option value={FILTER_NONE}>
+                      {t('sortFilter.specialNone', { field: f.label })}
+                    </option>
+                    <option value={FILTER_ANY}>
+                      {t('sortFilter.specialAny', { field: f.label })}
+                    </option>
+                  </optgroup>
+                )}
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -168,6 +181,20 @@ export default function FilterModal({
                 onChange={(next) => setFilter(f.key, next.length ? next : undefined)}
                 emptyLabel={f.emptyLabel}
                 searchPlaceholder={f.searchPlaceholder}
+                specialOptions={
+                  f.special === false
+                    ? []
+                    : [
+                        {
+                          value: FILTER_NONE,
+                          label: t('sortFilter.specialNone', { field: f.label }),
+                        },
+                        {
+                          value: FILTER_ANY,
+                          label: t('sortFilter.specialAny', { field: f.label }),
+                        },
+                      ]
+                }
               />
             </div>
           ))}

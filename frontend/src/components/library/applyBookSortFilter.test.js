@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { bookFilterPredicate, bookComparator } from './applyBookSortFilter'
+import { FILTER_NONE, FILTER_ANY } from './specialFilters'
 
 const books = [
   {
@@ -58,6 +59,36 @@ describe('bookFilterPredicate', () => {
   it('filters by favorites via isFavorite', () => {
     const p = bookFilterPredicate({ favorites: true }, { isFavorite: (id) => id === 'b' })
     expect(books.filter(p).map((b) => b.id)).toEqual(['b'])
+  })
+
+  describe('special presence filters', () => {
+    it('filters to books with no genre', () => {
+      const p = bookFilterPredicate({ genres: [FILTER_NONE] })
+      expect(books.filter(p).map((b) => b.id)).toEqual(['c'])
+    })
+
+    it('filters to books that have any genre', () => {
+      const p = bookFilterPredicate({ genres: [FILTER_ANY] })
+      expect(books.filter(p).map((b) => b.id)).toEqual(['a', 'b'])
+    })
+
+    it('filters to books with no tags', () => {
+      const p = bookFilterPredicate({ tags: [FILTER_NONE] })
+      expect(books.filter(p).map((b) => b.id)).toEqual([])
+    })
+
+    it('combines a genre sentinel with a tag filter on the other field', () => {
+      const p = bookFilterPredicate({ genres: [FILTER_ANY], tags: ['grim'] })
+      expect(books.filter(p).map((b) => b.id)).toEqual(['b'])
+    })
+
+    // The dropdown makes the sentinels exclusive per field, but a hand-edited
+    // or older saved preset could still carry both — the predicate stays
+    // well-defined (nothing can be both empty and non-empty).
+    it('excludes everything when both sentinels are selected', () => {
+      const p = bookFilterPredicate({ genres: [FILTER_NONE, FILTER_ANY] })
+      expect(books.filter(p)).toHaveLength(0)
+    })
   })
 })
 

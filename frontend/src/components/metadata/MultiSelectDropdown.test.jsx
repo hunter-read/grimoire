@@ -23,7 +23,12 @@ const options = [
   { value: 'grim', label: 'grim' },
 ]
 
-function Harness({ initial = [] }) {
+const specialOptions = [
+  { value: '__none__', label: 'No tags' },
+  { value: '__any__', label: 'Any tags' },
+]
+
+function Harness({ initial = [], ...rest }) {
   const [selected, setSelected] = useState(initial)
   return (
     <div>
@@ -32,6 +37,7 @@ function Harness({ initial = [] }) {
         options={options}
         selected={selected}
         onChange={setSelected}
+        {...rest}
       />
       <output data-testid="sel">{JSON.stringify(selected)}</output>
     </div>
@@ -79,6 +85,74 @@ describe('MultiSelectDropdown', () => {
       />
     )
     expect(screen.getByText('No tags')).toBeInTheDocument()
+  })
+
+  describe('specialOptions', () => {
+    it('pins them above the regular options', async () => {
+      render(<Harness specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      const none = screen.getByRole('checkbox', { name: 'No tags' })
+      const osr = screen.getByRole('checkbox', { name: 'osr' })
+      expect(none.compareDocumentPosition(osr) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('keeps them visible while the search box filters the rest', async () => {
+      render(<Harness specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.type(screen.getByLabelText('Search'), 'zzz')
+      expect(screen.getByRole('checkbox', { name: 'No tags' })).toBeInTheDocument()
+      expect(screen.queryByRole('checkbox', { name: 'osr' })).not.toBeInTheDocument()
+    })
+
+    it('toggles a special value into the selection', async () => {
+      render(<Harness specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Any tags' }))
+      expect(screen.getByTestId('sel').textContent).toBe('["__any__"]')
+    })
+
+    it('still renders the dropdown when only special options exist', async () => {
+      render(<Harness options={[]} specialOptions={specialOptions} emptyLabel="No tags at all" />)
+      expect(screen.queryByText('No tags at all')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      expect(screen.getByRole('checkbox', { name: 'No tags' })).toBeInTheDocument()
+    })
+
+    it('replaces an existing selection when a special value is picked', async () => {
+      render(<Harness initial={['osr', 'grim']} specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'No tags' }))
+      expect(screen.getByTestId('sel').textContent).toBe('["__none__"]')
+    })
+
+    it('replaces the other special value rather than combining the two', async () => {
+      render(<Harness initial={['__none__']} specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Any tags' }))
+      expect(screen.getByTestId('sel').textContent).toBe('["__any__"]')
+    })
+
+    it('disables the regular options while a special value is active', async () => {
+      render(<Harness initial={['__none__']} specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      expect(screen.getByRole('checkbox', { name: 'osr' })).toBeDisabled()
+      // The active sentinel stays clickable so it can be turned back off.
+      expect(screen.getByRole('checkbox', { name: 'No tags' })).not.toBeDisabled()
+    })
+
+    it('frees the regular options again once the special value is cleared', async () => {
+      render(<Harness initial={['__none__']} specialOptions={specialOptions} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'No tags' }))
+      expect(screen.getByTestId('sel').textContent).toBe('[]')
+      await userEvent.click(screen.getByRole('checkbox', { name: 'osr' }))
+      expect(screen.getByTestId('sel').textContent).toBe('["osr"]')
+    })
+
+    it('names the active special filter on the trigger', () => {
+      render(<Harness initial={['__none__']} specialOptions={specialOptions} />)
+      expect(screen.getByRole('button', { name: 'Tags' })).toHaveTextContent('No tags')
+    })
   })
 
   it('closes when clicking outside', async () => {
