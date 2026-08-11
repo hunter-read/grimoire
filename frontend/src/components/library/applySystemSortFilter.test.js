@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { applySystemSortFilter } from './applySystemSortFilter'
+import { FILTER_NONE, FILTER_ANY } from './specialFilters'
 
 const systems = [
   {
@@ -88,5 +89,73 @@ describe('applySystemSortFilter', () => {
     const copy = [...systems]
     applySystemSortFilter(systems, { sort: 'book_count', order: 'desc' })
     expect(systems).toEqual(copy)
+  })
+
+  describe('special presence filters', () => {
+    it('filters to systems with no genre', () => {
+      const out = applySystemSortFilter(systems, { filters: { genre: FILTER_NONE } })
+      expect(out.map((s) => s.id)).toEqual(['c'])
+    })
+
+    it('filters to systems that have any genre', () => {
+      const out = applySystemSortFilter(systems, { filters: { genre: FILTER_ANY } })
+      expect(out.map((s) => s.id)).toEqual(['a', 'b'])
+    })
+
+    it('treats a blank string field as "none"', () => {
+      const out = applySystemSortFilter(systems, { filters: { family: FILTER_NONE } })
+      expect(out.map((s) => s.id)).toEqual(['c'])
+    })
+
+    it('treats a missing field as "none"', () => {
+      const out = applySystemSortFilter(systems, { filters: { edition: FILTER_NONE } })
+      expect(out.map((s) => s.id)).toEqual(['b', 'c'])
+    })
+
+    it('filters to systems with no tags', () => {
+      const out = applySystemSortFilter(
+        [
+          { ...systems[0], tags: ['osr'] },
+          { ...systems[1], tags: [] },
+        ],
+        { filters: { tags: [FILTER_NONE] } }
+      )
+      expect(out.map((s) => s.id)).toEqual(['b'])
+    })
+
+    it('filters to systems that have any tag', () => {
+      const out = applySystemSortFilter(
+        [
+          { ...systems[0], tags: ['osr'] },
+          { ...systems[1], tags: [] },
+        ],
+        { filters: { tags: [FILTER_ANY] } }
+      )
+      expect(out.map((s) => s.id)).toEqual(['a'])
+    })
+
+    // The dropdown makes a sentinel exclusive, but a hand-edited or older saved
+    // preset could still carry both — the predicate stays well-defined there.
+    it('still honours a sentinel mixed with a concrete tag', () => {
+      const out = applySystemSortFilter(
+        [
+          { ...systems[0], tags: ['osr'] },
+          { ...systems[1], tags: ['grim'] },
+        ],
+        { filters: { tags: [FILTER_ANY, 'osr'] } }
+      )
+      expect(out.map((s) => s.id)).toEqual(['a'])
+    })
+
+    it('filters to systems with no dice/materials', () => {
+      const out = applySystemSortFilter(
+        [
+          { ...systems[0], dice_materials: ['d20'] },
+          { ...systems[1], dice_materials: [] },
+        ],
+        { filters: { dice: [FILTER_NONE] } }
+      )
+      expect(out.map((s) => s.id)).toEqual(['b'])
+    })
   })
 })

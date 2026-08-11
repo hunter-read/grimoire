@@ -14,6 +14,8 @@ import { LuChevronDown, LuSearch, LuX } from 'react-icons/lu'
  *  - label: trigger/aria label
  *  - emptyLabel: shown when there are no options at all
  *  - searchPlaceholder
+ *  - specialOptions: [{ value, label }] pinned above the regular options and
+ *    exempt from the search box — used for presence filters ("has no genre").
  */
 export default function MultiSelectDropdown({
   options,
@@ -22,6 +24,7 @@ export default function MultiSelectDropdown({
   label,
   emptyLabel = '—',
   searchPlaceholder,
+  specialOptions = [],
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -39,18 +42,61 @@ export default function MultiSelectDropdown({
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
+  // A presence filter ("no tags" / "any tags") is exclusive: it can't be
+  // combined with a concrete value, or with the other sentinel. Picking one
+  // replaces the selection outright, and picking a concrete value drops it.
+  const specialValues = new Set(specialOptions.map((o) => o.value))
+  const activeSpecial = selected.find((v) => specialValues.has(v))
+
   const toggle = (value) => {
-    const next = selected.includes(value)
-      ? selected.filter((v) => v !== value)
-      : [...selected, value]
-    onChange(next.length ? next : [])
+    const isSpecial = specialValues.has(value)
+    if (selected.includes(value)) {
+      onChange(selected.filter((v) => v !== value))
+      return
+    }
+    onChange(isSpecial ? [value] : [...selected.filter((v) => !specialValues.has(v)), value])
   }
 
   const q = query.trim().toLowerCase()
   const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
 
-  if (options.length === 0) {
+  // With no concrete options and no special entries there is nothing to pick.
+  if (options.length === 0 && specialOptions.length === 0) {
     return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{emptyLabel}</div>
+  }
+
+  const renderOption = (o) => {
+    const checked = selected.includes(o.value)
+    // While a presence filter is active the concrete values are unselectable —
+    // shown disabled rather than silently ignoring the click. The sentinels
+    // stay live so you can switch straight from one to the other.
+    const disabled = Boolean(activeSpecial) && !checked && !specialValues.has(o.value)
+    return (
+      <label
+        key={o.value}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 13,
+          padding: '5px 8px',
+          borderRadius: 6,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: 'var(--text)',
+          opacity: disabled ? 0.4 : 1,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={() => toggle(o.value)}
+          aria-label={o.label}
+          style={{ accentColor: 'var(--gold)' }}
+        />
+        {o.label}
+      </label>
+    )
   }
 
   return (
@@ -76,10 +122,14 @@ export default function MultiSelectDropdown({
           cursor: 'pointer',
         }}
       >
+        {/* A presence filter is always the whole selection, so name it rather
+            than reporting a meaningless "1 selected". */}
         <span>
-          {selected.length
-            ? t('sortFilter.multiSelected', { count: selected.length })
-            : t('sortFilter.multiAny')}
+          {activeSpecial
+            ? specialOptions.find((o) => o.value === activeSpecial).label
+            : selected.length
+              ? t('sortFilter.multiSelected', { count: selected.length })
+              : t('sortFilter.multiAny')}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           {selected.length > 0 && (
@@ -148,35 +198,25 @@ export default function MultiSelectDropdown({
             />
           </div>
           <div style={{ maxHeight: 220, overflowY: 'auto', padding: 4 }}>
+            {/* Special entries are pinned above the list and stay visible while
+                searching — they aren't values you'd search for by name. */}
+            {specialOptions.length > 0 && (
+              <div
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  paddingBottom: 4,
+                  marginBottom: 4,
+                }}
+              >
+                {specialOptions.map(renderOption)}
+              </div>
+            )}
             {filtered.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 8px' }}>
                 {t('common.noResults')}
               </div>
             ) : (
-              filtered.map((o) => (
-                <label
-                  key={o.value}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 13,
-                    padding: '5px 8px',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    color: 'var(--text)',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(o.value)}
-                    onChange={() => toggle(o.value)}
-                    aria-label={o.label}
-                    style={{ accentColor: 'var(--gold)' }}
-                  />
-                  {o.label}
-                </label>
-              ))
+              filtered.map(renderOption)
             )}
           </div>
         </div>

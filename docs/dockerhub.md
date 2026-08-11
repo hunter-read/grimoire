@@ -34,13 +34,38 @@ pin. Given a release `v1.4.2`, the same image is pushed as `1.4.2`, `1.4`, and
 | `X`       | `1`                            | **Major** version - the newest release in the `1.x.x` line. Follows new features and patches, but never a breaking `2.0.0`. |
 | `X.Y`     | `1.4`                          | **Minor** version - the newest patch in the `1.4.x` line. Gets bug-fix patches only, not the new features introduced by `1.5`. |
 | `X.Y.Z`   | `1.4.2`                        | **Patch** version - an exact, immutable release. Never changes. Use to fully pin a deployment. |
-| `edge`    | `edge`                         | Latest commit on the default branch. Bleeding-edge; may be unstable. Not a release.       |
+| `nightly` | `nightly`                      | Daily build off `main`, rebuilt only when `main` has changed. Tracks what's landed since the last release; not a release itself. |
+| `edge`    | `edge`                         | Published irregularly from in-progress work. Highly volatile and unsupported - see below before using it. |
 
 The version parts follow semantic versioning: the **major** (`X`) bumps for
 breaking changes, the **minor** (`X.Y`) for new features, and the **patch**
 (`X.Y.Z`) for bug fixes. Pick based on how much you want automatic updates:
 `latest`/`X` for "keep me current," `X.Y` for "new features are fine but no
 breaking changes," `X.Y.Z` to freeze exactly.
+
+### Edge builds
+
+The `edge` tag is built **on demand from in-progress work**, not on a schedule
+and not from a branch that has necessarily passed review. It exists to get a
+specific change onto a real deployment quickly.
+
+What that means for you:
+
+- **No cadence.** It may be rebuilt several times in a day, or sit untouched for
+  weeks. A stale `edge` is not a signal that anything is wrong, and a fresh one
+  is not a signal that anything is ready.
+- **No continuity between pulls.** Two `edge` images days apart can contain
+  unrelated work, and the newer one may not contain what the older one did.
+  Features can appear, change shape, or disappear again.
+- **Expect breakage.** It can carry half-finished features, debug output, schema
+  changes still being iterated on, or bugs that never reach `nightly`.
+- **Unsupported.** Bug reports against `edge` are hard to act on, since the exact
+  image may no longer exist. Please reproduce on `nightly` or a release tag
+  first.
+
+> **Do not use `edge` for a real library.** Point it at throwaway data you can
+> afford to lose. If you want to track development, use `nightly` - it builds
+> from `main`, which has at least been through CI.
 
 ### Slim variant (no OCR)
 
@@ -63,7 +88,9 @@ of `latest`):
 docker pull hunterreadca/grimoire:slim
 ```
 
-There is no `edge-slim` tag - `edge` is only published as the full (OCR) image.
+There are no `nightly-slim` or `edge-slim` tags - both are only published as the
+full (OCR) image. Dropping Tesseract saves only ~20 MB now, which isn't worth
+doubling those build times; the slim variant remains available on release tags.
 
 ### Supported Architectures
 

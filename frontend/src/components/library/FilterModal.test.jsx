@@ -3,10 +3,15 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterModal from './FilterModal'
+import { FILTER_NONE, FILTER_ANY } from './specialFilters'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+// The `t` mock echoes the key, interpolating {{field}} so the presence-filter
+// labels ("sortFilter.specialNone:Genre") stay distinguishable per filter.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (k, opts) => (opts?.field ? `${k}:${opts.field}` : k) }),
+}))
 
-const selectFilters = [
+const defaultSelectFilters = [
   {
     key: 'genre',
     label: 'Genre',
@@ -22,7 +27,12 @@ const toggleFilters = [
   { key: 'explicit', label: 'Explicit' },
 ]
 
-function Harness({ initial = { sort: 'name', order: 'asc', filters: {} }, onSavePreset, onClose }) {
+function Harness({
+  initial = { sort: 'name', order: 'asc', filters: {} },
+  selectFilters = defaultSelectFilters,
+  onSavePreset,
+  onClose,
+}) {
   const [state, setState] = useState(initial)
   return (
     <div>
@@ -103,5 +113,38 @@ describe('FilterModal', () => {
     render(<Harness onClose={onClose} />)
     await userEvent.click(screen.getByText('common.done'))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  describe('special presence filters', () => {
+    it('offers them above the concrete options in a select filter', () => {
+      render(<Harness />)
+      const opts = [...screen.getByLabelText('Genre').options].map((o) => o.value)
+      expect(opts).toEqual(['', FILTER_NONE, FILTER_ANY, 'Fantasy'])
+    })
+
+    it('applies the "no value" sentinel from a select filter', async () => {
+      render(<Harness />)
+      await userEvent.selectOptions(screen.getByLabelText('Genre'), FILTER_NONE)
+      expect(screen.getByTestId('state').textContent).toContain(`"genre":"${FILTER_NONE}"`)
+    })
+
+    it('applies the "any value" sentinel from a multiselect filter', async () => {
+      render(<Harness />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'sortFilter.specialAny:Tags' }))
+      expect(screen.getByTestId('state').textContent).toContain(`"tags":["${FILTER_ANY}"]`)
+    })
+
+    it('omits them for a filter that opts out', () => {
+      render(
+        <Harness
+          selectFilters={[
+            { key: 'genre', label: 'Genre', allLabel: 'All', options: [], special: false },
+          ]}
+        />
+      )
+      const opts = [...screen.getByLabelText('Genre').options].map((o) => o.value)
+      expect(opts).toEqual([''])
+    })
   })
 })

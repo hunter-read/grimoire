@@ -3,9 +3,15 @@
 // category grouping — so this exposes a predicate + a comparator rather than a
 // flat filtered/sorted list).
 
+import { splitSpecial } from './specialFilters'
+
+// Match a multi-select selection against a list field, honouring the special
+// "no value" / "any value" sentinels mixed into the selection.
 const hasAll = (field, wanted) => {
+  const { values, pass } = splitSpecial(wanted, field)
+  if (!pass) return false
   const vals = (field || []).map((v) => String(v).toLowerCase())
-  return wanted.every((w) => vals.includes(w))
+  return values.every((w) => vals.includes(String(w).toLowerCase()))
 }
 
 /**
@@ -15,8 +21,8 @@ const hasAll = (field, wanted) => {
  */
 export function bookFilterPredicate(filters = {}, opts = {}) {
   const { isFavorite } = opts
-  const wantGenres = Array.isArray(filters.genres) ? filters.genres.map((g) => g.toLowerCase()) : []
-  const wantTags = Array.isArray(filters.tags) ? filters.tags.map((tg) => tg.toLowerCase()) : []
+  const wantGenres = Array.isArray(filters.genres) ? filters.genres : []
+  const wantTags = Array.isArray(filters.tags) ? filters.tags : []
   const search = (filters.search || '').trim().toLowerCase()
   return (book) => {
     if (search && !(book.title || '').toLowerCase().includes(search)) return false

@@ -1663,7 +1663,10 @@
     "filterParentSystem": "Sistema principal",
     "allParentSystems": "All parent systems",
     "filterEdition": "Edição",
-    "allEditions": "All editions"
+    "allEditions": "All editions",
+    "specialGroup": "Especial",
+    "specialNone": "Sem {{field}}",
+    "specialAny": "Com {{field}}"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

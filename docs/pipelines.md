@@ -14,7 +14,7 @@ cut by pushing a version tag.
 |---|---|---|---|
 | **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`/`dev`, and pull requests | Lint + test + coverage validation (no image) |
 | **CodeQL** | [`codeql.yml`](../.github/workflows/codeql.yml) | Push to `main`, PRs to `main`/`dev`, weekly cron | Security analysis (Python + JS/TS) |
-| **Edge** | [`edge.yml`](../.github/workflows/edge.yml) | After CI succeeds on a `dev` push | `:edge` multi-arch Docker image |
+| **Nightly** | [`nightly.yml`](../.github/workflows/nightly.yml) | Daily at 07:00 UTC (or manually), off `main` | `:nightly` multi-arch Docker image |
 | **Release** | [`release.yml`](../.github/workflows/release.yml) | Push a `vX.Y.Z` tag | Versioned + `:latest` images (OCR & slim) + GitHub Release |
 
 ---
@@ -89,25 +89,32 @@ unless it flags something.
 
 ---
 
-## Edge (`edge.yml`)
+## Nightly (`nightly.yml`)
 
-Builds a multi-arch **edge** image from the `dev` branch so the latest integration build is
-always pullable. It's triggered by a `workflow_run` event when **CI** completes, and only
-runs when:
+Builds a multi-arch **nightly** image from `main` on a daily schedule (07:00 UTC), so the
+latest stable branch is always pullable without cutting a release. Also runnable on demand
+via **workflow_dispatch** - useful to re-cut the tag after a hotfix rather than waiting for
+the next window.
 
-- CI concluded `success`, **and**
-- the CI run's head branch was `dev`, **and**
-- the CI run's triggering event was `push`.
+**Skips when nothing changed.** Before building, the workflow compares `main`'s HEAD SHA
+against the `org.opencontainers.image.revision` label on the `:nightly` image already in the
+registry. If they match, the run exits early instead of republishing an identical image. A
+missing tag (the first run) or an unreadable label falls through to building, so the check
+can never wedge the pipeline shut. The manual `force` input overrides the skip.
 
 **What it produces:**
-- `hunterreadca/grimoire:edge` - multi-arch (`linux/amd64`, `linux/arm64/v8`), built from the
-  Dockerfile's `ocr` target (bundles Tesseract OCR).
+- `hunterreadca/grimoire:nightly` - multi-arch (`linux/amd64`, `linux/arm64/v8`), built from
+  the Dockerfile's `ocr` target (bundles Tesseract OCR).
 
-Built with `APP_VERSION=edge` and the triggering commit SHA. Uses the GitHub Actions build
-cache (`type=gha`) to keep rebuilds fast.
+Built with `APP_VERSION=nightly` and the commit SHA (recorded both as `COMMIT_HASH` and as
+the OCI revision label the skip check reads back). Uses the GitHub Actions build cache
+(`type=gha`) to keep rebuilds fast.
 
-> **Edge is unstable.** It tracks `dev` and can change or break at any time - use it only for
-> testing upcoming changes, not for a production deployment.
+> **Nightly is not a release.** It tracks `main` between version tags - fine for testing
+> what's landed, but pin a versioned tag for a production deployment.
+
+> **Note:** GitHub's scheduled triggers are best-effort and can run late under load. Nothing
+> downstream depends on the exact minute.
 
 ---
 

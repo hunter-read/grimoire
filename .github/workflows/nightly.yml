@@ -1,0 +1,96 @@
+name: Nightly
+
+# Builds a multi-arch nightly image from `main`. Runs on a schedule rather than
+# per-push so the tag tracks "yesterday's stable main" at a predictable time.
+on:
+  schedule:
+    # 07:00 UTC daily — after typical evening merges in the Americas, before the
+    # European working day. Cron in Actions is best-effort and can lag under
+    # load; nothing here depends on the exact minute.
+    - cron: "0 7 * * *"
+  # Manual runs are useful to re-cut the tag after a hotfix without waiting for
+  # the next window. `force` republishes even when main has not moved.
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Build even if main is unchanged since the last nightly"
+        type: boolean
+        default: false
+
+env:
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/grimoire
+
+jobs:
+  nightly:
+    name: Build and push nightly
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # A quiet day would otherwise republish a byte-identical image every
+      # night. Compare main's HEAD against the revision label on the nightly
+      # tag already in the registry and stop early when they match. A missing
+      # tag (first run) or an unreadable label falls through to building.
+      - name: Check whether main moved since the last nightly
+        id: changed
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "Forced run — building regardless of the previous nightly."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PREV="$(docker buildx imagetools inspect "${IMAGE}:nightly" \
+            --format '{{ index .Image.Config.Labels "org.opencontainers.image.revision" }}' \
+            2>/dev/null || true)"
+
+          if [ -z "$PREV" ] || [ "$PREV" = "<no value>" ]; then
+            echo "No readable revision on ${IMAGE}:nightly — building."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$PREV" = "$SHA" ]; then
+            echo "main is unchanged since the last nightly ($SHA) — skipping."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "main moved: $PREV -> $SHA — building."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to DockerHub
+        if: steps.changed.outputs.build == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        if: steps.changed.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.changed.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push nightly
+        if: steps.changed.outputs.build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ocr
+          push: true
+          platforms: linux/amd64,linux/arm64/v8
+          build-args: |
+            APP_VERSION=nightly
+            COMMIT_HASH=${{ steps.changed.outputs.sha }}
+          # The revision label is what the next run's skip check reads back.
+          labels: |
+            org.opencontainers.image.revision=${{ steps.changed.outputs.sha }}
+          tags: |
+            ${{ env.IMAGE }}:nightly
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

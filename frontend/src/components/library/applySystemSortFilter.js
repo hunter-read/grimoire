@@ -2,11 +2,18 @@
 // (name | book_count | page_count | year) and filters (genre, family, explicit,
 // tags, favorites).
 
-const has = (field, wanted) => {
-  if (!wanted) return true
+import { matchSpecial, splitSpecial } from './specialFilters'
+
+const matchValue = (field, wanted) => {
   const w = String(wanted).toLowerCase()
   if (Array.isArray(field)) return field.some((v) => String(v).toLowerCase() === w)
   return String(field || '').toLowerCase() === w
+}
+
+// `has` also handles the special "no value" / "any value" sentinels.
+const has = (field, wanted) => {
+  if (!wanted) return true
+  return matchSpecial(field, wanted, matchValue)
 }
 
 /**
@@ -18,8 +25,8 @@ const has = (field, wanted) => {
 export function applySystemSortFilter(systems, state, opts = {}) {
   const { sort = 'name', order = 'asc', filters = {} } = state || {}
   const { isFavorite } = opts
-  const wantTags = Array.isArray(filters.tags) ? filters.tags.map((tg) => tg.toLowerCase()) : []
-  const wantDice = Array.isArray(filters.dice) ? filters.dice.map((d) => d.toLowerCase()) : []
+  const rawTags = Array.isArray(filters.tags) ? filters.tags : []
+  const rawDice = Array.isArray(filters.dice) ? filters.dice : []
   const search = (filters.search || '').trim().toLowerCase()
   let out = systems.filter((s) => {
     if (search && !(s.name || '').toLowerCase().includes(search)) return false
@@ -29,13 +36,17 @@ export function applySystemSortFilter(systems, state, opts = {}) {
     if (filters.parent_system && !has(s.parent_system, filters.parent_system)) return false
     if (filters.edition && !has(s.edition, filters.edition)) return false
     if (filters.favorites === true && isFavorite && !isFavorite(s.id)) return false
-    if (wantTags.length) {
+    if (rawTags.length) {
+      const { values, pass } = splitSpecial(rawTags, s.tags)
+      if (!pass) return false
       const tags = (s.tags || []).map((tg) => String(tg).toLowerCase())
-      if (!wantTags.every((tg) => tags.includes(tg))) return false
+      if (!values.every((tg) => tags.includes(tg.toLowerCase()))) return false
     }
-    if (wantDice.length) {
+    if (rawDice.length) {
+      const { values, pass } = splitSpecial(rawDice, s.dice_materials)
+      if (!pass) return false
       const dice = (s.dice_materials || []).map((d) => String(d).toLowerCase())
-      if (!wantDice.every((d) => dice.includes(d))) return false
+      if (!values.every((d) => dice.includes(d.toLowerCase()))) return false
     }
     return true
   })

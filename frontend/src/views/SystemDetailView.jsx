@@ -40,6 +40,7 @@ import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import SortFilterBar from '../components/library/SortFilterBar'
 import { bookFilterPredicate, bookComparator } from '../components/library/applyBookSortFilter'
+import { isSpecialFilter } from '../components/library/specialFilters'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
 import matchBooks from '../utils/matchBooks'
@@ -242,7 +243,10 @@ export default function SystemDetailView() {
 
   const bookFilters = bookFilter.filters || {}
   // Derived helpers kept for the card tag-chip toggles and empty-state copy.
-  const selectedTags = new Set((bookFilters.tags || []).map((tg) => tg.toLowerCase()))
+  // Presence sentinels aren't real tags, so they stay out of this set.
+  const selectedTags = new Set(
+    (bookFilters.tags || []).filter((tg) => !isSpecialFilter(tg)).map((tg) => tg.toLowerCase())
+  )
   const favOnly = bookFilters.favorites === true
 
   const updateBookFilter = (next) => setBookFilter(next)
