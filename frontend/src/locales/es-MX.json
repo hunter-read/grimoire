@@ -850,7 +850,8 @@
     "convertConfirm": "¿Convertir \"{{name}}\" en una campaña de grupo? Podrás invitar jugadores y definir un horario. Esto no se puede deshacer.",
     "leave": "Salir de la campaña",
     "leaveHint": "Quitarte de esta campaña. El DJ conserva la campaña y sus notas.",
-    "leaveConfirm": "¿Salir de \"{{name}}\"? Perderás el acceso a sus recursos, wiki y horario. El DJ puede volver a invitarte."
+    "leaveConfirm": "¿Salir de \"{{name}}\"? Perderás el acceso a sus recursos, wiki y horario. El DJ puede volver a invitarte.",
+    "actionsMenu": "Acciones de campaña"
   },
   "campaignEditor": {
     "titleNew": "Nueva campaña",

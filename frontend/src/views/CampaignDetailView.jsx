@@ -5,14 +5,12 @@ import {
   LuUsers,
   LuNotebook,
   LuChevronLeft,
-  LuSettings,
   LuUserPlus,
   LuUserCheck,
   LuCalendar,
   LuLink,
   LuImagePlus,
   LuLock,
-  LuArchive,
   LuLogOut,
 } from 'react-icons/lu'
 import api, { campaigns } from '../api'
@@ -20,6 +18,7 @@ import { useAuth } from '../context/AuthContext'
 import { useUISettings } from '../context/UISettingsContext'
 import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
+import CampaignActionsMenu from '../components/campaigns/CampaignActionsMenu'
 import WikiView from '../components/campaigns/WikiView'
 import WikiMarkdown from '../components/campaigns/WikiMarkdown'
 import AvailabilityChart from '../components/campaigns/AvailabilityChart'
@@ -461,67 +460,17 @@ export default function CampaignDetailView() {
             >
               <LuNotebook size={15} /> {t('campaignDetail.openNotes')}
             </Link>
-            {canManage && (
-              <button
-                onClick={() => setShowEditor(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '7px 12px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                <LuSettings size={14} /> {t('campaignDetail.edit')}
-              </button>
-            )}
-            {/* Personal -> group promotion. One-way, so it disappears once the
-                campaign is a group one. */}
-            {canManage && !isGmCampaign && (
-              <button
-                onClick={convertToGroup}
-                title={t('campaignDetail.convertHint')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '7px 12px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                <LuUsers size={14} /> {t('campaignDetail.convertToGroup')}
-              </button>
-            )}
-            {canArchive && (
-              <button
-                onClick={toggleArchived}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '7px 12px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                <LuArchive size={14} />
-                {isArchived ? t('campaignDetail.unarchive') : t('campaignDetail.archive')}
-              </button>
-            )}
+            {/* Edit / Convert / Archive share one kebab menu so the header keeps
+                a single primary action (Open notes). Convert is personal ->
+                group promotion: one-way, so it drops out once the campaign is a
+                group one. Delete stays inside the edit modal — the extra click
+                is the safety. */}
+            <CampaignActionsMenu
+              onEdit={canManage ? () => setShowEditor(true) : undefined}
+              onConvert={canManage && !isGmCampaign ? convertToGroup : undefined}
+              onArchive={canArchive ? toggleArchived : undefined}
+              isArchived={isArchived}
+            />
             {canLeave && (
               <button
                 onClick={leaveCampaign}

@@ -850,7 +850,8 @@
     "convertConfirm": "Convertir « {{name}} » en campagne de groupe ? Vous pourrez inviter des joueurs et définir un planning. Cette action est irréversible.",
     "leave": "Quitter la campagne",
     "leaveHint": "Vous retirer de cette campagne. Le MJ conserve la campagne et ses notes.",
-    "leaveConfirm": "Quitter « {{name}} » ? Vous perdrez l'accès à ses ressources, son wiki et son planning. Le MJ pourra vous réinviter."
+    "leaveConfirm": "Quitter « {{name}} » ? Vous perdrez l'accès à ses ressources, son wiki et son planning. Le MJ pourra vous réinviter.",
+    "actionsMenu": "Actions de campagne"
   },
   "campaignEditor": {
     "titleNew": "Nouvelle campagne",

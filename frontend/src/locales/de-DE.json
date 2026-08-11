@@ -850,7 +850,8 @@
     "convertConfirm": "\"{{name}}\" in eine Gruppenkampagne umwandeln? Du kannst dann Spieler einladen und einen Zeitplan festlegen. Dies kann nicht rückgängig gemacht werden.",
     "leave": "Kampagne verlassen",
     "leaveHint": "Dich selbst aus dieser Kampagne entfernen. Die Kampagne und ihre Notizen bleiben beim Spielleiter.",
-    "leaveConfirm": "\"{{name}}\" verlassen? Du verlierst den Zugriff auf Ressourcen, Wiki und Zeitplan. Der Spielleiter kann dich erneut einladen."
+    "leaveConfirm": "\"{{name}}\" verlassen? Du verlierst den Zugriff auf Ressourcen, Wiki und Zeitplan. Der Spielleiter kann dich erneut einladen.",
+    "actionsMenu": "Kampagnenaktionen"
   },
   "campaignEditor": {
     "titleNew": "Neue Kampagne",

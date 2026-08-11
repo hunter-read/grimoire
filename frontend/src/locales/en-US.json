@@ -850,7 +850,8 @@
     "convertConfirm": "Convert \"{{name}}\" into a group campaign? You will be able to invite players and set a schedule. This cannot be undone.",
     "leave": "Leave campaign",
     "leaveHint": "Remove yourself from this campaign. The GM keeps the campaign and its notes.",
-    "leaveConfirm": "Leave \"{{name}}\"? You will lose access to its resources, wiki, and schedule. The GM can invite you back."
+    "leaveConfirm": "Leave \"{{name}}\"? You will lose access to its resources, wiki, and schedule. The GM can invite you back.",
+    "actionsMenu": "Campaign actions"
   },
   "campaignEditor": {
     "titleNew": "New Campaign",
