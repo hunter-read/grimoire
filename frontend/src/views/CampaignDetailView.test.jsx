@@ -125,6 +125,30 @@ function renderView() {
   )
 }
 
+// Edit / Convert / Archive live behind the campaign-actions kebab, so reaching
+// them takes two clicks: open the menu, then pick the item.
+function openActionsMenu() {
+  fireEvent.click(screen.getByRole('button', { name: /campaign actions/i }))
+}
+
+function clickMenuItem(name) {
+  openActionsMenu()
+  fireEvent.click(screen.getByRole('menuitem', { name }))
+}
+
+const actionsMenuTrigger = () => screen.queryByRole('button', { name: /campaign actions/i })
+
+/**
+ * Assert a management action is unavailable. The menu itself disappears when a
+ * user can do nothing at all, so check that first and only open it when it is
+ * present — otherwise the item's absence would pass for the wrong reason.
+ */
+function expectNoMenuItem(name) {
+  if (!actionsMenuTrigger()) return
+  openActionsMenu()
+  expect(screen.queryByRole('menuitem', { name })).not.toBeInTheDocument()
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockUser = { id: 'owner1', role: 'gm', campaign_access: true }
@@ -210,8 +234,8 @@ describe('CampaignDetailView rendering', () => {
     mockLoad({ campaign: makeCampaign({ locked: true }) })
     renderView()
     await screen.findByText('Lost Mines')
-    // Locked campaign hides the edit button (no manage rights).
-    expect(screen.queryByText(/^Edit$/i)).not.toBeInTheDocument()
+    // Locked campaign hides the edit action (no manage rights).
+    expectNoMenuItem(/^Edit$/i)
   })
 })
 
@@ -220,7 +244,7 @@ describe('CampaignDetailView owner actions', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByText(/Edit/i))
+    clickMenuItem(/^Edit$/i)
     expect(screen.getByTestId('campaign-editor')).toBeInTheDocument()
     fireEvent.click(screen.getByText('editor-close'))
     expect(screen.queryByTestId('campaign-editor')).not.toBeInTheDocument()
@@ -230,7 +254,7 @@ describe('CampaignDetailView owner actions', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByText(/Edit/i))
+    clickMenuItem(/^Edit$/i)
     fireEvent.click(screen.getByText('editor-save'))
     expect(await screen.findByText('Renamed')).toBeInTheDocument()
   })
@@ -241,7 +265,7 @@ describe('CampaignDetailView owner actions', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByText(/Edit/i))
+    clickMenuItem(/^Edit$/i)
     fireEvent.click(screen.getByText('editor-delete'))
     await waitFor(() => expect(campaigns.delete).toHaveBeenCalledWith('c1'))
     expect(mockNavigate).toHaveBeenCalledWith('/campaigns')
@@ -282,7 +306,7 @@ describe('CampaignDetailView permissions', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.queryByText(/^Edit$/i)).not.toBeInTheDocument()
+    expectNoMenuItem(/^Edit$/i)
     expect(screen.queryByText(/Invite/i)).not.toBeInTheDocument()
   })
 
@@ -291,7 +315,8 @@ describe('CampaignDetailView permissions', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.getByText(/Edit/i)).toBeInTheDocument()
+    openActionsMenu()
+    expect(screen.getByRole('menuitem', { name: /^Edit$/i })).toBeInTheDocument()
   })
 
   it('shows a self-disabled read-only notice when own access is disabled', async () => {
@@ -299,8 +324,8 @@ describe('CampaignDetailView permissions', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    // Self-disabled owner loses the edit button.
-    expect(screen.queryByText(/^Edit$/i)).not.toBeInTheDocument()
+    // Self-disabled owner loses the edit action.
+    expectNoMenuItem(/^Edit$/i)
   })
 })
 
@@ -378,7 +403,7 @@ describe('CampaignDetailView archiving', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByRole('button', { name: /^Archive$/i }))
+    clickMenuItem(/^Archive$/i)
     await waitFor(() => expect(campaigns.setArchived).toHaveBeenCalledWith('c1', true))
     window.confirm.mockRestore()
   })
@@ -388,7 +413,7 @@ describe('CampaignDetailView archiving', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByRole('button', { name: /^Archive$/i }))
+    clickMenuItem(/^Archive$/i)
     expect(campaigns.setArchived).not.toHaveBeenCalled()
     window.confirm.mockRestore()
   })
@@ -400,7 +425,7 @@ describe('CampaignDetailView archiving', () => {
     mockLoad({ campaign: makeCampaign({ is_archived: true, locked: true }) })
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByRole('button', { name: /unarchive/i }))
+    clickMenuItem(/unarchive/i)
     await waitFor(() => expect(campaigns.setArchived).toHaveBeenCalledWith('c1', false))
     expect(confirmSpy).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
@@ -414,11 +439,11 @@ describe('CampaignDetailView archiving', () => {
     expect(screen.queryByText(/campaign access has been disabled/i)).not.toBeInTheDocument()
   })
 
-  it('hides the edit button while archived', async () => {
+  it('hides the edit action while archived', async () => {
     mockLoad({ campaign: makeCampaign({ is_archived: true, locked: true }) })
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.queryByText(/^Edit$/i)).not.toBeInTheDocument()
+    expectNoMenuItem(/^Edit$/i)
   })
 
   it('hides archiving from non-owners', async () => {
@@ -426,7 +451,7 @@ describe('CampaignDetailView archiving', () => {
     mockLoad()
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.queryByRole('button', { name: /^Archive$/i })).not.toBeInTheDocument()
+    expectNoMenuItem(/^Archive$/i)
   })
 })
 
@@ -438,7 +463,7 @@ describe('CampaignDetailView convert to group', () => {
     mockLoad({ campaign: personal() })
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByRole('button', { name: /convert to group/i }))
+    clickMenuItem(/convert to group/i)
     await waitFor(() => expect(campaigns.convertToGroup).toHaveBeenCalledWith('c1'))
     window.confirm.mockRestore()
   })
@@ -448,7 +473,7 @@ describe('CampaignDetailView convert to group', () => {
     mockLoad({ campaign: personal() })
     renderView()
     await screen.findByText('Lost Mines')
-    fireEvent.click(screen.getByRole('button', { name: /convert to group/i }))
+    clickMenuItem(/convert to group/i)
     expect(campaigns.convertToGroup).not.toHaveBeenCalled()
     window.confirm.mockRestore()
   })
@@ -458,14 +483,14 @@ describe('CampaignDetailView convert to group', () => {
     mockLoad({ campaign: makeCampaign({ is_gm_campaign: true }) })
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.queryByRole('button', { name: /convert to group/i })).not.toBeInTheDocument()
+    expectNoMenuItem(/convert to group/i)
   })
 
   it('hides the action while the campaign is archived', async () => {
     mockLoad({ campaign: personal({ is_archived: true, locked: true }) })
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.queryByRole('button', { name: /convert to group/i })).not.toBeInTheDocument()
+    expectNoMenuItem(/convert to group/i)
   })
 
   it('hides the action from non-owners', async () => {
@@ -473,7 +498,7 @@ describe('CampaignDetailView convert to group', () => {
     mockLoad({ campaign: personal() })
     renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.queryByRole('button', { name: /convert to group/i })).not.toBeInTheDocument()
+    expectNoMenuItem(/convert to group/i)
   })
 })
 

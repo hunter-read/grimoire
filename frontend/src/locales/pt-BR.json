@@ -850,7 +850,8 @@
     "convertConfirm": "Converter \"{{name}}\" em uma campanha de grupo? Você poderá convidar jogadores e definir uma agenda. Isso não pode ser desfeito.",
     "leave": "Sair da campanha",
     "leaveHint": "Remover você mesmo desta campanha. O mestre mantém a campanha e suas anotações.",
-    "leaveConfirm": "Sair de \"{{name}}\"? Você perderá o acesso aos recursos, wiki e agenda. O mestre pode convidá-lo novamente."
+    "leaveConfirm": "Sair de \"{{name}}\"? Você perderá o acesso aos recursos, wiki e agenda. O mestre pode convidá-lo novamente.",
+    "actionsMenu": "Ações da campanha"
   },
   "campaignEditor": {
     "titleNew": "Nova campanha",

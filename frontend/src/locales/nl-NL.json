@@ -850,7 +850,8 @@
     "convertConfirm": "\"{{name}}\" omzetten naar een groepscampagne? Je kunt dan spelers uitnodigen en een schema instellen. Dit kan niet ongedaan worden gemaakt.",
     "leave": "Campagne verlaten",
     "leaveHint": "Jezelf uit deze campagne verwijderen. De SL houdt de campagne en de notities.",
-    "leaveConfirm": "\"{{name}}\" verlaten? Je verliest toegang tot de bronnen, wiki en planning. De SL kan je opnieuw uitnodigen."
+    "leaveConfirm": "\"{{name}}\" verlaten? Je verliest toegang tot de bronnen, wiki en planning. De SL kan je opnieuw uitnodigen.",
+    "actionsMenu": "Campagneacties"
   },
   "campaignEditor": {
     "titleNew": "Nieuwe campagne",
