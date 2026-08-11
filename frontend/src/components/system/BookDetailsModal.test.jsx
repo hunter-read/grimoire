@@ -81,6 +81,15 @@ describe('BookDetailsModal', () => {
     expect(screen.getByAltText('Blades in the Dark')).toBeInTheDocument()
   })
 
+  it('does not let a long description stretch the cover out of shape', () => {
+    render(
+      <BookDetailsModal book={{ ...BOOK, description: 'Long. '.repeat(400) }} onClose={vi.fn()} />
+    )
+    // The cover is a flex child next to the text column; without an explicit
+    // alignment it would be stretched to match the taller description.
+    expect(screen.getByAltText('Blades in the Dark')).toHaveStyle({ alignSelf: 'flex-start' })
+  })
+
   it('copes with a book that has no cover', () => {
     render(<BookDetailsModal book={{ id: 'b', title: 'No Cover' }} onClose={vi.fn()} />)
     expect(screen.queryByAltText('No Cover')).toBeNull()

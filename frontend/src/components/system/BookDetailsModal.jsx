@@ -123,6 +123,10 @@ export default function BookDetailsModal({ book, onClose }) {
                 borderRadius: 6,
                 border: '1px solid var(--border)',
                 flexShrink: 0,
+                // Without this the cover is a stretched flex child: a long
+                // description makes the text column taller, and the image is
+                // pulled to match it, squashing the aspect ratio.
+                alignSelf: 'flex-start',
               }}
             />
           )}
