@@ -122,16 +122,29 @@ the OCI revision label the skip check reads back). Uses the GitHub Actions build
 
 Cuts a stable release. Triggered by pushing a semver tag matching `v[0-9]+.[0-9]+.[0-9]+`.
 
-### How to cut a release
+### Release checklist
 
-```bash
-git checkout main
-git pull
-git tag v1.5.0        # must match vX.Y.Z
-git push origin v1.5.0
-```
+1. **Update `README.md` from [`nightly.md`](../nightly.md).** Copy the mirrored content
+   across, dropping the nightly banner and maintainer note at the top and keeping README's
+   own centered header block (logo + badges). Both files sit at the repo root, so relative
+   links need no adjustment. Leave `nightly.md` in place - it stays the working copy for
+   the next cycle.
+2. **Commit and push** the docs change to `main`.
+3. **Tag `main`:**
+   ```bash
+   git checkout main
+   git pull
+   git tag v1.5.0        # must match vX.Y.Z
+   git push origin v1.5.0
+   ```
+   Pushing the tag is the entire trigger - there are no manual workflow inputs.
+4. **Tidy the release notes** once the workflow finishes. They are auto-generated from
+   commits, so expect to reword a few lines.
+5. **Publish the docs site** - push the accumulated local changes in the `docs/` repo for
+   the new version.
+6. **Announce on Discord.**
 
-Pushing the tag is the entire trigger - there are no manual workflow inputs.
+Steps 1-3 gate the release; 4-6 follow it.
 
 ### What it does
 
