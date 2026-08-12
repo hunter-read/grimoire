@@ -87,6 +87,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // Content for a page started from a template: an unsaved draft PageEditor
   // opens with. Null for an ordinary blank New Page.
   const [draft, setDraft] = useState(null)
+  // Bumped every time a draft is applied. PageEditor seeds its fields from
+  // `page` in useState initialisers, so swapping the prop on an editor that is
+  // already open would leave the old (usually empty) body on screen — the
+  // editor has to remount. Keyed on a counter rather than the draft itself
+  // because a draft has no id, and picking the same template twice must still
+  // reset the box.
+  const [draftToken, setDraftToken] = useState(0)
   const [query, setQuery] = useState('')
   const [importing, setImporting] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)
@@ -297,6 +304,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   const startCreate = (parentId = '') => {
     setDraft(null)
+    // Same remount, the other way round: New Page while a template-filled
+    // editor is open must come up blank rather than keeping that body.
+    setDraftToken((n) => n + 1)
     setCreateParentId(parentId)
     setCreating(true)
     setEditing(false)
@@ -841,6 +851,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
         )}
         {creating ? (
           <PageEditor
+            // Remount on each applied draft so the fields re-seed from it.
+            key={draftToken}
             campaign={campaign}
             isOwner={isOwner}
             // A draft has no `id`, so PageEditor still treats it as a new page
@@ -1071,6 +1083,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
             setPage(null)
             setSelectedId(null)
             setDraft(draft)
+            setDraftToken((n) => n + 1)
             setCreating(true)
           }}
         />
