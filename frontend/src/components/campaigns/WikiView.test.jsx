@@ -919,6 +919,29 @@ describe('WikiView community note templates', () => {
     expect(campaigns.deleteWikiPage).not.toHaveBeenCalled()
   })
 
+  it('fills the editor when a template is picked with the editor already open', async () => {
+    campaigns.getWikiTemplate.mockResolvedValue({
+      id: '5e-spell',
+      name: 'Spell',
+      body: '*2nd-level transmutation*',
+      defaults: { title: 'New Spell' },
+    })
+
+    renderView()
+    // The order a GM hits on a fresh campaign: start a blank page first, then
+    // reach for a template. The editor is already mounted at that point, so a
+    // draft that only swaps the prop would never reach the fields.
+    fireEvent.click(await screen.findByRole('button', { name: /New Page/i }))
+    await screen.findByPlaceholderText(/Write in Markdown/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /Templates/ }))
+    fireEvent.click(await screen.findByText('A 5e spell.'))
+
+    expect(await screen.findByDisplayValue('*2nd-level transmutation*')).toBeTruthy()
+    expect(screen.getByDisplayValue('New Spell')).toBeTruthy()
+    expect(campaigns.createWikiPage).not.toHaveBeenCalled()
+  })
+
   it('does not carry a template draft into a blank New Page', async () => {
     campaigns.getWikiTemplate.mockResolvedValue({
       id: '5e-spell',
