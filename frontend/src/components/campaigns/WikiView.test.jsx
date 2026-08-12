@@ -562,11 +562,21 @@ describe('WikiView export and import affordances', () => {
     expect(screen.getByRole('button', { name: /^export$/i })).toBeInTheDocument()
   })
 
-  it('exports as markdown when a member clicks export', async () => {
+  // Issue #289: Export is one button opening a format menu, rather than a
+  // download plus a second per-format button beside it.
+  it('exports the format a member picks from the export menu', async () => {
     renderView({ isOwner: false })
     await waitFor(() => screen.getByText('Dragons'))
     fireEvent.click(screen.getByRole('button', { name: /^export$/i }))
-    await waitFor(() => expect(campaigns.exportWiki).toHaveBeenCalledWith('c1', 'md'))
+    expect(campaigns.exportWiki).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('menuitem', { name: /single markdown file/i }))
+    await waitFor(() => expect(campaigns.exportWiki).toHaveBeenCalledWith('c1', 'mdfile'))
+  })
+
+  it('no longer shows a separate JSON export button beside Export', async () => {
+    renderView({ isOwner: false })
+    await waitFor(() => screen.getByText('Dragons'))
+    expect(screen.queryByRole('button', { name: /json/i })).not.toBeInTheDocument()
   })
 
   it('hides import from a non-owner', async () => {

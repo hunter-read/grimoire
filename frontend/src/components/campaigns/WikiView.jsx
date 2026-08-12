@@ -9,7 +9,6 @@ import {
   LuTrash2,
   LuArrowLeft,
   LuFileText,
-  LuDownload,
   LuUpload,
   LuChevronRight,
   LuChevronDown,
@@ -22,6 +21,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
+import WikiExportMenu from './WikiExportMenu'
 import WikiTemplateModal from './WikiTemplateModal'
 import IconPicker from './IconPicker'
 import { CampaignIcon } from './campaignIcons'
@@ -749,7 +749,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
         {/* Export is open to every member — a player can take their own copy of
             the campaign with them, including from an archived one. Import writes,
-            so it stays owner-only and disappears once the campaign is archived. */}
+            so it stays owner-only and disappears once the campaign is archived.
+            All three are real buttons (issue #289): the dashed style these used
+            to wear read as an empty drop target rather than an action, and the
+            export formats now live behind the one Export button. */}
         <div
           style={{
             marginTop: 12,
@@ -760,18 +763,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           }}
         >
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => exportWiki('md')}
-              title={t('wiki.exportMd')}
-              style={{ ...dashedBtn, flex: 1 }}
-            >
-              <LuDownload size={13} /> {t('wiki.export')}
-            </button>
+            <WikiExportMenu onExport={exportWiki} style={{ ...sidebarBtn, flex: 1 }} />
             {canImport && (
               <button
                 onClick={() => setImporting(true)}
                 title={t('wiki.importTitle')}
-                style={{ ...dashedBtn, flex: 1 }}
+                style={{ ...sidebarBtn, flex: 1 }}
               >
                 <LuUpload size={13} /> {t('wiki.import')}
               </button>
@@ -783,14 +780,11 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
             <button
               onClick={() => setBrowsingTemplates(true)}
               title={t('wiki.templatesTitle')}
-              style={dashedBtn}
+              style={sidebarBtn}
             >
               <LuLayoutTemplate size={13} /> {t('wiki.templates')}
             </button>
           )}
-          <button onClick={() => exportWiki('json')} style={{ ...dashedBtn, fontSize: 11 }}>
-            {t('wiki.exportJson')}
-          </button>
         </div>
       </div>
 
@@ -1092,18 +1086,15 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   )
 }
 
-const dashedBtn = {
+// The standard button the rest of the app uses (ghostBtn), widened to fill the
+// sidebar column. Replaces the dashed placeholder style these controls carried,
+// which read as an empty drop target rather than an action (issue #289).
+const sidebarBtn = {
+  ...ghostBtn,
   display: 'flex',
-  alignItems: 'center',
-  gap: 6,
   width: '100%',
   justifyContent: 'center',
   padding: '6px 10px',
-  background: 'transparent',
-  border: '1px dashed var(--border)',
-  borderRadius: 8,
-  color: 'var(--text-muted)',
-  cursor: 'pointer',
   fontSize: 12,
 }
 
