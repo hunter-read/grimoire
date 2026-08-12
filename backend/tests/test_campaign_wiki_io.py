@@ -86,6 +86,98 @@ class TestExport:
         )
         assert resp.status_code == 403
 
+    def test_export_rejects_an_unknown_format(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=pdf", headers=gm_headers
+        )
+        assert resp.status_code == 422
+
+
+class TestExportCombinedMarkdown:
+    """`format=mdfile`: every page in one document (issue #289)."""
+
+    def test_single_file_holds_every_page_under_the_campaign_heading(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        _create(client, gm_headers, c["id"], title="The Tavern", body="A cozy inn.")
+        _create(client, gm_headers, c["id"], title="The Docks", body="Smells of fish.")
+        resp = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=mdfile", headers=gm_headers
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/markdown")
+        assert resp.headers["content-disposition"].endswith('-wiki.md"')
+        text = resp.content.decode()
+        assert text.startswith(f"# {c['name']}\n")
+        assert "## The Tavern" in text
+        assert "## The Docks" in text
+        assert "A cozy inn." in text
+        assert "Smells of fish." in text
+
+    def test_nesting_becomes_heading_depth(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        parent = _create(client, gm_headers, c["id"], title="Region", body="Wide.").json()
+        _create(
+            client, gm_headers, c["id"], title="City", body="Busy.", parent_id=parent["id"]
+        )
+        text = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=mdfile", headers=gm_headers
+        ).content.decode()
+        assert "## Region" in text
+        assert "### City" in text
+        # The child follows its parent rather than sorting independently.
+        assert text.index("## Region") < text.index("### City")
+
+    def test_page_headings_are_pushed_below_the_page_title(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        _create(client, gm_headers, c["id"], title="Lore", body="# Origins\n\nLong ago.")
+        text = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=mdfile", headers=gm_headers
+        ).content.decode()
+        assert "## Lore" in text
+        # The page's own H1 becomes an H3, one level under its H2 page title.
+        assert "### Origins" in text
+        assert "\n# Origins" not in text
+
+    def test_headings_inside_a_code_fence_are_left_alone(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        _create(
+            client, gm_headers, c["id"], title="Snippet", body="```\n# not a heading\n```"
+        )
+        text = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=mdfile", headers=gm_headers
+        ).content.decode()
+        assert "# not a heading" in text
+        assert "### not a heading" not in text
+
+    def test_member_export_omits_hidden_pages_and_gm_secrets(
+        self, client, gm_headers, player_headers, player_id
+    ):
+        c = _campaign(client, gm_headers)
+        client.post(
+            f"/api/campaigns/{c['id']}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        client.patch(
+            f"/api/campaigns/{c['id']}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        _create(client, gm_headers, c["id"], title="Secret Plot", body="Hidden.", visibility="gm")
+        _create(
+            client,
+            gm_headers,
+            c["id"],
+            title="Town Square",
+            body="Open to all. ||The mayor is a lich.||",
+            visibility="group",
+        )
+        text = client.get(
+            f"/api/campaigns/{c['id']}/wiki/export?format=mdfile", headers=player_headers
+        ).content.decode()
+        assert "## Town Square" in text
+        assert "Secret Plot" not in text
+        assert "lich" not in text
+
 
 class TestImportMarkdown:
     def test_import_single_md_title_from_heading(self, client, gm_headers):

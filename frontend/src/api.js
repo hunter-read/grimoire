@@ -156,8 +156,14 @@ export const campaigns = {
   wikiTitles: (id) => api.get(`/campaigns/${id}/wiki/titles`),
   reorderWikiPages: (id, orderedIds) =>
     api.put(`/campaigns/${id}/wiki/reorder`, { ordered_ids: orderedIds }),
+  // `format` is the API's name for the shape (md = zip of files, mdfile = one
+  // combined file, json = bundle); the fallback filename maps it to the actual
+  // extension, for the rare response with no Content-Disposition.
   exportWiki: (id, format) =>
-    api.download(`/campaigns/${id}/wiki/export?format=${format}`, `wiki.${format}`),
+    api.download(
+      `/campaigns/${id}/wiki/export?format=${format}`,
+      `wiki.${{ md: 'zip', mdfile: 'md' }[format] || format}`
+    ),
   importWiki: (id, file) => api.upload(`/campaigns/${id}/wiki/import`, file),
   // Wiki note templates — per-campaign starting points for pages.
   wikiTemplates: (id) => api.get(`/campaigns/${id}/wiki/templates`),
