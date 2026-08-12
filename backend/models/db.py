@@ -134,6 +134,11 @@ def _apply_legacy_migrations(conn: Connection) -> None:
         "ALTER TABLE game_systems ADD COLUMN parent_id VARCHAR(36)",
         "ALTER TABLE game_systems ADD COLUMN name_is_custom BOOLEAN DEFAULT 0",
         "CREATE INDEX IF NOT EXISTS ix_game_systems_parent_id ON game_systems(parent_id)",
+        "ALTER TABLE users ADD COLUMN theme_mode VARCHAR(10)",
+        "ALTER TABLE users ADD COLUMN theme_id VARCHAR(100)",
+        "ALTER TABLE users ADD COLUMN theme_by_mode JSON DEFAULT '{}'",
+        "ALTER TABLE user_themes ADD COLUMN app_mode VARCHAR(20) DEFAULT 'grimoire'",
+        "ALTER TABLE user_themes ADD COLUMN variants JSON DEFAULT '{}'",
     ]:
         try:
             conn.execute(text(migration))

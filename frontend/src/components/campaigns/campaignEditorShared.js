@@ -29,7 +29,7 @@ export const submitBtn = {
   background: 'var(--gold)',
   border: 'none',
   borderRadius: 8,
-  color: '#1a1209',
+  color: 'var(--on-accent)',
   cursor: 'pointer',
   fontSize: 14,
   fontWeight: 600,
@@ -43,7 +43,7 @@ export const deleteBtn = {
   background: 'rgba(180,60,60,0.15)',
   border: '1px solid rgba(180,60,60,0.5)',
   borderRadius: 8,
-  color: '#e07070',
+  color: 'var(--danger)',
   cursor: 'pointer',
   fontSize: 14,
 }
@@ -74,7 +74,9 @@ export const visibilitySelect = {
   color: 'var(--text)',
   flexShrink: 0,
 }
-export const iconBtn = (color) => ({
+// Defaulted for the same reason as `smallBtn`: a bare call must not produce
+// `color: undefined`, which renders as UA-default black on the dark panels.
+export const iconBtn = (color = 'var(--text-dim)') => ({
   background: 'none',
   border: 'none',
   cursor: 'pointer',

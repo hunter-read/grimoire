@@ -695,7 +695,7 @@ Because a non-owner edits this stripped body, a player saving an edit to a page 
 | `/api/campaigns/:id/wiki/reorder` | PUT | owner | Drag-and-drop order. Body: `{ordered_ids}` |
 | `/api/campaigns/:id/wiki/export` | GET | owner or member | Export the wiki - a member can take their own copy of a campaign with them (e.g. when leaving, or moving to another platform), and this **works on an archived campaign** since it only reads. A non-owner receives exactly what they can see in the app: pages failing the `can_view_page` check are omitted, and `||GM secrets||` are stripped from the bodies that remain; the owner's export is unfiltered. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly) or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
 | `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
-| `/api/campaigns/:id/wiki/templates` | GET | owner | The campaign's note templates. Returns `{templates[], campaign_system, downloads_enabled}`; each template carries `{id, name, system, category, description, source_id, source_url, source_version, created_at}` (no `body` - use the detail read). `campaign_system` is the linked game-system name, falling back to free-text `system_name`, else `""`. `downloads_enabled` is false when `WIKI_TEMPLATES_DOWNLOAD_DISABLED` is set. Also returns `categories` (the suggested set plus any the campaign already uses, for the editor's dropdown) and `authored_system` (the marker stored on hand-written templates) |
+| `/api/campaigns/:id/wiki/templates` | GET | owner | The campaign's note templates. Returns `{templates[], campaign_system, downloads_enabled}`; each template carries `{id, name, system, category, description, source_id, source_url, source_version, created_at}` (no `body` - use the detail read). `campaign_system` is the linked game-system name, falling back to free-text `system_name`, else `""`. `downloads_enabled` is false when `DISABLE_EXTERNAL_ADD_ON_INSTALL` is set. Also returns `categories` (the suggested set plus any the campaign already uses, for the editor's dropdown) and `authored_system` (the marker stored on hand-written templates) |
 | `/api/campaigns/:id/wiki/templates` | POST | owner | Write a new template. Body: `{name, category?, description?, body?, defaults?}`. `name` is required and non-blank. There is no `system`: a hand-written template is stored with the `__authored__` marker (reported as `authored_system` on the list endpoint). `defaults` is `{title?, icon?, icon_color?, visibility?, page_type?}` and is stored as a YAML frontmatter block on the body, so authored, uploaded, and downloaded templates all share one on-disk shape. Returns the template incl. `body` and `defaults` |
 | `/api/campaigns/:id/wiki/templates/browse` | GET | owner | The community catalogue as a folder tree. Returns `{folders[], downloaded_ids[], campaign_system, index_url, is_custom_url, generated}`; each folder is `{path, name, templates[]}` with the generic folder pinned first and the rest alphabetical. Query `refresh=true` bypasses the 1-hour cache. `403` when downloading is disabled, `502` when the catalogue is unreachable |
 | `/api/campaigns/:id/wiki/templates/upload` | POST | owner | Add a template from a multipart `file` (max 512 KB), either a `.md`/`.markdown`/`.txt` or a `.zip` in the export layout (`<id>/<id>.yml` + `<id>/<id>.md`). For markdown, the frontmatter `title` names it, falling back to the filename; for a zip, the manifest supplies `name`/`category`/`description`, falling back to the body's frontmatter when absent or malformed. Zips are detected by magic bytes as well as extension, `__MACOSX/` and dotfiles are skipped, and a member declaring more than the size cap is refused with `413` before decompression. A zip with no markdown in it, or a corrupt archive, is `400`. **Works even when downloading is disabled** - the hand-copy path for locked-down servers |
@@ -843,6 +843,47 @@ and lacks either consent.
 
 **Available add-on fields:** the index entry plus `installed` and
 `update_available`.
+
+### Themes
+
+Colour themes, installed **per user**. Any authenticated user may install and
+select their own; only the catalogue URL is admin-only, being server-wide
+configuration. See [`docs/themes.md`](themes.md).
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/themes` | GET | user | The user's installed themes plus their selection in one app mode and the catalogue settings. `?app_mode=` selects which (default `grimoire`) |
+| `/api/themes` | POST | user | Install a pasted/uploaded theme. Body is the theme document. Works even when external installs are disabled |
+| `/api/themes/browse` | GET | user | The community catalogue, each entry marked `installed`. 403 when downloads are disabled, 502 when the catalogue is unreachable |
+| `/api/themes/selection` | PUT | user | Set `mode` (`light`/`dark`/`system`) and/or `theme_id` (`""` clears it) for one `app_mode` |
+| `/api/themes/source` | PUT | **admin** | Set the catalogue `index_url` |
+| `/api/themes/install/:id` | POST | user | Install one theme from the catalogue into the user's account |
+| `/api/themes/:id` | DELETE | user | Uninstall a theme. Also deselects it if it was active |
+
+**Listing fields:** `installed[]`, `built_in[]`, `app_mode`, `app_modes[]`,
+`mode`, `theme_id`, `downloads_enabled`, `index_url`, `default_index_url`,
+`is_custom_url`.
+
+**Theme fields:** `id`, `name`, `mode`, `modes[]`, `app_mode`, `variants`,
+`tokens`, `source_id`, `source_url`, `source_version`, `is_community`.
+
+`variants` maps a colour mode to its token set, so one theme can cover light and
+dark and **System** can follow the OS within it. `modes[]` lists what it covers,
+for a picker row reading "light & dark"; `mode` is the primary one and `tokens`
+duplicates that variant. A theme sent with only `tokens` is read as covering its
+one `mode`, so the older shape keeps working.
+
+**App modes** are `grimoire` (TTRPG) and `codex` (wargaming), a second axis
+alongside the light/dark colour `mode`. Selection is stored per app mode, so
+switching restores what was chosen there. `built_in[]` lists the bundled themes
+— their colours live in the stylesheet, so they carry no `tokens` and can be
+selected without being installed. A theme's own `app_mode` is a preference the
+picker sorts by, not a restriction.
+
+Token names are validated against a closed allowlist and values against a
+plain-colour grammar, on write **and** on read. Anything else is dropped; a
+theme setting nothing recognisable is rejected with a 400. Downloaded themes are
+verified against the catalogue's SHA-256 and pinned to the catalogue's host.
 
 **Updates:** a scraper definition is expected to change whenever its source
 does, so `available_version` and `update_available` are reported on each

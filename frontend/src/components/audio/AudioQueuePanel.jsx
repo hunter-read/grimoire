@@ -38,7 +38,7 @@ export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
         overflowY: 'auto',
         background: 'var(--bg-panel)',
         borderTop: '1px solid var(--border)',
-        boxShadow: '0 -2px 12px rgba(0,0,0,0.35)',
+        boxShadow: '0 -2px 12px var(--shadow)',
       }}
     >
       <div

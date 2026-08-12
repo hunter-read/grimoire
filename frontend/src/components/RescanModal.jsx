@@ -62,7 +62,7 @@ export default function RescanModal({ scope, onConfirm, onClose }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0,0,0,0.55)',
+        background: 'var(--scrim)',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -171,7 +171,7 @@ export default function RescanModal({ scope, onConfirm, onClose }) {
                     <div
                       style={{
                         fontSize: 12,
-                        color: '#e07070',
+                        color: 'var(--danger)',
                         marginTop: 6,
                         display: 'flex',
                         alignItems: 'center',

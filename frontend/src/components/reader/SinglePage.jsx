@@ -61,7 +61,7 @@ export default function SinglePage({
               height: '100%',
               display: 'block',
               borderRadius: 4,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              boxShadow: '0 4px 20px var(--shadow)',
               userSelect: 'none',
             }}
           />
@@ -82,7 +82,7 @@ export default function SinglePage({
             maxWidth: '100%',
             width: 'auto',
             borderRadius: 4,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            boxShadow: '0 4px 20px var(--shadow)',
           }}
         />
       )}

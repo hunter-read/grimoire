@@ -7,6 +7,7 @@ import {
   OPDSSection,
 } from './UserAccountSections'
 import { ReaderSection, LibrarySection, LanguageSection } from './UserPreferenceSections'
+import AppearanceSection from './AppearanceSection'
 import SectionDivider from './SectionDivider'
 
 export default function UserSettingsTab({ user, onLogout }) {
@@ -17,6 +18,8 @@ export default function UserSettingsTab({ user, onLogout }) {
       <EmailSection />
       <SectionDivider />
       <LanguageSection />
+      <SectionDivider />
+      <AppearanceSection />
       <SectionDivider />
       <ReaderSection />
       <SectionDivider />

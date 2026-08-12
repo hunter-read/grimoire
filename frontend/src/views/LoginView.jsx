@@ -194,7 +194,7 @@ export default function LoginView({ onLogin }) {
                 borderRadius: 8,
                 padding: '10px 14px',
                 fontSize: 13,
-                color: '#e07070',
+                color: 'var(--danger)',
                 marginBottom: 16,
                 textAlign: 'center',
               }}

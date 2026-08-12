@@ -21,7 +21,7 @@ export default function UserPermissionBadges({ allowExplicit, campaignAccess }) 
       key: 'explicit',
       label: t('users.explicit'),
       icon: <LuFlame size={11} />,
-      color: '#e07070',
+      color: 'var(--danger)',
       bg: 'rgba(224, 112, 112, 0.12)',
       border: 'rgba(224, 112, 112, 0.3)',
     })

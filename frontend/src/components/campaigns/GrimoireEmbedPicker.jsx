@@ -107,7 +107,7 @@ export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, 
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'var(--scrim-strong)',
         zIndex: 1100,
         display: 'flex',
         alignItems: 'center',

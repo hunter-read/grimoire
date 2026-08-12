@@ -52,7 +52,7 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0,0,0,0.55)',
+        background: 'var(--scrim)',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()

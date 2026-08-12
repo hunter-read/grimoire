@@ -1778,5 +1778,32 @@
     "fileSize": "Dateigröße",
     "format": "Format",
     "path": "Pfad"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Choose how Grimoire looks. This applies to your account only — it does not change what anyone else sees.",
+    "mode": "Colour mode",
+    "modes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "yourThemes": "Theme",
+    "community": "Community",
+    "browse": "Browse community themes",
+    "import": "Import a theme",
+    "importAction": "Install pasted theme",
+    "pasteLabel": "Theme JSON",
+    "install": "Install",
+    "installed": "Theme installed.",
+    "removed": "Theme removed.",
+    "remove": "Remove {{name}}",
+    "alreadyInstalled": "Installed",
+    "catalogue": "Community themes",
+    "empty": "No themes in the catalogue yet.",
+    "notJson": "That is not valid JSON.",
+    "downloadsDisabled": "Downloading themes is turned off on this server. You can still paste a theme in.",
+    "builtInLabel": "Built-in",
+    "bothModes": "Light & dark"
   }
 }

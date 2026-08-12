@@ -192,7 +192,7 @@ export default function GenrePicker({
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',
             borderRadius: 8,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+            boxShadow: '0 6px 20px var(--shadow)',
           }}
         >
           {rows.map((row, i) => (

@@ -128,7 +128,7 @@ export default function CoverPicker({
                   borderRadius: 8,
                   background: 'var(--bg-panel)',
                   border: '1px solid var(--border)',
-                  boxShadow: '0 6px 24px rgba(0,0,0,0.45)',
+                  boxShadow: '0 6px 24px var(--shadow)',
                   zIndex: 50,
                   pointerEvents: 'none',
                 }}

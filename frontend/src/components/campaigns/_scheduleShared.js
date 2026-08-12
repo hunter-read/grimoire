@@ -18,7 +18,7 @@ export const FREQ_OPTIONS = [
 ]
 
 export const AVAIL_OPTIONS = [
-  { value: 'available', label: 'Available', Icon: LuCheck, color: '#4caf50' },
+  { value: 'available', label: 'Available', Icon: LuCheck, color: 'var(--success)' },
   { value: 'tentative', label: 'Tentative', Icon: LuMinus, color: 'var(--gold)' },
   { value: 'unavailable', label: 'Unavailable', Icon: LuX, color: 'var(--danger)' },
 ]
@@ -76,7 +76,7 @@ export const submitBtn = {
   background: 'var(--gold)',
   border: 'none',
   borderRadius: 8,
-  color: '#1a1209',
+  color: 'var(--on-accent)',
   cursor: 'pointer',
   fontSize: 13,
   fontWeight: 600,

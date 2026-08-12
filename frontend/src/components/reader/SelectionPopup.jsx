@@ -36,7 +36,7 @@ export default function SelectionPopup({ selectionPopup, onBookmark }) {
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          boxShadow: '0 2px 8px var(--shadow)',
           whiteSpace: 'nowrap',
         }}
       >

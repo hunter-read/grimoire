@@ -573,7 +573,7 @@ const overlay = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0,0,0,0.55)',
+  background: 'var(--scrim)',
   padding: 16,
 }
 const panel = {
@@ -679,7 +679,7 @@ const confirmOverlay = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0,0,0,0.55)',
+  background: 'var(--scrim)',
   padding: 16,
 }
 const confirmPanel = {

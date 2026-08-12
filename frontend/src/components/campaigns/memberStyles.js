@@ -1,7 +1,7 @@
 // Shared styles for the campaign member row, invite panel, and sheet dialogs.
 
 export const STATUS_COLORS = {
-  accepted: 'var(--success, #4caf50)',
+  accepted: 'var(--success)',
   invited: 'var(--gold)',
   declined: 'var(--danger)',
 }
@@ -18,7 +18,9 @@ export const sheetActionBtn = {
   fontSize: 12,
 }
 
-export const smallBtn = (color) => ({
+// `color` defaults rather than being required: several call sites invoke this
+// bare, which used to yield `color: undefined` and a black-on-dark button.
+export const smallBtn = (color = 'var(--text-dim)') => ({
   background: 'var(--bg-deep)',
   border: `1px solid var(--border)`,
   borderRadius: 6,

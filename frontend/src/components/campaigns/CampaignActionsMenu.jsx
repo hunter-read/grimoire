@@ -127,7 +127,7 @@ export default function CampaignActionsMenu({ onEdit, onConvert, onArchive, isAr
               borderRadius: 8,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              boxShadow: '0 6px 20px var(--shadow)',
               overflow: 'hidden',
             }}
           >

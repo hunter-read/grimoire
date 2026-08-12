@@ -53,7 +53,7 @@ export default function CampaignCard({ campaign, userId, badgeLabel, subtitle })
         cursor: 'pointer',
         transition: 'all 0.15s',
         transform: hovered ? 'translateY(-1px)' : 'none',
-        boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.25)' : 'none',
+        boxShadow: hovered ? '0 4px 16px var(--shadow)' : 'none',
         overflow: 'hidden',
         position: 'relative',
       }}
@@ -217,7 +217,7 @@ export default function CampaignCard({ campaign, userId, badgeLabel, subtitle })
               padding: '7px 14px',
               background: 'var(--gold)',
               borderRadius: 8,
-              color: '#1a1209',
+              color: 'var(--on-accent)',
               cursor: 'pointer',
               fontSize: 13,
               fontWeight: 600,

@@ -72,7 +72,7 @@ export default function IconColorRow({ color, resolved, onColorChange }) {
               justifyContent: 'center',
               fontSize: 9,
               fontWeight: 700,
-              color: '#fff',
+              color: 'var(--on-media)',
               textShadow: '0 0 2px rgba(0,0,0,0.8)',
               pointerEvents: 'none',
             }}

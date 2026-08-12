@@ -230,7 +230,7 @@ export default function TokenDetailView() {
                 maxWidth: '100%',
                 maxHeight: '80vh',
                 borderRadius: 4,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                boxShadow: '0 4px 24px var(--overlay)',
                 ...imageStyle,
               }}
               draggable={false}
@@ -273,9 +273,9 @@ export default function TokenDetailView() {
                   type="checkbox"
                   checked={token.is_explicit || false}
                   onChange={toggleExplicit}
-                  style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#e07070' }}
+                  style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--danger)' }}
                 />
-                <span style={{ fontSize: 13, color: '#e07070' }}>
+                <span style={{ fontSize: 13, color: 'var(--danger)' }}>
                   {t('tokens.detail.explicitContent')}
                 </span>
               </label>

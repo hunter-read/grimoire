@@ -246,12 +246,12 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             width: 20,
             height: 20,
             borderRadius: 4,
-            background: selected ? 'var(--gold)' : 'rgba(0,0,0,0.55)',
-            border: selected ? 'none' : '2px solid rgba(255,255,255,0.45)',
+            background: selected ? 'var(--gold)' : 'var(--bg-input)',
+            border: selected ? 'none' : '2px solid var(--border-light)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            boxShadow: '0 1px 4px var(--shadow)',
           }}
         >
           {selected && <LuCheck size={12} color="var(--bg-deep)" strokeWidth={3} />}
@@ -309,7 +309,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
                 padding: '1px 6px',
                 borderRadius: 6,
                 background: b.color,
-                color: '#fff',
+                color: 'var(--on-media)',
                 fontWeight: 600,
               }}
             >

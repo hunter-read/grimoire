@@ -302,7 +302,7 @@ export default function CampaignEditor({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'var(--scrim-strong)',
         zIndex: 1000,
         display: 'flex',
         alignItems: 'center',

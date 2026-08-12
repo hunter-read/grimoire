@@ -37,6 +37,18 @@ class User(Base):
     campaign_access = Column(Boolean, default=True)
     opds_token = Column(String(64), nullable=True, unique=True, index=True)
     oidc_subject = Column(String(255), nullable=True, unique=True, index=True)
+    # Appearance for the default app mode (Grimoire). `theme_mode` is
+    # light/dark/system; `theme_id` names an installed UserTheme, or is null for
+    # the built-in palette. Stored per user so the choice follows them between
+    # browsers and devices — the client also mirrors it to localStorage so the
+    # first paint needs no round trip.
+    theme_mode = Column(String(10), nullable=True)
+    theme_id = Column(String(100), nullable=True)
+    # The same pair for every *other* app mode, as {app_mode: {mode, theme_id}}.
+    # A JSON column rather than two more columns per app mode: the list of modes
+    # will grow, and Grimoire's own choice stays in its original columns so
+    # nothing has to be migrated or read two ways.
+    theme_by_mode = Column(JSON, default=dict)
     created_at = Column(DateTime, default=_utcnow)
 
 
@@ -92,3 +104,55 @@ class SavedFilter(Base):
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "scope", "name"),)
+
+
+class UserTheme(Base):
+    """A colour theme installed by one user, for that user only.
+
+    Themes are per-user rather than server-wide: a theme is a small map of
+    colour tokens, so a copy per user costs almost nothing, and it means one
+    person's taste in a shared library never changes what anyone else sees.
+    That is the opposite of add-ons (global, admin-installed) and closer to wiki
+    templates, which are copied per campaign.
+
+    A theme arrives one of two ways — downloaded from a community repository or
+    written/pasted in the app — and ``source_id`` / ``source_url`` record the
+    first of those so a downloaded theme can be traced back and updated later.
+    Both are null for a theme the user authored.
+
+    ``tokens`` holds the ``{name: colour}`` map. It is re-validated against the
+    token allowlist on the way out as well as in, so a row edited directly in
+    the database still cannot inject arbitrary CSS.
+    """
+
+    __tablename__ = "user_themes"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    # Stable identifier: the community id for a downloaded theme, or a slug
+    # derived from the name for an authored one. Unique per user, so installing
+    # the same theme twice updates it rather than duplicating it.
+    theme_id = Column(String(100), nullable=False)
+    name = Column(String(120), nullable=False)
+    # The theme's primary colour mode — the one it is listed under, and the one
+    # applied when it ships only one.
+    mode = Column(String(10), default="dark")
+    # Which app mode the theme was built for (grimoire/codex). A preference the
+    # picker sorts by, not a restriction — the same theme may be used in either.
+    app_mode = Column(String(20), default="grimoire")
+    # {colour_mode: {token: colour}}. A theme that ships both a light and a dark
+    # palette is one theme, so System mode can follow the OS without the user
+    # having to install and switch between two entries.
+    variants = Column(JSON, default=dict)
+    # The primary variant, duplicated. Rows written before `variants` existed
+    # have only this, and it is what a single-mode theme applies either way.
+    tokens = Column(JSON, default=dict)
+
+    source_id = Column(String(100), nullable=True)
+    source_url = Column(Text, nullable=True)
+    source_version = Column(String(20), nullable=True)
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "theme_id"),)

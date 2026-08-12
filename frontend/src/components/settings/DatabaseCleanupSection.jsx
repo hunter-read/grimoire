@@ -48,7 +48,7 @@ export default function DatabaseCleanupSection() {
           fontWeight: 500,
           background: cleaning ? 'rgba(180,60,60,0.5)' : 'rgba(180,60,60,0.15)',
           border: '1px solid rgba(180,60,60,0.5)',
-          color: cleaning ? 'var(--text-muted)' : '#e07070',
+          color: cleaning ? 'var(--text-muted)' : 'var(--danger)',
           cursor: cleaning ? 'default' : 'pointer',
           transition: 'background 0.15s',
         }}
@@ -100,7 +100,7 @@ export default function DatabaseCleanupSection() {
         </div>
       )}
 
-      {error && <div style={{ marginTop: 16, fontSize: 14, color: '#e07070' }}>{error}</div>}
+      {error && <div style={{ marginTop: 16, fontSize: 14, color: 'var(--danger)' }}>{error}</div>}
     </div>
   )
 }

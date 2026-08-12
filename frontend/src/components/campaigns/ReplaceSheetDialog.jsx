@@ -10,7 +10,7 @@ export default function ReplaceSheetDialog({ downloadUrl, onCancel, onReplace })
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'var(--scrim-strong)',
         zIndex: 1100,
         display: 'flex',
         alignItems: 'center',
@@ -59,7 +59,7 @@ export default function ReplaceSheetDialog({ downloadUrl, onCancel, onReplace })
               background: 'var(--gold)',
               border: 'none',
               borderRadius: 6,
-              color: '#1a1209',
+              color: 'var(--on-accent)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: 13,

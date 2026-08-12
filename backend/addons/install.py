@@ -16,7 +16,12 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from .. import config
-from .constants import HTTP_MAX_BYTES, HTTP_MAX_REDIRECTS, HTTP_TIMEOUT
+from .constants import (
+    HTTP_MAX_BYTES,
+    HTTP_MAX_REDIRECTS,
+    HTTP_TIMEOUT,
+    external_installs_enabled,
+)
 from .fetch import AddonFetchError, fetch_json
 from .manifest import AddonIndex, IndexEntry
 from .registry import (
@@ -31,6 +36,16 @@ from .registry import (
 )
 
 logger = logging.getLogger("grimoire.addons")
+
+
+def _assert_external_installs_enabled() -> None:
+    """Refuse before any network call when the operator has locked installs off.
+
+    Uninstalling, enabling, and running an already-installed add-on stay
+    available — this only stops new content being pulled from the internet.
+    """
+    if not external_installs_enabled():
+        raise AddonError("Installing add-ons from a community repository is disabled")
 
 
 def _fetch_text(url: str) -> bytes:
@@ -59,6 +74,7 @@ def _fetch_text(url: str) -> bytes:
 
 def refresh_index(db: Session, url: Optional[str] = None) -> dict:
     """Fetch the community index and cache it.  Returns the parsed index."""
+    _assert_external_installs_enabled()
     index_url = (url or get_index_url(db)).strip()
     if not index_url.startswith(("http://", "https://")):
         raise AddonError("index URL must be an http(s) URL")
@@ -124,6 +140,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False) -> dict:
     recorded against the script's digest, so a later update that changes the
     script drops back to unapproved.
     """
+    _assert_external_installs_enabled()
     entry = find_entry(db, addon_id)
     if entry is None:
         raise AddonError(

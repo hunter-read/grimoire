@@ -34,7 +34,7 @@ export default function AgnosticChip({ system, to }) {
       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
         {systemDisplayName(system)}
       </span>
-      {system.is_explicit && <span style={{ fontSize: 10, color: '#e07070' }}>18+</span>}
+      {system.is_explicit && <span style={{ fontSize: 10, color: 'var(--danger)' }}>18+</span>}
       <span
         style={{
           background: 'var(--bg-deep)',

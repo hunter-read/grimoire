@@ -180,7 +180,7 @@ export default function OPDSSection() {
                     fontSize: 13,
                     background: 'rgba(180,60,60,0.12)',
                     border: '1px solid rgba(180,60,60,0.4)',
-                    color: '#e07070',
+                    color: 'var(--danger)',
                     cursor: 'pointer',
                   }}
                 >
@@ -209,9 +209,9 @@ export default function OPDSSection() {
                       borderRadius: 6,
                       fontSize: 13,
                       fontWeight: 500,
-                      background: 'rgba(180,60,60,0.8)',
+                      background: 'var(--danger-fill)',
                       border: 'none',
-                      color: '#fff',
+                      color: 'var(--on-danger)',
                       cursor: working ? 'default' : 'pointer',
                       opacity: working ? 0.6 : 1,
                       display: 'flex',

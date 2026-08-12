@@ -122,7 +122,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
                     fontSize: 13,
                     background: selected ? 'var(--gold)' : 'var(--bg-deep)',
                     border: selected ? 'none' : '1px solid var(--border)',
-                    color: selected ? '#1a1209' : 'var(--text-dim)',
+                    color: selected ? 'var(--on-accent)' : 'var(--text-dim)',
                     fontWeight: selected ? 600 : 400,
                   }}
                 >
@@ -151,7 +151,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
                   fontSize: 13,
                   background: monthlyWeek === w.value ? 'var(--gold)' : 'var(--bg-deep)',
                   border: monthlyWeek === w.value ? 'none' : '1px solid var(--border)',
-                  color: monthlyWeek === w.value ? '#1a1209' : 'var(--text-dim)',
+                  color: monthlyWeek === w.value ? 'var(--on-accent)' : 'var(--text-dim)',
                   fontWeight: monthlyWeek === w.value ? 600 : 400,
                 }}
               >

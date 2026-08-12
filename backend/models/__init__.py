@@ -36,7 +36,7 @@ from .library import (
 from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
 from .settings import AppSetting
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
-from .users import Bookmark, Favorite, SavedFilter, User
+from .users import Bookmark, Favorite, SavedFilter, User, UserTheme
 
 __all__ = [
     "Base",
@@ -62,6 +62,7 @@ __all__ = [
     "Bookmark",
     "Favorite",
     "SavedFilter",
+    "UserTheme",
     # Campaigns
     "Campaign",
     "CampaignMember",

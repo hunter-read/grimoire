@@ -158,7 +158,7 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
                 type="checkbox"
                 checked={form.allow_explicit}
                 onChange={(e) => setForm({ ...form, allow_explicit: e.target.checked })}
-                style={{ width: 14, height: 14, accentColor: '#e07070' }}
+                style={{ width: 14, height: 14, accentColor: 'var(--danger)' }}
               />
               {t('users.explicit')}
             </label>

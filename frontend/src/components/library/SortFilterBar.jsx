@@ -262,7 +262,7 @@ export default function SortFilterBar({
                 border: '1px solid var(--border)',
                 borderRadius: 8,
                 padding: 8,
-                boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+                boxShadow: '0 6px 20px var(--shadow)',
               }}
             >
               {saved.length === 0 ? (

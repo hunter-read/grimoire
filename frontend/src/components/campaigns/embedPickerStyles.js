@@ -8,7 +8,7 @@ export const miniBtn = {
   background: 'var(--gold)',
   border: 'none',
   borderRadius: 6,
-  color: '#1a1209',
+  color: 'var(--on-accent)',
   cursor: 'pointer',
   fontSize: 12,
   fontWeight: 600,

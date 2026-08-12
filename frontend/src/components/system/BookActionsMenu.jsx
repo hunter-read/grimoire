@@ -179,7 +179,7 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
               borderRadius: 8,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              boxShadow: '0 6px 20px var(--shadow)',
               overflow: 'hidden',
             }}
           >
@@ -315,7 +315,7 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
             )}
 
             {state === 'error' && (
-              <div style={{ fontSize: 11, color: '#e07070', padding: '2px 12px 8px' }}>
+              <div style={{ fontSize: 11, color: 'var(--danger)', padding: '2px 12px 8px' }}>
                 {isOcrBook ? t('reocr.error') : t('bookActions.rescanError')}
               </div>
             )}

@@ -31,8 +31,11 @@ export default function DownloadButton({ type, id, style, cardHovered }) {
         width: 28,
         height: 28,
         borderRadius: '50%',
-        border: 'none',
-        background: 'rgba(0,0,0,0.4)',
+        // Matches FavoriteButton, which it sits beside: a themed disc rather
+        // than a fixed dark scrim, so the icon stays legible in a light theme.
+        border: '1px solid var(--border)',
+        background: 'var(--bg-panel)',
+        boxShadow: '0 1px 3px var(--shadow)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -45,7 +48,7 @@ export default function DownloadButton({ type, id, style, cardHovered }) {
     >
       <LuDownload
         size={isStatic ? 16 : 15}
-        color={isStatic ? 'var(--text-muted)' : 'rgba(255,255,255,0.7)'}
+        color={isStatic ? 'var(--text-muted)' : 'var(--text-dim)'}
         aria-hidden="true"
       />
     </a>

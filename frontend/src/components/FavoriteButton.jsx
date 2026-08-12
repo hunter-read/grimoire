@@ -23,8 +23,12 @@ export default function FavoriteButton({ type, id, style, cardHovered }) {
         width: 28,
         height: 28,
         borderRadius: '50%',
-        border: 'none',
-        background: active ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.4)',
+        // A themed disc, not a fixed dark scrim: the button sits on cover art
+        // so it needs its own backing, but a dark one puts the gold heart at
+        // 1.5:1 on a light theme. Panel-coloured with a border reads on both.
+        background: 'var(--bg-panel)',
+        border: '1px solid var(--border)',
+        boxShadow: `0 1px 3px var(--shadow)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -37,7 +41,7 @@ export default function FavoriteButton({ type, id, style, cardHovered }) {
     >
       <LuHeart
         size={16}
-        color={active ? 'var(--gold)' : 'rgba(255,255,255,0.7)'}
+        color={active ? 'var(--gold)' : 'var(--text-dim)'}
         fill={active ? 'var(--gold)' : 'none'}
       />
     </button>

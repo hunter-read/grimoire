@@ -35,7 +35,7 @@ const navButtonStyle = {
   height: 44,
   borderRadius: '50%',
   border: '1px solid var(--border)',
-  background: 'rgba(0, 0, 0, 0.55)',
+  background: 'var(--scrim)',
   color: 'var(--text)',
   display: 'flex',
   alignItems: 'center',
@@ -280,7 +280,7 @@ export default function MapDetailView() {
                 maxWidth: '100%',
                 maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',
                 borderRadius: 4,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                boxShadow: '0 4px 24px var(--overlay)',
                 ...imageStyle,
               }}
               draggable={false}

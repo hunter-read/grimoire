@@ -375,7 +375,7 @@ export default function ReaderToolbar({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'var(--shadow)',
             zIndex: 200,
             display: 'flex',
             alignItems: 'center',
@@ -390,7 +390,7 @@ export default function ReaderToolbar({
               borderRadius: 10,
               padding: 24,
               minWidth: 280,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              boxShadow: '0 8px 32px var(--shadow)',
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: 'var(--text)' }}>

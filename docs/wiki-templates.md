@@ -91,13 +91,18 @@ Templates are **enabled by default**. To stop Grimoire fetching them from the
 internet:
 
 ```bash
-WIKI_TEMPLATES_DOWNLOAD_DISABLED=true
+DISABLE_EXTERNAL_ADD_ON_INSTALL=true
 ```
 
 With that set, the Browse tab disappears and both catalogue endpoints refuse —
 no outbound request is made. **Authoring and uploading still work**, which is
 the point: on a locked-down or air-gapped server a GM can still copy a `.md`
 file out of the community repo by hand and upload it.
+
+The switch is shared: it also stops [add-on](addons.md) and [theme](themes.md)
+installs, so one setting covers everything that reaches a community repository.
+It replaces the older `WIKI_TEMPLATES_DOWNLOAD_DISABLED`, which is no longer
+read.
 
 ## Contributing one back
 
@@ -143,5 +148,5 @@ with it is parse frontmatter and create a wiki page.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `WIKI_TEMPLATES_DOWNLOAD_DISABLED` (env) | `false` | Turns off catalogue browsing and downloading |
+| `DISABLE_EXTERNAL_ADD_ON_INSTALL` (env) | `false` | Turns off catalogue browsing and downloading |
 | `wiki_templates.index_url` (app setting) | the community repo's `templates/index.json` | Where **Browse** fetches from |

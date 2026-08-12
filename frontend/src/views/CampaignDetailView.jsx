@@ -451,7 +451,7 @@ export default function CampaignDetailView() {
                 padding: '7px 14px',
                 background: 'var(--gold)',
                 borderRadius: 8,
-                color: '#1a1209',
+                color: 'var(--on-accent)',
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 600,

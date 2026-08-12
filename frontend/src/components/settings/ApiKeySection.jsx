@@ -151,7 +151,7 @@ export default function ApiKeySection() {
                 fontSize: 14,
                 background: 'rgba(180,60,60,0.1)',
                 border: '1px solid rgba(180,60,60,0.4)',
-                color: '#e07070',
+                color: 'var(--danger)',
                 cursor: working ? 'default' : 'pointer',
               }}
             >
