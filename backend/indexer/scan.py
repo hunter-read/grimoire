@@ -92,6 +92,18 @@ def _prune_dirs(root: str, dirs: list[str], ignore: Optional[IgnoreMatcher]) -> 
     ]
 
 
+def _keep_entry(path: Path, ignore: Optional[IgnoreMatcher], *, is_dir: bool) -> bool:
+    """Return True if a directly-enumerated entry should be scanned.
+
+    The ``os.walk`` paths prune with :func:`_prune_dirs`, but the system and
+    container walks list a directory themselves (``Path.iterdir``) and so need
+    the same hidden-plus-``.grimoireignore`` test applied per entry (issue #333).
+    """
+    return not path.name.startswith(".") and not (
+        ignore and ignore.is_ignored(str(path), is_dir=is_dir)
+    )
+
+
 def _count_eligible_files(
     directory: Path, extensions: set, ignore: Optional[IgnoreMatcher] = None
 ) -> int:
@@ -418,7 +430,7 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
         # Whole library, or scope == "books" root: iterate every system.
         system_dirs = sorted(books_dir.iterdir())
     for system_dir in system_dirs:
-        if not system_dir.is_dir() or system_dir.name.startswith("."):
+        if not system_dir.is_dir() or not _keep_entry(system_dir, ctx.ignore, is_dir=True):
             continue
 
         folder = _resolve_system_folder(system_dir)
@@ -518,7 +530,7 @@ def _scan_container(
         ctx.stats["errors"] += 1
         return False
 
-    child_dirs = [d for d in entries if d.is_dir() and not d.name.startswith(".")]
+    child_dirs = [d for d in entries if d.is_dir() and _keep_entry(d, ctx.ignore, is_dir=True)]
     for child_dir in child_dirs:
         if scoped_child and child_dir.name != scoped_child:
             continue
@@ -561,7 +573,7 @@ def _scan_container(
     if scoped_child:
         return False
 
-    loose_files = [f for f in entries if f.is_file() and not f.name.startswith(".")]
+    loose_files = [f for f in entries if f.is_file() and _keep_entry(f, ctx.ignore, is_dir=False)]
     if kind == CONTAINER_ONE_PAGE:
         return _scan_one_page_loose_files(ctx, container, container_folder, loose_files)
     # Every other container kind: loose files belong to the container itself.

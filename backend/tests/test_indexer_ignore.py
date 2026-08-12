@@ -149,6 +149,74 @@ class TestOtherCollectionsIgnore:
         assert "keep.mp3" in audio_names and "skip.mp3" not in audio_names
 
 
+class TestSystemFolderIgnore:
+    """Directly-enumerated system folders honour ignore rules too (issue #333).
+
+    The container and top-level system walks list directories themselves rather
+    than going through ``os.walk``/``_prune_dirs``, so an ignored folder used to
+    still be registered as a system (a NAS ``@eaDir`` becoming a bogus edition).
+    """
+
+    def test_ignored_container_child_not_registered_as_system(self):
+        tmp, lib = _mk_lib()
+        container = _mkdir(lib, "books", "Ign333 Shadowrun")
+        (container / ".parent-system-container").write_text("")
+        _touch_pdf(_mkdir(container, "6 DE", "core"), "core-book.pdf")
+        _mkdir(container, "@eaDir")
+        (lib / IGNORE_FILENAME).write_text("@eaDir/\n**/@eaDir/\n")
+
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            children = db.query(GameSystem).filter_by(parent_system="Ign333 Shadowrun").all()
+            editions = {c.edition for c in children}
+        finally:
+            db.close()
+        # The real edition registers; the ignored NAS folder does not.
+        assert "6 DE" in editions
+        assert "@eaDir" not in editions
+
+    def test_ignored_loose_file_not_registered_in_one_page_container(self):
+        tmp, lib = _mk_lib()
+        container = _mkdir(lib, "books", "Ign333 One Pagers")
+        (container / ".one-page-container").write_text("")
+        # Names are prefixed because game_systems.name is globally unique and the
+        # test DB is shared across the suite.
+        _touch_pdf(container, "ign333-honey-heist.pdf")
+        _touch_pdf(container, "ign333-skip-me.pdf")
+        (lib / IGNORE_FILENAME).write_text("ign333-skip-me.pdf\n")
+
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            container_row = db.query(GameSystem).filter_by(slug="ign333-one-pagers").first()
+            names = {
+                s.name for s in db.query(GameSystem).filter_by(parent_id=container_row.id).all()
+            }
+        finally:
+            db.close()
+        assert any("Honey Heist" in n for n in names)
+        assert not any("Skip Me" in n for n in names)
+
+    def test_ignored_top_level_folder_not_registered_as_system(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_mkdir(lib, "books", "Ign333 Keeper", "core"), "book.pdf")
+        _mkdir(lib, "books", "@eaDir")
+        (lib / IGNORE_FILENAME).write_text("@eaDir/\n**/@eaDir/\n")
+
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            names = {s.name for s in db.query(GameSystem).all()}
+        finally:
+            db.close()
+        assert "Ign333 Keeper" in names
+        assert not any("eaDir" in n for n in names)
+
+
 class TestReconciliation:
     def test_newly_ignored_book_marked_missing_then_restored(self):
         tmp, lib = _mk_lib()
