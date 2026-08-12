@@ -548,7 +548,7 @@ export default function MemberRow({
           <button
             onClick={() => onUpdateStatus(member.user_id, 'accepted')}
             aria-label={t('campaigns.accept')}
-            style={smallBtn('#4caf50')}
+            style={smallBtn('var(--success)')}
           >
             <LuCheck size={13} aria-hidden="true" />
           </button>

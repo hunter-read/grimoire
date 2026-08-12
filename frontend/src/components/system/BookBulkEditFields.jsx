@@ -244,9 +244,9 @@ export default function BookBulkEditFields({
           type="checkbox"
           checked={!!draft.is_explicit}
           onChange={(e) => setField('is_explicit', e.target.checked)}
-          style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#e07070' }}
+          style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--danger)' }}
         />
-        <span style={{ fontSize: 14, color: '#e07070' }}>{t('bookEditor.markExplicit')}</span>
+        <span style={{ fontSize: 14, color: 'var(--danger)' }}>{t('bookEditor.markExplicit')}</span>
       </label>
     </div>
   )

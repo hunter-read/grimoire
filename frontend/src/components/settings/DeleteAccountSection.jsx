@@ -25,7 +25,7 @@ export default function DeleteAccountSection({ user, onLogout }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: '#e07070' }}>
+      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: 'var(--danger)' }}>
         {t('userSettings.deleteAccount.title')}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
@@ -33,7 +33,9 @@ export default function DeleteAccountSection({ user, onLogout }) {
         {isAdmin && (
           <>
             <br />
-            <span style={{ color: '#e07070' }}>{t('userSettings.deleteAccount.adminWarning')}</span>
+            <span style={{ color: 'var(--danger)' }}>
+              {t('userSettings.deleteAccount.adminWarning')}
+            </span>
           </>
         )}
       </p>
@@ -52,7 +54,7 @@ export default function DeleteAccountSection({ user, onLogout }) {
             fontWeight: 500,
             background: isAdmin ? 'var(--bg-card)' : 'rgba(180,60,60,0.15)',
             border: `1px solid ${isAdmin ? 'var(--border)' : 'rgba(180,60,60,0.5)'}`,
-            color: isAdmin ? 'var(--text-muted)' : '#e07070',
+            color: isAdmin ? 'var(--text-muted)' : 'var(--danger)',
             cursor: isAdmin ? 'not-allowed' : 'pointer',
             opacity: isAdmin ? 0.5 : 1,
           }}
@@ -81,9 +83,9 @@ export default function DeleteAccountSection({ user, onLogout }) {
                 borderRadius: 6,
                 fontSize: 14,
                 fontWeight: 500,
-                background: 'rgba(180,60,60,0.8)',
+                background: 'var(--danger-fill)',
                 border: 'none',
-                color: '#fff',
+                color: 'var(--on-danger)',
                 cursor: deleting ? 'default' : 'pointer',
                 opacity: deleting ? 0.6 : 1,
                 display: 'flex',
@@ -112,7 +114,9 @@ export default function DeleteAccountSection({ user, onLogout }) {
               {t('common.cancel')}
             </button>
           </div>
-          {error && <div style={{ fontSize: 13, color: '#e07070', marginTop: 10 }}>{error}</div>}
+          {error && (
+            <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 10 }}>{error}</div>
+          )}
         </div>
       )}
     </div>

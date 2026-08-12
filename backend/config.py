@@ -139,14 +139,17 @@ def _bool_env(name: str) -> Optional[bool]:
 GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 
 
-# Turns off downloading wiki note templates from a community repository. When
-# true, Grimoire makes no outbound request for templates and the browse/download
-# endpoints refuse. GMs can still write their own templates and upload a `.md`,
-# so a locked-down or air-gapped server keeps the feature — it just stops
-# fetching. Templates are enabled by default.
-WIKI_TEMPLATES_DOWNLOAD_DISABLED: bool = (
-    _bool_env("WIKI_TEMPLATES_DOWNLOAD_DISABLED") or False
-)
+# Single kill-switch for every install that reaches out to a community
+# repository: wiki note templates, metadata add-ons, and themes. When true,
+# Grimoire makes no outbound request for any of them and the browse/install
+# endpoints refuse.
+#
+# Authoring and *upload* stay available in all three cases, so a locked-down or
+# air-gapped server keeps the features — it just stops fetching. External
+# installs are enabled by default.
+#
+# Replaces WIKI_TEMPLATES_DOWNLOAD_DISABLED, which covered templates alone.
+DISABLE_EXTERNAL_ADD_ON_INSTALL: bool = _bool_env("DISABLE_EXTERNAL_ADD_ON_INSTALL") or False
 
 # Where the template browser fetches its catalogue from. An operator can point
 # this at a fork or a private mirror; the UI keeps the default and hides the
@@ -154,6 +157,13 @@ WIKI_TEMPLATES_DOWNLOAD_DISABLED: bool = (
 DEFAULT_WIKI_TEMPLATE_INDEX_URL = (
     "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/"
     "templates/index.json"
+)
+
+# Where the theme browser fetches its catalogue from. Same repository as
+# add-ons and templates, under `themes/`; an operator can point it at a fork.
+DEFAULT_THEME_INDEX_URL = (
+    "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/"
+    "themes/index.json"
 )
 
 

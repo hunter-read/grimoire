@@ -16,16 +16,16 @@ export default function FolderCheckbox({ checked, indeterminate, onChange }) {
         height: 18,
         borderRadius: 4,
         flexShrink: 0,
-        background: checked || indeterminate ? 'var(--gold)' : 'rgba(0,0,0,0.4)',
-        border: checked || indeterminate ? 'none' : '2px solid rgba(255,255,255,0.3)',
+        background: checked || indeterminate ? 'var(--gold)' : 'var(--bg-input)',
+        border: checked || indeterminate ? 'none' : '2px solid var(--border-light)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
       }}
     >
-      {checked && <LuCheck size={11} color="var(--bg-deep)" strokeWidth={3} />}
-      {indeterminate && !checked && <LuMinus size={11} color="var(--bg-deep)" strokeWidth={3} />}
+      {checked && <LuCheck size={11} color="var(--on-accent)" strokeWidth={3} />}
+      {indeterminate && !checked && <LuMinus size={11} color="var(--on-accent)" strokeWidth={3} />}
     </div>
   )
 }

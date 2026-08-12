@@ -185,7 +185,7 @@ export default function AudioDetailView() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                boxShadow: '0 4px 24px var(--overlay)',
               }}
             >
               {track.has_artwork ? (

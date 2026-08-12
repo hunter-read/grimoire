@@ -96,7 +96,7 @@ export default function EmailSection() {
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </form>
-      {error && <div style={{ fontSize: 13, color: '#e07070', marginTop: 8 }}>{error}</div>}
+      {error && <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}>{error}</div>}
     </div>
   )
 }

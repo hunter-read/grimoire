@@ -49,7 +49,7 @@ export default function BannerUploadModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'var(--scrim-strong)',
         zIndex: 1100,
         display: 'flex',
         alignItems: 'center',
@@ -147,7 +147,7 @@ const goldBtn = {
   background: 'var(--gold)',
   border: 'none',
   borderRadius: 8,
-  color: '#1a1209',
+  color: 'var(--on-accent)',
   cursor: 'pointer',
   fontSize: 13,
   fontWeight: 600,

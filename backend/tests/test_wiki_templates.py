@@ -66,7 +66,7 @@ def _clear_template_setting():
 
 @pytest.fixture
 def downloads_enabled(monkeypatch):
-    monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", False)
+    monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", False)
 
 
 CATALOGUE = {
@@ -525,7 +525,7 @@ class TestUploadExport:
 
     def test_uploading_works_with_downloads_disabled(self, client, gm_headers, monkeypatch):
         """The documented escape hatch: copy the .md across by hand."""
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", True)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
         c = _campaign(client, gm_headers)
         assert self._upload(client, gm_headers, c["id"], "spell.md", BODY).status_code == 201
 
@@ -633,7 +633,7 @@ class TestBrowse:
     def test_browsing_is_refused_when_downloads_are_disabled(
         self, client, gm_headers, monkeypatch
     ):
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", True)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
         c = _campaign(client, gm_headers)
         resp = client.get(
             f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=gm_headers
@@ -643,7 +643,7 @@ class TestBrowse:
     def test_the_list_endpoint_reports_downloads_disabled(
         self, client, gm_headers, monkeypatch
     ):
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", True)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
         c = _campaign(client, gm_headers)
         body = client.get(
             f"/api/campaigns/{c['id']}/wiki/templates", headers=gm_headers
@@ -691,7 +691,7 @@ class TestDownload:
         assert resp.status_code == 502
 
     def test_downloading_is_refused_when_disabled(self, client, gm_headers, monkeypatch):
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", True)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
         c = _campaign(client, gm_headers)
         resp = client.post(
             f"/api/campaigns/{c['id']}/wiki/templates/download/5e-spell", headers=gm_headers
@@ -846,7 +846,7 @@ class TestCatalogueService:
         assert catalogue.FETCH_TIMEOUT <= 15
 
     def test_fetching_is_refused_when_downloads_are_disabled(self, monkeypatch):
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", True)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
         session = SessionLocal()
         try:
             with pytest.raises(catalogue.TemplateCatalogueError, match="disabled"):
@@ -988,9 +988,9 @@ class TestCatalogueService:
             session.close()
 
     def test_downloads_enabled_tracks_the_env_flag(self, monkeypatch):
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", True)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
         assert catalogue.downloads_enabled() is False
-        monkeypatch.setattr(config, "WIKI_TEMPLATES_DOWNLOAD_DISABLED", False)
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", False)
         assert catalogue.downloads_enabled() is True
 
 

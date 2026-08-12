@@ -120,7 +120,9 @@ export default function DiceMaterialManagerSection() {
         </button>
       </div>
 
-      {error && <div style={{ color: '#e07070', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {orderedGroups.map((g) => (
@@ -183,7 +185,7 @@ export default function DiceMaterialManagerSection() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.6)',
+            background: 'var(--overlay)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -228,9 +230,9 @@ export default function DiceMaterialManagerSection() {
                 style={{
                   padding: '6px 14px',
                   borderRadius: 6,
-                  background: '#c0504d',
+                  background: 'var(--danger-fill)',
                   border: 'none',
-                  color: '#fff',
+                  color: 'var(--on-danger)',
                   cursor: 'pointer',
                   fontWeight: 600,
                 }}

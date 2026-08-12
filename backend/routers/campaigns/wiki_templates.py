@@ -9,7 +9,7 @@ A template gets into a campaign three ways:
 
   * **Downloaded** from a community catalogue (see
     ``services/wiki_template_catalogue.py``). Off when
-    ``WIKI_TEMPLATES_DOWNLOAD_DISABLED`` is set.
+    ``DISABLE_EXTERNAL_ADD_ON_INSTALL`` is set.
   * **Uploaded** as a ``.md`` file — which is how a GM on a server with
     downloading disabled can still use a community template, by copying the
     file across by hand.

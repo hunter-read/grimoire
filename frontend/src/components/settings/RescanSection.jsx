@@ -93,7 +93,7 @@ export default function RescanSection() {
               fontWeight: 500,
               background: 'rgba(180,60,60,0.12)',
               border: '1px solid rgba(180,60,60,0.35)',
-              color: stopping ? 'var(--text-muted)' : '#e07070',
+              color: stopping ? 'var(--text-muted)' : 'var(--danger)',
               cursor: stopping ? 'default' : 'pointer',
             }}
           >

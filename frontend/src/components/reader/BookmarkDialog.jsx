@@ -34,7 +34,7 @@ export default function BookmarkDialog({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0,0,0,0.5)',
+        background: 'var(--shadow)',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()

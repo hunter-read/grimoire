@@ -1,33 +1,321 @@
-:root {
-  --bg-deep: #0d0b0a;
-  --bg-panel: #1a1614;
-  --bg-card: #231f1b;
-  --bg-card-hover: #2d2721;
-  --bg-input: #151210;
-  --border: #3a322a;
-  --border-light: #4a4038;
-  --gold: #c9a84c;
-  --gold-dim: #a88e44;
-  --gold-bright: #e8c95a;
-  --amber: #d4913a;
-  --text: #e8e0d4;
-  --text-dim: #b8ab9b;
-  --text-muted: #968879;
-  --red: #d96050;
-  --green: #5a9a5a;
-  --blue: #4a7a9a;
-  --tag-bg: #2a2420;
-  --tag-border: #4a3e34;
-  --mark-bg: rgba(201, 168, 76, 0.3);
-  /* Attention banners (e.g. pending campaign invites): a warm gold wash that
-     stands out against the dark panels without shouting like an error. */
-  --invite-bg: rgba(201, 168, 76, 0.14);
-  --invite-border: var(--gold);
+/* ---------------------------------------------------------------------------
+   Theme tokens
+   ---------------------------------------------------------------------------
+   Two layers, deliberately:
+
+   1. A *palette* layer (`--p-*`) holding the raw colours for one mode. This is
+      the only layer that changes between light, dark, and an installed theme.
+   2. A *semantic* layer (`--bg-card`, `--text`, `--gold`, …) that aliases the
+      palette. The app references only these names.
+
+   The split exists because the semantic names are used in ~40 component files
+   and several are literal (`--gold` means nothing in a light theme). Aliasing
+   lets a theme redefine what "gold" resolves to without a rename touching every
+   file, and gives installed themes a small, fixed set of keys to override.
+
+   Mode lives in `data-theme` on <html>, stamped by utils/theme.js as the first
+   statement of the entry bundle. It is not an inline <script> in index.html
+   because the CSP is `script-src 'self'`, which would block one.
+   --------------------------------------------------------------------------- */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --p-bg-deep: #0d0b0a;
+  --p-bg-panel: #1a1614;
+  --p-bg-card: #231f1b;
+  --p-bg-card-hover: #2d2721;
+  --p-bg-input: #151210;
+  --p-border: #3a322a;
+  --p-border-light: #4a4038;
+  --p-accent: #c9a84c;
+  --p-accent-dim: #a88e44;
+  --p-accent-bright: #e8c95a;
+  --p-accent-alt: #d4913a;
+  /* Text that sits *on* an accent fill. Dark by design — the accent is light in
+     both modes. Previously hardcoded as #1a1209 in ~18 places. */
+  --p-on-accent: #1a1209;
+  --p-text: #e8e0d4;
+  --p-text-dim: #b8ab9b;
+  --p-text-muted: #968879;
+  /* Nudged up from #d96050 / #4a7a9a, which sat at 4.47:1 and 4.25:1 against
+     the card and page backgrounds — just under AA. */
+  --p-red: #df6a5a;
+  --p-green: #5a9a5a;
+  --p-blue: #5a8fb2;
+  --p-danger: #e07070;
+  /* A filled destructive button: a solid red plate with light text on it. The
+     text is near-white in both modes, so --on-danger does not invert the way
+     --on-accent does. */
+  --p-danger-fill: #a83a2e;
+  --p-on-danger: #fdf6f4;
+  /* Controls layered over artwork (audio art, banners, media badges) sit on
+     their own dark scrim, so they stay light in *both* modes — the page theme
+     says nothing about what a user's cover image looks like underneath. */
+  --p-on-media: #ffffff;
+  --p-on-media-border: rgba(255, 255, 255, 0.15);
+  --p-warning: #d98324;
+  --p-success: #5a9a5a;
+  --p-tag-bg: #2a2420;
+  --p-tag-border: #4a3e34;
+  --p-mark-bg: rgba(201, 168, 76, 0.3);
+  --p-invite-bg: rgba(201, 168, 76, 0.14);
+  --p-overlay: rgba(0, 0, 0, 0.6);
+  --p-shadow: rgba(0, 0, 0, 0.4);
+  /* Scrims behind controls that sit on artwork. Dark in *both* modes — they
+     exist to make --on-media readable over an arbitrary image, so they must not
+     lighten when the page theme does. */
+  --p-scrim: rgba(0, 0, 0, 0.55);
+  --p-scrim-strong: rgba(0, 0, 0, 0.7);
+
+  /* Categorical hues identifying a content type (book, map, token, …) rather
+     than a state. They must stay distinguishable from each other, so a theme
+     overriding them should keep them mutually distinct, not merely on-brand. */
+  --p-type-book: #a78bfa;
+  --p-type-map: #60a5fa;
+  --p-type-token: #34d399;
+  --p-type-audio: #f0a868;
+  --p-type-file: #e0b341;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* Light mode. Not an inversion of the dark palette — the accents are darkened
+   so they keep AA contrast against light surfaces, where the dark theme's
+   brighter gold would wash out. */
+:root[data-theme='light'] {
+  color-scheme: light;
 
-html, body, #root {
+  --p-bg-deep: #f4f0e8;
+  --p-bg-panel: #fbf8f2;
+  --p-bg-card: #ffffff;
+  --p-bg-card-hover: #f2ece0;
+  --p-bg-input: #ffffff;
+  --p-border: #d8cdb8;
+  --p-border-light: #c2b499;
+  /* Headings use the accent on --bg-deep, the lightest surface pairing in the
+     theme, so these are tuned against *that* rather than against white: a
+     lighter gold looks right on a card but drops under 4.5:1 on the page
+     background. --accent-bright is the hover/emphasis end, so it stays a step
+     lighter while still clearing AA. */
+  --p-accent: #7a5f18;
+  --p-accent-dim: #634d13;
+  --p-accent-bright: #806419;
+  --p-accent-alt: #8a5716;
+  --p-on-accent: #fdfaf3;
+  --p-text: #2a2420;
+  --p-text-dim: #554b41;
+  --p-text-muted: #6e6155;
+  --p-red: #a32b1c;
+  --p-green: #2f6b32;
+  --p-blue: #1f5878;
+  --p-danger: #a32b1c;
+  --p-danger-fill: #a32b1c;
+  --p-on-danger: #fdf6f4;
+  --p-on-media: #ffffff;
+  --p-on-media-border: rgba(255, 255, 255, 0.15);
+  --p-warning: #8a4b06;
+  --p-success: #2f6b32;
+  --p-tag-bg: #efe7d7;
+  --p-tag-border: #cfc0a4;
+  --p-mark-bg: rgba(180, 140, 40, 0.28);
+  --p-invite-bg: rgba(160, 125, 35, 0.12);
+  --p-overlay: rgba(40, 34, 28, 0.45);
+  --p-shadow: rgba(60, 50, 38, 0.18);
+  /* Unchanged from the dark theme by design: see the note there. */
+  --p-scrim: rgba(0, 0, 0, 0.55);
+  --p-scrim-strong: rgba(0, 0, 0, 0.7);
+
+  /* Darkened counterparts of the dark theme's pastels, which sit at 1.9–2.7:1
+     on a white card and would be unreadable. Hues are preserved so a book stays
+     violet and a map stays blue across both modes. */
+  --p-type-book: #6d3fd4;
+  --p-type-map: #1667b8;
+  --p-type-token: #0f7a52;
+  --p-type-audio: #9a5410;
+  --p-type-file: #8a6510;
+}
+
+/* ---------------------------------------------------------------------------
+   Codex — the built-in theme for wargaming mode.
+
+   A second *app mode*, selected with `data-app-mode` on <html>, orthogonal to the
+   light/dark `data-theme`. Grimoire is the default and the only one reachable
+   from the UI today; Codex is complete as a palette and waiting on the mode
+   toggle.
+
+   Palette derived from the Codex logo (frontend/static/codex-logo.svg): gunmetal
+   ink #14171B, steel #9AA4AE, crimson #B22B33. The accent tokens are still named
+   for Grimoire's gold — they carry the *role*, not the hue — so every component
+   reskins without a single change.
+
+   The reference mockup was not contrast-checked: its crimson sat at 2.54:1 on
+   the dark surfaces, with three more tokens under AA. These keep the hues and
+   lift the luminance until every pairing clears 4.5:1.
+   --------------------------------------------------------------------------- */
+:root[data-app-mode='codex'],
+:root[data-app-mode='codex'][data-theme='dark'] {
+  color-scheme: dark;
+
+  --p-bg-deep: #0b0d10;
+  --p-bg-panel: #14171b;
+  --p-bg-card: #1c2127;
+  --p-bg-card-hover: #262c34;
+  --p-bg-input: #0f1215;
+  --p-border: #2b323b;
+  --p-border-light: #3c4551;
+
+  --p-accent: #9aa4ae;
+  --p-accent-dim: #8b95a0;
+  --p-accent-bright: #c3ccd4;
+  --p-accent-alt: #e86e76;
+  --p-on-accent: #0b0d10;
+
+  --p-text: #dfe4ea;
+  --p-text-dim: #aeb6bf;
+  --p-text-muted: #949ea8;
+
+  --p-red: #e86e76;
+  --p-green: #63ab88;
+  --p-blue: #6ba3c7;
+
+  --p-danger: #e86e76;
+  --p-danger-fill: #9e2129;
+  --p-on-danger: #fdf6f4;
+  --p-on-media: #ffffff;
+  --p-on-media-border: rgba(255, 255, 255, 0.15);
+  --p-warning: #d8a15c;
+  --p-success: #63ab88;
+
+  --p-tag-bg: #1f252c;
+  --p-tag-border: #39424d;
+  --p-mark-bg: rgba(178, 43, 51, 0.4);
+  --p-invite-bg: rgba(154, 164, 174, 0.12);
+
+  --p-overlay: rgba(0, 0, 0, 0.65);
+  --p-shadow: rgba(0, 0, 0, 0.5);
+  --p-scrim: rgba(0, 0, 0, 0.55);
+  --p-scrim-strong: rgba(0, 0, 0, 0.7);
+
+  --p-type-book: #b9a7f0;
+  --p-type-map: #6ba3c7;
+  --p-type-token: #63ab88;
+  --p-type-audio: #d8a15c;
+  --p-type-file: #c3ccd4;
+}
+
+/* Codex, light. Steel darkens to hold contrast on pale surfaces; crimson can
+   stay the logo's exact #b22b33 here, where it reads at 5.6:1. */
+:root[data-app-mode='codex'][data-theme='light'] {
+  color-scheme: light;
+
+  --p-bg-deep: #eef1f4;
+  --p-bg-panel: #f7f9fb;
+  --p-bg-card: #ffffff;
+  --p-bg-card-hover: #e7ebef;
+  --p-bg-input: #ffffff;
+  --p-border: #ccd3da;
+  --p-border-light: #aab3bd;
+
+  --p-accent: #4a5661;
+  --p-accent-dim: #39434d;
+  --p-accent-bright: #5d6975;
+  --p-accent-alt: #b22b33;
+  --p-on-accent: #f7f9fb;
+
+  --p-text: #141a20;
+  --p-text-dim: #3f4954;
+  --p-text-muted: #5b6672;
+
+  --p-red: #b22b33;
+  --p-green: #1f6b4d;
+  --p-blue: #1f5878;
+
+  --p-danger: #9e2129;
+  --p-danger-fill: #9e2129;
+  --p-on-danger: #fdf6f4;
+  --p-on-media: #ffffff;
+  --p-on-media-border: rgba(255, 255, 255, 0.15);
+  --p-warning: #8a4b06;
+  --p-success: #1f6b4d;
+
+  --p-tag-bg: #e7ebef;
+  --p-tag-border: #b9c2cb;
+  --p-mark-bg: rgba(178, 43, 51, 0.25);
+  --p-invite-bg: rgba(74, 86, 97, 0.1);
+
+  --p-overlay: rgba(20, 26, 32, 0.45);
+  --p-shadow: rgba(20, 26, 32, 0.18);
+  --p-scrim: rgba(0, 0, 0, 0.55);
+  --p-scrim-strong: rgba(0, 0, 0, 0.7);
+
+  --p-type-book: #5b3fb8;
+  --p-type-map: #1f5878;
+  --p-type-token: #1f6b4d;
+  --p-type-audio: #8a4b06;
+  --p-type-file: #4a5661;
+}
+
+/* The semantic layer the app actually consumes. Stable names, theme-driven
+   values — an installed theme overrides the `--p-*` inputs above. */
+:root {
+  --bg-deep: var(--p-bg-deep);
+  --bg-panel: var(--p-bg-panel);
+  --bg-card: var(--p-bg-card);
+  --bg-card-hover: var(--p-bg-card-hover);
+  --bg-input: var(--p-bg-input);
+  --border: var(--p-border);
+  --border-light: var(--p-border-light);
+  --gold: var(--p-accent);
+  --gold-dim: var(--p-accent-dim);
+  --gold-bright: var(--p-accent-bright);
+  --amber: var(--p-accent-alt);
+  --on-accent: var(--p-on-accent);
+  --text: var(--p-text);
+  --text-dim: var(--p-text-dim);
+  --text-muted: var(--p-text-muted);
+  --red: var(--p-red);
+  --green: var(--p-green);
+  --blue: var(--p-blue);
+  /* Status roles. These were already referenced across the app as
+     `var(--danger, #c0392b)` and friends, but were never defined here — so every
+     one of those silently resolved to its hardcoded fallback and ignored the
+     theme. Defining them makes those call sites themeable. */
+  --danger: var(--p-danger);
+  --danger-fill: var(--p-danger-fill);
+  --on-danger: var(--p-on-danger);
+  --on-media: var(--p-on-media);
+  --on-media-border: var(--p-on-media-border);
+  --warning: var(--p-warning);
+  --success: var(--p-success);
+  --tag-bg: var(--p-tag-bg);
+  --tag-border: var(--p-tag-border);
+  --mark-bg: var(--p-mark-bg);
+  /* Attention banners (e.g. pending campaign invites): a warm gold wash that
+     stands out against the dark panels without shouting like an error. */
+  --invite-bg: var(--p-invite-bg);
+  --invite-border: var(--gold);
+  /* Scrims and drop shadows. Previously hardcoded rgba(0,0,0,…), which reads as
+     a heavy black wash on a light surface. */
+  --overlay: var(--p-overlay);
+  --shadow: var(--p-shadow);
+  --scrim: var(--p-scrim);
+  --scrim-strong: var(--p-scrim-strong);
+  --type-book: var(--p-type-book);
+  --type-map: var(--p-type-map);
+  --type-token: var(--p-type-token);
+  --type-audio: var(--p-type-audio);
+  --type-file: var(--p-type-file);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
   height: 100%;
   max-width: 100%;
   /* Safety net: nothing should ever push a page-level horizontal scrollbar.
@@ -46,7 +334,10 @@ body {
   word-break: break-word;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   font-family: 'Cinzel', serif;
   font-weight: 600;
   color: var(--gold);
@@ -60,12 +351,24 @@ mark {
   border-radius: 2px;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-deep); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
 
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: 'Alegreya Sans', sans-serif;
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -77,13 +380,20 @@ input, textarea, select {
   transition: border-color 0.2s;
 }
 
-input:focus-visible, textarea:focus-visible, select:focus-visible {
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.25);
 }
 
 button {
   font-family: 'Alegreya Sans', sans-serif;
+  /* Without this, a button that sets no colour of its own falls back to the UA
+     default `buttontext` (black) and disappears against the dark panels — the
+     search-result book titles in issue #264. Inheriting keeps such a button
+     readable on whatever surface it sits on, in any theme. */
+  color: inherit;
   cursor: pointer;
   border: none;
   outline: none;
@@ -95,22 +405,42 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-a { color: var(--gold); text-decoration: none; }
-a:hover { color: var(--gold-bright); }
-a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
+a {
+  color: var(--gold);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--gold-bright);
+}
+a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 0.8; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 /* SystemDetailView — responsive header panel */

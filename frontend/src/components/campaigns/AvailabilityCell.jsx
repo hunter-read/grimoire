@@ -99,7 +99,7 @@ export default function AvailabilityCell({
               borderRadius: 8,
               padding: 4,
               zIndex: 9999,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              boxShadow: '0 8px 24px var(--shadow)',
               display: 'flex',
               flexDirection: 'column',
               gap: 2,

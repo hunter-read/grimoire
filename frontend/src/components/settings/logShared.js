@@ -4,7 +4,7 @@ export const LEVEL_COLORS = {
   DEBUG: '#9ca3af',
   INFO: '#e5e7eb',
   WARNING: '#fbbf24',
-  ERROR: '#f87171',
+  ERROR: 'var(--danger)',
   CRITICAL: '#ff6b6b',
 }
 

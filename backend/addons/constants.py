@@ -26,6 +26,20 @@ DEFAULT_INDEX_URL = (
     "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json"
 )
 
+
+def external_installs_enabled() -> bool:
+    """Whether this server may install content from a community repository.
+
+    Covers add-ons, wiki note templates, and themes alike — the one switch an
+    operator flips to keep a locked-down deployment from reaching out. Read
+    through ``config`` rather than captured at import time so tests (and a
+    reload) see a change to the setting.
+
+    This gates *installing*, not the scraping an installed add-on performs; a
+    server that has its add-ons already has chosen to talk to their sources.
+    """
+    return not config.DISABLE_EXTERNAL_ADD_ON_INSTALL
+
 # Network limits.  Applied to every add-on fetch regardless of what a manifest
 # asks for, so a hostile or broken definition cannot stall a request worker or
 # exhaust memory.

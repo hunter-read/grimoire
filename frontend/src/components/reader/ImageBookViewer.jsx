@@ -119,7 +119,7 @@ export default function ImageBookViewer({ book, bookId, backPath }) {
             maxWidth: '100%',
             width: 'auto',
             borderRadius: 4,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            boxShadow: '0 4px 20px var(--shadow)',
           }}
         />
       </div>

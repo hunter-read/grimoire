@@ -42,7 +42,7 @@ export default function ToggleSwitch({
           width: 18,
           height: 18,
           borderRadius: '50%',
-          background: checked ? '#1a1209' : 'var(--text-muted)',
+          background: checked ? 'var(--on-accent)' : 'var(--text-muted)',
           transition: 'left 0.15s',
         }}
       />

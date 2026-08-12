@@ -109,7 +109,7 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
           pageDiv.style.width = `${viewport.width}px`
           pageDiv.style.height = `${viewport.height}px`
           pageDiv.style.margin = '0 auto 16px'
-          pageDiv.style.boxShadow = '0 2px 12px rgba(0,0,0,0.5)'
+          pageDiv.style.boxShadow = '0 2px 12px var(--shadow)'
 
           const canvasWrapper = document.createElement('div')
           canvasWrapper.className = 'canvasWrapper'

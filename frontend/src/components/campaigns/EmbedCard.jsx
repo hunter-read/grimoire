@@ -74,7 +74,7 @@ export default function EmbedCard({ spec, campaignId }) {
             textDecoration: 'none',
           }}
         >
-          <LuMusic size={15} color="#f0a868" />
+          <LuMusic size={15} color="var(--type-audio)" />
           {t('wiki.embed_audio')}
         </Link>
       </span>
@@ -104,16 +104,16 @@ export default function EmbedCard({ spec, campaignId }) {
         rel="noopener noreferrer"
         style={embedCardStyle}
       >
-        <LuFile size={15} color="#e0b341" />
+        <LuFile size={15} color="var(--type-file)" />
         {t('wiki.embed_file')}
       </a>
     )
   }
 
   const meta = {
-    book: { Icon: LuBookOpen, color: '#a78bfa', to: `/library/book/${id}` },
-    map: { Icon: LuMap, color: '#60a5fa', to: `/maps/${id}` },
-    token: { Icon: LuUser, color: '#34d399', to: `/tokens/${id}` },
+    book: { Icon: LuBookOpen, color: 'var(--type-book)', to: `/library/book/${id}` },
+    map: { Icon: LuMap, color: 'var(--type-map)', to: `/maps/${id}` },
+    token: { Icon: LuUser, color: 'var(--type-token)', to: `/tokens/${id}` },
   }[type]
   if (!meta) return null
   const { Icon, color } = meta

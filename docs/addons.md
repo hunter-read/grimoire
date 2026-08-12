@@ -153,3 +153,14 @@ No new tables, no migration.
 
 These are read and written directly rather than through `/api/settings`, which
 enumerates its fields explicitly.
+
+### Turning installs off
+
+`DISABLE_EXTERNAL_ADD_ON_INSTALL=true` stops Grimoire fetching anything from a
+community repository — add-ons, [note templates](wiki-templates.md), and
+[themes](themes.md) alike. Refreshing the index and installing both refuse, and
+no outbound request is made.
+
+It gates *installing*, not the scraping an installed add-on does: a server that
+already has its add-ons has chosen to talk to their sources. Uninstalling,
+enabling, and running what is already there keep working.

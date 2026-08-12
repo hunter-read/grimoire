@@ -18,6 +18,10 @@ export const sectionHeadStyle = {
 
 export const cardStyle = {
   background: 'var(--bg-card)',
+  // Set explicitly rather than left to inherit: this style is spread onto
+  // <button> elements (the book-title rows in BookGroup), and a button without
+  // an explicit colour is exactly what caused issue #264.
+  color: 'var(--text)',
   border: '1px solid var(--border)',
   borderRadius: 8,
   padding: '12px 16px',

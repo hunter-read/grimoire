@@ -96,7 +96,7 @@ export default function ChangePasswordSection() {
           </div>
         ))}
 
-        {error && <div style={{ fontSize: 13, color: '#e07070' }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</div>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
           <button

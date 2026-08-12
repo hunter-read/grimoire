@@ -125,7 +125,7 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
           alignItems: 'center',
           gap: 14,
           padding: '0 16px',
-          boxShadow: '0 -2px 12px rgba(0,0,0,0.35)',
+          boxShadow: '0 -2px 12px var(--shadow)',
         }}
       >
         <audio

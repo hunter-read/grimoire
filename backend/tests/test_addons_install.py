@@ -6,7 +6,8 @@ import httpx
 import pytest
 import yaml
 
-from backend.addons import fetch, install, registry
+from backend import config
+from backend.addons import constants, fetch, install, registry
 from backend.addons.constants import (
     SETTING_ALLOW_SCRIPTS,
     SETTING_INDEX_CACHE,
@@ -399,3 +400,59 @@ def test_cache_is_untouched_by_install(db, addons_dir, files, tmp_path, monkeypa
     install.install(db, "demo")
 
     assert fetch.read_cache("https://example.com/d.json", 3600) == {"kept": True}
+
+
+class TestExternalInstallKillSwitch:
+    """DISABLE_EXTERNAL_ADD_ON_INSTALL stops anything reaching a community repo.
+
+    The switch is deliberately install-time only: an operator who has locked it
+    on still expects their existing add-ons to keep working.
+    """
+
+    def test_refresh_refuses_when_disabled(self, db, monkeypatch):
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
+        with pytest.raises(AddonError, match="disabled"):
+            install.refresh_index(db)
+
+    def test_install_refuses_when_disabled(self, db, addons_dir, files, monkeypatch):
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body)])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
+
+        with pytest.raises(AddonError, match="disabled"):
+            install.install(db, "demo")
+
+    def test_nothing_is_written_to_disk_when_disabled(
+        self, db, addons_dir, files, monkeypatch
+    ):
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body)])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
+
+        with pytest.raises(AddonError):
+            install.install(db, "demo")
+
+        assert not os.path.exists(os.path.join(addons_dir, "demo"))
+
+    def test_install_works_again_once_re_enabled(
+        self, db, addons_dir, files, monkeypatch
+    ):
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body)])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
+        with pytest.raises(AddonError):
+            install.install(db, "demo")
+
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", False)
+        install.install(db, "demo")
+        assert os.path.exists(os.path.join(addons_dir, "demo"))
+
+    def test_the_switch_is_read_live_not_captured_at_import(self, monkeypatch):
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)
+        assert constants.external_installs_enabled() is False
+        monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", False)
+        assert constants.external_installs_enabled() is True

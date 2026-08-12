@@ -34,14 +34,14 @@ export default function LogRow({ entry, searchQuery }) {
         fontFamily: 'monospace',
         lineHeight: 1.55,
         background: bg,
-        borderBottom: '1px solid rgba(255,255,255,0.03)',
+        borderBottom: '1px solid var(--border)',
         wordBreak: 'break-word',
       }}
     >
       <span
         role="cell"
         aria-label={`Time: ${time}`}
-        style={{ color: '#6b7280', flexShrink: 0, userSelect: 'none' }}
+        style={{ color: 'var(--text-muted)', flexShrink: 0, userSelect: 'none' }}
       >
         {time}
       </span>

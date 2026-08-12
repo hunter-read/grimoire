@@ -98,7 +98,7 @@ export default function UserExpandedEditor({
               label={t('users.explicit')}
               title={t('users.allowExplicitTitle')}
               checked={user.allow_explicit ?? true}
-              accent="#e07070"
+              accent="var(--danger)"
               disabled={isSelf}
               onChange={() => !isSelf && onExplicitChange(user.id, !(user.allow_explicit ?? true))}
             />

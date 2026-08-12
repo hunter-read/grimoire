@@ -48,7 +48,7 @@ export default function SegmentControl({
             border: 'none',
             background: value === o.key ? 'var(--bg-card)' : 'transparent',
             color: value === o.key ? 'var(--text)' : 'var(--text-muted)',
-            boxShadow: value === o.key ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+            boxShadow: value === o.key ? '0 1px 3px var(--shadow)' : 'none',
             transition: 'all 0.15s',
           }}
         >

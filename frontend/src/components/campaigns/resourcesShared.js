@@ -1,11 +1,11 @@
 import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
 
 export const TYPE_ICONS = {
-  book: { Icon: LuBookOpen, color: '#a78bfa' },
-  map: { Icon: LuMap, color: '#60a5fa' },
-  token: { Icon: LuUser, color: '#34d399' },
-  audio: { Icon: LuMusic, color: '#f0a868' },
-  file: { Icon: LuFile, color: '#e0b341' },
+  book: { Icon: LuBookOpen, color: 'var(--type-book)' },
+  map: { Icon: LuMap, color: 'var(--type-map)' },
+  token: { Icon: LuUser, color: 'var(--type-token)' },
+  audio: { Icon: LuMusic, color: 'var(--type-audio)' },
+  file: { Icon: LuFile, color: 'var(--type-file)' },
 }
 
 // Type tabs offered by the resource picker, in display order. No "all" tab —

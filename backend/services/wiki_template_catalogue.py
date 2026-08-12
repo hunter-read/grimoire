@@ -9,8 +9,9 @@ Nothing here writes to the database: a fetched template becomes a
 ``WikiTemplate`` row only when a GM chooses to download it, which the router
 does. Templates are never executed or installed — they are markdown.
 
-Downloading is disabled outright by ``WIKI_TEMPLATES_DOWNLOAD_DISABLED``, in
-which case every function here refuses rather than reaching the network.
+Downloading is disabled outright by ``DISABLE_EXTERNAL_ADD_ON_INSTALL`` — the
+shared switch covering every community install — in which case every function
+here refuses rather than reaching the network.
 """
 import hashlib
 import logging
@@ -20,7 +21,11 @@ from urllib.parse import urljoin, urlparse
 from sqlalchemy.orm import Session
 
 from .. import config
-from ..addons.constants import HTTP_MAX_BYTES, HTTP_MAX_REDIRECTS
+from ..addons.constants import (
+    HTTP_MAX_BYTES,
+    HTTP_MAX_REDIRECTS,
+    external_installs_enabled,
+)
 from ..addons.fetch import AddonFetchError, fetch_document
 from ..models import AppSetting
 
@@ -54,7 +59,7 @@ class TemplateCatalogueError(Exception):
 
 
 def downloads_enabled() -> bool:
-    return not config.WIKI_TEMPLATES_DOWNLOAD_DISABLED
+    return external_installs_enabled()
 
 
 def _assert_downloads_enabled() -> None:

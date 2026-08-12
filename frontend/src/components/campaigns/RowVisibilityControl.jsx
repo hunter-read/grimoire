@@ -148,7 +148,7 @@ export default function RowVisibilityControl({
               border: '1px solid var(--border)',
               borderRadius: 10,
               padding: 6,
-              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              boxShadow: '0 6px 20px var(--shadow)',
               display: 'flex',
               flexDirection: 'column',
               gap: 2,

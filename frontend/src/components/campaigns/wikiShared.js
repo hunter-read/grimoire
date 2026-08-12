@@ -121,7 +121,7 @@ export const goldBtn = {
   background: 'var(--gold)',
   border: 'none',
   borderRadius: 8,
-  color: '#1a1209',
+  color: 'var(--on-accent)',
   cursor: 'pointer',
   fontSize: 13,
   fontWeight: 600,

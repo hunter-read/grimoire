@@ -60,4 +60,18 @@ describe('FavoriteButton', () => {
     setup(true, { cardHovered: false })
     expect(screen.getByRole('button')).toHaveStyle({ opacity: '1' })
   })
+
+  // The disc used to be a fixed dark scrim in both modes, which put the gold
+  // heart at ~1.5:1 on a light theme. It has to follow the theme instead.
+  it('sits on a themed disc rather than a fixed dark scrim', () => {
+    setup(true)
+    const button = screen.getByRole('button')
+    expect(button).toHaveStyle({ background: 'var(--bg-panel)' })
+    expect(button.style.border).toBe('1px solid var(--border)')
+  })
+
+  it('uses the same disc whether or not the item is favorited', () => {
+    setup(false)
+    expect(screen.getByRole('button')).toHaveStyle({ background: 'var(--bg-panel)' })
+  })
 })

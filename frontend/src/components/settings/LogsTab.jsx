@@ -267,7 +267,7 @@ export default function LogsTab() {
       </div>
 
       {error && (
-        <div role="alert" style={{ marginBottom: 12, fontSize: 13, color: '#f87171' }}>
+        <div role="alert" style={{ marginBottom: 12, fontSize: 13, color: 'var(--danger)' }}>
           {error}
         </div>
       )}
@@ -323,7 +323,7 @@ export default function LogsTab() {
                 fontSize: 11,
                 color: 'var(--text-muted)',
                 fontFamily: 'monospace',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                borderBottom: '1px solid var(--border)',
               }}
             >
               {t('logs.olderEntries', { count: total - entries.length })}
@@ -371,7 +371,7 @@ export default function LogsTab() {
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
               color: 'var(--text-dim)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              boxShadow: '0 2px 8px var(--shadow)',
               transition: 'background 0.15s',
             }}
             onMouseEnter={(e) => {

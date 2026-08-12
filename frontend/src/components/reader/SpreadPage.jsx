@@ -63,7 +63,7 @@ export default function SpreadPage({
                 height: '100%',
                 display: 'block',
                 borderRadius: 4,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                boxShadow: '0 4px 20px var(--shadow)',
                 userSelect: 'none',
               }}
             />
@@ -86,7 +86,7 @@ export default function SpreadPage({
               width: 'auto',
               display: 'block',
               borderRadius: 4,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              boxShadow: '0 4px 20px var(--shadow)',
             }}
           />
         )

@@ -673,6 +673,6 @@ const dangerBtnStyle = {
   fontSize: 13,
   background: 'rgba(180,60,60,0.12)',
   border: '1px solid rgba(180,60,60,0.4)',
-  color: '#e07070',
+  color: 'var(--danger)',
   cursor: 'pointer',
 }

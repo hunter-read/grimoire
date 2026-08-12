@@ -120,16 +120,16 @@ export default function SystemCard({
         width: 20,
         height: 20,
         borderRadius: 4,
-        background: selected ? 'var(--gold)' : overlay ? 'rgba(0,0,0,0.55)' : 'transparent',
+        background: selected ? 'var(--gold)' : overlay ? 'var(--bg-input)' : 'transparent',
         border: selected
           ? 'none'
           : overlay
-            ? '2px solid rgba(255,255,255,0.45)'
+            ? '2px solid var(--border-light)'
             : '2px solid var(--border-light)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: overlay ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+        boxShadow: overlay ? '0 1px 4px var(--shadow)' : 'none',
       }}
     >
       {selected && <LuCheck size={12} color="var(--bg-deep)" strokeWidth={3} />}
@@ -211,7 +211,7 @@ export default function SystemCard({
                 · {(system.genres || []).slice(0, 3).join(', ')}
               </span>
             )}
-            {system.is_explicit && <span style={{ color: '#e07070' }}>18+</span>}
+            {system.is_explicit && <span style={{ color: 'var(--danger)' }}>18+</span>}
           </div>
         </div>
         {!isSelectable && (
@@ -294,7 +294,7 @@ export default function SystemCard({
             {displayName}
           </div>
           {system.is_explicit && (
-            <div style={{ fontSize: 10, color: '#e07070', marginTop: 2 }}>18+</div>
+            <div style={{ fontSize: 10, color: 'var(--danger)', marginTop: 2 }}>18+</div>
           )}
         </div>
       </div>
@@ -313,7 +313,7 @@ export default function SystemCard({
         cursor: 'pointer',
         transition: 'all 0.2s',
         transform: hovered && !isSelectable ? 'translateY(-2px)' : 'none',
-        boxShadow: hovered && !isSelectable ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
+        boxShadow: hovered && !isSelectable ? '0 8px 24px var(--shadow)' : 'none',
         overflow: 'hidden',
         position: 'relative',
         display: 'flex',
@@ -395,7 +395,7 @@ export default function SystemCard({
                   borderRadius: 20,
                   padding: '2px 8px',
                   fontSize: 11,
-                  color: '#e07070',
+                  color: 'var(--danger)',
                   whiteSpace: 'nowrap',
                 }}
               >

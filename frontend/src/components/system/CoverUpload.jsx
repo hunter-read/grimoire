@@ -147,7 +147,7 @@ export default function CoverUpload({ system, onChange }) {
         </div>
       )}
       {error && (
-        <div style={{ fontSize: 13, color: '#e07070', marginTop: 8 }} role="alert">
+        <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }} role="alert">
           {error}
         </div>
       )}
