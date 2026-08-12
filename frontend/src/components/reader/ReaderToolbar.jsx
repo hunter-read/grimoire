@@ -3,29 +3,15 @@ import {
   LuArrowLeft,
   LuChevronLeft,
   LuChevronRight,
-  LuDownload,
-  LuFileText,
-  LuColumns2,
-  LuFile,
   LuSearch,
   LuList,
   LuBookmark,
   LuBookmarkPlus,
-  LuHeart,
-  LuKeyboard,
-  LuPanelLeft,
   LuMinus,
   LuPlus,
   LuRotateCcw,
 } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
-import AddToCampaignButton from '../campaigns/AddToCampaignButton'
-
-export const MODES = [
-  { key: 'page', Icon: LuFileText },
-  { key: 'spread', Icon: LuColumns2 },
-  { key: 'pdf', Icon: LuFile },
-]
+import ReaderMoreMenu from './ReaderMoreMenu'
 
 const btnStyle = {
   background: 'var(--bg-card)',
@@ -75,6 +61,7 @@ export default function ReaderToolbar({
   isFavorite,
   onToggleFavorite,
   onBookmarkPage,
+  onShowDetails,
   zoom = 1,
   canZoomIn = false,
   canZoomOut = false,
@@ -106,41 +93,54 @@ export default function ReaderToolbar({
           flexWrap: 'wrap',
         }}
       >
-        <button
-          onClick={onBack}
-          aria-label={t('reader.back')}
+        {/* Left zone — back and title. Equal flex with the right zone keeps the
+            page navigation between them optically centred. */}
+        <div
           style={{
-            background: 'none',
-            color: 'var(--text-dim)',
-            fontSize: 15,
             display: 'flex',
             alignItems: 'center',
-            gap: 5,
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          <LuArrowLeft size={15} /> {t('reader.back')}
-        </button>
-
-        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-
-        <span
-          style={{
-            fontSize: 16,
-            fontWeight: 500,
-            color: 'var(--text)',
+            gap: 12,
             flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            minWidth: 0,
           }}
         >
-          {book.title}
-        </span>
+          <button
+            onClick={onBack}
+            aria-label={t('reader.back')}
+            style={{
+              background: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 15,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              border: 'none',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <LuArrowLeft size={15} /> {t('reader.back')}
+          </button>
 
+          <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
+
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 500,
+              color: 'var(--text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {book.title}
+          </span>
+        </div>
+
+        {/* Centre zone — page navigation */}
         {mode !== 'pdf' && totalPages > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <button
               onClick={() => onPageInputCommit(currentPage - step)}
               disabled={currentPage <= 1}
@@ -176,197 +176,127 @@ export default function ReaderToolbar({
           </div>
         )}
 
-        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-
-        {/* Mode toggle — hidden on mobile phones */}
+        {/* Right zone — reading controls and the overflow menu */}
         <div
           style={{
-            display: isMobilePhone ? 'none' : 'flex',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flex: 1,
+            minWidth: 0,
+            justifyContent: 'flex-end',
           }}
         >
-          {MODES.map(({ key, Icon }) => (
-            <button
-              key={key}
-              onClick={() => onModeChange(key)}
-              title={t(`reader.${key}`)}
+          {/* Zoom cluster — the native PDF viewer has its own zoom, and the
+            controls are dropped on phones where pinch-to-zoom already works. */}
+          {mode !== 'pdf' && !isMobilePhone && (
+            <div
               style={{
-                background: mode === key ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                color: mode === key ? 'var(--gold)' : 'var(--text-dim)',
-                border: 'none',
-                borderRight: key !== 'pdf' ? '1px solid var(--border)' : 'none',
-                padding: '5px 12px',
-                cursor: 'pointer',
-                fontSize: 13,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                overflow: 'hidden',
               }}
             >
-              <Icon size={13} /> {t(`reader.${key}`)}
-            </button>
-          ))}
-        </div>
-
-        {/* Spread offset toggle — only in spread mode */}
-        {mode === 'spread' && !isMobilePhone && (
-          <button
-            onClick={() => onSpreadOffsetChange(spreadOffset === 0 ? 1 : 0)}
-            title={
-              spreadOffset === 0 ? t('reader.spreadIncludeCover') : t('reader.spreadExcludeCover')
-            }
-            style={{
-              background: spreadOffset === 1 ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-              color: spreadOffset === 1 ? 'var(--gold)' : 'var(--text-dim)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: '5px 12px',
-              cursor: 'pointer',
-              fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <LuPanelLeft size={13} /> {t('reader.spreadCover')}
-          </button>
-        )}
-
-        {/* Zoom cluster — the native PDF viewer has its own zoom, and the
-            controls are dropped on phones where pinch-to-zoom already works. */}
-        {mode !== 'pdf' && !isMobilePhone && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              overflow: 'hidden',
-            }}
-          >
-            <button
-              onClick={onZoomOut}
-              disabled={!canZoomOut}
-              title={t('reader.zoomOut')}
-              aria-label={t('reader.zoomOut')}
-              style={zoomBtnStyle(!canZoomOut, true)}
-            >
-              <LuMinus size={13} />
-            </button>
-            <span
-              aria-live="polite"
-              style={{
-                fontSize: 12,
-                color: 'var(--text-dim)',
-                padding: '0 8px',
-                minWidth: 44,
-                textAlign: 'center',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={onZoomIn}
-              disabled={!canZoomIn}
-              title={t('reader.zoomIn')}
-              aria-label={t('reader.zoomIn')}
-              style={zoomBtnStyle(!canZoomIn, isZoomed)}
-            >
-              <LuPlus size={13} />
-            </button>
-            {isZoomed && (
               <button
-                onClick={onResetZoom}
-                title={t('reader.zoomReset')}
-                aria-label={t('reader.zoomReset')}
-                style={zoomBtnStyle(false, false)}
+                onClick={onZoomOut}
+                disabled={!canZoomOut}
+                title={t('reader.zoomOut')}
+                aria-label={t('reader.zoomOut')}
+                style={zoomBtnStyle(!canZoomOut, true)}
               >
-                <LuRotateCcw size={13} />
+                <LuMinus size={13} />
               </button>
-            )}
-          </div>
-        )}
-
-        {/* Panel selector */}
-        {panels.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              overflow: 'hidden',
-            }}
-          >
-            {panels.map(({ key, Icon, label }, idx) => (
-              <button
-                key={key}
-                onClick={() => onTogglePanel(key)}
-                title={label}
+              <span
+                aria-live="polite"
                 style={{
-                  background: panel === key ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                  color: panel === key ? 'var(--gold)' : 'var(--text-dim)',
-                  border: 'none',
-                  borderRight: idx < panels.length - 1 ? '1px solid var(--border)' : 'none',
-                  padding: '5px 12px',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
+                  fontSize: 12,
+                  color: 'var(--text-dim)',
+                  padding: '0 8px',
+                  minWidth: 44,
+                  textAlign: 'center',
+                  fontVariantNumeric: 'tabular-nums',
                 }}
               >
-                <Icon size={13} />
-                {!isMobilePhone && key !== 'search' && <span>{label}</span>}
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                onClick={onZoomIn}
+                disabled={!canZoomIn}
+                title={t('reader.zoomIn')}
+                aria-label={t('reader.zoomIn')}
+                style={zoomBtnStyle(!canZoomIn, isZoomed)}
+              >
+                <LuPlus size={13} />
               </button>
-            ))}
-          </div>
-        )}
+              {isZoomed && (
+                <button
+                  onClick={onResetZoom}
+                  title={t('reader.zoomReset')}
+                  aria-label={t('reader.zoomReset')}
+                  style={zoomBtnStyle(false, false)}
+                >
+                  <LuRotateCcw size={13} />
+                </button>
+              )}
+            </div>
+          )}
 
-        <AddToCampaignButton resourceType="book" resourceId={bookId} />
+          {/* Panel selector */}
+          {panels.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                overflow: 'hidden',
+              }}
+            >
+              {panels.map(({ key, Icon, label }, idx) => (
+                <button
+                  key={key}
+                  onClick={() => onTogglePanel(key)}
+                  title={label}
+                  style={{
+                    background: panel === key ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                    color: panel === key ? 'var(--gold)' : 'var(--text-dim)',
+                    border: 'none',
+                    borderRight: idx < panels.length - 1 ? '1px solid var(--border)' : 'none',
+                    padding: '5px 12px',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  <Icon size={13} />
+                  {!isMobilePhone && key !== 'search' && <span>{label}</span>}
+                </button>
+              ))}
+            </div>
+          )}
 
-        <button
-          onClick={onToggleFavorite}
-          title={isFavorite ? t('reader.removeFromFavorites') : t('reader.addToFavorites')}
-          style={{ ...btnStyle, color: isFavorite ? 'var(--gold)' : 'var(--text-muted)' }}
-        >
-          <LuHeart size={14} fill={isFavorite ? 'var(--gold)' : 'none'} />
-        </button>
+          {mode !== 'pdf' && (
+            <button onClick={onBookmarkPage} title={t('reader.bookmarkPage')} style={btnStyle}>
+              <LuBookmarkPlus size={14} />
+            </button>
+          )}
 
-        {mode !== 'pdf' && (
-          <button onClick={onBookmarkPage} title={t('reader.bookmarkPage')} style={btnStyle}>
-            <LuBookmarkPlus size={14} />
-          </button>
-        )}
-
-        <a
-          href={mediaUrl(`/books/${bookId}/file`)}
-          download
-          title={t('reader.downloadFile')}
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-dim)',
-            borderRadius: 4,
-            padding: '4px 12px',
-            fontSize: 14,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-          }}
-        >
-          <LuDownload size={13} />
-        </a>
-
-        <button
-          onClick={onToggleShortcuts}
-          title="Keyboard shortcuts (?)"
-          style={{ ...btnStyle, color: showShortcuts ? 'var(--gold)' : 'var(--text-muted)' }}
-        >
-          <LuKeyboard size={14} />
-        </button>
+          <ReaderMoreMenu
+            bookId={bookId}
+            mode={mode}
+            onModeChange={onModeChange}
+            spreadOffset={spreadOffset}
+            onSpreadOffsetChange={onSpreadOffsetChange}
+            isMobilePhone={isMobilePhone}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
+            onShowDetails={onShowDetails}
+            onToggleShortcuts={onToggleShortcuts}
+          />
+        </div>
       </div>
 
       {showShortcuts && (

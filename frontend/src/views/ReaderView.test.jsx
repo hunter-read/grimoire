@@ -250,15 +250,17 @@ describe('ReaderView — spread mode (integration)', () => {
     localStorage.clear()
   })
 
-  it('persists spreadOffset to localStorage when Cover is toggled', async () => {
+  it('persists spreadOffset to localStorage when cover pairing is toggled', async () => {
     localStorage.setItem('grimoire:book:book-1', JSON.stringify({ mode: 'spread' }))
     renderReader()
     await waitFor(() => screen.getByText('Test Book'))
 
-    await userEvent.click(screen.getByText('Cover'))
+    await userEvent.click(screen.getByLabelText('More actions'))
+    // The menu stays open across toggles, so both flips work in one pass.
+    await userEvent.click(screen.getByRole('menuitemcheckbox'))
     expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(1)
 
-    await userEvent.click(screen.getByText('Cover'))
+    await userEvent.click(screen.getByRole('menuitemcheckbox'))
     expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(0)
   })
 
@@ -269,7 +271,9 @@ describe('ReaderView — spread mode (integration)', () => {
     )
     renderReader()
     await waitFor(() => screen.getByText('Test Book'))
-    expect(screen.getByTitle(/Exclude cover from spread/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('More actions'))
+    expect(screen.getByRole('menuitemcheckbox')).toHaveAttribute('aria-checked', 'true')
   })
 })
 

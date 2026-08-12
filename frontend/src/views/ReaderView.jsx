@@ -14,6 +14,7 @@ import useIsMobile from '../hooks/useIsMobile'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
 import BookmarkSidebar from '../components/reader/BookmarkSidebar'
+import DetailsSidebar from '../components/reader/DetailsSidebar'
 import BookmarkDialog from '../components/reader/BookmarkDialog'
 import SelectionPopup from '../components/reader/SelectionPopup'
 import ReaderToolbar from '../components/reader/ReaderToolbar'
@@ -479,6 +480,7 @@ export default function ReaderView() {
           setPendingBookmark({ page: currentPage })
           setPendingLabel('')
         }}
+        onShowDetails={() => setPanel('details')}
         zoom={zoom}
         canZoomIn={canZoomIn}
         canZoomOut={canZoomOut}
@@ -578,6 +580,13 @@ export default function ReaderView() {
               pushNextRef.current = true
               goToPage(page)
             }}
+            onClose={() => setPanel(null)}
+          />
+        )}
+        {panel === 'details' && (
+          <DetailsSidebar
+            book={book}
+            onSave={(updated) => setBook(updated)}
             onClose={() => setPanel(null)}
           />
         )}

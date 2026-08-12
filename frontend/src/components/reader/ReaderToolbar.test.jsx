@@ -4,7 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ReaderToolbar from './ReaderToolbar'
 
-vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+vi.mock('../AddToCampaignModal', () => ({ default: () => null }))
+vi.mock('../../context/UISettingsContext', () => ({ useUISettings: () => ({}) }))
+
+/** Opens the overflow menu, where the less-frequent actions now live. */
+async function openMoreMenu() {
+  await userEvent.click(screen.getByLabelText('More actions'))
+}
 
 const BOOK_PDF = {
   id: 'book-1',
@@ -20,7 +26,8 @@ function defaultProps(overrides = {}) {
     bookId: 'book-1',
     mode: 'page',
     onModeChange: vi.fn(),
-    spreadOffset: 0,
+    spreadOffset: 0, // 0 = cover stands alone; 1 = cover pairs with page 2
+
     onSpreadOffsetChange: vi.fn(),
     currentPage: 1,
     totalPages: 100,
@@ -39,6 +46,7 @@ function defaultProps(overrides = {}) {
     isFavorite: false,
     onToggleFavorite: vi.fn(),
     onBookmarkPage: vi.fn(),
+    onShowDetails: vi.fn(),
     zoom: 1,
     canZoomIn: true,
     canZoomOut: false,
@@ -97,65 +105,64 @@ describe('ReaderToolbar — navigation', () => {
 })
 
 describe('ReaderToolbar — mode toggle', () => {
-  it('highlights the active mode button', () => {
+  it('marks the active mode in the overflow menu', async () => {
     renderToolbar({ mode: 'spread' })
-    const spreadBtn = screen.getByTitle('Spread')
-    expect(spreadBtn).toHaveStyle({ color: 'var(--gold)' })
+    await openMoreMenu()
+    expect(screen.getByRole('menuitemradio', { name: /Spread/ })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
   })
 
-  it('calls onModeChange when a mode button is clicked', async () => {
+  it('calls onModeChange when a mode item is clicked', async () => {
     const onModeChange = vi.fn()
     renderToolbar({ onModeChange })
-    await userEvent.click(screen.getByTitle('Spread'))
+    await openMoreMenu()
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /Spread/ }))
     expect(onModeChange).toHaveBeenCalledWith('spread')
   })
 
-  it('hides mode toggle on mobile', () => {
+  it('omits the mode items on mobile, where the reader is single-page only', async () => {
     renderToolbar({ isMobilePhone: true })
-    // Buttons are rendered but inside a display:none container — check via parent style.
-    const pageBtn = screen.getByTitle('Page')
-    expect(pageBtn.closest('div')).toHaveStyle({ display: 'none' })
+    await openMoreMenu()
+    expect(screen.queryByRole('menuitemradio', { name: /Spread/ })).not.toBeInTheDocument()
   })
 })
 
 describe('ReaderToolbar — spread offset', () => {
-  it('does not show Cover button in page mode', () => {
-    renderToolbar({ mode: 'page' })
-    expect(screen.queryByText('Cover')).not.toBeInTheDocument()
-  })
-
-  it('shows Cover button in spread mode', () => {
+  it('keeps the cover pairing out of the toolbar itself', () => {
     renderToolbar({ mode: 'spread' })
-    expect(screen.getByText('Cover')).toBeInTheDocument()
+    expect(screen.queryByText('Pair cover with page 2')).not.toBeInTheDocument()
   })
 
-  it('hides Cover button on mobile even in spread mode', () => {
-    renderToolbar({ mode: 'spread', isMobilePhone: true })
-    expect(screen.queryByText('Cover')).not.toBeInTheDocument()
+  it('offers cover pairing in the overflow menu in spread mode', async () => {
+    renderToolbar({ mode: 'spread' })
+    await openMoreMenu()
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' })
+    ).toBeInTheDocument()
   })
 
-  it('calls onSpreadOffsetChange(1) when Cover is clicked and offset is 0', async () => {
+  it('omits cover pairing in page mode, where it does not apply', async () => {
+    renderToolbar({ mode: 'page' })
+    await openMoreMenu()
+    expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+  })
+
+  it('calls onSpreadOffsetChange(1) when cover pairing is turned on', async () => {
     const onSpreadOffsetChange = vi.fn()
     renderToolbar({ mode: 'spread', spreadOffset: 0, onSpreadOffsetChange })
-    await userEvent.click(screen.getByText('Cover'))
+    await openMoreMenu()
+    await userEvent.click(screen.getByRole('menuitemcheckbox'))
     expect(onSpreadOffsetChange).toHaveBeenCalledWith(1)
   })
 
-  it('calls onSpreadOffsetChange(0) when Cover is clicked and offset is 1', async () => {
+  it('calls onSpreadOffsetChange(0) when cover pairing is turned off', async () => {
     const onSpreadOffsetChange = vi.fn()
     renderToolbar({ mode: 'spread', spreadOffset: 1, onSpreadOffsetChange })
-    await userEvent.click(screen.getByText('Cover'))
+    await openMoreMenu()
+    await userEvent.click(screen.getByRole('menuitemcheckbox'))
     expect(onSpreadOffsetChange).toHaveBeenCalledWith(0)
-  })
-
-  it('shows include-cover tooltip when offset is 0', () => {
-    renderToolbar({ mode: 'spread', spreadOffset: 0 })
-    expect(screen.getByTitle(/Include cover in spread/)).toBeInTheDocument()
-  })
-
-  it('shows exclude-cover tooltip when offset is 1', () => {
-    renderToolbar({ mode: 'spread', spreadOffset: 1 })
-    expect(screen.getByTitle(/Exclude cover from spread/)).toBeInTheDocument()
   })
 
   it('shows right page number when hasRight is true in spread mode', () => {
@@ -191,16 +198,32 @@ describe('ReaderToolbar — panel selector', () => {
 })
 
 describe('ReaderToolbar — actions', () => {
-  it('calls onToggleFavorite when favorite button is clicked', async () => {
+  it('calls onToggleFavorite from the overflow menu', async () => {
     const onToggleFavorite = vi.fn()
     renderToolbar({ onToggleFavorite })
-    await userEvent.click(screen.getByTitle('Add to favorites'))
+    await openMoreMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to favorites' }))
     expect(onToggleFavorite).toHaveBeenCalledOnce()
   })
 
-  it('shows remove-favorites title when already favorited', () => {
+  it('offers to remove the favorite when already favorited', async () => {
     renderToolbar({ isFavorite: true })
-    expect(screen.getByTitle('Remove from favorites')).toBeInTheDocument()
+    await openMoreMenu()
+    expect(screen.getByRole('menuitem', { name: 'Remove from favorites' })).toBeInTheDocument()
+  })
+
+  it('calls onShowDetails from the overflow menu', async () => {
+    const onShowDetails = vi.fn()
+    renderToolbar({ onShowDetails })
+    await openMoreMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'View details' }))
+    expect(onShowDetails).toHaveBeenCalledOnce()
+  })
+
+  it('offers a download link in the overflow menu', async () => {
+    renderToolbar()
+    await openMoreMenu()
+    expect(screen.getByRole('menuitem', { name: 'Download' })).toHaveAttribute('download')
   })
 
   it('calls onBookmarkPage when bookmark button is clicked', async () => {
@@ -215,10 +238,11 @@ describe('ReaderToolbar — actions', () => {
     expect(screen.queryByTitle('Bookmark this page')).not.toBeInTheDocument()
   })
 
-  it('calls onToggleShortcuts when keyboard button is clicked', async () => {
+  it('calls onToggleShortcuts from the overflow menu', async () => {
     const onToggleShortcuts = vi.fn()
     renderToolbar({ onToggleShortcuts })
-    await userEvent.click(screen.getByTitle('Keyboard shortcuts (?)'))
+    await openMoreMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Keyboard Shortcuts' }))
     expect(onToggleShortcuts).toHaveBeenCalledOnce()
   })
 
