@@ -512,6 +512,21 @@
       "tooShort": "Le nouveau mot de passe doit contenir au moins 8 caractères.",
       "failed": "Échec du changement de mot de passe."
     },
+    "sessions": {
+      "title": "Sessions actives",
+      "description": "Appareils actuellement connectés à votre compte. Révoquer une session déconnecte cet appareil ; cela peut prendre jusqu'à 30 minutes pour être pleinement effectif.",
+      "empty": "Aucune session active.",
+      "thisDevice": "Cet appareil",
+      "unknownDevice": "Appareil inconnu",
+      "originPassword": "Mot de passe",
+      "originSso": "Authentification unique",
+      "originGuest": "Code invité",
+      "lastUsed": "dernière utilisation {{when}}",
+      "revoke": "Révoquer",
+      "revokeAllOthers": "Déconnecter tous les autres appareils",
+      "loadFailed": "Échec du chargement des sessions.",
+      "revokeFailed": "Échec de la révocation de la session."
+    },
     "deleteAccount": {
       "title": "Supprimer le compte",
       "description": "Supprime définitivement votre compte ainsi que tous les signets et favoris associés. Cette action est irréversible.",

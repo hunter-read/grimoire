@@ -52,6 +52,47 @@ class User(Base):
     created_at = Column(DateTime, default=_utcnow)
 
 
+class AuthSession(Base):
+    """One login session, and the unit of revocation.
+
+    Access tokens are short-lived and stateless (checked by signature and
+    ``exp`` alone, so the hot path stays a pure signature check with no database
+    round trip). Everything revocable hangs off this row instead: the refresh
+    token is only usable while its session is live, so revoking a row kills the
+    session within at most one access-token lifetime.
+
+    ``refresh_token_hash`` stores a SHA-256 of the refresh token rather than the
+    token itself — a leaked database backup then yields no usable sessions. The
+    token is rotated on every refresh, so the hash changes each time.
+
+    ``rotated_at``/``previous_token_hash`` support one-time reuse detection: if a
+    refresh token that was already exchanged comes back, the session is treated
+    as stolen and revoked outright rather than merely refused.
+    """
+
+    __tablename__ = "auth_sessions"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    refresh_token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    # The immediately-previous refresh token, kept only to recognise a replay of
+    # the token this one replaced. Cleared once the session is revoked.
+    previous_token_hash = Column(String(64), nullable=True, index=True)
+    # How the session was created: "password", "guest", or "oidc". Shown in the
+    # session list so a user can tell an SSO login from a local one.
+    origin = Column(String(20), default="password")
+    # Best-effort client description for the session list. Truncated on write —
+    # a User-Agent is attacker-controlled and must never be stored unbounded.
+    user_agent = Column(String(255), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    last_used_at = Column(DateTime, default=_utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (Index("ix_auth_sessions_user_revoked", "user_id", "revoked_at"),)
+
+
 class Bookmark(Base):
     """Per-user bookmarks within a book — either a page or a text selection."""
 

@@ -15,7 +15,7 @@ The live API is self-documented via OpenAPI. With the server running:
 
 ## Authentication
 
-All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, `/api/auth/logout`, and `/api/auth/config` require a JWT.
+All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, `/api/auth/logout`, `/api/auth/refresh`, and `/api/auth/config` require a JWT.
 
 **Header** (preferred for API clients):
 ```
@@ -32,7 +32,32 @@ On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, o
 ```
 Still accepted so pre-existing links keep working, but the JWT in a URL leaks into proxy/access logs, `Referer` headers, and browser history (see [#156](https://github.com/hunter-read/grimoire/issues/156)). The frontend no longer generates `?token=` URLs — use the cookie instead. This fallback may be removed in a future release.
 
-Tokens are returned by `/api/auth/login` and expire after **30 days**. The auth precedence for any request is: `Authorization` header → `grimoire_session` cookie → `?token=` query param.
+The auth precedence for any request is: `Authorization` header → `grimoire_session` cookie → `?token=` query param.
+
+### Token lifetimes and revocation
+
+Access tokens are **short-lived** and paired with a long-lived refresh token, so a leaked token is no longer valid for a month with no way to stop it ([#157](https://github.com/hunter-read/grimoire/issues/157)).
+
+| Credential | Default lifetime | Env var | Where it lives |
+|------------|------------------|---------|----------------|
+| Access token (JWT) | 30 minutes | `ACCESS_TOKEN_EXPIRE_MINUTES` | `Authorization` header, `grimoire_session` cookie |
+| Refresh token | 30 days idle | `REFRESH_TOKEN_EXPIRE_DAYS` | `grimoire_refresh` cookie (`HttpOnly`, `SameSite=Strict`, scoped to `/api/auth`) |
+
+Every login — password, first-run setup, guest code, and OIDC — creates a row in `auth_sessions`. The refresh token is bound to that row and only its SHA-256 is stored, so a database leak yields no usable sessions.
+
+**How revocation works.** Revoking a session invalidates its refresh token immediately. The access token stays valid until it expires (at most `ACCESS_TOKEN_EXPIRE_MINUTES`), which is the deliberate trade for keeping access-token checks stateless and database-free on the hot path. Lower `ACCESS_TOKEN_EXPIRE_MINUTES` to narrow that window.
+
+Refresh tokens are **single-use and rotate** on every exchange. Presenting a token that was already exchanged is treated as evidence it leaked and revokes the entire session rather than merely refusing the call.
+
+Sessions are revoked automatically when:
+
+- the user logs out (that session only);
+- an admin changes the user's role or resets their password (all sessions);
+- the user changes their own password (all sessions *except* the current one);
+- a guest is removed or their invite code is regenerated;
+- the user account is deleted.
+
+When an access token expires, the response carries an `X-Token-Expired: 1` header alongside the 401 so clients can distinguish "refresh and retry" from a genuine authentication failure. The web client refreshes and replays the request automatically, sharing one in-flight refresh across concurrent 401s (parallel exchanges would rotate each other into invalidity).
 
 ### Rate limiting
 
@@ -65,10 +90,14 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 | `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}` and sets the `grimoire_session` cookie. Fails with 400 if any users exist. |
 | `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`) and sets the `grimoire_session` cookie. Returns 403 if password authentication is disabled. |
 | `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
-| `/api/auth/logout` | POST | - | Clears the `grimoire_session` cookie. Requires no auth (a client with an expired cookie can still log out). The JWT itself is stateless and not revoked; the client should also discard its stored token. |
+| `/api/auth/logout` | POST | - | Revokes the current session (identified by the `grimoire_refresh` cookie) and clears both auth cookies. Requires no auth so a client with an expired access token can still log out. The refresh token dies immediately; the current access token remains valid until it expires. |
+| `/api/auth/refresh` | POST | - | Exchanges the `grimoire_refresh` cookie for a new access token, rotating the refresh token. Returns `{token, user}` and re-sets both cookies. Returns 401 when the refresh token is missing, expired, or revoked; reusing an already-rotated token revokes the whole session. Rate-limited like the other credential endpoints. |
 | `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}`. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
+| `/api/auth/sessions` | GET | any | The caller's own live sessions, newest first: `[{id, origin, user_agent, ip_address, created_at, last_used_at, expires_at, current}]`. `origin` is `password`, `guest`, or `oidc`; `current` marks the session backing this request. |
+| `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else — revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
+| `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
 | `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
-| `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, sets the `grimoire_session` cookie, and redirects to the frontend with `#oidc_token=<jwt>`. |
+| `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the frontend with `#oidc_token=<jwt>`. Only the short-lived access token travels in the fragment; the refresh token is cookie-only. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
 ### Users

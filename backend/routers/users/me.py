@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ...config import OPDS_ENABLED, BASE_URL, get_db
 from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
+from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..campaigns._helpers import purge_user_data
 from ._schemas import PasswordChange, PreferencesUpdate
 
@@ -52,7 +53,11 @@ def change_own_password(
         raise HTTPException(400, "Current password is incorrect")
     user.hashed_password = hash_password(data.new_password)
     db.commit()
-    return {"status": "ok"}
+    # Changing your password is the standard way to boot out someone who has
+    # your old one, so every *other* session ends. The current one is kept so
+    # the user isn't logged out of the device they just did this on.
+    revoked = revoke_user_sessions(db, user.id, except_session_id=current_user.session_id)
+    return {"status": "ok", "sessions_revoked": revoked}
 
 
 def delete_own_account(
@@ -64,6 +69,7 @@ def delete_own_account(
         raise HTTPException(404, "User not found")
     if user.role == "admin":
         raise HTTPException(400, "Admin accounts cannot be self-deleted")
+    delete_user_sessions(db, user.id)
     purge_user_data(db, user.id)
     db.delete(user)
     db.commit()

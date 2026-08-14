@@ -512,6 +512,21 @@
       "tooShort": "A nova palavra-passe deve ter pelo menos 8 caracteres.",
       "failed": "Falha ao alterar a palavra-passe."
     },
+    "sessions": {
+      "title": "Sessões ativas",
+      "description": "Dispositivos com sessão iniciada na tua conta. Revogar uma sessão termina a sessão nesse dispositivo; pode demorar até 30 minutos a ter efeito total.",
+      "empty": "Sem sessões ativas.",
+      "thisDevice": "Este dispositivo",
+      "unknownDevice": "Dispositivo desconhecido",
+      "originPassword": "Palavra-passe",
+      "originSso": "Início de sessão único",
+      "originGuest": "Código de convidado",
+      "lastUsed": "última utilização {{when}}",
+      "revoke": "Revogar",
+      "revokeAllOthers": "Terminar sessão nos outros dispositivos",
+      "loadFailed": "Falha ao carregar as sessões.",
+      "revokeFailed": "Falha ao revogar a sessão."
+    },
     "deleteAccount": {
       "title": "Eliminar conta",
       "description": "Elimina permanentemente a sua conta e todos os marcadores e favoritos associados. Esta ação não pode ser anulada.",

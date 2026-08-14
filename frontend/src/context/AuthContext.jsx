@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { auth as authApi } from '../api'
+import { auth as authApi, refreshAccessToken } from '../api'
 
 // status: 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
 const AuthContext = createContext(null)
@@ -11,6 +11,34 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('grimoire_token')
 
+    // Validate the stored token, falling back to a refresh. Access tokens are
+    // short-lived (issue #157), so a returning user almost always arrives with
+    // an expired one — that must resume the session from the refresh cookie
+    // rather than bounce them to the login screen.
+    const resolveSession = async () => {
+      let active = token
+      if (active) {
+        const me = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${active}` },
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+        if (me) return me
+        // The stored token is no good. Drop it now rather than at the end of
+        // this chain, so we never leave a rejected token sitting in storage if
+        // the refresh below fails or throws.
+        localStorage.removeItem('grimoire_token')
+      }
+
+      // Either there was no token or it was rejected. A live refresh cookie
+      // still resumes the session; anything else means genuinely logged out.
+      active = await refreshAccessToken()
+      if (!active) return null
+      return fetch('/api/auth/me', { headers: { Authorization: `Bearer ${active}` } })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+    }
+
     fetch('/api/auth/status')
       .then((r) => r.json())
       .then(({ initialized }) => {
@@ -18,22 +46,15 @@ export function AuthProvider({ children }) {
           setStatus('uninitialized')
           return
         }
-        if (!token) {
-          setStatus('unauthenticated')
-          return
-        }
-        // Validate existing token
-        fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((userData) => {
-            if (userData) {
-              setUser(userData)
-              setStatus('authenticated')
-            } else {
-              localStorage.removeItem('grimoire_token')
-              setStatus('unauthenticated')
-            }
-          })
+        return resolveSession().then((userData) => {
+          if (userData) {
+            setUser(userData)
+            setStatus('authenticated')
+          } else {
+            localStorage.removeItem('grimoire_token')
+            setStatus('unauthenticated')
+          }
+        })
       })
       .catch(() => setStatus('unauthenticated'))
 

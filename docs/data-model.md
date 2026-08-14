@@ -19,6 +19,7 @@ so they are omitted from the relationship graph for clarity.
 
 ```mermaid
 erDiagram
+    users ||--o{ auth_sessions : "signed in from"
     users ||--o{ campaigns : owns
     users ||--o{ campaign_members : "member of"
     users ||--o{ bookmarks : has
@@ -87,6 +88,7 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 | `favorites.user_id` | `users.id` | `item_id` is a soft link (not a FK) |
 | `saved_filters.user_id` | `users.id` | per-user sort/filter presets |
 | `user_themes.user_id` | `users.id` | per-user installed colour themes |
+| `auth_sessions.user_id` | `users.id` | one row per login session; deleted with the user |
 | `campaigns.owner_id` | `users.id` | the GM / creator |
 | `campaigns.parent_campaign_id` | `campaigns.id` | self-referential; nullable |
 | `campaigns.system_id` | `game_systems.id` | nullable; falls back to `system_name` |
@@ -157,6 +159,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | `favorites` | Per-user favorite across books/maps/tokens. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 | `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
 | `user_themes` | A colour theme installed by one user, for that user only. | FK `user_id` (indexed). `tokens` JSON holds the `{name: colour}` map, re-validated against the token allowlist on read as well as write. `mode` ∈ light/dark is the primary colour mode; `variants` JSON holds `{colour_mode: {token: colour}}` so one theme can pair a light and a dark palette (a row predating it is read as single-mode, using `tokens`). `app_mode` ∈ grimoire/codex is which app mode the theme was built for (a preference, not a restriction). `source_id`/`source_url`/`source_version` record a downloaded theme's provenance and are null for one written in the app. **Unique** `(user_id, theme_id)`. |
+| `auth_sessions` | One login session — the unit of revocation behind refresh tokens (issue #157). | FK `user_id` (indexed). `refresh_token_hash` is a SHA-256 of the refresh token, unique + indexed (the token itself is never stored). `previous_token_hash` keeps the immediately-replaced hash so a replay of a rotated token is detectable, and is cleared on revoke. `origin` ∈ password/guest/oidc. `user_agent` truncated to 255 chars. `revoked_at` null while live; `expires_at` is the idle deadline, extended on each rotation. Index `ix_auth_sessions_user_revoked` on `(user_id, revoked_at)`. Rows are deleted by `session_purger` once expired or revoked more than 7 days ago. |
 
 ### Tags - [`backend/models/tags.py`](../backend/models/tags.py)
 

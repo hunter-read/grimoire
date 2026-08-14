@@ -36,6 +36,8 @@ backend on port 9481.
 | [`backend/addon_worker.py`](../backend/addon_worker.py) | Standalone entry point for the spawned add-on script process. Like `pdf_worker`, imports nothing from `backend` - a child running third-party code must not reach the DB or our internals. |
 | [`backend/routers/`](../backend/routers/) | One package per feature area (see the router shape below). |
 | [`backend/scheduler.py`](../backend/scheduler.py), [`backend/session_creator.py`](../backend/session_creator.py) | Campaign session scheduling - apply recurrence on startup and auto-create upcoming sessions. |
+| [`backend/sessions.py`](../backend/sessions.py) | Login-session lifecycle behind refresh tokens: issue, rotate, revoke. Access tokens stay stateless; this is what makes a session revocable. |
+| [`backend/session_purger.py`](../backend/session_purger.py) | Daily background thread deleting long-dead `auth_sessions` rows. Claims a file lock so only one worker runs it. |
 | [`backend/seed_users.py`](../backend/seed_users.py) | First-run / env-driven user pre-seeding. |
 
 #### Router package shape

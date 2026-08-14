@@ -480,4 +480,135 @@ describe('api', () => {
       ])
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // Access-token refresh (issue #157)
+  // ---------------------------------------------------------------------------
+
+  describe('refresh on 401', () => {
+    // A response object shaped like the ones handleResponse consumes.
+    const res = (status, body) => ({
+      status,
+      ok: status >= 200 && status < 300,
+      text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body)),
+      json: () => Promise.resolve(body),
+    })
+
+    it('refreshes and retries once when a request 401s', async () => {
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce(res(401))
+        .mockResolvedValueOnce(res(200, { token: 'fresh' }))
+        .mockResolvedValueOnce(res(200, { ok: true }))
+
+      await expect(api.get('/systems')).resolves.toEqual({ ok: true })
+
+      const urls = fetch.mock.calls.map(([u]) => u)
+      expect(urls).toEqual(['/api/systems', '/api/auth/refresh', '/api/systems'])
+      expect(localStorage.getItem('grimoire_token')).toBe('fresh')
+    })
+
+    it('sends the refreshed token on the retry', async () => {
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce(res(401))
+        .mockResolvedValueOnce(res(200, { token: 'fresh' }))
+        .mockResolvedValueOnce(res(200, {}))
+
+      await api.get('/systems')
+
+      const [, retryOptions] = fetch.mock.calls[2]
+      expect(retryOptions.headers.Authorization).toBe('Bearer fresh')
+    })
+
+    it('gives up and reports 401 when the refresh fails', async () => {
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi.fn().mockResolvedValueOnce(res(401)).mockResolvedValueOnce(res(401))
+
+      await expect(api.get('/systems')).rejects.toMatchObject({ status: 401 })
+      expect(fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not attempt a refresh when no token is stored', async () => {
+      global.fetch = vi.fn().mockResolvedValue(res(401))
+
+      await expect(api.get('/systems')).rejects.toMatchObject({ status: 401 })
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not refresh on a failed login', async () => {
+      // A 401 from /auth/login means bad credentials, not a stale token.
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi.fn().mockResolvedValue(res(401))
+
+      await expect(api.post('/auth/login', { username: 'a', password: 'b' })).rejects.toMatchObject(
+        { status: 401 }
+      )
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('shares one refresh across concurrent 401s', async () => {
+      // Refresh tokens rotate on use, so parallel refreshes would invalidate
+      // each other and log the user out.
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi.fn().mockImplementation((url) => {
+        if (url === '/api/auth/refresh') return Promise.resolve(res(200, { token: 'fresh' }))
+        return Promise.resolve(
+          localStorage.getItem('grimoire_token') === 'fresh' ? res(200, { ok: true }) : res(401)
+        )
+      })
+
+      await Promise.all([api.get('/a'), api.get('/b'), api.get('/c')])
+
+      const refreshCalls = fetch.mock.calls.filter(([u]) => u === '/api/auth/refresh')
+      expect(refreshCalls).toHaveLength(1)
+    })
+
+    it('rebuilds the form body when retrying an upload', async () => {
+      // FormData is a one-shot stream, so the retry needs its own instance.
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce(res(401))
+        .mockResolvedValueOnce(res(200, { token: 'fresh' }))
+        .mockResolvedValueOnce(res(200, { ok: true }))
+
+      await api.upload('/books/1/cover', new Blob(['x']))
+
+      const firstBody = fetch.mock.calls[0][1].body
+      const retryBody = fetch.mock.calls[2][1].body
+      expect(retryBody).toBeInstanceOf(FormData)
+      expect(retryBody).not.toBe(firstBody)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Session management (issue #157)
+  // ---------------------------------------------------------------------------
+
+  describe('auth.sessions', () => {
+    it('lists sessions', async () => {
+      global.fetch = mockFetch(200, [])
+      await auth.sessions()
+      expect(fetch.mock.calls[0][0]).toBe('/api/auth/sessions')
+    })
+
+    it('revokes a single session', async () => {
+      global.fetch = mockFetch(200, { ok: true })
+      await auth.revokeSession('sess-1')
+      const [url, options] = fetch.mock.calls[0]
+      expect(url).toBe('/api/auth/sessions/sess-1')
+      expect(options.method).toBe('DELETE')
+    })
+
+    it('revokes all other sessions', async () => {
+      global.fetch = mockFetch(200, { ok: true, revoked: 2 })
+      await auth.revokeOtherSessions()
+      const [url, options] = fetch.mock.calls[0]
+      expect(url).toBe('/api/auth/sessions/others')
+      expect(options.method).toBe('DELETE')
+    })
+  })
 })

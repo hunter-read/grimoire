@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from ...models import Campaign, CampaignMember, User
 from ...auth import CurrentUser
+from ...sessions import delete_user_sessions
 
 
 # Tables holding rows that belong to a single user and die with them. Kept as a
@@ -66,6 +67,9 @@ def delete_guest_user(db, user_id: str) -> None:
     user = db.query(User).filter_by(id=user_id).first()
     if not user or not user.is_guest:
         return
+    # Sessions carry an FK to users.id, so they go before the user row does —
+    # and removing a guest must end whatever session their code minted.
+    delete_user_sessions(db, user_id)
     purge_user_data(db, user_id)
     db.delete(user)
 

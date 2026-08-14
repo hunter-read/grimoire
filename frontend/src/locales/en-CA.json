@@ -512,6 +512,21 @@
       "tooShort": "New password must be at least 8 characters.",
       "failed": "Failed to change password."
     },
+    "sessions": {
+      "title": "Active Sessions",
+      "description": "Devices currently signed in to your account. Revoking a session signs that device out; it may take up to 30 minutes to take full effect.",
+      "empty": "No active sessions.",
+      "thisDevice": "This device",
+      "unknownDevice": "Unknown device",
+      "originPassword": "Password",
+      "originSso": "Single sign-on",
+      "originGuest": "Guest code",
+      "lastUsed": "last used {{when}}",
+      "revoke": "Revoke",
+      "revokeAllOthers": "Sign out all other devices",
+      "loadFailed": "Failed to load sessions.",
+      "revokeFailed": "Failed to revoke session."
+    },
     "deleteAccount": {
       "title": "Delete Account",
       "description": "Permanently deletes your account and all associated bookmarks and favourites. This cannot be undone.",
