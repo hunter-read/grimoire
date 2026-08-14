@@ -364,6 +364,15 @@ describe('PageEditor [[link]] autocomplete', () => {
     await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
     const body = screen.getByLabelText('Markdown')
     await user.click(screen.getByRole('button', { name: /Link page/ }))
+
+    // The button defers its caret placement and dropdown open into a
+    // requestAnimationFrame, which jsdom backs with a ~16ms timer. Typing
+    // straight away races that frame: on a loaded machine the caret is not yet
+    // between the brackets and the keystrokes are dropped, so the option below
+    // never appears. The dropdown opening on the empty query is the signal that
+    // the frame has run.
+    await screen.findByRole('listbox', { name: 'Page suggestions' })
+
     await user.keyboard('Bob')
     await user.click(await findOption('Boblin the Goblin'))
     expect(body.value).toBe('[[Boblin the Goblin]]')

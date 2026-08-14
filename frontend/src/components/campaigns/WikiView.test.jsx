@@ -258,7 +258,13 @@ describe('WikiView visibility editor', () => {
       const title = await screen.findByText('Dragons')
       fireEvent.mouseEnter(title.closest('div'))
       expect(screen.getAllByRole('button', { name: 'Icon' }).length).toBeGreaterThan(0)
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy()
+      // Delete lives in the *open page's* header, not the hovered tree row, so it
+      // depends on a second async hop: listWikiPages resolving is what auto-opens
+      // the first page, and only then does getWikiPage populate it. The tree row
+      // above ("Dragons") appears after the first of those, so asserting
+      // synchronously here races the second and fails outright roughly 1 run in
+      // 10. find* retries until it lands.
+      expect(await screen.findByRole('button', { name: 'Delete' })).toBeTruthy()
     })
   })
 
