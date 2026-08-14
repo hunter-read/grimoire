@@ -91,6 +91,36 @@ def strip_gm_secrets(body: str) -> str:
     return _GM_SECRET_RE.sub("", body or "")
 
 
+def escape_player_pipes(body: str) -> str:
+    """Neutralise ``||`` a player typed, so it is stored as literal text.
+
+    Secrets are a GM tool and the editor only offers the button to the GM, but
+    nothing stops a player typing the characters. Left alone, that text would be
+    stored as a real secret span and then stripped from its own author's view on
+    the next read — they would write a sentence, save, and watch it vanish with
+    no explanation.
+
+    So a player's pipes are escaped rather than honoured or rejected: each ``|``
+    in a run of two or more becomes ``\\|``, which markdown renders as a literal
+    ``|`` and which ``_GM_SECRET_RE`` no longer matches. What they typed is what
+    they see. Runs are matched rather than exact pairs so ``||||`` can't survive
+    as a pair once alternate characters are escaped.
+
+    Only ever applied to a non-GM's submission — see ``update_page``. An
+    already-escaped ``\\|\\|`` is left alone, so a player re-saving their own
+    page doesn't accumulate backslashes.
+    """
+    if not body:
+        return body
+
+    def esc(m: re.Match) -> str:
+        return "".join(ch if ch == "\\" else f"\\{ch}" for ch in m.group(0))
+
+    # A run of 2+ pipes, ignoring any that are already backslash-escaped: the
+    # negative lookbehind keeps a re-save idempotent.
+    return re.sub(r"(?<!\\)\|(?:\\?\|)+", esc, body)
+
+
 def _secret_positions(stored: str):
     """Return [(secret_text, offset_in_stripped)] for each ||...|| in ``stored``.
 

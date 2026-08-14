@@ -73,6 +73,8 @@ from .wiki import (
     create_page,
     update_page,
     delete_page,
+    hide_page,
+    unhide_page,
     search_pages,
     page_titles,
     reorder_pages,
@@ -578,6 +580,18 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Delete a wiki page",
     status_code=204,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/{page_id}/hide",
+    hide_page,
+    methods=["POST"],
+    summary="Hide a wiki page from your own view",
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/{page_id}/hide",
+    unhide_page,
+    methods=["DELETE"],
+    summary="Un-hide a wiki page you had hidden",
 )
 
 # --- Categories (reorder before /{category_id} to avoid routing conflict) ---

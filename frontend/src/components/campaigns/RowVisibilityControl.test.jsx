@@ -7,8 +7,8 @@ const setup = (over = {}) => {
   const onSetVisibility = vi.fn()
   const props = {
     visibility: 'gm',
-    canEdit: true,
-    isOwner: true,
+    isMine: true,
+    authorIsGm: true,
     rowHovered: false,
     onSetVisibility,
     ...over,
@@ -23,8 +23,8 @@ describe('RowVisibilityControl', () => {
       const { unmount } = render(
         <RowVisibilityControl
           visibility={visibility}
-          canEdit
-          isOwner
+          isMine
+          authorIsGm
           rowHovered={false}
           onSetVisibility={vi.fn()}
         />
@@ -40,8 +40,8 @@ describe('RowVisibilityControl', () => {
     const { unmount } = render(
       <RowVisibilityControl
         visibility="group"
-        canEdit
-        isOwner
+        isMine
+        authorIsGm
         rowHovered={false}
         onSetVisibility={vi.fn()}
       />
@@ -52,8 +52,8 @@ describe('RowVisibilityControl', () => {
     render(
       <RowVisibilityControl
         visibility="group"
-        canEdit
-        isOwner
+        isMine
+        authorIsGm
         rowHovered
         onSetVisibility={vi.fn()}
       />
@@ -92,12 +92,24 @@ describe('RowVisibilityControl', () => {
     expect(onSetVisibility).not.toHaveBeenCalled()
   })
 
-  it('offers only Public to non-owners', async () => {
+  // Every level is available to whoever authored the page — a player keeps
+  // self-only and private notes of their own (issue #232).
+  it('offers every level to the author, whoever they are', async () => {
     const user = userEvent.setup()
-    setup({ visibility: 'group', isOwner: false })
+    setup({ visibility: 'group', authorIsGm: false })
     await user.click(screen.getByRole('button'))
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(1)
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
     expect(screen.getByRole('menuitemradio', { name: /public/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: /private/i })).toBeInTheDocument()
+    // The author-only level reads as "Self only" for a player.
+    expect(screen.getByRole('menuitemradio', { name: /self only/i })).toBeInTheDocument()
+  })
+
+  it('labels the author-only level "GM only" on the GM\'s own page', async () => {
+    const user = userEvent.setup()
+    setup({ visibility: 'group', authorIsGm: true })
+    await user.click(screen.getByRole('button'))
+    expect(screen.getByRole('menuitemradio', { name: /gm only/i })).toBeInTheDocument()
   })
 
   it('highlights a menu item on hover and restores it on leave', async () => {
@@ -150,8 +162,9 @@ describe('RowVisibilityControl', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('renders a non-interactive glyph when the user cannot edit', () => {
-    setup({ canEdit: false })
+  // Only the author may reclassify a page, even where others may edit its text.
+  it("renders a non-interactive glyph on someone else's page", () => {
+    setup({ isMine: false })
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByRole('img', { name: /visibility/i })).toBeInTheDocument()
   })

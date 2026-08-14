@@ -194,19 +194,20 @@ def export_wiki(
     Deliberately still works on an archived campaign — archiving is exactly when
     someone wants their notes out — since exporting reads rather than writes.
 
-    A non-owner receives only what they can already see in the app: pages that
-    fail ``can_view_page`` are omitted entirely, and ``||GM secrets||`` are
-    stripped from the bodies of the pages that remain. The owner exports the
-    unfiltered wiki, as before.
+    Everyone receives only what they can already see in the app: pages that fail
+    ``can_view_page`` are omitted entirely, and ``||GM secrets||`` are stripped
+    from a player's bodies. The page filter now applies to the campaign owner
+    too — since ``gm`` visibility means "author only", a GM is no more entitled
+    to export a player's self-only note than to read it (issue #232). Secrets
+    remain GM-only regardless of who authored the page holding them.
     """
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
-    is_owner = c.owner_id == current_user.id
+    is_gm = c.owner_id == current_user.id
 
     pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
-    if not is_owner:
-        pages = [p for p in pages if can_view_page(p, c, current_user, db)]
+    pages = [p for p in pages if can_view_page(p, c, current_user, db)]
     pages.sort(key=lambda p: (p.sort_order or 0, (p.title or "").lower()))
     by_id = {p.id: p for p in pages}
     # A page's parent slug, used to round-trip nesting through the export.
@@ -216,10 +217,10 @@ def export_wiki(
     }
     base = slugify(c.name) or "campaign"
 
-    # The owner's export is verbatim; everyone else's has GM secrets removed, the
-    # same body they'd see in the reader.
+    # The GM's export is verbatim; a player's has GM secrets removed, the same
+    # body they'd see in the reader.
     def body_of(p) -> str:
-        return (p.body or "") if is_owner else strip_gm_secrets(p.body or "")
+        return (p.body or "") if is_gm else strip_gm_secrets(p.body or "")
 
     if format == "json":
         bundle = {

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuCheck } from 'react-icons/lu'
-import { VIS_META, POPOVER_WIDTH } from './wikiShared'
+import { VIS_META, POPOVER_WIDTH, VIS_OPTIONS, visLabelKey } from './wikiShared'
 
 // The per-row visibility indicator in the campaign tree.
 //
@@ -12,13 +12,14 @@ import { VIS_META, POPOVER_WIDTH } from './wikiShared'
 // fully-visible (group) pages show theirs only on row hover or keyboard focus,
 // keeping the default state uncluttered.
 //
-// When the viewer can edit the page the glyph is a button opening the same
-// level menu as the header's VisibilityEditor; otherwise it renders as a plain
-// glyph with a tooltip.
+// Only the page's *author* may reclassify it, which is narrower than who may
+// edit its text: on a public page everyone can contribute, but nobody else gets
+// to take it private. So the glyph opens the level menu for the author and
+// renders as a plain tooltip'd glyph for everyone else.
 export default function RowVisibilityControl({
   visibility,
-  canEdit,
-  isOwner,
+  isMine,
+  authorIsGm = true,
   rowHovered,
   onSetVisibility,
 }) {
@@ -35,7 +36,7 @@ export default function RowVisibilityControl({
   // Restricted pages always advertise their state; "group" is the unremarkable
   // default, so it only surfaces on interaction.
   const visible = isRestricted || rowHovered || focused || open
-  const options = isOwner ? ['gm', 'group', 'members'] : ['group']
+  const options = VIS_OPTIONS
 
   const place = useCallback(() => {
     const el = triggerRef.current
@@ -76,10 +77,10 @@ export default function RowVisibilityControl({
     }
   }, [open, place])
 
-  const label = t('wiki.visibilityIs', { level: t(`wiki.vis_${meta.key}`) })
+  const label = t('wiki.visibilityIs', { level: t(visLabelKey(meta.key, authorIsGm)) })
 
-  // Read-only viewers get the glyph without the menu affordance.
-  if (!canEdit) {
+  // Anyone but the author gets the glyph without the menu affordance.
+  if (!isMine) {
     return (
       <span
         title={label}
@@ -114,7 +115,9 @@ export default function RowVisibilityControl({
         onDragStart={(e) => e.stopPropagation()}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={t('wiki.changeVisibilityFrom', { level: t(`wiki.vis_${meta.key}`) })}
+        aria-label={t('wiki.changeVisibilityFrom', {
+          level: t(visLabelKey(meta.key, authorIsGm)),
+        })}
         title={label}
         style={{
           flexShrink: 0,
@@ -192,7 +195,7 @@ export default function RowVisibilityControl({
                   }}
                 >
                   <OptIcon size={13} style={{ flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>{t(`wiki.vis_${m.key}`)}</span>
+                  <span style={{ flex: 1 }}>{t(visLabelKey(m.key, authorIsGm))}</span>
                   {selected && <LuCheck size={13} style={{ color: 'var(--gold)' }} />}
                 </button>
               )

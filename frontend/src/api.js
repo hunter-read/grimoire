@@ -146,12 +146,21 @@ export const campaigns = {
     api.put(`/campaigns/${id}/sessions/${sessionId}/notes/gm`, data),
   searchSessions: (id, q) => api.get(`/campaigns/${id}/sessions/search?q=${encodeURIComponent(q)}`),
 
-  // Wiki pages
-  listWikiPages: (id) => api.get(`/campaigns/${id}/wiki`),
+  // Wiki pages. `opts` carries the sidebar filters: `mine` restricts to pages
+  // the user authored, `includeHidden` brings back the ones they hid.
+  listWikiPages: (id, opts = {}) => {
+    const params = new URLSearchParams()
+    if (opts.mine) params.set('mine', 'true')
+    if (opts.includeHidden) params.set('include_hidden', 'true')
+    const qs = params.toString()
+    return api.get(`/campaigns/${id}/wiki${qs ? `?${qs}` : ''}`)
+  },
   getWikiPage: (id, pageId) => api.get(`/campaigns/${id}/wiki/${pageId}`),
   createWikiPage: (id, data) => api.post(`/campaigns/${id}/wiki`, data),
   updateWikiPage: (id, pageId, data) => api.patch(`/campaigns/${id}/wiki/${pageId}`, data),
   deleteWikiPage: (id, pageId) => api.delete(`/campaigns/${id}/wiki/${pageId}`),
+  hideWikiPage: (id, pageId) => api.post(`/campaigns/${id}/wiki/${pageId}/hide`),
+  unhideWikiPage: (id, pageId) => api.delete(`/campaigns/${id}/wiki/${pageId}/hide`),
   searchWiki: (id, q) => api.get(`/campaigns/${id}/wiki/search?q=${encodeURIComponent(q)}`),
   wikiTitles: (id) => api.get(`/campaigns/${id}/wiki/titles`),
   reorderWikiPages: (id, orderedIds) =>

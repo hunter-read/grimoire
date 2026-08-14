@@ -16,11 +16,11 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import User, WikiPage, WikiPageLink, WikiPageShare
+from ...models import User, WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
 from ._helpers import (
-    assert_can_manage,
     assert_not_archived,
     can_view,
+    escape_player_pipes,
     extract_snippet,
     get_campaign_or_404,
     merge_gm_secrets,
@@ -48,6 +48,8 @@ __all__ = [
     "create_page",
     "update_page",
     "delete_page",
+    "hide_page",
+    "unhide_page",
     "search_pages",
     "page_titles",
 ]
@@ -62,29 +64,122 @@ def parse_page_link_titles(body: str) -> list:
     return [link.title for link in parse_page_links(body)]
 
 
+def _share_for(db, page: WikiPage, user_id: str):
+    """The share row granting `user_id` access to `page`, if any."""
+    return db.query(WikiPageShare).filter_by(page_id=page.id, user_id=user_id).first()
+
+
 def can_view_page(page: WikiPage, campaign, user: CurrentUser, db) -> bool:
-    if campaign.owner_id == user.id:
-        return True
-    # Non-owners must be campaign viewers (accepted members).
+    """Who may read a page.
+
+    The author always can. Beyond that, visibility decides:
+
+    - ``group`` ("Public")  — every campaign viewer.
+    - ``members`` ("Private") — the users the author shared it with.
+    - ``gm`` ("author only") — nobody else, *including the campaign owner*.
+
+    That last one is the change from the original model, where ``gm`` meant "the
+    campaign owner" rather than "the author" and so the GM read every page in the
+    campaign. It is now symmetric: a GM's own notes are labelled "GM only" and a
+    player's are labelled "Self only", but both mean the same thing — only the
+    person who wrote it. A GM who wants to read a player's note needs it shared
+    with them (issue #232).
+    """
+    # Every path below still requires campaign access; the author of a page in a
+    # campaign they were since removed from doesn't keep a back door to it.
     if not can_view(campaign, user, db):
         return False
+    if page.created_by_id == user.id:
+        return True
     if page.visibility == "group":
         return True
     if page.visibility == "members":
-        return (
-            db.query(WikiPageShare)
-            .filter_by(page_id=page.id, user_id=user.id)
-            .first()
-            is not None
-        )
-    return False  # gm-only
+        return _share_for(db, page, user.id) is not None
+    return False  # gm / self-only, and this user isn't the author
 
 
-def can_edit_page(page: WikiPage, campaign, user: CurrentUser) -> bool:
-    """Owner edits anything; a member may edit a page they authored."""
-    if campaign.owner_id == user.id:
+def can_edit_page(page: WikiPage, campaign, user: CurrentUser, db) -> bool:
+    """Who may edit a page's content and metadata.
+
+    The author always can. A ``group`` page is editable by every campaign viewer,
+    which is what makes a shared party knowledge base work (issue #233). A
+    ``members`` page is editable by the users the author granted *write* to —
+    write implies read, so a write share is also a view share. Campaign ownership
+    alone grants nothing here: the GM cannot edit a player's page unless the
+    player shared write access with them.
+    """
+    if not can_view(campaign, user, db):
+        return False
+    if page.created_by_id == user.id:
         return True
+    if page.visibility == "group":
+        return True
+    if page.visibility == "members":
+        share = _share_for(db, page, user.id)
+        return share is not None and bool(share.can_write)
+    return False
+
+
+def can_delete_page(page: WikiPage, user: CurrentUser) -> bool:
+    """Only the author may delete a page.
+
+    Deliberately narrower than editing: a player must not be able to delete a
+    GM's page just because it is public and therefore editable, and the GM must
+    not be able to delete a player's page either. Anyone who merely wants it out
+    of their way can hide it instead.
+    """
     return page.created_by_id == user.id
+
+
+def is_page_hidden(db, page_id: str, user_id: str) -> bool:
+    return (
+        db.query(WikiPageHidden).filter_by(page_id=page_id, user_id=user_id).first()
+        is not None
+    )
+
+
+def hidden_page_ids(db, campaign_id: str, user_id: str, campaign=None) -> set:
+    """Ids this user has hidden, expanded to include every descendant.
+
+    Hiding a parent hides its subtree. That is resolved here rather than stored
+    per descendant, so moving a page out of a hidden subtree un-hides it and a
+    page created under a hidden parent is hidden from the start.
+
+    Given a `campaign`, a personal one always resolves to nothing hidden: the
+    feature does not exist there and `hide_page` refuses. Rows can still be on
+    disk from before that guard, or from when the campaign was a group one, and
+    honouring them would drop pages from the list with no UI able to bring them
+    back. Applied here rather than at each caller so no read path can forget it.
+    """
+    if campaign is not None and not campaign.is_gm_campaign:
+        return set()
+    rows = (
+        db.query(WikiPageHidden.page_id)
+        .join(WikiPage, WikiPage.id == WikiPageHidden.page_id)
+        .filter(WikiPage.campaign_id == campaign_id, WikiPageHidden.user_id == user_id)
+        .all()
+    )
+    roots = {r[0] for r in rows}
+    if not roots:
+        return roots
+
+    children: dict = {}
+    for pid, parent_id in (
+        db.query(WikiPage.id, WikiPage.parent_id)
+        .filter(WikiPage.campaign_id == campaign_id)
+        .all()
+    ):
+        if parent_id:
+            children.setdefault(parent_id, []).append(pid)
+
+    out = set(roots)
+    stack = list(roots)
+    while stack:
+        for child in children.get(stack.pop(), []):
+            if child not in out:
+                out.add(child)
+                stack.append(child)
+    return out
 
 
 def _ensure_unique_slug(db, campaign_id: str, base_slug: str, exclude_id: str = None) -> str:
@@ -222,12 +317,20 @@ def rewrite_inbound_titles(db, campaign_id: str, page: WikiPage, old_title: str)
             src.body = updated
 
 
-def _resolve_parent(db, campaign_id: str, parent_id, page_id: str = None):
+def _resolve_parent(
+    db, campaign_id: str, parent_id, page_id: str = None, campaign=None, user=None
+):
     """Validate a parent-page id for this campaign. Empty string moves to root.
 
     Returns the resolved id (or None), raising 400 if the parent is unknown, in a
     different campaign, the page itself, or one of its own descendants (which would
     create a cycle).
+
+    When `campaign` and `user` are supplied, also enforces that the user may
+    *write* the parent: a page must not be nested under one the user only reads,
+    which would otherwise let anyone graft children onto someone else's private
+    page (issue #232). An unreadable parent is reported as "invalid" rather than
+    "forbidden" so the response doesn't confirm that a hidden page exists.
     """
     if parent_id in (None, ""):
         return None
@@ -236,6 +339,11 @@ def _resolve_parent(db, campaign_id: str, parent_id, page_id: str = None):
     )
     if not parent:
         raise HTTPException(400, "Invalid parent page")
+    if campaign is not None and user is not None:
+        if not can_view_page(parent, campaign, user, db):
+            raise HTTPException(400, "Invalid parent page")
+        if not can_edit_page(parent, campaign, user, db):
+            raise HTTPException(403, "Not authorised to add pages under this page")
     if page_id is not None:
         if parent_id == page_id:
             raise HTTPException(400, "A page cannot be its own parent")
@@ -270,6 +378,8 @@ def _page_summary(p: WikiPage) -> dict:
 
 def list_pages(
     campaign_id: str,
+    mine: bool = Query(False, description="Only pages this user authored"),
+    include_hidden: bool = Query(False, description="Include pages this user hid"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -278,10 +388,21 @@ def list_pages(
         raise HTTPException(403, "Not a member of this campaign")
     pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
     visible = [p for p in pages if can_view_page(p, c, current_user, db)]
+    if mine:
+        visible = [p for p in visible if p.created_by_id == current_user.id]
+    hidden = hidden_page_ids(db, campaign_id, current_user.id, campaign=c)
+    if not include_hidden:
+        visible = [p for p in visible if p.id not in hidden]
     # Manual order first; fall back to title for pages never reordered.
     visible.sort(key=lambda p: (p.sort_order or 0, (p.title or "").lower()))
     return [
-        {**_page_summary(p), "can_edit": can_edit_page(p, c, current_user)}
+        {
+            **_page_summary(p),
+            "can_edit": can_edit_page(p, c, current_user, db),
+            "can_delete": can_delete_page(p, current_user),
+            "is_hidden": p.id in hidden,
+            "is_mine": p.created_by_id == current_user.id,
+        }
         for p in visible
     ]
 
@@ -292,18 +413,66 @@ def reorder_pages(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Apply a new manual order from an ordered list of page ids (owner only)."""
+    """Apply a new manual order, expressed relative to what this user can see.
+
+    ``sort_order`` is global but a user only ever sees a subset of the campaign's
+    pages, so their submitted list cannot be written as absolute positions —
+    doing that would renumber pages they can't see and shuffle the wiki for
+    everyone else. Instead we treat the submission as an ordering *of the slots
+    the movable pages already occupy*: collect those pages' current sort_order
+    values, then redeal them in the requested order. Every other page — invisible
+    to this user, or visible but not writable by them — keeps the exact
+    sort_order it had, so its position relative to the untouched pages is
+    preserved.
+
+    A user needs write access to move a page (issue #232): a page they may read
+    but not edit is skipped and holds its slot.
+    """
     c = get_campaign_or_404(db, campaign_id)
-    assert_can_manage(c, current_user, db)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    assert_not_archived(c)
+
     by_id = {
         p.id: p for p in db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
     }
-    order = 0
+    # The pages this user actually may move, in the order they asked for.
+    # Duplicates and unknown/forbidden ids are dropped rather than rejected, so a
+    # stale client list still applies as far as it legitimately can.
+    seen: set = set()
+    movable = []
     for pid in data.ordered_ids:
         p = by_id.get(pid)
-        if p:
-            p.sort_order = order
-            order += 1
+        if (
+            p is not None
+            and p.id not in seen
+            and can_view_page(p, c, current_user, db)
+            and can_edit_page(p, c, current_user, db)
+        ):
+            seen.add(p.id)
+            movable.append(p)
+
+    # The slots those pages hold today, redealt in the requested order: the same
+    # set of positions comes back out, just assigned to different pages, so every
+    # page outside `movable` keeps its position relative to them.
+    #
+    # The stored values are not necessarily distinct — pages start life at
+    # sort_order 0 and only diverge once something reorders them — and identical
+    # slots cannot express an ordering. So we deal *ranks* over the occupied
+    # range rather than the raw values: take the lowest slot as the base and
+    # number upward from it. Where the slots were already distinct this
+    # reproduces them exactly; where they collided it separates them without
+    # reaching past the range those pages already covered.
+    slots = sorted(p.sort_order or 0 for p in movable)
+    previous = None
+    for slot, p in zip(slots, movable):
+        # Walk the sorted slots in step with the requested order, forcing each
+        # one strictly above the last. Distinct slots pass through untouched
+        # (gaps included, so pages this user can't see that sat between them stay
+        # between them); a run of equal ones fans out into consecutive values.
+        p.sort_order = slot if previous is None or slot > previous else previous + 1
+        previous = p.sort_order
+
     db.commit()
     return {"ok": True}
 
@@ -319,7 +488,15 @@ def get_page(
     if not can_view_page(page, c, current_user, db):
         raise HTTPException(403, "Not authorised to view this page")
 
-    is_owner = c.owner_id == current_user.id
+    # Authorship decides who may *classify* a page (see update_page). It
+    # deliberately does not decide who sees ||secrets||, which are the GM's
+    # alone — see is_gm below.
+    is_author = page.created_by_id == current_user.id
+    # ||...|| spans are GM-only: a device for hiding text from players inside an
+    # otherwise shared page, so it is keyed on campaign ownership and nothing
+    # else. A player authoring a page does not get to keep secrets in it — not
+    # from the GM, and not from the other players.
+    is_gm = c.owner_id == current_user.id
     all_users = {u.id: u for u in db.query(User).all()}
     author = all_users.get(page.created_by_id)
 
@@ -331,9 +508,11 @@ def get_page(
         if src and can_view_page(src, c, current_user, db):
             backlinks.append(_page_summary(src))
 
-    shared_user_ids = (
-        [s.user_id for s in db.query(WikiPageShare).filter_by(page_id=page.id).all()]
-        if page.visibility == "members"
+    # Share lists are the author's to see and set; to anyone else they'd leak who
+    # else holds access to a page they merely read.
+    shares = (
+        db.query(WikiPageShare).filter_by(page_id=page.id).all()
+        if page.visibility == "members" and is_author
         else []
     )
 
@@ -342,13 +521,13 @@ def get_page(
         "campaign_id": campaign_id,
         "title": page.title,
         "slug": page.slug,
-        # ||...|| spans are GM-only. The owner gets the raw body; everyone else
+        # ||...|| spans are GM-only. The GM gets the raw body; everyone else
         # gets it fully stripped — no secret text and no marker, so a player
         # never learns a secret exists or where. A later save re-weaves the
         # stored secrets back by position (merge_gm_secrets). (Personal
         # campaigns only ever have the owner as a viewer, so nothing is
         # stripped.)
-        "body": page.body if is_owner else strip_gm_secrets(page.body),
+        "body": page.body if is_gm else strip_gm_secrets(page.body),
         "visibility": page.visibility,
         "page_type": page.page_type,
         "session_date": page.session_date,
@@ -357,18 +536,37 @@ def get_page(
         "icon_color": page.icon_color,
         "created_by_id": page.created_by_id,
         "created_by_name": (author.display_name or author.username) if author else None,
-        "can_edit": can_edit_page(page, c, current_user),
-        "shared_user_ids": shared_user_ids,
+        "can_edit": can_edit_page(page, c, current_user, db),
+        "can_delete": can_delete_page(page, current_user),
+        "is_mine": is_author,
+        # Matches the list endpoint: a personal campaign never reports a page as
+        # hidden, whatever rows are on disk.
+        "is_hidden": c.is_gm_campaign and is_page_hidden(db, page.id, current_user.id),
+        "shared_user_ids": [s.user_id for s in shares],
+        "shared_write_user_ids": [s.user_id for s in shares if s.can_write],
         "backlinks": backlinks,
         "updated_at": page.updated_at.isoformat() if page.updated_at else None,
     }
 
 
-def _apply_shares(db, page: WikiPage, user_ids) -> None:
+def _apply_shares(db, page: WikiPage, user_ids, write_user_ids=None) -> None:
+    """Replace a page's share rows.
+
+    `user_ids` is the read set and `write_user_ids` the subset that also gets
+    write. Granting write implies read, so a user named only in the write list is
+    still given a row — the caller doesn't have to list them twice.
+
+    The author is never given a share row: their access comes from authorship and
+    a row would just be a second source of truth to keep consistent.
+    """
     db.query(WikiPageShare).filter_by(page_id=page.id).delete()
-    if page.visibility == "members" and user_ids:
-        for uid in set(user_ids):
-            db.add(WikiPageShare(page_id=page.id, user_id=uid))
+    if page.visibility != "members":
+        return
+    writers = set(write_user_ids or [])
+    for uid in set(user_ids or []) | writers:
+        if uid == page.created_by_id:
+            continue
+        db.add(WikiPageShare(page_id=page.id, user_id=uid, can_write=uid in writers))
 
 
 def create_page(
@@ -382,13 +580,20 @@ def create_page(
         raise HTTPException(403, "Not a member of this campaign")
     assert_not_archived(c)
 
-    is_owner = c.owner_id == current_user.id
+    # Every visibility is open to every member now: a player can keep a self-only
+    # note or share one with named people exactly as the GM can (issue #232).
+    # What the levels *mean* is per-author, so no owner check is needed here.
     visibility = data.visibility or "gm"
     if visibility not in ("gm", "group", "members"):
         raise HTTPException(400, "Invalid visibility")
-    # Members may only create group pages; gm/members visibility is owner-only.
-    if not is_owner and visibility != "group":
-        raise HTTPException(403, "Members can only create group-visible pages")
+    # A personal campaign has exactly one viewer, so the levels are meaningless
+    # there and the UI hides them entirely. Everything is stored as "gm"
+    # (author-only) rather than trusting whatever a client sent, so the column
+    # can't hold a value the owner has no control to see or undo. Converting the
+    # campaign to a group one later leaves these pages private to the GM, which
+    # is the safe direction.
+    if not c.is_gm_campaign:
+        visibility = "gm"
 
     title = (data.title or "").strip() or "Untitled"
     slug = _ensure_unique_slug(db, campaign_id, slugify(title))
@@ -398,13 +603,23 @@ def create_page(
         except ValueError:
             raise HTTPException(400, "session_date must be YYYY-MM-DD")
 
-    parent_id = _resolve_parent(db, campaign_id, data.parent_id)
+    parent_id = _resolve_parent(
+        db, campaign_id, data.parent_id, campaign=c, user=current_user
+    )
+
+    # ||pipes|| a player typed become literal text, exactly as on update: the
+    # secret mechanism is the GM's, and a player must never store one — least of
+    # all on a page whose next read would then hide it from them. There is no
+    # merge step here because a brand-new page has no stored secrets yet.
+    body = data.body or ""
+    if c.owner_id != current_user.id:
+        body = escape_player_pipes(body)
 
     page = WikiPage(
         campaign_id=campaign_id,
         title=title,
         slug=slug,
-        body=data.body or "",
+        body=body,
         visibility=visibility,
         page_type=data.page_type if data.page_type in ("note", "session") else "note",
         session_date=data.session_date,
@@ -415,8 +630,8 @@ def create_page(
     )
     db.add(page)
     db.flush()
-    if is_owner:
-        _apply_shares(db, page, data.shared_user_ids or [])
+    # The author sets their own share list, whoever they are.
+    _apply_shares(db, page, data.shared_user_ids, data.shared_write_user_ids)
     rebuild_links(db, c, page, current_user)
     db.commit()
     db.refresh(page)
@@ -434,11 +649,18 @@ def update_page(
     page = db.query(WikiPage).filter_by(id=page_id, campaign_id=campaign_id).first()
     if not page:
         raise HTTPException(404, "Page not found")
-    if not can_edit_page(page, c, current_user):
+    if not can_edit_page(page, c, current_user, db):
         raise HTTPException(403, "Not authorised to edit this page")
     assert_not_archived(c)
 
-    is_owner = c.owner_id == current_user.id
+    # Who may *classify* the page is narrower than who may edit its text: only
+    # the author moves it between visibility levels or changes who it is shared
+    # with. Otherwise anyone with write access to a public page could reclassify
+    # it as their own self-only note and take it away from everyone else.
+    is_author = page.created_by_id == current_user.id
+    # Separate from authorship: ||secrets|| are the GM's regardless of who wrote
+    # the page they sit in.
+    is_gm = c.owner_id == current_user.id
 
     if data.title is not None:
         new_title = data.title.strip() or "Untitled"
@@ -450,32 +672,74 @@ def update_page(
             # [[Old Title]] text doesn't go stale or dangling (issue #287).
             rewrite_inbound_titles(db, campaign_id, page, old_title)
     if data.body is not None:
-        # A non-owner never received the ||...|| GM secrets (they're stripped
-        # on read), so their submitted body has none — storing it verbatim
-        # would delete the GM's hidden notes. Re-inject the stored secrets so
-        # they outlive a player's edit. The owner submits the full body, secrets
-        # and all, so nothing is merged for them.
-        page.body = data.body if is_owner else merge_gm_secrets(page.body, data.body)
-    if data.visibility is not None:
+        if is_gm:
+            page.body = data.body
+        else:
+            # Two things happen to a player's submission, in this order.
+            #
+            # First, any ||pipes|| *they* typed are escaped to literal text. The
+            # editor only offers the secret button to the GM, but a player can
+            # still type the characters, and honouring them would store a real
+            # secret that the next read strips from its own author's view —
+            # they'd write a sentence, save, and watch it disappear.
+            #
+            # Then the GM's stored secrets are re-woven in. A player never
+            # received those (they're stripped on read), so their body has none
+            # and storing it verbatim would delete the GM's hidden notes. This
+            # matters far more now that a public page is editable by the whole
+            # group (issue #233): any player may be the one saving over a
+            # GM-authored page. Escaping first is what keeps the two apart — by
+            # the time secrets are re-inserted, the only ||...|| spans in the
+            # body are the GM's own.
+            page.body = merge_gm_secrets(page.body, escape_player_pipes(data.body))
+    # Personal campaigns have no visibility levels at all (see create_page), so a
+    # change is ignored rather than rejected: the client has no control to have
+    # sent it from, and a 400 would only turn a harmless no-op into an error.
+    if (
+        data.visibility is not None
+        and data.visibility != page.visibility
+        and c.is_gm_campaign
+    ):
         if data.visibility not in ("gm", "group", "members"):
             raise HTTPException(400, "Invalid visibility")
-        # Only the owner may set gm/members visibility.
-        if not is_owner and data.visibility != "group":
-            raise HTTPException(403, "Only the owner can set this visibility")
+        if not is_author:
+            raise HTTPException(403, "Only the page's author can change its visibility")
         page.visibility = data.visibility
     if data.session_date is not None:
         page.session_date = data.session_date or None
     if data.page_type is not None and data.page_type in ("note", "session"):
         page.page_type = data.page_type
     if data.parent_id is not None:
-        page.parent_id = _resolve_parent(db, campaign_id, data.parent_id, page_id=page.id)
+        page.parent_id = _resolve_parent(
+            db,
+            campaign_id,
+            data.parent_id,
+            page_id=page.id,
+            campaign=c,
+            user=current_user,
+        )
     if data.icon is not None:
         page.icon = data.icon or None
     if data.icon_color is not None:
         page.icon_color = data.icon_color or None
 
-    if data.shared_user_ids is not None and is_owner:
-        _apply_shares(db, page, data.shared_user_ids)
+    if (data.shared_user_ids is not None or data.shared_write_user_ids is not None):
+        if not is_author:
+            raise HTTPException(403, "Only the page's author can change its sharing")
+        # Either list alone is a full replacement of the pair, so fall back to
+        # what's stored for whichever one the client didn't send.
+        existing = db.query(WikiPageShare).filter_by(page_id=page.id).all()
+        reads = (
+            data.shared_user_ids
+            if data.shared_user_ids is not None
+            else [s.user_id for s in existing]
+        )
+        writes = (
+            data.shared_write_user_ids
+            if data.shared_write_user_ids is not None
+            else [s.user_id for s in existing if s.can_write]
+        )
+        _apply_shares(db, page, reads, writes)
     # If no longer members-visibility, drop any stale shares.
     if page.visibility != "members":
         db.query(WikiPageShare).filter_by(page_id=page.id).delete()
@@ -494,10 +758,15 @@ def delete_page(
     page = db.query(WikiPage).filter_by(id=page_id, campaign_id=campaign_id).first()
     if not page:
         return
-    # Owner deletes anything; a member may delete a page they authored.
-    if c.owner_id != current_user.id and page.created_by_id != current_user.id:
+    # Deletion is the author's alone — not the campaign owner's, and not every
+    # member's just because the page is publicly editable (issue #232). Anyone
+    # else who wants it gone from their view hides it instead.
+    if not can_delete_page(page, current_user):
         raise HTTPException(403, "Not authorised to delete this page")
     assert_not_archived(c)
+    # Drop per-user hidden rows for this page; nothing else references it once
+    # the link rows below are gone.
+    db.query(WikiPageHidden).filter_by(page_id=page_id).delete()
     # Re-parent any children to this page's parent so subtrees aren't orphaned
     # (deleting a "category" page lifts its pages a level instead of nuking them).
     db.query(WikiPage).filter_by(campaign_id=campaign_id, parent_id=page_id).update(
@@ -533,6 +802,66 @@ def delete_page(
     db.commit()
 
 
+def hide_page(
+    campaign_id: str,
+    page_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Hide a page from this user's own view.
+
+    Per-user decluttering, so it is available on any page the user can see —
+    including one they cannot edit or delete, which is the whole point: a player
+    facing fifty GM pages can put the ones they don't need away without touching
+    anybody else's wiki. Hiding a parent hides its subtree (resolved on read, see
+    `hidden_page_ids`), so only the row for the page the user clicked is stored.
+
+    Deliberately not gated on `assert_not_archived`: hiding writes nothing to the
+    campaign's content, and an archived campaign is still one you might want to
+    tidy.
+
+    Refused in a personal campaign, where the feature has no premise: the only
+    notes to hide are your own, and deleting already covers those. The UI offers
+    no control there, so this is closing the API behind it rather than a rule a
+    user could trip over.
+    """
+    c = get_campaign_or_404(db, campaign_id)
+    page = db.query(WikiPage).filter_by(id=page_id, campaign_id=campaign_id).first()
+    if not page:
+        raise HTTPException(404, "Page not found")
+    if not can_view_page(page, c, current_user, db):
+        raise HTTPException(403, "Not authorised to view this page")
+    if not c.is_gm_campaign:
+        raise HTTPException(409, "Personal campaigns do not support hidden pages")
+    if not is_page_hidden(db, page_id, current_user.id):
+        db.add(WikiPageHidden(page_id=page_id, user_id=current_user.id))
+        db.commit()
+    return {"ok": True, "hidden": True}
+
+
+def unhide_page(
+    campaign_id: str,
+    page_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Restore a page this user had hidden.
+
+    Only clears the user's own row. A page hidden because an ancestor is hidden
+    has no row of its own, so un-hiding it individually is a no-op — the ancestor
+    is what has to come back.
+
+    Unlike `hide_page`, this is *not* refused in a personal campaign. Rows can
+    predate the campaign becoming personal or the guard existing at all, and
+    refusing here would strand them: the page would stay hidden with nothing in
+    the UI or API able to bring it back. Clearing state is always safe.
+    """
+    get_campaign_or_404(db, campaign_id)
+    db.query(WikiPageHidden).filter_by(page_id=page_id, user_id=current_user.id).delete()
+    db.commit()
+    return {"ok": True, "hidden": False}
+
+
 def search_pages(
     campaign_id: str,
     q: str = Query(..., min_length=1, max_length=200),
@@ -551,15 +880,22 @@ def search_pages(
         )
         .all()
     )
-    is_owner = c.owner_id == current_user.id
+    is_gm = c.owner_id == current_user.id
+    hidden = hidden_page_ids(db, campaign_id, current_user.id, campaign=c)
     results = []
     for p in pages:
         if not can_view_page(p, c, current_user, db):
             continue
-        # Hide ||...|| GM-only spans from non-owners: search and snippet over
-        # the stripped body so a secret can't leak via a body-only match.
-        body = p.body or "" if is_owner else strip_gm_secrets(p.body or "")
-        if not is_owner and q.lower() not in (p.title or "").lower() and q.lower() not in body.lower():
+        if p.id in hidden:
+            continue
+        # Hide ||...|| spans from players: search and snippet over the stripped
+        # body so a secret can't leak via a body-only match.
+        body = p.body or "" if is_gm else strip_gm_secrets(p.body or "")
+        if (
+            not is_gm
+            and q.lower() not in (p.title or "").lower()
+            and q.lower() not in body.lower()
+        ):
             continue
         d = _page_summary(p)
         d["snippet"] = extract_snippet(body, q) if body else ""
@@ -581,13 +917,13 @@ def page_titles(
     ambiguous titles, keeping ordinary links readable while still being able to
     address a colliding page at all (issue #287).
 
-    GM-only spans are stripped from non-owners' bodies before headings are read,
-    so a heading hidden inside `||...||` can't leak through the autocomplete.
+    GM-only spans are stripped from players' bodies before headings are read, so
+    a heading hidden inside `||...||` can't leak through the autocomplete.
     """
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
-    is_owner = c.owner_id == current_user.id
+    is_gm = c.owner_id == current_user.id
     pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
     visible = [p for p in pages if can_view_page(p, c, current_user, db)]
 
@@ -613,7 +949,7 @@ def page_titles(
             "ambiguous": base_counts.get(slugify(p.title), 0) > 1,
             "parent_title": visible_titles.get(p.parent_id) if p.parent_id else None,
             "headings": extract_headings(
-                (p.body or "") if is_owner else strip_gm_secrets(p.body or "")
+                (p.body or "") if is_gm else strip_gm_secrets(p.body or "")
             ),
         }
         for p in visible

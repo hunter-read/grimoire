@@ -293,6 +293,9 @@ class WikiPage(Base):
     shares = relationship(
         "WikiPageShare", back_populates="page", cascade="all, delete-orphan"
     )
+    # Per-user "hidden from my view" rows. Cascaded so deleting a page doesn't
+    # strand rows pointing at it.
+    hidden_by = relationship("WikiPageHidden", cascade="all, delete-orphan")
     # Nesting: gives the unit of work an ordering constraint so a parent is never
     # deleted before its children. Deleting a single page re-parents its children
     # first (see routers/campaigns/wiki.py), so this cascade only bites when the
@@ -362,15 +365,43 @@ class WikiTemplate(Base):
 
 
 class WikiPageShare(Base):
-    """A user a `members`-visibility wiki page is shared with."""
+    """A user a `members`-visibility ("Private") wiki page is shared with.
+
+    The row's existence grants *read*; `can_write` upgrades it to read+write.
+    Write always implies read, so there is no write-without-read state to
+    represent — revoking read means deleting the row outright.
+
+    Rows predating `can_write` default to read-only, which is what they granted
+    before per-user write existed.
+    """
 
     __tablename__ = "wiki_page_shares"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     page_id = Column(String(36), ForeignKey("wiki_pages.id"), nullable=False, index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    can_write = Column(Boolean, default=False)
 
     page = relationship("WikiPage", back_populates="shares")
+
+    __table_args__ = (UniqueConstraint("page_id", "user_id"),)
+
+
+class WikiPageHidden(Base):
+    """A wiki page one user has hidden from their own view.
+
+    Purely per-user decluttering, not a permission: hiding is available on any
+    page the user can see, including one they cannot edit, and it changes
+    nothing for anybody else. Hiding a parent hides its whole subtree, which is
+    derived at read time from `parent_id` rather than stored per descendant — so
+    a page moved out of a hidden subtree reappears on its own.
+    """
+
+    __tablename__ = "wiki_page_hidden"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    page_id = Column(String(36), ForeignKey("wiki_pages.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
 
     __table_args__ = (UniqueConstraint("page_id", "user_id"),)
 

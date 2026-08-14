@@ -18,12 +18,27 @@ export function descendantIds(pageId, pages) {
   return out
 }
 
-// Visibility colour coding: GM-only is the app's red, Private uses the same gold
-// as default icons, and Public is plain white/foreground.
+// Visibility colour coding: author-only is the app's red, Private uses the same
+// gold as default icons, and Public is plain white/foreground.
 export const VIS_META = {
   gm: { Icon: LuShield, color: 'var(--red)', key: 'gm' },
   group: { Icon: LuUsers, color: 'var(--text)', key: 'group' },
   members: { Icon: LuLock, color: 'var(--gold)', key: 'members' },
+}
+
+// Every visibility level is now available to every member, since what each one
+// means is relative to whoever wrote the page.
+export const VIS_OPTIONS = ['gm', 'group', 'members']
+
+// The i18n key for a level's label. "gm" is the one that reads differently
+// depending on who is looking: it means "only the author", which is "GM only"
+// when the GM wrote it and "Self only" when a player did. The other two mean the
+// same thing to everyone. `isOwner` is the campaign owner flag — the label
+// follows the *page's author*, so pass whether the author is the GM, which for
+// an unsaved page is simply whether the current user is.
+export function visLabelKey(level, authorIsGm) {
+  if (level === 'gm') return authorIsGm ? 'wiki.vis_gm' : 'wiki.vis_self'
+  return `wiki.vis_${level}`
 }
 
 export function badgeStyle(meta, interactive) {
@@ -44,6 +59,11 @@ export function badgeStyle(meta, interactive) {
 }
 
 export const POPOVER_WIDTH = 220
+
+// VisibilityEditor's popover also carries the per-member share table (name plus
+// a Read and a Write column), which needs more room than the bare level menu
+// RowVisibilityControl shows.
+export const SHARE_POPOVER_WIDTH = 300
 
 // ----- Wiki editor / toolbar styles (shared by WikiView and PageEditor) -----
 
