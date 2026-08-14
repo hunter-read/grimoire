@@ -220,7 +220,7 @@ is rate limited.
 }
 ```
 
-`phase` is `"scanning"`, `"indexing"`, or `null` when idle. `updated_books` counts books whose metadata was re-applied from sidecar files during a metadata-refresh rescan.
+`phase` is `"scanning"`, `"indexing"`, or `null` when idle. `updated_books` counts books whose metadata was re-applied from sidecar files during a metadata-refresh rescan. `replaced_books` counts books whose contents changed under an unchanged path (re-indexed in place), and `moved_files` counts files recognised as moved rather than deleted-and-re-added.
 
 **Rescan request body** (all fields optional):
 ```json
@@ -356,11 +356,11 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background — poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
-| `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any PDF: a text-layer book is re-extracted and its FTS rows rebuilt; an image-only book is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed. Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for non-PDFs, 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
+| `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any PDF: a text-layer book is re-extracted and its FTS rows rebuilt; an image-only book is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed, and drops everything cached from the previous contents (page renders, open document handle, search rows). Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for non-PDFs, 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
-| `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail |
+| `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail. Sends an `ETag` derived from the file's content hash and honours `If-None-Match` (`304`), so a replaced cover is picked up despite the `immutable` cache policy. |
 | `/api/books/:id/toc` | GET | any | PDF table of contents as `{title, page, level, children}[]` |
-| `/api/books/:id/page/:num` | GET | any | Render PDF page as WebP. Query: `width` (default 1200, max 3000). Cached. |
+| `/api/books/:id/page/:num` | GET | any | Render PDF page as WebP. Query: `width` (default 1200, max 3000), `v` (the book's `content_token`, cache-busting; ignored server-side). Cached under a content-addressed key, so replacing the file supersedes earlier renders. Sends an `ETag` and honours `If-None-Match` (`304`). |
 | `/api/books/:id/page/:num/text` | GET | any | Plain text of a page (from FTS index or live extraction) |
 | `/api/books/:id/page/:num/words` | GET | any | Word bounding boxes `{x0, y0, x1, y1, text}` for text overlay |
 

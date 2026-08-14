@@ -684,6 +684,55 @@ class TestServeBookThumbnail:
         resp = client.get("/api/books/no-such-book/thumbnail", headers=admin_headers)
         assert resp.status_code == 404
 
+    def test_thumbnail_etag_reflects_content_and_revalidates(self, client, admin_headers, sys):
+        """The cover is served immutable, so an ETag is the only way a client
+        holding the previous cover can learn it is stale."""
+        import hashlib
+
+        from backend.config import THUMB_DIR
+
+        fpath = "/tmp/thumb-etag-unique-xyz.cbz"
+        book = make_book(
+            system_id=sys.id,
+            title="Etag Book",
+            filename="etag.cbz",
+            filepath=fpath,
+            mime_type="application/vnd.comicbook+zip",
+            has_thumbnail=True,
+        )
+        fhash = hashlib.md5(fpath.encode()).hexdigest()[:8]
+        thumb_dir = os.path.join(THUMB_DIR, "books")
+        os.makedirs(thumb_dir, exist_ok=True)
+        thumb_path = os.path.join(thumb_dir, f"etag-book_{fhash}.webp")
+        with open(thumb_path, "wb") as f:
+            f.write(b"RIFF\x00\x00\x00\x00WEBP")
+        try:
+            first = client.get(f"/api/books/{book.id}/thumbnail", headers=admin_headers)
+            assert first.status_code == 200
+            etag = first.headers["etag"]
+
+            # A client presenting the same tag is told nothing changed.
+            again = client.get(
+                f"/api/books/{book.id}/thumbnail",
+                headers={**admin_headers, "If-None-Match": etag},
+            )
+            assert again.status_code == 304
+
+            # A stale tag (what a client holds after the file is replaced) refetches.
+            stale = client.get(
+                f"/api/books/{book.id}/thumbnail",
+                headers={**admin_headers, "If-None-Match": '"outdated"'},
+            )
+            assert stale.status_code == 200
+        finally:
+            os.unlink(thumb_path)
+
+    def test_book_detail_exposes_content_token(self, client, admin_headers, book):
+        """The reader appends this to page URLs to bust the year-long browser cache."""
+        resp = client.get(f"/api/books/{book.id}", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json()["content_token"]
+
 
 class TestListBooksMimeType:
     def test_list_includes_mime_type(self, client, admin_headers, book):

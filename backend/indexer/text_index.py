@@ -28,6 +28,7 @@ from ._subprocess import (
 )
 from .categories import slugify
 from .constants import _DB_TIMEOUT
+from .hashing import apply_signature, file_signature, hash_file
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -170,6 +171,21 @@ def reindex_single_book(
     """
     if book.mime_type != "application/pdf":
         return
+
+    # Drop everything rendered from the previous bytes first. This is the whole
+    # point of the endpoint for a user who replaced a file in place: without it
+    # the page count and thumbnail below would be rebuilt while the cached page
+    # renders (and the open document handle) still served the old file.
+    from ..services.content_cache import invalidate_book_content
+
+    invalidate_book_content(book.id, book.filepath, db=session)
+
+    # Record the current contents so a later library scan doesn't see this file as
+    # changed all over again — and so a move of it can be recognised.
+    signature = file_signature(book.filepath)
+    if signature is not None:
+        mtime, size = signature
+        apply_signature(book, mtime, size, hash_file(book.filepath, should_stop=should_stop))
 
     # Refresh page count — the file may have gained or lost pages since last scan.
     try:

@@ -32,6 +32,13 @@ from ..models import (
 )
 from ..services import tag_service
 from ._subprocess import _run_with_timeout
+from .hashing import (
+    apply_signature,
+    changed_content,
+    file_signature,
+    hash_file,
+    signature_matches,
+)
 from .categories import (
     agnostic_category,
     detect_container_kind,
@@ -145,6 +152,10 @@ class _ScanContext:
     scanned: dict = field(
         default_factory=lambda: {"books": 0, "maps": 0, "tokens": 0, "audio": 0}
     )
+    # Ids of rows inserted by this scan. Move detection only accepts one of these
+    # as a destination — a pre-existing row is a file that did not move, even when
+    # its contents match something deleted elsewhere.
+    inserted_ids: set = field(default_factory=set)
 
     def stop_requested(self) -> bool:
         return bool(self.should_stop and self.should_stop())
@@ -761,6 +772,61 @@ def _derive_category(
     return guess_category(relative_path, system_depth)
 
 
+def _refresh_signature(ctx: _ScanContext, record: Any, filepath: str) -> tuple[bool, bool]:
+    """Update ``record``'s stat signature/hash. Returns ``(contents_changed, wrote)``.
+
+    The cheap gate that keeps rescans affordable. When ``(mtime, size)`` still
+    matches what we stored, this returns immediately having read no file content
+    and written nothing — the common case for every file in the library on every
+    scan, and the reason a rescan stays as fast as it is today.
+
+    Only a stat mismatch (or a row that has never been hashed) triggers a read, and
+    only a *differing digest* counts as a change: a touched-but-identical file, or a
+    network mount reporting a coarse mtime, costs one hash and nothing more.
+
+    A first-time backfill reports ``changed=False``. Rows created before content
+    hashing existed have no stored digest, and treating that as a change would
+    re-render the entire library on the first scan after upgrading.
+    """
+    signature = file_signature(filepath)
+    if signature is None:
+        return False, False
+    mtime, size = signature
+    if signature_matches(record, mtime, size):
+        return False, False
+
+    new_hash = hash_file(filepath, should_stop=ctx.should_stop)
+    changed = changed_content(record, new_hash)
+    apply_signature(record, mtime, size, new_hash)
+    return changed, True
+
+
+def _handle_replaced_book(ctx: _ScanContext, book: Book, filepath: str, filename: str) -> None:
+    """Reset a book whose file was replaced in place so the scan rebuilds it.
+
+    Everything derived from the old bytes is dropped (page renders, open handle,
+    search rows, thumbnail), then the completeness flags the scan keys off are
+    cleared so the normal thumbnail / page-count / indexing phases regenerate it.
+    Without the reset the file would keep its stale page count and cover, because
+    those phases only run when their flag says the work is outstanding.
+    """
+    from ..services.content_cache import invalidate_book_content
+
+    logger.info(f"Contents changed on disk, re-indexing: {filename}")
+    thumb_path = ctx.thumb_path("books", book.title, filepath) if book.has_thumbnail else None
+    invalidate_book_content(book.id, filepath, db=ctx.session, thumb_path=thumb_path)
+
+    book.has_thumbnail = False
+    book.page_count = 0
+    book.indexed = False
+    book.index_failed = False
+    book.index_error = ""
+    book.scan_failed = False
+    book.ocr_pending = False
+    book.ocr_pages_done = 0
+    ctx.stats["replaced_books"] = ctx.stats.get("replaced_books", 0) + 1
+
+
 def _register_book(
     ctx: _ScanContext,
     existing: Optional[Book],
@@ -830,7 +896,22 @@ def _register_book(
                 except (TimeoutError, IntegrityError) as e:
                     logger.error(f"DB hang refreshing metadata for '{filename}': {e}")
                     session.rollback()
-        if existing.scan_failed:
+        # Detect an in-place replacement before the completeness checks below:
+        # those only ask whether work is *outstanding*, so a fully-indexed book
+        # whose bytes were swapped would otherwise be skipped forever.
+        replaced, wrote_signature = _refresh_signature(ctx, existing, filepath)
+        if replaced:
+            _handle_replaced_book(ctx, existing, filepath, filename)
+        if wrote_signature:
+            try:
+                _run_with_timeout(
+                    session.commit, _DB_TIMEOUT, f"commit signature '{filepath}'"
+                )
+            except (TimeoutError, IntegrityError) as e:
+                logger.error(f"DB error saving file signature for '{filename}': {e}")
+                session.rollback()
+
+        if existing.scan_failed and not replaced:
             logger.debug(f"Already registered, skipping: {filename}")
             return None, False, False
         # Archives are opaque: only comic-book variants get a
@@ -851,11 +932,16 @@ def _register_book(
     )
     title = _title_from_filename(filename)
 
-    try:
-        file_size = os.path.getsize(filepath)
-    except OSError:
+    signature = file_signature(filepath)
+    if signature is None:
         logger.warning(f"Cannot stat file, skipping: {filepath}")
         return None, False, False
+    file_mtime, file_size = signature
+    # Hash new files once, here. This is the only unconditional read, and it pays
+    # for both halves of the feature: later scans compare against it to spot an
+    # in-place replacement, and _reconcile_missing matches on it to recognise a
+    # file that was moved rather than deleted (issue #284).
+    content_hash = hash_file(filepath, should_stop=ctx.should_stop)
 
     # Check sibling <stem>.opf first, then Calibre's metadata.opf in the same dir.
     opf_meta = _find_opf_meta(root, filename)
@@ -870,6 +956,8 @@ def _register_book(
         relative_path=relative_path,
         category=category,
         file_size=file_size,
+        file_mtime=file_mtime,
+        content_hash=content_hash,
         mime_type=(
             "application/pdf"
             if ext == ".pdf"
@@ -890,6 +978,7 @@ def _register_book(
     logger.debug(f"DB: committing new book '{filename}'")
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
+        ctx.inserted_ids.add(book.id)
         # OPF ``subjects`` become shared tags on the book (issue #235).
         opf_tags = opf_meta.get("tags")
         if opf_tags:
@@ -1043,17 +1132,21 @@ def _scan_media(
 
             title = _title_from_filename(filename)
 
-            try:
-                file_size = os.path.getsize(filepath)
-            except OSError:
+            signature = file_signature(filepath)
+            if signature is None:
                 logger.warning(f"Cannot stat file, skipping: {filepath}")
                 continue
+            file_mtime, file_size = signature
 
             record = model(
                 filename=filename,
                 filepath=filepath,
                 relative_path=relative_path,
                 file_size=file_size,
+                file_mtime=file_mtime,
+                # Hashed once on insert so a later move of this file is
+                # recognised rather than read as a delete plus an add.
+                content_hash=hash_file(filepath, should_stop=ctx.should_stop),
             )
 
             # Archives are opaque blobs — nothing to render a thumbnail from.
@@ -1069,6 +1162,7 @@ def _scan_media(
             logger.debug(f"DB: committing new {singular} '{filename}'")
             try:
                 _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit {singular} '{filepath}'")
+                ctx.inserted_ids.add(record.id)
                 stats[f"new_{section}"] += 1
                 logger.info(f"Added {singular}: {title}")
             except TimeoutError as e:
@@ -1129,11 +1223,11 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 logger.debug(f"Already registered, skipping: {filename}")
                 continue
 
-            try:
-                file_size = os.path.getsize(filepath)
-            except OSError:
+            signature = file_signature(filepath)
+            if signature is None:
                 logger.warning(f"Cannot stat file, skipping: {filepath}")
                 continue
+            file_mtime, file_size = signature
 
             # Archives carry no tags/duration and no embedded art (issue #250):
             # register them as opaque, downloadable items with empty metadata.
@@ -1149,6 +1243,9 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 filepath=filepath,
                 relative_path=relative_path,
                 file_size=file_size,
+                file_mtime=file_mtime,
+                # Hashed once on insert — see the note in _scan_media.
+                content_hash=hash_file(filepath, should_stop=ctx.should_stop),
                 duration=meta["duration"],
                 title=meta["title"],
                 artist=meta["artist"],
@@ -1160,6 +1257,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             logger.debug(f"DB: committing new audio '{filename}'")
             try:
                 _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
+                ctx.inserted_ids.add(track.id)
                 stats["new_audio"] += 1
                 logger.info(f"Added audio: {meta['title'] or filename}")
             except TimeoutError as e:
@@ -1169,6 +1267,95 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             except IntegrityError:
                 session.rollback()
                 logger.debug(f"Audio already exists, skipping: {filepath}")
+
+
+def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> int:
+    """Re-point rows whose file moved instead of leaving them missing (issue #284).
+
+    Without this a move reads as a delete plus an insert: the old row is flagged
+    ``is_missing`` and a brand-new row appears at the new path, silently dropping
+    the tags, favorites, bookmarks, and read progress attached to the old row's id.
+    Matching on content hash recovers the connection — same bytes, new location.
+
+    ``gone`` are rows whose file no longer exists; ``present`` are rows whose file
+    does. A move is accepted only when exactly one gone row and exactly one
+    *newly inserted* row share a ``(content_hash, file_size)`` key. Anything
+    ambiguous is left alone: TTRPG libraries routinely hold the same PDF under two
+    systems, and pairing duplicates off by guesswork would attach one book's tags
+    and reading progress to another.
+    """
+    session = ctx.session
+    by_hash: dict[tuple, list] = {}
+    for record in gone:
+        if record.content_hash:
+            by_hash.setdefault((record.content_hash, record.file_size), []).append(record)
+    if not by_hash:
+        return 0
+
+    # Only rows this scan just inserted can be a move destination. A row that
+    # already existed is a file sitting where it has always sat: if it happens to
+    # share its bytes with something deleted elsewhere (identical duplicates are
+    # common), claiming it as the move target would rewrite and then delete a book
+    # that never moved.
+    candidates: dict[tuple, list] = {}
+    for record in present:
+        if record.id not in ctx.inserted_ids:
+            continue
+        key = (record.content_hash, record.file_size)
+        if key in by_hash:
+            candidates.setdefault(key, []).append(record)
+
+    moved = 0
+    for key, old_rows in by_hash.items():
+        new_rows = candidates.get(key, [])
+        if len(old_rows) != 1 or len(new_rows) != 1:
+            if new_rows:
+                logger.info(
+                    "Ambiguous move for hash %s (%d gone, %d found) — leaving as-is",
+                    key[0][:12],
+                    len(old_rows),
+                    len(new_rows),
+                )
+            continue
+        old, new = old_rows[0], new_rows[0]
+
+        # The old row's caches are keyed by its former path; the file's bytes now
+        # live somewhere else, so those entries are unreachable garbage.
+        if model is Book:
+            from ..services.content_cache import invalidate_book_content
+
+            thumb = ctx.thumb_path("books", old.title, old.filepath) if old.has_thumbnail else None
+            invalidate_book_content(old.id, old.filepath, db=session, thumb_path=thumb)
+            old.has_thumbnail = False
+
+        logger.info(f"Detected move: '{old.filepath}' -> '{new.filepath}'")
+        # Carry the new location onto the *old* row so its id — and everything
+        # referencing it — survives. ``filepath`` is UNIQUE, so the duplicate the
+        # walk inserted has to be deleted and flushed *before* the old row can
+        # take its path, or the UPDATE trips the constraint.
+        new_filepath, new_filename = new.filepath, new.filename
+        new_relative, new_system = new.relative_path, getattr(new, "game_system_id", None)
+        new_category = getattr(new, "category", None)
+        session.delete(new)
+        session.flush()
+
+        old.filepath = new_filepath
+        old.filename = new_filename
+        old.relative_path = new_relative
+        old.is_missing = False
+        if model is Book:
+            old.game_system_id = new_system
+            old.category = new_category
+        moved += 1
+
+    if moved:
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit detected moves")
+        except (TimeoutError, Exception) as e:
+            logger.error(f"DB error saving detected moves: {e}")
+            session.rollback()
+            return 0
+    return moved
 
 
 def _reconcile_missing(
@@ -1183,6 +1370,9 @@ def _reconcile_missing(
     Any DB record whose file is gone (or newly ``.grimoireignore``-excluded) gets
     ``is_missing=True``; records that exist on disk have it cleared.  When scoped,
     only records under the scope subtree are reconciled.
+
+    Rows whose file merely *moved* are re-pointed first (see ``_detect_moves``) so
+    they are never reported missing and keep their tags/favorites/progress.
     """
     session = ctx.session
     ignore = ctx.ignore
@@ -1196,39 +1386,49 @@ def _reconcile_missing(
     def _gone(filepath: str) -> bool:
         return not os.path.exists(filepath) or ignore.is_ignored(filepath, is_dir=False)
 
-    missing_books = missing_maps = missing_tokens = missing_audio = 0
-    if scan_books:
-        for book in _scoped(session.query(Book), Book).all():
-            gone = _gone(book.filepath)
-            if gone != bool(book.is_missing):
-                book.is_missing = gone
+    counts = {"books": 0, "maps": 0, "tokens": 0, "audio": 0}
+    moved = {"books": 0, "maps": 0, "tokens": 0, "audio": 0}
+    collections = (
+        ("books", Book, scan_books, "book"),
+        ("maps", GenericMap, scan_maps, "map"),
+        ("tokens", Token, scan_tokens, "token"),
+        ("audio", Audio, scan_audio, "audio"),
+    )
+    # Pass 1 — re-point moved files. This runs to completion first, and commits as
+    # it goes, so the missing-flag pass below sees a settled set of rows: a moved
+    # file must never be reported missing on the way to being recognised.
+    for key, model, enabled, _label in collections:
+        if not enabled:
+            continue
+        gone_rows, present_rows = [], []
+        for record in _scoped(session.query(model), model).all():
+            (gone_rows if _gone(record.filepath) else present_rows).append(record)
+        moved[key] = _detect_moves(ctx, model, gone_rows, present_rows)
+
+    # Pass 2 — flag whatever is still unaccounted for. Rows are re-read because
+    # pass 1 may have re-pointed and deleted some.
+    for key, model, enabled, label in collections:
+        if not enabled:
+            continue
+        for record in _scoped(session.query(model), model).all():
+            gone = _gone(record.filepath)
+            if gone != bool(record.is_missing):
+                record.is_missing = gone
                 if gone:
-                    missing_books += 1
-                    logger.warning(f"Missing book: '{book.title}' ({book.filepath})")
-    if scan_maps:
-        for m in _scoped(session.query(GenericMap), GenericMap).all():
-            gone = _gone(m.filepath)
-            if gone != bool(m.is_missing):
-                m.is_missing = gone
-                if gone:
-                    missing_maps += 1
-                    logger.warning(f"Missing map: '{m.filename}' ({m.filepath})")
-    if scan_tokens:
-        for t in _scoped(session.query(Token), Token).all():
-            gone = _gone(t.filepath)
-            if gone != bool(t.is_missing):
-                t.is_missing = gone
-                if gone:
-                    missing_tokens += 1
-                    logger.warning(f"Missing token: '{t.filename}' ({t.filepath})")
-    if scan_audio:
-        for a in _scoped(session.query(Audio), Audio).all():
-            gone = _gone(a.filepath)
-            if gone != bool(a.is_missing):
-                a.is_missing = gone
-                if gone:
-                    missing_audio += 1
-                    logger.warning(f"Missing audio: '{a.filename}' ({a.filepath})")
+                    counts[key] += 1
+                    name = getattr(record, "title", None) or record.filename
+                    logger.warning(f"Missing {label}: '{name}' ({record.filepath})")
+
+    missing_books = counts["books"]
+    missing_maps = counts["maps"]
+    missing_tokens = counts["tokens"]
+    missing_audio = counts["audio"]
+    total_moved = sum(moved.values())
+    if total_moved:
+        logger.info(
+            f"Recognised {total_moved} moved file(s) — kept their tags, favorites, "
+            f"and reading progress instead of re-adding them."
+        )
     if missing_books or missing_maps or missing_tokens or missing_audio:
         logger.warning(
             f"Some files are no longer on disk: {missing_books} book(s), {missing_maps} map(s), "
@@ -1244,6 +1444,10 @@ def _reconcile_missing(
     ctx.stats["missing_maps"] = missing_maps
     ctx.stats["missing_tokens"] = missing_tokens
     ctx.stats["missing_audio"] = missing_audio
+    ctx.stats["moved_books"] = moved["books"]
+    ctx.stats["moved_maps"] = moved["maps"]
+    ctx.stats["moved_tokens"] = moved["tokens"]
+    ctx.stats["moved_audio"] = moved["audio"]
 
 
 def scan_library(
@@ -1284,6 +1488,13 @@ def scan_library(
         "new_audio": 0,
         "updated_books": 0,
         "indexed_pages": 0,
+        # Books whose bytes changed under an unchanged path, and files recognised
+        # as moved rather than deleted-and-re-added (issue #284).
+        "replaced_books": 0,
+        "moved_books": 0,
+        "moved_maps": 0,
+        "moved_tokens": 0,
+        "moved_audio": 0,
         "errors": 0,
     }
 

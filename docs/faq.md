@@ -100,6 +100,18 @@ volumes:
 This lets you keep your existing file structure on the host without adding an extra `books/` folder. After updating the compose file, restart the stack and trigger a rescan from the admin panel.
 
 > **Note:** "Remove missing files" deletes database records for files that can't be found at their expected paths. If you moved files around on the host before the volume mount was correct, those records were removed. Re-mounting correctly and rescanning will re-add everything.
+>
+> Moving files *within* a correctly-mounted library is safe: a rescan matches them by content and keeps their tags, favorites, bookmarks, and reading progress rather than treating the move as a deletion. The caveat above applies to records already removed, which have nothing left to match against.
+
+---
+
+## I replaced a PDF with a better copy, but Grimoire still shows the old one
+
+Trigger a **Rescan**. Grimoire notices that the file's contents changed and rebuilds the page renders, cover, page count, and search text, keeping the book's tags, favorites, bookmarks, and reading progress.
+
+If a single book is affected you can also use **Re-read from disk** on the book's detail page, which does the same work for just that file.
+
+Older versions cached rendered pages under a key derived from the file's *path*, so a replacement at the same path kept serving the previous file's pages indefinitely. That is fixed - cache keys now include a hash of the file's contents - but a browser that loaded the stale pages beforehand may still hold them; a hard reload clears that.
 
 ---
 

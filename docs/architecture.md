@@ -114,17 +114,52 @@ Book pages are rendered on demand by
 [`routers/books/pages.py`](../backend/routers/books/pages.py) (`serve_book_page`):
 
 1. If a rendered WebP is already in **Valkey** (when configured), stream it back.
-2. Else if it's on the **disk cache** (`DATA_PATH/page_cache/<hash>_<page>_<width>.webp`),
-   serve it (and backfill Valkey).
+2. Else if it's on the **disk cache**
+   (`DATA_PATH/page_cache/<path-hash>_<content-token>_<page>_<width>.webp`), serve it (and
+   backfill Valkey).
 3. Else **render** the page with PyMuPDF, write it to both caches, and stream it.
 
+Both cache keys embed a **content token** - the first 8 hex chars of the book's
+`content_hash` (`content_token()` in
+[`services/content_cache.py`](../backend/services/content_cache.py)). This is what makes the
+caches genuinely content-addressed: replacing a file at the same path yields a different
+token, so the previous renders become unreachable rather than being served as if they were
+current. Rows that predate content hashing fall back to a digest of the path, preserving the
+old behaviour until the next scan backfills them.
+
 All three paths send `Cache-Control: max-age=31536000, immutable`
-(`_PAGE_CACHE_HEADERS` in [`config.py`](../backend/config.py)), so browsers and CDNs cache
-aggressively. Because image/download URLs are used in `<img>`/download contexts that can't
-set an `Authorization` header, they authenticate via a `?token=` query param
-(`mediaUrl(...)` on the frontend, the `token` `Query` param in
-[`auth.py`](../backend/auth.py#L72) on the backend). Thumbnails work the same way, cached
-under `DATA_PATH/thumbnails/`.
+(`_PAGE_CACHE_HEADERS` in [`config.py`](../backend/config.py)) plus an `ETag` carrying the
+same token, so browsers cache aggressively but can still revalidate a replaced file (the
+`immutable` policy alone would pin a stale page for a year). Because image/download URLs are
+used in `<img>`/download contexts that can't set an `Authorization` header, they authenticate
+via the HttpOnly session cookie. Thumbnails work the same way, cached under
+`DATA_PATH/thumbnails/`.
+
+The disk cache is bounded by `PAGE_CACHE_MAX_MB` and trimmed oldest-first by
+`sweep_page_cache()` at startup and after each library scan - superseded renders are
+unreachable but still occupy space, so a sweep is what reclaims them.
+
+### Change and move detection
+
+`scan_library` records each file's `content_hash` alongside `file_mtime` + `file_size`. The
+stat pair is a cheap gate: a rescan re-hashes a file only when its mtime or size changed, so
+an unchanged library is walked without reading any file contents (see
+[`indexer/hashing.py`](../backend/indexer/hashing.py)). This matters because a full-library
+hash on every scheduled rescan would be I/O-bound on the entire collection.
+
+Two things fall out of storing the hash:
+
+- **Replaced in place** (same path, new bytes) - `_handle_replaced_book` calls
+  `invalidate_book_content` to drop the page caches, open PyMuPDF handle, FTS rows, and
+  thumbnail, then clears the completeness flags so the normal thumbnail/page-count/indexing
+  phases rebuild the book.
+- **Moved** (new path, same bytes) - `_detect_moves` runs inside `_reconcile_missing`, which
+  already knows exactly which rows just went missing. A match re-points the existing row
+  instead of leaving it missing and inserting a duplicate, so tags, favorites, bookmarks, and
+  reading progress survive (issue #284). It is accepted only when exactly one gone row and
+  exactly one *newly inserted* row share a hash. Restricting destinations to new rows is what
+  keeps byte-identical duplicates (common in TTRPG libraries) safe: a file that was already
+  there did not move, so it can never be claimed as somewhere else's destination.
 
 ## Authentication & OIDC
 

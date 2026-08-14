@@ -9,9 +9,12 @@ policy so every uploaded/served file behaves the same way.
 
 Uploaded files (campaign banners, character art, sheets, file resources) are
 mutable — re-uploaded under the same URL — so we cache with revalidation rather
-than the ``immutable`` policy used for content-addressed rendered pages. Because
-the validator is derived from mtime + size, a re-upload naturally invalidates the
-cached copy.
+than the ``immutable`` policy used for rendered pages. Because the validator is
+derived from mtime + size, a re-upload naturally invalidates the cached copy.
+
+Rendered pages take the other approach: their cache key and ETag embed a digest
+of the source file's contents, so a given URL's body genuinely cannot change and
+``immutable`` is honest. ``etag_matches`` serves that side.
 """
 
 import os
@@ -54,6 +57,19 @@ def _not_modified(request: Request, etag: str, last_modified: str) -> bool:
         if client is not None and current is not None:
             return current <= client
     return False
+
+
+def etag_matches(request: Request, etag: str) -> bool:
+    """True when the client already holds ``etag`` (an ``If-None-Match`` hit).
+
+    The ETag-only counterpart to ``_not_modified``, for content-addressed
+    responses (rendered pages, thumbnails). Those have no meaningful
+    ``Last-Modified`` — the body is a pure function of the file's bytes, and the
+    URL changes when the bytes do — so only the entity tag is consulted.
+    """
+    if request.headers.get("if-none-match") is None:
+        return False
+    return _not_modified(request, etag, "")
 
 
 def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response:

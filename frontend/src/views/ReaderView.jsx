@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
-import api, { mediaUrl } from '../api'
+import api, { bookPageUrl, mediaUrl } from '../api'
 import { isArchiveBook } from '../constants'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
@@ -261,6 +261,14 @@ export default function ReaderView() {
       })
   }
 
+  // Page URLs carry the book's content token so that replacing the PDF on disk
+  // busts the browser's (year-long, immutable) cache of the previous renders.
+  const contentToken = book?.content_token
+  const pageUrl = useCallback(
+    (p, width) => bookPageUrl(bookId, p, width, contentToken),
+    [bookId, contentToken]
+  )
+
   useEffect(() => {
     if (!book || mode === 'pdf') return
     const w = mode === 'spread' ? SPREAD_WIDTH : PAGE_WIDTH
@@ -275,14 +283,14 @@ export default function ReaderView() {
       const key = `${p}:${w}`
       if (!preloadCacheRef.current[key]) {
         const img = new Image()
-        img.src = mediaUrl(`/books/${bookId}/page/${p}`, { width: w })
+        img.src = bookPageUrl(bookId, p, w, contentToken)
         preloadCacheRef.current[key] = img
       }
     }
     // Drop the oldest decoded bitmaps so a long flip-through doesn't pin every
     // page it passed in memory (each is ~12MB decoded, WebP size notwithstanding).
     pruneCache(preloadCacheRef, PRELOAD_CACHE_MAX)
-  }, [currentPage, mode, book, bookId, totalPages])
+  }, [currentPage, mode, book, bookId, totalPages, contentToken])
 
   useEffect(() => {
     if (!isMountedSyncRef.current) {
@@ -527,6 +535,7 @@ export default function ReaderView() {
               activeSearchQuery={activeSearchQuery}
               activeHighlight={activeHighlight}
               renderWidth={renderWidth}
+              pageUrl={pageUrl}
             />
           ) : (
             <SinglePage
@@ -541,6 +550,7 @@ export default function ReaderView() {
               activeSearchQuery={activeSearchQuery}
               activeHighlight={activeHighlight}
               renderWidth={renderWidth}
+              pageUrl={pageUrl}
             />
           )}
         </div>

@@ -1,12 +1,11 @@
 """Book page rendering, TOC, and text-extraction endpoint handlers."""
-import hashlib
 import io
 import os
 from pathlib import Path
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import text as sql_text
 
 import fitz  # type: ignore[import-untyped]
@@ -21,7 +20,9 @@ from ...config import (
     logger,
     valkey_cache_set,
 )
+from ...file_cache import etag_matches
 from ...models import Book
+from ...services.content_cache import content_token, page_cache_prefix
 from ._helpers import (
     _assert_book_access,
     _cached_book_info,
@@ -80,6 +81,7 @@ def get_book_toc(
 
 
 def serve_book_page(
+    request: Request,
     book_id: str,
     page_num: int,
     width: int = Query(1200, le=3000),
@@ -91,6 +93,14 @@ def serve_book_page(
     if not book_info:
         raise HTTPException(404)
     filepath, mime_type = book_info[0], book_info[1]
+    # Token over the file's *contents*, so replacing the PDF changes every cache
+    # key and ETag derived from it. Falls back to a path digest for rows the
+    # scanner has not hashed yet, preserving the previous behaviour for them.
+    token = content_token(book_info[3] if len(book_info) > 3 else None, filepath)
+    etag = f'"{token}-{page_num}-{width}"'
+    if etag_matches(request, etag):
+        return Response(status_code=304, headers={"ETag": etag, **_PAGE_CACHE_HEADERS})
+    cache_headers = {**_PAGE_CACHE_HEADERS, "ETag": etag}
 
     if mime_type.startswith("image/"):
         if page_num != 1:
@@ -103,27 +113,29 @@ def serve_book_page(
             raise HTTPException(404, "File not found on disk")
         ext = Path(filepath).suffix.lower().lstrip(".")
         media_type = f"image/{ext}" if ext not in ("jpg",) else "image/jpeg"
-        return FileResponse(filepath, media_type=media_type, headers=_PAGE_CACHE_HEADERS)
+        return FileResponse(filepath, media_type=media_type, headers=cache_headers)
 
     if mime_type != "application/pdf":
         raise HTTPException(404)
 
-    valkey_key = f"page:{book_id}:{page_num}:{width}"
+    # The content token is part of the key: a replaced file renders under a new
+    # key rather than hitting the previous file's entry.
+    valkey_key = f"page:{book_id}:{token}:{page_num}:{width}"
 
     if _valkey is not None:
         try:
             cached = _valkey.get(valkey_key)
             if cached:
                 return StreamingResponse(
-                    io.BytesIO(cached), media_type="image/webp", headers=_PAGE_CACHE_HEADERS
+                    io.BytesIO(cached), media_type="image/webp", headers=cache_headers
                 )
         except Exception as e:
             logger.warning(f"Valkey get error: {e}")
 
     # Derive cache filename from the DB-sourced filepath (never user input)
     # so no tainted data touches the filesystem path.
-    file_hash = hashlib.sha1(filepath.encode()).hexdigest()[:16]
-    cache_path = os.path.join(PAGE_CACHE_DIR, f"{file_hash}_{page_num}_{width}.webp")
+    file_hash = page_cache_prefix(filepath)
+    cache_path = os.path.join(PAGE_CACHE_DIR, f"{file_hash}_{token}_{page_num}_{width}.webp")
     if os.path.exists(cache_path):
         if _valkey is not None:
             try:
@@ -131,7 +143,7 @@ def serve_book_page(
                     valkey_cache_set(valkey_key, f.read())
             except OSError as e:
                 logger.warning(f"Page cache read error: {e}")
-        return FileResponse(cache_path, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
+        return FileResponse(cache_path, media_type="image/webp", headers=cache_headers)
 
     if not os.path.exists(filepath):
         book = db.query(Book).filter_by(id=book_id).first()
@@ -161,7 +173,7 @@ def serve_book_page(
             f.write(img_bytes)
 
     return StreamingResponse(
-        io.BytesIO(img_bytes), media_type="image/webp", headers=_PAGE_CACHE_HEADERS
+        io.BytesIO(img_bytes), media_type="image/webp", headers=cache_headers
     )
 
 

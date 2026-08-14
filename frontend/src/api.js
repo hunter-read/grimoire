@@ -91,6 +91,19 @@ export const mediaUrl = (path, params = {}) => {
   return `/api${path}${qs ? `?${qs}` : ''}`
 }
 
+// URL for a rendered book page. `contentToken` identifies the source file's
+// *contents* (from BookDetail.content_token), so replacing the PDF on disk
+// changes the URL. Page responses are cached `immutable` for a year, which means
+// a browser holding the old render would otherwise never re-request it — the
+// token is what makes a replaced book actually show its new pages.
+//
+// There is no equivalent helper for thumbnails: the grid/list views that render
+// covers only have BookListItem payloads, which carry no hash. They rely on the
+// ETag the thumbnail endpoint sends, so the browser revalidates and picks up a
+// replaced cover on its next request.
+export const bookPageUrl = (bookId, page, width, contentToken) =>
+  mediaUrl(`/books/${bookId}/page/${page}`, contentToken ? { width, v: contentToken } : { width })
+
 // Campaign Manager helpers
 export const campaigns = {
   // includeArchived widens the list to archived campaigns as well as active

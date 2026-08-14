@@ -113,6 +113,13 @@ async def lifespan(app: FastAPI):
     # holds the lock, so the purge runs once per startup rather than per worker.
     purge_valkey_page_cache()
 
+    # The on-disk render cache has no TTL and grows with every page ever viewed;
+    # superseded renders (from replaced files) are unreachable but still occupy
+    # space, so trim it back under its cap here rather than on any request path.
+    from .services.content_cache import sweep_page_cache
+
+    sweep_page_cache()
+
     def do_scan():
         from .routers.library._helpers import clear_stop, _set_status, _DEFAULT_STATUS
         # Clear any stale scan state left in Valkey from a previous crashed/frozen run.

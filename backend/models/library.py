@@ -3,6 +3,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -132,6 +133,14 @@ class Book(Base):
     month = Column(Integer, nullable=True)
     day = Column(Integer, nullable=True)
     file_size = Column(Integer, default=0)
+    # Content identity, used for two things the filepath cannot express: telling a
+    # replaced file (same path, new bytes) from an untouched one, and recognising a
+    # moved file (new path, same bytes) as the same book rather than a new one.
+    # ``file_mtime`` + ``file_size`` are the cheap gate — the scan only re-hashes
+    # when one of them changes, so an unchanged rescan reads no file content at all.
+    # NULL means "not yet hashed" (pre-upgrade row) and is treated as unchanged.
+    content_hash = Column(String(64), nullable=True, index=True)
+    file_mtime = Column(Float, nullable=True)
     page_count = Column(Integer, default=0)
     mime_type = Column(String(100), default="application/pdf")
     has_thumbnail = Column(Boolean, default=False)

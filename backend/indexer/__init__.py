@@ -73,6 +73,15 @@ from .thumbnails import (  # noqa: E402,F401
     generate_thumbnail,
 )
 
+# --- Content hashing / change detection ----------------------------------------
+from .hashing import (  # noqa: E402,F401
+    apply_signature,
+    changed_content,
+    file_signature,
+    hash_file,
+    signature_matches,
+)
+
 # --- Isolated extraction / OCR -------------------------------------------------
 from ._subprocess import (  # noqa: E402,F401
     PdfExtractionCrashError,
