@@ -98,11 +98,11 @@ See [Library Structure](#library-structure) for the full layout and category rul
 
 ### 2. Run with Docker Compose
 
-Copy the default compose file, set your `SECRET_KEY`, then start:
+Copy the default compose file, set your volume paths, then start:
 
 ```bash
 cp docs/docker/docker-compose.yml docker-compose.yml
-# Edit docker-compose.yml and set SECRET_KEY and volume paths
+# Edit docker-compose.yml and set the volume paths
 docker compose up -d
 open http://localhost:9481
 ```
@@ -131,8 +131,6 @@ services:
     image: hunterreadca/grimoire:latest
     ports:
  - "9481:9481"
-    environment:
-      SECRET_KEY: "generate-with-openssl-rand-hex-32"
     volumes:
  - /path/to/your/library:/app/library:ro   # read-only - use Filebrowser or Calibre to manage files
  - /path/to/grimoire/data:/app/data
@@ -154,7 +152,7 @@ Each file has inline comments explaining the options. Copy and edit the one that
 
 ```bash
 cp docs/docker/docker-compose.valkey.yml docker-compose.yml
-# Edit SECRET_KEY and volume paths, then:
+# Edit the volume paths, then:
 docker compose up -d
 ```
 
@@ -601,7 +599,7 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 
 | Variable | Default | Description |
 |---|---|---|
-| `SECRET_KEY` | - | **Required.** JWT signing secret. Generate: `openssl rand -hex 32` |
+| `SECRET_KEY` | auto-generated | JWT signing secret. Leave unset and Grimoire generates a random key on first boot and persists it at `DATA_PATH/secret_key`, reusing it across restarts. Set it explicitly (`openssl rand -hex 32`) if you run multiple replicas that don't share `DATA_PATH`. Grimoire refuses to start if it's set to a placeholder published in these docs (`change-me`, `replace-this-with-a-long-random-string`, `grimoire-dev-secret-change-in-production`) - see the [FAQ](docs/faq.md#grimoire-wont-start-and-the-log-mentions-secret_key). |
 | `WORKERS` | `2` | Number of uvicorn worker processes |
 | `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |

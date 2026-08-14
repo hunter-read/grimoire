@@ -30,8 +30,10 @@ services:
       - LIBRARY_PATH=/library
       - DATA_PATH=/data
       - WORKERS=2
-      # Required — generate with: openssl rand -hex 32
-      - SECRET_KEY=change-me
+      # Optional — JWT signing key. Leave unset and Grimoire generates one and
+      # persists it under DATA_PATH. Set it explicitly (openssl rand -hex 32)
+      # if you run multiple replicas that do not share DATA_PATH.
+      # - SECRET_KEY=
     volumes:
       # Grimoire never modifies your files — read-only is safe and recommended
       - /path/to/your/library:/library:ro
