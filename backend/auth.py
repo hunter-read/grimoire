@@ -3,6 +3,8 @@
 import os
 import datetime
 import logging
+import secrets
+import stat
 from typing import Optional
 
 import jwt
@@ -12,9 +14,109 @@ from passlib.context import CryptContext
 
 logger = logging.getLogger("grimoire.auth")
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "grimoire-dev-secret-change-in-production")
+# Keys that must never sign real tokens: the historical hardcoded fallback and
+# the placeholder shipped in the example compose files. Both are published in
+# this repo, so anyone could forge an admin JWT for an instance using them.
+REJECTED_SECRET_KEYS = frozenset(
+    {
+        "grimoire-dev-secret-change-in-production",
+        "change-me",
+        "replace-this-with-a-long-random-string",
+    }
+)
+
+# Where a self-generated key is persisted when SECRET_KEY is unset, so tokens
+# survive restarts. Lives under DATA_PATH, which is a persistent volume in every
+# documented deployment.
+SECRET_KEY_FILENAME = "secret_key"
+
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 30
+
+
+class InsecureSecretKeyError(RuntimeError):
+    """Raised at import time when SECRET_KEY is set to a published placeholder."""
+
+
+def _load_or_create_secret_key(data_path: str) -> str:
+    """Return the persisted auto-generated key, creating it on first boot.
+
+    Written 0600 and read back on later boots so sessions survive restarts.
+    Multi-replica deployments must set SECRET_KEY explicitly — a key generated
+    here is only shared between replicas if they share DATA_PATH.
+    """
+    key_path = os.path.join(data_path, SECRET_KEY_FILENAME)
+
+    try:
+        with open(key_path, "r", encoding="utf-8") as fh:
+            existing = fh.read().strip()
+        if existing:
+            logger.info(
+                "SECRET_KEY not set — using the auto-generated key at %s. "
+                "Set SECRET_KEY explicitly if you run more than one replica.",
+                key_path,
+            )
+            return existing
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise InsecureSecretKeyError(
+            f"SECRET_KEY is not set and the generated key at {key_path} could not "
+            f"be read ({exc}). Set the SECRET_KEY environment variable "
+            f"(generate one with: openssl rand -hex 32)."
+        ) from exc
+
+    generated = secrets.token_hex(32)
+    try:
+        os.makedirs(data_path, exist_ok=True)
+        # Create 0600 up front so the key is never briefly world-readable.
+        fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(generated)
+    except OSError as exc:
+        raise InsecureSecretKeyError(
+            f"SECRET_KEY is not set and a generated key could not be written to "
+            f"{key_path} ({exc}). Set the SECRET_KEY environment variable "
+            f"(generate one with: openssl rand -hex 32)."
+        ) from exc
+
+    logger.warning(
+        "SECRET_KEY was not set — generated a random key and saved it to %s. "
+        "Sessions will survive restarts as long as that file persists. Set "
+        "SECRET_KEY explicitly if you run more than one replica.",
+        key_path,
+    )
+    return generated
+
+
+def resolve_secret_key(env_value: Optional[str], data_path: str) -> str:
+    """Pick the JWT signing key, refusing to fall back to a published default.
+
+    An explicit SECRET_KEY is used as-is unless it is one of the placeholders we
+    publish; those raise rather than silently signing forgeable tokens. With no
+    SECRET_KEY at all we generate one and persist it under DATA_PATH.
+    """
+    key = (env_value or "").strip()
+
+    if not key:
+        return _load_or_create_secret_key(data_path)
+
+    if key in REJECTED_SECRET_KEYS:
+        raise InsecureSecretKeyError(
+            f"SECRET_KEY is set to {key!r}, a placeholder published in Grimoire's "
+            f"own documentation — anyone could forge admin sessions on this "
+            f"instance. Set SECRET_KEY to a private random value "
+            f"(generate one with: openssl rand -hex 32), or unset it entirely to "
+            f"let Grimoire generate and persist one under DATA_PATH."
+        )
+
+    return key
+
+
+SECRET_KEY = resolve_secret_key(
+    os.environ.get("SECRET_KEY"),
+    os.environ.get("DATA_PATH", "./data"),
+)
 
 # Name of the HttpOnly session cookie that carries the JWT. This lets
 # <img>/download GETs authenticate without the token appearing in the URL
@@ -28,11 +130,6 @@ AUTH_COOKIE_NAME = "grimoire_session"
 COOKIE_SECURE = os.environ.get("BASE_URL", "http://localhost:9481").lower().startswith(
     "https://"
 )
-
-if SECRET_KEY == "grimoire-dev-secret-change-in-production":
-    logger.warning(
-        "Using default SECRET_KEY — set the SECRET_KEY environment variable in production"
-    )
 
 # bcrypt_sha256 pre-hashes with SHA-256 so passwords >72 chars are handled correctly
 pwd_context = CryptContext(

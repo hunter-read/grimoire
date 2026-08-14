@@ -1,5 +1,53 @@
 # Frequently Asked Questions
 
+## Grimoire won't start and the log mentions `SECRET_KEY`
+
+You'll see something like this on startup:
+
+```
+SECRET_KEY is set to 'change-me', a placeholder published in Grimoire's own
+documentation — anyone could forge admin sessions on this instance.
+```
+
+`SECRET_KEY` is the key Grimoire uses to sign login sessions. Because the example
+compose files in this repo shipped placeholder values (`change-me`,
+`replace-this-with-a-long-random-string`, and the old built-in default
+`grimoire-dev-secret-change-in-production`), those exact strings are public
+knowledge. Anyone who knows the key can mint a valid **admin** session for any
+instance using it, so Grimoire now refuses to start on one instead of quietly
+running with forgeable logins.
+
+**This most often hits people who copied an example compose file and never edited
+the `SECRET_KEY` line** - the app started fine before, so nothing prompted them to
+change it.
+
+You have two ways to fix it:
+
+**Option 1 - let Grimoire manage the key (easiest).** Delete the `SECRET_KEY` line
+from your compose file entirely and restart. Grimoire generates a random key on
+first boot and saves it to `secret_key` inside your data volume, reusing it on every
+later start.
+
+**Option 2 - set your own.** Generate a private random value and use it:
+
+```bash
+openssl rand -hex 32
+```
+
+```yaml
+- SECRET_KEY=<paste the generated value here>
+```
+
+Set the key explicitly if you run **more than one replica** and they don't share a
+`DATA_PATH` volume - each would otherwise generate its own key and reject the
+others' sessions.
+
+Either way, everyone gets logged out once when the signing key changes, which is
+expected. Log back in with your usual username and password; accounts, library, and
+settings are untouched.
+
+---
+
 ## I forgot my admin password. How do I reset it?
 
 If you're locked out of your account, you can reset the password directly in the database by running a one-liner inside the running container:

@@ -13,9 +13,11 @@ services:
       # Number of uvicorn worker processes. 2–4 is typical; more workers = more memory use.
       - WORKERS=2
 
-      # Required — used to sign JWT tokens. Must be a long random string.
-      # Generate one with: openssl rand -hex 32
-      - SECRET_KEY=change-me
+      # Optional — used to sign JWT tokens. Leave it unset and Grimoire generates
+      # a random key on first boot and persists it under DATA_PATH, so logins
+      # survive restarts. Set it explicitly (generate with: openssl rand -hex 32)
+      # if you run multiple replicas that do not share DATA_PATH.
+      # - SECRET_KEY=
 
       # Optional — public base URL of this instance, used to build absolute links (e.g. OPDS feed URLs).
       # Set this to the URL you use to access Grimoire, especially when running behind a reverse proxy.

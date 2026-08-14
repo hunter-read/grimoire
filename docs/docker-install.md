@@ -104,7 +104,6 @@ services:
  - LIBRARY_PATH=/library
  - DATA_PATH=/data
  - WORKERS=2
- - SECRET_KEY=replace-this-with-a-long-random-string
  - VALKEY_URL=redis://valkey:6379/0
     volumes:
  - /YOUR/LIBRARY/FOLDER:/library:ro
@@ -163,11 +162,23 @@ volumes:
 
 ### Secret key
 
-Also replace the `SECRET_KEY` value with any long, random string - think of it as an internal password for the app. You can mash your keyboard or use a password generator:
+`SECRET_KEY` is the internal password Grimoire uses to sign login sessions. You do
+not have to set it - if you leave it out, Grimoire generates a random one the first
+time it starts and saves it in your data folder, so you stay logged in across
+restarts.
+
+If you would rather set it yourself, use any long, random string - mash your keyboard
+or use a password generator:
 
 ```yaml
 - SECRET_KEY=zx7k2mQpR9nLwT4vBcYeHs3JuAoDfGiN
 ```
+
+Do **not** use a placeholder like `change-me` or the example string above. Grimoire
+refuses to start on values published in its own docs, because a known signing key
+would let anyone forge an admin login on your instance. See
+[the FAQ](faq.md#grimoire-wont-start-and-the-log-mentions-secret_key) if you hit that
+error.
 
 Save the file when you are done.
 
