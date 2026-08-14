@@ -936,6 +936,7 @@ Any field can also be pinned via an environment variable (see the table above). 
 - First-run setup always uses username + password. The OIDC button only appears after the IdP is fully configured.
 - Logging out via the in-app menu suppresses the next auto-launch (so you don't bounce straight back to the IdP).
 - The login button text is configurable per deployment (e.g. "Sign in with Acme SSO").
+- **Multiple replicas:** when `VALKEY_URL` is set, the short-lived login state and the cached IdP signing keys (JWKS) are shared through Valkey, so a callback can be handled by any worker or replica. Without it both are kept in process memory - fine for a single instance, but if you scale out without Valkey a login can land on a worker that never saw the flow start and fail with "invalid or expired login state".
 
 ---
 
