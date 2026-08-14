@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     list_maps,
     list_map_folders,
@@ -14,6 +15,13 @@ from .core import (
     update_map,
     bulk_update_maps,
     bulk_add_map_tags,
+)
+from ._schemas import (
+    FolderTagsOut,
+    MapDetailResponse,
+    MapFoldersResponse,
+    MapListResponse,
+    StatusResponse,
 )
 
 router = APIRouter(tags=["maps"])
@@ -29,6 +37,7 @@ router.add_api_route(
     summary="List maps",
     description="Returns a paginated list of maps. Filter by `map_type` or `folder`.",
     dependencies=[Depends(require_not_guest)],
+    response_model=MapListResponse,
 )
 router.add_api_route(
     "/map-folders",
@@ -37,6 +46,7 @@ router.add_api_route(
     summary="List map folders",
     description="Returns all known map folder paths and their associated tags.",
     dependencies=[Depends(require_not_guest)],
+    response_model=MapFoldersResponse,
 )
 router.add_api_route(
     "/map-folders",
@@ -44,6 +54,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Set tags on a map folder",
     description="Creates or replaces the tag list for a folder path. GM or admin role required.",
+    response_model=FolderTagsOut,
 )
 router.add_api_route(
     "/maps/{map_id}",
@@ -51,6 +62,7 @@ router.add_api_route(
     methods=["GET"],
     summary="Get a map",
     description="Returns full map metadata including pixel dimensions, DPI, detected grid size, and folder tags.",
+    response_model=MapDetailResponse,
 )
 router.add_api_route(
     "/maps/{map_id}/file",
@@ -79,6 +91,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update map metadata",
     description="Updates editable fields on a map (description, tags, map_type, grid_size). GM or admin role required.",
+    response_model=StatusResponse,
 )
 # Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
 # creation and 500'd; these take the whole batch in one transaction.
@@ -92,6 +105,7 @@ router.add_api_route(
         "Body: {items: [{id, description?, tags?, map_type?, grid_size?}]}. Unknown "
         "ids are reported in `errors` and skipped. GM or admin role required."
     ),
+    response_model=BulkResult,
 )
 router.add_api_route(
     "/maps/bulk/tags",
@@ -102,6 +116,7 @@ router.add_api_route(
         "Additively applies tags to many maps in one transaction. "
         "Body: {ids: [...], tags: [...]}. GM or admin role required."
     ),
+    response_model=BulkTagResult,
 )
 router.add_api_route(
     "/map-folders/bulk",
@@ -112,4 +127,5 @@ router.add_api_route(
         "Sets tags on many map folders in one transaction. "
         "Body: {folders: [{path, tags}]}. GM or admin role required."
     ),
+    response_model=MapFoldersResponse,
 )

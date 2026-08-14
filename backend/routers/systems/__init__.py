@@ -13,6 +13,20 @@ from .core import (
 )
 from .covers import delete_system_cover, serve_system_cover, upload_system_cover
 from .metadata import fetch_metadata, list_metadata_sources, search_metadata
+from .._bulk_schemas import BulkResult, BulkTagResult
+from .._metadata_lookup import (
+    MetadataFetchResponse,
+    MetadataSearchResponse,
+    MetadataSourcesResponse,
+)
+from ._schemas import (
+    BookFoldersResponse,
+    BookFolderOut,
+    StatusResponse,
+    SystemCoverResponse,
+    SystemDetail,
+    SystemSummary,
+)
 
 router = APIRouter(prefix="/systems", tags=["systems"])
 
@@ -29,6 +43,7 @@ router.add_api_route(
         "for a flat list of everything."
     ),
     dependencies=[Depends(require_not_guest)],
+    response_model=list[SystemSummary],
 )
 router.add_api_route(
     "/{system_id}",
@@ -41,6 +56,7 @@ router.add_api_route(
         "systems nested inside it."
     ),
     dependencies=[Depends(require_not_guest)],
+    response_model=SystemDetail,
 )
 router.add_api_route(
     "/{system_id}/book-folders",
@@ -51,6 +67,7 @@ router.add_api_route(
         "Returns all known book subcategory folder paths for a system and "
         "their associated tags."
     ),
+    response_model=BookFoldersResponse,
 )
 router.add_api_route(
     "/{system_id}/book-folders",
@@ -61,6 +78,7 @@ router.add_api_route(
         "Creates or replaces the tag list for a book subcategory folder. GM or "
         "admin role required."
     ),
+    response_model=BookFolderOut,
 )
 router.add_api_route(
     "/{system_id}",
@@ -68,6 +86,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update game system metadata",
     description="Updates editable fields on a game system. GM or admin role required.",
+    response_model=StatusResponse,
 )
 # Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
 # creation and 500'd; these take the whole batch in one transaction.
@@ -81,6 +100,7 @@ router.add_api_route(
         "Body: {items: [{id, ...GameSystemUpdate fields}]}. Unknown ids and name "
         "clashes are reported in `errors` and skipped. GM or admin role required."
     ),
+    response_model=BulkResult,
 )
 router.add_api_route(
     "/bulk/tags",
@@ -91,6 +111,7 @@ router.add_api_route(
         "Additively applies tags to many systems in one transaction. "
         "Body: {ids: [...], tags: [...]}. GM or admin role required."
     ),
+    response_model=BulkTagResult,
 )
 
 # Cover art. A ``cover.*``/``folder.*`` image in the system's library folder wins
@@ -116,6 +137,7 @@ router.add_api_route(
         "`cover.*` file in the system's library folder still takes precedence. "
         "GM or admin role required."
     ),
+    response_model=SystemCoverResponse,
 )
 router.add_api_route(
     "/{system_id}/cover",
@@ -126,6 +148,7 @@ router.add_api_route(
         "Deletes the uploaded cover image. Folder cover art is library-managed "
         "and is not affected. GM or admin role required."
     ),
+    response_model=StatusResponse,
 )
 
 # Add-on metadata lookup (issue #203).  All three are read-only — they report
@@ -141,6 +164,7 @@ router.add_api_route(
         "Returns installed, enabled add-ons that can supply game system "
         "metadata. GM or admin role required."
     ),
+    response_model=MetadataSourcesResponse,
 )
 router.add_api_route(
     "/{system_id}/metadata-search",
@@ -151,6 +175,7 @@ router.add_api_route(
         "Returns ranked candidate matches for this system from one add-on. An "
         "empty query defaults to the system's name. GM or admin role required."
     ),
+    response_model=MetadataSearchResponse,
 )
 router.add_api_route(
     "/{system_id}/metadata-fetch",
@@ -161,4 +186,5 @@ router.add_api_route(
         "Fetches one candidate's fields and diffs them against the system's "
         "current values. Writes nothing. GM or admin role required."
     ),
+    response_model=MetadataFetchResponse,
 )

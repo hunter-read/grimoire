@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     list_tokens,
     list_token_folders,
@@ -13,6 +14,13 @@ from .core import (
     update_token,
     bulk_update_tokens,
     bulk_add_token_tags,
+)
+from ._schemas import (
+    FolderTagsOut,
+    StatusResponse,
+    TokenDetailResponse,
+    TokenFoldersResponse,
+    TokenListResponse,
 )
 
 router = APIRouter(tags=["tokens"])
@@ -28,6 +36,7 @@ router.add_api_route(
     summary="List tokens",
     description="Returns a paginated list of tokens.",
     dependencies=[Depends(require_not_guest)],
+    response_model=TokenListResponse,
 )
 router.add_api_route(
     "/token-folders",
@@ -36,6 +45,7 @@ router.add_api_route(
     summary="List token folders",
     description="Returns all known token folder paths and their associated tags.",
     dependencies=[Depends(require_not_guest)],
+    response_model=TokenFoldersResponse,
 )
 router.add_api_route(
     "/token-folders",
@@ -43,6 +53,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Set tags on a token folder",
     description="Creates or replaces the tag list for a folder path. GM or admin role required.",
+    response_model=FolderTagsOut,
 )
 router.add_api_route(
     "/tokens/{token_id}",
@@ -50,6 +61,7 @@ router.add_api_route(
     methods=["GET"],
     summary="Get a token",
     description="Returns full token metadata including folder tags.",
+    response_model=TokenDetailResponse,
 )
 router.add_api_route(
     "/tokens/{token_id}/file",
@@ -71,6 +83,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update token metadata",
     description="Updates editable fields on a token (description, tags). GM or admin role required.",
+    response_model=StatusResponse,
 )
 # Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
 # creation and 500'd; these take the whole batch in one transaction.
@@ -84,6 +97,7 @@ router.add_api_route(
         "Body: {items: [{id, description?, tags?, is_explicit?}]}. Unknown ids are "
         "reported in `errors` and skipped. GM or admin role required."
     ),
+    response_model=BulkResult,
 )
 router.add_api_route(
     "/tokens/bulk/tags",
@@ -94,6 +108,7 @@ router.add_api_route(
         "Additively applies tags to many tokens in one transaction. "
         "Body: {ids: [...], tags: [...]}. GM or admin role required."
     ),
+    response_model=BulkTagResult,
 )
 router.add_api_route(
     "/token-folders/bulk",
@@ -104,4 +119,5 @@ router.add_api_route(
         "Sets tags on many token folders in one transaction. "
         "Body: {folders: [{path, tags}]}. GM or admin role required."
     ),
+    response_model=TokenFoldersResponse,
 )

@@ -11,6 +11,14 @@ The live API is self-documented via OpenAPI. With the server running:
 | `http://localhost:9481/api/docs` | **Swagger UI** - interactive, try-it-out docs |
 | `http://localhost:9481/api/redoc` | **ReDoc** - clean, readable reference |
 | `http://localhost:9481/api/openapi.json` | Raw OpenAPI schema |
+
+Every JSON endpoint declares a response model, so the spec carries real response
+types (usable for client generation) rather than an empty schema. The only
+routes without a body schema are the ones that do not return JSON — file, image
+and archive downloads, OIDC redirects, and the SPA catch-all.
+`backend/tests/test_openapi_response_models.py` enforces this: a new JSON route
+that omits its `response_model=` fails the suite.
+
 ---
 
 ## Authentication

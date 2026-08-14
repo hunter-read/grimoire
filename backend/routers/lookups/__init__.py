@@ -22,92 +22,124 @@ from .core import (
     list_parent_systems,
     list_system_families,
 )
+from ._schemas import (
+    DiceMaterialOut,
+    DiceMaterialsResponse,
+    GenreOut,
+    GenresResponse,
+    LicensesResponse,
+    LookupDeleteResponse,
+    LookupOut,
+    ParentSystemsResponse,
+    SystemFamiliesResponse,
+)
 
 router = APIRouter(tags=["lookups"])
 
 __all__ = ["router"]
 
 router.add_api_route(
-    "/genres", list_genres, methods=["GET"], summary="List all genres (tiered)"
+    "/genres",
+    list_genres,
+    methods=["GET"],
+    summary="List all genres (tiered)",
+    response_model=GenresResponse,
 )
 router.add_api_route(
-    "/genres", create_genre, methods=["POST"], summary="Create a custom genre (admin)"
+    "/genres",
+    create_genre,
+    methods=["POST"],
+    summary="Create a custom genre (admin)",
+    response_model=GenreOut,
 )
 router.add_api_route(
     "/genres/{genre_id}",
     delete_genre,
     methods=["DELETE"],
     summary="Delete a genre (admin; blocked if in use unless force=true)",
+    response_model=LookupDeleteResponse,
 )
 router.add_api_route(
     "/system-families",
     list_system_families,
     methods=["GET"],
     summary="List all system families",
+    response_model=SystemFamiliesResponse,
 )
 router.add_api_route(
     "/system-families",
     create_system_family,
     methods=["POST"],
     summary="Create a custom system family (admin)",
+    response_model=LookupOut,
 )
 router.add_api_route(
     "/system-families/{family_id}",
     delete_system_family,
     methods=["DELETE"],
     summary="Delete a system family (admin; blocked if in use unless force=true)",
+    response_model=LookupDeleteResponse,
 )
 router.add_api_route(
     "/parent-systems",
     list_parent_systems,
     methods=["GET"],
     summary="List all parent systems",
+    response_model=ParentSystemsResponse,
 )
 router.add_api_route(
     "/parent-systems",
     create_parent_system,
     methods=["POST"],
     summary="Create a custom parent system (admin)",
+    response_model=LookupOut,
 )
 router.add_api_route(
     "/parent-systems/{parent_id}",
     delete_parent_system,
     methods=["DELETE"],
     summary="Delete a parent system (admin; blocked if in use unless force=true)",
+    response_model=LookupDeleteResponse,
 )
 router.add_api_route(
     "/licenses",
     list_licenses,
     methods=["GET"],
     summary="List all licenses",
+    response_model=LicensesResponse,
 )
 router.add_api_route(
     "/licenses",
     create_license,
     methods=["POST"],
     summary="Create a custom license (admin)",
+    response_model=LookupOut,
 )
 router.add_api_route(
     "/licenses/{license_id}",
     delete_license,
     methods=["DELETE"],
     summary="Delete a license (admin; blocked if in use unless force=true)",
+    response_model=LookupDeleteResponse,
 )
 router.add_api_route(
     "/dice-materials",
     list_dice_materials,
     methods=["GET"],
     summary="List all dice/materials",
+    response_model=DiceMaterialsResponse,
 )
 router.add_api_route(
     "/dice-materials",
     create_dice_material,
     methods=["POST"],
     summary="Create a custom dice/material (admin)",
+    response_model=DiceMaterialOut,
 )
 router.add_api_route(
     "/dice-materials/{material_id}",
     delete_dice_material,
     methods=["DELETE"],
     summary="Delete a dice/material (admin; blocked if in use unless force=true)",
+    response_model=LookupDeleteResponse,
 )

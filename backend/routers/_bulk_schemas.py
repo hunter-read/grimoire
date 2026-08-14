@@ -6,8 +6,6 @@ the per-item shape is built per router via :func:`bulk_update_model`. The
 tag-only envelope (:class:`BulkAddTags`) is identical everywhere and is shared
 directly.
 """
-from typing import Optional
-
 from pydantic import BaseModel, Field, field_validator
 
 from ..services import tag_service
@@ -83,6 +81,20 @@ class BulkItemError(BaseModel):
 
 
 class BulkResult(BaseModel):
+    """``run_bulk_update``'s response: no ``tags`` key.
+
+    Kept separate from :class:`BulkTagResult` rather than carrying an optional
+    ``tags`` field, because an ``Optional`` field is *materialised* as an
+    explicit ``tags: null`` by the response serializer — adding a key these
+    endpoints never returned. Use :class:`BulkTagResult` for the add-tags
+    routes, which really do return it.
+    """
+
     updated: list[str]
     errors: list[BulkItemError]
-    tags: Optional[dict[str, list[str]]] = None
+
+
+class BulkTagResult(BulkResult):
+    """``run_bulk_add_tags``'s response: the base shape plus per-id display tags."""
+
+    tags: dict[str, list[str]]

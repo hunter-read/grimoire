@@ -43,3 +43,26 @@ class SavedFilterUpdate(BaseModel):
         if not v:
             raise ValueError("name must not be blank")
         return v
+
+
+class SavedFilterOut(BaseModel):
+    """One preset, as built by `core._serialize`.
+
+    `scope` and `name` are NOT NULL columns; `state` and `is_default` are
+    coalesced by the serializer (`f.state or {}`, `bool(f.is_default)`), so all
+    four stay required even though the columns only carry a `default=`.
+    """
+
+    id: str
+    scope: str
+    name: str
+    state: dict[str, Any]
+    is_default: bool
+
+
+class SavedFiltersResponse(BaseModel):
+    filters: list[SavedFilterOut]
+
+
+class StatusResponse(BaseModel):
+    status: str

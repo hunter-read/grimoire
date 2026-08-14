@@ -9,6 +9,7 @@ from ._helpers import (
     _resolve_user,
     _role_from_groups,
 )
+from ._schemas import DiscoverResponse
 from .core import discover, oidc_callback, oidc_login
 
 router = APIRouter(prefix="/auth/openid", tags=["auth"])
@@ -17,6 +18,7 @@ router.add_api_route(
     discover,
     methods=["POST"],
     summary="Fetch OIDC discovery document",
+    response_model=DiscoverResponse,
     description=(
         "Admin-only. Fetches `.well-known/openid-configuration` from the issuer "
         "URL and returns the relevant endpoint URLs so the admin UI can "

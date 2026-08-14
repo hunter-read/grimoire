@@ -139,3 +139,76 @@ class PreferencesUpdate(BaseModel):
         if v is None or v == "":
             return v
         return _normalize_email(v)
+
+
+class UserOut(BaseModel):
+    """A user row in the admin list, and the body returned by create/convert.
+
+    The three handlers emit slightly different subsets of these keys — the admin
+    list and `convert_guest` include `display_name`/`created_at`, `create_user`
+    does not — so every key that is not in all of them is Optional.
+    """
+
+    id: str
+    username: str
+    # Explicitly nullable column, and absent from `create_user`'s dict.
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    # `role` is `default="player"` rather than NOT NULL, so it can be NULL.
+    role: Optional[str] = None
+    # Both are coalesced by the handlers, so they are always concrete booleans.
+    allow_explicit: bool
+    campaign_access: bool
+    campaign_count: int
+    oidc_linked: bool
+    # `created_at` is `default=...` rather than NOT NULL, and `create_user` omits
+    # the key entirely.
+    created_at: Optional[str] = None
+
+
+class UserUpdateResponse(BaseModel):
+    """`update_user` returns a deliberately narrower body than `UserOut`."""
+
+    id: str
+    username: str
+    email: Optional[str] = None
+    role: Optional[str] = None
+    allow_explicit: bool
+    campaign_access: bool
+
+
+class GuestOut(BaseModel):
+    """One guest account, with the campaign it is scoped to and its inviter."""
+
+    id: str
+    display_name: Optional[str] = None
+    # `created_at` is `default=...` rather than NOT NULL.
+    created_at: Optional[str] = None
+    # All three are None when the guest's membership or campaign has been
+    # deleted out from under it.
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    invited_by: Optional[str] = None
+
+
+class PreferencesResponse(BaseModel):
+    """Echoes the stored values, which are all nullable columns."""
+
+    allow_explicit: Optional[bool] = None
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+
+
+class PasswordChangeResponse(BaseModel):
+    status: str
+    # How many *other* sessions were ended; the current one is kept.
+    sessions_revoked: int
+
+
+class OpdsStatusResponse(BaseModel):
+    opds_enabled: bool
+    # Omitted entirely when OPDS is disabled or the caller is a guest — that
+    # branch returns only `opds_enabled`/`feed_url`.
+    has_token: Optional[bool] = None
+    # Null when no token has been generated yet.
+    feed_url: Optional[str] = None

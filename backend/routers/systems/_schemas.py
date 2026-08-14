@@ -1,5 +1,5 @@
 """Pydantic schemas for the systems API."""
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -109,3 +109,114 @@ class GameSystemUpdate(BaseModel):
 
 # Batch form of GameSystemUpdate: {"items": [{"id": ..., ...GameSystemUpdate fields}]}.
 GameSystemBulkUpdate = bulk_update_model(GameSystemUpdate, "GameSystem")
+
+
+# --- Response models ---------------------------------------------------------
+# Almost every column below is declared `default=...` rather than `nullable=False`,
+# so NULL stays representable (the default applies at insert only, and rows
+# predating a column migration keep NULL). Those are Optional here — declaring
+# them strictly would make response_model validation raise on legacy rows.
+
+
+class BookOut(BaseModel):
+    """One book, as built by `_serializers.serialize_book`."""
+
+    id: str
+    # `title`/`filename`/`relative_path` are NOT NULL on the model.
+    title: str
+    filename: str
+    relative_path: str
+    category: Optional[str] = None
+    description: Optional[str] = None
+    page_count: Optional[int] = None
+    file_size: Optional[int] = None
+    mime_type: Optional[str] = None
+    # The serializer coalesces every list field to `[]`.
+    authors: list[Any]
+    artists: list[Any]
+    genres: list[Any]
+    publisher: Optional[str] = None
+    publisher_url: Optional[str] = None
+    urls: list[Any]
+    # Coalesced with `or ""` by the serializer.
+    isbn: str
+    version: str
+    language: str
+    license: str
+    year: Optional[int] = None
+    month: Optional[int] = None
+    day: Optional[int] = None
+    indexed: Optional[bool] = None
+    index_failed: Optional[bool] = None
+    index_error: Optional[str] = None
+    # Derived comparison, so always a concrete bool.
+    ocr_indexed: bool
+    ocr_dpi: Optional[int] = None
+    has_thumbnail: Optional[bool] = None
+    tags: list[str]
+    # Both wrapped in `bool(...)` by the serializer.
+    is_explicit: bool
+    is_missing: bool
+
+
+class SystemSummary(BaseModel):
+    """A game system, as built by `_serializers.serialize_system_summary`."""
+
+    id: str
+    # `name`/`slug` are NOT NULL on the model.
+    name: str
+    slug: str
+    description: Optional[str] = None
+    publishers: list[Any]
+    character_builder_url: Optional[str] = None
+    character_builder_urls: list[Any]
+    urls: list[Any]
+    tags: list[str]
+    genre: Optional[str] = None
+    genres: list[Any]
+    dice_materials: list[Any]
+    # Coalesced with `or ""` by the serializer.
+    system_family: str
+    parent_system: str
+    edition: str
+    license: str
+    year: Optional[int] = None
+    book_count: int
+    total_page_count: int
+    cover_image: Optional[str] = None
+    # Null for container folders, which own no books.
+    cover_book_id: Optional[str] = None
+    has_cover: bool
+    is_explicit: bool
+    is_system_agnostic: bool
+    is_one_page: bool
+    container_kind: str
+    parent_id: Optional[str] = None
+    parent_name: str
+    parent_is_one_page: bool
+    name_is_custom: bool
+    child_count: int
+
+
+class SystemDetail(SystemSummary):
+    """`get_system` adds the system's books and, for a container, its children."""
+
+    books: list[BookOut]
+    children: list[SystemSummary]
+
+
+class BookFolderOut(BaseModel):
+    path: str
+    tags: list[str]
+
+
+class BookFoldersResponse(BaseModel):
+    folders: list[BookFolderOut]
+
+
+class StatusResponse(BaseModel):
+    status: str
+
+
+class SystemCoverResponse(BaseModel):
+    cover_image: str

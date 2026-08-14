@@ -21,7 +21,14 @@ from ...indexer import resolve_scope
 from ...security import AUTH_RATE_LIMIT, limiter
 from ..settings import get_stats_api_key
 from . import _helpers
-from ._schemas import RescanRequest
+from ._schemas import (
+    AboutResponse,
+    LatestReleaseResponse,
+    RescanRequest,
+    ScanStatusResponse,
+    StatsResponse,
+    StatusResponse,
+)
 
 router = APIRouter(tags=["library"])
 public_router = APIRouter(prefix="/api", tags=["library"])
@@ -31,6 +38,7 @@ public_router = APIRouter(prefix="/api", tags=["library"])
     "/scan-status",
     summary="Scan status",
     description="Returns current scan state: running, phase (scanning|indexing), progress counters, and new-item counts from the last scan.",
+    response_model=ScanStatusResponse,
 )
 def get_scan_status(_: CurrentUser = Depends(require_admin)):
     return _helpers._get_status()
@@ -44,6 +52,7 @@ def get_scan_status(_: CurrentUser = Depends(require_admin)):
         "Optionally scope to a subtree (`scope`, e.g. \"books/D&D 5e/adventure\") and "
         "re-apply sidecar metadata (`metadata_mode`: new|missing|replace). Admin role required."
     ),
+    response_model=StatusResponse,
 )
 def rescan_library(
     background_tasks: BackgroundTasks,
@@ -70,6 +79,7 @@ def rescan_library(
     "/cancel-scan",
     summary="Cancel running scan",
     description="Requests a graceful stop of the currently running library scan or indexing job. Admin role required.",
+    response_model=StatusResponse,
 )
 def cancel_scan(_: CurrentUser = Depends(require_admin)):
     if not _helpers._get_status()["running"]:
@@ -82,6 +92,7 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
     "/stats",
     summary="Library statistics",
     description="Returns library counts. Accepts either a valid JWT (Authorization: Bearer) or a configured X-API-Key header for external integrations.",
+    response_model=StatsResponse,
 )
 @limiter.limit(AUTH_RATE_LIMIT)
 def get_stats(
@@ -121,6 +132,7 @@ def get_stats(
         "dialog. Login required — deliberately not exposed on the API-key-gated "
         "/stats endpoint so build details aren't leaked to external integrations."
     ),
+    response_model=AboutResponse,
 )
 def get_about(_: CurrentUser = Depends(get_current_user)):
     return {
@@ -176,6 +188,7 @@ def _fetch_latest_release() -> Optional[str]:
         "Proxied server-side (and cached) so the browser makes a same-origin request "
         "that privacy browsers and request blockers won't block. Login required."
     ),
+    response_model=LatestReleaseResponse,
 )
 def get_latest_release(_: CurrentUser = Depends(get_current_user)):
     return {"latest_version": _fetch_latest_release()}
