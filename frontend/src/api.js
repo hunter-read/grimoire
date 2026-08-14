@@ -8,6 +8,56 @@ function authHeaders(includeContentType = false) {
   }
 }
 
+// --- Access-token refresh (issue #157) -------------------------------------
+// Access tokens are short-lived, so any request can come back 401 simply
+// because the token aged out. When that happens we exchange the HttpOnly
+// refresh cookie for a new token and replay the request once.
+//
+// Concurrent 401s must not each fire their own refresh: refresh tokens rotate
+// on use, so parallel exchanges would invalidate each other and log the user
+// out. A single in-flight promise is shared by every caller instead.
+let refreshPromise = null
+
+// Requests that must never trigger a refresh: the refresh call itself (whose
+// 401 is terminal) and the login-ish endpoints, where a 401 means bad
+// credentials rather than a stale token.
+const NO_REFRESH_PATHS = ['/auth/refresh', '/auth/login', '/auth/guest-login', '/auth/setup']
+
+export function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = fetch('/api/auth/refresh', {
+      method: 'POST',
+      // The refresh cookie is HttpOnly and path-scoped; it rides along here.
+      credentials: 'same-origin',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!body?.token) return null
+        localStorage.setItem('grimoire_token', body.token)
+        return body.token
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
+
+// Perform a request, transparently refreshing and retrying once on a 401.
+// `build` is called fresh for each attempt so the retry picks up the new token.
+async function authedFetch(url, build) {
+  const res = await fetch(url, build())
+  if (res.status !== 401) return res
+  if (NO_REFRESH_PATHS.some((p) => url.startsWith(`/api${p}`))) return res
+  // No stored token means we were never logged in — nothing to refresh.
+  if (!getToken()) return res
+
+  const token = await refreshAccessToken()
+  if (!token) return res
+  return fetch(url, build())
+}
+
 async function handleResponse(res) {
   if (res.status === 401) {
     window.dispatchEvent(new CustomEvent('grimoire:unauthorized'))
@@ -234,9 +284,15 @@ export const campaigns = {
 export const auth = {
   config: () => api.get('/auth/config'),
   guestLogin: (code) => api.post('/auth/guest-login', { code }),
-  // Clears the server-side session cookie. Best-effort — the client also drops
-  // its stored token regardless of whether this succeeds.
+  // Revokes the current session server-side and clears both auth cookies.
+  // Best-effort — the client drops its stored token regardless.
   logout: () => api.post('/auth/logout'),
+
+  // Active login sessions for the current user (issue #157).
+  sessions: () => api.get('/auth/sessions'),
+  revokeSession: (id) => api.delete(`/auth/sessions/${id}`),
+  // Ends every session except the one making this call.
+  revokeOtherSessions: () => api.delete('/auth/sessions/others'),
 }
 
 export const opds = {
@@ -306,36 +362,38 @@ export const bulk = {
 }
 
 const api = {
-  get: (url) => fetch(`/api${url}`, { headers: authHeaders() }).then(handleResponse),
+  get: (url) => authedFetch(`/api${url}`, () => ({ headers: authHeaders() })).then(handleResponse),
 
   post: (url, data) =>
-    fetch(`/api${url}`, {
+    authedFetch(`/api${url}`, () => ({
       method: 'POST',
       headers: authHeaders(!!data),
       body: data ? JSON.stringify(data) : undefined,
-    }).then(handleResponse),
+    })).then(handleResponse),
 
   patch: (url, data) =>
-    fetch(`/api${url}`, {
+    authedFetch(`/api${url}`, () => ({
       method: 'PATCH',
       headers: authHeaders(true),
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    })).then(handleResponse),
 
   put: (url, data) =>
-    fetch(`/api${url}`, {
+    authedFetch(`/api${url}`, () => ({
       method: 'PUT',
       headers: authHeaders(!!data),
       body: data ? JSON.stringify(data) : undefined,
-    }).then(handleResponse),
+    })).then(handleResponse),
 
   delete: (url) =>
-    fetch(`/api${url}`, { method: 'DELETE', headers: authHeaders() }).then(handleResponse),
+    authedFetch(`/api${url}`, () => ({ method: 'DELETE', headers: authHeaders() })).then(
+      handleResponse
+    ),
 
   // Fetch a file response and trigger a browser download. The server's
   // Content-Disposition filename wins; `fallback` is used only if it's absent.
   download: async (url, fallback) => {
-    const res = await fetch(`/api${url}`, { headers: authHeaders() })
+    const res = await authedFetch(`/api${url}`, () => ({ headers: authHeaders() }))
     if (res.status === 401) {
       window.dispatchEvent(new CustomEvent('grimoire:unauthorized'))
       throw Object.assign(new Error('Unauthorized'), { status: 401 })
@@ -366,14 +424,19 @@ const api = {
   // Multipart upload — do NOT set Content-Type so the browser adds the boundary.
   // `fields` appends extra form values alongside the file.
   upload: (url, file, fields = {}) => {
-    const form = new FormData()
-    form.append('file', file)
-    for (const [k, v] of Object.entries(fields)) form.append(k, v)
-    return fetch(`/api${url}`, {
+    // Rebuilt per attempt: a FormData body is a one-shot stream, so a retry
+    // after a token refresh needs its own instance.
+    const buildForm = () => {
+      const form = new FormData()
+      form.append('file', file)
+      for (const [k, v] of Object.entries(fields)) form.append(k, v)
+      return form
+    }
+    return authedFetch(`/api${url}`, () => ({
       method: 'POST',
       headers: authHeaders(),
-      body: form,
-    }).then(handleResponse)
+      body: buildForm(),
+    })).then(handleResponse)
   },
 }
 

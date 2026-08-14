@@ -12,11 +12,18 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from ...auth import CurrentUser, create_token, require_admin, set_auth_cookie
+from ...auth import (
+    CurrentUser,
+    create_token,
+    require_admin,
+    set_auth_cookie,
+    set_refresh_cookie,
+)
+from ...sessions import create_session
 from ...config import get_db
 from ..settings._helpers import (
     _get_raw,
@@ -124,6 +131,7 @@ def _redirect_with_error(msg: str) -> RedirectResponse:
 
 
 def oidc_callback(
+    request: Request,
     code: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
@@ -223,13 +231,24 @@ def oidc_callback(
         logger.info("OIDC login rejected: %s", e)
         return _redirect_with_error(str(e))
 
-    token = create_token(user.id, user.username, user.role)
-    # Hand the token to the frontend via the URL fragment so it isn't
+    # OIDC logins get a real session like every other login path, so they are
+    # equally revocable (issue #157).
+    session, refresh_token = create_session(
+        db,
+        user.id,
+        origin="oidc",
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    token = create_token(user.id, user.username, user.role, session_id=session.id)
+    # Hand the access token to the frontend via the URL fragment so it isn't
     # logged by intermediate proxies. Also set the session cookie so
-    # <img>/download GETs authenticate without the JWT in the URL.
+    # <img>/download GETs authenticate without the JWT in the URL. The refresh
+    # token goes only into its HttpOnly cookie — never the fragment, since a
+    # fragment lands in browser history and in any JS on the landing page.
     return_to = saved.get("return_to") or "/"
     if not return_to.startswith("/"):
         return_to = "/"
     resp = RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
     set_auth_cookie(resp, token)
+    set_refresh_cookie(resp, refresh_token)
     return resp

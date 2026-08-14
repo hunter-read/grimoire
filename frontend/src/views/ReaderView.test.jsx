@@ -86,6 +86,33 @@ function renderReader(bookId = 'book-1', { locationState } = {}) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/**
+ * Wait until the reader has stopped re-rendering from its initial data loads.
+ *
+ * The view fires several independent fetches on mount (book, TOC, bookmarks,
+ * text), and every resolution re-renders. Anything that depends on a stable
+ * render — chiefly the keydown handler, which is re-registered each time
+ * currentPage changes — must not run until those have all landed.
+ *
+ * Waits for setSearchParams to stay untouched across consecutive turns of the
+ * microtask queue, which is the observable signal that the settling effects
+ * have finished. Uses only microtasks, so no real timers and no fixed sleep.
+ */
+async function waitForReaderIdle() {
+  let previous = -1
+  // Three consecutive quiet turns: one to drain the current promise chain, and
+  // two more to catch an effect that schedules another effect.
+  let quietTurns = 0
+  while (quietTurns < 3) {
+    await act(async () => {
+      await Promise.resolve()
+    })
+    const calls = mockSetSearchParams.mock.calls.length
+    quietTurns = calls === previous ? quietTurns + 1 : 0
+    previous = calls
+  }
+}
+
 /** Returns the `replace` option from the most recent setSearchParams call. */
 function lastReplaceOption() {
   const calls = mockSetSearchParams.mock.calls
@@ -116,17 +143,34 @@ describe('ReaderView — jump navigation history behaviour', () => {
   it('navigates with the ArrowRight / ArrowLeft keys', async () => {
     renderReader()
     await waitFor(() => screen.getByText('Test Book'))
+
+    // The title appearing only means the book detail resolved — the TOC,
+    // bookmarks, and text fetches are still landing, and each one re-renders
+    // the reader. The keydown handler closes over currentPage and so is torn
+    // down and re-registered on every one of those renders, meaning a key
+    // dispatched into that window can hit a detached listener and be lost.
+    // Wait for the component to go quiet first, or this races (issue #157 CI
+    // flake: the ArrowRight was dropped and the assertion below timed out).
+    await waitForReaderIdle()
+
     mockSetSearchParams.mockClear()
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
     })
-    // Page navigation persists the page via setSearchParams. Wait for the
-    // page-change effect to flush rather than asserting synchronously, since
-    // the keydown handler re-registers on each currentPage render.
-    await waitFor(() => expect(mockSetSearchParams).toHaveBeenCalled())
+
+    // Assert the *specific* navigation, not merely that something called
+    // setSearchParams — a stray settling effect would satisfy a bare
+    // toHaveBeenCalled() and hide a dropped keypress.
+    await waitFor(() =>
+      expect(mockSetSearchParams).toHaveBeenCalledWith({ page: '2' }, { replace: true })
+    )
+
+    mockSetSearchParams.mockClear()
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
     })
+    // Back to page 1, which drops the param entirely rather than writing page=1.
+    await waitFor(() => expect(mockSetSearchParams).toHaveBeenCalledWith({}, { replace: true }))
   })
 
   it('the "?" key toggles the shortcuts overlay', async () => {

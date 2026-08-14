@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db, BASE_URL
 from ...models import Campaign, CampaignMember, User
+from ...sessions import revoke_user_sessions
 from ..settings._helpers import _get_raw, guest_access_effective
 from ._helpers import assert_can_manage, delete_guest_user, get_campaign_or_404
 from ._schemas import GuestCreate
@@ -164,6 +165,9 @@ def regenerate_guest_code(
     member = _get_guest_member(db, campaign_id, member_id)
     member.guest_code = _generate_guest_code(db)
     db.commit()
+    # Regenerating the code is how a GM revokes a shared invite, so sessions
+    # opened with the old code must end with it.
+    revoke_user_sessions(db, member.user_id)
     db.refresh(member)
     user = db.query(User).filter_by(id=member.user_id).first()
     return _serialize_guest(member, user)

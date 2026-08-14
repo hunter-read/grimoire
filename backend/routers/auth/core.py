@@ -1,5 +1,7 @@
 """Authentication endpoint handlers."""
-from fastapi import Depends, HTTPException, Request, Response
+from typing import Optional
+
+from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -7,15 +9,26 @@ from ...auth import (
     AUTH_COOKIE_NAME,
     CurrentUser,
     clear_auth_cookie,
+    clear_refresh_cookie,
     create_token,
     get_current_user,
     hash_password,
     set_auth_cookie,
+    set_refresh_cookie,
     verify_password,
 )
 from ...config import get_db
-from ...models import CampaignMember, User
+from ...models import AuthSession, CampaignMember, User
 from ...security import AUTH_RATE_LIMIT, limiter
+from ...sessions import (
+    REFRESH_COOKIE_NAME,
+    get_active_session,
+    list_user_sessions,
+    revoke_session,
+    revoke_session_by_token,
+    revoke_user_sessions,
+    rotate_session,
+)
 from ..settings._helpers import (
     _get_raw,
     guest_access_effective,
@@ -23,6 +36,7 @@ from ..settings._helpers import (
     oidc_is_configured,
     password_auth_effective,
 )
+from ._helpers import issue_login
 from ._schemas import GuestLoginRequest, LoginRequest, SetupRequest
 
 
@@ -47,17 +61,7 @@ def auth_setup(
     db.add(user)
     db.commit()
     db.refresh(user)
-    token = create_token(user.id, user.username, user.role)
-    set_auth_cookie(response, token)
-    return {
-        "token": token,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "display_name": user.display_name,
-            "role": user.role,
-        },
-    }
+    return issue_login(db, user, response, request)
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
@@ -78,17 +82,7 @@ def auth_login(
     )
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(401, "Invalid username or password")
-    token = create_token(user.id, user.username, user.role)
-    set_auth_cookie(response, token)
-    return {
-        "token": token,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "display_name": user.display_name,
-            "role": user.role,
-        },
-    }
+    return issue_login(db, user, response, request)
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
@@ -115,8 +109,68 @@ def guest_login(
     if not user or user.role != "guest":
         raise HTTPException(401, "Invalid invite code")
 
-    token = create_token(user.id, user.username, user.role)
+    body = issue_login(db, user, response, request, origin="guest")
+    body["campaign_id"] = member.campaign_id
+    return body
+
+
+def auth_logout(
+    response: Response,
+    refresh_token: Optional[str] = Cookie(None, alias=REFRESH_COOKIE_NAME),
+    db: Session = Depends(get_db),
+):
+    """Revoke the current session and clear both auth cookies.
+
+    Deliberately requires no auth so a client with an already-expired access
+    token can still log out cleanly — the refresh cookie alone identifies which
+    session to end, and an unknown or missing one is not an error.
+    """
+    if refresh_token:
+        revoke_session_by_token(db, refresh_token)
+    clear_auth_cookie(response)
+    clear_refresh_cookie(response)
+    return {"ok": True}
+
+
+@limiter.limit(AUTH_RATE_LIMIT)
+def auth_refresh(
+    request: Request,
+    response: Response,
+    refresh_token: Optional[str] = Cookie(None, alias=REFRESH_COOKIE_NAME),
+    db: Session = Depends(get_db),
+):
+    """Exchange a refresh token for a new access token, rotating the refresh token.
+
+    Rate-limited like the other credential-checking endpoints: the refresh
+    cookie is a bearer credential, so this must not be a free brute-force oracle.
+
+    The user is re-read from the database on every refresh, so a role change or
+    a deleted account takes effect at the next refresh rather than lingering
+    until the old token's natural expiry.
+    """
+    if not refresh_token:
+        raise HTTPException(401, "No refresh token")
+
+    session = get_active_session(db, refresh_token)
+    if session is None:
+        # Unknown, expired, revoked, or a detected replay (which has already
+        # revoked the session inside get_active_session). Clear the dead cookie
+        # so the client stops retrying with it.
+        clear_refresh_cookie(response)
+        clear_auth_cookie(response)
+        raise HTTPException(401, "Invalid or expired refresh token")
+
+    user = db.query(User).filter_by(id=session.user_id).first()
+    if not user:
+        revoke_session(db, session)
+        clear_refresh_cookie(response)
+        clear_auth_cookie(response)
+        raise HTTPException(401, "User no longer exists")
+
+    new_refresh = rotate_session(db, session)
+    token = create_token(user.id, user.username, user.role, session_id=session.id)
     set_auth_cookie(response, token)
+    set_refresh_cookie(response, new_refresh)
     return {
         "token": token,
         "user": {
@@ -125,15 +179,66 @@ def guest_login(
             "display_name": user.display_name,
             "role": user.role,
         },
-        "campaign_id": member.campaign_id,
     }
 
 
-def auth_logout(response: Response):
-    """Clear the session cookie. Deliberately requires no auth so a client with
-    an already-expired or otherwise unusable cookie can still log out cleanly."""
-    clear_auth_cookie(response)
-    return {"ok": True}
+def _session_payload(session: AuthSession, current_session_id: Optional[str]) -> dict:
+    return {
+        "id": session.id,
+        "origin": session.origin or "password",
+        "user_agent": session.user_agent,
+        "ip_address": session.ip_address,
+        "created_at": session.created_at.isoformat() if session.created_at else None,
+        "last_used_at": session.last_used_at.isoformat() if session.last_used_at else None,
+        "expires_at": session.expires_at.isoformat() if session.expires_at else None,
+        # Lets the UI label one row "this device" and warn before ending it.
+        "current": bool(current_session_id) and session.id == current_session_id,
+    }
+
+
+def list_sessions(
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The caller's own live sessions, newest first."""
+    return [_session_payload(s, user.session_id) for s in list_user_sessions(db, user.id)]
+
+
+def revoke_one_session(
+    session_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Revoke one of the caller's own sessions.
+
+    Scoped to the caller's own rows: a session id is a bare UUID, so looking it
+    up without the user filter would let anyone end anyone else's session.
+    """
+    session = (
+        db.query(AuthSession).filter_by(id=session_id, user_id=str(user.id)).first()
+    )
+    if session is None:
+        raise HTTPException(404, "Session not found")
+    revoke_session(db, session)
+    return {"ok": True, "revoked": 1}
+
+
+def revoke_other_sessions(
+    response: Response,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Log out everywhere else, keeping the caller's current session alive.
+
+    When the access token carries no ``sid`` (a token minted before sessions
+    existed), there is no current session to preserve, so every session is
+    revoked and the caller is logged out along with everyone else.
+    """
+    revoked = revoke_user_sessions(db, user.id, except_session_id=user.session_id)
+    if not user.session_id:
+        clear_auth_cookie(response)
+        clear_refresh_cookie(response)
+    return {"ok": True, "revoked": revoked, "kept_current": bool(user.session_id)}
 
 
 def auth_config(db: Session = Depends(get_db)):

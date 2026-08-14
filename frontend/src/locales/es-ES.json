@@ -512,6 +512,21 @@
       "tooShort": "La nueva contraseña debe tener al menos 8 caracteres.",
       "failed": "No se pudo cambiar la contraseña."
     },
+    "sessions": {
+      "title": "Sesiones activas",
+      "description": "Dispositivos con sesión iniciada en tu cuenta. Revocar una sesión cierra la sesión en ese dispositivo; puede tardar hasta 30 minutos en aplicarse por completo.",
+      "empty": "No hay sesiones activas.",
+      "thisDevice": "Este dispositivo",
+      "unknownDevice": "Dispositivo desconocido",
+      "originPassword": "Contraseña",
+      "originSso": "Inicio de sesión único",
+      "originGuest": "Código de invitado",
+      "lastUsed": "último uso {{when}}",
+      "revoke": "Revocar",
+      "revokeAllOthers": "Cerrar sesión en los demás dispositivos",
+      "loadFailed": "No se pudieron cargar las sesiones.",
+      "revokeFailed": "No se pudo revocar la sesión."
+    },
     "deleteAccount": {
       "title": "Eliminar cuenta",
       "description": "Elimina permanentemente tu cuenta y todos los marcadores y favoritos asociados. Esto no se puede deshacer.",

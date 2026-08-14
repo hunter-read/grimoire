@@ -8,6 +8,7 @@ import {
 } from './UserAccountSections'
 import { ReaderSection, LibrarySection, LanguageSection } from './UserPreferenceSections'
 import AppearanceSection from './AppearanceSection'
+import ActiveSessionsSection from './ActiveSessionsSection'
 import SectionDivider from './SectionDivider'
 
 export default function UserSettingsTab({ user, onLogout }) {
@@ -29,6 +30,8 @@ export default function UserSettingsTab({ user, onLogout }) {
       <OPDSSection />
       <SectionDivider />
       <ChangePasswordSection />
+      <SectionDivider />
+      <ActiveSessionsSection />
       <SectionDivider />
       <DeleteAccountSection user={user} onLogout={onLogout} />
     </div>

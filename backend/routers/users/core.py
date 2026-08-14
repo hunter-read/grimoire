@@ -6,6 +6,7 @@ from sqlalchemy import func
 from ...config import get_db
 from ...models import User, Campaign, CampaignMember
 from ...auth import require_admin, CurrentUser, hash_password
+from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..campaigns._helpers import purge_user_data
 from ..settings._helpers import _get_raw, password_auth_effective
 from ._schemas import UserCreate, UserUpdate, GuestConvert
@@ -132,6 +133,12 @@ def update_user(
         if admin_count <= 1:
             raise HTTPException(400, "Cannot demote the last admin")
 
+    # A role change or an admin password reset must not leave existing sessions
+    # usable — otherwise a demoted user keeps their old role until their token
+    # expires, and a password reset does not lock out whoever prompted it
+    # (issue #157).
+    revoke_reason = (data.role and data.role != user.role) or bool(data.password)
+
     if data.role:
         user.role = data.role
     if data.password:
@@ -149,6 +156,8 @@ def update_user(
         user.email = new_email
 
     db.commit()
+    if revoke_reason:
+        revoke_user_sessions(db, user.id)
     return {
         "id": user.id,
         "username": user.username,
@@ -201,6 +210,9 @@ def convert_guest(
         member.guest_code = None
 
     db.commit()
+    # The account's role and credentials both changed — end the guest sessions
+    # so the next request re-authenticates as the promoted user.
+    revoke_user_sessions(db, user.id)
     db.refresh(user)
     return {
         "id": user.id,
@@ -232,6 +244,7 @@ def delete_user(
         if admin_count <= 1:
             raise HTTPException(400, "Cannot delete the last admin")
 
+    delete_user_sessions(db, user.id)
     purge_user_data(db, user.id)
     db.delete(user)
     db.commit()

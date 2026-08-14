@@ -512,6 +512,21 @@
       "tooShort": "Nieuw wachtwoord moet ten minste 8 tekens bevatten.",
       "failed": "Wijzigen van wachtwoord mislukt."
     },
+    "sessions": {
+      "title": "Actieve sessies",
+      "description": "Apparaten die momenteel zijn aangemeld bij je account. Het intrekken van een sessie meldt dat apparaat af; het kan tot 30 minuten duren voordat dit volledig van kracht is.",
+      "empty": "Geen actieve sessies.",
+      "thisDevice": "Dit apparaat",
+      "unknownDevice": "Onbekend apparaat",
+      "originPassword": "Wachtwoord",
+      "originSso": "Eenmalige aanmelding",
+      "originGuest": "Gastcode",
+      "lastUsed": "laatst gebruikt {{when}}",
+      "revoke": "Intrekken",
+      "revokeAllOthers": "Alle andere apparaten afmelden",
+      "loadFailed": "Sessies laden mislukt.",
+      "revokeFailed": "Sessie intrekken mislukt."
+    },
     "deleteAccount": {
       "title": "Account verwijderen",
       "description": "Verwijdert je account en alle bijbehorende bladwijzers en favorieten permanent. Dit kan niet ongedaan worden gemaakt.",

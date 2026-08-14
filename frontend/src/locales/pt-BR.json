@@ -512,6 +512,21 @@
       "tooShort": "A nova senha deve ter pelo menos 8 caracteres.",
       "failed": "Falha ao alterar a senha."
     },
+    "sessions": {
+      "title": "Sessões ativas",
+      "description": "Dispositivos conectados à sua conta. Revogar uma sessão desconecta esse dispositivo; pode levar até 30 minutos para ter efeito total.",
+      "empty": "Sem sessões ativas.",
+      "thisDevice": "Este dispositivo",
+      "unknownDevice": "Dispositivo desconhecido",
+      "originPassword": "Senha",
+      "originSso": "Início de sessão único",
+      "originGuest": "Código de convidado",
+      "lastUsed": "última utilização {{when}}",
+      "revoke": "Revogar",
+      "revokeAllOthers": "Desconectar todos os outros dispositivos",
+      "loadFailed": "Falha ao carregar as sessões.",
+      "revokeFailed": "Falha ao revogar a sessão."
+    },
     "deleteAccount": {
       "title": "Excluir conta",
       "description": "Exclui permanentemente sua conta e todos os marcadores e favoritos associados. Esta ação não pode ser desfeita.",

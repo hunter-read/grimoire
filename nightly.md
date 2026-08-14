@@ -619,6 +619,8 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `OIDC_*` env vars | - | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
 | `AUTH_RATE_LIMIT` | `10/minute` | Per-IP throttle applied to the credential-checking endpoints (`/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats`). Exceeding it returns `429`. Uses a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string like `20/minute` or `100/hour`. See [Security hardening](#security-hardening) below. |
 | `RATE_LIMIT_ENABLED` | `true` | Optional. Set to `false` to disable auth rate limiting entirely. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Optional. How long an access token stays valid. This is also the longest a revoked session can keep working, so lowering it tightens revocation at the cost of more background refreshes. See [Sessions and token revocation](#sessions-and-token-revocation) below. |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Optional. How long a session survives without use before you must log in again. The clock resets on every refresh, so an actively-used session stays alive indefinitely. |
 | `TRUST_FORWARDED_FOR` | `true` | Optional. When `true`, the rate limiter keys on the left-most `X-Forwarded-For` address so each client gets its own bucket behind a reverse proxy. Set to `false` only if Grimoire is exposed directly (no trusted proxy), so a spoofed header can't sidestep the limit. |
 
 ### Volumes
@@ -703,6 +705,22 @@ Every response carries a `Content-Security-Policy` scoped to what the SPA actual
 ### Session cookie for images and downloads
 
 Browser `<img>` and download requests can't send an `Authorization` header, so they authenticate via an `HttpOnly`, `SameSite=Lax` session cookie (`grimoire_session`) set at login rather than a token in the URL. **This means the JWT no longer appears in image/download URLs, so a reverse proxy, CDN, or load balancer in front of Grimoire no longer records it in access logs** (query-string tokens also leaked via `Referer` headers and browser history). Set `BASE_URL` to your `https://` public URL so the cookie is marked `Secure` and only ever sent over TLS. The old `?token=` query param is still accepted for backward compatibility but is deprecated.
+
+### Sessions and token revocation
+
+Logging in issues a **short-lived access token** (30 minutes by default) plus a long-lived **refresh token** stored in an `HttpOnly` cookie. The browser refreshes in the background, so this is invisible in normal use — you stay logged in as before.
+
+What it buys you is a kill switch. Previously a token was valid for 30 days and there was no way to revoke it short of rotating `SECRET_KEY`, which logged **everyone** out. Now every login is a session you can end individually.
+
+**Managing your sessions.** Settings → User → *Active Sessions* lists every device signed in to your account, with its browser, IP, and when it was last used. Revoke any one of them, or use **Sign out all other devices** to end every session but the one you're on — the thing to do if you've lost a device or think someone else has your password.
+
+Sessions are also revoked automatically when an admin changes your role or resets your password, when you change your own password (all *other* devices), when a guest's invite code is regenerated, and when an account is deleted. This works the same for OIDC/SSO logins as for local ones.
+
+**One caveat worth understanding:** revoking a session kills its refresh token immediately, but an access token already issued stays valid until it expires — up to `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). This is the trade for not hitting the database on every single request. If you want revocation to bite faster, lower `ACCESS_TOKEN_EXPIRE_MINUTES`; the cost is more frequent background refreshes.
+
+Refresh tokens are single-use and rotate on every refresh, and only a hash of each is stored in the database. If a refresh token is ever presented twice — the signature of a stolen token being replayed — Grimoire revokes that entire session rather than just refusing the request.
+
+Dead sessions are cleared out automatically: a background job runs at startup and then daily, deleting sessions that expired or were revoked more than **7 days** ago. The delay is deliberate — a refresh token replayed shortly after logout is still recognised as a reuse rather than looking like an unknown token. Nothing to configure, and it runs in only one worker regardless of `WORKERS`.
 
 ---
 

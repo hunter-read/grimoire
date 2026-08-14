@@ -31,6 +31,11 @@ REJECTED_SECRET_KEYS = frozenset(
 SECRET_KEY_FILENAME = "secret_key"
 
 ALGORITHM = "HS256"
+
+# Kept as the *cookie* lifetime only. Access tokens themselves are short-lived
+# (see backend/sessions.py); the session cookie outlives any single access token
+# so that a browser returning after an idle period still presents something the
+# refresh flow can replace, rather than looking logged out.
 TOKEN_EXPIRE_DAYS = 30
 
 
@@ -150,20 +155,41 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_token(user_id: str, username: str, role: str) -> str:
-    expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-        days=TOKEN_EXPIRE_DAYS
-    )
-    return jwt.encode(
-        {
-            "sub": str(user_id),
-            "username": username,
-            "role": role,
-            "exp": expire,
-        },
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
+def create_token(
+    user_id: str,
+    username: str,
+    role: str,
+    session_id: Optional[str] = None,
+    expires_minutes: Optional[int] = None,
+) -> str:
+    """Mint a short-lived access token.
+
+    ``session_id`` ties the token to the ``auth_sessions`` row it was issued
+    under, so a token can be traced back to the session that produced it. It is
+    optional so that callers which predate sessions still work, but every login
+    path passes it.
+
+    The token stays stateless — nothing here is checked against the database on
+    the request path. Revocation works by cutting off the refresh that would
+    renew it; see backend/sessions.py.
+    """
+    from .sessions import ACCESS_TOKEN_EXPIRE_MINUTES
+
+    minutes = ACCESS_TOKEN_EXPIRE_MINUTES if expires_minutes is None else expires_minutes
+    now = datetime.datetime.now(datetime.timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "username": username,
+        "role": role,
+        "iat": now,
+        # Per-token unique id: lets a specific token be identified in logs, and
+        # leaves the door open to a denylist without another claim change.
+        "jti": secrets.token_urlsafe(16),
+        "exp": now + datetime.timedelta(minutes=minutes),
+    }
+    if session_id:
+        payload["sid"] = str(session_id)
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
@@ -201,11 +227,49 @@ def clear_auth_cookie(response: Response) -> None:
     )
 
 
+def set_refresh_cookie(response: Response, token: str) -> None:
+    """Attach the refresh token as an HttpOnly cookie.
+
+    Scoped to ``/api/auth`` rather than ``/`` so the long-lived credential is
+    only sent to the endpoints that consume it, instead of riding along on every
+    API call, image load, and download. SameSite=Strict is safe here (unlike the
+    session cookie, which needs Lax for download navigations) because the
+    refresh endpoint is only ever called by our own XHR.
+    """
+    from .sessions import REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH, REFRESH_TOKEN_EXPIRE_DAYS
+
+    response.set_cookie(
+        REFRESH_COOKIE_NAME,
+        token,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="strict",
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def clear_refresh_cookie(response: Response) -> None:
+    """Remove the refresh cookie. Attributes must match set_refresh_cookie."""
+    from .sessions import REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH
+
+    response.delete_cookie(
+        REFRESH_COOKIE_NAME,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="strict",
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
 class CurrentUser:
-    def __init__(self, id: str, username: str, role: str):
+    def __init__(self, id: str, username: str, role: str, session_id: Optional[str] = None):
         self.id = id
         self.username = username
         self.role = role
+        # The auth_sessions row this token was issued under, when the token
+        # carries a "sid" claim. None for tokens minted before sessions existed.
+        self.session_id = session_id
 
 
 def get_current_user(
@@ -226,9 +290,16 @@ def get_current_user(
             id=payload["sub"],
             username=payload["username"],
             role=payload["role"],
+            session_id=payload.get("sid"),
         )
     except jwt.ExpiredSignatureError:
-        raise HTTPException(401, "Token expired — please log in again")
+        # The client is expected to answer this by calling /api/auth/refresh and
+        # retrying, so it must stay distinguishable from other 401s.
+        raise HTTPException(
+            401,
+            "Token expired — please log in again",
+            headers={"X-Token-Expired": "1"},
+        )
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
 
@@ -248,6 +319,7 @@ def optional_get_current_user(
             id=payload["sub"],
             username=payload["username"],
             role=payload["role"],
+            session_id=payload.get("sid"),
         )
     except jwt.InvalidTokenError:
         return None
