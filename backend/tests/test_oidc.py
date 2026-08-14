@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import patch
 
 import httpx
+from authlib.jose.errors import JoseError
 
 from backend.routers.oidc import (
     _role_from_groups,
@@ -282,9 +283,9 @@ class TestOIDCLowLevelHelpers:
         assert "=" not in challenge
 
     def test_state_store_put_pop_roundtrip(self):
-        from backend.routers.oidc import _helpers
+        from backend.routers.oidc import _state
 
-        store = _helpers._StateStore()
+        store = _state.MemoryStateStore()
         store.put("s1", {"nonce": "n"})
         popped = store.pop("s1")
         assert popped is not None
@@ -294,9 +295,9 @@ class TestOIDCLowLevelHelpers:
         assert store.pop("s1") is None
 
     def test_state_store_expires_old_entries(self):
-        from backend.routers.oidc import _helpers
+        from backend.routers.oidc import _state
 
-        store = _helpers._StateStore()
+        store = _state.MemoryStateStore()
         store.put("old", {"nonce": "n"})
         # Force the entry's timestamp past the TTL so _gc drops it.
         store._d["old"]["_ts"] = 0
@@ -318,9 +319,7 @@ class TestOIDCLowLevelHelpers:
             assert _helpers._discover_issuer("https://idp") == "https://canonical"
 
     def test_get_jwks_fetches_and_caches(self):
-        from backend.routers.oidc import _helpers
-
-        _helpers._jwks_cache.clear()
+        from backend.routers.oidc import _helpers, _state
 
         class FakeResp:
             status_code = 200
@@ -331,25 +330,29 @@ class TestOIDCLowLevelHelpers:
             def json(self):
                 return {"keys": [{"kid": "abc"}]}
 
-        with patch(
-            "backend.routers.oidc._helpers.httpx.get", return_value=FakeResp()
-        ) as mock_get:
-            keys = _helpers._get_jwks("https://idp/jwks")
-            assert keys == {"keys": [{"kid": "abc"}]}
-            # Second call within TTL is served from cache (no second fetch).
-            _helpers._get_jwks("https://idp/jwks")
-            assert mock_get.call_count == 1
+        with patch.object(_helpers, "_jwks_cache", _state.MemoryJWKSCache()):
+            with patch(
+                "backend.routers.oidc._helpers.httpx.get", return_value=FakeResp()
+            ) as mock_get:
+                keys = _helpers._get_jwks("https://idp/jwks")
+                assert keys == {"keys": [{"kid": "abc"}]}
+                # Second call within TTL is served from cache (no second fetch).
+                _helpers._get_jwks("https://idp/jwks")
+                assert mock_get.call_count == 1
+                # force=True bypasses the cache to pick up rotated keys.
+                _helpers._get_jwks("https://idp/jwks", force=True)
+                assert mock_get.call_count == 2
 
     def test_get_jwks_http_error_raises_oidc_error(self):
-        from backend.routers.oidc import _helpers
+        from backend.routers.oidc import _helpers, _state
 
-        _helpers._jwks_cache.clear()
-        with patch(
-            "backend.routers.oidc._helpers.httpx.get",
-            side_effect=httpx.ConnectError("down"),
-        ):
-            with pytest.raises(_OIDCError):
-                _helpers._get_jwks("https://idp/jwks")
+        with patch.object(_helpers, "_jwks_cache", _state.MemoryJWKSCache()):
+            with patch(
+                "backend.routers.oidc._helpers.httpx.get",
+                side_effect=httpx.ConnectError("down"),
+            ):
+                with pytest.raises(_OIDCError):
+                    _helpers._get_jwks("https://idp/jwks")
 
     def test_validate_id_token_requires_jwks_uri(self):
         from backend.routers.oidc import _helpers
@@ -902,6 +905,312 @@ class TestResolveUser:
             assert u2.role == "player"
 
             db.delete(u2)
+            db.commit()
+        finally:
+            db.close()
+
+
+# ---------------------------------------------------------------------------
+# ID token validation
+# ---------------------------------------------------------------------------
+
+
+class FakeClaims(dict):
+    """Stand-in for an authlib claims object (a dict plus header/validate)."""
+
+    def __init__(self, data, header=None, validate_error=None):
+        super().__init__(data)
+        self.header = header if header is not None else {"alg": "RS256"}
+        self._validate_error = validate_error
+
+    def validate(self, leeway=0):
+        if self._validate_error:
+            raise self._validate_error
+
+
+class TestValidateIdToken:
+    """_validate_id_token with the JOSE decode faked out — no real signing keys."""
+
+    JWKS = {"keys": [{"kid": "abc"}]}
+
+    def _patch(self, decode):
+        from backend.routers.oidc import _helpers
+
+        return (
+            patch.object(_helpers, "_get_jwks", return_value=self.JWKS),
+            patch.object(_helpers.joseju, "decode", decode),
+        )
+
+    def _validate(self, **overrides):
+        from backend.routers.oidc import _helpers
+
+        kwargs = {
+            "issuer": "https://idp",
+            "client_id": "client",
+            "jwks_uri": "https://idp/jwks",
+            "expected_nonce": "n",
+            "allowed_alg": "RS256",
+        }
+        kwargs.update(overrides)
+        return _helpers._validate_id_token("tok", **kwargs)
+
+    def test_returns_claims_on_success(self):
+        claims = FakeClaims({"sub": "s", "nonce": "n", "email": "a@b.c"})
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode:
+            result = self._validate()
+        assert result["sub"] == "s"
+        assert result["email"] == "a@b.c"
+        assert isinstance(result, dict)
+
+    def test_retries_with_forced_refresh_on_signature_error(self):
+        from backend.routers.oidc import _helpers
+
+        claims = FakeClaims({"sub": "s", "nonce": "n"})
+        calls = []
+
+        def decode(*a, **k):
+            calls.append(1)
+            if len(calls) == 1:
+                raise JoseError("bad signature")
+            return claims
+
+        with patch.object(_helpers, "_get_jwks", return_value=self.JWKS) as mock_jwks:
+            with patch.object(_helpers.joseju, "decode", decode):
+                assert self._validate()["sub"] == "s"
+        # Second JWKS fetch is forced, so rotated keys are picked up.
+        assert mock_jwks.call_args_list[-1].kwargs["force"] is True
+        assert len(calls) == 2
+
+    def test_raises_when_signature_invalid_after_refresh(self):
+        def decode(*a, **k):
+            raise JoseError("still bad")
+
+        get_jwks, decode_patch = self._patch(decode)
+        with get_jwks, decode_patch:
+            with pytest.raises(_OIDCError, match="signature invalid"):
+                self._validate()
+
+    def test_raises_when_claims_invalid(self):
+        claims = FakeClaims({"nonce": "n"}, validate_error=JoseError("expired"))
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode:
+            with pytest.raises(_OIDCError, match="claims invalid"):
+                self._validate()
+
+    def test_raises_on_algorithm_mismatch(self):
+        claims = FakeClaims({"nonce": "n"}, header={"alg": "HS256"})
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode:
+            with pytest.raises(_OIDCError, match="alg HS256"):
+                self._validate(allowed_alg="RS256")
+
+    def test_raises_on_nonce_mismatch(self):
+        claims = FakeClaims({"nonce": "other"})
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode:
+            with pytest.raises(_OIDCError, match="nonce mismatch"):
+                self._validate(expected_nonce="n")
+
+    def test_missing_header_does_not_break_alg_check(self):
+        claims = FakeClaims({"nonce": "n"}, header=None)
+        claims.header = None  # authlib can hand back a falsy header
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode:
+            assert self._validate()["nonce"] == "n"
+
+
+class TestDiscoveryDocEdges:
+    def test_blank_issuer_short_circuits(self):
+        from backend.routers.oidc import _helpers
+
+        assert _helpers._discovery_doc("") == {}
+
+    def test_full_discovery_url_is_used_verbatim(self):
+        from backend.routers.oidc import _helpers
+
+        url = "https://idp/.well-known/openid-configuration"
+
+        class FakeResp:
+            status_code = 200
+
+            def json(self):
+                return {"issuer": "https://idp"}
+
+        with patch.object(_helpers.httpx, "get", return_value=FakeResp()) as mock_get:
+            assert _helpers._discovery_doc(url) == {"issuer": "https://idp"}
+        assert mock_get.call_args[0][0] == url
+
+    def test_non_200_returns_empty(self):
+        from backend.routers.oidc import _helpers
+
+        class FakeResp:
+            status_code = 404
+
+            def json(self):
+                return {"issuer": "nope"}
+
+        with patch.object(_helpers.httpx, "get", return_value=FakeResp()):
+            assert _helpers._discovery_doc("https://idp") == {}
+
+
+class TestRoleFromGroupsEdges:
+    def test_non_list_non_string_claim_returns_none(self):
+        assert _role_from_groups({"groups": 42}, "groups") is None
+
+
+class TestResolveUserEdges:
+    def _eff(self, **overrides):
+        eff = {
+            "oidc_match_by": "none",
+            "oidc_groups_claim": "",
+            "oidc_permissions_claim": "",
+            "oidc_auto_register": False,
+        }
+        eff.update(overrides)
+        return eff
+
+    def test_missing_sub_is_rejected(self, client, admin_setup):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            with pytest.raises(_OIDCError, match="sub claim"):
+                _resolve_user(db, {"sub": "  "}, self._eff())
+        finally:
+            db.close()
+
+    def test_match_by_username_links_existing_account(self, client, admin_setup):
+        from backend.config import SessionLocal
+        from backend.models import User
+
+        db = SessionLocal()
+        try:
+            existing = User(username="byname", email=None, hashed_password="x", role="player")
+            db.add(existing)
+            db.commit()
+
+            user = _resolve_user(
+                db,
+                {"sub": "byname-sub", "preferred_username": "byname"},
+                self._eff(oidc_match_by="username"),
+            )
+            assert user.id == existing.id
+            assert user.oidc_subject == "byname-sub"
+
+            db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_username_collision_gets_suffixed(self, client, admin_setup):
+        from backend.config import SessionLocal
+        from backend.models import User
+
+        db = SessionLocal()
+        try:
+            taken = User(username="dupe", email=None, hashed_password="x", role="player")
+            db.add(taken)
+            db.commit()
+
+            user = _resolve_user(
+                db,
+                {"sub": "collide-sub", "preferred_username": "dupe"},
+                self._eff(oidc_auto_register=True),
+            )
+            assert user.id != taken.id
+            assert user.username.startswith("dupe-")
+
+            db.delete(user)
+            db.delete(taken)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_email_collision_drops_email_on_register(self, client, admin_setup):
+        from backend.config import SessionLocal
+        from backend.models import User
+
+        db = SessionLocal()
+        try:
+            taken = User(
+                username="mailowner", email="shared@example.com", hashed_password="x", role="player"
+            )
+            db.add(taken)
+            db.commit()
+
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "mail-collide-sub",
+                    "email": "shared@example.com",
+                    "preferred_username": "mailnew",
+                },
+                self._eff(oidc_auto_register=True),
+            )
+            # Registration succeeds; the conflicting email is simply dropped.
+            assert user.email is None
+            assert user.username == "mailnew"
+
+            db.delete(user)
+            db.delete(taken)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_email_not_stolen_from_another_user_on_login(self, client, admin_setup):
+        from backend.config import SessionLocal
+        from backend.models import User
+
+        db = SessionLocal()
+        try:
+            owner = User(
+                username="owner", email="owned@example.com", hashed_password="x", role="player"
+            )
+            linked = User(
+                username="linked", email=None, oidc_subject="linked-sub",
+                hashed_password=None, role="player",
+            )
+            db.add_all([owner, linked])
+            db.commit()
+
+            user = _resolve_user(
+                db, {"sub": "linked-sub", "email": "owned@example.com"}, self._eff()
+            )
+            assert user.id == linked.id
+            assert user.email is None  # left alone — the address belongs to `owner`
+
+            db.delete(linked)
+            db.delete(owner)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_last_admin_is_not_demoted_by_groups(self, client, admin_setup):
+        from backend.config import SessionLocal
+        from backend.models import User
+
+        db = SessionLocal()
+        try:
+            admin = User(
+                username="onlyadmin", email=None, oidc_subject="admin-sub",
+                hashed_password=None, role="admin",
+            )
+            db.add(admin)
+            db.commit()
+            admin_count = db.query(User).filter_by(role="admin").count()
+
+            user = _resolve_user(
+                db,
+                {"sub": "admin-sub", "groups": ["player"]},
+                self._eff(oidc_groups_claim="groups"),
+            )
+            if admin_count > 1:
+                assert user.role == "player"
+            else:
+                assert user.role == "admin"  # demotion would lock the system
+
+            db.delete(user)
             db.commit()
         finally:
             db.close()

@@ -3,7 +3,6 @@ import base64
 import hashlib
 import logging
 import secrets
-import time
 import warnings
 from typing import Optional
 
@@ -18,42 +17,10 @@ with warnings.catch_warnings():
     from authlib.jose.errors import JoseError  # noqa: E402
 
 from ...models import User
+from ._state import _jwks_cache, _state_store  # noqa: F401  (re-exported)
 
 
 logger = logging.getLogger("grimoire.oidc")
-
-
-# ---------------------------------------------------------------------------
-# In-memory state store
-# ---------------------------------------------------------------------------
-# We store the per-flow state (nonce, code_verifier, optional return-to URL)
-# in process memory keyed by the OAuth `state` value. For a single-replica
-# deployment this is sufficient. Entries expire after 10 minutes.
-
-_STATE_TTL = 600  # seconds
-
-
-class _StateStore:
-    def __init__(self):
-        self._d: dict[str, dict] = {}
-
-    def put(self, state: str, payload: dict) -> None:
-        payload["_ts"] = time.time()
-        self._d[state] = payload
-        self._gc()
-
-    def pop(self, state: str) -> Optional[dict]:
-        self._gc()
-        return self._d.pop(state, None)
-
-    def _gc(self) -> None:
-        cutoff = time.time() - _STATE_TTL
-        for k, v in list(self._d.items()):
-            if v.get("_ts", 0) < cutoff:
-                self._d.pop(k, None)
-
-
-_state_store = _StateStore()
 
 
 def _pkce_pair() -> tuple[str, str]:
@@ -103,21 +70,19 @@ class _OIDCError(Exception):
     pass
 
 
-# Cached JWKS — refreshed when key id is unknown.
-_jwks_cache: dict[str, tuple[float, dict]] = {}
-
-
 def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
-    cached = _jwks_cache.get(jwks_uri)
-    if cached and not force and (time.time() - cached[0]) < 600:
-        return cached[1]
+    """Return the IdP's signing keys, from cache unless ``force`` (key rotation)."""
+    if not force:
+        cached = _jwks_cache.get(jwks_uri)
+        if cached is not None:
+            return cached
     try:
         resp = httpx.get(jwks_uri, timeout=10.0, follow_redirects=True)
         resp.raise_for_status()
         keys = resp.json()
     except httpx.HTTPError as e:
         raise _OIDCError(f"jwks fetch failed: {e}") from e
-    _jwks_cache[jwks_uri] = (time.time(), keys)
+    _jwks_cache.set(jwks_uri, keys)
     return keys
 
 
