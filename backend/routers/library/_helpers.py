@@ -37,6 +37,10 @@ _DEFAULT_STATUS: dict = {
     "new_tokens": 0,
     "new_audio": 0,
     "updated_books": 0,
+    # Books whose contents changed under an unchanged path (re-indexed in place),
+    # and files recognised as moved rather than deleted-and-re-added (issue #284).
+    "replaced_books": 0,
+    "moved_files": 0,
     "indexed": 0,
     "to_index": 0,
     # Deferred-OCR queue progress (phase "ocr"). total_ocr = books queued,
@@ -411,6 +415,11 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                     "new_tokens": stats.get("new_tokens", 0),
                     "new_audio": stats.get("new_audio", 0),
                     "updated_books": stats.get("updated_books", 0),
+                    "replaced_books": stats.get("replaced_books", 0),
+                    "moved_files": sum(
+                        stats.get(f"moved_{k}", 0)
+                        for k in ("books", "maps", "tokens", "audio")
+                    ),
                 }
             )
 
@@ -451,4 +460,9 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         if not is_stop_requested():
             run_ocr_queue()
     finally:
+        # A scan is when replaced files are found and their old renders orphaned,
+        # so it is the natural moment to trim the on-disk cache back under its cap.
+        from ...services.content_cache import sweep_page_cache
+
+        sweep_page_cache()
         _set_status({"running": False, "phase": None})

@@ -824,7 +824,9 @@ class TestMissingFiles:
             with patch("backend.indexer.generate_thumbnail", return_value=False):
                 scan_library(str(lib), tmp, db)
 
-            t = db.query(Token).filter_by(filename="ghost.png").first()
+            # Select by filepath, not filename: other tests in this module create
+            # their own "ghost.png" in the shared DB, and filename is not unique.
+            t = db.query(Token).filter_by(filepath=str(img)).first()
             assert t is not None
             assert t.is_missing is False
 

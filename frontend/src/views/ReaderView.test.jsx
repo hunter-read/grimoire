@@ -13,6 +13,12 @@ vi.mock('../api', () => ({
   // width requested for a page.
   mediaUrl: (path, params) =>
     `/media${path}${params ? `?${new URLSearchParams(params).toString()}` : ''}`,
+  // Mirrors the real helper: `v` is the book's content token, present only once
+  // the scanner has hashed the file.
+  bookPageUrl: (bookId, page, width, contentToken) =>
+    `/media/books/${bookId}/page/${page}?${new URLSearchParams(
+      contentToken ? { width, v: contentToken } : { width }
+    ).toString()}`,
 }))
 
 vi.mock('../hooks/useReaderGestures', () => ({

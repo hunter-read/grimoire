@@ -4,18 +4,20 @@ import hashlib
 import os
 from typing import Optional
 
-from fastapi import BackgroundTasks, Depends, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import text
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
+from ...file_cache import etag_matches
 from ...indexer import slugify
 from ...models import Book, GameSystem
 from ...services import bulk_service, tag_service
+from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
 from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
 from ._schemas import BookBulkUpdate, BookUpdate
@@ -113,6 +115,7 @@ def get_book(
         "mime_type": book.mime_type,
         "has_thumbnail": book.has_thumbnail,
         "is_explicit": bool(book.is_explicit),
+        "content_token": content_token(book.content_hash, book.filepath),
         "game_system": {"id": system.id, "name": system.name, "slug": system.slug}
         if system
         else None,
@@ -276,6 +279,7 @@ def serve_book_file(
 
 
 def serve_book_thumbnail(
+    request: Request,
     book_id: str,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -292,10 +296,18 @@ def serve_book_thumbnail(
     # title has drifted from what it was at index time (renamed book).
     fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
     thumb_dir = os.path.join(THUMB_DIR, "books")
+    # The thumbnail *filename* stays path-derived (that is what the indexer
+    # writes), so it alone cannot tell a replaced cover from the original. The
+    # ETag carries the content token instead, which is what lets a client holding
+    # the previous cover find out it is stale — the response is marked immutable.
+    etag = f'"{content_token(book.content_hash, book.filepath)}"'
+    if etag_matches(request, etag):
+        return Response(status_code=304, headers={"ETag": etag, **_PAGE_CACHE_HEADERS})
+    headers = {**_PAGE_CACHE_HEADERS, "ETag": etag}
     expected = os.path.join(thumb_dir, f"{slugify(book.title)}_{fhash}.webp")
     if os.path.isfile(expected):
-        return FileResponse(expected, media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
+        return FileResponse(expected, media_type="image/webp", headers=headers)
     matches = glob.glob(os.path.join(thumb_dir, f"*_{fhash}.webp"))
     if matches:
-        return FileResponse(matches[0], media_type="image/webp", headers=_PAGE_CACHE_HEADERS)
+        return FileResponse(matches[0], media_type="image/webp", headers=headers)
     raise HTTPException(404, "No thumbnail available")

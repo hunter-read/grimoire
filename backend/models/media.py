@@ -17,6 +17,11 @@ class GenericMap(Base):
     map_type = Column(String(100), default="")
     grid_size = Column(String(50), default="")
     file_size = Column(Integer, default=0)
+    # Content identity — see the note on Book.content_hash. ``file_mtime`` +
+    # ``file_size`` gate the re-hash so unchanged rescans read no file content;
+    # the hash then distinguishes a replaced file from a moved one (issue #284).
+    content_hash = Column(String(64), nullable=True, index=True)
+    file_mtime = Column(Float, nullable=True)
     has_thumbnail = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
@@ -44,6 +49,9 @@ class Token(Base):
     description = Column(Text, default="")
     is_explicit = Column(Boolean, default=False)
     file_size = Column(Integer, default=0)
+    # Content identity — see the note on GenericMap.content_hash.
+    content_hash = Column(String(64), nullable=True, index=True)
+    file_mtime = Column(Float, nullable=True)
     has_thumbnail = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
@@ -77,6 +85,9 @@ class Audio(Base):
     # True when folder cover art or embedded album art is available.
     has_artwork = Column(Boolean, default=False)
     file_size = Column(Integer, default=0)
+    # Content identity — see the note on GenericMap.content_hash.
+    content_hash = Column(String(64), nullable=True, index=True)
+    file_mtime = Column(Float, nullable=True)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
 

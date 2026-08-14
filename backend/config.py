@@ -113,6 +113,26 @@ def _read_page_cache_ttl() -> int:
 
 
 PAGE_CACHE_TTL = _read_page_cache_ttl()
+
+
+#   PAGE_CACHE_MAX_MB — size ceiling for the on-disk page cache. This directory
+#             had no TTL, no cap, and nothing that ever deleted from it, so it
+#             grew without bound. Now that cache filenames carry a content hash,
+#             a replaced file's old renders become unreachable garbage, making a
+#             sweep the only thing that reclaims them. Defaults to 2 GiB; 0
+#             disables the sweep (unbounded, the old behaviour).
+def _read_page_cache_max_mb() -> int:
+    try:
+        return max(0, int(os.environ.get("PAGE_CACHE_MAX_MB", "2048")))
+    except ValueError:
+        return 2048
+
+
+PAGE_CACHE_MAX_MB = _read_page_cache_max_mb()
+
+# Rendered pages are content-addressed (the cache key includes a digest of the
+# file's bytes), so a given URL's body can never change — hence "immutable".
+# Replacing the file changes the token and therefore the URL.
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
 # Optional override for password authentication. When the env var is set,
@@ -434,34 +454,43 @@ def valkey_cache_set(key: str, value: bytes) -> bool:
         return False
 
 
-def purge_valkey_page_cache() -> int:
-    """Drop every cached render from Valkey. Returns the number of keys removed.
-
-    Runs once at startup. Cached pages key off the book id and render width but
-    carry no content hash, so a page edited/replaced on disk while the server was
-    down would otherwise be served stale forever — the entries never expired
-    before this and the HTTP response is marked immutable. Clearing on boot makes
-    a restart the reliable way to invalidate them.
+def purge_valkey_keys(pattern: str) -> int:
+    """UNLINK every Valkey key matching ``pattern``. Returns the number removed.
 
     Uses SCAN rather than KEYS so a large cache doesn't block the Valkey server,
     and UNLINK (falling back to DEL) so reclaim happens off the main thread.
+    Errors are logged rather than raised — this is a cache, and a Valkey blip
+    must never fail the scan or request that triggered the purge.
     """
     if _valkey is None:
         return 0
     removed = 0
     try:
-        for prefix in _CACHE_KEY_PREFIXES:
-            batch: list = []
-            for key in _valkey.scan_iter(match=f"{prefix}*", count=500):  # type: ignore[attr-defined]
-                batch.append(key)
-                if len(batch) >= 500:
-                    removed += _valkey_unlink(batch)
-                    batch = []
-            if batch:
+        batch: list = []
+        for key in _valkey.scan_iter(match=pattern, count=500):  # type: ignore[attr-defined]
+            batch.append(key)
+            if len(batch) >= 500:
                 removed += _valkey_unlink(batch)
+                batch = []
+        if batch:
+            removed += _valkey_unlink(batch)
     except Exception as e:
-        logger.warning(f"Valkey page-cache purge failed: {e}")
-        return removed
+        logger.warning(f"Valkey purge of '{pattern}' failed: {e}")
+    return removed
+
+
+def purge_valkey_page_cache() -> int:
+    """Drop every cached render from Valkey. Returns the number of keys removed.
+
+    Runs once at startup, as a backstop. Page keys now carry a content hash, so
+    a file replaced while the server was down is no longer *reachable* under its
+    old key — but the superseded entries would still sit there until their TTL,
+    and a pre-upgrade row (no hash yet) still falls back to an id-only key. A
+    boot-time sweep keeps both cases bounded.
+    """
+    if _valkey is None:
+        return 0
+    removed = sum(purge_valkey_keys(f"{prefix}*") for prefix in _CACHE_KEY_PREFIXES)
     if removed:
         logger.info(f"Cleared {removed} cached page render(s) from Valkey")
     return removed

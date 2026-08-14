@@ -69,6 +69,37 @@ class TestGetPdfDoc:
         assert any("evicted pdf" in r.message.lower() for r in caplog.records)
 
 
+class TestEvictPdf:
+    """A replaced file must not keep serving from the handle on its old inode."""
+
+    def setup_method(self):
+        _helpers._pdf_cache.clear()
+
+    def test_drops_and_closes_the_cached_handle(self, tmp_path):
+        path = _write_pdf(str(tmp_path))
+        doc = _helpers._get_pdf_doc(path)
+        assert path in _helpers._pdf_cache
+
+        assert _helpers.evict_pdf(path) is True
+        assert path not in _helpers._pdf_cache
+        assert doc.is_closed
+
+        # A later request opens the file afresh rather than reusing the old handle.
+        assert _helpers._get_pdf_doc(path) is not doc
+
+    def test_returns_false_when_nothing_is_cached(self, tmp_path):
+        assert _helpers.evict_pdf(str(tmp_path / "never-opened.pdf")) is False
+
+    def test_close_failure_is_logged_not_raised(self, caplog):
+        broken = MagicMock()
+        broken.close.side_effect = RuntimeError("already closed")
+        _helpers._pdf_cache["/library/broken.pdf"] = broken
+
+        with caplog.at_level("DEBUG", logger="grimoire"):
+            assert _helpers.evict_pdf("/library/broken.pdf") is True
+        assert "/library/broken.pdf" not in _helpers._pdf_cache
+
+
 class TestCachedBookInfo:
     def test_returns_none_for_missing_book(self):
         _helpers._invalidate_book_cache()
@@ -80,7 +111,7 @@ class TestCachedBookInfo:
         book = make_book(system.id, title="Cached", mime_type="application/pdf")
 
         info = _helpers._cached_book_info(book.id)
-        assert info == (book.filepath, "application/pdf", "Cached")
+        assert info == (book.filepath, "application/pdf", "Cached", book.content_hash)
 
         # A second call is served from the lru_cache and returns the same tuple.
         assert _helpers._cached_book_info(book.id) == info

@@ -591,6 +591,13 @@ See [docs/file-management.md](docs/file-management.md) for Docker Compose exampl
 
 After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Maintenance) to index the new content.
 
+### Replacing and moving files
+
+A rescan compares each file's modification time and size against what it recorded last time, and only re-reads a file when one of them changed. Unchanged files cost nothing, so a scheduled rescan of a large library stays fast.
+
+- **Replacing a book in place** (same filename, e.g. swapping in a higher-quality scan) is detected on the next rescan. The page count, cover, and search text are rebuilt, and everything cached from the old file is discarded. Tags, favorites, bookmarks, and reading progress are kept.
+- **Moving or renaming a file** is recognised as the same book rather than a deletion plus a new addition, so it keeps its tags, favorites, bookmarks, and reading progress. Grimoire matches on file contents. Byte-for-byte identical copies are handled conservatively: moving one of them is still recognised, but if several identical files move at once there is no way to tell which became which, so they are reported as missing entries plus new ones rather than being paired off by guesswork.
+
 ---
 
 ## Configuration
@@ -605,6 +612,8 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
 | `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy - used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
 | `VALKEY_URL` | - | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
+| `PAGE_CACHE_TTL` | `604800` | Optional. Seconds a rendered page stays in the Valkey cache (default 7 days). `0` means no expiry. Ignored when `VALKEY_URL` is unset. |
+| `PAGE_CACHE_MAX_MB` | `2048` | Optional. Size ceiling for the on-disk rendered-page cache at `DATA_PATH/page_cache`. Trimmed oldest-first at startup and after each library scan. `0` disables the trim and lets it grow without bound. |
 | `OCR_ENABLED` | `true` | Optional. Set to `false` to disable OCR of image-only PDFs even on the OCR-capable image. See [OCR](#ocr) below. |
 | `OCR_LANGUAGES` | `eng` | Optional. Tesseract language codes for OCR, e.g. `eng` or `eng+deu+fra`. Extra languages require their tessdata files to be present (see [OCR](#ocr)). |
 | `OCR_CONCURRENCY` | `1` | Optional. Number of scanned books OCR'd in parallel by the background OCR worker. Raise on multi-core hosts with spare CPU; keep at `1` on small boxes. Set to `0` to turn OCR off (same as `OCR_ENABLED=false`). See [OCR performance](#ocr-performance--resource-tuning). |
@@ -685,6 +694,10 @@ PDFs are rendered page-by-page server-side as WebP images rather than streamed a
 ### Caching
 
 Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an in-memory Redis-compatible cache instead for faster repeat loads.
+
+Cache entries are keyed by a hash of the source file's **contents**, so replacing a book with a different file at the same path automatically supersedes everything cached from the old one - pages, cover, and search text. The next rescan notices the change, and the reader picks up the new pages without a restart or a manual cache purge.
+
+The on-disk cache is trimmed oldest-first back under `PAGE_CACHE_MAX_MB` (default 2 GiB) at startup and after each library scan.
 
 ---
 

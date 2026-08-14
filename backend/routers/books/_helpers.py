@@ -103,15 +103,40 @@ def _get_pdf_doc(filepath: str) -> fitz.Document:
 
 @functools.lru_cache(maxsize=2000)
 def _cached_book_info(book_id: str) -> Optional[tuple]:
-    """Returns (filepath, mime_type, title) or None."""
+    """Returns (filepath, mime_type, title, content_hash) or None.
+
+    ``content_hash`` is what makes the render caches content-addressed; it is None
+    for rows the scanner has not hashed yet, and callers fall back to a path digest
+    in that case.
+    """
     db = SessionLocal()
     try:
         book = db.query(Book).filter_by(id=book_id).first()
         if not book:
             return None
-        return (book.filepath, book.mime_type, book.title)
+        return (book.filepath, book.mime_type, book.title, book.content_hash)
     finally:
         db.close()
+
+
+def evict_pdf(filepath: str) -> bool:
+    """Close and drop the cached fitz handle for ``filepath``. Returns whether one was held.
+
+    Required when a file is replaced in place: the cached handle refers to the
+    *old* document, and on POSIX the unlinked inode stays alive as long as we
+    hold it open, so every subsequent render would keep serving the previous
+    file's pages until the entry aged out of the LRU.
+    """
+    with _pdf_cache_lock:
+        doc = _pdf_cache.pop(filepath, None)
+    if doc is None:
+        return False
+    try:
+        doc.close()
+    except (RuntimeError, ValueError) as e:
+        # Best-effort, same rationale as the LRU eviction above.
+        logger.debug("Failed to close replaced PDF document: %s", e)
+    return True
 
 
 def _invalidate_book_cache():

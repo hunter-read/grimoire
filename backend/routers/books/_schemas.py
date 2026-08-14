@@ -167,6 +167,11 @@ class BookDetail(BaseModel):
     mime_type: Optional[str] = None
     has_thumbnail: Optional[bool] = None
     is_explicit: bool
+    # Short token identifying the file's contents. The reader appends it to page
+    # and thumbnail URLs so replacing the PDF on disk yields new URLs rather than
+    # serving what the browser cached under the old ones (those are immutable for
+    # a year). Null until the scanner has hashed the book.
+    content_token: Optional[str] = None
     game_system: Optional[BookSystemRef] = None
 
 
