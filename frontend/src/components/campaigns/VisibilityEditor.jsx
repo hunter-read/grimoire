@@ -2,13 +2,25 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuCheck } from 'react-icons/lu'
-import { VIS_META, badgeStyle, POPOVER_WIDTH } from './wikiShared'
+import {
+  VIS_META,
+  badgeStyle,
+  POPOVER_WIDTH,
+  SHARE_POPOVER_WIDTH,
+  VIS_OPTIONS,
+  visLabelKey,
+} from './wikiShared'
+import ShareAccessTable from './ShareAccessTable'
 
 // Editable visibility badge: a pill that opens a popover for changing the page's
 // visibility level. For "members" (Private), the popover lists campaign members
-// with per-member access toggles so the owner can grant/revoke without opening
-// the full editor. The popover is portalled at fixed coordinates so it isn't
-// clipped by surrounding overflow.
+// with a three-way access control — no access / can read / can edit — so the
+// author can grant or revoke either level without opening the full editor. The
+// popover is portalled at fixed coordinates so it isn't clipped by surrounding
+// overflow.
+//
+// Only rendered for the page's author: classifying a page is the author's right
+// even where editing its text is everyone's.
 export default function VisibilityEditor({
   campaign,
   isOwner,
@@ -24,11 +36,18 @@ export default function VisibilityEditor({
 
   const meta = VIS_META[page.visibility] || VIS_META.gm
   const { Icon } = meta
-  // Match PageEditor's option gating: only the campaign owner may use the GM-only
-  // and Private (specific members) levels; everyone else is limited to Public.
-  const options = isOwner ? ['gm', 'group', 'members'] : ['group']
-  const members = (campaign.members || []).filter((m) => !m.is_owner)
+  // Every level is open to whoever wrote the page; what "author only" is called
+  // depends on whether that author is the GM.
+  const options = VIS_OPTIONS
+  // The share list covers everyone in the campaign except the author. For a
+  // player's private page that includes the GM, who is otherwise excluded by
+  // `is_owner` — a player sharing with their GM is the ordinary case (#232).
+  const members = (campaign.members || []).filter((m) => m.user_id !== page.created_by_id)
   const sharedIds = page.shared_user_ids || []
+  const writeIds = page.shared_write_user_ids || []
+  // Only the Private level shows the share table, so the popover widens for it
+  // and stays narrow when it is just the three levels.
+  const width = page.visibility === 'members' ? SHARE_POPOVER_WIDTH : POPOVER_WIDTH
 
   const place = useCallback(() => {
     const el = triggerRef.current
@@ -36,11 +55,11 @@ export default function VisibilityEditor({
     const r = el.getBoundingClientRect()
     const margin = 8
     let left = r.left
-    if (left + POPOVER_WIDTH > window.innerWidth - margin) {
-      left = Math.max(margin, window.innerWidth - margin - POPOVER_WIDTH)
+    if (left + width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - margin - width)
     }
     setCoords({ top: r.bottom + 4, left })
-  }, [])
+  }, [width])
 
   useEffect(() => {
     if (!open) return
@@ -60,13 +79,6 @@ export default function VisibilityEditor({
     }
   }, [open, place])
 
-  const toggleMember = (userId) => {
-    const next = sharedIds.includes(userId)
-      ? sharedIds.filter((id) => id !== userId)
-      : [...sharedIds, userId]
-    onSetShares(next)
-  }
-
   return (
     <span style={{ display: 'inline-flex' }}>
       <button
@@ -79,7 +91,7 @@ export default function VisibilityEditor({
         title={t('wiki.changeVisibility')}
         style={badgeStyle(meta, true)}
       >
-        <Icon size={11} /> {t(`wiki.vis_${meta.key}`)}
+        <Icon size={11} /> {t(visLabelKey(meta.key, isOwner))}
         <LuChevronDown size={11} aria-hidden="true" />
       </button>
 
@@ -93,7 +105,7 @@ export default function VisibilityEditor({
               top: coords.top,
               left: coords.left,
               zIndex: 2000,
-              width: POPOVER_WIDTH,
+              width,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               borderRadius: 10,
@@ -140,13 +152,13 @@ export default function VisibilityEditor({
                   }}
                 >
                   <OptIcon size={13} style={{ color: m.color, flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>{t(`wiki.vis_${m.key}`)}</span>
+                  <span style={{ flex: 1 }}>{t(visLabelKey(m.key, isOwner))}</span>
                   {selected && <LuCheck size={13} style={{ color: 'var(--gold)' }} />}
                 </button>
               )
             })}
 
-            {isOwner && page.visibility === 'members' && (
+            {page.visibility === 'members' && (
               <div
                 style={{
                   borderTop: '1px solid var(--border)',
@@ -166,73 +178,14 @@ export default function VisibilityEditor({
                 >
                   {t('wiki.shareWith')}
                 </div>
-                {members.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 4px' }}>
-                    {t('wiki.noMembers')}
-                  </div>
-                ) : (
-                  members.map((mb) => {
-                    const checked = sharedIds.includes(mb.user_id)
-                    const name = mb.character_name || mb.display_name || mb.username
-                    return (
-                      <button
-                        key={mb.user_id}
-                        type="button"
-                        role="menuitemcheckbox"
-                        aria-checked={checked}
-                        onClick={() => toggleMember(mb.user_id)}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                        }
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        onFocus={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-                        onBlur={(e) => (e.currentTarget.style.background = 'transparent')}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          width: '100%',
-                          padding: '5px 8px',
-                          background: 'transparent',
-                          border: '1px solid transparent',
-                          borderRadius: 6,
-                          color: checked ? 'var(--text)' : 'var(--text-dim)',
-                          cursor: 'pointer',
-                          font: 'inherit',
-                          fontSize: 13,
-                          textAlign: 'left',
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            flexShrink: 0,
-                            width: 15,
-                            height: 15,
-                            borderRadius: 4,
-                            border: `1px solid ${checked ? 'var(--gold)' : 'var(--border)'}`,
-                            background: checked ? 'var(--gold)' : 'transparent',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {checked && <LuCheck size={11} color="var(--on-accent)" />}
-                        </span>
-                        <span
-                          style={{
-                            flex: 1,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {name}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
+                <div style={{ padding: '0 4px' }}>
+                  <ShareAccessTable
+                    members={members}
+                    readIds={sharedIds}
+                    writeIds={writeIds}
+                    onChange={onSetShares}
+                  />
+                </div>
               </div>
             )}
           </div>,

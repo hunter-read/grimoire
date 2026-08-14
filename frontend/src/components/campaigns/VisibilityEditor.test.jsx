@@ -15,7 +15,11 @@ const campaign = {
 const page = (over = {}) => ({
   id: 'p1',
   visibility: 'gm',
+  // The GM authors these fixtures, so they're excluded from their own share
+  // list — sharing is with everyone *else* in the campaign.
+  created_by_id: 'u1',
   shared_user_ids: [],
+  shared_write_user_ids: [],
   ...over,
 })
 
@@ -67,11 +71,14 @@ describe('VisibilityEditor', () => {
     expect(onSetVisibility).not.toHaveBeenCalled()
   })
 
-  it('offers only Public to non-owners', async () => {
+  // Every level belongs to whoever authored the page; a player gets the same
+  // three, with the author-only one worded for them (issue #232).
+  it('offers every level regardless of campaign ownership', async () => {
     const user = userEvent.setup()
     setup({ isOwner: false })
     await openMenu(user)
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(1)
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    expect(screen.getByRole('menuitemradio', { name: /self only/i })).toBeInTheDocument()
   })
 
   it('toggles the menu closed from the trigger', async () => {
@@ -114,40 +121,69 @@ describe('VisibilityEditor', () => {
   describe('member sharing (Private pages)', () => {
     const privatePage = (over = {}) => page({ visibility: 'members', ...over })
 
-    it('lists non-owner members and toggles one on', async () => {
+    // A row per member with a Read and a Write checkbox.
+    it('lists members with their own read and write boxes', async () => {
       const user = userEvent.setup()
       const { onSetShares } = setup({ page: privatePage() })
       await openMenu(user)
-      expect(screen.getByRole('menuitemcheckbox', { name: 'alice' })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: 'Read access for alice' })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: 'Write access for alice' })).toBeInTheDocument()
       // A member with a character name is listed by that name.
-      expect(screen.getByRole('menuitemcheckbox', { name: 'Bob the Bold' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('checkbox', { name: 'Read access for Bob the Bold' })
+      ).toBeInTheDocument()
 
-      await user.click(screen.getByRole('menuitemcheckbox', { name: 'alice' }))
-      expect(onSetShares).toHaveBeenCalledWith(['u2'])
+      await user.click(screen.getByRole('checkbox', { name: 'Read access for alice' }))
+      expect(onSetShares).toHaveBeenCalledWith(['u2'], [])
     })
 
-    it('toggles an already-shared member off', async () => {
+    // Write implies read, so ticking Write grants both at once.
+    it('grants read alongside write when the write box is ticked', async () => {
+      const user = userEvent.setup()
+      const { onSetShares } = setup({ page: privatePage() })
+      await openMenu(user)
+      await user.click(screen.getByRole('checkbox', { name: 'Write access for alice' }))
+      expect(onSetShares).toHaveBeenCalledWith(['u2'], ['u2'])
+    })
+
+    // The implication is shown in the control rather than left as a rule to
+    // know: a writer's Read box is ticked and cannot be unticked.
+    it('locks the read box for a member who can write', async () => {
+      const user = userEvent.setup()
+      setup({
+        page: privatePage({ shared_user_ids: ['u2'], shared_write_user_ids: ['u2'] }),
+      })
+      await openMenu(user)
+      const read = screen.getByRole('checkbox', { name: 'Read access for alice' })
+      expect(read).toBeChecked()
+      expect(read).toBeDisabled()
+      // The other member's row is unaffected.
+      expect(screen.getByRole('checkbox', { name: 'Read access for Bob the Bold' })).toBeEnabled()
+    })
+
+    it('releases the read box again when write is unticked', async () => {
+      const user = userEvent.setup()
+      const { onSetShares } = setup({
+        page: privatePage({ shared_user_ids: ['u2'], shared_write_user_ids: ['u2'] }),
+      })
+      await openMenu(user)
+      await user.click(screen.getByRole('checkbox', { name: 'Write access for alice' }))
+      // Read survives on its own — unticking write is a downgrade, not a revoke.
+      expect(onSetShares).toHaveBeenCalledWith(['u2'], [])
+    })
+
+    it('revokes access entirely when read is unticked', async () => {
       const user = userEvent.setup()
       const { onSetShares } = setup({ page: privatePage({ shared_user_ids: ['u2', 'u3'] }) })
       await openMenu(user)
-      await user.click(screen.getByRole('menuitemcheckbox', { name: 'alice' }))
-      expect(onSetShares).toHaveBeenCalledWith(['u3'])
-    })
-
-    it('highlights a member row on hover', async () => {
-      const user = userEvent.setup()
-      setup({ page: privatePage() })
-      await openMenu(user)
-      const row = screen.getByRole('menuitemcheckbox', { name: 'alice' })
-      await user.hover(row)
-      expect(row.style.background).toBe('var(--bg-card-hover)')
-      await user.unhover(row)
-      expect(row.style.background).toBe('transparent')
+      await user.click(screen.getByRole('checkbox', { name: 'Read access for alice' }))
+      expect(onSetShares).toHaveBeenCalledWith(['u3'], [])
     })
 
     it('shows an empty state when the campaign has no other members', async () => {
       const user = userEvent.setup()
       setup({
+        // Only the author is in the campaign, so there is nobody to share with.
         campaign: { id: 'c1', members: [{ user_id: 'u1', is_owner: true, username: 'gm' }] },
         page: privatePage(),
       })
@@ -159,14 +195,18 @@ describe('VisibilityEditor', () => {
       const user = userEvent.setup()
       setup({ page: page({ visibility: 'group' }) })
       await openMenu(user)
-      expect(screen.queryByRole('menuitemcheckbox')).toBeNull()
+      expect(screen.queryByRole('checkbox')).toBeNull()
     })
 
-    it('hides the share list from non-owners', async () => {
+    // The share list follows the page, not campaign ownership: a player's own
+    // private page shows them the same picker.
+    it('shows the share list to a non-owner author', async () => {
       const user = userEvent.setup()
-      setup({ isOwner: false, page: privatePage() })
+      setup({ isOwner: false, page: privatePage({ created_by_id: 'u2' }) })
       await openMenu(user)
-      expect(screen.queryByRole('menuitemcheckbox')).toBeNull()
+      expect(screen.getByRole('checkbox', { name: 'Read access for gm' })).toBeInTheDocument()
+      // ...and the author is not offered access to their own page.
+      expect(screen.queryByRole('checkbox', { name: 'Read access for alice' })).toBeNull()
     })
   })
 })

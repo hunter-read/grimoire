@@ -139,6 +139,9 @@ def _apply_legacy_migrations(conn: Connection) -> None:
         "ALTER TABLE users ADD COLUMN theme_by_mode JSON DEFAULT '{}'",
         "ALTER TABLE user_themes ADD COLUMN app_mode VARCHAR(20) DEFAULT 'grimoire'",
         "ALTER TABLE user_themes ADD COLUMN variants JSON DEFAULT '{}'",
+        # Per-user write access on a Private page's share rows. Existing rows
+        # granted read only, which is exactly what the 0 default preserves.
+        "ALTER TABLE wiki_page_shares ADD COLUMN can_write BOOLEAN DEFAULT 0",
     ]:
         try:
             conn.execute(text(migration))

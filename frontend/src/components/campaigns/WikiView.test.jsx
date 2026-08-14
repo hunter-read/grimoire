@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, createEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, createEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import WikiView from './WikiView'
 
@@ -24,6 +24,8 @@ vi.mock('../../api', () => ({
     reorderWikiPages: vi.fn(),
     createWikiPage: vi.fn(),
     deleteWikiPage: vi.fn(),
+    hideWikiPage: vi.fn(),
+    unhideWikiPage: vi.fn(),
     exportWiki: vi.fn(),
     wikiTemplates: vi.fn(),
     useWikiTemplate: vi.fn(),
@@ -45,7 +47,9 @@ vi.mock('../../context/AudioPlayerContext', () => ({
 
 import { campaigns } from '../../api'
 
-const campaign = { id: 'c1', name: 'Test', members: [] }
+// A GM campaign: visibility levels only exist where there is an audience to
+// distinguish, so a personal campaign hides them entirely.
+const campaign = { id: 'c1', name: 'Test', is_gm_campaign: true, members: [] }
 
 const page = {
   id: 'p1',
@@ -55,6 +59,11 @@ const page = {
   parent_id: null,
   icon: null,
   can_edit: true,
+  // The viewer authored this page, so they may also reclassify and delete it —
+  // those are author-only, unlike editing (issues #232 / #233).
+  is_mine: true,
+  can_delete: true,
+  is_hidden: false,
   body: 'Here be dragons',
   backlinks: [],
 }
@@ -117,6 +126,7 @@ describe('WikiView visibility editor', () => {
   const campaignWithMembers = {
     id: 'c1',
     name: 'Test',
+    is_gm_campaign: true,
     members: [
       { user_id: 'u1', is_owner: true, username: 'gm' },
       { user_id: 'u2', is_owner: false, username: 'alice' },
@@ -144,6 +154,7 @@ describe('WikiView visibility editor', () => {
       expect(campaigns.updateWikiPage).toHaveBeenCalledWith('c1', 'p1', {
         visibility: 'group',
         shared_user_ids: [],
+        shared_write_user_ids: [],
       })
     )
   })
@@ -162,23 +173,93 @@ describe('WikiView visibility editor', () => {
     const badge = await screen.findByRole('button', { name: 'Change visibility' })
     fireEvent.click(badge)
 
-    // Non-owner members appear as toggleable access rows.
-    const alice = await screen.findByRole('menuitemcheckbox', { name: 'alice' })
+    // A row per member with its own Read and Write boxes.
+    const alice = await screen.findByRole('checkbox', { name: 'Read access for alice' })
     fireEvent.click(alice)
 
     await waitFor(() =>
       expect(campaigns.updateWikiPage).toHaveBeenCalledWith('c1', 'p1', {
         shared_user_ids: ['u2'],
+        shared_write_user_ids: [],
       })
     )
   })
 
-  it('shows a read-only badge for pages the user cannot edit', async () => {
-    campaigns.listWikiPages.mockResolvedValue([{ ...page, can_edit: false }])
-    campaigns.getWikiPage.mockResolvedValue({ ...page, can_edit: false })
+  // The level is a plain badge on someone else's page. This holds even when the
+  // page is editable — a public page everyone contributes to is still only
+  // reclassifiable by its author (issues #232 / #233).
+  it('shows a read-only badge for pages the user did not author', async () => {
+    const theirs = { ...page, is_mine: false, can_delete: false, visibility: 'group' }
+    campaigns.listWikiPages.mockResolvedValue([theirs])
+    campaigns.getWikiPage.mockResolvedValue(theirs)
     renderView({ isOwner: false })
     await screen.findByText('Here be dragons')
     expect(screen.queryByRole('button', { name: 'Change visibility' })).toBeNull()
+  })
+
+  // A personal campaign has exactly one viewer, so every level would mean the
+  // same thing. The controls and indicators go away rather than showing a
+  // choice that isn't one.
+  describe('personal campaigns', () => {
+    const personal = { id: 'c1', name: 'Solo', is_gm_campaign: false, members: [] }
+    const renderPersonal = () =>
+      render(
+        <MemoryRouter>
+          <WikiView campaign={personal} isOwner />
+        </MemoryRouter>
+      )
+
+    it('hides the visibility control on the open page', async () => {
+      renderPersonal()
+      await screen.findByText('Here be dragons')
+      expect(screen.queryByRole('button', { name: 'Change visibility' })).toBeNull()
+    })
+
+    it('hides the per-row visibility glyph', async () => {
+      renderPersonal()
+      const title = await screen.findByText('Dragons')
+      const row = title.closest('div')
+      fireEvent.mouseEnter(row)
+      expect(within(row).queryByRole('button', { name: /change visibility/i })).toBeNull()
+      expect(within(row).queryByRole('img', { name: /visibility/i })).toBeNull()
+    })
+
+    // Every page is author-only here, so dimming "restricted" ones would grey
+    // out the whole tree while saying nothing.
+    it('does not dim the page rows', async () => {
+      renderPersonal()
+      const title = await screen.findByText('Dragons')
+      expect(title.style.opacity).toBe('1')
+    })
+
+    // Hiding exists so one person can put someone else's notes out of their own
+    // way. Alone in a campaign, the only notes to hide are your own — and
+    // deleting already covers that.
+    it('hides the per-row and header hide buttons', async () => {
+      renderPersonal()
+      const title = await screen.findByText('Dragons')
+      fireEvent.mouseEnter(title.closest('div'))
+      expect(screen.queryByRole('button', { name: 'Hide' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Unhide' })).toBeNull()
+    })
+
+    // Both filters are about telling your notes from other people's.
+    it('hides the My notes and Hidden filters', async () => {
+      renderPersonal()
+      await screen.findByText('Dragons')
+      expect(screen.queryByRole('button', { name: /My notes/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Hidden/i })).toBeNull()
+    })
+
+    // The rest of the row chrome is unaffected — only the sharing-related
+    // controls go away.
+    it('keeps the icon picker and the delete action', async () => {
+      renderPersonal()
+      const title = await screen.findByText('Dragons')
+      fireEvent.mouseEnter(title.closest('div'))
+      expect(screen.getAllByRole('button', { name: 'Icon' }).length).toBeGreaterThan(0)
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy()
+    })
   })
 
   it("tints the page-title icon with the page's own colour, not its visibility", async () => {
@@ -541,6 +622,7 @@ describe('WikiView tree row chrome', () => {
       expect(campaigns.updateWikiPage).toHaveBeenCalledWith('c1', 'p1', {
         visibility: 'group',
         shared_user_ids: [],
+        shared_write_user_ids: [],
       })
     )
   })
@@ -562,11 +644,21 @@ describe('WikiView export and import affordances', () => {
     expect(screen.getByRole('button', { name: /^export$/i })).toBeInTheDocument()
   })
 
-  it('exports as markdown when a member clicks export', async () => {
+  // Issue #289: Export is one button opening a format menu, rather than a
+  // download plus a second per-format button beside it.
+  it('exports the format a member picks from the export menu', async () => {
     renderView({ isOwner: false })
     await waitFor(() => screen.getByText('Dragons'))
     fireEvent.click(screen.getByRole('button', { name: /^export$/i }))
-    await waitFor(() => expect(campaigns.exportWiki).toHaveBeenCalledWith('c1', 'md'))
+    expect(campaigns.exportWiki).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('menuitem', { name: /single markdown file/i }))
+    await waitFor(() => expect(campaigns.exportWiki).toHaveBeenCalledWith('c1', 'mdfile'))
+  })
+
+  it('no longer shows a separate JSON export button beside Export', async () => {
+    renderView({ isOwner: false })
+    await waitFor(() => screen.getByText('Dragons'))
+    expect(screen.queryByRole('button', { name: /json/i })).not.toBeInTheDocument()
   })
 
   it('hides import from a non-owner', async () => {
@@ -958,5 +1050,273 @@ describe('WikiView community note templates', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /New Page/i }))
     await waitFor(() => expect(screen.queryByDisplayValue('New Spell')).toBeNull())
+  })
+})
+
+// Per-user filtering and hiding: a player facing a wiki full of the GM's notes
+// can narrow it to their own, or put individual notes away, without changing
+// anything for anyone else (issue #232).
+describe('WikiView filters and hiding', () => {
+  const mine = { ...page, id: 'p1', title: 'Mine', is_mine: true, can_delete: true }
+  const theirs = {
+    ...page,
+    id: 'p2',
+    title: 'Theirs',
+    slug: 'theirs',
+    is_mine: false,
+    can_delete: false,
+    visibility: 'group',
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.listWikiPages.mockResolvedValue([mine, theirs])
+    campaigns.getWikiPage.mockResolvedValue(mine)
+    campaigns.updateWikiPage.mockResolvedValue(mine)
+    campaigns.hideWikiPage.mockResolvedValue({ ok: true })
+    campaigns.unhideWikiPage.mockResolvedValue({ ok: true })
+  })
+
+  // The filters drive the request rather than filtering client-side, so the
+  // tree always shows exactly what the server returned.
+  it('asks the server for only the user’s own notes', async () => {
+    renderView()
+    await screen.findByText('Theirs')
+    fireEvent.click(screen.getByRole('button', { name: /My notes/i }))
+    await waitFor(() =>
+      expect(campaigns.listWikiPages).toHaveBeenCalledWith('c1', {
+        mine: true,
+        includeHidden: false,
+      })
+    )
+  })
+
+  it('asks the server to include hidden notes', async () => {
+    renderView()
+    await screen.findByText('Theirs')
+    fireEvent.click(screen.getByRole('button', { name: /Hidden/i }))
+    await waitFor(() =>
+      expect(campaigns.listWikiPages).toHaveBeenCalledWith('c1', {
+        mine: false,
+        includeHidden: true,
+      })
+    )
+  })
+
+  // Queries are scoped to the sidebar tree: the open note renders its own title
+  // and its own hide button, so an unscoped lookup would be ambiguous.
+  const treeRow = async (title) => {
+    const tree = await screen.findByTestId('wiki-page-tree')
+    const link = await within(tree).findByText(title)
+    const row = link.closest('div')
+    fireEvent.mouseEnter(row)
+    return row
+  }
+
+  it('hides a note from the row control', async () => {
+    renderView()
+    const row = await treeRow('Theirs')
+    fireEvent.click(within(row).getByRole('button', { name: 'Hide' }))
+    await waitFor(() => expect(campaigns.hideWikiPage).toHaveBeenCalledWith('c1', 'p2'))
+  })
+
+  it('un-hides a note that is already hidden', async () => {
+    campaigns.listWikiPages.mockResolvedValue([mine, { ...theirs, is_hidden: true }])
+    renderView()
+    const row = await treeRow('Theirs')
+    fireEvent.click(within(row).getByRole('button', { name: 'Unhide' }))
+    await waitFor(() => expect(campaigns.unhideWikiPage).toHaveBeenCalledWith('c1', 'p2'))
+  })
+
+  // Hiding is available on notes the user can neither edit nor delete — that is
+  // the case it exists for.
+  it('offers hiding on a note the user cannot delete', async () => {
+    renderView()
+    const row = await treeRow('Theirs')
+    expect(within(row).getByRole('button', { name: 'Hide' })).toBeTruthy()
+  })
+
+  // Hide and delete answer the same question and differ only in scope, so they
+  // sit together in the header's action group — hide first, since it is the
+  // reversible one and the one always available.
+  // The sidebar rows carry their own hide control, so header lookups exclude
+  // the tree.
+  const headerButton = (name) =>
+    screen
+      .getAllByRole('button', { name })
+      .find((b) => !b.closest('[data-testid="wiki-page-tree"]'))
+
+  it('places hide immediately left of delete in the page header', async () => {
+    campaigns.listWikiPages.mockResolvedValue([mine])
+    campaigns.getWikiPage.mockResolvedValue(mine)
+    renderView()
+    await screen.findByText('Here be dragons')
+    const hide = headerButton('Hide')
+    const del = headerButton('Delete')
+    // Same container, and hide precedes delete in document order.
+    expect(hide.parentElement).toBe(del.parentElement)
+    expect(hide.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  // Delete is author-only; hide is not, so the group survives without it.
+  it('still shows hide in the header when the user cannot delete', async () => {
+    campaigns.listWikiPages.mockResolvedValue([theirs])
+    campaigns.getWikiPage.mockResolvedValue(theirs)
+    renderView({ isOwner: false })
+    await screen.findByText('Here be dragons')
+    expect(headerButton('Hide')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+  })
+
+  // Subpages need write access to the parent, so a read-only note doesn't offer
+  // it — while a public one does, which is what makes a shared knowledge base
+  // work (issue #233).
+  it('offers a subpage only on notes the user can write', async () => {
+    campaigns.listWikiPages.mockResolvedValue([
+      theirs,
+      { ...theirs, id: 'p4', title: 'ReadOnly', slug: 'read-only', can_edit: false },
+    ])
+    renderView()
+    const writable = await treeRow('Theirs')
+    expect(within(writable).getByRole('button', { name: /Add subpage/i })).toBeTruthy()
+    const readOnly = await treeRow('ReadOnly')
+    expect(within(readOnly).queryByRole('button', { name: /Add subpage/i })).toBeNull()
+  })
+})
+
+describe('WikiView multiselect', () => {
+  const mine = { ...page, id: 'p1', title: 'Mine', is_mine: true, can_delete: true }
+  const theirs = {
+    ...page,
+    id: 'p2',
+    title: 'Theirs',
+    slug: 'theirs',
+    is_mine: false,
+    can_delete: false,
+    visibility: 'group',
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaigns.listWikiPages.mockResolvedValue([mine, theirs])
+    campaigns.getWikiPage.mockResolvedValue(mine)
+    campaigns.deleteWikiPage.mockResolvedValue({})
+    campaigns.hideWikiPage.mockResolvedValue({ ok: true })
+  })
+
+  const ctrlClick = (el) => fireEvent.click(el, { ctrlKey: true })
+  // Row titles are looked up inside the tree so the open note's own heading
+  // doesn't make the query ambiguous.
+  const treeTitle = async (title) => {
+    const tree = await screen.findByTestId('wiki-page-tree')
+    return within(tree).findByText(title)
+  }
+
+  // Desktop auto-opens the first note, so "Mine" is the open one throughout.
+  it('selects rows on ctrl-click and reports the count', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    ctrlClick(await treeTitle('Theirs'))
+    // The open note came along, so this is two rather than one.
+    expect(await screen.findByText('2 notes selected')).toBeTruthy()
+  })
+
+  // The behaviour every file manager has: the highlighted row is part of the
+  // selection, not something the modifier silently discards.
+  it('keeps the open note in the selection', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    ctrlClick(await treeTitle('Theirs'))
+    expect(await screen.findByText('2 notes selected')).toBeTruthy()
+
+    // Confirm it is the open note that came along, by acting on the selection:
+    // "Mine" is deletable and "Theirs" is not, so a mixed dialog proves both.
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected/i }))
+    expect(await screen.findByText('Delete 1 note you created.')).toBeTruthy()
+    expect(screen.getByText(/Hide 1 note you cannot delete\./)).toBeTruthy()
+  })
+
+  // Seeding applies only to the first click of a fresh selection; afterwards
+  // ctrl-click is an ordinary toggle.
+  it('deselects on a second ctrl-click without re-seeding', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    ctrlClick(await treeTitle('Theirs'))
+    expect(await screen.findByText('2 notes selected')).toBeTruthy()
+    ctrlClick(await treeTitle('Theirs'))
+    expect(await screen.findByText('1 note selected')).toBeTruthy()
+  })
+
+  // The open note can be dropped from the selection like any other row.
+  it('deselects the open note, leaving the rest selected', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    ctrlClick(await treeTitle('Theirs'))
+    await screen.findByText('2 notes selected')
+    ctrlClick(await treeTitle('Mine'))
+    expect(await screen.findByText('1 note selected')).toBeTruthy()
+  })
+
+  // Seeding runs before the toggle, so ctrl-clicking the open note first
+  // deselects it rather than starting a one-item selection. Same rule as any
+  // other row, and independent of whether the `?note=` URL has committed.
+  it('deselects the open note when it is the first ctrl-click', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    ctrlClick(await treeTitle('Mine'))
+    expect(screen.queryByText(/notes? selected/)).toBeNull()
+  })
+
+  it('greys out Import and reveals the delete button while selecting', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    expect(screen.queryByRole('button', { name: /Delete selected/i })).toBeNull()
+    // A row other than the open note, so this grows the selection rather than
+    // deselecting.
+    ctrlClick(await treeTitle('Theirs'))
+    expect(await screen.findByRole('button', { name: /Delete selected/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Import/i })).toBeDisabled()
+  })
+
+  // The heart of the mixed-selection case: what the user may delete is deleted,
+  // and what they may not is hidden instead — both stated up front.
+  it('splits a mixed selection into deletes and hides', async () => {
+    renderView()
+    ctrlClick(await treeTitle('Mine'))
+    ctrlClick(await treeTitle('Theirs'))
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected/i }))
+
+    expect(await screen.findByText('Delete 1 note you created.')).toBeTruthy()
+    expect(screen.getByText(/Hide 1 note you cannot delete\./)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete and hide' }))
+    await waitFor(() => expect(campaigns.deleteWikiPage).toHaveBeenCalledWith('c1', 'p1'))
+    expect(campaigns.hideWikiPage).toHaveBeenCalledWith('c1', 'p2')
+    // The note the user could not delete is untouched on the server.
+    expect(campaigns.deleteWikiPage).not.toHaveBeenCalledWith('c1', 'p2')
+  })
+
+  it('counts the children a hide would sweep along', async () => {
+    const child = {
+      ...theirs,
+      id: 'p3',
+      title: 'Child',
+      slug: 'child',
+      parent_id: 'p2',
+    }
+    campaigns.listWikiPages.mockResolvedValue([mine, theirs, child])
+    renderView()
+    ctrlClick(await treeTitle('Theirs'))
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected/i }))
+    expect(await screen.findByText(/This also hides 1 child note\./)).toBeTruthy()
+  })
+
+  it('clears the selection on a plain click', async () => {
+    renderView()
+    await screen.findByText('Here be dragons')
+    ctrlClick(await treeTitle('Theirs'))
+    await screen.findByText('2 notes selected')
+    fireEvent.click(await treeTitle('Theirs'))
+    await waitFor(() => expect(screen.queryByText(/note selected/)).toBeNull())
   })
 })

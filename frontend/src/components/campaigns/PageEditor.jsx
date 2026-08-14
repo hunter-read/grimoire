@@ -18,6 +18,7 @@ import WikiMarkdown from './WikiMarkdown'
 import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import IconPicker from './IconPicker'
 import WikiLinkAutocomplete, { findActiveLinkQuery } from './WikiLinkAutocomplete'
+import ShareAccessTable from './ShareAccessTable'
 import { buildTitleTrie } from './wikiLinkTarget'
 import { caretCoordinates } from './caretPosition'
 import useFillViewport from './useFillViewport'
@@ -32,6 +33,8 @@ import {
   paneLabel,
   ghostBtn,
   goldBtn,
+  VIS_OPTIONS,
+  visLabelKey,
 } from './wikiShared'
 
 /** Full create/edit form for a wiki page: metadata, markdown toolbar, live preview. */
@@ -48,8 +51,11 @@ export default function PageEditor({
   const isNew = !page?.id
   const [title, setTitle] = useState(page?.title ?? '')
   const [body, setBody] = useState(page?.body ?? '')
-  const [visibility, setVisibility] = useState(page?.visibility ?? (isOwner ? 'gm' : 'group'))
+  // "gm" (author only) is the default for everyone now, not just the GM: a note
+  // starts private to whoever is writing it and is opened up deliberately.
+  const [visibility, setVisibility] = useState(page?.visibility ?? 'gm')
   const [sharedIds, setSharedIds] = useState(page?.shared_user_ids ?? [])
+  const [writeIds, setWriteIds] = useState(page?.shared_write_user_ids ?? [])
   const [parentId, setParentId] = useState(page?.parent_id ?? defaultParentId ?? '')
   const [icon, setIcon] = useState(page?.icon ?? '')
   const [iconColor, setIconColor] = useState(page?.icon_color ?? '')
@@ -170,7 +176,20 @@ export default function PageEditor({
     [suggest, suggestMatches, suggestIndex, acceptSuggestion, closeSuggest]
   )
 
-  const members = (campaign.members || []).filter((m) => !m.is_owner)
+  // Classifying (visibility + sharing) belongs to the author; a new page is
+  // always yours. Everyone else may still be here editing the body of a public
+  // page, with those controls disabled.
+  const canClassify = isNew || page?.is_mine !== false
+  // A personal campaign has one viewer, so the levels carry no meaning and the
+  // controls are hidden outright. The server stores such pages as "gm"
+  // (author-only) whatever this form submits.
+  const showVisibility = !!campaign.is_gm_campaign
+  // Everyone in the campaign except the page's author is shareable. On a new
+  // page the author is the current user, so the owner is only excluded when
+  // they're the one writing.
+  const members = (campaign.members || []).filter((m) =>
+    isNew ? !(m.is_owner && isOwner) : m.user_id !== page?.created_by_id
+  )
 
   const insertAtCursor = useCallback(
     (text) => {
@@ -246,6 +265,7 @@ export default function PageEditor({
         body,
         visibility,
         shared_user_ids: visibility === 'members' ? sharedIds : [],
+        shared_write_user_ids: visibility === 'members' ? writeIds : [],
         parent_id: parentId || '',
         icon: icon || '',
         icon_color: iconColor || '',
@@ -259,11 +279,6 @@ export default function PageEditor({
       setSaving(false)
     }
   }
-
-  const toggleShared = (userId) =>
-    setSharedIds((ids) =>
-      ids.includes(userId) ? ids.filter((i) => i !== userId) : [...ids, userId]
-    )
 
   return (
     <div
@@ -309,17 +324,26 @@ export default function PageEditor({
       <div
         style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}
       >
-        <select
-          value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
-          disabled={!isOwner}
-          aria-label={t('wiki.visibilityLabel')}
-          style={toolbarControl}
-        >
-          {isOwner && <option value="gm">{t('wiki.vis_gm')}</option>}
-          <option value="group">{t('wiki.vis_group')}</option>
-          {isOwner && <option value="members">{t('wiki.vis_members')}</option>}
-        </select>
+        {/* Every level is available to whoever is writing the page. The
+            author-only level is worded for them: "GM only" for the GM, "Self
+            only" for a player. Disabled on someone else's page — a contributor
+            edits the text, the author decides who sees it. Hidden entirely in a
+            personal campaign, where there is no one to hide a page from. */}
+        {showVisibility && (
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value)}
+            disabled={!canClassify}
+            aria-label={t('wiki.visibilityLabel')}
+            style={toolbarControl}
+          >
+            {VIS_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {t(visLabelKey(v, isOwner))}
+              </option>
+            ))}
+          </select>
+        )}
 
         <select
           value={parentId}
@@ -416,6 +440,10 @@ export default function PageEditor({
         <button type="button" onClick={() => setShowEmbedPicker(true)} style={toolbarBtn}>
           <LuBookOpen size={13} /> {t('wiki.insertEmbed')}
         </button>
+        {/* GM-only, and deliberately not tied to authorship: a ||secret|| hides
+            text from players inside an otherwise shared page, so it is the GM's
+            tool wherever the page came from. A player editing a GM page never
+            receives the spans; they are re-merged server-side on save. */}
         {isOwner && (
           <button
             type="button"
@@ -436,8 +464,8 @@ export default function PageEditor({
         </button>
       </div>
 
-      {/* Members share picker */}
-      {isOwner && visibility === 'members' && (
+      {/* Private share picker — the author's list of who else gets in. */}
+      {showVisibility && canClassify && visibility === 'members' && (
         <div
           style={{
             border: '1px solid var(--border)',
@@ -450,31 +478,15 @@ export default function PageEditor({
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
             {t('wiki.shareWith')}
           </div>
-          {members.length === 0 ? (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('wiki.noMembers')}</div>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {members.map((m) => (
-                <label
-                  key={m.user_id}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={sharedIds.includes(m.user_id)}
-                    onChange={() => toggleShared(m.user_id)}
-                  />
-                  {m.character_name || m.display_name || m.username}
-                </label>
-              ))}
-            </div>
-          )}
+          <ShareAccessTable
+            members={members}
+            readIds={sharedIds}
+            writeIds={writeIds}
+            onChange={(reads, writes) => {
+              setSharedIds(reads)
+              setWriteIds(writes)
+            }}
+          />
         </div>
       )}
 

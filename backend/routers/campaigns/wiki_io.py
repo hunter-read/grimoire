@@ -1,8 +1,10 @@
 """Import / export handlers for the campaign wiki.
 
-Export produces either a `.zip` of one markdown file per page (Obsidian-style,
-with light YAML frontmatter) or a single Grimoire JSON bundle. Import is the
-inverse, and additionally understands several foreign shapes:
+Export produces one of three shapes: a `.zip` of one markdown file per page
+(Obsidian-style, with light YAML frontmatter), a single `.md` file with every
+page concatenated under nesting-aware headings (for reading or printing outside
+Grimoire), or a single Grimoire JSON bundle. Import is the inverse of the zip and
+JSON forms, and additionally understands several foreign shapes:
 
   * A single markdown file (or a `.zip` of markdown files / Obsidian vault).
   * A legacy LegendKeeper per-page JSON export — either a single page JSON or a
@@ -111,32 +113,101 @@ def _yaml_scalar(value: str) -> str:
     return s
 
 
+def _tree_order(pages: list) -> list:
+    """Return (page, depth) pairs in sidebar order: depth-first, children after
+    their parent, siblings by sort_order then title.
+
+    `pages` is already sorted that way among siblings, so a single pass per
+    parent preserves it. A page whose parent isn't in the list (filtered out by
+    visibility, for a non-owner export) is treated as a root so it can't be lost.
+    """
+    ids = {p.id for p in pages}
+    children: dict = {}
+    for p in pages:
+        parent = p.parent_id if p.parent_id in ids else None
+        children.setdefault(parent, []).append(p)
+    out: list = []
+    # Iterative walk, so a pathologically deep tree can't blow the stack.
+    stack = [(p, 0) for p in reversed(children.get(None, []))]
+    seen = set()
+    while stack:
+        page, depth = stack.pop()
+        if page.id in seen:
+            continue
+        seen.add(page.id)
+        out.append((page, depth))
+        stack.extend((c, depth + 1) for c in reversed(children.get(page.id, [])))
+    return out
+
+
+def _shift_headings(body: str, by: int) -> str:
+    """Push every ATX heading in `body` down `by` levels, capped at 6.
+
+    Keeps a combined export's outline coherent: each page's own `#` headings sit
+    below the heading we give the page itself. Fenced code blocks are skipped so
+    a `# comment` inside one isn't mistaken for a heading.
+    """
+    if by <= 0:
+        return body
+    out = []
+    fence = None
+    for line in (body or "").splitlines():
+        stripped = line.lstrip()
+        marker = stripped[:3]
+        if marker in ("```", "~~~"):
+            if fence is None:
+                fence = marker
+            elif stripped.startswith(fence):
+                fence = None
+            out.append(line)
+            continue
+        m = re.match(r"^(#{1,6})(\s+.*)$", line) if fence is None else None
+        out.append(f"{'#' * min(6, len(m.group(1)) + by)}{m.group(2)}" if m else line)
+    return "\n".join(out)
+
+
+def _combined_markdown(campaign_name: str, ordered: list, body_of) -> str:
+    """One markdown document holding every page, nested by heading level."""
+    parts = [f"# {campaign_name}\n"]
+    for page, depth in ordered:
+        # Page titles start at H2 (H1 is the campaign) and follow the tree down
+        # to the H6 floor, where deeper pages simply share a level.
+        level = min(6, depth + 2)
+        parts.append(f"{'#' * level} {page.title}\n")
+        body = (body_of(page) or "").strip()
+        if body:
+            parts.append(_shift_headings(body, level) + "\n")
+    return "\n".join(parts)
+
+
 def export_wiki(
     campaign_id: str,
-    format: str = Query("md", pattern="^(md|json)$"),
+    format: str = Query("md", pattern="^(md|mdfile|json)$"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Export a campaign's wiki as a markdown zip or JSON bundle.
+    """Export a campaign's wiki as a markdown zip, a single markdown file, or a
+    JSON bundle.
 
     Available to any campaign viewer, not just the owner: a player who is leaving
     (or moving to another platform) can take their copy of the campaign with them.
     Deliberately still works on an archived campaign — archiving is exactly when
     someone wants their notes out — since exporting reads rather than writes.
 
-    A non-owner receives only what they can already see in the app: pages that
-    fail ``can_view_page`` are omitted entirely, and ``||GM secrets||`` are
-    stripped from the bodies of the pages that remain. The owner exports the
-    unfiltered wiki, as before.
+    Everyone receives only what they can already see in the app: pages that fail
+    ``can_view_page`` are omitted entirely, and ``||GM secrets||`` are stripped
+    from a player's bodies. The page filter now applies to the campaign owner
+    too — since ``gm`` visibility means "author only", a GM is no more entitled
+    to export a player's self-only note than to read it (issue #232). Secrets
+    remain GM-only regardless of who authored the page holding them.
     """
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
-    is_owner = c.owner_id == current_user.id
+    is_gm = c.owner_id == current_user.id
 
     pages = db.query(WikiPage).filter_by(campaign_id=campaign_id).all()
-    if not is_owner:
-        pages = [p for p in pages if can_view_page(p, c, current_user, db)]
+    pages = [p for p in pages if can_view_page(p, c, current_user, db)]
     pages.sort(key=lambda p: (p.sort_order or 0, (p.title or "").lower()))
     by_id = {p.id: p for p in pages}
     # A page's parent slug, used to round-trip nesting through the export.
@@ -146,10 +217,10 @@ def export_wiki(
     }
     base = slugify(c.name) or "campaign"
 
-    # The owner's export is verbatim; everyone else's has GM secrets removed, the
-    # same body they'd see in the reader.
+    # The GM's export is verbatim; a player's has GM secrets removed, the same
+    # body they'd see in the reader.
     def body_of(p) -> str:
-        return (p.body or "") if is_owner else strip_gm_secrets(p.body or "")
+        return (p.body or "") if is_gm else strip_gm_secrets(p.body or "")
 
     if format == "json":
         bundle = {
@@ -175,6 +246,17 @@ def export_wiki(
             content=data,
             media_type="application/json",
             headers={"Content-Disposition": f'attachment; filename="{base}-wiki.json"'},
+        )
+
+    if format == "mdfile":
+        # One document, pages in sidebar order and nested by heading level. Not
+        # a round-trip format (no frontmatter, so nothing to re-import from) —
+        # it's for reading, printing, or pasting the whole wiki elsewhere.
+        text = _combined_markdown(c.name, _tree_order(pages), body_of)
+        return Response(
+            content=text.encode("utf-8"),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{base}-wiki.md"'},
         )
 
     # format == "md": a zip of one markdown file per page.

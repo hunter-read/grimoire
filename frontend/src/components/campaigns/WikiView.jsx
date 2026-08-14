@@ -9,12 +9,15 @@ import {
   LuTrash2,
   LuArrowLeft,
   LuFileText,
-  LuDownload,
   LuUpload,
   LuChevronRight,
   LuChevronDown,
   LuListMusic,
   LuLayoutTemplate,
+  LuEyeOff,
+  LuEye,
+  LuUser,
+  LuX,
 } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
@@ -22,6 +25,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
+import WikiExportMenu from './WikiExportMenu'
 import WikiTemplateModal from './WikiTemplateModal'
 import IconPicker from './IconPicker'
 import { CampaignIcon } from './campaignIcons'
@@ -30,6 +34,7 @@ import VisibilityBadge from './VisibilityBadge'
 import VisibilityEditor from './VisibilityEditor'
 import RowVisibilityControl from './RowVisibilityControl'
 import PageEditor from './PageEditor'
+import WikiBulkActionDialog from './WikiBulkActionDialog'
 import useFillViewport from './useFillViewport'
 import useResizableWidth from './useResizableWidth'
 import { headingDomId } from './wikiHeadings'
@@ -95,6 +100,14 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // reset the box.
   const [draftToken, setDraftToken] = useState(0)
   const [query, setQuery] = useState('')
+  // Sidebar filters. Deliberately plain state rather than saved filters: these
+  // are a "what am I looking at right now" toggle, not a stored view.
+  const [onlyMine, setOnlyMine] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
+  // Ctrl/Cmd-click multiselect over the tree, for exporting or clearing a subset
+  // of notes. Empty set = not in multiselect mode.
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)
   // Heading a [[Page:#Heading]] link asked for, pending the target page loading.
@@ -142,6 +155,20 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // campaign that isn't frozen. Exporting only reads and stays available to all.
   const canImport = isOwner && !campaign.is_archived
 
+  // A personal campaign has exactly one member, which removes the premise
+  // behind a whole cluster of controls rather than just disabling them:
+  //
+  //  - visibility levels ask "who else can see this", and there is no one else;
+  //    the server stores every page as "gm" (author-only) whatever is sent.
+  //  - "My notes" filters to the pages you wrote, which is all of them.
+  //  - hiding, and the "Hidden" filter that pairs with it, exist so one person
+  //    can put someone else's notes out of their own way. Here the only notes
+  //    to hide would be your own, and deleting is already available for those.
+  //
+  // All of it is hidden outright — a control that can only ever do nothing is
+  // worse than absent.
+  const isSharedCampaign = !!campaign.is_gm_campaign
+
   const exportWiki = async (format) => {
     try {
       await campaigns.exportWiki(campaign.id, format)
@@ -168,9 +195,14 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // there. `isMobile` is read via a ref for the same reason.
   const isMobileRef = useRef(isMobile)
   isMobileRef.current = isMobile
+  // The filters feed the request rather than being applied client-side, so the
+  // list the server sends is exactly what the tree shows. Read through refs for
+  // the same identity-stability reason as `isMobile` above.
+  const filtersRef = useRef({ mine: onlyMine, includeHidden: showHidden })
+  filtersRef.current = { mine: onlyMine, includeHidden: showHidden }
   const loadList = useCallback(
     (selectId) => {
-      campaigns.listWikiPages(campaign.id).then((list) => {
+      campaigns.listWikiPages(campaign.id, filtersRef.current).then((list) => {
         setPages(list)
         setSelectedId((current) => {
           if (selectId) return selectId
@@ -191,6 +223,18 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     loadList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign.id])
+
+  // Re-fetch when a filter changes. Separate from the mount effect so switching
+  // campaigns and toggling a filter don't have to share one dependency list.
+  const firstFilterRun = useRef(true)
+  useEffect(() => {
+    if (firstFilterRun.current) {
+      firstFilterRun.current = false
+      return
+    }
+    loadList()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlyMine, showHidden])
 
   useEffect(() => {
     if (!selectedId) {
@@ -266,6 +310,71 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     loadList()
   }
 
+  // --- Per-user hiding ---
+  // Hiding is available on any note the user can see, including ones they can
+  // neither edit nor delete — it only affects their own view.
+  const toggleHidden = async (p) => {
+    if (p.is_hidden) await campaigns.unhideWikiPage(campaign.id, p.id)
+    else await campaigns.hideWikiPage(campaign.id, p.id)
+    // A note that has just been hidden leaves the list unless hidden notes are
+    // being shown, so don't try to keep it selected.
+    const keep = p.is_hidden || showHidden ? selectedId : null
+    if (!keep && page?.id === p.id) {
+      setSelectedId(null)
+      setPage(null)
+    }
+    loadList(keep || undefined)
+  }
+
+  // --- Multiselect (Ctrl/Cmd-click) ---
+  // Ctrl/Cmd-click *adds to* what is already selected, and what is already
+  // selected includes the note you are reading. So the first such click on a
+  // fresh selection seeds it with the open note before toggling the clicked one
+  // — matching every file manager and list UI, where the highlighted row is part
+  // of the selection rather than something the modifier silently discards.
+  //
+  // Seeding happens before the toggle, so ctrl-clicking the open note itself
+  // deselects it (as it would anywhere else) rather than being a special case.
+  // Doing it in that order also keeps the result independent of whether the
+  // `?note=` URL update has committed yet, which a "cancel out" scheme would
+  // silently depend on.
+  const toggleSelected = (id) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.size === 0 && selectedId) next.add(selectedId)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const clearSelection = () => setSelectedIds(new Set())
+  const multiSelecting = selectedIds.size > 0
+
+  // Split the selection the way the confirm dialog reports it: notes the user
+  // authored are deleted, the rest can only be hidden. Hiding a parent takes its
+  // children with it, so those are counted for the warning too.
+  const selectedPages = pages ? pages.filter((p) => selectedIds.has(p.id)) : []
+  const toDelete = selectedPages.filter((p) => p.can_delete)
+  const toHide = selectedPages.filter((p) => !p.can_delete && !p.is_hidden)
+  // Children swept along by hiding a parent, excluding any already selected in
+  // their own right so they aren't counted twice.
+  const hiddenChildCount = pages
+    ? [...new Set(toHide.flatMap((p) => [...descendantIds(p.id, pages)]))].filter(
+        (id) => !selectedIds.has(id)
+      ).length
+    : 0
+
+  const runBulkAction = async () => {
+    for (const p of toDelete) await campaigns.deleteWikiPage(campaign.id, p.id)
+    for (const p of toHide) await campaigns.hideWikiPage(campaign.id, p.id)
+    // The open note may have just been deleted or hidden out of the list.
+    if (selectedIds.has(selectedId)) {
+      setSelectedId(null)
+      setPage(null)
+    }
+    setBulkOpen(false)
+    clearSelection()
+    loadList()
+  }
+
   // Quick icon/tint change without entering the full editor. Updates the list
   // (and the open page, if it's the one changed) so the change shows immediately.
   const patchPage = async (pageId, patch) => {
@@ -281,12 +390,20 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // behaviour.
   const changePageVisibility = async (pageId, visibility) => {
     const payload = { visibility }
-    if (visibility !== 'members') payload.shared_user_ids = []
+    if (visibility !== 'members') {
+      payload.shared_user_ids = []
+      payload.shared_write_user_ids = []
+    }
     await campaigns.updateWikiPage(campaign.id, pageId, payload)
     if (page?.id === pageId) {
       setPage((p) =>
         p
-          ? { ...p, visibility, shared_user_ids: visibility === 'members' ? p.shared_user_ids : [] }
+          ? {
+              ...p,
+              visibility,
+              shared_user_ids: visibility === 'members' ? p.shared_user_ids : [],
+              shared_write_user_ids: visibility === 'members' ? p.shared_write_user_ids : [],
+            }
           : p
       )
     }
@@ -295,11 +412,15 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const changeVisibility = (visibility) =>
     page ? changePageVisibility(page.id, visibility) : undefined
 
-  // Toggle which members can access the open Private page.
-  const changeShares = async (sharedIds) => {
+  // Set who can read and who can edit the open Private page. Write implies
+  // read, which the server also enforces.
+  const changeShares = async (sharedIds, writeIds) => {
     if (!page) return
-    await campaigns.updateWikiPage(campaign.id, page.id, { shared_user_ids: sharedIds })
-    setPage((p) => (p ? { ...p, shared_user_ids: sharedIds } : p))
+    await campaigns.updateWikiPage(campaign.id, page.id, {
+      shared_user_ids: sharedIds,
+      shared_write_user_ids: writeIds,
+    })
+    setPage((p) => (p ? { ...p, shared_user_ids: sharedIds, shared_write_user_ids: writeIds } : p))
   }
 
   const startCreate = (parentId = '') => {
@@ -449,13 +570,22 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     const kids = flat ? [] : (childrenOf[p.id] || []).filter((c) => idSet.has(c.id))
     const hasKids = kids.length > 0
     const isCollapsed = collapsed.has(p.id)
-    // Reordering only applies in the nested tree, not the flattened search view.
-    const canDrag = isOwner && !flat
+    // Reordering is a write, so it follows edit permission rather than campaign
+    // ownership — a player may rearrange their own notes and any public one.
+    // Only applies in the nested tree, not the flattened search view, and is
+    // suspended while a multiselect is active so a drag can't fight the
+    // selection.
+    const canDrag = p.can_edit && !flat && !multiSelecting
     const indicator = dropTarget?.id === p.id ? dropTarget.where : null
     const hovered = hoveredRow === p.id
+    const selected = selectedIds.has(p.id)
     // Restricted pages read slightly dimmer than fully-visible ones, so limited
-    // access is legible without relying on the icon's colour.
-    const restricted = p.visibility !== 'group'
+    // access is legible without relying on the icon's colour. A hidden note (only
+    // on screen when "Hidden" is toggled on) is dimmer still.
+    // Dimming marks a page as *less visible than its neighbours*, which only
+    // says anything when the levels differ. In a personal campaign every page is
+    // author-only, so this would dim the entire tree for no information.
+    const restricted = isSharedCampaign && p.visibility !== 'group'
     return (
       <div key={p.id}>
         <div
@@ -473,24 +603,43 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
             width: '100%',
             padding: '7px 10px',
             paddingLeft: 10 + depth * 14,
-            background:
-              indicator === 'inside' ? 'var(--bg-card)' : active ? 'var(--bg-card)' : 'transparent',
-            borderLeft: active ? '1px solid var(--border)' : '1px solid transparent',
-            borderRight: active ? '1px solid var(--border)' : '1px solid transparent',
+            // A multiselected row is highlighted in gold so the selection reads
+            // as a distinct state from the single open note.
+            background: selected
+              ? 'var(--bg-card-hover)'
+              : indicator === 'inside' || active
+                ? 'var(--bg-card)'
+                : 'transparent',
+            borderLeft: selected
+              ? '1px solid var(--gold)'
+              : active
+                ? '1px solid var(--border)'
+                : '1px solid transparent',
+            borderRight: selected
+              ? '1px solid var(--gold)'
+              : active
+                ? '1px solid var(--border)'
+                : '1px solid transparent',
             borderTop:
               indicator === 'before'
                 ? '2px solid var(--gold)'
-                : active
-                  ? '1px solid var(--border)'
-                  : '1px solid transparent',
+                : selected
+                  ? '1px solid var(--gold)'
+                  : active
+                    ? '1px solid var(--border)'
+                    : '1px solid transparent',
             borderBottom:
               indicator === 'after'
                 ? '2px solid var(--gold)'
-                : active
-                  ? '1px solid var(--border)'
-                  : '1px solid transparent',
+                : selected
+                  ? '1px solid var(--gold)'
+                  : active
+                    ? '1px solid var(--border)'
+                    : '1px solid transparent',
             borderRadius: 8,
-            color: active ? 'var(--text)' : 'var(--text-dim)',
+            color: active || selected ? 'var(--text)' : 'var(--text-dim)',
+            // A hidden note stays legible but visibly set aside.
+            opacity: p.is_hidden ? 0.55 : 1,
             cursor: canDrag ? 'grab' : 'pointer',
             fontSize: 13,
             boxSizing: 'border-box',
@@ -550,13 +699,28 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
             />
           )}
           {/* A real link (selecting a note is a `?note=` URL change), so middle
-              click / ctrl-click opens it in a new tab (issue #313). `replace`
-              matches setSelectedId, so browsing notes doesn't pile up history.
-              A plain click also abandons any in-progress create. */}
+              click opens it in a new tab (issue #313). `replace` matches
+              setSelectedId, so browsing notes doesn't pile up history. A plain
+              click also abandons any in-progress create.
+
+              Ctrl/Cmd-click is claimed for multiselect, which costs the
+              open-in-new-tab shortcut on this control — middle click still does
+              it, and the selection is what that modifier is for in a list like
+              this. */}
           <Link
             to={noteHref(p.id)}
             replace
-            onClick={() => setCreating(false)}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey) {
+                e.preventDefault()
+                toggleSelected(p.id)
+                return
+              }
+              // A plain click in multiselect mode leaves it, so the user isn't
+              // stuck having to find the Clear button.
+              if (multiSelecting) clearSelection()
+              setCreating(false)
+            }}
             style={{
               flex: 1,
               minWidth: 0,
@@ -573,7 +737,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           >
             {p.title}
           </Link>
-          {isOwner && (
+          {/* Adding a subpage writes under this one, so it needs write access to
+              it — the server enforces the same rule (issue #232). */}
+          {p.can_edit && (
             <button
               type="button"
               onClick={(e) => {
@@ -600,14 +766,49 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               <LuPlus size={13} />
             </button>
           )}
+          {/* Hide/unhide — available on every note the user can see, since it
+              only affects their own view. Hover-only like the add button. Absent
+              in a personal campaign, where the only notes to hide are your own
+              and deleting already covers that. */}
+          {isSharedCampaign && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleHidden(p)
+              }}
+              onFocus={() => setHoveredRow(p.id)}
+              aria-label={t(p.is_hidden ? 'wiki.unhide' : 'wiki.hide')}
+              title={t(p.is_hidden ? 'wiki.unhideTitle' : 'wiki.hideTitle')}
+              style={{
+                flexShrink: 0,
+                display: 'inline-flex',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                opacity: hovered || p.is_hidden ? 1 : 0,
+                transition: 'opacity 120ms ease',
+              }}
+            >
+              {p.is_hidden ? <LuEye size={13} /> : <LuEyeOff size={13} />}
+            </button>
+          )}
           {/* Visibility lives at the far right of the row. */}
-          <RowVisibilityControl
-            visibility={p.visibility}
-            canEdit={p.can_edit}
-            isOwner={isOwner}
-            rowHovered={hovered}
-            onSetVisibility={(v) => changePageVisibility(p.id, v)}
-          />
+          {/* The author-only level only ever appears on your own pages — that's
+              what it means — so the label follows whether *you* are the GM.
+              Absent entirely in a personal campaign, where there is nobody to
+              distinguish a level from. */}
+          {isSharedCampaign && (
+            <RowVisibilityControl
+              visibility={p.visibility}
+              isMine={p.is_mine}
+              authorIsGm={isOwner}
+              rowHovered={hovered}
+              onSetVisibility={(v) => changePageVisibility(p.id, v)}
+            />
+          )}
         </div>
         {hasKids && !isCollapsed && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
@@ -707,6 +908,66 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           />
         </div>
 
+        {/* Filters. Plain toggles rather than saved filters — they answer "what
+            am I looking at right now", and are not meant to persist. Both are
+            about telling your notes apart from other people's, so neither has
+            anything to say in a personal campaign. */}
+        {isSharedCampaign && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setOnlyMine((v) => !v)}
+              aria-pressed={onlyMine}
+              title={t('wiki.filterMineTitle')}
+              style={filterChip(onlyMine)}
+            >
+              <LuUser size={12} /> {t('wiki.filterMine')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowHidden((v) => !v)}
+              aria-pressed={showHidden}
+              title={t('wiki.filterHiddenTitle')}
+              style={filterChip(showHidden)}
+            >
+              <LuEyeOff size={12} /> {t('wiki.filterHidden')}
+            </button>
+          </div>
+        )}
+
+        {/* Multiselect summary — only present while a selection exists. */}
+        {multiSelecting && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 10,
+              flexShrink: 0,
+              fontSize: 12,
+              color: 'var(--text-dim)',
+            }}
+          >
+            <span style={{ flex: 1 }}>{t('wiki.selectedCount', { count: selectedIds.size })}</span>
+            <button
+              type="button"
+              onClick={clearSelection}
+              aria-label={t('wiki.clearSelection')}
+              title={t('wiki.clearSelection')}
+              style={{
+                display: 'inline-flex',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <LuX size={13} />
+            </button>
+          </div>
+        )}
+
         {/* The scrolling region. It owns the leftover height, so a long tree
             scrolls here rather than moving the note — and the scroll position
             survives selecting a different page, since this element stays
@@ -749,7 +1010,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
         {/* Export is open to every member — a player can take their own copy of
             the campaign with them, including from an archived one. Import writes,
-            so it stays owner-only and disappears once the campaign is archived. */}
+            so it stays owner-only and disappears once the campaign is archived.
+            All three are real buttons (issue #289): the dashed style these used
+            to wear read as an empty drop target rather than an action, and the
+            export formats now live behind the one Export button. */}
         <div
           style={{
             marginTop: 12,
@@ -760,18 +1024,21 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           }}
         >
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => exportWiki('md')}
-              title={t('wiki.exportMd')}
-              style={{ ...dashedBtn, flex: 1 }}
-            >
-              <LuDownload size={13} /> {t('wiki.export')}
-            </button>
+            <WikiExportMenu onExport={exportWiki} style={{ ...sidebarBtn, flex: 1 }} />
             {canImport && (
+              // Import brings in whole pages, which has nothing to say to a
+              // selection, so it greys out while one is active — the sidebar's
+              // write action during multiselect is the delete below.
               <button
                 onClick={() => setImporting(true)}
+                disabled={multiSelecting}
                 title={t('wiki.importTitle')}
-                style={{ ...dashedBtn, flex: 1 }}
+                style={{
+                  ...sidebarBtn,
+                  flex: 1,
+                  opacity: multiSelecting ? 0.45 : 1,
+                  cursor: multiSelecting ? 'not-allowed' : 'pointer',
+                }}
               >
                 <LuUpload size={13} /> {t('wiki.import')}
               </button>
@@ -783,14 +1050,28 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
             <button
               onClick={() => setBrowsingTemplates(true)}
               title={t('wiki.templatesTitle')}
-              style={dashedBtn}
+              style={sidebarBtn}
             >
               <LuLayoutTemplate size={13} /> {t('wiki.templates')}
             </button>
           )}
-          <button onClick={() => exportWiki('json')} style={{ ...dashedBtn, fontSize: 11 }}>
-            {t('wiki.exportJson')}
-          </button>
+          {/* Bulk action on the selection. Animates in below Templates rather
+              than appearing instantly, so a destructive button never lands under
+              a cursor that was aiming at something else. */}
+          {multiSelecting && (
+            <button
+              onClick={() => setBulkOpen(true)}
+              style={{
+                ...sidebarBtn,
+                borderColor: 'var(--danger)',
+                color: 'var(--danger)',
+                // Reuses the app's shared fade-up keyframe.
+                animation: 'fadeIn 180ms ease-out',
+              }}
+            >
+              <LuTrash2 size={13} /> {t('wiki.deleteSelected')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -883,7 +1164,17 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
           <div>
             {(() => {
               const audioIds = extractAudioEmbedIds(page.body)
-              const hasActions = page.can_edit || audioIds.length > 0
+              // Edit lives down in the metadata row beside the visibility
+              // control, so this group is the "get this page out of my way"
+              // pair: hide, then delete. They sit together because they answer
+              // the same question and differ only in scope — hiding affects
+              // only you and is offered on every page, while deleting is
+              // author-only and permanent. Hide comes first so the reversible,
+              // always-available action is the one nearest the cursor.
+              //
+              // In a personal campaign hide is gone and the group can be empty
+              // again, so it renders only when it holds something.
+              const hasActions = isSharedCampaign || page.can_delete || audioIds.length > 0
               const actionButtons = hasActions && (
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                   {audioIds.length > 0 && (
@@ -895,18 +1186,27 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                       <LuListMusic size={13} /> {t('audio.playAll')}
                     </button>
                   )}
-                  {page.can_edit && (
-                    <>
-                      <button onClick={() => setEditing(true)} style={ghostBtn}>
-                        <LuPencil size={13} /> {t('common.edit')}
-                      </button>
-                      <button
-                        onClick={handleDelete}
-                        style={{ ...ghostBtn, color: 'var(--danger)' }}
-                      >
-                        <LuTrash2 size={13} />
-                      </button>
-                    </>
+                  {/* Hiding is per-user, so it is offered on every page — but
+                      only where there are other people's notes to hide. */}
+                  {isSharedCampaign && (
+                    <button
+                      onClick={() => toggleHidden(page)}
+                      title={t(page.is_hidden ? 'wiki.unhideTitle' : 'wiki.hideTitle')}
+                      style={ghostBtn}
+                    >
+                      {page.is_hidden ? <LuEye size={13} /> : <LuEyeOff size={13} />}{' '}
+                      {t(page.is_hidden ? 'wiki.unhide' : 'wiki.hide')}
+                    </button>
+                  )}
+                  {page.can_delete && (
+                    <button
+                      onClick={handleDelete}
+                      aria-label={t('common.delete')}
+                      title={t('common.delete')}
+                      style={{ ...ghostBtn, color: 'var(--danger)' }}
+                    >
+                      <LuTrash2 size={13} />
+                    </button>
                   )}
                 </div>
               )
@@ -937,17 +1237,28 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
                     <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{page.title}</h2>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    {page.can_edit ? (
-                      <VisibilityEditor
-                        campaign={campaign}
-                        isOwner={isOwner}
-                        page={page}
-                        onSetVisibility={changeVisibility}
-                        onSetShares={changeShares}
-                      />
-                    ) : (
-                      <VisibilityBadge visibility={page.visibility} />
+                    {/* Edit sits to the left of the permission control, so the
+                        two controls that act on this page are adjacent. */}
+                    {page.can_edit && (
+                      <button onClick={() => setEditing(true)} style={ghostBtn}>
+                        <LuPencil size={13} /> {t('common.edit')}
+                      </button>
                     )}
+                    {/* Only the author may reclassify; everyone else sees the
+                        level as a plain badge. Neither appears in a personal
+                        campaign, which has no audience to classify against. */}
+                    {isSharedCampaign &&
+                      (page.is_mine ? (
+                        <VisibilityEditor
+                          campaign={campaign}
+                          isOwner={isOwner}
+                          page={page}
+                          onSetVisibility={changeVisibility}
+                          onSetShares={changeShares}
+                        />
+                      ) : (
+                        <VisibilityBadge visibility={page.visibility} authorIsGm={!isOwner} />
+                      ))}
                     {page.created_by_name && (
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         {t('wiki.byAuthor', { name: page.created_by_name })}
@@ -1062,6 +1373,16 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
         )}
       </div>
 
+      {bulkOpen && (
+        <WikiBulkActionDialog
+          deleteCount={toDelete.length}
+          hideCount={toHide.length}
+          hiddenChildCount={hiddenChildCount}
+          onConfirm={runBulkAction}
+          onCancel={() => setBulkOpen(false)}
+        />
+      )}
+
       {importing && (
         <WikiImportModal
           campaignId={campaign.id}
@@ -1092,20 +1413,34 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   )
 }
 
-const dashedBtn = {
+// The standard button the rest of the app uses (ghostBtn), widened to fill the
+// sidebar column. Replaces the dashed placeholder style these controls carried,
+// which read as an empty drop target rather than an action (issue #289).
+const sidebarBtn = {
+  ...ghostBtn,
   display: 'flex',
-  alignItems: 'center',
-  gap: 6,
   width: '100%',
   justifyContent: 'center',
   padding: '6px 10px',
-  background: 'transparent',
-  border: '1px dashed var(--border)',
-  borderRadius: 8,
-  color: 'var(--text-muted)',
-  cursor: 'pointer',
   fontSize: 12,
 }
+
+// A filter toggle under the search box. Reads as pressed (gold) when active,
+// matching the toolbar toggles elsewhere in the app.
+const filterChip = (active) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  flex: 1,
+  justifyContent: 'center',
+  padding: '5px 8px',
+  background: active ? 'var(--bg-card)' : 'var(--bg-deep)',
+  border: `1px solid ${active ? 'var(--gold)' : 'var(--border)'}`,
+  borderRadius: 8,
+  color: active ? 'var(--gold)' : 'var(--text-dim)',
+  cursor: 'pointer',
+  fontSize: 12,
+})
 
 const mobileBackBtn = {
   display: 'flex',

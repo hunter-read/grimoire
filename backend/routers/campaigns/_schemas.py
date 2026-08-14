@@ -170,10 +170,15 @@ class AvailabilityUpdate(BaseModel):
 class WikiPageCreate(BaseModel):
     title: str = ""
     body: str = ""
-    visibility: str = "gm"  # gm | group | members
+    # gm = author only ("GM only" / "Self only" depending who wrote it),
+    # group = public, members = private to an explicit share list.
+    visibility: str = "gm"
     page_type: str = "note"  # note | session
     session_date: Optional[str] = None  # YYYY-MM-DD for session pages
-    shared_user_ids: Optional[List[str]] = None  # for members visibility
+    shared_user_ids: Optional[List[str]] = None  # read access, members visibility
+    # Subset of the share list that also gets write. Listing a user here alone is
+    # enough — write implies read, so the server adds the read grant.
+    shared_write_user_ids: Optional[List[str]] = None
     parent_id: Optional[str] = None  # nest under another page; null/"" = top level
     icon: Optional[str] = None  # curated Lucide key or an emoji
     icon_color: Optional[str] = None  # preset token or "#rrggbb"
@@ -188,6 +193,7 @@ class WikiPageUpdate(BaseModel):
     page_type: Optional[str] = None
     session_date: Optional[str] = None
     shared_user_ids: Optional[List[str]] = None
+    shared_write_user_ids: Optional[List[str]] = None
     # Use the sentinel "" to move the page back to the top level (no parent).
     parent_id: Optional[str] = None
     icon: Optional[str] = None  # "" clears it

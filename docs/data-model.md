@@ -29,6 +29,7 @@ erDiagram
     users ||--o{ player_session_notes : writes
     users ||--o{ wiki_pages : "created by"
     users ||--o{ wiki_page_shares : "shared with"
+    users ||--o{ wiki_page_hidden : "hides"
     users ||--o{ wiki_templates : "created by"
     users ||--o{ campaign_resource_shares : "shared with"
     users ||--o{ campaign_files : "uploaded by"
@@ -61,6 +62,7 @@ erDiagram
     session_notes ||--|| gm_session_notes : has
 
     wiki_pages ||--o{ wiki_page_shares : "shared via"
+    wiki_pages ||--o{ wiki_page_hidden : "hidden via"
     wiki_pages ||--o{ wiki_pages : "parent of"
     wiki_pages ||--o{ wiki_page_links : "source of"
     wiki_pages ||--o{ wiki_page_links : "target of"
@@ -112,6 +114,8 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 | `wiki_templates.created_by_id` | `users.id` | nullable |
 | `wiki_page_shares.page_id` | `wiki_pages.id` | |
 | `wiki_page_shares.user_id` | `users.id` | |
+| `wiki_page_hidden.page_id` | `wiki_pages.id` | |
+| `wiki_page_hidden.user_id` | `users.id` | |
 | `wiki_page_links.campaign_id` | `campaigns.id` | |
 | `wiki_page_links.source_page_id` | `wiki_pages.id` | |
 | `wiki_page_links.target_page_id` | `wiki_pages.id` | |
@@ -187,8 +191,9 @@ path-keyed feature.
 | `player_session_notes` | Per-player scratch pad for a session. | FKs `session_id`, `user_id`. **Unique** `(session_id, user_id)`. |
 | `gm_session_notes` | GM internal + shared notes for a session. | FK `session_id` **unique** (one-to-one). |
 | `session_availability` | A user's availability for a session date. | FKs `campaign_id`, `user_id`. **Unique** `(campaign_id, user_id, session_date)`. |
-| `wiki_pages` | A markdown wiki page in a campaign. | FKs `campaign_id`, `created_by_id`, `parent_id` (self), `category_id` (legacy). **Unique** `(campaign_id, slug)`. `visibility` ∈ `gm`/`group`/`members`. |
-| `wiki_page_shares` | A user a `members` wiki page is shared with. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. |
+| `wiki_pages` | A markdown wiki page in a campaign. | FKs `campaign_id`, `created_by_id`, `parent_id` (self), `category_id` (legacy). **Unique** `(campaign_id, slug)`. `visibility` ∈ `gm`/`group`/`members`, interpreted relative to `created_by_id`: `gm` is author-only (labelled "GM only" or "Self only" by who wrote it), `group` is campaign-wide read+write, `members` is the share list. |
+| `wiki_page_shares` | A user a `members` ("Private") wiki page is shared with. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. The row grants read; `can_write` upgrades it to read+write. Write implies read, so there is no write-without-read state — revoking read deletes the row. Rows predating `can_write` default to read-only. |
+| `wiki_page_hidden` | A wiki page one user has hidden from their own view. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. Per-user decluttering, not a permission: available on any page the user can see, and invisible to everyone else. Hiding a parent hides its subtree, derived at read time from `parent_id` rather than stored per descendant. |
 | `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
 | `wiki_templates` | A reusable starting point for a wiki page, owned by one campaign. | FKs `campaign_id`, `created_by_id`. `body` holds the markdown (with frontmatter). `source_id`/`source_url`/`source_version` record a downloaded template's provenance and are null for authored/uploaded ones. Deliberately **not** unique on anything — a GM may keep several copies of the same community template. |
 

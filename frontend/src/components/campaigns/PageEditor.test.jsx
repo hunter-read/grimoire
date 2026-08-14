@@ -24,6 +24,7 @@ import { campaigns } from '../../api'
 const campaign = {
   id: 'c1',
   name: 'Test',
+  is_gm_campaign: true,
   members: [
     { user_id: 'u1', is_owner: true, username: 'gm' },
     { user_id: 'u2', is_owner: false, username: 'alice' },
@@ -142,12 +143,35 @@ describe('PageEditor', () => {
     const user = userEvent.setup()
     renderEditor()
     await user.selectOptions(screen.getByLabelText('Visibility'), 'members')
-    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('checkbox', { name: 'Read access for alice' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(campaigns.createWikiPage).toHaveBeenCalledWith(
         'c1',
-        expect.objectContaining({ visibility: 'members', shared_user_ids: ['u2'] })
+        expect.objectContaining({
+          visibility: 'members',
+          shared_user_ids: ['u2'],
+          shared_write_user_ids: [],
+        })
+      )
+    )
+  })
+
+  // Granting write also grants read, so the member lands in both lists.
+  it('sends a write grant in both share lists', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await user.selectOptions(screen.getByLabelText('Visibility'), 'members')
+    await user.click(screen.getByRole('checkbox', { name: 'Write access for alice' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(campaigns.createWikiPage).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({
+          visibility: 'members',
+          shared_user_ids: ['u2'],
+          shared_write_user_ids: ['u2'],
+        })
       )
     )
   })
@@ -166,11 +190,57 @@ describe('PageEditor', () => {
     )
   })
 
-  it('limits a non-owner to the public visibility level', () => {
+  // A player writing their own note gets the full set of levels; the
+  // author-only one is worded for them (issue #232).
+  it('offers a non-owner every visibility level on a new page', () => {
     renderEditor({ isOwner: false })
     const select = screen.getByLabelText('Visibility')
-    expect(select).toBeDisabled()
-    expect(within(select).getAllByRole('option')).toHaveLength(1)
+    expect(select).toBeEnabled()
+    const options = within(select)
+      .getAllByRole('option')
+      .map((o) => o.textContent)
+    expect(options).toEqual(['Self only', 'Public', 'Private'])
+  })
+
+  // Editing someone else's page is allowed on a public page, but classifying
+  // it is not — that stays with the author.
+  it('disables the visibility control on a page the user did not author', () => {
+    renderEditor({ isOwner: false, page: { ...existing, is_mine: false } })
+    expect(screen.getByLabelText('Visibility')).toBeDisabled()
+  })
+
+  // A personal campaign has one viewer, so there is nothing to classify
+  // against — the control is absent rather than disabled.
+  it('hides the visibility control in a personal campaign', () => {
+    renderEditor({ campaign: { ...campaign, is_gm_campaign: false } })
+    expect(screen.queryByLabelText('Visibility')).toBeNull()
+    // The other toolbar controls are unaffected.
+    expect(screen.getByLabelText('Parent page')).toBeInTheDocument()
+  })
+
+  it('saves a personal-campaign page as author-only', async () => {
+    const user = userEvent.setup()
+    renderEditor({ campaign: { ...campaign, is_gm_campaign: false } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(campaigns.createWikiPage).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ visibility: 'gm', shared_user_ids: [] })
+      )
+    )
+  })
+
+  // ||secrets|| hide text from players, so the tool is the GM's on every page —
+  // it is keyed on campaign ownership, not on who authored the page. A player
+  // must never be offered it, including on a note of their own.
+  it('offers the GM secret button to the owner only', () => {
+    renderEditor()
+    expect(screen.getByRole('button', { name: /GM secret/i })).toBeTruthy()
+  })
+
+  it('withholds the GM secret button from a player, even on their own page', () => {
+    renderEditor({ isOwner: false, page: { ...existing, is_mine: true } })
+    expect(screen.queryByRole('button', { name: /GM secret/i })).toBeNull()
   })
 
   it('excludes the page and its descendants from the parent options', () => {
