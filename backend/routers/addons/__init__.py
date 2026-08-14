@@ -1,6 +1,14 @@
 """Add-ons package — registers all add-on management routes on a single router."""
 from fastapi import APIRouter
 
+from ._schemas import (
+    AddonListResponse,
+    AddonSettingsResponse,
+    InstalledAddon,
+    RefreshIndexResponse,
+    StatusResponse,
+    UpdateAllResponse,
+)
 from .core import (
     install_addon,
     list_addons,
@@ -24,6 +32,7 @@ router.add_api_route(
         "Returns installed add-ons and everything offered by the cached "
         "community index, plus add-on settings. Admin only."
     ),
+    response_model=AddonListResponse,
 )
 router.add_api_route(
     "/refresh",
@@ -31,6 +40,7 @@ router.add_api_route(
     methods=["POST"],
     summary="Refresh the add-on index",
     description="Re-fetches the community index from the configured URL. Admin only.",
+    response_model=RefreshIndexResponse,
 )
 router.add_api_route(
     "/update-all",
@@ -42,6 +52,7 @@ router.add_api_route(
         "version. Returns what was updated and what failed. A script-backed "
         "add-on whose script changed drops back to unapproved. Admin only."
     ),
+    response_model=UpdateAllResponse,
 )
 router.add_api_route(
     "/settings",
@@ -49,6 +60,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update add-on settings",
     description="Sets the index URL and the global 'allow add-on scripts' switch. Admin only.",
+    response_model=AddonSettingsResponse,
 )
 router.add_api_route(
     "/{addon_id}/install",
@@ -60,6 +72,7 @@ router.add_api_route(
         "installs it. Script-backed add-ons additionally require "
         "`approve_script`. Admin only."
     ),
+    response_model=InstalledAddon,
 )
 router.add_api_route(
     "/{addon_id}",
@@ -67,6 +80,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Enable, disable, or approve an add-on",
     description="Toggles an add-on's enabled state or its script approval. Admin only.",
+    response_model=InstalledAddon,
 )
 router.add_api_route(
     "/{addon_id}",
@@ -74,4 +88,5 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Uninstall an add-on",
     description="Removes an installed add-on and forgets its state. Admin only.",
+    response_model=StatusResponse,
 )

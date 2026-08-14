@@ -30,3 +30,61 @@ class FolderTagsUpdate(BaseModel):
         # Keep the entered casing (dedupe by key); the folder-update handler
         # registers catalog rows with this casing and stores internal keys.
         return tag_service.dedupe_tags(v)
+
+
+class AudioOut(BaseModel):
+    """One audio track, as built by `core._serialize`.
+
+    Columns declared `default=...` rather than `nullable=False` can still hold
+    NULL (the default only applies at insert, and rows predating a column
+    migration keep NULL), so those are Optional. `duration`/`title`/`artist`/
+    `album`/`has_artwork`/`is_missing` are coalesced by the serializer
+    (`a.duration or 0.0`, `bool(...)`) and so stay required.
+    """
+
+    id: str
+    filename: str
+    relative_path: str
+    # `description` is `default=""`, not NOT NULL — legacy rows can be NULL.
+    description: Optional[str] = None
+    tags: list[str]
+    duration: float
+    title: str
+    artist: str
+    album: str
+    has_artwork: bool
+    # `file_size` is `default=0`, not NOT NULL.
+    file_size: Optional[int] = None
+    is_missing: bool
+    is_archive: bool
+
+
+class AudioListResponse(BaseModel):
+    total: int
+    audio: list[AudioOut]
+
+
+class AudioDetailResponse(AudioOut):
+    """`GET /audio/{id}` — the serialized track plus its folder context."""
+
+    folder_path: str
+    folder_tags: list[str]
+
+
+class FolderTagsOut(BaseModel):
+    """One folder path and its tags.
+
+    Note the list/update endpoints differ: `GET /audio-folders` returns display
+    tags, while the PATCH/bulk writes echo back the stored internal keys.
+    """
+
+    path: str
+    tags: list[str]
+
+
+class AudioFoldersResponse(BaseModel):
+    folders: list[FolderTagsOut]
+
+
+class StatusResponse(BaseModel):
+    status: str

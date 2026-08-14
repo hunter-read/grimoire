@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     list_audio,
     list_audio_folders,
@@ -13,6 +14,13 @@ from .core import (
     update_audio,
     bulk_update_audio,
     bulk_add_audio_tags,
+)
+from ._schemas import (
+    AudioDetailResponse,
+    AudioFoldersResponse,
+    AudioListResponse,
+    FolderTagsOut,
+    StatusResponse,
 )
 
 router = APIRouter(tags=["audio"])
@@ -28,6 +36,7 @@ router.add_api_route(
     summary="List audio",
     description="Returns a paginated list of audio tracks.",
     dependencies=[Depends(require_not_guest)],
+    response_model=AudioListResponse,
 )
 router.add_api_route(
     "/audio-folders",
@@ -36,6 +45,7 @@ router.add_api_route(
     summary="List audio folders",
     description="Returns all known audio folder paths and their associated tags.",
     dependencies=[Depends(require_not_guest)],
+    response_model=AudioFoldersResponse,
 )
 router.add_api_route(
     "/audio-folders",
@@ -43,6 +53,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Set tags on an audio folder",
     description="Creates or replaces the tag list for a folder path. GM or admin role required.",
+    response_model=FolderTagsOut,
 )
 router.add_api_route(
     "/audio/{audio_id}",
@@ -50,6 +61,7 @@ router.add_api_route(
     methods=["GET"],
     summary="Get an audio track",
     description="Returns full track metadata including duration, embedded tags, and folder tags.",
+    response_model=AudioDetailResponse,
 )
 router.add_api_route(
     "/audio/{audio_id}/file",
@@ -71,6 +83,7 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update audio metadata",
     description="Updates editable fields on a track (description, tags). GM or admin role required.",
+    response_model=StatusResponse,
 )
 # Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
 # creation and 500'd; these take the whole batch in one transaction.
@@ -84,6 +97,7 @@ router.add_api_route(
         "Body: {items: [{id, description?, tags?}]}. Unknown ids are reported in "
         "`errors` and skipped. GM or admin role required."
     ),
+    response_model=BulkResult,
 )
 router.add_api_route(
     "/audio/bulk/tags",
@@ -94,6 +108,7 @@ router.add_api_route(
         "Additively applies tags to many tracks in one transaction. "
         "Body: {ids: [...], tags: [...]}. GM or admin role required."
     ),
+    response_model=BulkTagResult,
 )
 router.add_api_route(
     "/audio-folders/bulk",
@@ -104,4 +119,5 @@ router.add_api_route(
         "Sets tags on many audio folders in one transaction. "
         "Body: {folders: [{path, tags}]}. GM or admin role required."
     ),
+    response_model=AudioFoldersResponse,
 )

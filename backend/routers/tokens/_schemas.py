@@ -31,3 +31,62 @@ class FolderTagsUpdate(BaseModel):
         # Keep the entered casing (dedupe by key); the folder-update handler
         # registers catalog rows with this casing and stores internal keys.
         return tag_service.dedupe_tags(v)
+
+
+class TokenOut(BaseModel):
+    """One token, as returned by the list endpoint.
+
+    `description`/`file_size`/`has_thumbnail` are declared `default=...` on
+    `Token` rather than NOT NULL, so NULL is still representable (the default
+    applies at insert only, and rows predating a column migration keep NULL) —
+    hence Optional. `is_explicit`/`is_missing`/`is_archive` are coalesced with
+    `bool(...)` by the handler and stay required.
+    """
+
+    id: str
+    filename: str
+    relative_path: str
+    description: Optional[str] = None
+    tags: list[str]
+    file_size: Optional[int] = None
+    has_thumbnail: Optional[bool] = None
+    is_explicit: bool
+    is_missing: bool
+    is_archive: bool
+
+
+class TokenListResponse(BaseModel):
+    total: int
+    tokens: list[TokenOut]
+
+
+class TokenDetailResponse(TokenOut):
+    """`GET /tokens/{id}` — token metadata, folder context, and image size.
+
+    `pixel_width`/`pixel_height` are None for archives and for any image PIL
+    cannot open.
+    """
+
+    folder_path: str
+    folder_tags: list[str]
+    pixel_width: Optional[int] = None
+    pixel_height: Optional[int] = None
+
+
+class FolderTagsOut(BaseModel):
+    """One folder path and its tags.
+
+    Note the list/update endpoints differ: `GET /token-folders` returns display
+    tags, while the PATCH/bulk writes echo back the stored internal keys.
+    """
+
+    path: str
+    tags: list[str]
+
+
+class TokenFoldersResponse(BaseModel):
+    folders: list[FolderTagsOut]
+
+
+class StatusResponse(BaseModel):
+    status: str

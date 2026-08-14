@@ -12,6 +12,7 @@ from sqlalchemy import text
 from slowapi import _rate_limit_exceeded_handler
 
 from . import scheduler, session_creator, session_purger
+from ._health_schemas import HealthResponse
 from .auth import get_current_user
 from .security import RateLimitExceeded, SecurityHeadersMiddleware, limiter
 from .config import (
@@ -198,7 +199,18 @@ if os.path.isdir(_assets_dir):
     app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
 # --- Public (unauthenticated) routes -----------------------------------------
-@app.get("/api/health", tags=["maintenance"], summary="Liveness/readiness probe")
+# The handler returns a JSONResponse directly (it varies the status code), so the
+# schema is declared via `responses=` rather than `response_model=` — this
+# documents the body without putting FastAPI's serializer in the response path.
+@app.get(
+    "/api/health",
+    tags=["maintenance"],
+    summary="Liveness/readiness probe",
+    responses={
+        200: {"model": HealthResponse, "description": "All dependencies reachable"},
+        503: {"model": HealthResponse, "description": "A dependency is unreachable"},
+    },
+)
 def health():
     """Unauthenticated readiness probe used by the container HEALTHCHECK.
 

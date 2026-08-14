@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from .core import get_logs
+from ._schemas import LogsResponse
 
 router = APIRouter(tags=["logs"])
 router.add_api_route(
@@ -9,6 +10,7 @@ router.add_api_route(
     get_logs,
     methods=["GET"],
     summary="Application logs",
+    response_model=LogsResponse,
     description=(
         "Returns recent application log entries from the in-memory ring buffer "
         "(up to 20 000 entries). The `level` filter follows standard log "

@@ -14,6 +14,17 @@ from .core import (
     revoke_one_session,
     revoke_other_sessions,
 )
+from ._schemas import (
+    AuthConfigResponse,
+    AuthMeResponse,
+    AuthStatusResponse,
+    GuestLoginResponse,
+    LoginResponse,
+    OkResponse,
+    RevokeOtherSessionsResponse,
+    RevokeSessionResponse,
+    SessionOut,
+)
 
 public_router = APIRouter(prefix="/api/auth", tags=["auth"])
 public_router.add_api_route(
@@ -25,6 +36,7 @@ public_router.add_api_route(
         "Returns whether the server has any users. Used by the frontend to "
         "decide whether to show the first-run setup screen."
     ),
+    response_model=AuthStatusResponse,
 )
 public_router.add_api_route(
     "/setup",
@@ -35,6 +47,7 @@ public_router.add_api_route(
         "Creates the initial admin account. Returns a JWT. Fails if any users "
         "already exist."
     ),
+    response_model=LoginResponse,
 )
 public_router.add_api_route(
     "/login",
@@ -45,6 +58,7 @@ public_router.add_api_route(
         "Authenticates with username and password. Returns a short-lived "
         "access token and sets the session and refresh cookies."
     ),
+    response_model=LoginResponse,
 )
 public_router.add_api_route(
     "/guest-login",
@@ -55,6 +69,7 @@ public_router.add_api_route(
         "Exchanges a campaign guest invite code for a JWT scoped to a guest "
         "account. Available only when guest access is enabled."
     ),
+    response_model=GuestLoginResponse,
 )
 public_router.add_api_route(
     "/logout",
@@ -68,6 +83,7 @@ public_router.add_api_route(
         "ACCESS_TOKEN_EXPIRE_MINUTES). Requires no auth so a client with an "
         "expired access token can still log out."
     ),
+    response_model=OkResponse,
 )
 public_router.add_api_route(
     "/refresh",
@@ -81,6 +97,7 @@ public_router.add_api_route(
         "revoked. Reusing an already-rotated refresh token revokes the whole "
         "session."
     ),
+    response_model=LoginResponse,
 )
 public_router.add_api_route(
     "/config",
@@ -92,6 +109,7 @@ public_router.add_api_route(
         "screen: which auth methods are enabled and the optional custom login "
         "message."
     ),
+    response_model=AuthConfigResponse,
 )
 
 
@@ -102,6 +120,7 @@ router.add_api_route(
     methods=["GET"],
     summary="Get current user",
     description="Returns the authenticated user's id, username, role, and preferences.",
+    response_model=AuthMeResponse,
 )
 router.add_api_route(
     "/auth/sessions",
@@ -113,6 +132,7 @@ router.add_api_route(
         "origin (password/guest/oidc), user agent, IP, and timestamps. The "
         "session backing the current request is flagged with `current: true`."
     ),
+    response_model=list[SessionOut],
 )
 router.add_api_route(
     "/auth/sessions/others",
@@ -123,6 +143,7 @@ router.add_api_route(
         "Revokes all of the caller's sessions except the current one. Returns "
         "`{ok, revoked, kept_current}`."
     ),
+    response_model=RevokeOtherSessionsResponse,
 )
 router.add_api_route(
     "/auth/sessions/{session_id}",
@@ -133,4 +154,5 @@ router.add_api_route(
         "Revokes a single session belonging to the caller. Returns 404 for an "
         "unknown session or one owned by another user."
     ),
+    response_model=RevokeSessionResponse,
 )

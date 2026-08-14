@@ -46,8 +46,10 @@ disable_error_code = [
 
 # Non-handler "core logic" modules (helpers, models, indexer, config, services):
 # require full function annotations so return-type-hint coverage can't regress.
-# Router handler modules are intentionally excluded for now — FastAPI infers a
-# lot from signatures/response models — and can be ratcheted in later.
+# Router handler modules are intentionally excluded for now and can be ratcheted
+# in later. Note this exemption does NOT cost the OpenAPI schema anything: the
+# response shape of each route comes from the explicit `response_model=` on its
+# `add_api_route(...)` registration, not from the handler's return annotation.
 [[tool.mypy.overrides]]
 module = [
     "backend.config",

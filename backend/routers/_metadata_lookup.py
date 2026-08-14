@@ -4,14 +4,65 @@ Systems and books expose the same three-step flow — list sources, search, fetc
 a diff — against different targets. The error translation and diff assembly are
 identical, so they live here rather than being duplicated per router.
 """
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 from fastapi import HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .. import addons
 from ..models import Book, GameSystem
 from ..services import tag_service
+
+
+class MetadataSource(BaseModel):
+    """One installed add-on able to supply metadata, from `list_sources`."""
+
+    id: str
+    name: str
+    # Optional manifest fields — an add-on need not declare any of them.
+    description: Optional[str] = None
+    homepage: Optional[str] = None
+    attribution: Optional[str] = None
+    supports_paste: bool
+
+
+class MetadataSourcesResponse(BaseModel):
+    sources: list[MetadataSource]
+
+
+class MetadataCandidate(BaseModel):
+    """One ranked search candidate (same shape from script and declarative paths)."""
+
+    identity: str
+    label: str
+    score: float
+    url: str
+
+
+class MetadataSearchResponse(BaseModel):
+    # The query actually used — the caller's, or the resource name it fell back to.
+    query: str
+    results: list[MetadataCandidate]
+
+
+class MetadataDiffField(BaseModel):
+    """One field compared against the resource, from `addons.build_diff`."""
+
+    field: str
+    # The resource's existing value; explicitly None when it has none. Typed
+    # loosely because a field may be a string, int, list, or list of link dicts.
+    current: Optional[Any] = None
+    incoming: Any
+    status: str
+
+
+class MetadataFetchResponse(BaseModel):
+    source_id: str
+    identity: str
+    url: str
+    attribution: str
+    fields: list[MetadataDiffField]
 
 
 def list_sources(db: Session, target: str) -> dict:
