@@ -597,6 +597,13 @@ A rescan compares each file's modification time and size against what it recorde
 
 - **Replacing a book in place** (same filename, e.g. swapping in a higher-quality scan) is detected on the next rescan. The page count, cover, and search text are rebuilt, and everything cached from the old file is discarded. Tags, favorites, bookmarks, and reading progress are kept.
 - **Moving or renaming a file** is recognised as the same book rather than a deletion plus a new addition, so it keeps its tags, favorites, bookmarks, and reading progress. Grimoire matches on file contents. Byte-for-byte identical copies are handled conservatively: moving one of them is still recognised, but if several identical files move at once there is no way to tell which became which, so they are reported as missing entries plus new ones rather than being paired off by guesswork.
+- **A move across systems re-derives the metadata the folders imply.** Dragging a book from `Dungeons & Dragons/3e/unsorted/` to `Dungeons & Dragons/5e/adventures/Curse of Strahd/` updates its system, edition, and category to match where it now lives — while still keeping everything attached to the book. Attribution that came from a container (a publisher or family shelf) is dropped when the book moves out from under it, and picked up when it moves in.
+
+### Systems whose folder disappears
+
+When a system's folder is deleted — or newly excluded by a [`.grimoireignore`](#ignoring-files-with-grimoireignore) rule — the system itself is now removed on the next rescan, instead of lingering in the library with nothing behind it. This is what cleans up a stray `@eaDir` entry after you add a rule for it on a Synology NAS.
+
+Removal is deliberately cautious. A system is kept if it still holds any book that is present on disk, if it is the parent of a system that does, or if you have adapted it yourself by renaming it or giving it a description or cover. Scoped rescans (a single folder) never remove systems, since they only look at one corner of the library.
 
 ---
 

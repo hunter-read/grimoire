@@ -5,6 +5,7 @@ and directories matched by a ``.grimoireignore`` rule are never registered, that
 progress totals exclude them, and that a file newly matched by an ignore rule is
 marked missing (removed from the UI) on rescan.
 """
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -215,6 +216,141 @@ class TestSystemFolderIgnore:
             db.close()
         assert "Ign333 Keeper" in names
         assert not any("eaDir" in n for n in names)
+
+
+class TestSystemPruning:
+    """A system whose folder stops being scanned is removed (issue #354).
+
+    ``TestSystemFolderIgnore`` covers the rule being present from the first scan.
+    This is the other half, and the case actually reported: the folder was
+    scanned *before* the rule existed, so a ``GameSystem`` row already exists.
+    Ignoring the folder hid its books but left the system on the shelf forever.
+    """
+
+    def test_system_ignored_after_first_scan_is_removed(self):
+        tmp, lib = _mk_lib()
+        container = _mkdir(lib, "books", "Ign354 D&D")
+        (container / ".parent-system-container").write_text("")
+        _touch_pdf(_mkdir(container, "5e", "core"), "phb.pdf")
+        # The NAS turd, indexed before anyone knew to exclude it.
+        _touch_pdf(_mkdir(container, "@eaDir"), "thumb.pdf")
+
+        _scan(lib, tmp)
+
+        def _editions():
+            db = SessionLocal()
+            try:
+                return {
+                    c.edition
+                    for c in db.query(GameSystem).filter_by(parent_system="Ign354 D&D").all()
+                }
+            finally:
+                db.close()
+
+        assert "@eaDir" in _editions(), "precondition: it was registered"
+
+        # Now the user adds the rule the report describes.
+        (container / IGNORE_FILENAME).write_text("@eaDir\n")
+        stats = _scan(lib, tmp)
+
+        editions = _editions()
+        assert "5e" in editions, "the real edition must survive"
+        assert "@eaDir" not in editions, "the ignored folder's system must be gone"
+        assert stats["removed_systems"] >= 1
+
+    def test_deleted_system_folder_is_removed(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_mkdir(lib, "books", "Ign354 Gone", "core"), "g.pdf")
+        _touch_pdf(_mkdir(lib, "books", "Ign354 Stays", "core"), "s.pdf")
+        _scan(lib, tmp)
+
+        shutil.rmtree(lib / "books" / "Ign354 Gone")
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            names = {s.name for s in db.query(GameSystem).all()}
+        finally:
+            db.close()
+        assert "Ign354 Gone" not in names
+        assert "Ign354 Stays" in names
+
+    def test_user_renamed_or_annotated_systems_are_kept(self):
+        """Pruning must not throw away a row someone has adapted by hand."""
+        tmp, lib = _mk_lib()
+        _touch_pdf(_mkdir(lib, "books", "Ign354 Renamed", "core"), "r.pdf")
+        _touch_pdf(_mkdir(lib, "books", "Ign354 Described", "core"), "d.pdf")
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            renamed = db.query(GameSystem).filter_by(slug="ign354-renamed").first()
+            renamed.name = "Ign354 A Name I Chose"
+            renamed.name_is_custom = True
+            described = db.query(GameSystem).filter_by(slug="ign354-described").first()
+            described.description = "notes I typed"
+            # Drop the books too, so only the user's metadata argues for keeping.
+            for book in db.query(Book).filter(
+                Book.game_system_id.in_([renamed.id, described.id])
+            ):
+                db.delete(book)
+            db.commit()
+        finally:
+            db.close()
+
+        shutil.rmtree(lib / "books" / "Ign354 Renamed")
+        shutil.rmtree(lib / "books" / "Ign354 Described")
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            names = {s.name for s in db.query(GameSystem).all()}
+        finally:
+            db.close()
+        assert "Ign354 A Name I Chose" in names
+        assert "Ign354 Described" in names
+
+    def test_scoped_rescan_prunes_nothing(self):
+        """A scoped scan only walks one subtree, so everything else looks unseen."""
+        tmp, lib = _mk_lib()
+        _touch_pdf(_mkdir(lib, "books", "Ign354 Scoped", "core"), "a.pdf")
+        _touch_pdf(_mkdir(lib, "books", "Ign354 Untouched", "core"), "b.pdf")
+        _scan(lib, tmp)
+
+        stats = _scan(lib, tmp, scope_path="books/Ign354 Scoped")
+
+        db = SessionLocal()
+        try:
+            names = {s.name for s in db.query(GameSystem).all()}
+        finally:
+            db.close()
+        assert stats["removed_systems"] == 0
+        assert {"Ign354 Scoped", "Ign354 Untouched"} <= names
+
+    def test_container_with_surviving_children_is_kept(self):
+        """Deleting a container would orphan the children still on disk."""
+        tmp, lib = _mk_lib()
+        container = _mkdir(lib, "books", "Ign354 Family")
+        (container / ".parent-system-container").write_text("")
+        _touch_pdf(_mkdir(container, "2e", "core"), "core.pdf")
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            row = db.query(GameSystem).filter_by(slug="ign354-family").first()
+            # The container itself owns no books — only its child does.
+            assert db.query(Book).filter_by(game_system_id=row.id).count() == 0
+        finally:
+            db.close()
+
+        _scan(lib, tmp)
+
+        db = SessionLocal()
+        try:
+            names = {s.name for s in db.query(GameSystem).all()}
+        finally:
+            db.close()
+        assert "Ign354 Family" in names
 
 
 class TestReconciliation:

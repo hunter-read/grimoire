@@ -156,6 +156,10 @@ class _ScanContext:
     # as a destination — a pre-existing row is a file that did not move, even when
     # its contents match something deleted elsewhere.
     inserted_ids: set = field(default_factory=set)
+    # Ids of every GameSystem this scan walked to (registered or re-registered).
+    # A row absent from this set has no folder behind it any more — see
+    # ``_prune_vanished_systems``.
+    seen_system_ids: set = field(default_factory=set)
 
     def stop_requested(self) -> bool:
         return bool(self.should_stop and self.should_stop())
@@ -416,6 +420,8 @@ def _register_system(
     new_folder_cover = os.path.relpath(artwork, ctx.library_path) if artwork else ""
     if (system.folder_cover_path or "") != new_folder_cover:
         system.folder_cover_path = new_folder_cover
+    # This folder exists, so the row is backed by something on disk.
+    ctx.seen_system_ids.add(system.id)
     return system
 
 
@@ -1358,6 +1364,113 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
     return moved
 
 
+def _prune_vanished_systems(ctx: _ScanContext) -> int:
+    """Delete system rows whose folder is gone or newly ``.grimoireignore``-excluded.
+
+    Files get an ``is_missing`` sweep (see :func:`_reconcile_missing`), but system
+    rows had no equivalent, so a folder that stopped being scanned left its
+    ``GameSystem`` behind forever — visible in the library with no way to remove
+    it. The reported case is a Synology ``@eaDir`` folder registered before its
+    ``.grimoireignore`` rule was added: the rule correctly hides the *books*, but
+    the system row it had already created survived every rescan (issue #354).
+
+    Deliberately conservative — a row is only dropped when **all** of:
+
+    * this scan never walked to it (so no folder maps to it any more),
+    * it owns no content of any kind, including through child systems, and
+    * a user has not adapted it (renamed it, or given it a description, cover,
+      or other metadata), since that signals a row worth keeping even when the
+      shelf is momentarily empty.
+
+    Scoped rescans prune nothing: they only walk one subtree, so every system
+    outside it would look unseen.
+
+    Only systems belonging to **this** library are considered. A database can
+    outlive the library path pointed at it (someone re-points ``LIBRARY_PATH``,
+    or several libraries share one database, as the test suite does), and
+    "unseen by this scan" would otherwise mean "delete everything the other
+    library owns".  A row is in scope only when its books sit under this
+    library root, or it was created by this very scan.
+    """
+    if ctx.scope_dir is not None:
+        return 0
+
+    session = ctx.session
+    try:
+        systems = _run_with_timeout(
+            lambda: session.query(GameSystem).all(), _DB_TIMEOUT, "query systems for pruning"
+        )
+    except TimeoutError as e:
+        logger.error(f"DB hang: {e} — skipping system pruning")
+        return 0
+
+    unseen = [s for s in systems if s.id not in ctx.seen_system_ids]
+    if not unseen:
+        return 0
+
+    # Which systems does this library account for? Anchored on absolute book
+    # paths, since that is the only link from a system row back to a directory.
+    root = os.path.join(os.path.abspath(ctx.library_path), "")
+    in_this_library: set = set()
+    for system_id, filepath in session.query(Book.game_system_id, Book.filepath).filter(
+        Book.game_system_id.isnot(None)
+    ):
+        if filepath and os.path.abspath(filepath).startswith(root):
+            in_this_library.add(system_id)
+
+    # Books are the only collection tied to a system — maps, tokens, and audio
+    # are deliberately system-agnostic — so one distinct query covers ownership.
+    #
+    # Only books still *present* count. A row flagged ``is_missing`` is exactly
+    # what the vanished/ignored folder leaves behind, so counting those would
+    # make every such system permanently unprunable — the bug being fixed.
+    owning = {
+        row[0]
+        for row in session.query(Book.game_system_id)
+        .filter(Book.game_system_id.isnot(None), Book.is_missing.isnot(True))
+        .distinct()
+        .all()
+    }
+    # A container whose children survive must survive too, or the children are
+    # orphaned. Parentage is one level in practice but resolved transitively.
+    keep_parents: set = set()
+    by_id = {s.id: s for s in systems}
+    for system in systems:
+        if system.id in owning or system.id in ctx.seen_system_ids:
+            node = system
+            while node.parent_id:
+                keep_parents.add(node.parent_id)
+                node = by_id.get(node.parent_id)
+                if node is None:
+                    break
+
+    removed = 0
+    for system in unseen:
+        # Not this library's row to delete — see the docstring.
+        if system.id not in in_this_library:
+            continue
+        if system.id in owning or system.id in keep_parents:
+            continue
+        if system.name_is_custom or system.description or system.cover_image:
+            logger.info(
+                f"System '{system.name}' has no folder any more but carries user "
+                "metadata — leaving it in place"
+            )
+            continue
+        logger.info(f"Removing system '{system.name}': its folder is gone or now ignored")
+        session.delete(system)
+        removed += 1
+
+    if removed:
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit system pruning")
+        except (TimeoutError, Exception) as e:
+            logger.error(f"DB error pruning systems: {e}")
+            session.rollback()
+            return 0
+    return removed
+
+
 def _reconcile_missing(
     ctx: _ScanContext,
     scan_books: bool,
@@ -1482,6 +1595,8 @@ def scan_library(
     thumb_dir = Path(data_path) / "thumbnails"
     stats = {
         "new_systems": 0,
+        # Systems dropped because their folder vanished or became ignored.
+        "removed_systems": 0,
         "new_books": 0,
         "new_maps": 0,
         "new_tokens": 0,
@@ -1593,5 +1708,13 @@ def scan_library(
         return stats
 
     _reconcile_missing(ctx, scan_books, scan_maps, scan_tokens, scan_audio)
+
+    # --- Drop systems whose folder is gone or now ignored ---
+    # Only meaningful after a full walk of books/: that walk is what populates
+    # ``seen_system_ids``, so pruning off a scan that never looked at books (a
+    # maps-only scope, or a library with no books/ dir yet) would delete every
+    # system in the database.
+    if scan_books and books_dir.exists():
+        stats["removed_systems"] = _prune_vanished_systems(ctx)
 
     return stats
