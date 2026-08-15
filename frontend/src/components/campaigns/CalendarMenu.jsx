@@ -17,8 +17,11 @@ const MENU_WIDTH = 270
  *
  * `campaign` scopes it to one campaign; omit it for the global "all my
  * campaigns" variant on the campaigns list, which has no per-campaign download.
+ *
+ * `iconOnly` drops the text label (keeping an accessible name) for narrow
+ * viewports where the full label would squeeze its neighbours.
  */
-export default function CalendarMenu({ campaign, style }) {
+export default function CalendarMenu({ campaign, style, iconOnly = false }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
@@ -104,6 +107,7 @@ export default function CalendarMenu({ campaign, style }) {
         }}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={iconOnly ? t('calendar.menu') : undefined}
         title={t('calendar.title')}
         style={{
           display: 'flex',
@@ -115,11 +119,13 @@ export default function CalendarMenu({ campaign, style }) {
           borderRadius: 8,
           cursor: 'pointer',
           fontSize: 12,
+          whiteSpace: 'nowrap',
           ...style,
           color: open ? 'var(--gold)' : (style?.color ?? 'var(--text-muted)'),
         }}
       >
-        <LuCalendar size={13} aria-hidden="true" /> {t('calendar.menu')}
+        <LuCalendar size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+        {!iconOnly && t('calendar.menu')}
       </button>
 
       {open &&
