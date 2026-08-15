@@ -1051,6 +1051,26 @@
       "unavailable": "Niet beschikbaar"
     }
   },
+  "calendar": {
+    "menu": "Agenda",
+    "title": "Agenda-export",
+    "download": ".ics downloaden",
+    "downloadHint": "Een eenmalig bestand met komende sessies",
+    "subscribe": "Abonnementslink",
+    "subscribeHint": "Een live feed die je agenda-app bijhoudt",
+    "subscribeAllHint": "Eén live feed voor al je campagnes",
+    "subscribeTitle": "Abonneer je op je agenda",
+    "subscribeBody": "Plak deze URL in Google Agenda, Apple Agenda of Outlook. Hij wordt vanzelf opnieuw opgehaald, dus wijzigingen en annuleringen verschijnen automatisch.",
+    "getLink": "Link ophalen",
+    "regenerate": "Link opnieuw genereren",
+    "revoke": "Link intrekken",
+    "copy": "Kopiëren",
+    "campaignFeed": "Deze campagne",
+    "allFeed": "Al mijn campagnes",
+    "baseUrlRequired": "Voor abonnementslinks moet BASE_URL op het openbare adres van deze server staan. Vraag je beheerder.",
+    "privateUrlWarning": "Deze link is persoonlijk — hij geeft toegang tot je planningen. Deel hem niet; genereer hem opnieuw als hij uitlekt.",
+    "rsvpNote": "Geabonneerde agenda's zijn alleen-lezen, dus reacties vanuit je agenda-app bereiken Grimoire niet. Elk item linkt terug om je beschikbaarheid in te stellen."
+  },
   "resources": {
     "title": "Gekoppelde bronnen",
     "linkResource": "Bron koppelen",

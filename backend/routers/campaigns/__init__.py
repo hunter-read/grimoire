@@ -1,6 +1,7 @@
 """Campaign manager — registers all campaign routes on a single router."""
 
 from fastapi import APIRouter
+from fastapi.responses import Response
 
 from .core import (
     list_campaigns,
@@ -48,6 +49,14 @@ from .schedule import (
     get_availability,
     set_availability,
     cancel_session_date,
+)
+from .calendar import (
+    all_campaigns_calendar_feed,
+    campaign_calendar_feed,
+    download_campaign_calendar,
+    generate_calendar_token,
+    get_calendar_subscription,
+    revoke_calendar_token,
 )
 from .uploads import (
     upload_banner,
@@ -113,6 +122,7 @@ from ._response_schemas import (
     AvailabilityOut,
     AvailabilitySetOut,
     BannerUploadOut,
+    CalendarSubscriptionOut,
     CampaignCategoryOut,
     CampaignInviteOut,
     CampaignOut,
@@ -151,6 +161,29 @@ from ._response_schemas import (
 )
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
+
+# Calendar subscription feeds authenticate by the per-user token in the path, so
+# they cannot sit under the JWT-guarded /api router — calendar apps have no way
+# to send an Authorization header. Mounted separately in main.py, mirroring the
+# public_router pattern the oidc and library packages already use.
+public_router = APIRouter(prefix="/api/campaigns/calendar", tags=["campaigns"])
+
+# `.ics` is part of the literal path (not a format suffix): several calendar
+# clients refuse a subscription URL that doesn't end in it.
+public_router.add_api_route(
+    "/{token}/all.ics",
+    all_campaigns_calendar_feed,
+    methods=["GET"],
+    summary="ICS feed of every campaign the token's user belongs to",
+    response_class=Response,
+)
+public_router.add_api_route(
+    "/{token}/{campaign_id}.ics",
+    campaign_calendar_feed,
+    methods=["GET"],
+    summary="ICS feed for a single campaign",
+    response_class=Response,
+)
 
 # --- Admin-only campaign management ---
 router.add_api_route(
@@ -560,6 +593,38 @@ router.add_api_route(
     methods=["PUT"],
     summary="GM: cancel or uncancel a session date",
     response_model=SessionDateCancelOut,
+)
+
+# --- Calendar subscription (token management + one-off download) ---
+# Registered before "/{campaign_id}/..." patterns would be reached for the
+# literal "calendar" segment; FastAPI matches in registration order.
+router.add_api_route(
+    "/calendar/subscription",
+    get_calendar_subscription,
+    methods=["GET"],
+    summary="Get the caller's calendar subscription URLs",
+    response_model=CalendarSubscriptionOut,
+)
+router.add_api_route(
+    "/calendar/subscription",
+    generate_calendar_token,
+    methods=["POST"],
+    summary="Mint or rotate the caller's calendar feed token",
+    response_model=CalendarSubscriptionOut,
+)
+router.add_api_route(
+    "/calendar/subscription",
+    revoke_calendar_token,
+    methods=["DELETE"],
+    summary="Revoke the caller's calendar feed token",
+    response_model=CalendarSubscriptionOut,
+)
+router.add_api_route(
+    "/{campaign_id}/calendar.ics",
+    download_campaign_calendar,
+    methods=["GET"],
+    summary="Download a campaign's schedule as an .ics file",
+    response_class=Response,
 )
 
 # --- Wiki pages (search/titles before /{page_id} to avoid routing conflict) ---

@@ -1051,6 +1051,26 @@
       "unavailable": "Nicht verfügbar"
     }
   },
+  "calendar": {
+    "menu": "Kalender",
+    "title": "Kalenderexport",
+    "download": ".ics herunterladen",
+    "downloadHint": "Eine einmalige Datei der kommenden Sitzungen",
+    "subscribe": "Abo-Link",
+    "subscribeHint": "Ein Live-Feed, den deine Kalender-App synchron hält",
+    "subscribeAllHint": "Ein Live-Feed für alle deine Kampagnen",
+    "subscribeTitle": "Kalender abonnieren",
+    "subscribeBody": "Füge diese URL in Google Kalender, Apple Kalender oder Outlook ein. Sie wird automatisch neu abgerufen, sodass Verschiebungen und Absagen von selbst erscheinen.",
+    "getLink": "Link erhalten",
+    "regenerate": "Link neu erzeugen",
+    "revoke": "Link widerrufen",
+    "copy": "Kopieren",
+    "campaignFeed": "Diese Kampagne",
+    "allFeed": "Alle meine Kampagnen",
+    "baseUrlRequired": "Für Abo-Links muss BASE_URL auf die öffentliche Adresse dieses Servers gesetzt sein. Frage deine Administration.",
+    "privateUrlWarning": "Dieser Link ist persönlich — er gewährt Zugriff auf deine Termine. Teile ihn nicht; erzeuge ihn neu, falls er bekannt wird.",
+    "rsvpNote": "Abonnierte Kalender sind schreibgeschützt, daher erreichen Zusagen aus deiner Kalender-App Grimoire nicht. Jeder Termin verlinkt zurück, um deine Verfügbarkeit zu setzen."
+  },
   "resources": {
     "title": "Verknüpfte Ressourcen",
     "linkResource": "Ressource verknüpfen",

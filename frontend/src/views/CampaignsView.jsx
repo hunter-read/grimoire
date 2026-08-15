@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignCard from '../components/campaigns/CampaignCard'
+import CalendarMenu from '../components/campaigns/CalendarMenu'
 
 const CARD_GRID = {
   display: 'grid',
@@ -85,6 +86,9 @@ export default function CampaignsView() {
           <LuScroll size={20} color="var(--gold)" /> {t('campaigns.title')}
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Global "all my campaigns" feed — no campaign prop, so the menu
+              offers only the subscription link. */}
+          <CalendarMenu style={{ padding: '8px 14px', fontSize: 13 }} />
           <button
             onClick={() => setShowArchived((v) => !v)}
             aria-pressed={showArchived}

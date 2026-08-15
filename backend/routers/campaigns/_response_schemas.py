@@ -415,6 +415,29 @@ class SessionDateCancelOut(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# Calendar subscription (calendar.py)
+# --------------------------------------------------------------------------- #
+
+
+class CalendarSubscriptionOut(BaseModel):
+    """The caller's ICS subscription state.
+
+    Every URL is null unless the user has minted a token *and* BASE_URL names a
+    real public origin — a feed URL built from the localhost default would be
+    unreachable from the calendar app that has to poll it.
+    """
+
+    has_token: bool
+    base_url_configured: bool
+    feed_url: Optional[str] = None
+    # Same URL under the webcal:// scheme, so a click subscribes rather than
+    # downloading a one-off copy.
+    webcal_url: Optional[str] = None
+    # Only present when the request named a campaign.
+    campaign_feed_url: Optional[str] = None
+
+
+# --------------------------------------------------------------------------- #
 # Wiki pages (wiki.py)
 # --------------------------------------------------------------------------- #
 
@@ -658,6 +681,7 @@ __all__ = [
     "AvailabilityRow",
     "AvailabilitySetOut",
     "BannerUploadOut",
+    "CalendarSubscriptionOut",
     "CampaignCategoryOut",
     "CampaignInviteOut",
     "CampaignMemberOut",

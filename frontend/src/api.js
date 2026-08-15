@@ -290,6 +290,15 @@ export const campaigns = {
   setAvailability: (id, date, data) => api.put(`/campaigns/${id}/availability/${date}`, data),
   cancelDate: (id, date) => api.put(`/campaigns/${id}/availability/${date}/cancel`),
 
+  // Calendar export / subscription
+  downloadCalendar: (id, name) =>
+    api.download(`/campaigns/${id}/calendar.ics`, `${name || 'campaign'}.ics`),
+  getCalendarSubscription: (id) =>
+    api.get(`/campaigns/calendar/subscription${id ? `?campaign_id=${id}` : ''}`),
+  generateCalendarToken: (id) =>
+    api.post(`/campaigns/calendar/subscription${id ? `?campaign_id=${id}` : ''}`),
+  revokeCalendarToken: () => api.delete('/campaigns/calendar/subscription'),
+
   // Admin: read-only view of a user's campaigns (user page)
   adminListByUser: (userId) => api.get(`/campaigns/admin/by-user/${userId}`),
 }

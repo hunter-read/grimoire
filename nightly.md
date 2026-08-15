@@ -610,7 +610,7 @@ A rescan compares each file's modification time and size against what it recorde
 | `WORKERS` | `2` | Number of uvicorn worker processes |
 | `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
-| `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy - used to build absolute links in OPDS feeds and other places that need a fully-qualified URL. |
+| `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy - used to build absolute links in OPDS feeds, campaign calendar subscription links, and other places that need a fully-qualified URL. |
 | `VALKEY_URL` | - | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
 | `PAGE_CACHE_TTL` | `604800` | Optional. Seconds a rendered page stays in the Valkey cache (default 7 days). `0` means no expiry. Ignored when `VALKEY_URL` is unset. |
 | `PAGE_CACHE_MAX_MB` | `2048` | Optional. Size ceiling for the on-disk rendered-page cache at `DATA_PATH/page_cache`. Trimmed oldest-first at startup and after each library scan. `0` disables the trim and lets it grow without bound. |
@@ -903,6 +903,21 @@ GM campaigns support recurring session schedules:
 - **Custom** - explicit list of dates
 
 Session note stubs are auto-created the day before each scheduled session. Players can mark their availability for upcoming dates, and the GM can cancel individual dates.
+
+### Calendar export
+
+Sessions can go straight into whatever calendar app you already use. The **Calendar** button on a campaign's availability card opens a menu with two options:
+
+- **Download .ics** saves the upcoming sessions as a standard iCalendar file you can import once.
+- **Subscription link** gives you a live feed URL. Paste it into Google Calendar ("From URL"), Apple Calendar ("New Calendar Subscription"), or Outlook, and it re-polls on its own - so reschedules and cancellations show up without re-importing. You get two links: one for the campaign you're looking at, and one merging **all** the campaigns you belong to.
+
+The same **Calendar** button sits at the top of the campaigns list, offering just the all-campaigns subscription link.
+
+The subscription link is **personal to you**. It carries its own revocable token - not your password and not your login session - and each event reflects *your* availability: an event reads "Curse of Strahd — Tentative" once you've marked yourself tentative, and a cancelled session shows as cancelled rather than vanishing. Treat the link like a password: anyone holding it can read your session schedule. **Regenerate link** rotates it (instantly breaking the old one, so you'll need to re-subscribe), and **Revoke link** turns the feed off entirely.
+
+> **Accepting or declining in your calendar app won't reach Grimoire.** Subscribed calendars are read-only by design - the calendar standard gives them no way to send anything back - so RSVP buttons on these events either don't appear or do nothing. Every event links back to the campaign's schedule tab, where one click sets your availability.
+
+Subscription links require the `BASE_URL` environment variable to point at the address your server is reachable on, since Grimoire has to hand the calendar app a URL it can actually fetch. Until that's set, the buttons explain what's missing and the one-off **Download .ics** still works.
 
 ---
 

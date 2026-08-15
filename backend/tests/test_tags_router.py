@@ -50,6 +50,21 @@ class TestDualWrite:
         types = {i["item_type"] for i in items["items"]}
         assert {"map", "book"} <= types
 
+    def test_tagged_system_publisher_objects_survive_response_validation(
+        self, client, admin_headers
+    ):
+        """`publishers` holds {name, url} objects; typing it `list[str]` 500'd
+        this endpoint for any tagged system that had one (same bug as favorites)."""
+        system = make_game_system(publishers=[{"name": "Kobold Press", "url": ""}])
+        client.patch(
+            f"/api/systems/{system.id}", json={"tags": ["PubTag"]}, headers=admin_headers
+        )
+        resp = client.get("/api/tags/pubtag/items", headers=admin_headers)
+        assert resp.status_code == 200, resp.text
+        systems = [i for i in resp.json()["items"] if i["item_type"] == "system"]
+        assert systems
+        assert systems[0]["publishers"][0]["name"] == "Kobold Press"
+
 
 class TestListTags:
     def test_in_use_by_scopes_to_resource_type(self, client, admin_headers):

@@ -834,6 +834,31 @@ Superseded by the wiki. On startup, any non-empty legacy session notes are rolle
 
 Availability statuses: `available`, `tentative`, `unavailable`
 
+#### Calendar export and subscription
+
+Campaign schedules can be exported as iCalendar (`text/calendar`) — either a one-off download or a live feed a calendar app subscribes to and re-polls.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/campaigns/:id/calendar.ics` | GET | member or owner | Download the campaign's upcoming sessions as an `.ics` file |
+| `/api/campaigns/calendar/subscription` | GET | any user | Own subscription state. Optional `?campaign_id=` adds `campaign_feed_url` |
+| `/api/campaigns/calendar/subscription` | POST | any user | Mint or rotate the feed token; the previous URL stops working immediately |
+| `/api/campaigns/calendar/subscription` | DELETE | any user | Revoke the feed token |
+| `/api/campaigns/calendar/:token/:id.ics` | GET | feed token | Live feed for one campaign |
+| `/api/campaigns/calendar/:token/all.ics` | GET | feed token | Live feed merging every campaign the token's user belongs to |
+
+**Feed-token auth.** Calendar apps cannot send an `Authorization` header, so the two feed endpoints carry a per-user token in the path and sit *outside* the JWT-protected `/api` dependency. The token is a dedicated `users.calendar_token`, not the JWT and not `opds_token`: it grants read access to schedule data alone and rotates independently of login sessions and OPDS. An unknown, rotated, or revoked token returns **404** rather than 401, so probing cannot distinguish a revoked feed from one that never existed.
+
+The token identifies the user; membership still authorises. A feed for a campaign the user has left — or that has been archived — returns 404, and the aggregate feed simply omits it.
+
+**Subscription URLs require `BASE_URL`.** The server has to know its own public origin to build a URL a calendar app can reach, so `GET`/`POST /calendar/subscription` report `base_url_configured: false` and withhold every URL while `BASE_URL` is still the `http://localhost:9481` default; `POST` returns 400. The one-off `.ics` download is unaffected. Responses also include `webcal_url` — the same URL under the `webcal://` scheme, which makes desktop calendar apps subscribe rather than download a static copy.
+
+**Feed contents.** Up to 26 upcoming sessions per campaign. Each `VEVENT` uses a stable UID (`grimoire-session-<campaign_id>-<YYYY-MM-DD>@grimoire`), so rescheduling updates the existing event in place instead of duplicating it, and a cancelled session is published as `STATUS:CANCELLED` rather than disappearing. Sessions carry `DTSTART`/`DTEND` in UTC when the schedule sets a time, and are all-day events when it does not.
+
+Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DESCRIPTION` reflect that user's own availability, and `URL` deep-links to the campaign's schedule tab.
+
+> **RSVP does not travel back over a subscription.** A subscribed ICS feed is fetched by HTTP `GET`; iCalendar defines no write path back, so Accept/Tentative/Decline is inert in Google Calendar, Apple Calendar, and Outlook for subscribed events. Genuine RSVP requires iMIP (emailed `METHOD:REQUEST` invitations with replies parsed from a mailbox) or a CalDAV server — neither of which Grimoire implements. The deep link in every event is the round trip instead.
+
 ### Settings *(admin only)*
 
 | Endpoint | Method | Description |

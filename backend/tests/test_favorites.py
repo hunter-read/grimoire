@@ -158,6 +158,32 @@ class TestFavoritesEnrichedShape:
         assert system_items
         assert system_items[0]["cover_book_id"] == cover.id
 
+    def test_publisher_objects_survive_response_validation(self, client, admin_headers):
+        """`publishers` is free-form JSON holding {name, url} objects, not strings.
+
+        Typing it `list[str]` made the response model reject every real row, so a
+        single favorited system 500'd the whole favorites page.
+        """
+        system = make_game_system(
+            publishers=[
+                {"name": "Wizards of the Coast", "url": ""},
+                {"name": "Kobold Press", "url": "https://koboldpress.com"},
+            ]
+        )
+        client.post(
+            "/api/favorites",
+            json={"item_type": "system", "item_id": system.id},
+            headers=admin_headers,
+        )
+        resp = client.get("/api/favorites", headers=admin_headers)
+        assert resp.status_code == 200, resp.text
+        item = next(
+            i for i in resp.json()["items"] if i.get("item_id") == system.id
+        )
+        # The objects reach the client intact — the UI renders `p.name`.
+        assert item["publishers"][0]["name"] == "Wizards of the Coast"
+        assert item["publishers"][1]["url"] == "https://koboldpress.com"
+
     def test_container_reports_has_cover_so_the_client_can_show_folder_art(
         self, client, admin_headers, monkeypatch
     ):

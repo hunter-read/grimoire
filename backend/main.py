@@ -254,6 +254,8 @@ def health():
 app.include_router(auth_router.public_router)
 app.include_router(oidc_router.public_router)
 app.include_router(library_router.public_router)
+# Calendar feeds carry their credential in the path; see campaigns/calendar.py.
+app.include_router(campaigns_router.public_router)
 if OPDS_ENABLED:
     app.include_router(opds_router.router)
 
