@@ -8,6 +8,7 @@ import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignCard from '../components/campaigns/CampaignCard'
 import CalendarMenu from '../components/campaigns/CalendarMenu'
+import useIsMobile from '../hooks/useIsMobile'
 
 const CARD_GRID = {
   display: 'grid',
@@ -20,6 +21,10 @@ export default function CampaignsView() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
+  // Phone-width only: the three header controls don't fit beside the title at
+  // 375px (worse in locales with longer labels), so they move to their own row
+  // and shed their text labels there.
+  const isMobilePhone = useIsMobile(640)
   const [list, setList] = useState(null)
   const [showEditor, setShowEditor] = useState(false)
   const [error, setError] = useState(null)
@@ -75,23 +80,35 @@ export default function CampaignsView() {
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: isMobilePhone ? 'column' : 'row',
+          alignItems: isMobilePhone ? 'stretch' : 'center',
           justifyContent: 'space-between',
+          gap: isMobilePhone ? 12 : 0,
           marginBottom: 28,
         }}
       >
         <h2
           style={{ fontSize: 22, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}
         >
-          <LuScroll size={20} color="var(--gold)" /> {t('campaigns.title')}
+          <LuScroll size={20} color="var(--gold)" style={{ flexShrink: 0 }} />{' '}
+          {t('campaigns.title')}
         </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            flexShrink: 0,
+          }}
+        >
           {/* Global "all my campaigns" feed — no campaign prop, so the menu
               offers only the subscription link. */}
-          <CalendarMenu style={{ padding: '8px 14px', fontSize: 13 }} />
+          <CalendarMenu style={{ padding: '8px 14px', fontSize: 13 }} iconOnly={isMobilePhone} />
           <button
             onClick={() => setShowArchived((v) => !v)}
             aria-pressed={showArchived}
+            aria-label={isMobilePhone ? t('campaigns.showArchived') : undefined}
             title={t('campaigns.showArchivedHint')}
             style={{
               display: 'flex',
@@ -104,13 +121,17 @@ export default function CampaignsView() {
               color: showArchived ? 'var(--gold)' : 'var(--text-dim)',
               cursor: 'pointer',
               fontSize: 13,
+              whiteSpace: 'nowrap',
             }}
           >
-            <LuArchive size={14} /> {t('campaigns.showArchived')}
+            <LuArchive size={14} style={{ flexShrink: 0 }} />
+            {!isMobilePhone && t('campaigns.showArchived')}
           </button>
           {canCreate ? (
             <button
               onClick={() => setShowEditor(true)}
+              aria-label={isMobilePhone ? t('campaigns.newCampaign') : undefined}
+              title={isMobilePhone ? t('campaigns.newCampaign') : undefined}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -123,9 +144,11 @@ export default function CampaignsView() {
                 cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: 500,
+                whiteSpace: 'nowrap',
               }}
             >
-              <LuPlus size={16} /> {t('campaigns.newCampaign')}
+              <LuPlus size={16} style={{ flexShrink: 0 }} />
+              {!isMobilePhone && t('campaigns.newCampaign')}
             </button>
           ) : (
             <span
