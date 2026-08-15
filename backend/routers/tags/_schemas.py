@@ -1,5 +1,5 @@
 """Pydantic schemas for the tags API (issue #235)."""
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -90,7 +90,9 @@ class TaggedSystemItem(BaseModel):
     item_type: Literal["system"]
     item_id: str
     name: str
-    publishers: list[str]
+    # Free-form JSON holding {"name", "url"} objects, not strings — same column
+    # and same reasoning as `FavoriteSystemItem.publishers`.
+    publishers: list[Any]
     # Null for container folders and for systems with no cover-worthy book.
     cover_book_id: Optional[str] = None
 

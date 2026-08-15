@@ -36,6 +36,11 @@ class User(Base):
     # out of all campaign writes. NULL is treated as enabled.
     campaign_access = Column(Boolean, default=True)
     opds_token = Column(String(64), nullable=True, unique=True, index=True)
+    # Revocable per-user token authenticating the campaign calendar (ICS) feeds.
+    # Deliberately separate from opds_token and from the JWT: calendar apps can
+    # only carry credentials in the URL, so this grants read access to schedule
+    # data alone and can be rotated without touching login or OPDS.
+    calendar_token = Column(String(64), nullable=True, unique=True, index=True)
     oidc_subject = Column(String(255), nullable=True, unique=True, index=True)
     # Appearance for the default app mode (Grimoire). `theme_mode` is
     # light/dark/system; `theme_id` names an installed UserTheme, or is null for

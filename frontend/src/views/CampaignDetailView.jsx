@@ -22,6 +22,7 @@ import CampaignActionsMenu from '../components/campaigns/CampaignActionsMenu'
 import WikiView from '../components/campaigns/WikiView'
 import WikiMarkdown from '../components/campaigns/WikiMarkdown'
 import AvailabilityChart from '../components/campaigns/AvailabilityChart'
+import CalendarMenu from '../components/campaigns/CalendarMenu'
 import ResourcesPanel from '../components/campaigns/ResourcesPanel'
 import BannerHero from '../components/campaigns/BannerHero'
 import MemberRow from '../components/campaigns/MemberRow'
@@ -637,9 +638,22 @@ export default function CampaignDetailView() {
             the edit modal; here we only show the chart when a schedule exists. */}
         {isGmCampaign && schedule?.definition && schedule?.enabled && (
           <div style={SCROLL_CARD}>
-            <h3 style={{ ...SECTION_HEADING, marginBottom: 14, flexShrink: 0 }}>
-              <LuCalendar size={15} /> {t('campaignDetail.overview.availability')}
-            </h3>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                marginBottom: 14,
+                flexShrink: 0,
+              }}
+            >
+              <h3 style={SECTION_HEADING}>
+                <LuCalendar size={15} /> {t('campaignDetail.overview.availability')}
+              </h3>
+              {/* Export/subscribe sits with the schedule it exports. */}
+              <CalendarMenu campaign={campaign} />
+            </div>
             {/* Single section: the chart fills the card, scrolls internally with a
                 pinned date header, and keeps its legend at the bottom. */}
             <AvailabilityChart

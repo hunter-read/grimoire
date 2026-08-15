@@ -1051,6 +1051,26 @@
       "unavailable": "Indisponível"
     }
   },
+  "calendar": {
+    "menu": "Calendário",
+    "title": "Exportar calendário",
+    "download": "Transferir .ics",
+    "downloadHint": "Um ficheiro pontual das próximas sessões",
+    "subscribe": "Ligação de subscrição",
+    "subscribeHint": "Um feed em direto que a tua aplicação mantém sincronizado",
+    "subscribeAllHint": "Um feed em direto para todas as tuas campanhas",
+    "subscribeTitle": "Subscrever o teu calendário",
+    "subscribeBody": "Cola este URL no Google Agenda, Calendário Apple ou Outlook. É consultado automaticamente, por isso remarcações e cancelamentos aparecem sozinhos.",
+    "getLink": "Obter ligação",
+    "regenerate": "Regenerar ligação",
+    "revoke": "Revogar ligação",
+    "copy": "Copiar",
+    "campaignFeed": "Esta campanha",
+    "allFeed": "Todas as minhas campanhas",
+    "baseUrlRequired": "As ligações de subscrição exigem que BASE_URL aponte para o endereço público deste servidor. Fala com o teu administrador.",
+    "privateUrlWarning": "Esta ligação é pessoal — dá acesso aos teus horários. Não a partilhes; regenera-a se for divulgada.",
+    "rsvpNote": "Os calendários subscritos são só de leitura, por isso as respostas na tua aplicação não chegam ao Grimoire. Cada evento liga de volta para definires a tua disponibilidade."
+  },
   "resources": {
     "title": "Recursos associados",
     "linkResource": "Associar recurso",

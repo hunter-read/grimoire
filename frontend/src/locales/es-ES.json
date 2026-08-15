@@ -1051,6 +1051,26 @@
       "unavailable": "No disponible"
     }
   },
+  "calendar": {
+    "menu": "Calendario",
+    "title": "Exportar calendario",
+    "download": "Descargar .ics",
+    "downloadHint": "Un archivo puntual de las próximas sesiones",
+    "subscribe": "Enlace de suscripción",
+    "subscribeHint": "Un feed en vivo que tu aplicación mantiene al día",
+    "subscribeAllHint": "Un feed en vivo para todas tus campañas",
+    "subscribeTitle": "Suscríbete a tu calendario",
+    "subscribeBody": "Pega esta URL en Google Calendar, Calendario de Apple u Outlook. Se actualiza sola, así que los cambios de fecha y las cancelaciones aparecen automáticamente.",
+    "getLink": "Obtener enlace",
+    "regenerate": "Regenerar enlace",
+    "revoke": "Revocar enlace",
+    "copy": "Copiar",
+    "campaignFeed": "Esta campaña",
+    "allFeed": "Todas mis campañas",
+    "baseUrlRequired": "Los enlaces de suscripción requieren que BASE_URL apunte a la dirección pública de este servidor. Consulta a tu administrador.",
+    "privateUrlWarning": "Este enlace es personal — da acceso a tus horarios. No lo compartas; regenéralo si se filtra.",
+    "rsvpNote": "Los calendarios suscritos son de solo lectura, así que las respuestas desde tu aplicación no llegarán a Grimoire. Cada evento enlaza aquí para fijar tu disponibilidad."
+  },
   "resources": {
     "title": "Recursos vinculados",
     "linkResource": "Vincular recurso",

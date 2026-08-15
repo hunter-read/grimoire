@@ -1051,6 +1051,26 @@
       "unavailable": "Indisponible"
     }
   },
+  "calendar": {
+    "menu": "Calendrier",
+    "title": "Export du calendrier",
+    "download": "Télécharger le .ics",
+    "downloadHint": "Un fichier ponctuel des séances à venir",
+    "subscribe": "Lien d'abonnement",
+    "subscribeHint": "Un flux live que votre application garde à jour",
+    "subscribeAllHint": "Un seul flux live pour toutes vos campagnes",
+    "subscribeTitle": "S'abonner à votre calendrier",
+    "subscribeBody": "Collez cette URL dans Google Agenda, Calendrier Apple ou Outlook. Elle est réinterrogée automatiquement : les reports et annulations apparaissent tout seuls.",
+    "getLink": "Obtenir le lien",
+    "regenerate": "Régénérer le lien",
+    "revoke": "Révoquer le lien",
+    "copy": "Copier",
+    "campaignFeed": "Cette campagne",
+    "allFeed": "Toutes mes campagnes",
+    "baseUrlRequired": "Les liens d'abonnement nécessitent que BASE_URL soit défini sur l'adresse publique de ce serveur. Contactez votre administrateur.",
+    "privateUrlWarning": "Ce lien est personnel — il donne accès à vos plannings. Ne le partagez pas ; régénérez-le en cas de fuite.",
+    "rsvpNote": "Les calendriers abonnés sont en lecture seule : les réponses envoyées depuis votre application n'atteindront pas Grimoire. Chaque événement renvoie ici pour définir votre disponibilité."
+  },
   "resources": {
     "title": "Ressources liées",
     "linkResource": "Lier une ressource",

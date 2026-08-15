@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 from backend.config import SessionLocal
 from backend.indexer import hashing, scan_library
-from backend.models import Book, Token
+from backend.models import Book, GameSystem, Token
 
 
 def _mk_lib() -> tuple[str, Path]:
@@ -421,6 +421,125 @@ class TestMoveDetection:
             assert stats.get("missing_books", 0) == 1
             db.refresh(book)
             assert book.is_missing is True
+        finally:
+            db.close()
+
+
+class TestMovedBookMetadataFollows:
+    """A move across systems must re-derive everything the path implies.
+
+    The row survives (that is ``TestMoveDetection``), but it also has to stop
+    describing where it used to live: system, edition, slug, and category are all
+    inferred from the folder structure, so a book dragged from one edition shelf
+    to another must come out the far side looking like it was always there.
+    """
+
+    def _system_of(self, db, book):
+        return db.query(GameSystem).filter_by(id=book.game_system_id).first()
+
+    def test_move_between_editions_of_a_parent_container(self):
+        """The reported shape: D&D/3e/unsorted -> D&D/5e/adventures/<name>/."""
+        tmp, lib = _mk_lib()
+        container = lib / "books" / "MetaDnD"
+        (container / "3e" / "unsorted").mkdir(parents=True)
+        (container / ".parent-system-container").write_text("")
+        f = container / "3e" / "unsorted" / "strahd.pdf"
+        f.write_bytes(b"%PDF-1.4 " + b"strahd-payload" * 40)
+
+        db = SessionLocal()
+        try:
+            _scan(lib, tmp, db)
+            book = db.query(Book).filter_by(filepath=str(f)).first()
+            original_id = book.id
+            before = self._system_of(db, book)
+            assert before.edition == "3e"
+            assert book.category == "unsorted"
+
+            dest = container / "5e" / "adventures" / "Curse of Strahd"
+            dest.mkdir(parents=True)
+            moved_to = dest / "strahd.pdf"
+            f.rename(moved_to)
+
+            stats = _scan(lib, tmp, db)
+            assert stats.get("moved_books", 0) == 1
+
+            survivor = db.query(Book).filter_by(id=original_id).first()
+            after = self._system_of(db, survivor)
+            # Same row — tags, favorites, and progress ride along.
+            assert survivor.id == original_id
+            assert survivor.is_missing is False
+            # …but every folder-derived field now describes the new location.
+            assert after.id != before.id
+            assert after.edition == "5e"
+            assert after.slug.endswith("--5e")
+            assert after.parent_id == before.parent_id, "same container"
+            assert survivor.category == "adventure"
+            assert survivor.relative_path.replace("\\", "/").startswith("books/MetaDnD/5e/")
+        finally:
+            db.close()
+
+    def test_move_out_of_a_publisher_container_drops_its_attribution(self):
+        """Publisher/family attribution comes from the container, so it must not
+        survive a move out to an unaffiliated shelf."""
+        tmp, lib = _mk_lib()
+        pub = lib / "books" / "MetaPublisher"
+        (pub / "MetaAlien" / "core").mkdir(parents=True)
+        (pub / ".publisher-container").write_text("")
+        f = pub / "MetaAlien" / "core" / "alien.pdf"
+        f.write_bytes(b"%PDF-1.4 " + b"alien-payload" * 40)
+
+        db = SessionLocal()
+        try:
+            _scan(lib, tmp, db)
+            book = db.query(Book).filter_by(filepath=str(f)).first()
+            original_id = book.id
+            before = self._system_of(db, book)
+            assert before.publishers and before.publishers[0]["name"] == "MetaPublisher"
+
+            dest = lib / "books" / "MetaHomebrew" / "core"
+            dest.mkdir(parents=True)
+            f.rename(dest / "alien.pdf")
+
+            _scan(lib, tmp, db)
+
+            survivor = db.query(Book).filter_by(id=original_id).first()
+            after = self._system_of(db, survivor)
+            assert after.name == "MetaHomebrew"
+            assert after.parent_id is None
+            assert not after.publishers, "publisher attribution must not follow"
+        finally:
+            db.close()
+
+    def test_move_into_a_parent_container_gains_the_edition(self):
+        """The inverse: a loose system's book filed under an edition shelf."""
+        tmp, lib = _mk_lib()
+        container = lib / "books" / "MetaPathfinder"
+        (container / "2e").mkdir(parents=True)
+        (container / ".parent-system-container").write_text("")
+        loose = lib / "books" / "MetaLoose" / "core"
+        loose.mkdir(parents=True)
+        f = loose / "guide.pdf"
+        f.write_bytes(b"%PDF-1.4 " + b"guide-payload" * 40)
+
+        db = SessionLocal()
+        try:
+            _scan(lib, tmp, db)
+            book = db.query(Book).filter_by(filepath=str(f)).first()
+            original_id = book.id
+            assert self._system_of(db, book).edition == ""
+
+            dest = container / "2e" / "core"
+            dest.mkdir(parents=True)
+            f.rename(dest / "guide.pdf")
+
+            _scan(lib, tmp, db)
+
+            survivor = db.query(Book).filter_by(id=original_id).first()
+            after = self._system_of(db, survivor)
+            assert survivor.id == original_id
+            assert after.edition == "2e"
+            assert after.parent_id is not None
+            assert after.parent_system == "MetaPathfinder"
         finally:
             db.close()
 

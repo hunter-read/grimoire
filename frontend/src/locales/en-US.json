@@ -1051,6 +1051,26 @@
       "unavailable": "Unavailable"
     }
   },
+  "calendar": {
+    "menu": "Calendar",
+    "title": "Calendar export",
+    "download": "Download .ics",
+    "downloadHint": "A one-off file of upcoming sessions",
+    "subscribe": "Subscription link",
+    "subscribeHint": "A live feed your calendar app keeps in sync",
+    "subscribeAllHint": "One live feed for every campaign you're in",
+    "subscribeTitle": "Subscribe to your calendar",
+    "subscribeBody": "Paste this URL into Google Calendar, Apple Calendar, or Outlook. It re-polls on its own, so reschedules and cancellations show up automatically.",
+    "getLink": "Get link",
+    "regenerate": "Regenerate link",
+    "revoke": "Revoke link",
+    "copy": "Copy",
+    "campaignFeed": "This campaign",
+    "allFeed": "All my campaigns",
+    "baseUrlRequired": "Subscription links need BASE_URL set to this server's public address. Ask your administrator.",
+    "privateUrlWarning": "This link is personal — it grants access to your schedules. Don't share it; regenerate it if it leaks.",
+    "rsvpNote": "Subscribed calendars are read-only, so RSVP buttons in your calendar app won't reach Grimoire. Each event links back here to set your availability."
+  },
   "resources": {
     "title": "Linked Resources",
     "linkResource": "Link Resource",

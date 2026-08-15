@@ -1,5 +1,5 @@
 """Pydantic schemas for the favorites API."""
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -70,7 +70,12 @@ class FavoriteSystemItem(BaseModel):
     item_type: Literal["system"]
     item_id: str
     name: str
-    publishers: list[str]
+    # Free-form JSON on the model, and in practice a list of
+    # ``{"name": ..., "url": ...}`` objects (which is what the UI renders — see
+    # `SystemFavorite.jsx` reading `p.name`). Typed `list[Any]` to match
+    # `SystemSummary.publishers` rather than `list[str]`, which rejected every
+    # real row and made the whole favorites response 500.
+    publishers: list[Any]
     # Null for container folders (issues #261, #262), which own no books.
     cover_book_id: Optional[str] = None
     has_cover: bool
