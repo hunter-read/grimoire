@@ -39,12 +39,27 @@ def _touch_pdf(folder: Path, name: str = "book.pdf") -> Path:
     return p
 
 
-def _scan(lib: Path, tmp: str):
+def _scan(lib: Path, tmp: str, **kw):
     db = SessionLocal()
     try:
-        scan_library(str(lib), tmp, db)
+        return scan_library(str(lib), tmp, db, **kw)
     finally:
         db.close()
+
+
+def _stop_after(n: int):
+    """A ``should_stop`` that returns True from the (n+1)th call onwards.
+
+    The scan polls it once per file processed, so this cancels partway through
+    the first system's books — the point at which issue #352 bites.
+    """
+    calls = {"n": 0}
+
+    def should_stop() -> bool:
+        calls["n"] += 1
+        return calls["n"] > n
+
+    return should_stop
 
 
 def _system(slug: str):
@@ -772,3 +787,82 @@ class TestGenericContainer:
         assert edition is not None
         assert edition.edition == "2e"
         assert [b.category for b in _books_for("gen-outer--inner-game--2e", lib)] == ["core"]
+
+
+class TestInterruptedScanStillRegistersSystems:
+    """Issue #352 — a cancelled scan must not leave a half-populated shelf.
+
+    Registration used to be interleaved with book indexing, so a stop partway
+    through the first edition's files returned before the later editions had
+    rows at all. Registering every system first makes the set of editions
+    complete as soon as the folder is walked, however early indexing is cut off.
+    """
+
+    def test_cancelled_scan_registers_every_edition_of_a_container(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Stop352 Game")
+        (root / ".parent-system-container").write_text("")
+        for edition in ("2nd Edition", "3rd Edition", "4th Edition", "5th Edition"):
+            core = _books_dir(lib, "Stop352 Game", edition, "core")
+            for i in range(3):
+                _touch_pdf(core, f"{edition}-{i}.pdf")
+
+        # Cancel a couple of files in — long before the later editions.
+        _scan(lib, tmp, should_stop=_stop_after(2))
+
+        db = SessionLocal()
+        try:
+            editions = {
+                s.edition
+                for s in db.query(GameSystem).filter_by(parent_system="Stop352 Game").all()
+            }
+        finally:
+            db.close()
+        assert {"2nd Edition", "3rd Edition", "4th Edition", "5th Edition"} <= editions
+
+    def test_cancelled_scan_registers_nested_container_children(self):
+        """The same guarantee through a family -> parent-system -> editions chain."""
+        tmp, lib = _mk_lib()
+        family = _books_dir(lib, "Stop352 d20")
+        (family / ".system-family-container").write_text("")
+        inner = _books_dir(lib, "Stop352 d20", "Stop352 Pathfinder")
+        (inner / ".parent-system-container").write_text("")
+        for edition in ("1e", "2e", "3e"):
+            core = _books_dir(lib, "Stop352 d20", "Stop352 Pathfinder", edition, "core")
+            for i in range(3):
+                _touch_pdf(core, f"{edition}-{i}.pdf")
+
+        _scan(lib, tmp, should_stop=_stop_after(2))
+
+        for edition in ("1e", "2e", "3e"):
+            slug = f"stop352-d20--stop352-pathfinder--{edition}"
+            assert _system(slug) is not None, f"{edition} was never registered"
+
+    def test_cancelled_scan_registers_later_top_level_systems(self):
+        """Top-level systems have the same problem as container children."""
+        tmp, lib = _mk_lib()
+        for name in ("Stop352 AAA", "Stop352 BBB", "Stop352 CCC"):
+            core = _books_dir(lib, name, "core")
+            for i in range(3):
+                _touch_pdf(core, f"{name}-{i}.pdf")
+
+        _scan(lib, tmp, should_stop=_stop_after(2))
+
+        for slug in ("stop352-aaa", "stop352-bbb", "stop352-ccc"):
+            assert _system(slug) is not None, f"{slug} was never registered"
+
+    def test_interrupted_scan_is_completed_by_a_later_full_scan(self):
+        """Indexing still resumes: the cancel costs books, not systems."""
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Stop352 Resume")
+        (root / ".parent-system-container").write_text("")
+        for edition in ("1e", "2e"):
+            _touch_pdf(_books_dir(lib, "Stop352 Resume", edition, "core"), f"{edition}.pdf")
+
+        _scan(lib, tmp, should_stop=_stop_after(1))
+        _scan(lib, tmp)
+
+        for edition in ("1e", "2e"):
+            slug = f"stop352-resume--{edition}"
+            assert _system(slug) is not None
+            assert [b.category for b in _books_for(slug, lib)] == ["core"]

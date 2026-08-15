@@ -605,6 +605,10 @@ When a system's folder is deleted — or newly excluded by a [`.grimoireignore`]
 
 Removal is deliberately cautious. A system is kept if it still holds any book that is present on disk, if it is the parent of a system that does, or if you have adapted it yourself by renaming it or giving it a description or cover. Scoped rescans (a single folder) never remove systems, since they only look at one corner of the library.
 
+### Interrupted scans
+
+Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-populated shelf. Every system folder is registered before any book is indexed, so a container's editions all appear as soon as the folder is walked, however early the scan stops — you may be missing *books* until the next full rescan, but never whole systems. Nothing is removed by an interrupted scan either.
+
 ---
 
 ## Configuration

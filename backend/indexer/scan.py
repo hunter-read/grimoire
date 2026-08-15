@@ -446,6 +446,10 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
     else:
         # Whole library, or scope == "books" root: iterate every system.
         system_dirs = sorted(books_dir.iterdir())
+    # Same two-pass split as ``_scan_container`` (issue #352): register every
+    # top-level system first, so a stop while indexing one system's books cannot
+    # leave the systems after it in the walk unregistered.
+    registered: list[tuple[Path, _SystemFolder, GameSystem]] = []
     for system_dir in system_dirs:
         if not system_dir.is_dir() or not _keep_entry(system_dir, ctx.ignore, is_dir=True):
             continue
@@ -454,7 +458,18 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
         system = _register_system(ctx, folder)
         if system is None:
             continue
+        registered.append((system_dir, folder, system))
 
+    if registered:
+        try:
+            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit top-level systems")
+        except (TimeoutError, Exception) as e:
+            logger.error(f"DB error saving top-level systems: {e}")
+            session.rollback()
+            ctx.stats["errors"] += 1
+            return
+
+    for system_dir, folder, system in registered:
         if folder.container_kind:
             # The folder holds systems, not categories — recurse one level.
             if _scan_container(ctx, system, folder, category_inference_off, scope_parts):
@@ -505,8 +520,14 @@ def _scan_container(
     category_inference_off: bool,
     scope_parts: tuple[str, ...],
     depth: int = 1,
+    register_only: bool = False,
 ) -> bool:
     """Register a container folder's children as systems. True if stop requested.
+
+    ``register_only`` runs the registration half alone — every child (and, for a
+    nested container, every grandchild) gets its row, and no books are indexed.
+    ``_scan_books`` uses it as a pre-pass so an interrupted scan still leaves a
+    complete set of systems behind (issue #352).
 
     Each immediate subdirectory becomes a system whose own tree is then scanned
     with ordinary category inference (so ``cbr+pnk/core/`` and
@@ -548,6 +569,15 @@ def _scan_container(
         return False
 
     child_dirs = [d for d in entries if d.is_dir() and _keep_entry(d, ctx.ignore, is_dir=True)]
+
+    # Pass 1 — register every child system before indexing any books (issue #352).
+    # Registering and indexing in one loop meant a stop partway through the first
+    # edition's books returned before the later editions had rows at all, so an
+    # interrupted scan left a half-populated shelf. Registration is cheap (one row
+    # per folder, no file reads), so doing all of it up front makes the set of
+    # editions complete as soon as the container is walked, however early the
+    # indexing is cut short.
+    registered: list[tuple[Path, _SystemFolder, GameSystem]] = []
     for child_dir in child_dirs:
         if scoped_child and child_dir.name != scoped_child:
             continue
@@ -564,14 +594,52 @@ def _scan_container(
         )
         if child is None:
             continue
+        registered.append((child_dir, child_folder, child))
+        if child_folder.container_kind and not register_only:
+            # A nested container holds systems of its own. Register that whole
+            # subtree now, while still in the registration pass, so an
+            # interrupted scan leaves every level of the shelf complete.
+            _scan_container(
+                ctx,
+                child,
+                child_folder,
+                category_inference_off,
+                scope_parts[1:],
+                depth + 1,
+                register_only=True,
+            )
+
+    # Persist the rows now, so a stop (or a crash) during pass 2 still leaves the
+    # shelf complete rather than rolling the registrations back with it.
+    if registered:
+        try:
+            _run_with_timeout(
+                ctx.session.commit, _DB_TIMEOUT, f"commit child systems of '{container.name}'"
+            )
+        except (TimeoutError, Exception) as e:
+            logger.error(f"DB error saving child systems of '{container.name}': {e}")
+            ctx.session.rollback()
+            ctx.stats["errors"] += 1
+            return False
+
+    # Pass 2 — index each child's books (the expensive part, and the one that stops).
+    for child_dir, child_folder, child in registered:
         if child_folder.container_kind:
             # Nested container (e.g. a parent-system inside a family). Recurse
             # so its own children register as systems rather than treating the
             # edition folders as book categories.
             if _scan_container(
-                ctx, child, child_folder, category_inference_off, scope_parts[1:], depth + 1
+                ctx,
+                child,
+                child_folder,
+                category_inference_off,
+                scope_parts[1:],
+                depth + 1,
+                register_only=register_only,
             ):
                 return True
+            continue
+        if register_only:
             continue
         child_category_off = category_inference_off or (
             child_dir / NO_AUTO_CATEGORY_MARKER
@@ -592,7 +660,15 @@ def _scan_container(
 
     loose_files = [f for f in entries if f.is_file() and _keep_entry(f, ctx.ignore, is_dir=False)]
     if kind == CONTAINER_ONE_PAGE:
-        return _scan_one_page_loose_files(ctx, container, container_folder, loose_files)
+        # Each loose file is a system of its own, so this belongs in the
+        # registration pass as much as the child folders do.
+        return _scan_one_page_loose_files(
+            ctx, container, container_folder, loose_files, register_only=register_only
+        )
+    if register_only:
+        # Loose files here are ordinary books on the container's own row; no
+        # system to create, so nothing for the registration pass to do.
+        return False
     # Every other container kind: loose files belong to the container itself.
     return _scan_books_in_system(
         ctx,
@@ -610,12 +686,16 @@ def _scan_one_page_loose_files(
     container: GameSystem,
     container_folder: _SystemFolder,
     loose_files: list[Path],
+    register_only: bool = False,
 ) -> bool:
     """Register each loose file under a one-page container as its own system.
 
     ``one-page-rpgs/honey-heist.pdf`` becomes the system "Honey Heist" holding
     that single book, so it carries its own metadata, tags, and system filters
     exactly like a folder-backed game.
+
+    ``register_only`` creates the rows without indexing the books, for the
+    registration pre-pass described in :func:`_scan_container`.
     """
     for path in loose_files:
         ext = path.suffix.lower()
@@ -638,6 +718,8 @@ def _scan_one_page_loose_files(
             attribute_parent=False,
         )
         if child is None:
+            continue
+        if register_only:
             continue
         if _scan_books_in_system(
             ctx,

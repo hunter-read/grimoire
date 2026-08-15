@@ -327,6 +327,49 @@ class TestSystemPruning:
         assert stats["removed_systems"] == 0
         assert {"Ign354 Scoped", "Ign354 Untouched"} <= names
 
+    def test_cancelled_scan_prunes_nothing(self):
+        """A stopped scan must not delete the systems it never got to.
+
+        Pruning keys off "this scan didn't walk here", and a cancelled scan
+        stops walking partway — so without the stop check before the prune, a
+        user hitting Cancel would lose every system below the stopping point.
+        That turns issue #352 (editions missing until the next full scan) into
+        actual data loss, so the guard is pinned here rather than left implicit.
+        """
+        tmp, lib = _mk_lib()
+        container = _mkdir(lib, "books", "Ign354 Cancelled")
+        (container / ".parent-system-container").write_text("")
+        for edition in ("2e", "3e", "4e", "5e"):
+            _touch_pdf(_mkdir(container, edition, "core"), f"{edition}-core.pdf")
+
+        _scan(lib, tmp)
+
+        def _editions():
+            db = SessionLocal()
+            try:
+                return {
+                    c.edition
+                    for c in db.query(GameSystem)
+                    .filter_by(parent_system="Ign354 Cancelled")
+                    .all()
+                }
+            finally:
+                db.close()
+
+        assert {"2e", "3e", "4e", "5e"} <= _editions()
+
+        # Cancel a few files in, so most of the container goes unwalked.
+        calls = {"n": 0}
+
+        def stop_after_a_few():
+            calls["n"] += 1
+            return calls["n"] > 3
+
+        stats = _scan(lib, tmp, should_stop=stop_after_a_few)
+
+        assert stats.get("removed_systems", 0) == 0
+        assert {"2e", "3e", "4e", "5e"} <= _editions(), "cancel must not delete systems"
+
     def test_container_with_surviving_children_is_kept(self):
         """Deleting a container would orphan the children still on disk."""
         tmp, lib = _mk_lib()
