@@ -39,12 +39,27 @@ def _touch_pdf(folder: Path, name: str = "book.pdf") -> Path:
     return p
 
 
-def _scan(lib: Path, tmp: str):
+def _scan(lib: Path, tmp: str, **kw):
     db = SessionLocal()
     try:
-        scan_library(str(lib), tmp, db)
+        return scan_library(str(lib), tmp, db, **kw)
     finally:
         db.close()
+
+
+def _stop_after(n: int):
+    """A ``should_stop`` that returns True from the (n+1)th call onwards.
+
+    The scan polls it once per file processed, so this cancels partway through
+    the first system's books — the point at which issue #352 bites.
+    """
+    calls = {"n": 0}
+
+    def should_stop() -> bool:
+        calls["n"] += 1
+        return calls["n"] > n
+
+    return should_stop
 
 
 def _system(slug: str):
@@ -772,3 +787,116 @@ class TestGenericContainer:
         assert edition is not None
         assert edition.edition == "2e"
         assert [b.category for b in _books_for("gen-outer--inner-game--2e", lib)] == ["core"]
+
+
+class TestInterruptedScanStillRegistersSystems:
+    """Issue #352 — a cancelled scan must not leave a half-populated shelf.
+
+    Registration used to be interleaved with book indexing, so a stop partway
+    through the first edition's files returned before the later editions had
+    rows at all. Registering every system first makes the set of editions
+    complete as soon as the folder is walked, however early indexing is cut off.
+    """
+
+    def test_cancelled_scan_registers_every_edition_of_a_container(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Stop352 Game")
+        (root / ".parent-system-container").write_text("")
+        for edition in ("2nd Edition", "3rd Edition", "4th Edition", "5th Edition"):
+            core = _books_dir(lib, "Stop352 Game", edition, "core")
+            for i in range(3):
+                _touch_pdf(core, f"{edition}-{i}.pdf")
+
+        # Cancel a couple of files in — long before the later editions.
+        _scan(lib, tmp, should_stop=_stop_after(2))
+
+        db = SessionLocal()
+        try:
+            editions = {
+                s.edition
+                for s in db.query(GameSystem).filter_by(parent_system="Stop352 Game").all()
+            }
+        finally:
+            db.close()
+        assert {"2nd Edition", "3rd Edition", "4th Edition", "5th Edition"} <= editions
+
+    def test_cancelled_scan_registers_nested_container_children(self):
+        """The same guarantee through a family -> parent-system -> editions chain."""
+        tmp, lib = _mk_lib()
+        family = _books_dir(lib, "Stop352 d20")
+        (family / ".system-family-container").write_text("")
+        inner = _books_dir(lib, "Stop352 d20", "Stop352 Pathfinder")
+        (inner / ".parent-system-container").write_text("")
+        for edition in ("1e", "2e", "3e"):
+            core = _books_dir(lib, "Stop352 d20", "Stop352 Pathfinder", edition, "core")
+            for i in range(3):
+                _touch_pdf(core, f"{edition}-{i}.pdf")
+
+        _scan(lib, tmp, should_stop=_stop_after(2))
+
+        for edition in ("1e", "2e", "3e"):
+            slug = f"stop352-d20--stop352-pathfinder--{edition}"
+            assert _system(slug) is not None, f"{edition} was never registered"
+
+    def test_cancelled_scan_registers_later_top_level_systems(self):
+        """Top-level systems have the same problem as container children."""
+        tmp, lib = _mk_lib()
+        for name in ("Stop352 AAA", "Stop352 BBB", "Stop352 CCC"):
+            core = _books_dir(lib, name, "core")
+            for i in range(3):
+                _touch_pdf(core, f"{name}-{i}.pdf")
+
+        _scan(lib, tmp, should_stop=_stop_after(2))
+
+        for slug in ("stop352-aaa", "stop352-bbb", "stop352-ccc"):
+            assert _system(slug) is not None, f"{slug} was never registered"
+
+    def test_editions_added_to_an_indexed_container_survive_a_cancel(self):
+        """The reported sequence, on an already-indexed library.
+
+        1. a container with one edition, scanned to completion
+        2. two more editions added, scan cancelled once the first edition's
+           files have been checked
+        3. a full rescan
+
+        Step 2 is what the bug ruins. The stop counter ticks once per file the
+        walk *visits*, and an already-indexed edition is visited (then skipped
+        by the mtime/size gate) before the check runs — so the budget is spent
+        on files that need no work, and the new editions sit behind the wall.
+        An interruption that recurs at the same point never gets past it, which
+        is why the reporter saw the editions stay missing across rescans.
+
+        Step 3 pins the other half: a scan that is allowed to finish indexes
+        their books, so the cancel costs books, never systems.
+        """
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Stop352 Seq")
+        (root / ".parent-system-container").write_text("")
+
+        # 1 — one edition, indexed completely.
+        first = _books_dir(lib, "Stop352 Seq", "1e", "core")
+        for i in range(10):
+            _touch_pdf(first, f"1e-{i}.pdf")
+        _scan(lib, tmp)
+        assert len(_books_for("stop352-seq--1e", lib)) == 10
+
+        # 2 — two more editions, cancelled once 1e's files have been walked.
+        for edition in ("2e", "3e"):
+            core = _books_dir(lib, "Stop352 Seq", edition, "core")
+            for i in range(10):
+                _touch_pdf(core, f"{edition}-{i}.pdf")
+        _scan(lib, tmp, should_stop=_stop_after(10))
+
+        for edition in ("2e", "3e"):
+            assert (
+                _system(f"stop352-seq--{edition}") is not None
+            ), f"{edition} must register even though the scan never indexed it"
+        # The already-indexed edition is untouched by the interrupted pass.
+        assert len(_books_for("stop352-seq--1e", lib)) == 10
+
+        # 3 — a completed rescan fills in the books behind those systems.
+        _scan(lib, tmp)
+        for edition in ("1e", "2e", "3e"):
+            slug = f"stop352-seq--{edition}"
+            assert _system(slug) is not None
+            assert len(_books_for(slug, lib)) == 10
