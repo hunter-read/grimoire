@@ -851,18 +851,52 @@ class TestInterruptedScanStillRegistersSystems:
         for slug in ("stop352-aaa", "stop352-bbb", "stop352-ccc"):
             assert _system(slug) is not None, f"{slug} was never registered"
 
-    def test_interrupted_scan_is_completed_by_a_later_full_scan(self):
-        """Indexing still resumes: the cancel costs books, not systems."""
+    def test_editions_added_to_an_indexed_container_survive_a_cancel(self):
+        """The reported sequence, on an already-indexed library.
+
+        1. a container with one edition, scanned to completion
+        2. two more editions added, scan cancelled once the first edition's
+           files have been checked
+        3. a full rescan
+
+        Step 2 is what the bug ruins. The stop counter ticks once per file the
+        walk *visits*, and an already-indexed edition is visited (then skipped
+        by the mtime/size gate) before the check runs — so the budget is spent
+        on files that need no work, and the new editions sit behind the wall.
+        An interruption that recurs at the same point never gets past it, which
+        is why the reporter saw the editions stay missing across rescans.
+
+        Step 3 pins the other half: a scan that is allowed to finish indexes
+        their books, so the cancel costs books, never systems.
+        """
         tmp, lib = _mk_lib()
-        root = _books_dir(lib, "Stop352 Resume")
+        root = _books_dir(lib, "Stop352 Seq")
         (root / ".parent-system-container").write_text("")
-        for edition in ("1e", "2e"):
-            _touch_pdf(_books_dir(lib, "Stop352 Resume", edition, "core"), f"{edition}.pdf")
 
-        _scan(lib, tmp, should_stop=_stop_after(1))
+        # 1 — one edition, indexed completely.
+        first = _books_dir(lib, "Stop352 Seq", "1e", "core")
+        for i in range(10):
+            _touch_pdf(first, f"1e-{i}.pdf")
         _scan(lib, tmp)
+        assert len(_books_for("stop352-seq--1e", lib)) == 10
 
-        for edition in ("1e", "2e"):
-            slug = f"stop352-resume--{edition}"
+        # 2 — two more editions, cancelled once 1e's files have been walked.
+        for edition in ("2e", "3e"):
+            core = _books_dir(lib, "Stop352 Seq", edition, "core")
+            for i in range(10):
+                _touch_pdf(core, f"{edition}-{i}.pdf")
+        _scan(lib, tmp, should_stop=_stop_after(10))
+
+        for edition in ("2e", "3e"):
+            assert (
+                _system(f"stop352-seq--{edition}") is not None
+            ), f"{edition} must register even though the scan never indexed it"
+        # The already-indexed edition is untouched by the interrupted pass.
+        assert len(_books_for("stop352-seq--1e", lib)) == 10
+
+        # 3 — a completed rescan fills in the books behind those systems.
+        _scan(lib, tmp)
+        for edition in ("1e", "2e", "3e"):
+            slug = f"stop352-seq--{edition}"
             assert _system(slug) is not None
-            assert [b.category for b in _books_for(slug, lib)] == ["core"]
+            assert len(_books_for(slug, lib)) == 10
