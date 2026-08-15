@@ -581,6 +581,16 @@
       "disable": "Desactivar",
       "confirmRevoke": "Desactivar OPDS revocará de inmediato la URL de tu feed. Las aplicaciones que la usen perderán el acceso. ¿Continuar?",
       "confirmDisable": "Sí, desactivar"
+    },
+    "groups": {
+      "profile": "Perfil",
+      "profileDesc": "Cómo te ven las demás personas en tus partidas.",
+      "appearance": "Apariencia",
+      "appearanceDesc": "Idioma y aspecto de Grimoire.",
+      "reading": "Lectura y biblioteca",
+      "readingDesc": "Comportamiento del lector, navegación por la biblioteca y feeds.",
+      "security": "Seguridad y cuenta",
+      "securityDesc": "Contraseña, sesiones activas y eliminación de la cuenta."
     }
   },
   "appSettings": {
@@ -1581,7 +1591,21 @@
     "convert": "Convertir",
     "converting": "Convirtiendo…",
     "convertFailed": "No se pudo convertir al invitado.",
-    "usernamePlaceholder": "Usuario"
+    "usernamePlaceholder": "Usuario",
+    "select": "Seleccionar",
+    "selectGuest": "Seleccionar {{name}}",
+    "merge": "Combinar",
+    "merging": "Combinando…",
+    "mergeTarget": "Cuenta que se conserva",
+    "mergeTargetPlaceholder": "Elige la cuenta que se conserva…",
+    "mergeFailed": "No se pudieron combinar las cuentas de invitado.",
+    "delete": "Eliminar invitado",
+    "confirmDelete": "¿Eliminar esta cuenta de invitado? Se eliminarán sus contribuciones.",
+    "deleteFailed": "No se pudo eliminar el invitado.",
+    "mergeInto_one": "Combinar esta cuenta en:",
+    "mergeInto_other": "Combinar {{count}} cuentas seleccionadas en:",
+    "mergeTargetGuests": "Cuentas de invitado",
+    "mergeTargetUsers": "Usuarios existentes"
   },
   "rescan": {
     "button": {
@@ -1812,7 +1836,11 @@
     "updatedCount_other": "{{count}} complementos actualizados.",
     "alreadyUpToDate": "Todo está ya actualizado.",
     "updateTitle": "¿Actualizar {{name}}?",
-    "scriptUpdateWarning": "Esta actualización cambia el script del complemento. Como el código ha cambiado, necesita tu aprobación de nuevo antes de que Grimoire lo ejecute."
+    "scriptUpdateWarning": "Esta actualización cambia el script del complemento. Como el código ha cambiado, necesita tu aprobación de nuevo antes de que Grimoire lo ejecute.",
+    "categories": {
+      "metadata": "Extractores de metadatos",
+      "metadataDesc": "Complementos que rellenan detalles de sistemas de juego y libros desde fuentes externas."
+    }
   },
   "metadataFetch": {
     "title": "Obtener metadatos",
@@ -1878,6 +1906,7 @@
     "notJson": "That is not valid JSON.",
     "downloadsDisabled": "Downloading themes is turned off on this server. You can still paste a theme in.",
     "builtInLabel": "Built-in",
-    "bothModes": "Light & dark"
+    "bothModes": "Light & dark",
+    "themeTitle": "Tema"
   }
 }

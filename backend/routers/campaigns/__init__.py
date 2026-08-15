@@ -170,17 +170,22 @@ public_router = APIRouter(prefix="/api/campaigns/calendar", tags=["campaigns"])
 
 # `.ics` is part of the literal path (not a format suffix): several calendar
 # clients refuse a subscription URL that doesn't end in it.
+#
+# HEAD is served alongside GET because Google Calendar's "From URL" flow probes
+# the feed with HEAD before it will accept the subscription; a 405 there makes it
+# reject the URL as invalid and silently import nothing. Starlette runs the same
+# handler and drops the body, so the probe sees the real status and Content-Type.
 public_router.add_api_route(
     "/{token}/all.ics",
     all_campaigns_calendar_feed,
-    methods=["GET"],
+    methods=["GET", "HEAD"],
     summary="ICS feed of every campaign the token's user belongs to",
     response_class=Response,
 )
 public_router.add_api_route(
     "/{token}/{campaign_id}.ics",
     campaign_calendar_feed,
-    methods=["GET"],
+    methods=["GET", "HEAD"],
     summary="ICS feed for a single campaign",
     response_class=Response,
 )

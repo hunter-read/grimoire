@@ -216,7 +216,13 @@ export default function UsersTab() {
         </table>
       </div>
 
-      <GuestsSection passwordAuthEnabled={passwordAuthEnabled} onConverted={handleGuestConverted} />
+      {/* `users` lets the merge picker offer permanent accounts as a target, so
+          a guest can be folded into the real account that person already has. */}
+      <GuestsSection
+        passwordAuthEnabled={passwordAuthEnabled}
+        users={users}
+        onConverted={handleGuestConverted}
+      />
     </div>
   )
 }

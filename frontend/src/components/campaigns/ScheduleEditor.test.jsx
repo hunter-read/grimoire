@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ScheduleEditor from './ScheduleEditor'
 import SegmentControl from './SegmentControl'
+import { USER_TZ } from './_scheduleShared'
 
 vi.mock('../../api', () => ({
   campaigns: {
@@ -244,6 +245,7 @@ describe('ScheduleEditor', () => {
         days: [3],
         frequency: 'monthly',
         time_utc: null,
+        timezone: USER_TZ,
         biweekly_reference: null,
         monthly_week: -1,
         custom_dates: null,

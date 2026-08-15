@@ -56,7 +56,7 @@ export default function OPDSSection() {
     <>
       <div style={{ borderTop: '1px solid var(--border)' }} />
       <div>
-        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
           {t('userSettings.opds.title')}
         </h3>
         <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>

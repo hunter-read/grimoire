@@ -104,6 +104,7 @@ def _campaign_events(
     cancelled = {r.session_date for r in rows if r.is_cancelled}
 
     time_utc = (sched.definition or {}).get("time_utc")
+    tz_name = (sched.definition or {}).get("timezone")
     link = f"{BASE_URL}/campaigns/{campaign.id}?tab=schedule"
 
     events = []
@@ -135,6 +136,7 @@ def _campaign_events(
                 dtstamp=dtstamp,
                 session_date=date,
                 time_utc=time_utc,
+                timezone=tz_name,
                 summary=summary,
                 description="\n".join(description_parts),
                 url=link,

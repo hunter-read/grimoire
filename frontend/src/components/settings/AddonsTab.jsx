@@ -1,23 +1,25 @@
 import { useTranslation } from 'react-i18next'
 import AddonsSection from './AddonsSection'
+import CollapsibleSection from './CollapsibleSection'
 
-/** Admin settings tab: install and manage community add-ons (issue #203). */
+/**
+ * Admin settings tab: install and manage community add-ons (issue #203).
+ *
+ * Add-ons are grouped by what they do rather than where they came from —
+ * everything shipping today is a metadata scraper, and future categories (VTT
+ * integrations, character sheet builders) slot in alongside it.
+ */
 export default function AddonsTab() {
   const { t } = useTranslation()
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('addons.title')}</h3>
-      <p
-        style={{
-          fontSize: 14,
-          color: 'var(--text-dim)',
-          marginBottom: 20,
-          lineHeight: 1.6,
-        }}
+      <CollapsibleSection
+        title={t('addons.categories.metadata')}
+        description={t('addons.categories.metadataDesc')}
+        storageKey="grimoire:settings:addons:metadata"
       >
-        {t('addons.description')}
-      </p>
-      <AddonsSection />
+        <AddonsSection />
+      </CollapsibleSection>
     </div>
   )
 }

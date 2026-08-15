@@ -25,7 +25,7 @@ export default function DeleteAccountSection({ user, onLogout }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: 'var(--danger)' }}>
+      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: 'var(--danger)' }}>
         {t('userSettings.deleteAccount.title')}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>

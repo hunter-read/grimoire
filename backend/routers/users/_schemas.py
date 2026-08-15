@@ -116,6 +116,35 @@ class GuestConvert(BaseModel):
         return v
 
 
+class GuestMerge(BaseModel):
+    """Fold one or more guest accounts into a single target account.
+
+    The same person invited to several campaigns ends up with one guest account
+    per campaign; this collapses them so they have a single login.
+    """
+
+    source_ids: list[str]
+
+    @field_validator("source_ids")
+    @classmethod
+    def sources_valid(cls, v):
+        cleaned = [s.strip() for s in (v or []) if s and s.strip()]
+        if not cleaned:
+            raise ValueError("At least one source account is required")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("Duplicate source accounts")
+        return cleaned
+
+
+class GuestMergeResponse(BaseModel):
+    """The surviving account plus what the merge moved and removed."""
+
+    id: str
+    display_name: Optional[str] = None
+    merged_ids: list[str]
+    memberships_moved: int
+
+
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str

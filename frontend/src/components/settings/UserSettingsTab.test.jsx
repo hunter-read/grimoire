@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import UserSettingsTab from './UserSettingsTab'
 
 // Each section is covered by its own test file; stub them so this one asserts
@@ -24,7 +25,15 @@ vi.mock('./AppearanceSection', () => ({ default: () => <div>appearance</div> }))
 
 vi.mock('./SectionDivider', () => ({ default: () => <hr /> }))
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (k) => k }),
+}))
+
 describe('UserSettingsTab', () => {
+  // The groups remember their open/closed state per browser, so clear it
+  // between tests or a collapse in one leaks into the next.
+  beforeEach(() => localStorage.clear())
+
   it('renders every account and preference section', () => {
     render(<UserSettingsTab user={{ username: 'ada' }} onLogout={() => {}} />)
 
@@ -44,19 +53,52 @@ describe('UserSettingsTab', () => {
   })
 
   // Appearance belongs with the other presentation preferences, immediately
-  // after Language, rather than in a settings tab of its own.
+  // after Language, rather than in a settings tab of its own. Compare the
+  // stubbed section nodes directly — the group headings contain the word
+  // "appearance" too, so a substring scan over the whole tree is ambiguous.
   it('places Appearance directly after Language', () => {
-    const { container } = render(<UserSettingsTab user={{}} onLogout={() => {}} />)
-    const text = Array.from(container.querySelectorAll('div'))
-      .map((n) => n.textContent)
-      .join('|')
+    render(<UserSettingsTab user={{}} onLogout={() => {}} />)
 
-    expect(text.indexOf('language')).toBeLessThan(text.indexOf('appearance'))
-    expect(text.indexOf('appearance')).toBeLessThan(text.indexOf('reader'))
+    const order = ['language', 'appearance', 'reader'].map((label) => {
+      const node = screen.getByText(label)
+      // Node.compareDocumentPosition-based sort key: index within a flat list
+      // of all rendered section stubs, in document order.
+      return Array.from(document.querySelectorAll('div')).indexOf(node)
+    })
+
+    expect(order[0]).toBeLessThan(order[1])
+    expect(order[1]).toBeLessThan(order[2])
   })
 
   it('passes the user through to the delete-account section', () => {
     render(<UserSettingsTab user={{ username: 'ada' }} onLogout={() => {}} />)
     expect(screen.getByText('delete:ada')).toBeInTheDocument()
+  })
+
+  it('groups the sections under collapsible category headers', () => {
+    render(<UserSettingsTab user={{}} onLogout={() => {}} />)
+
+    for (const group of [
+      'userSettings.groups.profile',
+      'userSettings.groups.appearance',
+      'userSettings.groups.reading',
+      'userSettings.groups.security',
+    ]) {
+      expect(screen.getByText(group)).toBeInTheDocument()
+    }
+  })
+
+  // Collapsing a group hides only its own settings — the categories sit
+  // side by side rather than nesting inside one another.
+  it('collapses a group without affecting the others', async () => {
+    const user = userEvent.setup()
+    render(<UserSettingsTab user={{}} onLogout={() => {}} />)
+
+    await user.click(screen.getByText('userSettings.groups.profile'))
+
+    expect(screen.queryByText('display-name')).not.toBeInTheDocument()
+    expect(screen.queryByText('email')).not.toBeInTheDocument()
+    expect(screen.getByText('reader')).toBeInTheDocument()
+    expect(screen.getByText('password')).toBeInTheDocument()
   })
 })

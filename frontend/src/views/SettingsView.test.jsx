@@ -58,6 +58,19 @@ describe('SettingsView', () => {
     renderAt('metadata', { role: 'player' })
     expect(screen.queryByText('settings.tabs.metadata')).not.toBeInTheDocument()
     expect(screen.queryByText('metadata-tab')).not.toBeInTheDocument()
+  })
+
+  // Players and GMs only ever have Account, so a one-item tab bar is just a
+  // label above the page — drop it and show the settings directly.
+  it('hides the tab bar entirely when only one tab is available', () => {
+    renderAt('account', { role: 'player' })
+    expect(screen.queryByText('settings.tabs.account')).not.toBeInTheDocument()
+    expect(screen.getByText('account-tab')).toBeInTheDocument()
+  })
+
+  it('still shows the tab bar for admins', () => {
+    renderAt('account', { role: 'admin' })
     expect(screen.getByText('settings.tabs.account')).toBeInTheDocument()
+    expect(screen.getByText('settings.tabs.users')).toBeInTheDocument()
   })
 })

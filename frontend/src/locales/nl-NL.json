@@ -581,6 +581,16 @@
       "disable": "Uitschakelen",
       "confirmRevoke": "Het uitschakelen van OPDS trekt je feed-URL onmiddellijk in. Apps die deze gebruiken, verliezen de toegang. Doorgaan?",
       "confirmDisable": "Ja, uitschakelen"
+    },
+    "groups": {
+      "profile": "Profiel",
+      "profileDesc": "Hoe je verschijnt bij anderen in je spellen.",
+      "appearance": "Weergave",
+      "appearanceDesc": "Taal en het uiterlijk van Grimoire.",
+      "reading": "Lezen en bibliotheek",
+      "readingDesc": "Lezergedrag, bladeren door de bibliotheek en feeds.",
+      "security": "Beveiliging en account",
+      "securityDesc": "Wachtwoord, actieve sessies en accountverwijdering."
     }
   },
   "appSettings": {
@@ -1581,7 +1591,21 @@
     "convert": "Omzetten",
     "converting": "Omzetten…",
     "convertFailed": "Gast omzetten mislukt.",
-    "usernamePlaceholder": "Gebruikersnaam"
+    "usernamePlaceholder": "Gebruikersnaam",
+    "select": "Selecteren",
+    "selectGuest": "{{name}} selecteren",
+    "merge": "Samenvoegen",
+    "merging": "Samenvoegen…",
+    "mergeTarget": "Te behouden account",
+    "mergeTargetPlaceholder": "Kies het te behouden account…",
+    "mergeFailed": "Samenvoegen van gastaccounts mislukt.",
+    "delete": "Gast verwijderen",
+    "confirmDelete": "Dit gastaccount verwijderen? Hun bijdragen worden verwijderd.",
+    "deleteFailed": "Gast verwijderen mislukt.",
+    "mergeInto_one": "Dit account samenvoegen tot:",
+    "mergeInto_other": "{{count}} geselecteerde accounts samenvoegen tot:",
+    "mergeTargetGuests": "Gastaccounts",
+    "mergeTargetUsers": "Bestaande gebruikers"
   },
   "rescan": {
     "button": {
@@ -1812,7 +1836,11 @@
     "updatedCount_other": "{{count}} add-ons bijgewerkt.",
     "alreadyUpToDate": "Alles is al up-to-date.",
     "updateTitle": "{{name}} bijwerken?",
-    "scriptUpdateWarning": "Deze update wijzigt het script van de add-on. Omdat de code is veranderd, is je goedkeuring opnieuw nodig voordat Grimoire het uitvoert."
+    "scriptUpdateWarning": "Deze update wijzigt het script van de add-on. Omdat de code is veranderd, is je goedkeuring opnieuw nodig voordat Grimoire het uitvoert.",
+    "categories": {
+      "metadata": "Metadata-scrapers",
+      "metadataDesc": "Add-ons die details over spelsystemen en boeken aanvullen uit externe bronnen."
+    }
   },
   "metadataFetch": {
     "title": "Metadata ophalen",
@@ -1878,6 +1906,7 @@
     "notJson": "That is not valid JSON.",
     "downloadsDisabled": "Downloading themes is turned off on this server. You can still paste a theme in.",
     "builtInLabel": "Built-in",
-    "bothModes": "Light & dark"
+    "bothModes": "Light & dark",
+    "themeTitle": "Thema"
   }
 }

@@ -155,6 +155,12 @@ class ScheduleUpsert(BaseModel):
     days: List[int] = []  # weekday indices (0=Mon … 6=Sun); empty for custom
     frequency: str = "weekly"  # weekly | biweekly | monthly | custom
     time_utc: Optional[str] = None  # "HH:MM" UTC
+    # IANA zone the weekdays in `days` are expressed in (e.g. "America/Los_Angeles").
+    # `days` has always meant a *local* weekday while `time_utc` is UTC; without a
+    # zone to reconcile them the calendar feed cannot tell whether the session time
+    # crosses midnight UTC and shifts the date. Optional: schedules saved before
+    # this field existed fall back to treating the pair as already UTC-aligned.
+    timezone: Optional[str] = None
     biweekly_reference: Optional[str] = None  # YYYY-MM-DD anchor for biweekly
     monthly_week: Optional[int] = None  # 1-4 or -1 (last) for monthly
     custom_dates: Optional[List[str]] = None  # ["YYYY-MM-DD", ...] for custom

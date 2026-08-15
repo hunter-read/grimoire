@@ -102,7 +102,11 @@ export default function AppearanceSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('appearance.title')}</h3>
+      {/* "Theme", not "Appearance" — the group heading above already says
+          Appearance, and this section is specifically the theme picker. */}
+      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
+        {t('appearance.themeTitle')}
+      </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('appearance.description')}
       </p>
@@ -151,7 +155,8 @@ export default function AppearanceSection() {
         </div>
       </fieldset>
 
-      <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
+      {/* A part of the Theme section, so it sits below its 15px heading. */}
+      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>
         {t('appearance.yourThemes')}
       </h4>
 

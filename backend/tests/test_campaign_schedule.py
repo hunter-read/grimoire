@@ -60,6 +60,37 @@ class TestSchedule:
         g = client.get(f"/api/campaigns/{cid}/schedule", headers=gm_headers)
         assert g.json()["definition"]["days"] == [5]
 
+    def test_timezone_is_stored_on_the_definition(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        r = client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [1],
+                "time_utc": "20:00",
+                "timezone": "America/Los_Angeles",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["definition"]["timezone"] == "America/Los_Angeles"
+
+    def test_invalid_timezone_is_rejected(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        r = client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [1],
+                "time_utc": "20:00",
+                "timezone": "Mars/Olympus_Mons",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 400
+
     def test_upsert_biweekly_monthly_custom_and_update(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         # biweekly fills a reference date

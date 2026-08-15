@@ -29,22 +29,11 @@ export default function EmailSection() {
     }
   }
 
+  // No heading of its own: this sits under the Profile group heading, and the
+  // field's own label names it. The saved tick moves next to the field label.
   return (
     <div>
-      <h3
-        style={{
-          fontSize: 18,
-          fontWeight: 600,
-          marginBottom: 6,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        {t('userSettings.email.title')}
-        {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
-      </h3>
-      <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 14, lineHeight: 1.6 }}>
         {t('userSettings.email.description')}
       </p>
       <form
@@ -60,9 +49,17 @@ export default function EmailSection() {
         <div style={{ flex: 1, minWidth: 220 }}>
           <label
             htmlFor="user-email"
-            style={{ display: 'block', fontSize: 13, color: 'var(--text-dim)', marginBottom: 5 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 13,
+              color: 'var(--text-dim)',
+              marginBottom: 5,
+            }}
           >
             {t('userSettings.email.label')}
+            {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />}
           </label>
           <input
             id="user-email"

@@ -126,6 +126,84 @@ class TestIcsWriter:
         assert "DTEND:20260314T223000Z" in lines
         assert "STATUS:CONFIRMED" in lines
 
+    def test_local_time_crossing_midnight_utc_shifts_the_date(self):
+        """A Tuesday 20:00 America/Los_Angeles game is 03:00 UTC on Wednesday.
+
+        Publishing it as 03:00 on Tuesday put every session a day early in
+        subscribers' calendars — the schedule read "Tuesday" but the feed
+        rendered Monday 8pm local.
+        """
+        import datetime
+
+        lines = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+            session_date="2026-08-18",  # a Tuesday
+            time_utc="20:00",
+            timezone="America/Los_Angeles",
+            summary="Session",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        assert "DTSTART:20260819T030000Z" in lines
+        assert "DTEND:20260819T070000Z" in lines
+
+    def test_utc_offset_follows_dst(self):
+        """The same wall-clock time resolves differently either side of a DST shift."""
+        import datetime
+
+        def start_for(date):
+            lines = _calendar.build_event(
+                uid="u@grimoire",
+                dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+                session_date=date,
+                time_utc="20:00",
+                timezone="America/Los_Angeles",
+                summary="S",
+                description="",
+                url="",
+                cancelled=False,
+            )
+            return next(x for x in lines if x.startswith("DTSTART:"))
+
+        # PDT (UTC-7) in August, PST (UTC-8) in December.
+        assert start_for("2026-08-18") == "DTSTART:20260819T030000Z"
+        assert start_for("2026-12-15") == "DTSTART:20261216T040000Z"
+
+    def test_missing_timezone_keeps_legacy_behaviour(self):
+        """Schedules saved before the zone was captured publish the pair as-is."""
+        import datetime
+
+        lines = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+            session_date="2026-08-18",
+            time_utc="20:00",
+            timezone=None,
+            summary="S",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        assert "DTSTART:20260818T200000Z" in lines
+
+    def test_unknown_timezone_falls_back_rather_than_erroring(self):
+        import datetime
+
+        lines = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+            session_date="2026-08-18",
+            time_utc="20:00",
+            timezone="Mars/Olympus_Mons",
+            summary="S",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        assert "DTSTART:20260818T200000Z" in lines
+
     def test_untimed_event_is_all_day_with_exclusive_end(self):
         import datetime
 
@@ -403,6 +481,28 @@ class TestAggregateFeed:
 
     def test_invalid_token_is_404(self, client):
         assert client.get("/api/campaigns/calendar/bogus/all.ics").status_code == 404
+
+    def test_head_is_allowed_on_both_feeds(self, client, gm_headers, scheduled_campaign):
+        """Google Calendar probes a subscription URL with HEAD before accepting it.
+
+        A 405 here makes it reject the feed and import nothing, with no error
+        surfaced to the user — so both feed routes must answer HEAD.
+        """
+        tok = token_of(client, gm_headers)
+        cid = scheduled_campaign["id"]
+
+        for url in (
+            f"/api/campaigns/calendar/{tok}/all.ics",
+            f"/api/campaigns/calendar/{tok}/{cid}.ics",
+        ):
+            r = client.head(url)
+            assert r.status_code == 200, f"{url} -> {r.status_code}"
+            assert r.headers["content-type"].startswith("text/calendar")
+            # HEAD carries the headers but no body, per RFC 9110.
+            assert r.text == ""
+
+    def test_head_on_invalid_token_is_404(self, client):
+        assert client.head("/api/campaigns/calendar/bogus/all.ics").status_code == 404
 
     def test_feed_is_empty_for_a_user_with_no_campaigns(self, client, admin_headers):
         tok = token_of(client, admin_headers)

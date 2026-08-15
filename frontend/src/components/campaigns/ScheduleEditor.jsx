@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuSave, LuTrash2, LuPlus, LuX } from 'react-icons/lu'
 import { campaigns } from '../../api'
-import { inputStyle, submitBtn, dangerBtn, addBtn } from './_scheduleShared'
+import { inputStyle, submitBtn, dangerBtn, addBtn, USER_TZ } from './_scheduleShared'
 import TimePicker from './TimePicker'
 import SegmentControl from './SegmentControl'
 
@@ -69,6 +69,9 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
         days,
         frequency,
         time_utc: timeUtc,
+        // The weekdays above are local; the server needs the zone they were
+        // picked in to place the session at the right UTC instant in the feed.
+        timezone: USER_TZ,
         biweekly_reference:
           frequency === 'biweekly' ? biweeklyRef || new Date().toISOString().slice(0, 10) : null,
         monthly_week: frequency === 'monthly' ? monthlyWeek : null,

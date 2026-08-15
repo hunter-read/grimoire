@@ -5,6 +5,9 @@ import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
  * Collapsible wrapper for a settings section: a clickable header (title +
  * optional description) that toggles the body. Open by default; the open/closed
  * state is remembered per-browser under `storageKey` when provided.
+ *
+ * The header carries the gold accent used across the settings tabs, so every
+ * tab built from these reads as the same surface.
  */
 export default function CollapsibleSection({
   title,
@@ -28,7 +31,7 @@ export default function CollapsibleSection({
   }
 
   return (
-    <div style={{ marginBottom: open ? 40 : 12 }}>
+    <div style={{ marginBottom: open ? 32 : 8 }}>
       <button
         type="button"
         onClick={toggle}
@@ -40,23 +43,24 @@ export default function CollapsibleSection({
           width: '100%',
           background: 'none',
           border: 'none',
-          padding: 0,
+          borderBottom: '1px solid var(--border)',
+          padding: '0 0 8px',
           cursor: 'pointer',
           textAlign: 'left',
-          color: 'var(--text)',
+          color: 'var(--gold)',
         }}
       >
         {open ? <LuChevronDown size={18} /> : <LuChevronRight size={18} />}
         <span style={{ fontSize: 18, fontWeight: 600 }}>{title}</span>
       </button>
       {open && (
-        <div style={{ marginTop: 6 }}>
+        <div style={{ marginTop: 16 }}>
           {description && (
             <p
               style={{
                 fontSize: 14,
                 color: 'var(--text-dim)',
-                marginBottom: 16,
+                marginBottom: 20,
                 lineHeight: 1.6,
               }}
             >

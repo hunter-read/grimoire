@@ -15,6 +15,7 @@ where one click sets it. See ``docs/api.md``.
 """
 
 import datetime
+import zoneinfo
 from typing import List, Optional
 
 # Fold long content lines per RFC 5545 §3.1: octet 76 max, continuations begin
@@ -73,6 +74,35 @@ def _utc_stamp(dt: datetime.datetime) -> str:
     return dt.strftime("%Y%m%dT%H%M%SZ")
 
 
+def _resolve_start(
+    day: datetime.date, hour: int, minute: int, tz_name: Optional[str]
+) -> datetime.datetime:
+    """Resolve a session's date + stored time to the naive UTC instant to publish.
+
+    ``days`` in a schedule definition has always meant a *local* weekday, so the
+    date here is local. When the schedule records the zone those weekdays were
+    chosen in, the time is a local wall clock and has to be converted — "Tuesday
+    20:00 America/Los_Angeles" is 03:00 UTC on *Wednesday*, and publishing it as
+    03:00 on Tuesday puts the session a day early in every subscriber's calendar.
+
+    Converting per-session rather than once at save time is what keeps the feed
+    right across a DST transition: each date resolves at its own UTC offset.
+
+    Schedules saved before the zone was captured have no way to recover it, so
+    the pair is published as-is — the prior behaviour, bug included, rather than
+    a guess that would silently move existing games.
+    """
+    if not tz_name:
+        return datetime.datetime(day.year, day.month, day.day, hour, minute)
+    try:
+        zone = zoneinfo.ZoneInfo(tz_name)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+        return datetime.datetime(day.year, day.month, day.day, hour, minute)
+    local = datetime.datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+    # Emit as a naive UTC datetime; _utc_stamp appends the trailing Z.
+    return local.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+
 def build_event(
     *,
     uid: str,
@@ -83,6 +113,7 @@ def build_event(
     description: str,
     url: str,
     cancelled: bool,
+    timezone: Optional[str] = None,
     sequence: int = 0,
 ) -> List[str]:
     """Build one VEVENT as a list of unfolded content lines."""
@@ -96,7 +127,7 @@ def build_event(
     day = datetime.date.fromisoformat(session_date)
     if time_utc:
         hour, minute = (int(p) for p in time_utc.split(":")[:2])
-        start = datetime.datetime(day.year, day.month, day.day, hour, minute)
+        start = _resolve_start(day, hour, minute, timezone)
         end = start + datetime.timedelta(hours=_DEFAULT_DURATION_HOURS)
         lines.append(f"DTSTART:{_utc_stamp(start)}")
         lines.append(f"DTEND:{_utc_stamp(end)}")

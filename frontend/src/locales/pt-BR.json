@@ -581,6 +581,16 @@
       "disable": "Desativar",
       "confirmRevoke": "Desativar o OPDS revogará imediatamente a URL do seu feed. Todos os aplicativos que a utilizam perderão o acesso. Continuar?",
       "confirmDisable": "Sim, desativar"
+    },
+    "groups": {
+      "profile": "Perfil",
+      "profileDesc": "Como você aparece para outras pessoas nos seus jogos.",
+      "appearance": "Aparência",
+      "appearanceDesc": "Idioma e aparência do Grimoire.",
+      "reading": "Leitura e biblioteca",
+      "readingDesc": "Comportamento do leitor, navegação na biblioteca e feeds.",
+      "security": "Segurança e conta",
+      "securityDesc": "Senha, sessões ativas e exclusão da conta."
     }
   },
   "appSettings": {
@@ -1581,7 +1591,21 @@
     "convert": "Converter",
     "converting": "Convertendo…",
     "convertFailed": "Falha ao converter o convidado.",
-    "usernamePlaceholder": "Usuário"
+    "usernamePlaceholder": "Usuário",
+    "select": "Selecionar",
+    "selectGuest": "Selecionar {{name}}",
+    "merge": "Mesclar",
+    "merging": "Mesclando…",
+    "mergeTarget": "Conta a manter",
+    "mergeTargetPlaceholder": "Escolha a conta a manter…",
+    "mergeFailed": "Falha ao mesclar as contas de convidado.",
+    "delete": "Excluir convidado",
+    "confirmDelete": "Excluir esta conta de convidado? As contribuições dela serão removidas.",
+    "deleteFailed": "Falha ao excluir o convidado.",
+    "mergeInto_one": "Mesclar esta conta em:",
+    "mergeInto_other": "Mesclar {{count}} contas selecionadas em:",
+    "mergeTargetGuests": "Contas de convidado",
+    "mergeTargetUsers": "Usuários existentes"
   },
   "rescan": {
     "button": {
@@ -1812,7 +1836,11 @@
     "updatedCount_other": "{{count}} extras atualizados.",
     "alreadyUpToDate": "Está tudo atualizado.",
     "updateTitle": "Atualizar {{name}}?",
-    "scriptUpdateWarning": "Esta atualização altera o script do extra. Como o código mudou, precisa da sua aprovação novamente antes de o Grimoire o executar."
+    "scriptUpdateWarning": "Esta atualização altera o script do extra. Como o código mudou, precisa da sua aprovação novamente antes de o Grimoire o executar.",
+    "categories": {
+      "metadata": "Extratores de metadados",
+      "metadataDesc": "Complementos que preenchem detalhes de sistemas de jogo e livros a partir de fontes externas."
+    }
   },
   "metadataFetch": {
     "title": "Obter metadados",
@@ -1878,6 +1906,7 @@
     "notJson": "That is not valid JSON.",
     "downloadsDisabled": "Downloading themes is turned off on this server. You can still paste a theme in.",
     "builtInLabel": "Built-in",
-    "bothModes": "Light & dark"
+    "bothModes": "Light & dark",
+    "themeTitle": "Tema"
   }
 }

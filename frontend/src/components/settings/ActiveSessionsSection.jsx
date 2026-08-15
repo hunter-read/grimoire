@@ -100,7 +100,7 @@ export default function ActiveSessionsSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
+      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
         {t('userSettings.sessions.title')}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
