@@ -7,9 +7,9 @@ from ...config import get_db
 from ...models import User, Campaign, CampaignMember
 from ...auth import require_admin, CurrentUser, hash_password
 from ...sessions import delete_user_sessions, revoke_user_sessions
-from ..campaigns._helpers import purge_user_data
+from ..campaigns._helpers import purge_user_data, reassign_user_data
 from ..settings._helpers import _get_raw, password_auth_effective
-from ._schemas import UserCreate, UserUpdate, GuestConvert
+from ._schemas import UserCreate, UserUpdate, GuestConvert, GuestMerge
 
 router = APIRouter()
 
@@ -225,6 +225,80 @@ def convert_guest(
         "campaign_count": db.query(Campaign).filter_by(owner_id=user.id).count(),
         "oidc_linked": bool(user.oidc_subject),
         "created_at": user.created_at.isoformat(),
+    }
+
+
+def merge_guests(
+    user_id: str,
+    data: GuestMerge,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Fold one or more guest accounts into the account at ``user_id``.
+
+    The same person invited to several campaigns gets a separate guest account
+    per campaign, with no way to join them up. This moves every source account's
+    memberships, notes, and characters onto the target and deletes the emptied
+    source accounts, leaving the person with one login across all their
+    campaigns.
+
+    The target may be a guest or an already-converted permanent user, so a guest
+    can be merged into the real account the same person already has. Sources
+    must be guests — merging away a permanent account would silently destroy a
+    login someone is still using.
+    """
+    target = db.query(User).filter_by(id=user_id).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    if user_id in data.source_ids:
+        raise HTTPException(400, "Cannot merge an account into itself")
+
+    sources = db.query(User).filter(User.id.in_(data.source_ids)).all()
+    found = {u.id for u in sources}
+    missing = [s for s in data.source_ids if s not in found]
+    if missing:
+        raise HTTPException(404, "Source account not found")
+    non_guest = [u for u in sources if not u.is_guest]
+    if non_guest:
+        raise HTTPException(400, "Only guest accounts can be merged into another account")
+
+    moved = 0
+    merged_membership_ids: list[str] = []
+    for source in sources:
+        # Remember which memberships came across so their invite codes can be
+        # retired below — the rows themselves move to the target.
+        merged_membership_ids += [
+            m.id for m in db.query(CampaignMember).filter_by(user_id=source.id).all()
+        ]
+        moved += reassign_user_data(db, source.id, target.id)
+        # The source's own sessions are minted from its guest code; once the
+        # account is gone those tokens must not keep working.
+        delete_user_sessions(db, source.id)
+        db.delete(source)
+
+    # A merged-away guest's invite code must stop working. The membership row it
+    # was attached to now belongs to the target, so leaving the code in place
+    # would turn a retired invite into a second working login for the surviving
+    # account. Access to the campaign comes from the membership row itself, not
+    # the code, so the person still reaches every campaign they were in — they
+    # just use the one code (or password) their surviving account already has.
+    if merged_membership_ids:
+        for member in (
+            db.query(CampaignMember).filter(CampaignMember.id.in_(merged_membership_ids)).all()
+        ):
+            member.guest_code = None
+            # Mirrors convert_guest: a membership under a permanent user is not
+            # a guest membership.
+            member.is_guest = bool(target.is_guest)
+
+    db.commit()
+    db.refresh(target)
+    return {
+        "id": target.id,
+        "display_name": target.display_name,
+        "merged_ids": data.source_ids,
+        "memberships_moved": moved,
     }
 
 

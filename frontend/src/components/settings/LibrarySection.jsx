@@ -77,7 +77,7 @@ export default function LibrarySection() {
     <div>
       <h3
         style={{
-          fontSize: 18,
+          fontSize: 15,
           fontWeight: 600,
           marginBottom: 6,
           display: 'flex',

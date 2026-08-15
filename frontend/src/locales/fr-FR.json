@@ -581,6 +581,16 @@
       "disable": "Désactiver",
       "confirmRevoke": "La désactivation du flux OPDS révoquera immédiatement votre URL. Toutes les applications qui l'utilisent perdront l'accès. Continuer ?",
       "confirmDisable": "Oui, désactiver"
+    },
+    "groups": {
+      "profile": "Profil",
+      "profileDesc": "La façon dont les autres vous voient dans vos parties.",
+      "appearance": "Apparence",
+      "appearanceDesc": "Langue et apparence de Grimoire.",
+      "reading": "Lecture et bibliothèque",
+      "readingDesc": "Comportement du lecteur, navigation dans la bibliothèque et flux.",
+      "security": "Sécurité et compte",
+      "securityDesc": "Mot de passe, sessions actives et suppression du compte."
     }
   },
   "appSettings": {
@@ -1581,7 +1591,21 @@
     "convert": "Convertir",
     "converting": "Conversion…",
     "convertFailed": "Échec de la conversion de l’invité.",
-    "usernamePlaceholder": "Nom d’utilisateur"
+    "usernamePlaceholder": "Nom d’utilisateur",
+    "select": "Sélectionner",
+    "selectGuest": "Sélectionner {{name}}",
+    "merge": "Fusionner",
+    "merging": "Fusion en cours…",
+    "mergeTarget": "Compte à conserver",
+    "mergeTargetPlaceholder": "Choisir le compte à conserver…",
+    "mergeFailed": "Échec de la fusion des comptes invités.",
+    "delete": "Supprimer l'invité",
+    "confirmDelete": "Supprimer ce compte invité ? Ses contributions seront supprimées.",
+    "deleteFailed": "Échec de la suppression de l'invité.",
+    "mergeInto_one": "Fusionner ce compte dans :",
+    "mergeInto_other": "Fusionner {{count}} comptes sélectionnés dans :",
+    "mergeTargetGuests": "Comptes invités",
+    "mergeTargetUsers": "Utilisateurs existants"
   },
   "rescan": {
     "button": {
@@ -1812,7 +1836,11 @@
     "updatedCount_other": "{{count}} modules mis à jour.",
     "alreadyUpToDate": "Tout est déjà à jour.",
     "updateTitle": "Mettre à jour {{name}} ?",
-    "scriptUpdateWarning": "Cette mise à jour modifie le script du module. Le code ayant changé, votre approbation est de nouveau requise avant que Grimoire ne l'exécute."
+    "scriptUpdateWarning": "Cette mise à jour modifie le script du module. Le code ayant changé, votre approbation est de nouveau requise avant que Grimoire ne l'exécute.",
+    "categories": {
+      "metadata": "Extracteurs de métadonnées",
+      "metadataDesc": "Modules qui complètent les détails des systèmes de jeu et des livres depuis des sources externes."
+    }
   },
   "metadataFetch": {
     "title": "Récupérer les métadonnées",
@@ -1878,6 +1906,7 @@
     "notJson": "That is not valid JSON.",
     "downloadsDisabled": "Downloading themes is turned off on this server. You can still paste a theme in.",
     "builtInLabel": "Built-in",
-    "bothModes": "Light & dark"
+    "bothModes": "Light & dark",
+    "themeTitle": "Thème"
   }
 }

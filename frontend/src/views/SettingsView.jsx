@@ -43,41 +43,45 @@ export default function SettingsView({ user, onLogout }) {
     >
       <h2 style={{ fontSize: 28, marginBottom: 28 }}>{t('settings.title')}</h2>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 4,
-          borderBottom: '1px solid var(--border)',
-          marginBottom: 28,
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {tabs.map((tabItem) => (
-          <NavLink
-            key={tabItem.key}
-            to={`/settings/${tabItem.key}`}
-            style={({ isActive }) => ({
-              padding: '8px 20px',
-              background: 'none',
-              border: 'none',
-              borderBottom: isActive ? '2px solid var(--gold)' : '2px solid transparent',
-              color: isActive ? 'var(--gold)' : 'var(--text-dim)',
-              fontSize: 14,
-              fontWeight: isActive ? 600 : 400,
-              marginBottom: -1,
-              cursor: 'pointer',
-              transition: 'color 0.15s',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            })}
-          >
-            {tabItem.label}
-          </NavLink>
-        ))}
-      </div>
+      {/* A single tab is not a choice — players and GMs only ever see Account,
+          so the bar would just be a label above the page title. */}
+      {tabs.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 4,
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 28,
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {tabs.map((tabItem) => (
+            <NavLink
+              key={tabItem.key}
+              to={`/settings/${tabItem.key}`}
+              style={({ isActive }) => ({
+                padding: '8px 20px',
+                background: 'none',
+                border: 'none',
+                borderBottom: isActive ? '2px solid var(--gold)' : '2px solid transparent',
+                color: isActive ? 'var(--gold)' : 'var(--text-dim)',
+                fontSize: 14,
+                fontWeight: isActive ? 600 : 400,
+                marginBottom: -1,
+                cursor: 'pointer',
+                transition: 'color 0.15s',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              })}
+            >
+              {tabItem.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
 
       {tab === 'account' && <UserSettingsTab user={user} onLogout={onLogout} />}
       {tab === 'users' && isAdmin && <UsersTab />}

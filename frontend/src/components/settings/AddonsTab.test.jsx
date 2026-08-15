@@ -14,9 +14,13 @@ describe('AddonsTab', () => {
     expect(screen.getByText('addons-section')).toBeInTheDocument()
   })
 
-  it('explains what add-ons are', () => {
+  // Add-ons are filed by what they do, so the heading names the category
+  // ("Metadata scrapers") rather than repeating "Community add-ons" under the
+  // Add-ons tab. Future categories sit alongside this one.
+  it('groups add-ons under their category heading', () => {
     render(<AddonsTab />)
-    expect(screen.getByText('addons.title')).toBeInTheDocument()
-    expect(screen.getByText('addons.description')).toBeInTheDocument()
+    expect(screen.getByText('addons.categories.metadata')).toBeInTheDocument()
+    expect(screen.getByText('addons.categories.metadataDesc')).toBeInTheDocument()
+    expect(screen.queryByText('addons.title')).not.toBeInTheDocument()
   })
 })

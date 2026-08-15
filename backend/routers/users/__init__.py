@@ -1,7 +1,15 @@
 """Users package — registers all user routes on a single router."""
 from fastapi import APIRouter
 
-from .core import list_users, list_guests, create_user, convert_guest, update_user, delete_user
+from .core import (
+    list_users,
+    list_guests,
+    create_user,
+    convert_guest,
+    merge_guests,
+    update_user,
+    delete_user,
+)
 from .me import (
     update_own_preferences,
     change_own_password,
@@ -11,6 +19,7 @@ from .me import (
     revoke_opds_token,
 )
 from ._schemas import (
+    GuestMergeResponse,
     GuestOut,
     OpdsStatusResponse,
     PasswordChangeResponse,
@@ -114,6 +123,19 @@ router.add_api_route(
         "auth is enabled."
     ),
     response_model=UserOut,
+)
+router.add_api_route(
+    "/{user_id}/merge",
+    merge_guests,
+    methods=["POST"],
+    summary="Merge guest accounts into one account",
+    description=(
+        "Folds one or more guest accounts into the target account, moving their "
+        "campaign memberships, notes, and characters across and deleting the "
+        "emptied sources. Sources must be guests; the target may be a guest or a "
+        "permanent user."
+    ),
+    response_model=GuestMergeResponse,
 )
 router.add_api_route(
     "/{user_id}",

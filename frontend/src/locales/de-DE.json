@@ -581,6 +581,16 @@
       "disable": "Deaktivieren",
       "confirmRevoke": "Das Deaktivieren von OPDS widerruft sofort deine Feed-URL. Apps, die sie verwenden, verlieren den Zugriff. Fortfahren?",
       "confirmDisable": "Ja, deaktivieren"
+    },
+    "groups": {
+      "profile": "Profil",
+      "profileDesc": "Wie du für andere in deinen Spielen erscheinst.",
+      "appearance": "Darstellung",
+      "appearanceDesc": "Sprache und Erscheinungsbild von Grimoire.",
+      "reading": "Lesen & Bibliothek",
+      "readingDesc": "Leseverhalten, Bibliotheksansicht und Feeds.",
+      "security": "Sicherheit & Konto",
+      "securityDesc": "Passwort, aktive Sitzungen und Kontolöschung."
     }
   },
   "appSettings": {
@@ -1581,7 +1591,21 @@
     "convert": "Umwandeln",
     "converting": "Wird umgewandelt…",
     "convertFailed": "Gast konnte nicht umgewandelt werden.",
-    "usernamePlaceholder": "Benutzername"
+    "usernamePlaceholder": "Benutzername",
+    "select": "Auswählen",
+    "selectGuest": "{{name}} auswählen",
+    "merge": "Zusammenführen",
+    "merging": "Wird zusammengeführt…",
+    "mergeTarget": "Zu behaltendes Konto",
+    "mergeTargetPlaceholder": "Zu behaltendes Konto wählen…",
+    "mergeFailed": "Gastkonten konnten nicht zusammengeführt werden.",
+    "delete": "Gast löschen",
+    "confirmDelete": "Dieses Gastkonto löschen? Seine Beiträge werden entfernt.",
+    "deleteFailed": "Gast konnte nicht gelöscht werden.",
+    "mergeInto_one": "Dieses Konto zusammenführen in:",
+    "mergeInto_other": "{{count}} ausgewählte Konten zusammenführen in:",
+    "mergeTargetGuests": "Gastkonten",
+    "mergeTargetUsers": "Vorhandene Benutzer"
   },
   "rescan": {
     "button": {
@@ -1812,7 +1836,11 @@
     "updatedCount_other": "{{count}} Add-ons aktualisiert.",
     "alreadyUpToDate": "Alles ist bereits aktuell.",
     "updateTitle": "{{name}} aktualisieren?",
-    "scriptUpdateWarning": "Diese Aktualisierung ändert das Skript des Add-ons. Da sich der Code geändert hat, ist deine Zustimmung erneut erforderlich, bevor Grimoire es ausführt."
+    "scriptUpdateWarning": "Diese Aktualisierung ändert das Skript des Add-ons. Da sich der Code geändert hat, ist deine Zustimmung erneut erforderlich, bevor Grimoire es ausführt.",
+    "categories": {
+      "metadata": "Metadaten-Scraper",
+      "metadataDesc": "Add-ons, die Details zu Spielsystemen und Büchern aus externen Quellen ergänzen."
+    }
   },
   "metadataFetch": {
     "title": "Metadaten abrufen",
@@ -1878,6 +1906,7 @@
     "notJson": "That is not valid JSON.",
     "downloadsDisabled": "Downloading themes is turned off on this server. You can still paste a theme in.",
     "builtInLabel": "Built-in",
-    "bothModes": "Light & dark"
+    "bothModes": "Light & dark",
+    "themeTitle": "Design"
   }
 }

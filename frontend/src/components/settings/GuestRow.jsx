@@ -1,17 +1,25 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuUserCheck, LuX } from 'react-icons/lu'
+import { LuUserCheck, LuTrash2, LuX } from 'react-icons/lu'
 import api from '../../api'
 
-// A single guest row with an inline convert-to-permanent form. Password is only
-// asked for when password auth is enabled on the server.
+// A single guest row with an inline convert-to-permanent form, a delete action,
+// and a checkbox for selecting it as part of a merge. Password is only asked for
+// when password auth is enabled on the server.
+//
+// Delete works regardless of whether the guest still has a campaign or an
+// inviter — an orphaned guest (its campaign was deleted out from under it) is
+// exactly the kind of row an admin needs to be able to clear out.
 export default function GuestRow({
   guest,
   passwordAuthEnabled,
   converting,
+  selected,
+  onToggleSelected,
   onStartConvert,
   onCancelConvert,
   onConverted,
+  onDeleted,
   onError,
 }) {
   const { t } = useTranslation()
@@ -19,6 +27,7 @@ export default function GuestRow({
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('player')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
@@ -36,9 +45,31 @@ export default function GuestRow({
     }
   }
 
+  const handleDelete = async () => {
+    if (!window.confirm(t('guests.confirmDelete'))) return
+    onError('')
+    setDeleting(true)
+    try {
+      await api.delete(`/users/${guest.id}`)
+      onDeleted()
+    } catch (err) {
+      onError(err?.body?.detail || err.message || t('guests.deleteFailed'))
+      setDeleting(false)
+    }
+  }
+
   return (
     <>
       <tr style={{ borderTop: '1px solid var(--border)' }}>
+        <td style={{ ...cellStyle, width: 36 }}>
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={onToggleSelected}
+            aria-label={t('guests.selectGuest', { name: guest.display_name || guest.id })}
+            style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--gold)' }}
+          />
+        </td>
         <td style={cellStyle}>{guest.display_name || '—'}</td>
         <td style={cellStyle}>{guest.campaign_name || <span style={dimStyle}>—</span>}</td>
         <td style={cellStyle}>{guest.invited_by || <span style={dimStyle}>—</span>}</td>
@@ -48,18 +79,41 @@ export default function GuestRow({
               <LuX size={14} />
             </button>
           ) : (
-            <button
-              onClick={onStartConvert}
-              style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            <div
+              style={{
+                display: 'inline-flex',
+                gap: 6,
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}
             >
-              <LuUserCheck size={14} /> {t('guests.convert')}
-            </button>
+              <button
+                onClick={onStartConvert}
+                style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <LuUserCheck size={14} /> {t('guests.convert')}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                aria-label={t('guests.delete')}
+                title={t('guests.delete')}
+                style={{
+                  ...iconBtnStyle,
+                  color: 'var(--danger)',
+                  opacity: deleting ? 0.5 : 1,
+                  cursor: deleting ? 'default' : 'pointer',
+                }}
+              >
+                <LuTrash2 size={14} />
+              </button>
+            </div>
           )}
         </td>
       </tr>
       {converting && (
         <tr style={{ background: 'var(--bg-deep)' }}>
-          <td colSpan={4} style={{ padding: '12px 14px' }}>
+          <td colSpan={5} style={{ padding: '12px 14px' }}>
             <form
               onSubmit={submit}
               style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}

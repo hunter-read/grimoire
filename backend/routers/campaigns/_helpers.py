@@ -34,6 +34,58 @@ _USER_ATTRIBUTION_COLUMNS = (
 )
 
 
+# Per-user rows that are unique within a scope, so moving them between users can
+# collide with a row the target already owns. Each entry is the table and the
+# column that scopes the uniqueness alongside user_id.
+_USER_SCOPED_UNIQUE = (
+    ("campaign_members", "campaign_id"),
+    ("wiki_page_shares", "page_id"),
+    ("campaign_resource_shares", "resource_id"),
+)
+
+
+def reassign_user_data(db, source_id: str, target_id: str) -> int:
+    """Move every row owned by ``source_id`` over to ``target_id``.
+
+    Used when merging duplicate accounts: the source's memberships, notes, and
+    personal rows survive under the target instead of being deleted. Rows that
+    would violate a per-scope uniqueness constraint (the target is already in
+    that campaign, already has that share) are dropped rather than moved — the
+    target's own row wins.
+
+    Returns the number of campaign memberships moved. Does not commit.
+    """
+    for table, scope in _USER_SCOPED_UNIQUE:
+        # Drop the source rows that would collide with an existing target row.
+        db.execute(
+            text(
+                f"DELETE FROM {table} WHERE user_id = :src AND {scope} IN "
+                f"(SELECT {scope} FROM {table} WHERE user_id = :tgt)"
+            ),
+            {"src": source_id, "tgt": target_id},
+        )
+
+    moved = db.execute(
+        text("SELECT COUNT(*) FROM campaign_members WHERE user_id = :src"),
+        {"src": source_id},
+    ).scalar_one()
+
+    for table in _USER_SCOPED_TABLES:
+        db.execute(
+            text(f"UPDATE {table} SET user_id = :tgt WHERE user_id = :src"),
+            {"src": source_id, "tgt": target_id},
+        )
+    for table, column in _USER_ATTRIBUTION_COLUMNS:
+        db.execute(
+            text(f"UPDATE {table} SET {column} = :tgt WHERE {column} = :src"),
+            {"src": source_id, "tgt": target_id},
+        )
+    # Campaigns the source owns move too, so a guest promoted mid-merge keeps them.
+    for campaign in db.query(Campaign).filter_by(owner_id=source_id).all():
+        campaign.owner_id = target_id
+    return int(moved)
+
+
 def purge_user_data(db, user_id: str) -> None:
     """Remove everything that would dangle if ``user_id`` were deleted.
 

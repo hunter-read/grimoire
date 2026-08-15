@@ -1,6 +1,7 @@
 """Schedule and availability endpoint handlers for campaigns."""
 
 import datetime
+import zoneinfo
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -55,10 +56,17 @@ def upsert_schedule(
     if data.frequency != "custom" and any(d < 0 or d > 6 for d in data.days):
         raise HTTPException(400, "days must be weekday indices 0-6")
 
+    if data.timezone is not None:
+        try:
+            zoneinfo.ZoneInfo(data.timezone)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+            raise HTTPException(400, "timezone must be a valid IANA zone name")
+
     definition: dict = {
         "days": data.days,
         "frequency": data.frequency,
         "time_utc": data.time_utc,
+        "timezone": data.timezone,
     }
     if data.frequency == "biweekly":
         definition["biweekly_reference"] = (

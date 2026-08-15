@@ -871,6 +871,8 @@ Guests let you share a single campaign with people who don't have full accounts 
 - **Manage codes** - regenerate a guest's code (invalidating the old one) or remove the guest entirely (which deletes their guest account and contributions).
 - **Guests log in** from the login screen via **Have an invite code?**, which works even on OIDC-only servers where password login is disabled. In the app a guest sees the nickname their GM gave them and a **GUEST** role.
 - **Admin overview** - **Settings → Users** lists every guest account (grouped separately from full users) with its nickname, the campaign it's attached to, and who invited it. From there an admin can **convert a guest to a permanent user**: give it a username (and a password when password auth is enabled) and it keeps its campaign membership and character.
+- **Merge duplicate guests** - someone invited to several campaigns gets a separate guest account for each, with a separate code. Tick the accounts that belong to the same person, choose which one to keep, and **Merge** folds the rest into it: every campaign membership, session note, and character moves across, and the person ends up with one login covering all their campaigns. The merged-away codes stop working; the surviving account's code (or password) is the one they use. The **Account to keep** picker lists both the selected guest accounts and every existing user, so a guest can be folded into the real account that person already signs in with - ticking a single guest is enough to do that.
+- **Delete a guest** - remove any guest account outright from the same list, including one left orphaned by its campaign being deleted (it shows with no campaign and no inviter).
 
 ### Notes wiki
 
@@ -929,6 +931,8 @@ The subscription link is **personal to you**. It carries its own revocable token
 > **Accepting or declining in your calendar app won't reach Grimoire.** Subscribed calendars are read-only by design - the calendar standard gives them no way to send anything back - so RSVP buttons on these events either don't appear or do nothing. Every event links back to the campaign's schedule tab, where one click sets your availability.
 
 Subscription links require the `BASE_URL` environment variable to point at the address your server is reachable on, since Grimoire has to hand the calendar app a URL it can actually fetch. Until that's set, the buttons explain what's missing and the one-off **Download .ics** still works.
+
+Sessions land in your calendar at the time you actually picked, in the timezone you picked it in - a Tuesday 8pm game shows up Tuesday at 8pm, and stays correct when daylight saving shifts. Schedules saved before this was fixed kept a timezone-less time and could appear a day off; **re-saving the schedule** (open the schedule editor and save) records the timezone and corrects the feed.
 
 ---
 

@@ -10,7 +10,10 @@ be fixed by a community PR, not a Grimoire release.
 
 ## Using them
 
-**Settings → Add-ons** (admin only).
+**Settings → Add-ons** (admin only). Add-ons are grouped by what they do, under
+collapsible category headings — everything today is a **Metadata scraper**, and
+future kinds (VTT integrations, character sheet builders) get their own heading
+alongside it.
 
 1. **Refresh** fetches the index from the configured URL (defaults to the
    community repo).
