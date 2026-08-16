@@ -1,10 +1,16 @@
 """Pydantic schemas for the systems API."""
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
+from .._json_list_coercion import (
+    PublisherRef,
+    coerce_link_list,
+    coerce_publisher_list,
+    coerce_str_list,
+)
 
 
 class PublisherEntry(BaseModel):
@@ -132,12 +138,12 @@ class BookOut(BaseModel):
     file_size: Optional[int] = None
     mime_type: Optional[str] = None
     # The serializer coalesces every list field to `[]`.
-    authors: list[Any]
-    artists: list[Any]
-    genres: list[Any]
+    authors: list[str]
+    artists: list[str]
+    genres: list[str]
     publisher: Optional[str] = None
     publisher_url: Optional[str] = None
-    urls: list[Any]
+    urls: list[LinkEntry]
     # Coalesced with `or ""` by the serializer.
     isbn: str
     version: str
@@ -158,6 +164,13 @@ class BookOut(BaseModel):
     is_explicit: bool
     is_missing: bool
 
+    # These columns are free-form JSON; normalize legacy shapes rather than
+    # failing the response. See `_json_list_coercion`.
+    _coerce_names = field_validator("authors", "artists", "genres", mode="before")(
+        coerce_str_list
+    )
+    _coerce_urls = field_validator("urls", mode="before")(coerce_link_list)
+
 
 class SystemSummary(BaseModel):
     """A game system, as built by `_serializers.serialize_system_summary`."""
@@ -167,14 +180,16 @@ class SystemSummary(BaseModel):
     name: str
     slug: str
     description: Optional[str] = None
-    publishers: list[Any]
+    # `PublisherRef`, not the stricter request-side `PublisherEntry`: a stored
+    # row may predate the current shape, and a response model must not reject it.
+    publishers: list[PublisherRef]
     character_builder_url: Optional[str] = None
-    character_builder_urls: list[Any]
-    urls: list[Any]
+    character_builder_urls: list[LinkEntry]
+    urls: list[LinkEntry]
     tags: list[str]
     genre: Optional[str] = None
-    genres: list[Any]
-    dice_materials: list[Any]
+    genres: list[str]
+    dice_materials: list[str]
     # Coalesced with `or ""` by the serializer.
     system_family: str
     parent_system: str
@@ -196,6 +211,17 @@ class SystemSummary(BaseModel):
     parent_is_one_page: bool
     name_is_custom: bool
     child_count: int
+
+    # As on `BookOut` — free-form JSON columns, normalized on the way out.
+    _coerce_names = field_validator("genres", "dice_materials", mode="before")(
+        coerce_str_list
+    )
+    _coerce_urls = field_validator("urls", "character_builder_urls", mode="before")(
+        coerce_link_list
+    )
+    _coerce_publishers = field_validator("publishers", mode="before")(
+        coerce_publisher_list
+    )
 
 
 class SystemDetail(SystemSummary):

@@ -1,7 +1,9 @@
 """Pydantic schemas for the favorites API."""
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .._json_list_coercion import PublisherRef, coerce_publisher_list
 
 
 class FavoriteIn(BaseModel):
@@ -72,14 +74,19 @@ class FavoriteSystemItem(BaseModel):
     name: str
     # Free-form JSON on the model, and in practice a list of
     # ``{"name": ..., "url": ...}`` objects (which is what the UI renders — see
-    # `SystemFavorite.jsx` reading `p.name`). Typed `list[Any]` to match
-    # `SystemSummary.publishers` rather than `list[str]`, which rejected every
-    # real row and made the whole favorites response 500.
-    publishers: list[Any]
+    # `SystemFavorite.jsx` reading `p.name`). Declaring the element type keeps
+    # generated clients usable (issue #356); the coercion below folds a bare
+    # string into ``{"name": ...}`` so an off-shape legacy row does not 500 the
+    # whole favorites response, as a plain `list[str]` once did.
+    publishers: list[PublisherRef]
     # Null for container folders (issues #261, #262), which own no books.
     cover_book_id: Optional[str] = None
     has_cover: bool
     container_kind: str
+
+    _coerce_publishers = field_validator("publishers", mode="before")(
+        coerce_publisher_list
+    )
 
 
 class FavoriteTagItem(BaseModel):

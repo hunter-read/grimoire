@@ -1,9 +1,10 @@
 """Pydantic schemas for the books API."""
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
 from .._bulk_schemas import bulk_update_model
+from .._json_list_coercion import coerce_link_list, coerce_str_list
 
 
 class LinkEntry(BaseModel):
@@ -143,12 +144,12 @@ class BookDetail(BaseModel):
     page_count: Optional[int] = None
     file_size: Optional[int] = None
     # The handler coalesces every list field to `[]`.
-    authors: list[Any]
-    artists: list[Any]
-    genres: list[Any]
+    authors: list[str]
+    artists: list[str]
+    genres: list[str]
     publisher: Optional[str] = None
     publisher_url: Optional[str] = None
-    urls: list[Any]
+    urls: list[LinkEntry]
     # Coalesced with `or ""` by the handler.
     isbn: str
     version: str
@@ -173,6 +174,13 @@ class BookDetail(BaseModel):
     # a year). Null until the scanner has hashed the book.
     content_token: Optional[str] = None
     game_system: Optional[BookSystemRef] = None
+
+    # These columns are free-form JSON; normalize legacy shapes rather than
+    # failing the response. See `_json_list_coercion`.
+    _coerce_names = field_validator("authors", "artists", "genres", mode="before")(
+        coerce_str_list
+    )
+    _coerce_urls = field_validator("urls", mode="before")(coerce_link_list)
 
 
 class StatusResponse(BaseModel):

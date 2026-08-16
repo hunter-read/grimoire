@@ -1,7 +1,9 @@
 """Pydantic schemas for the tags API (issue #235)."""
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .._json_list_coercion import PublisherRef, coerce_publisher_list
 
 
 class TagDisplayUpdate(BaseModel):
@@ -92,9 +94,13 @@ class TaggedSystemItem(BaseModel):
     name: str
     # Free-form JSON holding {"name", "url"} objects, not strings — same column
     # and same reasoning as `FavoriteSystemItem.publishers`.
-    publishers: list[Any]
+    publishers: list[PublisherRef]
     # Null for container folders and for systems with no cover-worthy book.
     cover_book_id: Optional[str] = None
+
+    _coerce_publishers = field_validator("publishers", mode="before")(
+        coerce_publisher_list
+    )
 
 
 TaggedItem = Annotated[
