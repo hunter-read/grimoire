@@ -338,14 +338,14 @@ export const tags = {
   remove: (internal) => api.delete(`/tags/${encodeURIComponent(internal)}`),
 }
 
-export const settings = {
-  get: () => api.get('/settings'),
-  getUi: () => api.get('/settings/ui'),
-  patch: (data) => api.patch('/settings', data),
-  generateApiKey: () => api.post('/settings/api-key/generate'),
-  revokeApiKey: () => api.delete('/settings/api-key'),
-}
-
+/**
+ * Library file management (issue #302) — admin only.
+ *
+ * Every `path` here is relative to the library root and forward-slashed; the
+ * backend rejects anything that escapes it. Paths are sent in the JSON body
+ * rather than the URL so that names containing `#`, `?`, or `%` survive the
+ * round trip intact.
+ */
 // The collection path each bulk-editable resource type lives under. Keyed by the
 // `type` the bulk UI already uses, so callers pass the same string throughout.
 const BULK_PATHS = {
@@ -354,6 +354,38 @@ const BULK_PATHS = {
   map: '/maps',
   token: '/tokens',
   audio: '/audio',
+}
+
+export const files = {
+  browse: (path = '') => api.get(`/files/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  // `onConflict` is 'skip' (report the collision, leave the file) or 'rename'
+  // (land it under a suffixed name). Neither ever overwrites.
+  move: (sources, destination, onConflict = 'skip') =>
+    api.post('/files/move', { sources, destination, on_conflict: onConflict }),
+  rename: (path, newName) => api.post('/files/rename', { path, new_name: newName }),
+  createFolder: (parent, name, { containerKind = '', nsfw = false } = {}) =>
+    api.post('/files/folder', { parent, name, container_kind: containerKind, nsfw }),
+  setMarkers: (path, { containerKind, nsfw } = {}) =>
+    api.put('/files/folder/markers', {
+      path,
+      ...(containerKind !== undefined ? { container_kind: containerKind } : {}),
+      ...(nsfw !== undefined ? { nsfw } : {}),
+    }),
+  deleteFolder: (path) => api.delete('/files/folder', { path }),
+  // Create the standard category folders inside a system folder.
+  scaffold: (path) => api.post('/files/folder/scaffold', { path }),
+  // Fetch the full record behind a listing row, so the shared metadata editor
+  // has the same object the item pages give it. The listing itself carries only
+  // what a row needs to render.
+  record: (collection, id) => api.get(`${BULK_PATHS[collection]}/${id}`),
+}
+
+export const settings = {
+  get: () => api.get('/settings'),
+  getUi: () => api.get('/settings/ui'),
+  patch: (data) => api.patch('/settings', data),
+  generateApiKey: () => api.post('/settings/api-key/generate'),
+  revokeApiKey: () => api.delete('/settings/api-key'),
 }
 
 // Folder-tag collections that support batched writes (media folder tagging).
@@ -407,10 +439,15 @@ const api = {
       body: data ? JSON.stringify(data) : undefined,
     })).then(handleResponse),
 
-  delete: (url) =>
-    authedFetch(`/api${url}`, () => ({ method: 'DELETE', headers: authHeaders() })).then(
-      handleResponse
-    ),
+  // `data` is optional — most DELETEs identify their target in the URL, but the
+  // file-management endpoints send a library path in the body so names
+  // containing URL metacharacters survive intact.
+  delete: (url, data) =>
+    authedFetch(`/api${url}`, () => ({
+      method: 'DELETE',
+      headers: authHeaders(!!data),
+      body: data ? JSON.stringify(data) : undefined,
+    })).then(handleResponse),
 
   // Fetch a file response and trigger a browser download. The server's
   // Content-Disposition filename wins; `fallback` is used only if it's absent.

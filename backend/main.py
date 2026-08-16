@@ -35,6 +35,7 @@ from .routers import (
     downloads as downloads_router,
     export as export_router,
     favorites as favorites_router,
+    files as files_router,
     library as library_router,
     logs as logs_router,
     lookups as lookups_router,
@@ -90,6 +91,13 @@ _TAGS = [
     },
     {"name": "settings", "description": "Application settings. **Admin only.**"},
     {"name": "maintenance", "description": "Admin housekeeping tasks."},
+    {
+        "name": "files",
+        "description": (
+            "Structural file management — move, rename, and create library "
+            "folders while preserving item metadata. **Admin only.**"
+        ),
+    },
     {"name": "logs", "description": "Application log retrieval. **Admin only.**"},
 ]
 
@@ -283,6 +291,7 @@ api.include_router(settings_router.router)
 api.include_router(addons_router.router)
 api.include_router(themes_router.router)
 api.include_router(maintenance_router.router)
+api.include_router(files_router.router)
 api.include_router(logs_router.router)
 app.include_router(api)
 

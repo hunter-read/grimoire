@@ -1011,6 +1011,123 @@ schema.
 |----------|--------|-------------|
 | `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk |
 
+### Files *(admin only)*
+
+Structural file management for the library (issue #302). Every path is relative
+to the library root, forward-slashed, and validated against path traversal —
+requests resolving outside the library root are rejected with `403`. These
+endpoints **write to the library**, so they require the library volume to be
+mounted read-write; a read-only mount returns `409` with an actionable message
+rather than failing with a server error.
+
+Moves and renames relink the existing DB record in place: the record `id` never
+changes, so tags, favorites, reading progress, bookmarks, campaign links, and FTS
+entries all survive. A book's `game_system_id` and `category` are re-derived from
+the destination path, and path-keyed caches (thumbnails, rendered pages, FTS
+rows) are re-homed or invalidated so no item silently loses its cover.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/files/browse` | GET | List one library folder, merged with each file's indexing state |
+| `/api/files/move` | POST | Move files/folders into a destination folder, relinking records |
+| `/api/files/rename` | POST | Rename a file or folder on disk, relinking records |
+| `/api/files/folder` | POST | Create a folder, writing container/NSFW marker files |
+| `/api/files/folder/markers` | PUT | Set or clear a folder's container-kind and NSFW markers |
+| `/api/files/folder` | DELETE | Delete a folder that contains nothing but marker files |
+| `/api/files/folder/scaffold` | POST | Create the standard category folders in a system folder |
+| `/api/files/upload` | POST | Upload a single file into a library folder |
+
+**`GET /api/files/browse`** — `?path=` (omit for the library root), `?limit=`
+(default and maximum 2000). Returns
+`{path, parent, writable, entries[], total, truncated}`. Each entry carries
+`name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`, and
+`child_count`, while files add `record_id`, `title`, `collection`,
+`has_thumbnail`, and `is_missing` when Grimoire has indexed them. A folder
+directly under `books/` that maps to a game system also carries `record_id`,
+`title`, and `collection: "system"`, so a client can offer the system editor on
+it. Note `collection` names the *library folder* (`books`, `maps`, …) for files
+but the resource type (`system`) for system folders. Marker/dotfiles
+are surfaced as folder properties, never as listable entries.
+
+The listing is **one folder's immediate children only** — it does not recurse —
+and is bounded: `total` is the folder's true entry count and `truncated` says
+whether `entries` is a prefix of it, so a client can report what it is hiding
+instead of presenting a partial folder as complete. `child_count` is capped
+(counting stops at 1000) because an exact count of a very large folder costs a
+full directory walk per row; it is `null` when the folder cannot be read.
+
+**`POST /api/files/move`** — `{sources: [path], destination: path, on_conflict}`.
+`on_conflict` is `skip` (default — report the collision and leave the file) or
+`rename` (land it under a suffixed name). Neither ever overwrites an existing
+file. Per-item failures are collected rather than aborting the batch: the
+response is `{moved: [...], skipped: [{path, reason, code}], count}`. Moving a
+folder relinks every record beneath it.
+
+**`POST /api/files/rename`** — `{path, new_name}`. `new_name` is a bare name, not
+a path. This renames the file on disk, distinct from editing an item's display
+title. Returns `{from, to, records}`.
+
+**`POST /api/files/folder`** — `{parent, name, container_kind, nsfw}`.
+`container_kind` is one of `parent`, `one-page`, `agnostic`, `family`,
+`publisher`, `generic`, or `""` for a plain folder; it writes the corresponding
+marker file (`.parent-system-container`, `.one-page-container`,
+`.system-agnostic-container`, `.system-family-container`, `.publisher-container`,
+`.container`), and `nsfw` writes `.nsfw`.
+
+`one-page` and `agnostic` are **singletons**: they name *the* collection of their
+sort, so a request to give a second folder a kind another folder already holds is
+rejected with `409`. `GET /api/files/browse` reports which are claimed in
+`singletons_taken` (`{kind: path}`) so a client can offer only the kinds still
+available. A folder merely *named* by the reserved convention (`one-page-rpgs`,
+`system-agnostic`, …) counts as the incumbent.
+
+**`PUT /api/files/folder/markers`** — `{path, container_kind?, nsfw?}`. Omitted
+fields are left untouched. Container kinds are mutually exclusive: setting one
+clears the others.
+
+**`DELETE /api/files/folder`** — `{path}`. Refuses non-empty folders and
+collection roots; recursive deletion of library content is deliberately not
+offered.
+
+**`POST /api/files/upload`** — multipart form: `file`, `destination`,
+`relative_dir` (optional), `on_conflict` (default `rename`). Returns
+`{path, name, size}`.
+
+**One file per request, by design.** A batch endpoint would make a 200-file
+import succeed or fail as a unit, leaving no way to say which files landed or to
+retry just the ones that did not. Sending files individually lets a client report
+per-file progress and retry failures in isolation.
+
+The file is streamed to disk in chunks rather than buffered in memory, written
+under a temporary name, and renamed into place only once complete — so an
+interrupted upload never leaves a truncated file for the scanner to index.
+
+Validation is per collection: only extensions the destination tree actually
+indexes are accepted (documents/images/archives under `books/`, images and
+archives under `maps/` and `tokens/`, audio under `audio/`), because a file the
+scanner ignores is an upload that silently does nothing. Uploads into the library
+root are refused. The supplied filename is reduced to its final component, so a
+path smuggled through the multipart body cannot escape the destination, and
+hidden files are rejected outright — a dotfile upload could otherwise write a
+container marker and reclassify a shelf. Single files are capped at 8 GB
+(`413` past that), and an upload never overwrites: a name clash is suffixed.
+
+`relative_dir` carries the sub-path from a folder upload (the browser's
+`webkitRelativePath` minus the file name) so a dropped folder keeps its
+structure; it is validated against the library root like any other path.
+
+**`POST /api/files/folder/scaffold`** — `{path}`. Creates the standard category
+folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,
+`Handouts`, `Homebrew`, `Starter Sets`) inside a system folder. Each name is
+chosen to infer back to its canonical category slug, so the folders classify
+correctly on the next scan. Only valid for a folder directly under `books/`.
+Returns `{path, created, existing}`. A category is skipped when an existing
+folder already *resolves to* it, matched on the inferred category rather than the
+folder name — a system holding `Rules` will not gain a second `Core`, and one
+holding `Modules` will not gain `Adventures`. `existing` reports the incumbent
+folder's real name, so running it on a partly-organised system fills only the
+genuine gaps.
+
 ### Logs *(admin only)*
 
 | Endpoint | Method | Auth | Description |

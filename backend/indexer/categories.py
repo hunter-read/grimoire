@@ -124,6 +124,13 @@ def detect_container_kind(system_dir: Path, folder_name: str) -> str:
     ``CONTAINER_PRECEDENCE``. Marker files are all checked before the
     reserved-slug fallback, so a user can force a reserved-slug folder into
     another flavour instead.
+
+    Note that the reserved *system-agnostic* slugs deliberately do **not** imply
+    a container. An agnostic folder is a single system whose subfolders are
+    categories (``system-agnostic/maps/`` is the "maps" category); promoting it
+    to a container would make each subfolder its own system and re-file every
+    book in an existing agnostic library. The agnostic container kind exists for
+    users who explicitly want that shape, and only via an explicit marker.
     """
     for kind in CONTAINER_PRECEDENCE:
         if (system_dir / CONTAINER_MARKERS[kind]).exists():

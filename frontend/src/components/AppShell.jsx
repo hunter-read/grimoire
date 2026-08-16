@@ -21,6 +21,7 @@ import SearchView from '../views/SearchView'
 import SettingsView from '../views/SettingsView'
 import FavoritesView from '../views/FavoritesView'
 import TagsView from '../views/TagsView'
+import FileManagerView from '../views/FileManagerView'
 import CampaignsView from '../views/CampaignsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
@@ -58,6 +59,9 @@ export default function AppShell() {
     location.pathname.startsWith('/library/book/') ||
     location.pathname.startsWith('/maps/') ||
     location.pathname.startsWith('/tokens/')
+  // The file manager sizes itself to the viewport and gives each tree its own
+  // scrollbar, so the page must not scroll underneath them (issue #302).
+  const isFullHeight = isReader || location.pathname === '/settings/files'
   const mainRef = useScrollRestoration()
   const { queue } = useAudioPlayer()
   const playerActive = queue.length > 0
@@ -119,8 +123,12 @@ export default function AppShell() {
             flex: 1,
             minWidth: 0,
             height: '100%',
-            overflow: isReader ? 'hidden' : 'auto',
+            overflow: isFullHeight ? 'hidden' : 'auto',
             paddingBottom: (isMobile ? 64 : 0) + (playerActive ? PLAYER_HEIGHT : 0),
+            // Full-height routes size themselves to what's left after the
+            // banner rather than to `main` itself, so a column layout here is
+            // what lets them claim the remaining space exactly.
+            ...(isFullHeight ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : null),
           }}
         >
           {!isGuest && <PendingInvitesBanner />}
@@ -152,6 +160,9 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+              {/* Full-page, outside the settings tabs: bulk reorganisation needs
+                  the whole width for two panes (issue #302). */}
+              <Route path="/settings/files" element={<FileManagerView />} />
               <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
               <Route
                 path="/settings/:tab"
