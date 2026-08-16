@@ -51,6 +51,11 @@ NO_AUTO_CATEGORY_MARKER = ".no-auto-category"
 # the convention works for users who can't easily create dotfiles.
 PARENT_SYSTEM_MARKER = ".parent-system-container"
 ONE_PAGE_MARKER = ".one-page-container"
+# The system-agnostic collection: books that belong to no particular system
+# (generic dungeon geomorphs, stat-block-free adventures). A sibling of the
+# one-page collection — same "immediate subfolder is the category" behaviour,
+# and likewise only one folder can be it.
+AGNOSTIC_MARKER = ".system-agnostic-container"
 # A *family* groups related but distinct systems that share a lineage
 # ("d20 System" holding Pathfinder and Mutants & Masterminds) — unlike a parent
 # system, whose children are editions of one game (issue #301).
@@ -70,9 +75,17 @@ NSFW_MARKER = ".nsfw"
 # Container kinds stored in ``GameSystem.container_kind``.
 CONTAINER_PARENT = "parent"
 CONTAINER_ONE_PAGE = "one-page"
+CONTAINER_AGNOSTIC = "agnostic"
 CONTAINER_FAMILY = "family"
 CONTAINER_PUBLISHER = "publisher"
 CONTAINER_GENERIC = "generic"
+
+# Kinds that describe *the* collection of their sort, not a shelf that can be
+# repeated. Two "one-page RPGs" folders would each claim to be the home of every
+# tiny game, and books in one would be filed under a different system than
+# identical books in the other — so the UI offers these only when no folder
+# already claims them.
+SINGLETON_CONTAINER_KINDS = frozenset({CONTAINER_ONE_PAGE, CONTAINER_AGNOSTIC})
 
 # Precedence when a folder carries more than one container declaration, most
 # specific first: a folder claiming both "parent system" and "publisher" is
@@ -84,6 +97,7 @@ CONTAINER_GENERIC = "generic"
 CONTAINER_PRECEDENCE = (
     CONTAINER_PARENT,
     CONTAINER_ONE_PAGE,
+    CONTAINER_AGNOSTIC,
     CONTAINER_FAMILY,
     CONTAINER_PUBLISHER,
     CONTAINER_GENERIC,
@@ -93,6 +107,7 @@ CONTAINER_PRECEDENCE = (
 CONTAINER_MARKERS = {
     CONTAINER_PARENT: PARENT_SYSTEM_MARKER,
     CONTAINER_ONE_PAGE: ONE_PAGE_MARKER,
+    CONTAINER_AGNOSTIC: AGNOSTIC_MARKER,
     CONTAINER_FAMILY: SYSTEM_FAMILY_MARKER,
     CONTAINER_PUBLISHER: PUBLISHER_MARKER,
     CONTAINER_GENERIC: GENERIC_MARKER,
@@ -103,6 +118,7 @@ CONTAINER_MARKERS = {
 _CONTAINER_SUFFIXES = {
     "parent-system": CONTAINER_PARENT,
     "one-page": CONTAINER_ONE_PAGE,
+    "system-agnostic": CONTAINER_AGNOSTIC,
     "system-family": CONTAINER_FAMILY,
     "publisher": CONTAINER_PUBLISHER,
     "container": CONTAINER_GENERIC,

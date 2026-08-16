@@ -132,7 +132,7 @@ services:
     ports:
  - "9481:9481"
     volumes:
- - /path/to/your/library:/app/library:ro   # read-only - use Filebrowser or Calibre to manage files
+ - /path/to/your/library:/app/library:ro   # read-only; drop ":ro" to manage files in-app (see below)
  - /path/to/grimoire/data:/app/data
 ```
 
@@ -580,16 +580,66 @@ The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth,
 
 ## Adding Files to Your Library
 
-Grimoire mounts your library folder **read-only** and never modifies your files. To upload, organize, or remove content, use a companion tool that mounts the same library folder with write access.
+### In-app file management
 
-Two tools integrate especially well:
+Admins can reorganize the library from inside Grimoire — **Settings → Maintenance
+→ Open file manager**. It is a folder tree (think Finder or Filebrowser, but aware
+of Grimoire's own concepts) built for bulk reorganization:
+
+- **Expand folders in place** to see a file and its destination at once, instead
+  of navigating away from one to reach the other.
+- **Move** files and folders by dragging them onto any folder. Collapsed folders
+  spring open when you hold a drag over them, and the list auto-scrolls near its
+  edges. Ctrl/Cmd-click to select several at once.
+- **Pin a second pane** to the right, left, above, or below when the two ends of a
+  move are far apart. Either pane can be closed to go back to one.
+- **Rename** a file or folder on disk. This is distinct from editing an item's
+  display title, which only changes the name shown in Grimoire. The file
+  extension is held aside and reattached on save — Grimoire infers a file's type
+  from its suffix, so a mistyped `.pdf` would quietly drop a book out of the
+  library.
+- **Upload files and folders** by dragging them in from your desktop, or via
+  right-click → **Upload files… / Upload a folder…**. A panel tracks each file's
+  progress, names any that fail and why, and lets you retry them individually or
+  all at once — a failure part-way through a large import never costs you the
+  files that already succeeded.
+- **Edit an item's metadata** with the same editor the library views use.
+- **Create folders**, including system, category, and container folders. Choosing
+  a container type writes the right marker file for you, so you no longer have to
+  remember `.parent-system-container` and create it by hand.
+- **Set up a system in one step** with **Create standard category folders** —
+  Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew, and
+  Starter Sets, named so the scanner classifies them correctly.
+- **Mark a folder NSFW or SFW**, or change its container type, without recreating
+  it. The *One-page RPGs* and *System-agnostic* collections are one-of-a-kind:
+  once a folder claims one, it is not offered on any other folder.
+
+Moves and renames **keep your metadata**. Grimoire relinks the existing record
+rather than treating the file as new, so tags, favorites, reading progress,
+bookmarks, campaign links, and the search index all follow the file to its new
+home — and a book moved to a different system or category is re-filed
+automatically.
+
+> **This requires a writable library mount.** Drop the `:ro` from your library
+> volume (`- /path/to/your/library:/app/library`) to use it. With a read-only
+> mount, Grimoire tells you the library is read-only instead of failing oddly, and
+> everything else keeps working exactly as before.
+
+The file manager is admin-only, and all destinations are confined to the library
+root.
+
+### Companion tools
+
+Grimoire never modifies files on its own, and if you prefer to keep the library
+mounted read-only, companion tools that mount the same folder with write access
+still work well:
 
 - **[Filebrowser Quantum](docs/file-management.md#filebrowser-quantum)** - drag-and-drop file uploads from any browser, no desktop app needed
 - **[Calibre](docs/file-management.md#calibre)** - full book management with metadata editing; Grimoire reads the `.opf` sidecar files Calibre writes ([see OPF support](#book-metadata-from-opf-files))
 
 See [docs/file-management.md](docs/file-management.md) for Docker Compose examples for each tool.
 
-After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Maintenance) to index the new content.
+After adding files with an external tool, trigger a **Rescan** in Grimoire (sidebar or Settings → Maintenance) to index the new content. Changes made in the built-in file manager apply immediately and need no rescan.
 
 ### Replacing and moving files
 

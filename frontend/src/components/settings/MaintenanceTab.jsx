@@ -1,3 +1,4 @@
+import FileManagerSection from './FileManagerSection'
 import RescanSection from './RescanSection'
 import ScheduledRescanSection from './ScheduledRescanSection'
 import FolderCategorySection from './FolderCategorySection'
@@ -7,6 +8,8 @@ import DatabaseCleanupSection from './DatabaseCleanupSection'
 export default function MaintenanceTab() {
   return (
     <div>
+      <FileManagerSection />
+      <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
       <RescanSection />
       <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
       <ScheduledRescanSection />
