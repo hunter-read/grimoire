@@ -117,7 +117,46 @@ def _migrate_schedule_times_to_local(conn: Connection) -> None:
             if not isinstance(definition, dict):
                 continue
             if definition.get("time_model") == "local":
-                continue  # already migrated
+                # Already in the local model — but a stale frontend bundle could
+                # have written an *already-converted* UTC clock into
+                # ``time_local`` while the marker was set, which makes the app
+                # self-consistently wrong (the UI no longer converts either, so
+                # nothing reveals it). Such a row still carries the original
+                # ``time_utc`` alongside, holding the same value; a genuine local
+                # save drops ``time_utc`` entirely. Repair that specific shape.
+                stale = definition.get("time_utc")
+                if (
+                    stale
+                    and definition.get("time_local") == stale
+                    and definition.get("timezone")
+                ):
+                    definition.pop("time_utc", None)
+                    hour, minute = (int(p) for p in str(stale).split(":")[:2])
+                    try:
+                        zone = zoneinfo.ZoneInfo(str(definition["timezone"]))
+                    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+                        continue
+                    today = datetime.date.today()
+                    local = datetime.datetime(
+                        today.year, today.month, today.day, hour, minute,
+                        tzinfo=datetime.timezone.utc,
+                    ).astimezone(zone)
+                    repaired = f"{local.hour:02d}:{local.minute:02d}"
+                    if repaired != stale:
+                        definition["time_local"] = repaired
+                        conn.execute(
+                            text(
+                                "UPDATE campaign_schedules SET definition = :d WHERE id = :i"
+                            ),
+                            {"d": json.dumps(definition), "i": row_id},
+                        )
+                        logger.info(
+                            "Repaired schedule id=%s: time_local %s -> %s",
+                            row_id,
+                            stale,
+                            repaired,
+                        )
+                continue
 
             utc_clock = definition.get("time_utc")
             tz_name = definition.get("timezone")

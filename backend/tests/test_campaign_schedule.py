@@ -513,3 +513,122 @@ class TestScheduleTimeMigration:
         )
         assert out["time_local"] == "18:00"
         assert out["time_model"] == "local"
+
+
+class TestStaleBundleRepair:
+    """A cached old frontend can write an already-UTC clock into `time_local`.
+
+    That is the worst shape to land in: the marker says "local", so the migration
+    skips the row, and the new UI no longer converts for display — so the wrong
+    time shows *and* publishes with nothing to reveal the error.
+    """
+
+    def test_write_path_rejects_a_utc_clock_labelled_local(
+        self, client, gm_headers, gm_campaign
+    ):
+        """Both fields carrying the same non-local value means it is really UTC."""
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_local": "02:30",
+                "time_utc": "02:30",
+                "timezone": "America/Los_Angeles",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["definition"]["time_local"] == "19:30"
+
+    def test_write_path_keeps_a_genuine_local_time_that_matches(
+        self, client, gm_headers, gm_campaign
+    ):
+        """A time whose local and UTC readings coincide must not be re-converted."""
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_local": "18:00",
+                "time_utc": "18:00",
+                "timezone": "UTC",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["definition"]["time_local"] == "18:00"
+
+    def test_migration_repairs_a_stale_local_row(self):
+        """The already-marked row is repaired, not skipped."""
+        import json
+        import sqlite3
+        import tempfile
+
+        from sqlalchemy import create_engine, text
+
+        from backend.models.db import _migrate_schedule_times_to_local
+
+        stored = {
+            "days": [6],
+            "frequency": "weekly",
+            "time_local": "02:30",
+            "time_utc": "02:30",
+            "timezone": "America/Los_Angeles",
+            "time_model": "local",
+        }
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            path = f.name
+        c = sqlite3.connect(path)
+        c.execute("CREATE TABLE campaign_schedules (id TEXT PRIMARY KEY, definition JSON)")
+        c.execute("INSERT INTO campaign_schedules VALUES ('1', ?)", (json.dumps(stored),))
+        c.commit()
+        c.close()
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            _migrate_schedule_times_to_local(conn)
+        with engine.connect() as conn:
+            out = json.loads(
+                conn.execute(text("SELECT definition FROM campaign_schedules")).fetchone()[0]
+            )
+        engine.dispose()
+        assert out["time_local"] == "19:30"
+        assert "time_utc" not in out
+
+    def test_migration_leaves_a_genuine_local_row_alone(self):
+        """A properly saved local row has no `time_utc` and must not be touched."""
+        import json
+        import sqlite3
+        import tempfile
+
+        from sqlalchemy import create_engine, text
+
+        from backend.models.db import _migrate_schedule_times_to_local
+
+        stored = {
+            "days": [6],
+            "frequency": "weekly",
+            "time_local": "19:30",
+            "timezone": "America/Los_Angeles",
+            "time_model": "local",
+        }
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            path = f.name
+        c = sqlite3.connect(path)
+        c.execute("CREATE TABLE campaign_schedules (id TEXT PRIMARY KEY, definition JSON)")
+        c.execute("INSERT INTO campaign_schedules VALUES ('1', ?)", (json.dumps(stored),))
+        c.commit()
+        c.close()
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            _migrate_schedule_times_to_local(conn)
+        with engine.connect() as conn:
+            out = json.loads(
+                conn.execute(text("SELECT definition FROM campaign_schedules")).fetchone()[0]
+            )
+        engine.dispose()
+        assert out["time_local"] == "19:30"

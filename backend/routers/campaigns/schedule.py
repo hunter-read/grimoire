@@ -100,6 +100,20 @@ def upsert_schedule(
     time_local = data.time_local
     if time_local is None and data.time_utc is not None:
         time_local = _utc_clock_to_local(data.time_utc, data.timezone)
+    elif (
+        time_local is not None
+        and data.time_utc is not None
+        and time_local == data.time_utc
+        and data.timezone
+        and _utc_clock_to_local(data.time_utc, data.timezone) != data.time_utc
+    ):
+        # A stale frontend bundle converts the picked time to UTC and then sends
+        # it in *both* fields, so an already-converted clock arrives labelled
+        # local. Storing it verbatim makes the whole app self-consistently wrong
+        # — the UI stops converting too, so 19:30 displays and publishes as
+        # 02:30 with nothing to reveal the error. When both fields agree on a
+        # value that is not its own local equivalent, trust the UTC reading.
+        time_local = _utc_clock_to_local(data.time_utc, data.timezone)
 
     definition: dict = {
         "days": data.days,
