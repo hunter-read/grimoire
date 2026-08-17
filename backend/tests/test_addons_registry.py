@@ -72,10 +72,45 @@ class TestManifestValidation:
     def test_valid_manifest_loads(self):
         assert AddonManifest(**VALID).id == "demo"
 
-    def test_unknown_keys_are_rejected(self):
-        """A typo must be an error, not a silently ignored no-op."""
-        with pytest.raises(ValidationError):
-            AddonManifest(**{**VALID, "sauce": {}})
+    def test_unknown_top_level_keys_are_ignored(self):
+        """The community repo may add fields ahead of this client.
+
+        An older server must skip what it does not understand rather than
+        refuse the whole add-on, which would make any new manifest field a
+        breaking change for everyone not yet upgraded.
+        """
+        manifest = AddonManifest(**{**VALID, "author": "Someone", "sauce": {}})
+        assert manifest.id == "demo"
+
+    def test_unknown_keys_inside_a_nested_spec_are_rejected(self):
+        """Leniency stops at the top level: a typo here is still an error."""
+        with pytest.raises(ValidationError, match="tymeout"):
+            AddonManifest(
+                **{**VALID, "source": None, "script": {"entry": "x.py", "tymeout": 60}}
+            )
+
+    def test_script_addon_may_declare_search_without_fields(self):
+        """A script-backed add-on searches for itself, so it has nothing to rank.
+
+        It still needs a ``search`` block to carry ``identity_pattern``, which
+        is what enables the "paste a link or ID" input.
+        """
+        manifest = AddonManifest(
+            **{
+                **VALID,
+                "source": None,
+                "script": {"entry": "demo.py"},
+                "search": {"identity_pattern": r"example\.com/(\d+)"},
+            }
+        )
+        assert manifest.search is not None
+        assert manifest.search.fields == []
+        assert manifest.requires_script
+
+    def test_source_addon_still_requires_search_fields(self):
+        """The declarative path ranks records itself, so it cannot go without."""
+        with pytest.raises(ValidationError, match="search.fields"):
+            AddonManifest(**{**VALID, "search": {"identity": {"from": "name"}}})
 
     def test_map_to_an_unknown_field_is_rejected(self):
         with pytest.raises(ValidationError, match="not valid for target"):
