@@ -123,7 +123,7 @@ describe('ScheduleEditor', () => {
     renderEditor({
       frequency: 'weekly',
       days: [1, 3],
-      time_utc: null,
+      time_local: null,
       biweekly_reference: '',
       monthly_week: 1,
       custom_dates: [],
@@ -138,7 +138,7 @@ describe('ScheduleEditor', () => {
     renderEditor({
       frequency: 'weekly',
       days: [0],
-      time_utc: null,
+      time_local: null,
       biweekly_reference: '',
       monthly_week: 1,
       custom_dates: [],
@@ -244,7 +244,7 @@ describe('ScheduleEditor', () => {
       expect(campaigns.setSchedule).toHaveBeenCalledWith('c1', {
         days: [3],
         frequency: 'monthly',
-        time_utc: null,
+        time_local: null,
         timezone: USER_TZ,
         biweekly_reference: null,
         monthly_week: -1,

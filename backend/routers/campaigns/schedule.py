@@ -19,6 +19,38 @@ from ._helpers import (
 from ._schemas import AvailabilityUpdate, ScheduleUpsert
 
 
+def _utc_clock_to_local(utc_clock: str, tz_name: str | None) -> str:
+    """Convert a legacy "HH:MM" UTC clock to the local clock in ``tz_name``.
+
+    Only the clock is returned; the caller's ``days`` are already local, which is
+    precisely the pairing the local-time model restores. Without a usable zone the
+    clock is passed through unchanged — there is nothing to convert against.
+
+    The conversion is resolved against *today*, because a UTC clock alone does not
+    say which offset produced it: 02:30Z is 18:30 PST in January but 19:30 PDT in
+    July. Today's offset is the one the client was using when it sent this, so it
+    recovers what the user actually picked. This is a one-shot compatibility path
+    — once stored, the local clock needs no further conversion, which is the whole
+    point of the model.
+    """
+    if not tz_name:
+        return utc_clock
+    try:
+        zone = zoneinfo.ZoneInfo(tz_name)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+        return utc_clock
+    try:
+        hour, minute = (int(p) for p in utc_clock.split(":")[:2])
+    except (ValueError, TypeError):
+        return utc_clock
+    today = datetime.date.today()
+    ref = datetime.datetime(
+        today.year, today.month, today.day, hour, minute, tzinfo=datetime.timezone.utc
+    )
+    local = ref.astimezone(zone)
+    return f"{local.hour:02d}:{local.minute:02d}"
+
+
 def get_schedule(
     campaign_id: str,
     current_user: CurrentUser = Depends(get_current_user),
@@ -62,11 +94,35 @@ def upsert_schedule(
         except (zoneinfo.ZoneInfoNotFoundError, ValueError):
             raise HTTPException(400, "timezone must be a valid IANA zone name")
 
+    # Both halves of the stored pair are local. A legacy client posting only the
+    # UTC form is converted here, using the zone it also sends; without a zone
+    # there is nothing to convert with, so the clock is taken at face value.
+    time_local = data.time_local
+    if time_local is None and data.time_utc is not None:
+        time_local = _utc_clock_to_local(data.time_utc, data.timezone)
+    elif (
+        time_local is not None
+        and data.time_utc is not None
+        and time_local == data.time_utc
+        and data.timezone
+        and _utc_clock_to_local(data.time_utc, data.timezone) != data.time_utc
+    ):
+        # A stale frontend bundle converts the picked time to UTC and then sends
+        # it in *both* fields, so an already-converted clock arrives labelled
+        # local. Storing it verbatim makes the whole app self-consistently wrong
+        # — the UI stops converting too, so 19:30 displays and publishes as
+        # 02:30 with nothing to reveal the error. When both fields agree on a
+        # value that is not its own local equivalent, trust the UTC reading.
+        time_local = _utc_clock_to_local(data.time_utc, data.timezone)
+
     definition: dict = {
         "days": data.days,
         "frequency": data.frequency,
-        "time_utc": data.time_utc,
+        "time_local": time_local,
         "timezone": data.timezone,
+        # Marks the definition as already using the local-time model, so the
+        # startup migration skips it.
+        "time_model": "local",
     }
     if data.frequency == "biweekly":
         definition["biweekly_reference"] = (

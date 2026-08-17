@@ -152,14 +152,18 @@ class GMNoteUpdate(BaseModel):
 
 
 class ScheduleUpsert(BaseModel):
-    days: List[int] = []  # weekday indices (0=Mon … 6=Sun); empty for custom
+    days: List[int] = []  # weekday indices (0=Mon … 6=Sun), local; empty for custom
     frequency: str = "weekly"  # weekly | biweekly | monthly | custom
-    time_utc: Optional[str] = None  # "HH:MM" UTC
-    # IANA zone the weekdays in `days` are expressed in (e.g. "America/Los_Angeles").
-    # `days` has always meant a *local* weekday while `time_utc` is UTC; without a
-    # zone to reconcile them the calendar feed cannot tell whether the session time
-    # crosses midnight UTC and shifts the date. Optional: schedules saved before
-    # this field existed fall back to treating the pair as already UTC-aligned.
+    # "HH:MM" in the *local* zone named by `timezone`. Both halves of the pair are
+    # local, so an evening session can no longer disagree with its own weekday:
+    # storing a UTC clock beside a local weekday is what published Sunday-night
+    # games as Saturday, because 19:30 America/Los_Angeles is 02:30 UTC the
+    # *following* day and only the clock survived the conversion.
+    time_local: Optional[str] = None
+    # Legacy alias. Older frontends still post a UTC clock; accepted so a cached
+    # bundle keeps working mid-deploy, then converted on write.
+    time_utc: Optional[str] = None
+    # IANA zone the weekdays and time are expressed in (e.g. "America/Los_Angeles").
     timezone: Optional[str] = None
     biweekly_reference: Optional[str] = None  # YYYY-MM-DD anchor for biweekly
     monthly_week: Optional[int] = None  # 1-4 or -1 (last) for monthly

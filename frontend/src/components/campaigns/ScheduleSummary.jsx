@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuClock } from 'react-icons/lu'
-import { utcTimeToLocal, USER_TZ } from './_scheduleShared'
+import { formatScheduleTime, USER_TZ } from './_scheduleShared'
 
 /** Read-only summary of a campaign's recurring schedule definition. */
 export default function ScheduleSummary({ def, onEdit, isOwner }) {
@@ -41,7 +41,7 @@ export default function ScheduleSummary({ def, onEdit, isOwner }) {
     pattern = def.days?.map((d) => DAYS[d]).join(' & ') ?? ''
   }
 
-  const localTime = utcTimeToLocal(def.time_utc)
+  const localTime = formatScheduleTime(def.time_local)
 
   return (
     <div
