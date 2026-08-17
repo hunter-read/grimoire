@@ -509,6 +509,24 @@ class TestAggregateFeed:
         body = client.get(f"/api/campaigns/calendar/{tok}/all.ics").text
         assert body.startswith("BEGIN:VCALENDAR")
 
+    def test_feeds_are_served_inline_not_as_attachments(
+        self, client, gm_headers, scheduled_campaign
+    ):
+        """Google Calendar's "From URL" fetcher rejects an ICS feed served as
+        ``Content-Disposition: attachment`` — it reads the header as a file to
+        download rather than a calendar to poll. Apple/Outlook ignore the header,
+        which is why an attachment feed appears to work everywhere but Google.
+        """
+        tok = token_of(client, gm_headers)
+        for url in (
+            f"/api/campaigns/calendar/{tok}/all.ics",
+            f"/api/campaigns/calendar/{tok}/{scheduled_campaign['id']}.ics",
+        ):
+            r = client.get(url)
+            assert r.status_code == 200
+            assert r.headers["content-disposition"].startswith("inline")
+            assert "attachment" not in r.headers["content-disposition"]
+
 
 # ---------------------------------------------------------------------------
 # One-off download
