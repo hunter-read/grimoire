@@ -28,6 +28,7 @@ import BannerHero from '../components/campaigns/BannerHero'
 import MemberRow from '../components/campaigns/MemberRow'
 import InvitePanel from '../components/campaigns/InvitePanel'
 import GuestPanel from '../components/campaigns/GuestPanel'
+import AnchoredPopover from '../components/campaigns/AnchoredPopover'
 import { utcTimeToLocal, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
 
@@ -134,6 +135,9 @@ export default function CampaignDetailView() {
   const [showEditor, setShowEditor] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [showGuests, setShowGuests] = useState(false)
+  // Anchors for the invite/guest popovers.
+  const inviteBtnRef = useRef(null)
+  const guestBtnRef = useRef(null)
   const [error, setError] = useState(null)
 
   const load = () => {
@@ -528,20 +532,26 @@ export default function CampaignDetailView() {
                   {canManage && (
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
+                        ref={inviteBtnRef}
                         onClick={() => {
                           setShowInvite(!showInvite)
                           setShowGuests(false)
                         }}
+                        aria-haspopup="dialog"
+                        aria-expanded={showInvite}
                         style={ROSTER_BTN}
                       >
                         <LuUserPlus size={12} /> {t('campaignDetail.overview.invite')}
                       </button>
                       {guest_access_enabled && (
                         <button
+                          ref={guestBtnRef}
                           onClick={() => {
                             setShowGuests(!showGuests)
                             setShowInvite(false)
                           }}
+                          aria-haspopup="dialog"
+                          aria-expanded={showGuests}
                           style={ROSTER_BTN}
                         >
                           <LuUserCheck size={12} /> {t('guests.guests')}
@@ -551,18 +561,28 @@ export default function CampaignDetailView() {
                   )}
                 </div>
 
+                {/* Both panels float over the roster rather than pushing it down, so
+                    the player list stays put while you invite. */}
                 {showInvite && (
-                  <InvitePanel
-                    campaignId={campaign.id}
-                    onInvited={() => {
-                      setShowInvite(false)
-                      load()
-                    }}
-                  />
+                  <AnchoredPopover anchorRef={inviteBtnRef} onClose={() => setShowInvite(false)}>
+                    <InvitePanel
+                      campaignId={campaign.id}
+                      onInvited={() => {
+                        setShowInvite(false)
+                        load()
+                      }}
+                    />
+                  </AnchoredPopover>
                 )}
 
                 {showGuests && canManage && guest_access_enabled && (
-                  <GuestPanel campaignId={campaign.id} onChanged={load} />
+                  <AnchoredPopover
+                    anchorRef={guestBtnRef}
+                    width={380}
+                    onClose={() => setShowGuests(false)}
+                  >
+                    <GuestPanel campaignId={campaign.id} onChanged={load} />
+                  </AnchoredPopover>
                 )}
 
                 <div style={{ overflowY: 'auto', flex: 1, marginRight: -8, paddingRight: 8 }}>

@@ -1035,6 +1035,8 @@
     "you": "(du)",
     "invitePlayer": "Spieler einladen:",
     "allInvited": "Alle Benutzer wurden bereits eingeladen.",
+    "searchUsers": "Benutzer suchen…",
+    "noMatchingUsers": "Keine passenden Benutzer.",
     "invite": "Einladen",
     "uploadArt": "Charakterbild hochladen",
     "characterSheet": "Charakterbogen",
