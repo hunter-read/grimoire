@@ -484,6 +484,30 @@ OPF metadata is only applied when a book is **first indexed**, and ordinary resc
 - **Update missing metadata** - additionally fill **empty** book fields from sidecar files, without touching anything you've already set (non-destructive).
 - **Replace all metadata** - overwrite fields with whatever the sidecar files provide (this discards UI edits the sidecar covers).
 
+### Writing metadata back out (sidecar export)
+
+The reverse of the above: Grimoire can write its metadata *out* as sidecar files next to your content, so the library folder describes itself. Copy the library to another machine, or rebuild the container with a fresh `DATA_PATH`, and the metadata travels with the files instead of living only in the app database. Other tools can read it too - Calibre, Jellyfin, Kodi, or a plain file manager.
+
+**This is off by default.** Grimoire is otherwise a read-only viewer of your library, so writing into it is a deliberate opt-in.
+
+Three formats, and you can enable any combination:
+
+| Format | File written | Read by |
+|--------|--------------|---------|
+| OPF | `<book>.opf` | Calibre - and Grimoire itself, so it round-trips |
+| NFO | `<book>.nfo` | Jellyfin, Kodi, Emby |
+| JSON | `<book>.grimoire.json` | Grimoire-native; the only **lossless** format |
+
+OPF and NFO can only hold the fields their formats define, so anything without a slot is dropped. Enable JSON if you want a complete metadata backup rather than a feed for another app. Optionally a cover image is written alongside as `<book>.jpg`.
+
+Two things trigger a write. The **Export metadata to library** maintenance action backfills the whole library, creating the files. After that, editing a book's metadata in the UI **updates the sidecars it already has** - and creates none, so a library you have never backfilled never sprouts new files just because you renamed something.
+
+Grimoire only overwrites files it wrote: every exported sidecar carries a marker, and a `.opf` you maintain in Calibre is left alone and reported as skipped unless you explicitly allow overwriting.
+
+> Sidecar export needs the library mounted **read-write**. The `docker-compose.dev.yml` example mounts it `:ro`; drop that suffix to use this feature. If the mount stays read-only, export reports it clearly and your metadata edits keep working - only the sidecar write is skipped.
+
+See [`docs/sidecars.md`](docs/sidecars.md) for the full field mapping per format and how export precedence pairs with the refresh modes above.
+
 ### Maps - organize by creator or collection
 
 ```

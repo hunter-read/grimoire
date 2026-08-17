@@ -15,6 +15,8 @@ from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...file_cache import etag_matches
 from ...indexer import slugify
+from ...metadata import export as sidecar_export
+from ...metadata import settings as sidecar_settings
 from ...models import Book, GameSystem
 from ...services import bulk_service, tag_service
 from ...services.content_cache import content_token
@@ -25,6 +27,18 @@ from ._schemas import BookBulkUpdate, BookUpdate
 # OCR DPI bounds, mirroring backend.config._read_ocr_dpi clamping.
 _OCR_DPI_MIN = 72
 _OCR_DPI_MAX = 600
+
+
+def _refresh_sidecars(db: Session, book_ids: list[str]) -> None:
+    """Update sidecars for books whose metadata just changed (issue #300).
+
+    Called after the bulk services have committed. Skips the query entirely when
+    export is off, which is the default and the common case.
+    """
+    if not book_ids or not sidecar_settings.export_enabled(db):
+        return
+    for book in db.query(Book).filter(Book.id.in_(book_ids)).all():
+        sidecar_export.refresh_existing_safe(db, book)
 
 
 def list_books(
@@ -135,6 +149,10 @@ def update_book(
     # apply_updates routes them through the tag service for us.
     bulk_service.apply_updates(db, "book", book, data.model_dump(exclude_none=True))
     db.commit()
+    # Refresh sidecars this book already has (issue #300). After the commit, so a
+    # rollback can never leave a sidecar describing metadata that was not saved,
+    # and never creating a file — sidecars appear only from an explicit backfill.
+    sidecar_export.refresh_existing_safe(db, book)
     return {"status": "ok"}
 
 
@@ -144,13 +162,15 @@ def bulk_update_books(
     db: Session = Depends(get_db),
 ):
     """Apply per-book edits for a whole selection in one transaction (issue #270)."""
-    return bulk_service.run_bulk_update(
+    result = bulk_service.run_bulk_update(
         db,
         "book",
         list(data.items),  # type: ignore[attr-defined]
         payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
         not_found_detail="Book not found",
     )
+    _refresh_sidecars(db, result["updated"])
+    return result
 
 
 def bulk_add_book_tags(
@@ -159,9 +179,11 @@ def bulk_add_book_tags(
     db: Session = Depends(get_db),
 ):
     """Additively tag a whole selection of books in one transaction."""
-    return bulk_service.run_bulk_add_tags(
+    result = bulk_service.run_bulk_add_tags(
         db, "book", data.ids, data.tags, not_found_detail="Book not found"
     )
+    _refresh_sidecars(db, result["updated"])
+    return result
 
 
 def reindex_book(

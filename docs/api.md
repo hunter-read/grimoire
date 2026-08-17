@@ -1033,6 +1033,21 @@ schema.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk |
+| `/api/maintenance/sidecars/settings` | GET | Read metadata sidecar export settings |
+| `/api/maintenance/sidecars/settings` | PUT | Configure sidecar export (`formats`, `covers`, `overwrite_foreign`) |
+| `/api/maintenance/sidecars/export` | POST | Write metadata sidecars for the whole library |
+
+Sidecar export (issue #300) writes Grimoire's curated metadata next to the
+content files so the library folder is self-describing. It is **off by default**:
+`formats` is empty until an admin enables at least one of `opf`, `nfo`, or
+`json`, and `POST /sidecars/export` returns 400 while it is disabled.
+
+The export response reports what the run did rather than failing on the first
+problem — `written`, `skipped_foreign` (files Grimoire did not write and so will
+not replace), `skipped_missing`, `failed`, `covers`, `read_only`, and a bounded
+`errors` list. A read-only library mount sets `read_only: true` with an
+actionable message instead of raising. See [`sidecars.md`](sidecars.md) for the
+per-format field mapping and how export interacts with sidecar import.
 
 ### Files *(admin only)*
 
