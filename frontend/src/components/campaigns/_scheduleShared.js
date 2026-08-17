@@ -34,30 +34,18 @@ export function formatDate(dateStr) {
   }
 }
 
-export function utcTimeToLocal(utcHHMM) {
-  if (!utcHHMM) return null
-  const [h, m] = utcHHMM.split(':').map(Number)
-  const d = new Date()
-  d.setUTCHours(h, m, 0, 0)
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
-}
-
-// Convert UTC "HH:MM" → local "HH:MM" (24h) for <input type="time">
-export function utcToLocalInputTime(utcHHMM) {
-  if (!utcHHMM) return ''
-  const [h, m] = utcHHMM.split(':').map(Number)
-  const d = new Date()
-  d.setUTCHours(h, m, 0, 0)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-// Convert local "HH:MM" (24h) from <input type="time"> → UTC "HH:MM"
-export function localInputTimeToUtc(localHHMM) {
+// Format a stored local "HH:MM" for display (e.g. "07:30 PM").
+//
+// Schedule times are stored in the zone they were picked in, so there is no
+// conversion to do here — only formatting. The previous helpers converted to and
+// from UTC, which is what dropped the day rollover: 19:30 local became 02:30 UTC
+// while the weekday stayed put, so a Sunday game described Saturday evening.
+export function formatScheduleTime(localHHMM) {
   if (!localHHMM) return null
   const [h, m] = localHHMM.split(':').map(Number)
   const d = new Date()
   d.setHours(h, m, 0, 0)
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
 export const inputStyle = {

@@ -109,21 +109,27 @@ class TestIcsWriter:
     def test_short_line_is_not_folded(self):
         assert _calendar._fold("SUMMARY:short") == "SUMMARY:short"
 
-    def test_timed_event_has_utc_start_and_end(self):
+    def test_timed_event_without_a_zone_floats(self):
+        """With no zone, the time is published as a floating local wall clock.
+
+        RFC 5545 §3.3.5: a DATE-TIME with neither TZID nor a trailing Z is read in
+        the viewer's own zone. That cannot shift the weekday, unlike the UTC form
+        this replaced.
+        """
         import datetime
 
         lines = _calendar.build_event(
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-03-14",
-            time_utc="18:30",
+            time_local="18:30",
             summary="Session",
             description="",
             url="",
             cancelled=False,
         )
-        assert "DTSTART:20260314T183000Z" in lines
-        assert "DTEND:20260314T223000Z" in lines
+        assert "DTSTART:20260314T183000" in lines
+        assert "DTEND:20260314T223000" in lines
         assert "STATUS:CONFIRMED" in lines
 
     def test_zoned_event_publishes_local_time_with_tzid(self):
@@ -141,7 +147,7 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-08-16",  # a Sunday
-            time_utc="19:30",
+            time_local="19:30",
             timezone="America/Los_Angeles",
             summary="Session",
             description="",
@@ -166,7 +172,7 @@ class TestIcsWriter:
                 uid="u@grimoire",
                 dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
                 session_date=date,
-                time_utc="20:00",
+                time_local="20:00",
                 timezone="America/Los_Angeles",
                 summary="S",
                 description="",
@@ -186,7 +192,7 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-08-16",
-            time_utc="19:30",
+            time_local="19:30",
             timezone="America/Los_Angeles",
             summary="S",
             description="",
@@ -213,7 +219,7 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-08-16",
-            time_utc="19:30",
+            time_local="19:30",
             timezone=None,
             summary="S",
             description="",
@@ -222,7 +228,7 @@ class TestIcsWriter:
         )
         body = _calendar.build_calendar([ev], name="Cal")
         assert "BEGIN:VTIMEZONE" not in body
-        assert "DTSTART:20260816T193000Z" in parse_lines(body)
+        assert "DTSTART:20260816T193000" in parse_lines(body)
 
     def test_sequence_is_incremented_so_updates_reach_subscribers(self):
         """Subscribers cached the old UTC events at SEQUENCE:0.
@@ -236,7 +242,7 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-08-16",
-            time_utc="19:30",
+            time_local="19:30",
             timezone="America/Los_Angeles",
             summary="S",
             description="",
@@ -245,22 +251,22 @@ class TestIcsWriter:
         )
         assert "SEQUENCE:1" in lines
 
-    def test_missing_timezone_keeps_legacy_behaviour(self):
-        """Schedules saved before the zone was captured publish the pair as-is."""
+    def test_missing_timezone_floats_the_local_time(self):
+        """A schedule with no zone publishes a floating local time, not UTC."""
         import datetime
 
         lines = _calendar.build_event(
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-08-18",
-            time_utc="20:00",
+            time_local="20:00",
             timezone=None,
             summary="S",
             description="",
             url="",
             cancelled=False,
         )
-        assert "DTSTART:20260818T200000Z" in lines
+        assert "DTSTART:20260818T200000" in lines
 
     def test_unknown_timezone_falls_back_rather_than_erroring(self):
         import datetime
@@ -269,14 +275,15 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-08-18",
-            time_utc="20:00",
+            time_local="20:00",
             timezone="Mars/Olympus_Mons",
             summary="S",
             description="",
             url="",
             cancelled=False,
         )
-        assert "DTSTART:20260818T200000Z" in lines
+        # Unknown to this host's tz database: float rather than raise inside a feed.
+        assert "DTSTART:20260818T200000" in lines
 
     def test_sunday_evening_pacific_game_does_not_render_as_saturday(self):
         """Regression: "The Bled", a Sunday 19:30 Pacific game, arrived as Saturday.
@@ -293,7 +300,7 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 8, 17, 5, 37, 25),
             session_date="2026-08-16",
-            time_utc="19:30",
+            time_local="19:30",
             timezone="America/Los_Angeles",
             summary="The Bled",
             description="",
@@ -315,7 +322,7 @@ class TestIcsWriter:
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
             session_date="2026-03-14",
-            time_utc=None,
+            time_local=None,
             summary="Session",
             description="",
             url="",
@@ -466,7 +473,7 @@ class TestCampaignFeed:
 
         before = parse_lines(client.get(f"/api/campaigns/calendar/{tok}/{cid}.ics").text)
         before_uids = {ln for ln in before if ln.startswith("UID:")}
-        assert any(ln.startswith("DTSTART:") and ln.endswith("T180000Z") for ln in before)
+        assert any(ln.startswith("DTSTART") and ln.endswith("T180000") for ln in before)
 
         client.put(
             f"/api/campaigns/{cid}/schedule",
@@ -475,7 +482,7 @@ class TestCampaignFeed:
         )
         after = parse_lines(client.get(f"/api/campaigns/calendar/{tok}/{cid}.ics").text)
         assert {ln for ln in after if ln.startswith("UID:")} == before_uids
-        assert any(ln.startswith("DTSTART:") and ln.endswith("T200000Z") for ln in after)
+        assert any(ln.startswith("DTSTART") and ln.endswith("T200000") for ln in after)
 
     def test_cancelled_session_is_marked_not_removed(
         self, client, gm_headers, scheduled_campaign

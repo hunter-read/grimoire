@@ -7,9 +7,11 @@ is brought fully current by the legacy imperative migrations one final time, the
 stamped at the baseline so only genuinely new revisions run thereafter.
 """
 import contextlib
+import datetime
 import json
 import logging
 import os
+import zoneinfo
 from typing import Any, Iterator, Tuple
 
 from sqlalchemy import create_engine, event, inspect, text
@@ -75,6 +77,99 @@ def _normalize_tags_in_db(conn: Connection) -> None:
                 logger.warning(
                     "Skipping tag normalization for %s rowid=%s: %s", table, rowid, e
                 )
+    conn.commit()
+
+
+def _migrate_schedule_times_to_local(conn: Connection) -> None:
+    """Convert schedule times from a UTC clock to the local clock they were picked in.
+
+    The old model stored ``days`` as a *local* weekday but ``time_utc`` as a UTC
+    clock, and the browser's conversion dropped the day rollover: 19:30
+    America/Los_Angeles was saved as ``02:30`` while ``days`` still said Sunday.
+    That pair means Sunday 02:30 UTC — Saturday evening locally — so evening
+    games published a day early.
+
+    The pair is now local throughout (``time_local`` + local ``days``), which
+    removes the rollover by construction. This recovers the local clock by
+    converting the stored UTC one back through the recorded zone.
+
+    ``days`` is left untouched: it was always stored as the local weekday the GM
+    picked, and the schedule UI has displayed it correctly throughout. Only the
+    clock was wrong, so only the clock is repaired — the feed then agrees with
+    what the app has been showing all along.
+
+    Rows with no ``timezone`` cannot be converted — there is no zone to undo the
+    original shift with — so they keep their clock as-is and are marked migrated;
+    re-saving the schedule in the UI records a zone and fixes them. A
+    ``time_model`` marker makes the pass idempotent rather than inferring state.
+    """
+    inspector = inspect(conn)
+    if not inspector.has_table("campaign_schedules"):
+        return
+
+    rows = conn.execute(
+        text("SELECT id, definition FROM campaign_schedules WHERE definition IS NOT NULL")
+    ).fetchall()
+
+    for row_id, raw in rows:
+        try:
+            definition = json.loads(raw) if isinstance(raw, str) else raw
+            if not isinstance(definition, dict):
+                continue
+            if definition.get("time_model") == "local":
+                continue  # already migrated
+
+            utc_clock = definition.get("time_utc")
+            tz_name = definition.get("timezone")
+            definition["time_model"] = "local"
+
+            if not utc_clock:
+                # No time set (all-day sessions); nothing to convert.
+                definition.pop("time_utc", None)
+                definition["time_local"] = None
+            else:
+                hour, minute = (int(p) for p in str(utc_clock).split(":")[:2])
+                zone = None
+                if tz_name:
+                    try:
+                        zone = zoneinfo.ZoneInfo(str(tz_name))
+                    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+                        zone = None
+
+                if zone is None:
+                    # Unrecoverable: keep the clock, leave the weekday alone.
+                    definition["time_local"] = f"{hour:02d}:{minute:02d}"
+                else:
+                    # Resolve against today: a UTC clock alone does not say which
+                    # offset produced it (02:30Z is 18:30 PST but 19:30 PDT), and
+                    # today's offset is the one the schedule is being used under.
+                    today = datetime.date.today()
+                    ref = datetime.datetime(
+                        today.year, today.month, today.day, hour, minute,
+                        tzinfo=datetime.timezone.utc,
+                    )
+                    local = ref.astimezone(zone)
+                    definition["time_local"] = f"{local.hour:02d}:{local.minute:02d}"
+
+                    # `days` is deliberately left alone. The weekday the GM
+                    # picked was always stored unconverted, and the schedule tab
+                    # has been displaying it correctly all along — it was the
+                    # *clock* that the browser mangled, by converting 19:30 local
+                    # to 02:30 UTC and dropping the day the conversion rolled
+                    # into. Recovering the local clock therefore restores the
+                    # pair the GM actually chose; shifting the weekday too would
+                    # move every existing game to the wrong day to match the
+                    # broken feed rather than the intent.
+                definition.pop("time_utc", None)
+
+            conn.execute(
+                text("UPDATE campaign_schedules SET definition = :d WHERE id = :i"),
+                {"d": json.dumps(definition), "i": row_id},
+            )
+        except (ValueError, TypeError) as e:
+            # A row whose definition isn't the expected shape: skip it rather
+            # than aborting startup, but log so it is visible.
+            logger.warning("Skipping schedule time migration for id=%s: %s", row_id, e)
     conn.commit()
 
 
@@ -281,6 +376,11 @@ def _post_migration_setup(engine: Engine) -> None:
     with engine.connect() as conn:
         # Normalize all stored tags to lowercase, deduplicating within each row.
         _normalize_tags_in_db(conn)
+
+        # Move schedule times from a UTC clock to the local clock they were
+        # picked in, repairing the lost day rollover. Marker-guarded, so
+        # repeating it is a no-op.
+        _migrate_schedule_times_to_local(conn)
 
         # Backfill resource visibility from the legacy shared/gm_only flags. Runs
         # only on rows still at the column default; safe to repeat.

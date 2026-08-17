@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
-import { utcTimeToLocal, USER_TZ } from './_scheduleShared'
+import { formatScheduleTime, USER_TZ } from './_scheduleShared'
 import ScheduleEditor from './ScheduleEditor'
 import ToggleSwitch from './ToggleSwitch'
 import { cancelBtn } from './campaignEditorShared'
@@ -127,7 +127,7 @@ export default function ScheduleSetup({ campaign, onChanged }) {
   } else {
     pattern = (def.days ?? []).map((d) => DAY_NAMES[d]).join(' & ')
   }
-  const localTime = utcTimeToLocal(def.time_utc)
+  const localTime = formatScheduleTime(def.time_local)
 
   return (
     <div>

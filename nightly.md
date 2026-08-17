@@ -986,7 +986,7 @@ Subscription links require the `BASE_URL` environment variable to point at the a
 
 Sessions land in your calendar on the day and time you actually picked, in the timezone you picked it in - a Sunday 7:30pm game shows up Sunday at 7:30pm, and stays correct when daylight saving shifts.
 
-> **If an evening game shows up a day early,** your schedule is missing its timezone. Evening games in the Americas fall after midnight UTC, and without a recorded timezone the feed has no way to say which day you meant - so a Sunday night game can arrive as Saturday. **Re-saving the schedule** (open the schedule editor and save) records the timezone and corrects the feed; your calendar app picks up the fix on its next refresh, or immediately if you remove and re-add the subscription.
+> **Evening games used to arrive a day early, and this release fixes it.** Session times were stored in UTC while the weekday stayed local, and the conversion dropped the day it rolled into - a 7:30pm Pacific game became "02:30 UTC" on the same weekday, which is really the *previous* evening. Sunday-night games therefore published as Saturday. Grimoire now stores the day and time together in your own timezone, and existing schedules are repaired automatically on upgrade; nothing to re-enter. Your calendar app picks the fix up on its next refresh, or immediately if you remove and re-add the subscription.
 
 ---
 

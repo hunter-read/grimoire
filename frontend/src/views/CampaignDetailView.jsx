@@ -29,7 +29,7 @@ import MemberRow from '../components/campaigns/MemberRow'
 import InvitePanel from '../components/campaigns/InvitePanel'
 import GuestPanel from '../components/campaigns/GuestPanel'
 import AnchoredPopover from '../components/campaigns/AnchoredPopover'
-import { utcTimeToLocal, USER_TZ } from '../components/campaigns/_scheduleShared'
+import { formatScheduleTime, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
 
 const CARD = {
@@ -116,7 +116,7 @@ function scheduleSummary(def, t) {
   } else {
     pattern = (def.days ?? []).map((d) => DAY_NAMES[d]).join(' & ')
   }
-  const time = utcTimeToLocal(def.time_utc)
+  const time = formatScheduleTime(def.time_local)
   const parts = [pattern ? `${freq} — ${pattern}` : freq]
   if (time) parts.push(`${time} (${USER_TZ})`)
   return parts.join(' · ')

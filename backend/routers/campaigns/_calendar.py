@@ -1,8 +1,16 @@
 """iCalendar (RFC 5545) feed generation for campaign schedules.
 
 Hand-rolled rather than pulling in ``icalendar``: the output is a handful of
-VEVENTs with no recurrence rules, timezone components, or parsing to do, so the
-dependency would buy little over the ~80 lines here.
+VEVENTs with no recurrence rules to compute and no parsing to do, so the
+dependency would buy little over the code here. (VTIMEZONE components *are*
+emitted — see ``build_vtimezone`` — but from the tz database directly.)
+
+**Times are local, not UTC.** A schedule stores a local weekday and a local
+clock, and events are published as ``DTSTART;TZID=<zone>:<local time>``. Storing
+a UTC clock beside a local weekday is what published Sunday-night games as
+Saturday: 19:30 America/Los_Angeles is 02:30 UTC the *following* day, so the
+pair "Sunday, 02:30 UTC" describes Saturday evening. Keeping both halves local
+removes the rollover by construction.
 
 **Why the feed is read-only.** A subscribed ICS feed is fetched over plain HTTP
 GET; the protocol has no write path back, so Accept/Tentative/Decline is inert
@@ -181,38 +189,12 @@ def build_vtimezone(tz_name: str, start_year: int, end_year: int) -> List[str]:
     return lines
 
 
-def _resolve_start(
-    day: datetime.date, hour: int, minute: int, tz_name: Optional[str]
-) -> datetime.datetime:
-    """Resolve a session's date + stored time to the naive UTC instant to publish.
-
-    ``days`` in a schedule definition has always meant a *local* weekday, so the
-    date here is local. When the schedule records the zone those weekdays were
-    chosen in, the time is a local wall clock and has to be converted — "Tuesday
-    20:00 America/Los_Angeles" is 03:00 UTC on *Wednesday*, and publishing it as
-    03:00 on Tuesday puts the session a day early in every subscriber's calendar.
-
-    Converting per-session rather than once at save time is what keeps the feed
-    right across a DST transition: each date resolves at its own UTC offset.
-
-    Schedules saved before the zone was captured have no way to recover it, so
-    the pair is published as-is — the prior behaviour, bug included, rather than
-    a guess that would silently move existing games.
-    """
-    zone = _zone_or_none(tz_name)
-    if zone is None:
-        return datetime.datetime(day.year, day.month, day.day, hour, minute)
-    local = datetime.datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
-    # Emit as a naive UTC datetime; _utc_stamp appends the trailing Z.
-    return local.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-
-
 def build_event(
     *,
     uid: str,
     dtstamp: datetime.datetime,
     session_date: str,
-    time_utc: Optional[str],
+    time_local: Optional[str],
     summary: str,
     description: str,
     url: str,
@@ -233,28 +215,28 @@ def build_event(
     ]
 
     day = datetime.date.fromisoformat(session_date)
-    if time_utc:
-        hour, minute = (int(p) for p in time_utc.split(":")[:2])
+    if time_local:
+        hour, minute = (int(p) for p in time_local.split(":")[:2])
+        # Both `session_date` and the time are local, so the pair is published as
+        # a local wall clock. Collapsing it to a UTC instant is what moved
+        # evening games onto the neighbouring day: 19:30 America/Los_Angeles is
+        # 02:30Z the *next* day, and a client re-rendering that instant in the
+        # viewer's zone shows Saturday night for a Sunday game. Naming the zone
+        # instead keeps the weekday intact for every reader and lets the client
+        # resolve DST from the VTIMEZONE.
+        start_local = datetime.datetime(day.year, day.month, day.day, hour, minute)
+        end_local = start_local + datetime.timedelta(hours=_DEFAULT_DURATION_HOURS)
         if timezone and _zone_or_none(timezone):
-            # Publish the local wall clock with an explicit TZID rather than a
-            # UTC instant. `session_date` is a *local* date and the stored time
-            # is a *local* clock, so collapsing the pair to UTC moves the event
-            # onto the neighbouring day for anyone whose evening crosses
-            # midnight UTC: a Sunday 19:30 game in America/Los_Angeles becomes
-            # 02:30Z Sunday, which every client then renders as Saturday night.
-            # The TZID form says "Sunday 19:30 in this zone" outright, so the
-            # weekday survives in every reader's rendering and stays correct
-            # across DST.
-            start_local = datetime.datetime(day.year, day.month, day.day, hour, minute)
-            end_local = start_local + datetime.timedelta(hours=_DEFAULT_DURATION_HOURS)
             lines.append(f"DTSTART;TZID={timezone}:{_local_stamp(start_local)}")
             lines.append(f"DTEND;TZID={timezone}:{_local_stamp(end_local)}")
         else:
-            # No usable zone recorded: fall back to the historical UTC form.
-            start = _resolve_start(day, hour, minute, timezone)
-            end = start + datetime.timedelta(hours=_DEFAULT_DURATION_HOURS)
-            lines.append(f"DTSTART:{_utc_stamp(start)}")
-            lines.append(f"DTEND:{_utc_stamp(end)}")
+            # No zone recorded, so the time is a *floating* local one: RFC 5545
+            # §3.3.5 says a DATE-TIME with neither a TZID nor a trailing Z is
+            # interpreted in the viewer's own zone. That is the best available
+            # reading of "19:30" with no zone attached, and unlike the previous
+            # UTC form it cannot shift the weekday.
+            lines.append(f"DTSTART:{_local_stamp(start_local)}")
+            lines.append(f"DTEND:{_local_stamp(end_local)}")
     else:
         # VALUE=DATE all-day event; DTEND is exclusive, so it is the next day.
         lines.append(f"DTSTART;VALUE=DATE:{day.strftime('%Y%m%d')}")

@@ -812,7 +812,8 @@ Superseded by the wiki. On startup, any non-empty legacy session notes are rolle
 {
   "frequency": "weekly",
   "days": [5],
-  "time_utc": "18:00",
+  "time_local": "18:00",
+  "timezone": "America/Los_Angeles",
   "biweekly_reference": "2026-01-03",
   "monthly_week": null,
   "custom_dates": null
@@ -822,8 +823,10 @@ Superseded by the wiki. On startup, any non-empty legacy session notes are rolle
 | Field | Description |
 |-------|-------------|
 | `frequency` | `weekly`, `biweekly`, `monthly`, or `custom` |
-| `days` | Weekday indices - `0` = Monday … `6` = Sunday |
-| `time_utc` | Session time in UTC (`HH:MM`) |
+| `days` | Local weekday indices - `0` = Monday … `6` = Sunday |
+| `time_local` | Session time (`HH:MM`) in the zone named by `timezone` |
+| `timezone` | IANA zone the days and time are expressed in (e.g. `America/Los_Angeles`) |
+| `time_utc` | **Deprecated.** A UTC clock; still accepted from older clients and converted to `time_local` on write |
 | `biweekly_reference` | Anchor date for biweekly cadence (`YYYY-MM-DD`) |
 | `monthly_week` | Week of month: `1`–`4`, or `-1` for last |
 | `custom_dates` | Array of explicit dates (`YYYY-MM-DD`) for `custom` frequency |
@@ -857,7 +860,11 @@ The token identifies the user; membership still authorises. A feed for a campaig
 
 **Session times are published as local wall clocks with an explicit `TZID`.** A schedule's `days` are *local* weekday indices and its stored time is a *local* clock, so the definition also carries an optional IANA `timezone` (captured from the browser on save, validated on write). When it is present the feed emits `DTSTART;TZID=<zone>:<local time>` and ships a matching `VTIMEZONE`, so the session keeps its weekday in every reader's rendering and stays correct across DST.
 
-> Publishing a UTC instant instead is what put evening games on the wrong day. Collapsing "Sunday 19:30 America/Los_Angeles" to `20260816T023000Z` is arithmetically correct but *already Monday in UTC*, and every client re-renders that in the viewer's own zone — showing Saturday night to the Pacific players whose game it is. The instant was right; the format threw the weekday away. Schedules stored before the `timezone` field existed have no zone to name, so they keep the legacy UTC form (and its day-shift); re-saving the schedule captures the zone and fixes the feed.
+> Publishing a UTC instant instead is what put evening games on the wrong day. Collapsing "Sunday 19:30 America/Los_Angeles" to `20260816T023000Z` is arithmetically correct but *already Monday in UTC*, and every client re-renders that in the viewer's own zone — showing Saturday night to the Pacific players whose game it is. The instant was right; the format threw the weekday away.
+
+> **The storage model changed with it.** Schedules previously stored a *local* weekday beside a *UTC* clock, and the browser's conversion dropped the day the clock rolled into: 19:30 Pacific was saved as `02:30` while `days` still said Sunday, so the pair described Saturday evening and the feed published it faithfully. Both halves are now local (`time_local` + local `days`), which removes the rollover by construction. A startup migration (`_migrate_schedule_times_to_local`) converts existing rows back through their recorded zone, repairing the clock and leaving `days` untouched — the weekday was always the half the UI displayed correctly. It is marker-guarded (`time_model: "local"`) and therefore idempotent. Rows with no `timezone` have nothing to convert against and keep their clock; re-saving the schedule records a zone.
+
+A schedule with no zone publishes a *floating* local time (`DTSTART:<local>`, no `TZID`, no trailing `Z`) — RFC 5545 §3.3.5 reads that in the viewer's own zone, which is the best available interpretation of a bare `19:30` and, unlike the old UTC form, cannot shift the weekday.
 
 `VTIMEZONE` components are derived from the events themselves — every zone referenced by a `TZID` gets one emitted ahead of the events, with an explicit `STANDARD`/`DAYLIGHT` subcomponent per transition in the published window rather than an `RRULE`. Events carry `SEQUENCE:1`, bumped from `0` when the format changed so subscribers holding the old UTC events accept the correction.
 

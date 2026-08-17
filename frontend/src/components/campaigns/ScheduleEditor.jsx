@@ -36,7 +36,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
 
   const [frequency, setFrequency] = useState(existing?.frequency ?? 'weekly')
   const [days, setDays] = useState(existing?.days ?? [])
-  const [timeUtc, setTimeUtc] = useState(existing?.time_utc ?? null)
+  const [timeLocal, setTimeLocal] = useState(existing?.time_local ?? null)
   const [biweeklyRef, setBiweeklyRef] = useState(existing?.biweekly_reference ?? '')
   const [monthlyWeek, setMonthlyWeek] = useState(existing?.monthly_week ?? 1)
   const [customDates, setCustomDates] = useState(existing?.custom_dates ?? [])
@@ -68,9 +68,11 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
       const payload = {
         days,
         frequency,
-        time_utc: timeUtc,
-        // The weekdays above are local; the server needs the zone they were
-        // picked in to place the session at the right UTC instant in the feed.
+        time_local: timeLocal,
+        // Both the weekdays and the time above are local. The zone travels with
+        // them so the feed can name it (TZID) rather than convert to a UTC
+        // instant — converting is what dropped the day rollover and published
+        // evening games a day early.
         timezone: USER_TZ,
         biweekly_reference:
           frequency === 'biweekly' ? biweeklyRef || new Date().toISOString().slice(0, 10) : null,
@@ -260,7 +262,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
       )}
 
       <div style={{ marginBottom: 18 }}>
-        <TimePicker value={timeUtc} onChange={setTimeUtc} />
+        <TimePicker value={timeLocal} onChange={setTimeLocal} />
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>

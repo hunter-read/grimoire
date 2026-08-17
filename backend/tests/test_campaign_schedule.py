@@ -268,3 +268,248 @@ class TestAvailability:
             f"/api/campaigns/{cid}/availability/nope/cancel", headers=gm_headers
         )
         assert bad_date.status_code == 400
+
+
+class TestLocalTimeModel:
+    """The stored pair is local throughout: a local weekday and a local clock.
+
+    Storing a UTC clock beside a local weekday is what published Sunday-night
+    games as Saturday — 19:30 America/Los_Angeles is 02:30 UTC the *following*
+    day, and only the clock survived the browser's conversion.
+    """
+
+    def test_local_time_is_stored_verbatim(self, client, gm_headers, gm_campaign):
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_local": "19:30",
+                "timezone": "America/Los_Angeles",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        definition = r.json()["definition"]
+        # No conversion, and no rollover to lose.
+        assert definition["time_local"] == "19:30"
+        assert definition["days"] == [6]
+        assert definition["timezone"] == "America/Los_Angeles"
+        assert definition["time_model"] == "local"
+        assert "time_utc" not in definition
+
+    def test_legacy_utc_payload_is_converted_on_write(self, client, gm_headers, gm_campaign):
+        """An older frontend still posts a UTC clock; it is converted, not stored raw."""
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_utc": "02:30",
+                "timezone": "America/Los_Angeles",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        definition = r.json()["definition"]
+        # 02:30Z is 19:30 Pacific.
+        assert definition["time_local"] == "19:30"
+        assert "time_utc" not in definition
+
+    def test_legacy_utc_payload_without_zone_is_kept_as_is(
+        self, client, gm_headers, gm_campaign
+    ):
+        """With no zone there is nothing to convert against, so the clock passes through."""
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_utc": "18:00",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["definition"]["time_local"] == "18:00"
+
+    def test_sunday_evening_pacific_feed_lands_on_sunday(
+        self, client, gm_headers, gm_campaign
+    ):
+        """End to end: the reported bug. A Sunday 19:30 Pacific game must read Sunday."""
+        import datetime
+        import zoneinfo
+
+        cid = gm_campaign["id"]
+        client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_local": "19:30",
+                "timezone": "America/Los_Angeles",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        body = client.get(f"/api/campaigns/{cid}/calendar.ics", headers=gm_headers).text
+        # Only the events' DTSTARTs — a VTIMEZONE's transition DTSTARTs also
+        # start with "DTSTART" but carry no TZID.
+        starts = [
+            ln
+            for ln in body.replace("\r\n ", "").split("\r\n")
+            if ln.startswith("DTSTART;TZID=")
+        ]
+        assert starts, body
+        for line in starts:
+            tzid, value = line.split("DTSTART;TZID=", 1)[1].split(":", 1)
+            resolved = datetime.datetime.strptime(value, "%Y%m%dT%H%M%S").replace(
+                tzinfo=zoneinfo.ZoneInfo(tzid)
+            )
+            assert resolved.strftime("%A") == "Sunday", line
+            assert resolved.strftime("%H:%M") == "19:30", line
+
+
+class TestScheduleTimeMigration:
+    """The startup migration that moves stored UTC clocks to local ones.
+
+    Exercised directly against a throwaway SQLite database rather than through
+    the app, so the pre-migration shape can be written verbatim.
+    """
+
+    def _migrate(self, rows):
+        """Write `rows` as campaign_schedules definitions, migrate, return them."""
+        import json
+        import sqlite3
+        import tempfile
+
+        from sqlalchemy import create_engine, text
+
+        from backend.models.db import _migrate_schedule_times_to_local
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            path = f.name
+        conn = sqlite3.connect(path)
+        conn.execute("CREATE TABLE campaign_schedules (id TEXT PRIMARY KEY, definition TEXT)")
+        for i, definition in enumerate(rows):
+            conn.execute(
+                "INSERT INTO campaign_schedules (id, definition) VALUES (?, ?)",
+                (str(i), json.dumps(definition)),
+            )
+        conn.commit()
+        conn.close()
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as c:
+            _migrate_schedule_times_to_local(c)
+        with engine.connect() as c:
+            out = [
+                json.loads(r[0])
+                for r in c.execute(
+                    text("SELECT definition FROM campaign_schedules ORDER BY CAST(id AS INT)")
+                ).fetchall()
+            ]
+        engine.dispose()
+        return out
+
+    def test_evening_utc_clock_becomes_local_and_keeps_the_weekday(self):
+        """The reported bug, as stored: Sunday + 02:30Z, a 19:30 Pacific game.
+
+        Only the clock was corrupted — the browser converted 19:30 local to 02:30
+        UTC and dropped the day it rolled into, while `days` kept the Sunday the
+        GM picked and the UI displayed. Recovering the clock restores the intended
+        pair; the weekday must not move.
+        """
+        (out,) = self._migrate(
+            [
+                {
+                    "days": [6],  # Sunday, per the old (wrong) pairing
+                    "frequency": "weekly",
+                    "time_utc": "02:30",
+                    "timezone": "America/Los_Angeles",
+                }
+            ]
+        )
+        assert out["time_local"] == "19:30"
+        # Sunday stays Sunday: the weekday was never the corrupted half.
+        assert out["days"] == [6]
+        assert out["time_model"] == "local"
+        assert "time_utc" not in out
+
+    def test_daytime_utc_clock_keeps_its_weekday(self):
+        """A time that does not cross midnight locally leaves `days` alone."""
+        (out,) = self._migrate(
+            [
+                {
+                    "days": [2],
+                    "frequency": "weekly",
+                    "time_utc": "20:00",
+                    "timezone": "Europe/London",
+                }
+            ]
+        )
+        assert out["days"] == [2]
+        assert out["time_model"] == "local"
+
+    def test_zoneless_schedule_keeps_its_clock(self):
+        """With no zone there is nothing to undo the original shift with."""
+        (out,) = self._migrate(
+            [{"days": [1], "frequency": "weekly", "time_utc": "18:00", "timezone": None}]
+        )
+        assert out["time_local"] == "18:00"
+        assert out["days"] == [1]
+        assert out["time_model"] == "local"
+
+    def test_all_day_schedule_migrates_without_a_time(self):
+        (out,) = self._migrate(
+            [{"days": [3], "frequency": "weekly", "time_utc": None, "timezone": "UTC"}]
+        )
+        assert out["time_local"] is None
+        assert out["time_model"] == "local"
+
+    def test_migration_is_idempotent(self):
+        """Re-running must not convert an already-local row a second time."""
+        rows = [
+            {
+                "days": [6],
+                "frequency": "weekly",
+                "time_utc": "02:30",
+                "timezone": "America/Los_Angeles",
+            }
+        ]
+        once = self._migrate(rows)
+        twice = self._migrate(once)
+        assert once == twice
+
+    def test_custom_dates_are_left_alone(self):
+        """Explicit dates are the GM's local dates; only the clock is repaired."""
+        (out,) = self._migrate(
+            [
+                {
+                    "days": [],
+                    "frequency": "custom",
+                    "custom_dates": ["2026-08-23", "2026-08-30"],
+                    "time_utc": "02:30",
+                    "timezone": "America/Los_Angeles",
+                }
+            ]
+        )
+        assert out["custom_dates"] == ["2026-08-23", "2026-08-30"]
+        assert out["time_local"] == "19:30"
+
+    def test_unknown_zone_is_tolerated(self):
+        """A zone missing from this host's tz database must not abort startup."""
+        (out,) = self._migrate(
+            [
+                {
+                    "days": [1],
+                    "frequency": "weekly",
+                    "time_utc": "18:00",
+                    "timezone": "Mars/Olympus_Mons",
+                }
+            ]
+        )
+        assert out["time_local"] == "18:00"
+        assert out["time_model"] == "local"

@@ -115,8 +115,12 @@ def _campaign_events(
     own_status = {r.session_date: r.status for r in rows if r.user_id == user_id}
     cancelled = {r.session_date for r in rows if r.is_cancelled}
 
-    time_utc = (sched.definition or {}).get("time_utc")
-    tz_name = (sched.definition or {}).get("timezone")
+    definition = sched.definition or {}
+    # ``time_local`` is the current model; ``time_utc`` is only still read for a
+    # row the startup migration has not converted yet (it runs before serving, so
+    # in practice this is the belt to that braces).
+    session_time = definition.get("time_local") or definition.get("time_utc")
+    tz_name = definition.get("timezone")
     link = f"{BASE_URL}/campaigns/{campaign.id}?tab=schedule"
 
     events = []
@@ -147,7 +151,7 @@ def _campaign_events(
                 uid=session_uid(campaign.id, date),
                 dtstamp=dtstamp,
                 session_date=date,
-                time_utc=time_utc,
+                time_local=session_time,
                 timezone=tz_name,
                 summary=summary,
                 description="\n".join(description_parts),
