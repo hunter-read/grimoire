@@ -9,11 +9,17 @@
  *  category sits at index 3 and everything below it shifts too.
  *
  *  This mirrors the indexer's `system_depth` argument to `guess_category`, which
- *  is 2 for an ordinary system and 3 for a container child. Deriving it from the
- *  path is not reliable: a keyword-inferred category stores a slug that doesn't
- *  match its folder name ("Core Rulebooks" → `core`), so the segment can't be
- *  found by matching the book's category. */
+ *  is `2 + <enclosing containers>`. Deriving it from the path is not reliable: a
+ *  keyword-inferred category stores a slug that doesn't match its folder name
+ *  ("Core Rulebooks" → `core`), so the segment can't be found by matching the
+ *  book's category.
+ *
+ *  The server sends `category_depth` because containers nest (issue #301) and
+ *  the payload carries only the immediate `parent_id`, not the whole chain — so
+ *  a system two containers deep can't be told from one at a depth of 3 here
+ *  (issue #357). `parent_id` is the fallback for a payload predating the field. */
 export function categoryDepth(system) {
+  if (Number.isInteger(system?.category_depth)) return system.category_depth
   return system?.parent_id ? 3 : 2
 }
 

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
 from .core import (
+    delete_book_folder,
     get_system,
     list_book_folders,
     list_systems,
@@ -75,10 +76,22 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Set tags on a book folder",
     description=(
-        "Creates or replaces the tag list for a book subcategory folder. GM or "
+        "Creates or replaces the tag list for a book subcategory folder. `path` "
+        "must be `{system_id}/{category}/{subfolder...}` for this system. GM or "
         "admin role required."
     ),
     response_model=BookFolderOut,
+)
+router.add_api_route(
+    "/{system_id}/book-folders",
+    delete_book_folder,
+    methods=["DELETE"],
+    summary="Delete a book folder",
+    description=(
+        "Removes a book subcategory folder row and its tags. Pass the folder's "
+        "`path` as a query parameter. GM or admin role required."
+    ),
+    response_model=StatusResponse,
 )
 router.add_api_route(
     "/{system_id}",

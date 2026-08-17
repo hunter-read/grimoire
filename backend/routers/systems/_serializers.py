@@ -105,4 +105,25 @@ def serialize_system_summary(
         ),
         "name_is_custom": bool(system.name_is_custom),
         "child_count": child_count,
+        # Index of the category dir in this system's book paths: 2 normally, one
+        # deeper per enclosing container. Containers nest, so the client can't
+        # derive this from ``parent_id`` alone (issue #357) — it has only the
+        # immediate parent, not the chain.
+        "category_depth": _category_depth(system),
     }
+
+
+def _category_depth(system: GameSystem) -> int:
+    """``2 + <number of enclosing containers>`` — see ``category_depth`` above.
+
+    Walks ``parent`` rather than querying, since the caller already has the row
+    loaded. Guards against a cycle the schema does not prevent.
+    """
+    depth = 2
+    seen: set[str] = {system.id}
+    current = system.parent if system.parent_id else None
+    while current is not None and current.id not in seen:
+        seen.add(current.id)
+        depth += 1
+        current = current.parent if current.parent_id else None
+    return depth

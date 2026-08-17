@@ -258,6 +258,22 @@ def _sort_books(books: list[Book], sort: str, order: str) -> list[Book]:
     return sorted(books, key=lambda b: (b.category, b.title.lower()))
 
 
+def _require_owned_folder_path(db: Session, system_id: str, path: str) -> None:
+    """404 unless the system exists, 400 unless ``path`` addresses a folder in it.
+
+    A ``BookFolder.path`` is ``{system_id}/{category}/{subfolder…}``, so a path
+    that isn't prefixed with this system's id belongs to a different system (or
+    to no system at all) and must not be writable through this route.
+    """
+    if not db.query(GameSystem).filter_by(id=system_id).first():
+        raise HTTPException(404, "System not found")
+    cleaned = (path or "").strip().replace("\\", "/")
+    if not cleaned.startswith(f"{system_id}/") or len(cleaned.split("/")) < 3:
+        raise HTTPException(
+            400, "path must be '{system_id}/{category}/{subfolder...}' for this system"
+        )
+
+
 def list_book_folders(
     system_id: str,
     _: CurrentUser = Depends(get_current_user),
@@ -281,11 +297,35 @@ def update_book_folder(
     _: CurrentUser = Depends(require_gm_or_admin),  # noqa: ARG001,
     db: Session = Depends(get_db),
 ):
+    # ``data.path`` alone used to pick the row, so a path belonging to another
+    # system (or to none) silently created a row the matching GET — which filters
+    # on ``{system_id}/`` — could never return (issue #357).
+    _require_owned_folder_path(db, system_id, data.path)
     internals = tag_service.upsert_folder_tags(
         db, BookFolder, data.path, data.tags, category="book"
     )
     db.commit()
     return {"path": data.path, "tags": internals}
+
+
+def delete_book_folder(
+    system_id: str,
+    path: str,
+    _: CurrentUser = Depends(require_gm_or_admin),  # noqa: ARG001,
+    db: Session = Depends(get_db),
+):
+    """Remove a book folder row outright (issue #357).
+
+    Clearing a folder's tags leaves the row behind, so a row written under a
+    mistaken path could previously be emptied but never removed.
+    """
+    _require_owned_folder_path(db, system_id, path)
+    folder = db.query(BookFolder).filter_by(path=path).first()
+    if not folder:
+        raise HTTPException(404, "Book folder not found")
+    db.delete(folder)
+    db.commit()
+    return {"status": "deleted"}
 
 
 def update_system(
