@@ -126,31 +126,39 @@ class TestIcsWriter:
         assert "DTEND:20260314T223000Z" in lines
         assert "STATUS:CONFIRMED" in lines
 
-    def test_local_time_crossing_midnight_utc_shifts_the_date(self):
-        """A Tuesday 20:00 America/Los_Angeles game is 03:00 UTC on Wednesday.
+    def test_zoned_event_publishes_local_time_with_tzid(self):
+        """A zoned session keeps its local wall clock and names the zone.
 
-        Publishing it as 03:00 on Tuesday put every session a day early in
-        subscribers' calendars — the schedule read "Tuesday" but the feed
-        rendered Monday 8pm local.
+        Collapsing the pair to a UTC instant is what moved evening games onto the
+        neighbouring day: a Sunday 19:30 America/Los_Angeles game is 02:30Z on
+        *Monday*, which clients then render as Saturday night for anyone west of
+        UTC. The TZID form states the local time outright, so the weekday
+        survives whatever zone the reader is in.
         """
         import datetime
 
         lines = _calendar.build_event(
             uid="u@grimoire",
             dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
-            session_date="2026-08-18",  # a Tuesday
-            time_utc="20:00",
+            session_date="2026-08-16",  # a Sunday
+            time_utc="19:30",
             timezone="America/Los_Angeles",
             summary="Session",
             description="",
             url="",
             cancelled=False,
         )
-        assert "DTSTART:20260819T030000Z" in lines
-        assert "DTEND:20260819T070000Z" in lines
+        assert "DTSTART;TZID=America/Los_Angeles:20260816T193000" in lines
+        assert "DTEND;TZID=America/Los_Angeles:20260816T233000" in lines
+        # The bare UTC form is what produced the wrong weekday.
+        assert not any(x.startswith("DTSTART:") for x in lines)
 
-    def test_utc_offset_follows_dst(self):
-        """The same wall-clock time resolves differently either side of a DST shift."""
+    def test_zoned_local_time_is_stable_across_dst(self):
+        """The same wall clock is published either side of a DST shift.
+
+        The offset differs (PDT vs PST) but the *local* time does not, which is
+        the whole point of the TZID form — the VTIMEZONE carries the offsets.
+        """
         import datetime
 
         def start_for(date):
@@ -165,11 +173,77 @@ class TestIcsWriter:
                 url="",
                 cancelled=False,
             )
-            return next(x for x in lines if x.startswith("DTSTART:"))
+            return next(x for x in lines if x.startswith("DTSTART"))
 
-        # PDT (UTC-7) in August, PST (UTC-8) in December.
-        assert start_for("2026-08-18") == "DTSTART:20260819T030000Z"
-        assert start_for("2026-12-15") == "DTSTART:20261216T040000Z"
+        assert start_for("2026-08-18") == "DTSTART;TZID=America/Los_Angeles:20260818T200000"
+        assert start_for("2026-12-15") == "DTSTART;TZID=America/Los_Angeles:20261215T200000"
+
+    def test_vtimezone_is_emitted_for_referenced_zones(self):
+        """RFC 5545 requires the zone definition to travel with the feed."""
+        import datetime
+
+        ev = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+            session_date="2026-08-16",
+            time_utc="19:30",
+            timezone="America/Los_Angeles",
+            summary="S",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        body = _calendar.build_calendar([ev], name="Cal")
+        lines = parse_lines(body)
+        assert "BEGIN:VTIMEZONE" in lines
+        assert "TZID:America/Los_Angeles" in lines
+        # Both 2026 transitions, with the right offsets and abbreviations.
+        assert "TZNAME:PDT" in lines
+        assert "TZNAME:PST" in lines
+        assert "TZOFFSETTO:-0700" in lines
+        assert "TZOFFSETTO:-0800" in lines
+        # The VTIMEZONE must precede the events that reference it.
+        assert lines.index("BEGIN:VTIMEZONE") < lines.index("BEGIN:VEVENT")
+
+    def test_no_vtimezone_when_no_zone_is_recorded(self):
+        """A legacy zoneless schedule keeps the UTC form and needs no VTIMEZONE."""
+        import datetime
+
+        ev = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+            session_date="2026-08-16",
+            time_utc="19:30",
+            timezone=None,
+            summary="S",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        body = _calendar.build_calendar([ev], name="Cal")
+        assert "BEGIN:VTIMEZONE" not in body
+        assert "DTSTART:20260816T193000Z" in parse_lines(body)
+
+    def test_sequence_is_incremented_so_updates_reach_subscribers(self):
+        """Subscribers cached the old UTC events at SEQUENCE:0.
+
+        Clients may ignore an update whose SEQUENCE has not advanced, which would
+        strand the corrected weekday in already-subscribed calendars.
+        """
+        import datetime
+
+        lines = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 1, 1, 12, 0, 0),
+            session_date="2026-08-16",
+            time_utc="19:30",
+            timezone="America/Los_Angeles",
+            summary="S",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        assert "SEQUENCE:1" in lines
 
     def test_missing_timezone_keeps_legacy_behaviour(self):
         """Schedules saved before the zone was captured publish the pair as-is."""
@@ -203,6 +277,36 @@ class TestIcsWriter:
             cancelled=False,
         )
         assert "DTSTART:20260818T200000Z" in lines
+
+    def test_sunday_evening_pacific_game_does_not_render_as_saturday(self):
+        """Regression: "The Bled", a Sunday 19:30 Pacific game, arrived as Saturday.
+
+        The feed published DTSTART:20260816T023000Z — a correct instant, but one
+        that every client renders in the viewer's zone, putting a Pacific evening
+        game on the previous day. Resolving the published value back through the
+        zone has to land on Sunday.
+        """
+        import datetime
+        import zoneinfo
+
+        lines = _calendar.build_event(
+            uid="u@grimoire",
+            dtstamp=datetime.datetime(2026, 8, 17, 5, 37, 25),
+            session_date="2026-08-16",
+            time_utc="19:30",
+            timezone="America/Los_Angeles",
+            summary="The Bled",
+            description="",
+            url="",
+            cancelled=False,
+        )
+        start = next(x for x in lines if x.startswith("DTSTART"))
+        tzid, value = start.split("DTSTART;TZID=", 1)[1].split(":", 1)
+        resolved = datetime.datetime.strptime(value, "%Y%m%dT%H%M%S").replace(
+            tzinfo=zoneinfo.ZoneInfo(tzid)
+        )
+        assert resolved.strftime("%A") == "Sunday"
+        assert resolved.strftime("%H:%M") == "19:30"
 
     def test_untimed_event_is_all_day_with_exclusive_end(self):
         import datetime
