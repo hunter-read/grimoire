@@ -1035,6 +1035,8 @@
     "you": "(you)",
     "invitePlayer": "Invite a player:",
     "allInvited": "All users have already been invited.",
+    "searchUsers": "Search users…",
+    "noMatchingUsers": "No matching users.",
     "invite": "Invite",
     "uploadArt": "Upload character art",
     "characterSheet": "Character sheet",

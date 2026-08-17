@@ -1035,6 +1035,8 @@
     "you": "(você)",
     "invitePlayer": "Convidar um jogador:",
     "allInvited": "Todos os usuários já foram convidados.",
+    "searchUsers": "Pesquisar usuários…",
+    "noMatchingUsers": "Nenhum usuário correspondente.",
     "invite": "Convidar",
     "uploadArt": "Enviar arte do personagem",
     "characterSheet": "Ficha de personagem",

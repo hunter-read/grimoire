@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuUserPlus, LuRefreshCw, LuTrash2, LuShare2, LuCopy, LuMail } from 'react-icons/lu'
 import { campaigns } from '../../api'
@@ -89,7 +90,8 @@ export default function GuestPanel({ campaignId, onChanged }) {
   if (!guests) return <Spinner size={16} />
 
   return (
-    <div style={{ marginTop: 12 }}>
+    // Rendered inside an anchored popover, which supplies the padding and framing.
+    <div>
       <form onSubmit={create} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
           type="text"
@@ -124,108 +126,117 @@ export default function GuestPanel({ campaignId, onChanged }) {
           {t('guests.none')}
         </div>
       ) : (
-        guests.map((g) => (
-          <div
-            key={g.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}
-          >
-            <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>
-              {g.nickname || t('guests.guest')}
-              <code
-                style={{
-                  marginLeft: 8,
-                  fontSize: 12,
-                  color: 'var(--gold)',
-                  letterSpacing: '0.1em',
-                }}
+        // Capped like the invite list (~10 rows) so a long guest roster scrolls
+        // inside the popover.
+        <div style={{ maxHeight: 'min(330px, 60vh)', overflowY: 'auto' }}>
+          {guests.map((g) => (
+            <div
+              key={g.id}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}
+            >
+              <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>
+                {g.nickname || t('guests.guest')}
+                <code
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    color: 'var(--gold)',
+                    letterSpacing: '0.1em',
+                  }}
+                >
+                  {g.guest_code}
+                </code>
+              </span>
+              <GuestIconBtn title={t('guests.share')} onClick={() => openShare(g.id)}>
+                <LuShare2 size={13} />
+              </GuestIconBtn>
+              <GuestIconBtn
+                title={t('guests.regenerate')}
+                onClick={() => regenerate(g.id)}
+                disabled={busy}
               >
-                {g.guest_code}
-              </code>
-            </span>
-            <GuestIconBtn title={t('guests.share')} onClick={() => openShare(g.id)}>
-              <LuShare2 size={13} />
-            </GuestIconBtn>
-            <GuestIconBtn
-              title={t('guests.regenerate')}
-              onClick={() => regenerate(g.id)}
-              disabled={busy}
-            >
-              <LuRefreshCw size={13} />
-            </GuestIconBtn>
-            <GuestIconBtn title={t('guests.remove')} onClick={() => remove(g.id)} disabled={busy}>
-              <LuTrash2 size={13} />
-            </GuestIconBtn>
-          </div>
-        ))
-      )}
-
-      {share && (
-        <div
-          onClick={() => setShare(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--shadow)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 200,
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: 24,
-              maxWidth: 460,
-              width: '100%',
-            }}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>
-              {t('guests.shareTitle')}
-            </h3>
-            <textarea
-              readOnly
-              value={share.message}
-              rows={6}
-              style={{ width: '100%', resize: 'vertical', fontSize: 13, marginBottom: 12 }}
-            />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <ShareBtn onClick={() => copy(share.message, 'msg')}>
-                <LuCopy size={13} />{' '}
-                {copied === 'msg' ? t('guests.copied') : t('guests.copyMessage')}
-              </ShareBtn>
-              <ShareBtn onClick={() => copy(share.discord_message, 'discord')}>
-                <LuCopy size={13} />{' '}
-                {copied === 'discord' ? t('guests.copied') : t('guests.copyForDiscord')}
-              </ShareBtn>
-              <a href={share.mailto_url} style={{ textDecoration: 'none' }}>
-                <ShareBtn as="span">
-                  <LuMail size={13} /> {t('guests.email')}
-                </ShareBtn>
-              </a>
+                <LuRefreshCw size={13} />
+              </GuestIconBtn>
+              <GuestIconBtn title={t('guests.remove')} onClick={() => remove(g.id)} disabled={busy}>
+                <LuTrash2 size={13} />
+              </GuestIconBtn>
             </div>
-            <button
-              onClick={() => setShare(null)}
-              style={{
-                marginTop: 16,
-                padding: '6px 14px',
-                background: 'var(--bg-deep)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                color: 'var(--text-dim)',
-                cursor: 'pointer',
-                fontSize: 13,
-              }}
-            >
-              {t('common.close')}
-            </button>
-          </div>
+          ))}
         </div>
       )}
+
+      {/* Portalled to the body and stacked above the popover: the panel now renders
+          inside an anchored popover, so an in-place modal would be trapped beneath
+          it and clipped by its stacking context. */}
+      {share &&
+        createPortal(
+          <div
+            onClick={() => setShare(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'var(--shadow)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2100,
+              padding: 20,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: 24,
+                maxWidth: 460,
+                width: '100%',
+              }}
+            >
+              <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>
+                {t('guests.shareTitle')}
+              </h3>
+              <textarea
+                readOnly
+                value={share.message}
+                rows={6}
+                style={{ width: '100%', resize: 'vertical', fontSize: 13, marginBottom: 12 }}
+              />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <ShareBtn onClick={() => copy(share.message, 'msg')}>
+                  <LuCopy size={13} />{' '}
+                  {copied === 'msg' ? t('guests.copied') : t('guests.copyMessage')}
+                </ShareBtn>
+                <ShareBtn onClick={() => copy(share.discord_message, 'discord')}>
+                  <LuCopy size={13} />{' '}
+                  {copied === 'discord' ? t('guests.copied') : t('guests.copyForDiscord')}
+                </ShareBtn>
+                <a href={share.mailto_url} style={{ textDecoration: 'none' }}>
+                  <ShareBtn as="span">
+                    <LuMail size={13} /> {t('guests.email')}
+                  </ShareBtn>
+                </a>
+              </div>
+              <button
+                onClick={() => setShare(null)}
+                style={{
+                  marginTop: 16,
+                  padding: '6px 14px',
+                  background: 'var(--bg-deep)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

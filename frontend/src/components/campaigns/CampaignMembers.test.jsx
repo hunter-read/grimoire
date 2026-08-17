@@ -190,6 +190,75 @@ describe('InvitePanel', () => {
     expect(onInvited).toHaveBeenCalled()
   })
 
+  it('hides the search box for a short list', async () => {
+    campaigns.eligibleMembers.mockResolvedValue([
+      { id: 'u2', username: 'bob', display_name: null, role: 'player', already_invited: false },
+    ])
+    render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
+    await waitFor(() => screen.getByText('bob'))
+    expect(screen.queryByPlaceholderText('Search users…')).toBeNull()
+  })
+
+  it('filters the list by the search query once the list is long', async () => {
+    campaigns.eligibleMembers.mockResolvedValue(
+      ['bob', 'carol', 'dave', 'erin', 'frank', 'grace'].map((n, i) => ({
+        id: `u${i}`,
+        username: n,
+        display_name: null,
+        role: 'player',
+        already_invited: false,
+      }))
+    )
+    render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
+    await waitFor(() => screen.getByText('bob'))
+
+    const search = screen.getByPlaceholderText('Search users…')
+    fireEvent.change(search, { target: { value: 'gra' } })
+
+    expect(screen.getByText('grace')).toBeTruthy()
+    expect(screen.queryByText('bob')).toBeNull()
+  })
+
+  it('shows an empty-state when the search matches nobody', async () => {
+    campaigns.eligibleMembers.mockResolvedValue(
+      ['bob', 'carol', 'dave', 'erin', 'frank', 'grace'].map((n, i) => ({
+        id: `u${i}`,
+        username: n,
+        display_name: null,
+        role: 'player',
+        already_invited: false,
+      }))
+    )
+    render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
+    await waitFor(() => screen.getByText('bob'))
+
+    fireEvent.change(screen.getByPlaceholderText('Search users…'), {
+      target: { value: 'zzz' },
+    })
+    expect(screen.getByText('No matching users.')).toBeTruthy()
+  })
+
+  it('matches on display name as well as username', async () => {
+    campaigns.eligibleMembers.mockResolvedValue(
+      [
+        { username: 'bob', display_name: 'Robert Tables' },
+        { username: 'carol', display_name: null },
+        { username: 'dave', display_name: null },
+        { username: 'erin', display_name: null },
+        { username: 'frank', display_name: null },
+        { username: 'grace', display_name: null },
+      ].map((u, i) => ({ ...u, id: `u${i}`, role: 'player', already_invited: false }))
+    )
+    render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
+    await waitFor(() => screen.getByText('Robert Tables'))
+
+    fireEvent.change(screen.getByPlaceholderText('Search users…'), {
+      target: { value: 'tables' },
+    })
+    expect(screen.getByText('Robert Tables')).toBeTruthy()
+    expect(screen.queryByText('carol')).toBeNull()
+  })
+
   it('disables the invite button for users whose campaign access is off', async () => {
     campaigns.eligibleMembers.mockResolvedValue([
       {
