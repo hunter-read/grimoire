@@ -50,12 +50,24 @@ def base_url_configured() -> bool:
     return bool(BASE_URL) and BASE_URL != _DEFAULT_BASE_URL
 
 
-def _ics_response(body: str, filename: str) -> Response:
+def _ics_response(body: str, filename: str, *, inline: bool = False) -> Response:
+    """Serve an ICS body.
+
+    ``inline`` distinguishes a *subscription feed* from a *file download*. Google
+    Calendar's "From URL" fetcher rejects a feed served as
+    ``Content-Disposition: attachment`` — it reads the header as "this is a file
+    to save", not a calendar to poll — while Apple Calendar and Outlook ignore
+    the header on a URL they were explicitly asked to subscribe to. That is why
+    a feed can work everywhere except Google. Feeds therefore go out ``inline``;
+    only the one-off download keeps ``attachment``, where a filename is the
+    point.
+    """
+    disposition = "inline" if inline else "attachment"
     return Response(
         content=body,
         media_type=_ICS_MEDIA_TYPE,
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
             # Subscribed feeds are polled; a stale cached copy would silently
             # freeze someone's calendar after a reschedule.
             "Cache-Control": "no-store, max-age=0",
@@ -187,7 +199,7 @@ def campaign_calendar_feed(
     dtstamp = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     events = _campaign_events(db, campaign, user.id, dtstamp)
     body = build_calendar(events, name=campaign.name)
-    return _ics_response(body, f"{campaign.id}.ics")
+    return _ics_response(body, f"{campaign.id}.ics", inline=True)
 
 
 def all_campaigns_calendar_feed(
@@ -203,7 +215,7 @@ def all_campaigns_calendar_feed(
         events.extend(_campaign_events(db, campaign, user.id, dtstamp))
 
     body = build_calendar(events, name="Grimoire — My Campaigns")
-    return _ics_response(body, "grimoire-campaigns.ics")
+    return _ics_response(body, "grimoire-campaigns.ics", inline=True)
 
 
 # --- One-off download (JWT-authenticated) ---

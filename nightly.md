@@ -982,7 +982,11 @@ The subscription link is **personal to you**. It carries its own revocable token
 
 Subscription links require the `BASE_URL` environment variable to point at the address your server is reachable on, since Grimoire has to hand the calendar app a URL it can actually fetch. Until that's set, the buttons explain what's missing and the one-off **Download .ics** still works.
 
-Sessions land in your calendar at the time you actually picked, in the timezone you picked it in - a Tuesday 8pm game shows up Tuesday at 8pm, and stays correct when daylight saving shifts. Schedules saved before this was fixed kept a timezone-less time and could appear a day off; **re-saving the schedule** (open the schedule editor and save) records the timezone and corrects the feed.
+> **If the link works in Apple Calendar or Outlook but not Google Calendar,** the difference is *who does the fetching*. Apple and Outlook poll from your own computer, so a link that only works on your home network still works for you. Google fetches from its own servers, which means the URL has to be reachable from the public internet over `https://` - a LAN address (`192.168.x.x`), a `.local` name, a Tailscale/VPN-only hostname, or anything sitting behind a login-protected reverse proxy will silently fail there. Paste the `https://` link exactly as shown; Google doesn't understand the `webcal://` form.
+
+Sessions land in your calendar on the day and time you actually picked, in the timezone you picked it in - a Sunday 7:30pm game shows up Sunday at 7:30pm, and stays correct when daylight saving shifts.
+
+> **If an evening game shows up a day early,** your schedule is missing its timezone. Evening games in the Americas fall after midnight UTC, and without a recorded timezone the feed has no way to say which day you meant - so a Sunday night game can arrive as Saturday. **Re-saving the schedule** (open the schedule editor and save) records the timezone and corrects the feed; your calendar app picks up the fix on its next refresh, or immediately if you remove and re-add the subscription.
 
 ---
 
