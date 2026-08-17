@@ -206,7 +206,11 @@ class SearchField(_Strict):
 
 
 class SearchSpec(_Strict):
-    fields: list[SearchField] = Field(min_length=1)
+    # Ranking rules for a declaratively-fetched document.  A script-backed
+    # add-on does its own searching, so it may declare a ``search`` block purely
+    # to carry ``identity_pattern`` and leave this empty; the requirement is
+    # enforced on the manifest, where ``source`` is visible.
+    fields: list[SearchField] = Field(default_factory=list)
     min_score: float = Field(default=DEFAULT_MIN_SCORE, ge=0, le=1)
     limit: int = Field(default=DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT)
     label: Optional[ValueSpec] = None
@@ -285,7 +289,19 @@ class MappingEntry(_Strict):
         return self
 
 
-class AddonManifest(_Strict):
+class AddonManifest(BaseModel):
+    """A single add-on definition.
+
+    Deliberately *not* ``_Strict``: the community repo may add top-level fields
+    ahead of this client, and an older server must skip what it does not
+    understand rather than refuse to load the add-on entirely — the same
+    reasoning ``IndexEntry`` documents. Typo protection is retained where the
+    schema is intricate: every nested spec stays strict, and ``map`` keys are
+    checked against the per-target allowlist below.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
     id: str
     name: str
     version: str
@@ -338,8 +354,15 @@ class AddonManifest(_Strict):
     def needs_a_backend(self) -> "AddonManifest":
         if self.source is None and self.script is None:
             raise ValueError("manifest needs either 'source' or 'script'")
-        if self.source is not None and self.search is None:
-            raise ValueError("a 'source' manifest needs a 'search' block")
+        if self.source is not None:
+            if self.search is None:
+                raise ValueError("a 'source' manifest needs a 'search' block")
+            if not self.search.fields:
+                # Only the declarative path ranks records itself, so this is
+                # required here rather than on SearchSpec — a script-backed
+                # add-on has nothing to rank and would otherwise be forced to
+                # declare a field it never uses just to enable link pasting.
+                raise ValueError("a 'source' manifest needs 'search.fields'")
         return self
 
     @property
