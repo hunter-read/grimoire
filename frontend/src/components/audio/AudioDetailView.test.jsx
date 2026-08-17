@@ -9,9 +9,12 @@ vi.mock('../../api', () => ({
   mediaUrl: (p) => `http://localhost${p}`,
 }))
 
+let locationState = null
+const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ audioId: 'a1' }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigate,
+  useLocation: () => ({ pathname: '/audio/a1', state: locationState }),
 }))
 
 // AudioPlayer is a context controller; stub it to a button so we don't need the provider.
@@ -32,7 +35,10 @@ vi.mock('../TagSection', () => ({
   default: ({ label, onEdit }) => <button onClick={onEdit}>{`edit-${label}`}</button>,
 }))
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  locationState = null
+})
 
 const detail = (over = {}) => ({
   id: 'a1',
@@ -55,6 +61,24 @@ describe('AudioDetailView', () => {
     api.get.mockReturnValue(new Promise(() => {}))
     render(<AudioDetailView />)
     expect(document.querySelector('svg')).toBeInTheDocument()
+  })
+
+  // Issue #361: guests open tracks from a campaign and have no /audio route.
+  it('returns to the referring path when one was passed in navigation state', async () => {
+    locationState = { from: '/campaigns/c1/resources' }
+    api.get.mockResolvedValue(detail())
+    render(<AudioDetailView />)
+    await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Back to audio'))
+    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources')
+  })
+
+  it('falls back to the audio list when there is no referring path', async () => {
+    api.get.mockResolvedValue(detail())
+    render(<AudioDetailView />)
+    await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Back to audio'))
+    expect(navigate).toHaveBeenCalledWith('/audio')
   })
 
   it('renders track metadata once loaded', async () => {
