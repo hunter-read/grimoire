@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
@@ -22,6 +22,11 @@ import { isArchiveMedia } from '../../constants'
 export default function TokenDetailView() {
   const { tokenId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // See MapDetailView: guests reach this view from a campaign resource row and
+  // have no /tokens browse route to go back to (issue #361).
+  const backPathRef = useRef(location.state?.from ?? null)
+  const goBack = () => (backPathRef.current ? navigate(backPathRef.current) : navigate('/tokens'))
   const { t } = useTranslation()
   const { user } = useAuth()
   const isMobilePhone = useIsMobile(640)
@@ -121,7 +126,7 @@ export default function TokenDetailView() {
         }}
       >
         <button
-          onClick={() => navigate('/tokens')}
+          onClick={goBack}
           aria-label={t('tokens.detail.back')}
           style={{
             background: 'none',

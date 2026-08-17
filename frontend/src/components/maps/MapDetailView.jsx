@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft,
@@ -46,6 +46,12 @@ const navButtonStyle = {
 export default function MapDetailView() {
   const { mapId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Return to wherever the map was opened from (a campaign resource row passes
+  // `state.from`). Guests have no /maps browse route, so a hardcoded '/maps'
+  // would bounce them off the catch-all back to the campaign list (issue #361).
+  const backPathRef = useRef(location.state?.from ?? null)
+  const goBack = () => (backPathRef.current ? navigate(backPathRef.current) : navigate('/maps'))
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [map, setMap] = useState(null)
@@ -150,7 +156,7 @@ export default function MapDetailView() {
         }}
       >
         <button
-          onClick={() => navigate('/maps')}
+          onClick={goBack}
           aria-label={t('maps.detail.back')}
           style={{
             background: 'none',

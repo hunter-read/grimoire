@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown, LuMusic } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
@@ -17,6 +17,11 @@ import useIsMobile from '../../hooks/useIsMobile'
 export default function AudioDetailView() {
   const { audioId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // See MapDetailView: guests reach this view from a campaign resource row and
+  // have no /audio browse route to go back to (issue #361).
+  const backPathRef = useRef(location.state?.from ?? null)
+  const goBack = () => (backPathRef.current ? navigate(backPathRef.current) : navigate('/audio'))
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [track, setTrack] = useState(null)
@@ -72,7 +77,7 @@ export default function AudioDetailView() {
         }}
       >
         <button
-          onClick={() => navigate('/audio')}
+          onClick={goBack}
           aria-label={t('audio.detail.back')}
           style={{
             background: 'none',

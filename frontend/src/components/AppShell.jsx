@@ -134,11 +134,21 @@ export default function AppShell() {
           {!isGuest && <PendingInvitesBanner />}
           {isGuest ? (
             // Guests are scoped to their campaign(s); everything else redirects.
+            // The by-id detail routes are included because a campaign resource
+            // row links straight to one (issue #361) — without them the link
+            // fell through to the catch-all and bounced back to the campaign
+            // list. Library *browsing* stays closed: there is no list route
+            // here, and the backend authorises each by-id read against the
+            // guest's campaign shares (`user_can_access_resource`).
             <Routes>
               <Route path="/campaigns" element={<CampaignsView />} />
               <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+              <Route path="/library/book/:bookId" element={<BookReader />} />
+              <Route path="/maps/:mapId" element={<MapDetailView />} />
+              <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+              <Route path="/audio/:audioId" element={<AudioDetailView />} />
               <Route path="*" element={<Navigate to="/campaigns" replace />} />
             </Routes>
           ) : (

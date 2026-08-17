@@ -10,10 +10,12 @@ vi.mock('../../api', () => ({
 }))
 
 let currentMapId = 'm2'
+let locationState = null
 const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ mapId: currentMapId }),
   useNavigate: () => navigate,
+  useLocation: () => ({ pathname: `/maps/${currentMapId}`, state: locationState }),
 }))
 
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
@@ -62,6 +64,7 @@ const mockApi = (currentId, over = {}) => {
 beforeEach(() => {
   vi.clearAllMocks()
   currentMapId = 'm2'
+  locationState = null
 })
 
 describe('MapDetailView', () => {
@@ -76,6 +79,24 @@ describe('MapDetailView', () => {
     render(<MapDetailView />)
     await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
     expect(screen.getByText('Dungeons')).toBeInTheDocument()
+  })
+
+  // Issue #361: guests open maps from a campaign and have no /maps route.
+  it('returns to the referring path when one was passed in navigation state', async () => {
+    locationState = { from: '/campaigns/c1/resources' }
+    mockApi('m2')
+    render(<MapDetailView />)
+    await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Back to maps'))
+    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources')
+  })
+
+  it('falls back to the maps list when there is no referring path', async () => {
+    mockApi('m2')
+    render(<MapDetailView />)
+    await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Back to maps'))
+    expect(navigate).toHaveBeenCalledWith('/maps')
   })
 
   it('fetches siblings scoped to the folder', async () => {

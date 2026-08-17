@@ -7,8 +7,9 @@ vi.mock('../api', () => ({
   default: { get: vi.fn().mockResolvedValue({ books: 1 }) },
   settings: { getUi: vi.fn().mockResolvedValue({ hide_audio: false }) },
 }))
+let role = 'admin'
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { role: 'admin' }, logout: vi.fn() }),
+  useAuth: () => ({ user: { role }, logout: vi.fn() }),
 }))
 let queue = []
 vi.mock('../context/AudioPlayerContext', () => ({
@@ -52,6 +53,7 @@ const renderAt = (path) =>
 beforeEach(() => {
   vi.clearAllMocks()
   queue = []
+  role = 'admin'
   window.innerWidth = 1200 // desktop
 })
 
@@ -78,5 +80,37 @@ describe('AppShell', () => {
     queue = [{ id: 'a' }]
     renderAt('/search')
     await waitFor(() => expect(screen.getByTestId('global-player')).toBeInTheDocument())
+  })
+
+  // Issue #361: a guest clicking a public campaign resource fell through to the
+  // catch-all and was bounced back to the campaign list instead of opening it.
+  describe('guest routes', () => {
+    beforeEach(() => {
+      role = 'guest'
+    })
+
+    it.each([
+      ['/library/book/b1', 'reader'],
+      ['/maps/m1', 'map-detail'],
+      ['/tokens/t1', 'token-detail'],
+      ['/audio/a1', 'audio-detail'],
+    ])('opens %s for a guest', async (path, expected) => {
+      renderAt(path)
+      await waitFor(() => expect(screen.getByText(expected)).toBeInTheDocument())
+      expect(screen.queryByText('campaigns')).not.toBeInTheDocument()
+    })
+
+    it.each(['/library', '/maps', '/tokens', '/audio', '/search', '/settings/account'])(
+      'still redirects a guest away from %s',
+      async (path) => {
+        renderAt(path)
+        await waitFor(() => expect(screen.getByText('campaigns')).toBeInTheDocument())
+      }
+    )
+
+    it('still renders the guest campaign detail view', async () => {
+      renderAt('/campaigns/c1/overview')
+      await waitFor(() => expect(screen.getByText('campaign-detail')).toBeInTheDocument())
+    })
   })
 })

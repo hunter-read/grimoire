@@ -10,10 +10,12 @@ vi.mock('../../api', () => ({
 }))
 
 let currentTokenId = 't2'
+let locationState = null
 const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ tokenId: currentTokenId }),
   useNavigate: () => navigate,
+  useLocation: () => ({ pathname: `/tokens/${currentTokenId}`, state: locationState }),
 }))
 
 vi.mock('../../context/AuthContext', () => ({
@@ -62,6 +64,7 @@ const mockApi = (currentId, over = {}) => {
 beforeEach(() => {
   vi.clearAllMocks()
   currentTokenId = 't2'
+  locationState = null
 })
 
 describe('TokenDetailView', () => {
@@ -76,6 +79,24 @@ describe('TokenDetailView', () => {
     render(<TokenDetailView />)
     await waitFor(() => expect(screen.getByText('t2.png')).toBeInTheDocument())
     expect(screen.getByText('Goblins')).toBeInTheDocument()
+  })
+
+  // Issue #361: guests open tokens from a campaign and have no /tokens route.
+  it('returns to the referring path when one was passed in navigation state', async () => {
+    locationState = { from: '/campaigns/c1/resources' }
+    mockApi('t2')
+    render(<TokenDetailView />)
+    await waitFor(() => expect(screen.getByText('t2.png')).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Back to tokens'))
+    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources')
+  })
+
+  it('falls back to the tokens list when there is no referring path', async () => {
+    mockApi('t2')
+    render(<TokenDetailView />)
+    await waitFor(() => expect(screen.getByText('t2.png')).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Back to tokens'))
+    expect(navigate).toHaveBeenCalledWith('/tokens')
   })
 
   it('renders the archive placeholder instead of an <img> for an archive token', async () => {
