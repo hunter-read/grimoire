@@ -123,7 +123,7 @@ class TestBookFolders:
         assert resp.json()["folders"] == []
 
     def test_create_book_folder(self, client, admin_headers, folder_system):
-        path = f"{folder_system.id}/Abomination Vaults"
+        path = f"{folder_system.id}/adventures/Abomination Vaults"
         resp = client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
             json={"path": path, "tags": ["pathfinder", "horror"]},
@@ -135,7 +135,7 @@ class TestBookFolders:
         assert body["tags"] == ["pathfinder", "horror"]
 
     def test_list_book_folders_returns_created(self, client, admin_headers, folder_system):
-        path = f"{folder_system.id}/Some AP"
+        path = f"{folder_system.id}/adventures/Some AP"
         client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
             json={"path": path, "tags": ["adventure"]},
@@ -146,7 +146,7 @@ class TestBookFolders:
         assert path in paths
 
     def test_update_existing_book_folder_tags(self, client, admin_headers, folder_system):
-        path = f"{folder_system.id}/Editable AP"
+        path = f"{folder_system.id}/adventures/Editable AP"
         client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
             json={"path": path, "tags": ["old-tag"]},
@@ -168,7 +168,7 @@ class TestBookFolders:
     def test_player_cannot_patch_book_folders(self, client, player_headers, folder_system):
         resp = client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
-            json={"path": f"{folder_system.id}/blocked", "tags": []},
+            json={"path": f"{folder_system.id}/adventures/blocked", "tags": []},
             headers=player_headers,
         )
         assert resp.status_code == 403
@@ -176,13 +176,13 @@ class TestBookFolders:
     def test_gm_can_patch_book_folders(self, client, gm_headers, folder_system):
         resp = client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
-            json={"path": f"{folder_system.id}/gm-folder", "tags": ["gm"]},
+            json={"path": f"{folder_system.id}/adventures/gm-folder", "tags": ["gm"]},
             headers=gm_headers,
         )
         assert resp.status_code == 200
 
     def test_book_folder_tags_lowercased(self, client, admin_headers, folder_system):
-        path = f"{folder_system.id}/case-folder"
+        path = f"{folder_system.id}/adventures/case-folder"
         resp = client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
             json={"path": path, "tags": ["Draw Steel", "PATHFINDER"]},
@@ -192,7 +192,7 @@ class TestBookFolders:
         assert resp.json()["tags"] == ["draw steel", "pathfinder"]
 
     def test_book_folder_tags_deduplicated(self, client, admin_headers, folder_system):
-        path = f"{folder_system.id}/dedup-folder"
+        path = f"{folder_system.id}/adventures/dedup-folder"
         resp = client.patch(
             f"/api/systems/{folder_system.id}/book-folders",
             json={"path": path, "tags": ["draw steel", "Draw Steel"]},
@@ -361,3 +361,144 @@ class TestExplicitFiltering:
         resp = client.get("/api/systems", headers=admin_headers)
         s = next(s for s in resp.json() if s["id"] == normal.id)
         assert s["is_explicit"] is False
+
+
+class TestBookFolderPathValidation:
+    """PATCH/DELETE reject paths that don't belong to the system (issue #357).
+
+    ``list_book_folders`` filters on ``{system_id}/``, so a PATCH with a path
+    outside that prefix used to 200 and create a row the matching GET could
+    never return.
+    """
+
+    @pytest.fixture(scope="class")
+    def sys_a(self):
+        return make_game_system(name=f"PathSysA-{uuid.uuid4().hex[:6]}")
+
+    def test_patch_rejects_path_without_system_prefix(self, client, admin_headers, sys_a):
+        resp = client.patch(
+            f"/api/systems/{sys_a.id}/book-folders",
+            json={"path": "adventures/Orphan", "tags": ["x"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_patch_rejects_path_of_another_system(self, client, admin_headers, sys_a):
+        other = make_game_system(name=f"PathSysB-{uuid.uuid4().hex[:6]}")
+        resp = client.patch(
+            f"/api/systems/{sys_a.id}/book-folders",
+            json={"path": f"{other.id}/adventures/Nope", "tags": ["x"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_patch_rejects_path_without_subfolder(self, client, admin_headers, sys_a):
+        # "{system_id}/{category}" addresses the category dir, not a folder.
+        resp = client.patch(
+            f"/api/systems/{sys_a.id}/book-folders",
+            json={"path": f"{sys_a.id}/adventures", "tags": ["x"]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_patch_on_unknown_system_404s(self, client, admin_headers):
+        resp = client.patch(
+            "/api/systems/does-not-exist/book-folders",
+            json={"path": "does-not-exist/adventures/X", "tags": []},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+
+    def test_rejected_patch_creates_no_row(self, client, admin_headers, sys_a):
+        client.patch(
+            f"/api/systems/{sys_a.id}/book-folders",
+            json={"path": "adventures/Ghost", "tags": ["x"]},
+            headers=admin_headers,
+        )
+        resp = client.get(f"/api/systems/{sys_a.id}/book-folders", headers=admin_headers)
+        assert all("Ghost" not in f["path"] for f in resp.json()["folders"])
+
+
+class TestDeleteBookFolder:
+    """DELETE /api/systems/{id}/book-folders (issue #357)."""
+
+    @pytest.fixture(scope="class")
+    def del_system(self):
+        return make_game_system(name=f"DelSys-{uuid.uuid4().hex[:6]}")
+
+    def test_delete_removes_folder(self, client, admin_headers, del_system):
+        path = f"{del_system.id}/adventures/Doomed"
+        client.patch(
+            f"/api/systems/{del_system.id}/book-folders",
+            json={"path": path, "tags": ["temp"]},
+            headers=admin_headers,
+        )
+        resp = client.delete(
+            f"/api/systems/{del_system.id}/book-folders",
+            params={"path": path},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        listed = client.get(
+            f"/api/systems/{del_system.id}/book-folders", headers=admin_headers
+        )
+        assert path not in [f["path"] for f in listed.json()["folders"]]
+
+    def test_delete_unknown_folder_404s(self, client, admin_headers, del_system):
+        resp = client.delete(
+            f"/api/systems/{del_system.id}/book-folders",
+            params={"path": f"{del_system.id}/adventures/NeverExisted"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+
+    def test_delete_rejects_foreign_path(self, client, admin_headers, del_system):
+        resp = client.delete(
+            f"/api/systems/{del_system.id}/book-folders",
+            params={"path": "somewhere/else/entirely"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_player_cannot_delete(self, client, player_headers, del_system):
+        resp = client.delete(
+            f"/api/systems/{del_system.id}/book-folders",
+            params={"path": f"{del_system.id}/adventures/Doomed"},
+            headers=player_headers,
+        )
+        assert resp.status_code == 403
+
+
+class TestCategoryDepthField:
+    """`category_depth` tells the client how deep the category dir sits (#357)."""
+
+    def test_top_level_system_is_two(self, client, admin_headers):
+        s = make_game_system(name=f"DepthTop-{uuid.uuid4().hex[:6]}")
+        resp = client.get(f"/api/systems/{s.id}", headers=admin_headers)
+        assert resp.json()["category_depth"] == 2
+
+    def test_container_child_is_three(self, client, admin_headers):
+        container = make_game_system(
+            name=f"DepthContainer-{uuid.uuid4().hex[:6]}", container_kind="family"
+        )
+        child = make_game_system(
+            name=f"DepthChild-{uuid.uuid4().hex[:6]}", parent_id=container.id
+        )
+        resp = client.get(f"/api/systems/{child.id}", headers=admin_headers)
+        assert resp.json()["category_depth"] == 3
+
+    def test_nested_container_child_is_four(self, client, admin_headers):
+        # Containers may nest (issue #301), so depth is not a parent_id flag.
+        outer = make_game_system(
+            name=f"DepthOuter-{uuid.uuid4().hex[:6]}", container_kind="family"
+        )
+        inner = make_game_system(
+            name=f"DepthInner-{uuid.uuid4().hex[:6]}",
+            container_kind="parent",
+            parent_id=outer.id,
+        )
+        child = make_game_system(
+            name=f"DepthDeep-{uuid.uuid4().hex[:6]}", parent_id=inner.id
+        )
+        resp = client.get(f"/api/systems/{child.id}", headers=admin_headers)
+        assert resp.json()["category_depth"] == 4

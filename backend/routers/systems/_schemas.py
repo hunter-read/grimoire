@@ -211,6 +211,20 @@ class SystemSummary(BaseModel):
     parent_is_one_page: bool
     name_is_custom: bool
     child_count: int
+    # Index of the category dir in this system's book paths (issue #357). 2 for a
+    # top-level system, one deeper per enclosing container.
+    category_depth: int = 2
+
+    # As on `BookOut` — free-form JSON columns, normalized on the way out.
+    _coerce_names = field_validator("genres", "dice_materials", mode="before")(
+        coerce_str_list
+    )
+    _coerce_urls = field_validator("urls", "character_builder_urls", mode="before")(
+        coerce_link_list
+    )
+    _coerce_publishers = field_validator("publishers", mode="before")(
+        coerce_publisher_list
+    )
 
     # As on `BookOut` — free-form JSON columns, normalized on the way out.
     _coerce_names = field_validator("genres", "dice_materials", mode="before")(

@@ -49,6 +49,21 @@ describe('categoryDepth', () => {
   it('is 3 for a system nested in a container', () => {
     expect(categoryDepth({ id: 's1', parent_id: 'container' })).toBe(3)
   })
+
+  // Containers nest (issue #301) and the payload carries only the immediate
+  // parent, so the server sends the resolved depth (issue #357).
+  it('prefers the server-sent category_depth', () => {
+    expect(categoryDepth({ id: 's1', parent_id: 'inner', category_depth: 4 })).toBe(4)
+  })
+
+  it('uses category_depth even when there is no parent_id', () => {
+    expect(categoryDepth({ id: 's1', category_depth: 2 })).toBe(2)
+  })
+
+  it('falls back to parent_id when category_depth is absent', () => {
+    expect(categoryDepth({ id: 's1', parent_id: 'c' })).toBe(3)
+    expect(categoryDepth({ id: 's1', category_depth: undefined })).toBe(2)
+  })
 })
 
 describe('getBookSubfolderPath for container children', () => {

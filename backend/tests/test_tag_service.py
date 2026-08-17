@@ -574,3 +574,162 @@ class TestDropColumnsMigration:
         insp = inspect(engine)
         assert "tags" not in {c["name"] for c in insp.get_columns("game_systems")}
         assert not insp.has_table("_alembic_tmp_game_systems")
+
+
+class TestBookFolderDepth:
+    """Book folder paths for systems inside container folders (issue #357).
+
+    ``books/{Container}/{System}/{categoryDir}/…`` puts the category one segment
+    deeper than a top-level system, so a fixed ``parts[3:-1]`` counted the
+    category dir itself as a subfolder — the folder tag the UI writes resolved to
+    no books, and the padded path that resolved was invisible to the UI.
+    """
+
+    def _system(self, db, sid, parent_id=None, container_kind=""):
+        from backend.models import GameSystem
+
+        db.add(
+            GameSystem(
+                id=sid,
+                name=sid,
+                slug=sid,
+                parent_id=parent_id,
+                container_kind=container_kind,
+            )
+        )
+        db.commit()
+        return sid
+
+    def _book(self, db, system_id, category, relative_path, name):
+        from backend.models import Book
+
+        bid = f"b-{name}"
+        db.add(
+            Book(
+                id=bid,
+                title=name,
+                filename=f"{name}.pdf",
+                filepath=f"/x/{name}.pdf",
+                relative_path=relative_path,
+                game_system_id=system_id,
+                category=category,
+            )
+        )
+        db.commit()
+        return bid
+
+    def test_depth_two_for_top_level_system(self):
+        db = _session()
+        self._system(db, "top")
+        assert tag_service.system_category_depth(db, "top") == 2
+
+    def test_depth_three_for_container_child(self):
+        db = _session()
+        self._system(db, "cont", container_kind="family")
+        self._system(db, "child", parent_id="cont")
+        assert tag_service.system_category_depth(db, "child") == 3
+
+    def test_depth_four_for_nested_container_child(self):
+        db = _session()
+        self._system(db, "outer", container_kind="family")
+        self._system(db, "inner", parent_id="outer", container_kind="parent")
+        self._system(db, "deep", parent_id="inner")
+        assert tag_service.system_category_depth(db, "deep") == 4
+
+    def test_depths_map_matches_per_system_walk(self):
+        db = _session()
+        self._system(db, "outer", container_kind="family")
+        self._system(db, "inner", parent_id="outer", container_kind="parent")
+        self._system(db, "deep", parent_id="inner")
+        assert tag_service.system_category_depths(db) == {
+            "outer": 2,
+            "inner": 3,
+            "deep": 4,
+        }
+
+    def test_cycle_does_not_hang(self):
+        db = _session()
+        self._system(db, "a")
+        self._system(db, "b", parent_id="a")
+        from backend.models import GameSystem
+
+        db.query(GameSystem).filter_by(id="a").update({"parent_id": "b"})
+        db.commit()
+        assert tag_service.system_category_depth(db, "a") >= 2
+        assert set(tag_service.system_category_depths(db)) == {"a", "b"}
+
+    def test_container_child_folder_tag_resolves_to_books(self):
+        """The path the UI writes now matches the books behind it."""
+        from backend.models import BookFolder
+
+        db = _session()
+        self._system(db, "cont", container_kind="family")
+        self._system(db, "child", parent_id="cont")
+        bid = self._book(
+            db,
+            "child",
+            "adventure",
+            "books/Shadowrun/4 DE/adventures/Flusternetze/Maps/x.pdf",
+            "x",
+        )
+        # What the frontend writes: category dir is not a subfolder segment.
+        db.add(BookFolder(path="child/adventure/Flusternetze/Maps", tags=["Gothic"]))
+        db.commit()
+
+        ft = tag_service.folder_tags_in_use(db, "book")
+        assert ft["gothic"]["refs"] == [{"resource_type": "book", "resource_id": bid}]
+
+        groups = tag_service.folders_for_tag(db, "gothic")
+        assert groups[0]["items"] == [{"resource_type": "book", "resource_id": bid}]
+
+    def test_container_child_padded_path_no_longer_matches(self):
+        """The old workaround path (category dir doubled) resolves to nothing."""
+        from backend.models import BookFolder
+
+        db = _session()
+        self._system(db, "cont", container_kind="family")
+        self._system(db, "child", parent_id="cont")
+        self._book(
+            db,
+            "child",
+            "adventure",
+            "books/Shadowrun/4 DE/adventures/Flusternetze/Maps/x.pdf",
+            "x",
+        )
+        db.add(
+            BookFolder(
+                path="child/adventure/adventures/Flusternetze/Maps", tags=["Gothic"]
+            )
+        )
+        db.commit()
+        assert tag_service.folder_tags_in_use(db, "book") == {}
+
+    def test_container_child_book_in_category_dir_has_no_folder(self):
+        """A book directly in the category dir belongs to no folder, not a
+        phantom one named after the category dir."""
+        db = _session()
+        self._system(db, "cont", container_kind="family")
+        self._system(db, "child", parent_id="cont")
+        assert (
+            tag_service._book_folder_ancestor_paths(
+                "child",
+                "adventure",
+                "books/Shadowrun/4 DE/adventures/SR4 Kampfhandbuch.pdf",
+                3,
+            )
+            == set()
+        )
+
+    def test_top_level_system_unchanged(self):
+        """Depth 2 keeps the previous behaviour exactly."""
+        from backend.models import BookFolder
+
+        db = _session()
+        self._system(db, "top")
+        bid = self._book(
+            db, "top", "adventures", "books/Sys/adventures/curse/strahd.pdf", "strahd"
+        )
+        db.add(BookFolder(path="top/adventures/curse", tags=["Gothic"]))
+        db.commit()
+        ft = tag_service.folder_tags_in_use(db, "book")
+        assert ft["gothic"]["refs"] == [{"resource_type": "book", "resource_id": bid}]
