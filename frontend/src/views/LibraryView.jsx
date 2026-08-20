@@ -13,6 +13,7 @@ import { useFavorites } from '../context/FavoritesContext'
 import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
 import useSavedFilters from '../hooks/useSavedFilters'
+import useSortFilterState from '../hooks/useSortFilterState'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import SystemCard from '../components/library/SystemCard'
 import SystemGroupToggle from '../components/library/SystemGroupToggle'
@@ -23,8 +24,6 @@ import { isSpecialFilter } from '../components/library/specialFilters'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkEditModal from '../components/BulkEditModal'
 import LazyImg from '../components/LazyImg'
-
-const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
 
 export default function LibraryView() {
   const { t } = useTranslation()
@@ -43,36 +42,29 @@ export default function LibraryView() {
   // across reloads rather than only for the session.
   const [grouped, setGrouped] = useState(() => getUserPrefs().systemsGrouped !== false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
-  const [sortFilter, setSortFilter] = useState(DEFAULT_SORT_FILTER)
-  // Tracks whether we've applied the server-side default preset for this mount,
-  // so a user's later manual changes aren't clobbered by the default.
-  const [defaultApplied, setDefaultApplied] = useState(false)
   const library = useSystemLibrary(systems, setSystems)
   const { bulk, allTags } = library
   // Shared-tag display labels for system tags (values still match on internal key).
   const systemTagLabels = useTagLabels('system')
+  const systemFilters = useSavedFilters('systems')
   const {
     saved: savedFilters,
-    loaded: filtersLoaded,
-    defaultFilter,
     save: savePreset,
     setDefault: setPresetDefault,
     remove: removePreset,
-  } = useSavedFilters('systems')
+  } = systemFilters
+  // Session-persisted, so coming back from a system keeps the user's filters
+  // instead of re-applying their saved default over them.
+  const [sortFilter, setSortFilter] = useSortFilterState(
+    'grimoire:systems:sortFilter',
+    systemFilters
+  )
 
   // Children are fetched up front so the group toggle can flatten containers
   // without a second round trip; the grouped view filters them back out.
   useEffect(() => {
     api.get('/systems?include_children=true').then(setSystems)
   }, [])
-
-  // On load, apply the user's default preset (if any) exactly once.
-  useEffect(() => {
-    if (filtersLoaded && !defaultApplied) {
-      if (defaultFilter?.state) setSortFilter(defaultFilter.state)
-      setDefaultApplied(true)
-    }
-  }, [filtersLoaded, defaultApplied, defaultFilter])
 
   const updateSortFilter = (next) => {
     setSortFilter(next)

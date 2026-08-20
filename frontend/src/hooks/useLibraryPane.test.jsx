@@ -231,6 +231,80 @@ describe('useLibraryPane', () => {
     expect(filesApi.browse).toHaveBeenCalledWith('books/core')
   })
 
+  it('refreshPath reloads a collapsed folder and opens it', async () => {
+    // A folder created inside a collapsed parent is in a folder `refresh` has
+    // never loaded, so only re-reading what is on screen left it invisible.
+    const { result } = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.expanded.has('books/core')).toBe(false)
+    filesApi.browse.mockClear()
+
+    await act(async () => {
+      result.current.refreshPath('books/core')
+    })
+
+    expect(filesApi.browse).toHaveBeenCalledWith('books/core')
+    // Opening it is what actually puts the new row on screen.
+    await waitFor(() => expect(result.current.expanded.has('books/core')).toBe(true))
+  })
+
+  it('refreshPath re-reads an already-open folder without closing it', async () => {
+    const { result } = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.toggleExpand('books/core'))
+    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    filesApi.browse.mockClear()
+
+    await act(async () => {
+      result.current.refreshPath('books/core')
+    })
+
+    expect(filesApi.browse).toHaveBeenCalledWith('books/core')
+    expect(result.current.expanded.has('books/core')).toBe(true)
+  })
+
+  it('refreshPath reloads the pane root without expanding it', async () => {
+    const { result } = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    filesApi.browse.mockClear()
+
+    await act(async () => {
+      result.current.refreshPath('books')
+    })
+
+    expect(filesApi.browse).toHaveBeenCalledWith('books')
+    // The root is already what the pane shows; it has no disclosure of its own.
+    expect(result.current.expanded.has('books')).toBe(false)
+  })
+
+  it('refreshPath re-fetches even while a load for that folder is in flight', async () => {
+    // The listing already being fetched was requested before the folder existed,
+    // so reusing it would show a stale folder and look like the create failed.
+    let resolveFirst
+    filesApi.browse.mockImplementation((p) => {
+      if (p === 'books/core') {
+        return new Promise((res) => {
+          resolveFirst = () => res(listing('books/core', []))
+        })
+      }
+      return Promise.resolve(listing('books', [dir('core', 'books')]))
+    })
+
+    const { result } = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.toggleExpand('books/core'))
+    await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
+    const before = filesApi.browse.mock.calls.filter((c) => c[0] === 'books/core').length
+
+    await act(async () => {
+      result.current.refreshPath('books/core')
+      resolveFirst?.()
+    })
+
+    const after = filesApi.browse.mock.calls.filter((c) => c[0] === 'books/core').length
+    expect(after).toBeGreaterThan(before)
+  })
+
   it('treats a null navigation target as the library root', async () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))

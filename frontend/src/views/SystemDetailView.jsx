@@ -198,14 +198,18 @@ export default function SystemDetailView() {
   // render their children as a system grid instead of a book list. A container
   // with no children yet falls through to the normal view rather than showing an
   // empty grid — that way a half-scanned library still shows whatever it found.
-  if (system.container_kind && (system.children || []).length > 0) {
+  // The agnostic collection carries a container kind but is not a shelf of
+  // systems — its subfolders are categories — so it falls through to the normal
+  // book view below (issue: marking a folder .system-agnostic-container turned
+  // its categories into systems and emptied the collection page).
+  if (system.container_kind && !system.is_system_agnostic && (system.children || []).length > 0) {
     return (
       <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
         <SystemContainerView
           system={system}
           viewMode={systemViewMode}
           canEdit={isEditor}
-          onBack={() => navigate('/library')}
+          onBack={() => navigate('/library', { state: { restoreView: true } })}
           onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
           headerExtra={<ViewModeToggle mode={systemViewMode} onCycle={cycleSystemViewMode} />}
         />
@@ -402,7 +406,7 @@ export default function SystemDetailView() {
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <button
-            onClick={() => navigate(backTarget.to)}
+            onClick={() => navigate(backTarget.to, { state: { restoreView: true } })}
             style={{
               background: 'none',
               color: 'var(--text-dim)',

@@ -58,6 +58,7 @@ from .categories import (
 from .constants import (
     ARCHIVE_EXTS,
     AUDIO_EXTS,
+    CONTAINER_AGNOSTIC,
     CONTAINER_FAMILY,
     CONTAINER_ONE_PAGE,
     CONTAINER_PARENT,
@@ -358,7 +359,13 @@ def _register_system(
         # rather than crashing the whole scan.
         name = _unique_system_name(ctx, name, folder.slug)
 
-    is_agnostic = is_system_agnostic_folder(folder.name)
+    # The reserved folder names claim the collection implicitly; the explicit
+    # container marker claims it for a folder named anything else. Either way the
+    # row is the agnostic collection, so the library shows it in the special
+    # strip rather than as an ordinary game system.
+    is_agnostic = is_system_agnostic_folder(folder.name) or (
+        folder.container_kind == CONTAINER_AGNOSTIC
+    )
     # The one-page flag marks the *collection*, not its children: a child of a
     # one-page container is an ordinary small system and counts toward the
     # library's system total (issue #262).
@@ -472,7 +479,7 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             return
 
     for system_dir, folder, system in registered:
-        if folder.container_kind:
+        if folder.container_kind and folder.container_kind != CONTAINER_AGNOSTIC:
             # The folder holds systems, not categories — recurse one level.
             if _scan_container(ctx, system, folder, category_inference_off, scope_parts):
                 return
@@ -484,8 +491,14 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             system_dir / NO_AUTO_CATEGORY_MARKER
         ).exists()
         # Both special collections (agnostic + one-page) use immediate-subfolder
-        # names as category labels rather than CATEGORY_MAP inference.
-        is_special = is_special_collection_folder(folder.name)
+        # names as category labels rather than CATEGORY_MAP inference. The
+        # agnostic collection reaches here even though it carries a container
+        # kind: unlike every other kind, its subfolders are *categories*
+        # ("system-agnostic/maps/" is the maps category), so it is one system
+        # holding books rather than a shelf of systems.
+        is_special = is_special_collection_folder(folder.name) or (
+            folder.container_kind == CONTAINER_AGNOSTIC
+        )
         # When scoped to a path deeper than the system dir, walk only that
         # subtree; otherwise walk the whole system.
         walk_root = ctx.scope_dir if scoped else system_dir

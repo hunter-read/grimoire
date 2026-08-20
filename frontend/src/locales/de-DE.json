@@ -393,7 +393,21 @@
     "retry": "Wiederholen",
     "retryFailed": "Fehlgeschlagene wiederholen",
     "cancelAll": "Alle abbrechen",
-    "clearCompleted": "Fertige entfernen"
+    "clearCompleted": "Fertige entfernen",
+    "newFolderHere": "Ordner im aktuell angezeigten Ordner erstellen",
+    "rescanLibrary": "Neu einlesen",
+    "rescanHere": "Dies neu einlesen…",
+    "rescanStarted": "{{path}} wird neu eingelesen",
+    "rescanFailed": "Neueinlesen konnte nicht gestartet werden",
+    "preview": "Vorschau…",
+    "previewTitle": "Vorschau von {{name}}",
+    "previewUnsupported": "Für dieses Element gibt es keine Vorschau",
+    "previewFailed": "Vorschau konnte nicht geladen werden",
+    "previewNoPages": "Für dieses Buch wurden noch keine Seiten gerendert",
+    "previewPageOf": "Seite {{page}} von {{total}}",
+    "previewPageAlt": "Seite {{page}}",
+    "previewPrev": "Vorherige Seite",
+    "previewNext": "Nächste Seite"
   },
   "maps": {
     "title": "Karten",
@@ -882,7 +896,8 @@
           "hint": "Dieselbe vollständige Sicherung wie JSON, in einem Format, das sich leichter lesen und von Hand bearbeiten lässt."
         }
       },
-      "covers": "Auch das Titelbild neben jedes Buch schreiben",
+      "covers": "Titelbilder exportieren",
+      "coversHint": "Schreibt das Titelbild jedes Buchs als Bilddatei daneben, damit auch andere Apps das Coverbild anzeigen.",
       "overwriteForeign": "Begleitdateien ersetzen, die nicht von Grimoire stammen",
       "overwriteForeignHint": "Ausgeschaltet lassen, um selbst gepflegte Dateien zu schützen, etwa eine in Calibre bearbeitete .opf. Sie werden stattdessen als übersprungen gemeldet.",
       "save": "Einstellungen speichern",

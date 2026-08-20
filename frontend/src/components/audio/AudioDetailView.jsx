@@ -21,7 +21,9 @@ export default function AudioDetailView() {
   // See MapDetailView: guests reach this view from a campaign resource row and
   // have no /audio browse route to go back to (issue #361).
   const backPathRef = useRef(location.state?.from ?? null)
-  const goBack = () => (backPathRef.current ? navigate(backPathRef.current) : navigate('/audio'))
+  // Going back is a *return* to the gallery, so it restores the filters the user
+  // had rather than re-applying their saved default over them.
+  const goBack = () => navigate(backPathRef.current || '/audio', { state: { restoreView: true } })
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [track, setTrack] = useState(null)

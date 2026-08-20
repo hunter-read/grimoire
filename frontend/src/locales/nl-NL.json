@@ -393,7 +393,21 @@
     "retry": "Opnieuw",
     "retryFailed": "Mislukte opnieuw proberen",
     "cancelAll": "Alles annuleren",
-    "clearCompleted": "Voltooide wissen"
+    "clearCompleted": "Voltooide wissen",
+    "newFolderHere": "Een map maken in de map die je bekijkt",
+    "rescanLibrary": "Opnieuw scannen",
+    "rescanHere": "Dit opnieuw scannen…",
+    "rescanStarted": "{{path}} wordt opnieuw gescand",
+    "rescanFailed": "Kon die herscan niet starten",
+    "preview": "Voorbeeld…",
+    "previewTitle": "Voorbeeld van {{name}}",
+    "previewUnsupported": "Er is niets om van dit item te tonen",
+    "previewFailed": "Kon dat voorbeeld niet laden",
+    "previewNoPages": "Dit boek heeft nog geen gerenderde pagina’s",
+    "previewPageOf": "Pagina {{page}} van {{total}}",
+    "previewPageAlt": "Pagina {{page}}",
+    "previewPrev": "Vorige pagina",
+    "previewNext": "Volgende pagina"
   },
   "maps": {
     "title": "Kaarten",
@@ -882,7 +896,8 @@
           "hint": "Dezelfde volledige back-up als JSON, in een formaat dat makkelijker te lezen en met de hand te bewerken is."
         }
       },
-      "covers": "Ook de omslag naast elk boek schrijven",
+      "covers": "Omslagafbeeldingen exporteren",
+      "coversHint": "Schrijft de omslag van elk boek als afbeeldingsbestand ernaast, zodat andere apps de cover ook tonen.",
       "overwriteForeign": "Bestanden vervangen die Grimoire niet heeft geschreven",
       "overwriteForeignHint": "Laat uit om bestanden te beschermen die je zelf beheert, zoals een .opf die je in Calibre bewerkt. Ze worden als overgeslagen gemeld.",
       "save": "Instellingen opslaan",

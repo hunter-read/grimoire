@@ -46,7 +46,7 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **Community Add-ons** - Install metadata scrapers contributed by the community to fill in game system and book details from external sources (TTRPG Wiki for systems, DriveThruRPG for books). Open a system or book, hit **Fetch metadata**, pick a match, and review a field-by-field diff before anything is written - values you have already set are never pre-selected. Definitions live in the separate [community-add-ons](https://github.com/grimoire-codex/community-add-ons) repo, so a source that changes can be fixed without waiting for a Grimoire release. Manage and update them in **Settings → Add-ons**; see [`docs/addons.md`](docs/addons.md)
 - **Themes & Light Mode** - Choose light, dark, or system (which follows your OS) in **Settings → Account → Appearance**. Beyond the built-in palettes you can install colour themes: browse the community catalogue, or paste a theme's JSON to install it directly. Themes are **per user** - one is installed into your own account and changes nothing for anyone else, so no admin approval is involved. A theme can pair a light and a dark palette, so it shows as one entry and **System** switches between them with your OS. The catalogue ships **High Contrast**, which does exactly that with every text-on-background pairing at WCAG AAA; it raises luminance contrast only and does not address colourblindness. See [`docs/themes.md`](docs/themes.md)
 - **Wiki Note Templates** - Start a campaign wiki page from a template instead of a blank note. Browse a community catalogue as a folder tree (Generic, Draw Steel, Dungeons & Dragons 5e, …) and download copies into your campaign, write your own, or upload a Markdown file or template `.zip`. Templates belong to the campaign, so you can edit a downloaded one freely; any template exports as a ready-to-contribute folder that uploads straight back in. Downloading can be turned off with `DISABLE_EXTERNAL_ADD_ON_INSTALL` while authoring and upload keep working; see [`docs/wiki-templates.md`](docs/wiki-templates.md)
-- **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on. Sort, filters, saved presets, multi-select, and the view switcher share a single toolbar row that stays pinned to the top of the page as you scroll, so bulk-selecting entries near the bottom of a long library no longer means scrolling back up
+- **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on. The default applies every time you arrive at a view fresh - from anywhere else in the app, or on a reload. The one exception is the in-app back button: if you change the filters, open an item, and come back, you land on what you were looking at rather than having the default reapplied over it. Sort, filters, saved presets, multi-select, and the view switcher share a single toolbar row that stays pinned to the top of the page as you scroll, so bulk-selecting entries near the bottom of a long library no longer means scrolling back up
 - **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. An "apply to all" button opens a checklist of fields to copy from the item you are on to the whole selection - tick Category and every selected book moves at once - and books and systems can pull metadata from an installed add-on without leaving the carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
 - **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
 - **OPDS Catalog** - Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
@@ -283,6 +283,8 @@ books/
 
 Books placed directly in the root (without a subfolder) appear under an **Uncategorized** heading.
 
+If you'd rather not use one of the recognized names, drop a `.system-agnostic-container` marker file in any folder and it becomes the system-agnostic collection instead. The marker only changes *which* folder is the collection - the shape stays the same, so its subfolders are still category headings rather than systems, and the library counts the books inside it. There can only be one system-agnostic collection, so Grimoire refuses a second folder claiming it.
+
 The **one-page / small RPG** collections behave differently: they are *system containers*, described next.
 
 #### System containers (parent systems & sub-libraries)
@@ -373,7 +375,9 @@ A single-file game becomes a system holding that one book; a folder-backed game 
 | Folder-name suffix | `books/My Shelf (container)/` | Generic |
 | Recognized name | `books/One-Page RPGs/` | One-page collection |
 
-If a folder somehow carries more than one declaration, the most specific kind wins, in this order: **parent system → one-page → system family → publisher → generic**. Every recognized suffix is stripped from the stored name either way, so a stray `(publisher)` never shows up in the UI.
+The system-agnostic marker (`.system-agnostic-container`, or a `(system-agnostic)` suffix) is listed with these for consistency, but it is not a shelf of systems: it names the special collection described above, whose subfolders stay categories.
+
+If a folder somehow carries more than one declaration, the most specific kind wins, in this order: **parent system → one-page → system agnostic → system family → publisher → generic**. Every recognized suffix is stripped from the stored name either way, so a stray `(publisher)` never shows up in the UI.
 
 **Naming.** Child systems get a sensible default name - `{Parent} {Edition}` for parent systems, the prettified file/folder name for one-page games, and their own folder name for family, publisher, and generic children. Rename any of them in the UI and your name sticks: rescans never overwrite a system you've renamed, so "Dungeons & Dragons 2e" can become "Advanced Dungeons & Dragons".
 
@@ -632,16 +636,26 @@ of Grimoire's own concepts) built for bulk reorganization:
   progress, names any that fail and why, and lets you retry them individually or
   all at once - a failure part-way through a large import never costs you the
   files that already succeeded.
+- **Preview an item** without leaving the tree - right-click → **Preview…** opens
+  a book's rendered pages (arrow keys or the pager move between them), a map or
+  token image, or an audio player. It answers "which file is this?" in place,
+  rather than sending you to the reader and losing your spot in the tree.
 - **Edit an item's metadata** with the same editor the library views use.
 - **Create folders**, including system, category, and container folders. Choosing
   a container type writes the right marker file for you, so you no longer have to
-  remember `.parent-system-container` and create it by hand.
+  remember `.parent-system-container` and create it by hand. Use the **New folder**
+  button beside *Up* to create one in the folder you are currently viewing - handy
+  in an empty folder, where there is no row to right-click.
 - **Set up a system in one step** with **Create standard category folders** -
   Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew, and
   Starter Sets, named so the scanner classifies them correctly.
 - **Mark a folder NSFW or SFW**, or change its container type, without recreating
   it. The *One-page RPGs* and *System-agnostic* collections are one-of-a-kind:
   once a folder claims one, it is not offered on any other folder.
+- **Rescan** from here too: the **Rescan** button beside *Refresh* re-indexes the
+  whole library, and right-click → **Rescan this…** re-indexes just that folder or
+  file. *Refresh* only re-reads the folder listing; a rescan updates what Grimoire
+  has indexed, which is what you want after editing files with another tool.
 
 Moves and renames **keep your metadata**. Grimoire relinks the existing record
 rather than treating the file as new, so tags, favorites, reading progress,

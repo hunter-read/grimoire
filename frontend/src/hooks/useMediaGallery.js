@@ -4,12 +4,11 @@ import useSessionState from './useSessionState'
 import useViewMode from './useViewMode'
 import useBulkSelection from './useBulkSelection'
 import useSavedFilters from './useSavedFilters'
+import useSortFilterState from './useSortFilterState'
 import { useFavorites } from '../context/FavoritesContext'
 // (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
 import { getFolderPath, getTopFolder, getSubPath } from '../components/media/mediaConfig'
 import { splitSpecial, isSpecialFilter } from '../components/library/specialFilters'
-
-const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
 
 /**
  * All shared data, filtering, grouping, and bulk-edit logic for a media gallery
@@ -27,8 +26,6 @@ export default function useMediaGallery(config) {
 
   const [data, setData] = useState(null)
   const [folderTags, setFolderTags] = useState({})
-  const [sortFilter, setSortFilter] = useState(DEFAULT_SORT_FILTER)
-  const [defaultApplied, setDefaultApplied] = useState(false)
   const [grouped, setGrouped] = useSessionState(`${sessionKey}:grouped`, true)
   const [viewMode, cycleViewMode] = useViewMode(type)
   const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set())
@@ -36,14 +33,9 @@ export default function useMediaGallery(config) {
   const [bulkApplying, setBulkApplying] = useState(false)
 
   const savedFilters = useSavedFilters(collection)
-
-  // Apply the user's default preset for this scope once, after it loads.
-  useEffect(() => {
-    if (savedFilters.loaded && !defaultApplied) {
-      if (savedFilters.defaultFilter?.state) setSortFilter(savedFilters.defaultFilter.state)
-      setDefaultApplied(true)
-    }
-  }, [savedFilters.loaded, savedFilters.defaultFilter, defaultApplied])
+  // Persisted for the session so returning from a detail view keeps the filters
+  // the user had, rather than snapping back to their saved default.
+  const [sortFilter, setSortFilter] = useSortFilterState(`${sessionKey}:sortFilter`, savedFilters)
 
   // Backward-compatible derived filter values from the unified state.
   const activeFilters = sortFilter.filters || {}

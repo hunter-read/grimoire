@@ -88,7 +88,9 @@ describe('MapDetailView', () => {
     render(<MapDetailView />)
     await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to maps'))
-    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources')
+    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources', {
+      state: { restoreView: true },
+    })
   })
 
   it('falls back to the maps list when there is no referring path', async () => {
@@ -96,7 +98,7 @@ describe('MapDetailView', () => {
     render(<MapDetailView />)
     await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to maps'))
-    expect(navigate).toHaveBeenCalledWith('/maps')
+    expect(navigate).toHaveBeenCalledWith('/maps', { state: { restoreView: true } })
   })
 
   it('fetches siblings scoped to the folder', async () => {

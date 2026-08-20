@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuChevronRight, LuArrowUp, LuTriangleAlert, LuLock, LuX } from 'react-icons/lu'
+import {
+  LuChevronRight,
+  LuArrowUp,
+  LuTriangleAlert,
+  LuLock,
+  LuX,
+  LuFolderPlus,
+} from 'react-icons/lu'
 import Spinner from '../Spinner'
 import FileRow from './FileRow'
 import useVirtualRows from '../../hooks/useVirtualRows'
@@ -62,6 +69,7 @@ export default function FilePane({
   onDropFiles,
   onOpenContext,
   onClose,
+  onNewFolder,
   compact = false,
   fill = false,
 }) {
@@ -291,6 +299,21 @@ export default function FilePane({
               {t('files.readOnly')}
             </span>
           )}
+          {/* Creating a folder *here* — in the folder the pane is showing —
+              needed the right-click menu and a folder to click on, which is
+              impossible in an empty folder. Styled as a real button rather than
+              a breadcrumb, since it acts on the library instead of navigating.
+              Hidden on a read-only mount, where the API would refuse it. */}
+          {onNewFolder && pane.writable && (
+            <button
+              onClick={() => onNewFolder(pane.path)}
+              style={actionBtnStyle}
+              title={t('files.newFolderHere')}
+              data-testid={`new-folder-${side}`}
+            >
+              <LuFolderPlus size={12} /> {t('files.newFolder')}
+            </button>
+          )}
           {pane.parent !== null && (
             <button onClick={() => pane.navigate(pane.parent)} style={crumbStyle(false)}>
               <LuArrowUp size={12} /> {t('files.up')}
@@ -449,6 +472,23 @@ export default function FilePane({
       </div>
     </div>
   )
+}
+
+// Unlike the breadcrumbs beside it, this one *does* something to the library
+// rather than moving around it — so it carries a border and a filled background
+// instead of reading as another piece of the path.
+const actionBtnStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  padding: '3px 9px',
+  borderRadius: 5,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-card)',
+  color: 'var(--text-dim)',
+  fontSize: 12,
+  fontWeight: 500,
+  cursor: 'pointer',
 }
 
 function crumbStyle(active) {

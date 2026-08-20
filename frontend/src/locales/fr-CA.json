@@ -393,7 +393,21 @@
     "retry": "Réessayer",
     "retryFailed": "Réessayer les échecs",
     "cancelAll": "Tout annuler",
-    "clearCompleted": "Effacer les terminés"
+    "clearCompleted": "Effacer les terminés",
+    "newFolderHere": "Créer un dossier dans le dossier affiché",
+    "rescanLibrary": "Réanalyser",
+    "rescanHere": "Réanalyser ceci…",
+    "rescanStarted": "Réanalyse de {{path}}",
+    "rescanFailed": "Impossible de lancer cette réanalyse",
+    "preview": "Aperçu…",
+    "previewTitle": "Aperçu de {{name}}",
+    "previewUnsupported": "Il n'y a rien à prévisualiser pour cet élément",
+    "previewFailed": "Impossible de charger cet aperçu",
+    "previewNoPages": "Aucune page n'a encore été rendue pour ce livre",
+    "previewPageOf": "Page {{page}} sur {{total}}",
+    "previewPageAlt": "Page {{page}}",
+    "previewPrev": "Page précédente",
+    "previewNext": "Page suivante"
   },
   "maps": {
     "title": "Cartes",
@@ -882,7 +896,8 @@
           "hint": "La même sauvegarde complète que JSON, dans un format plus facile à lire et à modifier à la main."
         }
       },
-      "covers": "Écrire aussi l'image de couverture à côté de chaque livre",
+      "covers": "Exporter les images de couverture",
+      "coversHint": "Écrit la couverture de chaque livre sous forme de fichier image à côté de celui-ci, afin que les autres applications affichent aussi la jaquette.",
       "overwriteForeign": "Remplacer les fichiers non écrits par Grimoire",
       "overwriteForeignHint": "Laissez désactivé pour protéger les fichiers que vous gérez vous-même, comme un .opf modifié dans Calibre. Ils sont signalés comme ignorés.",
       "save": "Enregistrer les paramètres",

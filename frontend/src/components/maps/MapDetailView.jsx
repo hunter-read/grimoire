@@ -51,7 +51,9 @@ export default function MapDetailView() {
   // `state.from`). Guests have no /maps browse route, so a hardcoded '/maps'
   // would bounce them off the catch-all back to the campaign list (issue #361).
   const backPathRef = useRef(location.state?.from ?? null)
-  const goBack = () => (backPathRef.current ? navigate(backPathRef.current) : navigate('/maps'))
+  // Going back is a *return* to the gallery, so it restores the filters the user
+  // had rather than re-applying their saved default over them.
+  const goBack = () => navigate(backPathRef.current || '/maps', { state: { restoreView: true } })
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [map, setMap] = useState(null)

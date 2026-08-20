@@ -11,6 +11,14 @@ vi.mock('react-i18next', () => ({
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../api', () => ({
+  // The scan-status poller behind the rescan controls uses the default export,
+  // and the preview modal builds media URLs — both reachable from this view.
+  default: {
+    get: vi.fn(() => Promise.resolve({ running: false })),
+    post: vi.fn(() => Promise.resolve({})),
+  },
+  mediaUrl: (path) => `/api${path}`,
+  bookPageUrl: (id, page) => `/api/books/${id}/page/${page}`,
   files: {
     browse: vi.fn(),
     move: vi.fn(),
@@ -249,6 +257,79 @@ describe('FileManagerView', () => {
     await userEvent.click(await screen.findByTestId('pin-right'))
     return screen.findByTestId('file-pane-secondary')
   }
+
+  it('creates a folder in the pane\u2019s own folder from the breadcrumb button', async () => {
+    // The right-click route needs a folder to click on, which an empty folder
+    // does not have — so the pane carries its own "new folder here" button.
+    filesApi.createFolder.mockResolvedValue({ path: 'books/New' })
+    render(<FileManagerView />)
+
+    await userEvent.click(await screen.findByTestId('new-folder-primary'))
+    const input = await screen.findByLabelText('files.folderName')
+    await userEvent.type(input, 'Homebrew')
+    await userEvent.click(screen.getByRole('button', { name: 'files.create' }))
+
+    await waitFor(() =>
+      expect(filesApi.createFolder).toHaveBeenCalledWith('books', 'Homebrew', expect.anything())
+    )
+  })
+
+  it('hides the new-folder button on a read-only mount', async () => {
+    filesApi.browse.mockImplementation((path) =>
+      Promise.resolve(browseResult([folder('core', path)], path, { writable: false }))
+    )
+    render(<FileManagerView />)
+    await screen.findByTestId('file-pane-primary')
+
+    // The API would refuse the write, so the affordance is not offered.
+    expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
+  })
+
+  it('reloads the folder a new folder landed in, even when it was collapsed', async () => {
+    // The bug: refresh only re-read folders already on screen, so a folder
+    // created inside a collapsed parent never appeared until a manual refresh.
+    filesApi.createFolder.mockResolvedValue({ path: 'books/core/New' })
+    render(<FileManagerView />)
+    await openMenuOn('core')
+    await userEvent.click(screen.getByText('files.newFolderInside'))
+    const input = await screen.findByLabelText('files.folderName')
+    await userEvent.type(input, 'Maps')
+    filesApi.browse.mockClear()
+    await userEvent.click(screen.getByRole('button', { name: 'files.create' }))
+
+    await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
+  })
+
+  it('offers a scoped rescan from the context menu', async () => {
+    render(<FileManagerView />)
+    await openMenuOn('core')
+
+    await userEvent.click(await screen.findByTestId('rescan-entry'))
+    // The mode modal owns the actual request; opening it with the row's path is
+    // this view's job.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('previews an indexed file but not a folder', async () => {
+    render(<FileManagerView />)
+
+    await openMenuOn('core')
+    expect(screen.queryByTestId('preview-entry')).not.toBeInTheDocument()
+
+    await openMenuOn('bestiary.pdf')
+    expect(await screen.findByTestId('preview-entry')).toBeInTheDocument()
+  })
+
+  it('opens the preview modal with the loaded record', async () => {
+    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
+    render(<FileManagerView />)
+    await openMenuOn('bestiary.pdf')
+
+    await userEvent.click(await screen.findByTestId('preview-entry'))
+
+    expect(await screen.findByTestId('preview-page')).toBeInTheDocument()
+    expect(filesApi.record).toHaveBeenCalledWith('book', 'rec-1')
+  })
 
   it('renames an item from the context menu', async () => {
     filesApi.rename.mockResolvedValue({ from: 'books/core', to: 'books/rulebooks', records: 3 })

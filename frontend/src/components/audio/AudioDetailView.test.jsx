@@ -70,7 +70,9 @@ describe('AudioDetailView', () => {
     render(<AudioDetailView />)
     await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to audio'))
-    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources')
+    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources', {
+      state: { restoreView: true },
+    })
   })
 
   it('falls back to the audio list when there is no referring path', async () => {
@@ -78,7 +80,7 @@ describe('AudioDetailView', () => {
     render(<AudioDetailView />)
     await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to audio'))
-    expect(navigate).toHaveBeenCalledWith('/audio')
+    expect(navigate).toHaveBeenCalledWith('/audio', { state: { restoreView: true } })
   })
 
   it('renders track metadata once loaded', async () => {

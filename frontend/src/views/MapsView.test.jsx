@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -73,9 +74,19 @@ vi.mock('../components/LazyGrid', () => ({
   default: ({ children }) => <>{children}</>,
 }))
 
-// Start all folders expanded so map filenames are immediately visible.
+// Keep every folder expanded so filenames are immediately visible: the
+// collapsed-set key is pinned to an empty Set and ignores writes, which is what
+// the old all-mocked version achieved for every key at once.
+//
+// Everything else — notably the session-backed sort/filter state — gets real
+// state, since a no-op setter there would silently swallow the filter changes
+// these tests make.
 vi.mock('../hooks/useSessionState', () => ({
-  default: (_key, _init) => [new Set(), vi.fn()],
+  default: (_key, init) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [val, setVal] = useState(init)
+    return init instanceof Set ? [new Set(), () => {}] : [val, setVal]
+  },
 }))
 
 function makeMap(overrides = {}) {

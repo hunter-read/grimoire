@@ -85,6 +85,27 @@ beforeEach(() => {
 })
 
 describe('FilePane', () => {
+  it('creates a folder in the pane\u2019s own folder', async () => {
+    // An empty folder has no row to right-click, so the pane needs its own
+    // affordance for "make a folder here".
+    const onNewFolder = vi.fn()
+    renderPane(makePane(), { onNewFolder })
+
+    await userEvent.click(screen.getByTestId('new-folder-primary'))
+
+    expect(onNewFolder).toHaveBeenCalledWith('books/System')
+  })
+
+  it('hides the new-folder button on a read-only mount', () => {
+    renderPane(makePane({ writable: false }), { onNewFolder: vi.fn() })
+    expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
+  })
+
+  it('omits the new-folder button when no handler is supplied', () => {
+    renderPane(makePane())
+    expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
+  })
+
   it('renders a breadcrumb for the current path', () => {
     renderPane(makePane())
     expect(screen.getByText('files.libraryRoot')).toBeInTheDocument()

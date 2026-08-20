@@ -46,8 +46,10 @@ export default function AgnosticChip({ system, to }) {
         }}
       >
         {/* A container holds systems rather than books of its own, so its count
-            reflects the games inside it (issues #261, #262). */}
-        {system.container_kind
+            reflects the games inside it (issues #261, #262) — except the
+            system-agnostic collection, whose subfolders are categories rather
+            than systems, so it counts books like any ordinary shelf. */}
+        {system.container_kind && !system.is_system_agnostic
           ? t('systemContainer.count', { count: system.child_count || 0 })
           : t('library.bookCount', { count: system.book_count })}
       </span>
