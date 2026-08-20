@@ -131,9 +131,9 @@ def _campaign_events(
 
         summary = campaign.name
         if is_cancelled:
-            summary = f"{summary} — Cancelled"
+            summary = f"{summary} - Cancelled"
         elif label:
-            summary = f"{summary} — {label}"
+            summary = f"{summary} - {label}"
 
         description_parts = [
             f"Your availability: {label}" if label else "Your availability: not set",
@@ -218,7 +218,7 @@ def all_campaigns_calendar_feed(
     for campaign in _user_campaigns(db, user.id):
         events.extend(_campaign_events(db, campaign, user.id, dtstamp))
 
-    body = build_calendar(events, name="Grimoire — My Campaigns")
+    body = build_calendar(events, name="Grimoire - My Campaigns")
     return _ics_response(body, "grimoire-campaigns.ics", inline=True)
 
 

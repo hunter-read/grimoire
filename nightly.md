@@ -424,7 +424,7 @@ books/
 
 To pull a system to the top of an alphabetically-sorted file browser, you can
 prefix its folder name with `!`, `$`, or `%`. Grimoire strips a leading run of
-those characters when deriving the system name (only the leading run — internal
+those characters when deriving the system name (only the leading run - internal
 occurrences are kept):
 
 ```
@@ -484,6 +484,35 @@ OPF metadata is only applied when a book is **first indexed**, and ordinary resc
 - **Update missing metadata** - additionally fill **empty** book fields from sidecar files, without touching anything you've already set (non-destructive).
 - **Replace all metadata** - overwrite fields with whatever the sidecar files provide (this discards UI edits the sidecar covers).
 
+### Writing metadata back out (sidecar export)
+
+The reverse of the above: Grimoire can write its metadata *out* as sidecar files next to your content, so the library folder describes itself. Copy the library to another machine, or rebuild the container with a fresh `DATA_PATH`, and the metadata travels with the files instead of living only in the app database. Other tools can read it too - Calibre, Jellyfin, Kodi, or a plain file manager.
+
+**This is off by default.** Grimoire is otherwise a read-only viewer of your library, so writing into it is a deliberate opt-in.
+
+Four formats, and you can enable any combination:
+
+| Format | File written | Read by |
+|--------|--------------|---------|
+| OPF | `<book>.opf` | Calibre - and Grimoire itself, so it round-trips |
+| NFO | `<book>.nfo` | Jellyfin, Kodi, Emby |
+| JSON | `<book>.grimoire.json` | Grimoire-native; **lossless** |
+| YAML | `<book>.grimoire.yaml` | Grimoire-native; **lossless**, and the easiest to read or edit by hand |
+
+OPF and NFO can only hold the fields their formats define, so anything without a slot is dropped. Enable JSON or YAML if you want a complete metadata backup rather than a feed for another app. Those two hold exactly the same fields and differ only in syntax, so there is little reason to enable both: pick YAML if you will read or edit the file yourself, JSON if a script will parse it. Optionally a cover image is written alongside as `<book>.cover.jpg`.
+
+Turn it on in **Settings → Maintenance → Metadata Sidecars**: tick the formats you want and save.
+
+Three things trigger a write. The **Export Metadata To Library** button in that same section backfills the library, writing only the sidecars that are **missing** - so it is safe to re-run and will not overwrite one you have edited by hand. After that, any new book a library scan picks up gets its sidecars written automatically, and editing a book's metadata in the UI **updates the sidecars it already has** - creating none, so a library you have never backfilled never sprouts new files just because you renamed something.
+
+Grimoire only overwrites files it wrote: every exported sidecar carries a marker, and a `.opf` you maintain in Calibre is left alone and reported as skipped unless you explicitly allow overwriting.
+
+Sidecars are hidden in the **File Manager** - they describe your content rather than being content, and a book with four sidecars and a cover would otherwise show as six rows. They still travel with the file they belong to: move a book and its sidecars move too, rename it and they are renamed to match. A sidecar whose book no longer exists stays visible, so nothing vanishes with no way to reach it.
+
+> Sidecar export needs the library mounted **read-write**. The `docker-compose.dev.yml` example mounts it `:ro`; drop that suffix to use this feature. If the mount stays read-only, export reports it clearly and your metadata edits keep working - only the sidecar write is skipped.
+
+See [`docs/sidecars.md`](docs/sidecars.md) for the full field mapping per format and how export precedence pairs with the refresh modes above.
+
 ### Maps - organize by creator or collection
 
 ```
@@ -541,7 +570,7 @@ display name the first time it's seen.
 ```
 
 `tags.json` is **additive and read-only**: on every rescan it only *adds* the
-tags it lists — it never removes tags you set (or removed) in the web UI, and it
+tags it lists - it never removes tags you set (or removed) in the web UI, and it
 never overwrites a tag's display name once the tag exists. A new tag is created
 using the casing in the file; renaming a tag later in the web UI sticks, because
 the display name lives in the app's tag catalog rather than in `tags.json` (which
@@ -552,7 +581,7 @@ case-insensitively, so `"dungeon"` and `"Dungeon"` are the same tag.
 
 ## Ignoring Files with .grimoireignore
 
-Add a `.grimoireignore` file to keep files on disk but out of Grimoire. It uses the same syntax as `.gitignore` / `.dockerignore`, so anything matched by a rule is skipped during scanning and never appears in the UI — useful when a book ships extra print variants (black-and-white single pages, zine-sized layouts) you want kept next to the book but hidden.
+Add a `.grimoireignore` file to keep files on disk but out of Grimoire. It uses the same syntax as `.gitignore` / `.dockerignore`, so anything matched by a rule is skipped during scanning and never appears in the UI - useful when a book ships extra print variants (black-and-white single pages, zine-sized layouts) you want kept next to the book but hidden.
 
 Place it at your **library root** to apply everywhere, or in any subfolder to add rules for just that subtree. Rules are cumulative and nested, like git.
 
@@ -582,7 +611,7 @@ The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth,
 
 ### In-app file management
 
-Admins can reorganize the library from inside Grimoire — **Settings → Maintenance
+Admins can reorganize the library from inside Grimoire - **Settings → Maintenance
 → Open file manager**. It is a folder tree (think Finder or Filebrowser, but aware
 of Grimoire's own concepts) built for bulk reorganization:
 
@@ -595,19 +624,19 @@ of Grimoire's own concepts) built for bulk reorganization:
   move are far apart. Either pane can be closed to go back to one.
 - **Rename** a file or folder on disk. This is distinct from editing an item's
   display title, which only changes the name shown in Grimoire. The file
-  extension is held aside and reattached on save — Grimoire infers a file's type
+  extension is held aside and reattached on save - Grimoire infers a file's type
   from its suffix, so a mistyped `.pdf` would quietly drop a book out of the
   library.
 - **Upload files and folders** by dragging them in from your desktop, or via
   right-click → **Upload files… / Upload a folder…**. A panel tracks each file's
   progress, names any that fail and why, and lets you retry them individually or
-  all at once — a failure part-way through a large import never costs you the
+  all at once - a failure part-way through a large import never costs you the
   files that already succeeded.
 - **Edit an item's metadata** with the same editor the library views use.
 - **Create folders**, including system, category, and container folders. Choosing
   a container type writes the right marker file for you, so you no longer have to
   remember `.parent-system-container` and create it by hand.
-- **Set up a system in one step** with **Create standard category folders** —
+- **Set up a system in one step** with **Create standard category folders** -
   Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew, and
   Starter Sets, named so the scanner classifies them correctly.
 - **Mark a folder NSFW or SFW**, or change its container type, without recreating
@@ -617,7 +646,7 @@ of Grimoire's own concepts) built for bulk reorganization:
 Moves and renames **keep your metadata**. Grimoire relinks the existing record
 rather than treating the file as new, so tags, favorites, reading progress,
 bookmarks, campaign links, and the search index all follow the file to its new
-home — and a book moved to a different system or category is re-filed
+home - and a book moved to a different system or category is re-filed
 automatically.
 
 > **This requires a writable library mount.** Drop the `:ro` from your library
@@ -647,17 +676,17 @@ A rescan compares each file's modification time and size against what it recorde
 
 - **Replacing a book in place** (same filename, e.g. swapping in a higher-quality scan) is detected on the next rescan. The page count, cover, and search text are rebuilt, and everything cached from the old file is discarded. Tags, favorites, bookmarks, and reading progress are kept.
 - **Moving or renaming a file** is recognised as the same book rather than a deletion plus a new addition, so it keeps its tags, favorites, bookmarks, and reading progress. Grimoire matches on file contents. Byte-for-byte identical copies are handled conservatively: moving one of them is still recognised, but if several identical files move at once there is no way to tell which became which, so they are reported as missing entries plus new ones rather than being paired off by guesswork.
-- **A move across systems re-derives the metadata the folders imply.** Dragging a book from `Dungeons & Dragons/3e/unsorted/` to `Dungeons & Dragons/5e/adventures/Curse of Strahd/` updates its system, edition, and category to match where it now lives — while still keeping everything attached to the book. Attribution that came from a container (a publisher or family shelf) is dropped when the book moves out from under it, and picked up when it moves in.
+- **A move across systems re-derives the metadata the folders imply.** Dragging a book from `Dungeons & Dragons/3e/unsorted/` to `Dungeons & Dragons/5e/adventures/Curse of Strahd/` updates its system, edition, and category to match where it now lives - while still keeping everything attached to the book. Attribution that came from a container (a publisher or family shelf) is dropped when the book moves out from under it, and picked up when it moves in.
 
 ### Systems whose folder disappears
 
-When a system's folder is deleted — or newly excluded by a [`.grimoireignore`](#ignoring-files-with-grimoireignore) rule — the system itself is now removed on the next rescan, instead of lingering in the library with nothing behind it. This is what cleans up a stray `@eaDir` entry after you add a rule for it on a Synology NAS.
+When a system's folder is deleted - or newly excluded by a [`.grimoireignore`](#ignoring-files-with-grimoireignore) rule - the system itself is now removed on the next rescan, instead of lingering in the library with nothing behind it. This is what cleans up a stray `@eaDir` entry after you add a rule for it on a Synology NAS.
 
 Removal is deliberately cautious. A system is kept if it still holds any book that is present on disk, if it is the parent of a system that does, or if you have adapted it yourself by renaming it or giving it a description or cover. Scoped rescans (a single folder) never remove systems, since they only look at one corner of the library.
 
 ### Interrupted scans
 
-Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-populated shelf. Every system folder is registered before any book is indexed, so a container's editions all appear as soon as the folder is walked, however early the scan stops — you may be missing *books* until the next full rescan, but never whole systems. Nothing is removed by an interrupted scan either.
+Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-populated shelf. Every system folder is registered before any book is indexed, so a container's editions all appear as soon as the folder is walked, however early the scan stops - you may be missing *books* until the next full rescan, but never whole systems. Nothing is removed by an interrupted scan either.
 
 ---
 
@@ -681,7 +710,7 @@ Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-
 | `OCR_DPI` | `150` | Optional. Resolution scanned pages are rasterized at before OCR (clamped 72–600). Higher = more accurate but slower and more memory per page. See [OCR performance](#ocr-performance--resource-tuning). |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
-| `TZ` | `UTC` | Optional. Timezone for all log timestamps — both console/Docker output and the in-app Logs tab. Use an IANA zone name such as `America/Toronto` or `Europe/Berlin`. Defaults to UTC when unset; an unknown zone name logs a warning and uses UTC. |
+| `TZ` | `UTC` | Optional. Timezone for all log timestamps - both console/Docker output and the in-app Logs tab. Use an IANA zone name such as `America/Toronto` or `Europe/Berlin`. Defaults to UTC when unset; an unknown zone name logs a warning and uses UTC. |
 | `ALLOW_PASSWORD_AUTHENTICATION` | - | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
 | `GUEST_ACCESS_ENABLED` | - | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
 | `DISABLE_FOLDER_CATEGORY_INFERENCE` | - | Optional, `true` or `false`. When set, pins folder-name category inference on or off and overrides the toggle in Settings → Maintenance (shown read-only). When `true`, books are not auto-assigned a category from their folder names and fall back to `uncategorized`. A per-system `.no-auto-category` marker file disables inference for just that system. |
@@ -782,19 +811,19 @@ Browser `<img>` and download requests can't send an `Authorization` header, so t
 
 ### Sessions and token revocation
 
-Logging in issues a **short-lived access token** (30 minutes by default) plus a long-lived **refresh token** stored in an `HttpOnly` cookie. The browser refreshes in the background, so this is invisible in normal use — you stay logged in as before.
+Logging in issues a **short-lived access token** (30 minutes by default) plus a long-lived **refresh token** stored in an `HttpOnly` cookie. The browser refreshes in the background, so this is invisible in normal use - you stay logged in as before.
 
 What it buys you is a kill switch. Previously a token was valid for 30 days and there was no way to revoke it short of rotating `SECRET_KEY`, which logged **everyone** out. Now every login is a session you can end individually.
 
-**Managing your sessions.** Settings → User → *Active Sessions* lists every device signed in to your account, with its browser, IP, and when it was last used. Revoke any one of them, or use **Sign out all other devices** to end every session but the one you're on — the thing to do if you've lost a device or think someone else has your password.
+**Managing your sessions.** Settings → User → *Active Sessions* lists every device signed in to your account, with its browser, IP, and when it was last used. Revoke any one of them, or use **Sign out all other devices** to end every session but the one you're on - the thing to do if you've lost a device or think someone else has your password.
 
 Sessions are also revoked automatically when an admin changes your role or resets your password, when you change your own password (all *other* devices), when a guest's invite code is regenerated, and when an account is deleted. This works the same for OIDC/SSO logins as for local ones.
 
-**One caveat worth understanding:** revoking a session kills its refresh token immediately, but an access token already issued stays valid until it expires — up to `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). This is the trade for not hitting the database on every single request. If you want revocation to bite faster, lower `ACCESS_TOKEN_EXPIRE_MINUTES`; the cost is more frequent background refreshes.
+**One caveat worth understanding:** revoking a session kills its refresh token immediately, but an access token already issued stays valid until it expires - up to `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). This is the trade for not hitting the database on every single request. If you want revocation to bite faster, lower `ACCESS_TOKEN_EXPIRE_MINUTES`; the cost is more frequent background refreshes.
 
-Refresh tokens are single-use and rotate on every refresh, and only a hash of each is stored in the database. If a refresh token is ever presented twice — the signature of a stolen token being replayed — Grimoire revokes that entire session rather than just refusing the request.
+Refresh tokens are single-use and rotate on every refresh, and only a hash of each is stored in the database. If a refresh token is ever presented twice - the signature of a stolen token being replayed - Grimoire revokes that entire session rather than just refusing the request.
 
-Dead sessions are cleared out automatically: a background job runs at startup and then daily, deleting sessions that expired or were revoked more than **7 days** ago. The delay is deliberate — a refresh token replayed shortly after logout is still recognised as a reuse rather than looking like an unknown token. Nothing to configure, and it runs in only one worker regardless of `WORKERS`.
+Dead sessions are cleared out automatically: a background job runs at startup and then daily, deleting sessions that expired or were revoked more than **7 days** ago. The delay is deliberate - a refresh token replayed shortly after logout is still recognised as a reuse rather than looking like an unknown token. Nothing to configure, and it runs in only one worker regardless of `WORKERS`.
 
 ---
 
@@ -976,7 +1005,7 @@ Sessions can go straight into whatever calendar app you already use. The **Calen
 
 The same **Calendar** button sits at the top of the campaigns list, offering just the all-campaigns subscription link.
 
-The subscription link is **personal to you**. It carries its own revocable token - not your password and not your login session - and each event reflects *your* availability: an event reads "Curse of Strahd — Tentative" once you've marked yourself tentative, and a cancelled session shows as cancelled rather than vanishing. Treat the link like a password: anyone holding it can read your session schedule. **Regenerate link** rotates it (instantly breaking the old one, so you'll need to re-subscribe), and **Revoke link** turns the feed off entirely.
+The subscription link is **personal to you**. It carries its own revocable token - not your password and not your login session - and each event reflects *your* availability: an event reads "Curse of Strahd - Tentative" once you've marked yourself tentative, and a cancelled session shows as cancelled rather than vanishing. Treat the link like a password: anyone holding it can read your session schedule. **Regenerate link** rotates it (instantly breaking the old one, so you'll need to re-subscribe), and **Revoke link** turns the feed off entirely.
 
 > **Accepting or declining in your calendar app won't reach Grimoire.** Subscribed calendars are read-only by design - the calendar standard gives them no way to send anything back - so RSVP buttons on these events either don't appear or do nothing. Every event links back to the campaign's schedule tab, where one click sets your availability.
 

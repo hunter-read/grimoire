@@ -60,7 +60,7 @@ def ocr_available() -> bool:
         if _available:
             logger.info(f"Text recognition for scanned books is on (languages: {config.OCR_LANGUAGES}).")
         else:
-            logger.info("Text recognition for scanned books is off — Tesseract isn't installed.")
+            logger.info("Text recognition for scanned books is off - Tesseract isn't installed.")
     return _available
 
 
@@ -133,7 +133,7 @@ def ocr_image(image: Image.Image, should_stop: Optional[Callable[[], bool]] = No
             logger.debug("OCR aborted by stop request")
             return ""
     if t.is_alive():
-        logger.warning(f"Gave up reading a page after {_OCR_TIMEOUT}s — skipping it.")
+        logger.warning(f"Gave up reading a page after {_OCR_TIMEOUT}s - skipping it.")
         return ""
     if exc[0] is not None:
         logger.warning(f"Couldn't read text from a page: {exc[0]}")

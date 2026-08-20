@@ -43,10 +43,10 @@ def _int_env(name: str, default: int, minimum: int = 1) -> int:
     try:
         value = int(raw)
     except ValueError:
-        logger.warning("%s=%r is not an integer — using the default of %d", name, raw, default)
+        logger.warning("%s=%r is not an integer - using the default of %d", name, raw, default)
         return default
     if value < minimum:
-        logger.warning("%s=%d is below the minimum of %d — using %d", name, value, minimum, minimum)
+        logger.warning("%s=%d is below the minimum of %d - using %d", name, value, minimum, minimum)
         return minimum
     return value
 
@@ -137,7 +137,7 @@ def get_active_session(db: Session, token: str) -> Optional[AuthSession]:
         replayed = db.query(AuthSession).filter_by(previous_token_hash=token_hash).first()
         if replayed is not None and replayed.revoked_at is None:
             logger.warning(
-                "Refresh token reuse detected for session %s (user %s) — revoking the session",
+                "Refresh token reuse detected for session %s (user %s) - revoking the session",
                 replayed.id,
                 replayed.user_id,
             )

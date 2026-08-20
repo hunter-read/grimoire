@@ -14,7 +14,7 @@ The live API is self-documented via OpenAPI. With the server running:
 
 Every JSON endpoint declares a response model, so the spec carries real response
 types (usable for client generation) rather than an empty schema. The only
-routes without a body schema are the ones that do not return JSON — file, image
+routes without a body schema are the ones that do not return JSON - file, image
 and archive downloads, OIDC redirects, and the SPA catch-all.
 `backend/tests/test_openapi_response_models.py` enforces this: a new JSON route
 that omits its `response_model=` fails the suite.
@@ -32,13 +32,13 @@ Authorization: Bearer <token>
 
 **Session cookie** (used by browser-embedded images and file downloads):
 
-On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, or OIDC callback, the server also sets an `HttpOnly`, `SameSite=Lax` cookie named `grimoire_session` carrying the JWT (marked `Secure` when `BASE_URL` is `https://`). `<img>` and download requests — which can't set an `Authorization` header — authenticate via this cookie, so the token never appears in the URL. `POST /api/auth/logout` clears it.
+On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, or OIDC callback, the server also sets an `HttpOnly`, `SameSite=Lax` cookie named `grimoire_session` carrying the JWT (marked `Secure` when `BASE_URL` is `https://`). `<img>` and download requests - which can't set an `Authorization` header - authenticate via this cookie, so the token never appears in the URL. `POST /api/auth/logout` clears it.
 
 **Query parameter** (deprecated):
 ```
 ?token=<token>
 ```
-Still accepted so pre-existing links keep working, but the JWT in a URL leaks into proxy/access logs, `Referer` headers, and browser history (see [#156](https://github.com/hunter-read/grimoire/issues/156)). The frontend no longer generates `?token=` URLs — use the cookie instead. This fallback may be removed in a future release.
+Still accepted so pre-existing links keep working, but the JWT in a URL leaks into proxy/access logs, `Referer` headers, and browser history (see [#156](https://github.com/hunter-read/grimoire/issues/156)). The frontend no longer generates `?token=` URLs - use the cookie instead. This fallback may be removed in a future release.
 
 The auth precedence for any request is: `Authorization` header → `grimoire_session` cookie → `?token=` query param.
 
@@ -51,7 +51,7 @@ Access tokens are **short-lived** and paired with a long-lived refresh token, so
 | Access token (JWT) | 30 minutes | `ACCESS_TOKEN_EXPIRE_MINUTES` | `Authorization` header, `grimoire_session` cookie |
 | Refresh token | 30 days idle | `REFRESH_TOKEN_EXPIRE_DAYS` | `grimoire_refresh` cookie (`HttpOnly`, `SameSite=Strict`, scoped to `/api/auth`) |
 
-Every login — password, first-run setup, guest code, and OIDC — creates a row in `auth_sessions`. The refresh token is bound to that row and only its SHA-256 is stored, so a database leak yields no usable sessions.
+Every login - password, first-run setup, guest code, and OIDC - creates a row in `auth_sessions`. The refresh token is bound to that row and only its SHA-256 is stored, so a database leak yields no usable sessions.
 
 **How revocation works.** Revoking a session invalidates its refresh token immediately. The access token stays valid until it expires (at most `ACCESS_TOKEN_EXPIRE_MINUTES`), which is the deliberate trade for keeping access-token checks stateless and database-free on the hot path. Lower `ACCESS_TOKEN_EXPIRE_MINUTES` to narrow that window.
 
@@ -102,7 +102,7 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 | `/api/auth/refresh` | POST | - | Exchanges the `grimoire_refresh` cookie for a new access token, rotating the refresh token. Returns `{token, user}` and re-sets both cookies. Returns 401 when the refresh token is missing, expired, or revoked; reusing an already-rotated token revokes the whole session. Rate-limited like the other credential endpoints. |
 | `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}`. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
 | `/api/auth/sessions` | GET | any | The caller's own live sessions, newest first: `[{id, origin, user_agent, ip_address, created_at, last_used_at, expires_at, current}]`. `origin` is `password`, `guest`, or `oidc`; `current` marks the session backing this request. |
-| `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else — revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
+| `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else - revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
 | `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
 | `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the frontend with `#oidc_token=<jwt>`. Only the short-lived access token travels in the fragment; the refresh token is cookie-only. |
@@ -254,7 +254,7 @@ All require the gm/admin role.
 | Route | Body | Purpose |
 |-------|------|---------|
 | `POST /api/<collection>/bulk` | `{items: [{id, ...PATCH fields}]}` | Per-item field edits. A per-item `tags` list **replaces** that item's tags |
-| `POST /api/<collection>/bulk/tags` | `{ids: [...], tags: [...]}` | **Additively** applies tags — existing tags are kept |
+| `POST /api/<collection>/bulk/tags` | `{ids: [...], tags: [...]}` | **Additively** applies tags - existing tags are kept |
 | `POST /api/{map,token,audio}-folders/bulk` | `{folders: [{path, tags}]}` | Sets tags on many folder paths |
 
 Each request is applied in a **single transaction**, which is what makes them
@@ -268,8 +268,8 @@ All three return the same shape:
 {"updated": ["id1", "id2"], "errors": [{"id": "id3", "detail": "Token not found"}]}
 ```
 
-Items that cannot be applied — an unknown id, or a system rename that clashes
-with an existing name — are reported in `errors` and **skipped**, so one bad
+Items that cannot be applied - an unknown id, or a system rename that clashes
+with an existing name - are reported in `errors` and **skipped**, so one bad
 entry never discards the rest of the batch. `bulk/tags` additionally returns
 `tags` keyed by id with each resource's resulting tag list, letting clients patch
 local state without refetching. A batch is capped at 1000 items; `ids`/`items`
@@ -288,7 +288,7 @@ must be non-empty (`422` otherwise).
 | `/api/systems/:id/cover` | POST | gm/admin | Upload a cover image (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB |
 | `/api/systems/:id/cover` | DELETE | gm/admin | Remove the uploaded cover. Folder art is library-managed and unaffected |
 | `/api/systems/:id/book-folders` | GET | any | Book subcategory folders for this system and their tags. Returns `{folders: [{path, tags}]}` |
-| `/api/systems/:id/book-folders` | PATCH | gm/admin | Create or replace a folder's tag list. Body `{path, tags}`. `path` must be `{system_id}/{category}/{subfolder…}` for this system — 400 otherwise |
+| `/api/systems/:id/book-folders` | PATCH | gm/admin | Create or replace a folder's tag list. Body `{path, tags}`. `path` must be `{system_id}/{category}/{subfolder…}` for this system - 400 otherwise |
 | `/api/systems/:id/book-folders` | DELETE | gm/admin | Delete a folder row and its tags. Query: `path` (same grammar as PATCH). 404 when no such row |
 
 **PATCH fields:** `name`, `slug`, `description`, `publishers`, `character_builder_url` (legacy), `character_builder_urls`, `urls`, `cover_image`, `cover_book_id`, `tags`, `genre` (legacy), `genres`, `dice_materials`, `system_family`, `parent_system`, `edition`, `license`, `year`, `is_explicit`
@@ -299,9 +299,9 @@ must be non-empty (`422` otherwise).
 
 **Multi-value metadata** (issue #202): `genres` and `dice_materials` are string arrays; `genres` supersedes the legacy single `genre`, and `urls`/`character_builder_urls` supersede the legacy single-URL fields (the legacy fields remain accepted for backward compatibility). Systems in the special one-page collection carry `is_one_page: true` (grouped with `is_system_agnostic` in the library UI).
 
-**Cover art:** a system's cover resolves in precedence order — a `cover.*`/`folder.*` image at its library folder root, then an uploaded image, then a book thumbnail. The first two are served by `/api/systems/:id/cover`; the third is a plain `/api/books/:cover_book_id/thumbnail` URL. The `has_cover` field says whether the cover endpoint will return an image, so clients can pick a source without a speculative 404. Container folders hold no books, so the endpoint is their only source of art.
+**Cover art:** a system's cover resolves in precedence order - a `cover.*`/`folder.*` image at its library folder root, then an uploaded image, then a book thumbnail. The first two are served by `/api/systems/:id/cover`; the third is a plain `/api/books/:cover_book_id/thumbnail` URL. The `has_cover` field says whether the cover endpoint will return an image, so clients can pick a source without a speculative 404. Container folders hold no books, so the endpoint is their only source of art.
 
-**System containers:** a books folder can hold *systems* rather than categories (issues #261/#262/#301) — a parent system with its editions (`books/Dungeons & Dragons/5e/…`), a one-page/micro-RPG collection where each subfolder and loose file is its own small game, a system family grouping related-but-distinct systems (`books/d20 System/Pathfinder/…`), a publisher grouping one company's systems, or a bare `.container` shelf that groups without claiming any relationship. Family and publisher containers populate their children's `system_family`/`publishers` from the container name, and containers may nest (a family holding a parent-system container). Only a parent-system container sets its children's `parent_system` — the other kinds hold independent systems, not variants. Every system summary carries `container_kind` (`""`, `"parent"`, `"one-page"`, `"family"`, `"publisher"`, `"generic"`), `parent_id`, `child_count`, `name_is_custom`, and `category_depth`. `category_depth` is the index of the category dir within the system's book paths — 2 for a top-level system, one deeper per enclosing container — so clients can split a book's `relative_path` into subfolder segments without walking the container chain themselves (issue #357). Container children are omitted from `GET /api/systems` unless `parent_id` or `include_children` is passed, and `GET /api/systems/:id` returns them in `children`. Renaming a system via `PATCH` sets `name_is_custom`, which stops the scanner reverting the name on the next rescan.
+**System containers:** a books folder can hold *systems* rather than categories (issues #261/#262/#301) - a parent system with its editions (`books/Dungeons & Dragons/5e/…`), a one-page/micro-RPG collection where each subfolder and loose file is its own small game, a system family grouping related-but-distinct systems (`books/d20 System/Pathfinder/…`), a publisher grouping one company's systems, or a bare `.container` shelf that groups without claiming any relationship. Family and publisher containers populate their children's `system_family`/`publishers` from the container name, and containers may nest (a family holding a parent-system container). Only a parent-system container sets its children's `parent_system` - the other kinds hold independent systems, not variants. Every system summary carries `container_kind` (`""`, `"parent"`, `"one-page"`, `"family"`, `"publisher"`, `"generic"`), `parent_id`, `child_count`, `name_is_custom`, and `category_depth`. `category_depth` is the index of the category dir within the system's book paths - 2 for a top-level system, one deeper per enclosing container - so clients can split a book's `relative_path` into subfolder segments without walking the container chain themselves (issue #357). Container children are omitted from `GET /api/systems` unless `parent_id` or `include_children` is passed, and `GET /api/systems/:id` returns them in `children`. Renaming a system via `PATCH` sets `name_is_custom`, which stops the scanner reverting the name on the next rescan.
 
 **Parent system / edition:** `parent_system` (e.g. `"Dungeons & Dragons"`) is the mid-tier grouping between the broad `system_family` (`"d20 System"`) and a concrete system; `edition` (`"5e"`, `"Red"`, `"2020"`) combines with it for display (`"Cyberpunk Red"`). Both are free-text; `parent_system` values are curated via the `/api/parent-systems` lookup. Both are filterable on `/api/systems`.
 
@@ -310,10 +310,10 @@ must be non-empty (`422` otherwise).
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/systems/:id/metadata-sources` | GET | gm/admin | Installed, enabled add-ons that can supply game system metadata. Returns `{sources: [{id, name, description, homepage, attribution, supports_paste}]}` |
-| `/api/systems/:id/metadata-search` | POST | gm/admin | Ranked candidates from one source. Body `{source_id, query?}` — a blank `query` defaults to the system's own name. Returns `{query, results: [{identity, label, score, url}]}` |
+| `/api/systems/:id/metadata-search` | POST | gm/admin | Ranked candidates from one source. Body `{source_id, query?}` - a blank `query` defaults to the system's own name. Returns `{query, results: [{identity, label, score, url}]}` |
 | `/api/systems/:id/metadata-fetch` | POST | gm/admin | One candidate's fields, diffed against the system. Body `{source_id, identity?, query?, paste?}`. Returns `{source_id, identity, url, attribution, fields}` |
 
-All three are **read-only** — they never write to `game_systems`. Applying goes
+All three are **read-only** - they never write to `game_systems`. Applying goes
 through `PATCH /api/systems/:id` with only the fields the user selected, so a
 fetch can never overwrite a value on its own.
 
@@ -321,8 +321,8 @@ fetch can never overwrite a value on its own.
 
 | Status | Meaning |
 |--------|---------|
-| `only_incoming` | The system has no value yet — safe to fill in (pre-selected in the UI) |
-| `differs` | Both have a value and they disagree — needs a human decision |
+| `only_incoming` | The system has no value yet - safe to fill in (pre-selected in the UI) |
+| `differs` | Both have a value and they disagree - needs a human decision |
 | `same` | Already matches; nothing to apply |
 
 Rows are ordered `only_incoming` → `differs` → `same`. Fields the source has no
@@ -335,11 +335,11 @@ links and the source's, de-duplicated by URL (case-insensitively), with the
 user's own entries first and their labels winning. Applying therefore adds the
 source's link without discarding anything the user collected, and the row is
 `only_incoming` (so it is pre-selected) whenever the union differs from what is
-already stored — `same` when the source adds nothing new. Every other field
+already stored - `same` when the source adds nothing new. Every other field
 still replaces.
 
 **Skipping the search (`paste`):** instead of an `identity` from a previous
-search, the client may send `paste` — a source URL or bare ID the user supplied
+search, the client may send `paste` - a source URL or bare ID the user supplied
 directly. Grimoire resolves it via the add-on's `identity_pattern` and fetches
 that item, returning the resolved value in `identity` so the client can show
 what it actually looked up. Only offered by sources whose
@@ -359,7 +359,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`. `license` overrides the system license for this book (blank inherits it). `file_size`/`page_count`/`mime_type` are read-only. |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
-| `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background — poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
+| `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
 | `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any PDF: a text-layer book is re-extracted and its FTS rows rebuilt; an image-only book is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed, and drops everything cached from the previous contents (page renders, open document handle, search rows). Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for non-PDFs, 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
 | `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail. Sends an `ETag` derived from the file's content hash and honours `If-None-Match` (`304`), so a replaced cover is picked up despite the `immutable` cache policy. |
@@ -370,7 +370,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 
 **Book list response:** `{"total": int, "books": [...]}`
 
-**Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled — the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
+**Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled - the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
 
 **Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
 
@@ -379,7 +379,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/books/:id/metadata-sources` | GET | gm/admin | Installed, enabled add-ons that can supply book metadata |
-| `/api/books/:id/metadata-search` | POST | gm/admin | Ranked candidates. Body `{source_id, query?}` — a blank `query` defaults to the book's title |
+| `/api/books/:id/metadata-search` | POST | gm/admin | Ranked candidates. Body `{source_id, query?}` - a blank `query` defaults to the book's title |
 | `/api/books/:id/metadata-fetch` | POST | gm/admin | One candidate's fields, diffed against the book. Body `{source_id, identity?, query?, paste?}` |
 
 Identical in shape and semantics to the game-system endpoints above (same
@@ -428,7 +428,7 @@ family removed while attached to systems/books is detached from them (`?force=tr
 Archive files (`.zip`, `.rar`, `.7z`, `.tar`, `.tar.gz`, …) under `maps/`, `tokens/`,
 and `audio/` are indexed as opaque items in their collection and carry
 `is_archive: true` in both list and detail payloads. They have no thumbnail,
-no dimensions, and no embedded metadata — clients should offer a download rather
+no dimensions, and no embedded metadata - clients should offer a download rather
 than a preview. The comic-book extensions (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are
 books-only and are not indexed here.
 
@@ -505,8 +505,8 @@ with `tags`); these endpoints manage the shared tag catalog and browse items by 
 |----------|--------|------|-------------|
 | `/api/tags` | GET | any | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
 | `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}` |
-| `/api/tags/:internal/items` | GET | any | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived — each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
-| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists — no 404). Body: `{display}` |
+| `/api/tags/:internal/items` | GET | any | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived - each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
+| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists - no 404). Body: `{display}` |
 | `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}` |
 | `/api/tags/:internal` | DELETE | gm/admin | Delete a tag and unlink it from every resource |
 
@@ -529,13 +529,13 @@ alongside the `tags.json`-style folder tags on maps/tokens/audio.
 endpoints resolve them back to display strings). Saving folder tags registers a
 catalog row for each (new tags take the entered casing as their default display;
 existing tags keep theirs). Because the library is read-only, `tags.json` is an
-**additive** input: on rescan it only *adds* tags — it never removes a folder or
+**additive** input: on rescan it only *adds* tags - it never removes a folder or
 item tag set/removed in the UI, and never overwrites an existing tag's display.
 
 ### Saved filters
 
 Per-user named sort/filter presets for a library scope. At most one preset per
-(user, scope) may be the **default** — the view the user lands on. Setting a
+(user, scope) may be the **default** - the view the user lands on. Setting a
 preset default clears the flag on any sibling in the same scope.
 
 | Endpoint | Method | Auth | Description |
@@ -629,7 +629,7 @@ Guests authenticate via [`/api/auth/guest-login`](#auth) and may write only thei
 
 #### Banner, character art & sheets
 
-Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints authenticate via the `grimoire_session` cookie for use in `<img>`/download URLs (the deprecated `?token=` query param is still accepted — see [Authentication](#authentication)).
+Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints authenticate via the `grimoire_session` cookie for use in `<img>`/download URLs (the deprecated `?token=` query param is still accepted - see [Authentication](#authentication)).
 
 The GET (serving) endpoints for banners, art, sheets, and campaign files (`/files/:file_id`) set `Cache-Control: private, max-age=300, must-revalidate` along with `ETag`/`Last-Modified` validators derived from the file's mtime + size. A conditional request (`If-None-Match`/`If-Modified-Since`) with a matching validator returns `304 Not Modified`; re-uploading a file changes its validator so clients refetch.
 
@@ -651,7 +651,7 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Matching runs in SQL across the whole library. Books match on title, relative path, category, or game-system name (filter with `system_id?`); maps/tokens/audio match on filename or relative path, and audio also on its title. Results are ranked with folder-path matches above name-only matches. A `system_id` naming a container system (issues #261/#262) also matches its child systems' books, since a container holds none of its own. Each result's `subtitle` is its folder-tree path, letting the picker build a nested tree: for books this is `<System>/<category>/<subcategory>/…` (the game system leads; falls back to `<System>/<category>` when the book sits directly in the system dir); for media it is the folder path under the top-level media dir. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 5000, clamped to 20000) — `limit` applies **per resource type**, so requesting several types does not shrink each one's share |
+| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Matching runs in SQL across the whole library. Books match on title, relative path, category, or game-system name (filter with `system_id?`); maps/tokens/audio match on filename or relative path, and audio also on its title. Results are ranked with folder-path matches above name-only matches. A `system_id` naming a container system (issues #261/#262) also matches its child systems' books, since a container holds none of its own. Each result's `subtitle` is its folder-tree path, letting the picker build a nested tree: for books this is `<System>/<category>/<subcategory>/…` (the game system leads; falls back to `<System>/<category>` when the book sits directly in the system dir); for media it is the folder path under the top-level media dir. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 5000, clamped to 20000) - `limit` applies **per resource type**, so requesting several types does not shrink each one's share |
 | `/api/campaigns/resources/suggested/:system_id` | GET | any | Books in a game system for the create wizard. Core-category books are flagged `suggested` and ordered first. |
 | `/api/campaigns/:id/resources` | GET | member or owner | List linked resources (each with `visibility`, `category_id`, `sort_order`, `has_thumbnail`; owner items also include `shared_user_ids`). Ordered public → private → gm, then by `sort_order`. Players see only what their visibility allows. |
 | `/api/campaigns/:id/resources` | POST | owner | Link a resource. Body: `{resource_type, resource_id, visibility?, shared_user_ids?, category_id?}` |
@@ -675,7 +675,7 @@ Wiki pages and campaign categories each carry an optional `icon` and `icon_color
 
 `icon` is either a **built-in icon key** (a short name from the app's curated Lucide set, e.g. `swords`, `castle`, `mask`) or an **emoji character** stored verbatim (e.g. `🐉`). Values are not validated against the curated set, so a key the frontend doesn't recognise simply renders as the default icon rather than erroring.
 
-`icon_color` tints the icon. It is either a **preset token** — `red`, `orange`, `gold`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `gray` — or a **`#rrggbb` hex literal**. Values are normalised to lowercase, and anything else is rejected with 422 (the value reaches a CSS style attribute, so the accepted shapes are deliberately narrow). Null or `""` means the icon inherits its row's text colour.
+`icon_color` tints the icon. It is either a **preset token** - `red`, `orange`, `gold`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `gray` - or a **`#rrggbb` hex literal**. Values are normalised to lowercase, and anything else is rejected with 422 (the value reaches a CSS style attribute, so the accepted shapes are deliberately narrow). Null or `""` means the icon inherits its row's text colour.
 
 Both fields round-trip through wiki export/import. On import the file is untrusted, so an `icon_color` that would fail validation is dropped rather than stored.
 
@@ -702,7 +702,7 @@ The campaign notebook is a set of markdown **wiki pages**. Pages link to one ano
 
 ##### Link target syntax
 
-A page-link target is a mandatory title plus two optional suffixes — `[[Page Title:id-<page_id>:#Heading]]`:
+A page-link target is a mandatory title plus two optional suffixes - `[[Page Title:id-<page_id>:#Heading]]`:
 
 | Form | Resolves to |
 |------|-------------|
@@ -713,9 +713,9 @@ A page-link target is a mandatory title plus two optional suffixes — `[[Page T
 
 The `:id-` suffix pins a link to a page's stable identity, which makes it survive renames and lets a title that collides with another page be addressed at all (two titles differing only in case or punctuation share a slug, so the second gets a `-2` slug that a bare title can never reach). Resolution is identity-first: when `:id-` is present it is the only thing consulted, so a link whose id no longer exists renders as broken rather than silently re-pointing at whatever page holds that title now.
 
-Parsing is suffix-driven and right-to-left — a trailing `:id-…` / `:#…` is only split off when it matches that exact shape — so a title containing an ordinary colon (`[[Ancient Ruins: The Depths]]`) needs no escaping. The heading is everything after the first `:#`, so a heading that itself begins with `#` needs none either: the markdown heading `# # of coin` is linked as `[[Prices:## of coin]]`. A `:#Heading` is addressing only; the stored link row is page-to-page, and a heading never creates a stub. When several headings share text, `:#Heading` resolves to the most prominent (H1 over H2 over H3) and, among equals, the first in the page.
+Parsing is suffix-driven and right-to-left - a trailing `:id-…` / `:#…` is only split off when it matches that exact shape - so a title containing an ordinary colon (`[[Ancient Ruins: The Depths]]`) needs no escaping. The heading is everything after the first `:#`, so a heading that itself begins with `#` needs none either: the markdown heading `# # of coin` is linked as `[[Prices:## of coin]]`. A `:#Heading` is addressing only; the stored link row is page-to-page, and a heading never creates a stub. When several headings share text, `:#Heading` resolves to the most prominent (H1 over H2 over H3) and, among equals, the first in the page.
 
-Two behaviours keep links honest as pages change. **Renaming** a page rewrites the title portion of inbound `[[…]]` links in the bodies that point at it, preserving each link's `|label`, `:id-` and `:#Heading` (a rename that leaves the slug unchanged, e.g. recasing, rewrites nothing). **Stub auto-creation applies only to unpinned links** — a pinned `:id-` target that no longer resolves means the page was deleted, so it stays broken instead of being resurrected as an empty duplicate. Deleting a page also recomputes the link rows of the pages that referenced it.
+Two behaviours keep links honest as pages change. **Renaming** a page rewrites the title portion of inbound `[[…]]` links in the bodies that point at it, preserving each link's `|label`, `:id-` and `:#Heading` (a rename that leaves the slug unchanged, e.g. recasing, rewrites nothing). **Stub auto-creation applies only to unpinned links** - a pinned `:id-` target that no longer resolves means the page was deleted, so it stays broken instead of being resurrected as an empty duplicate. Deleting a page also recomputes the link rows of the pages that referenced it.
 
 Because import assigns fresh page ids, an incoming `:id-` pin is dropped on import (the title, which *is* remapped, is the identity that survives); `:#Heading` suffixes are preserved.
 
@@ -731,11 +731,11 @@ Every level is available to every campaign member: what each one *means* is rela
 | `group` ("Public") | every campaign viewer | every campaign viewer |
 | `members` ("Private") | the author, plus `shared_user_ids` | the author, plus `shared_write_user_ids` |
 
-**Personal (non-GM) campaigns have no visibility levels.** They hold exactly one viewer, so every level would mean the same thing: the server stores `gm` on create regardless of what is sent, and ignores a `visibility` change on update rather than rejecting it (the UI has no control to have sent it from, so a `400` would turn a harmless no-op into an error). The frontend hides the dropdowns, badges, and row glyphs there entirely. Converting a personal campaign to a group one leaves its pages author-only, which is the safe direction — the GM opens up what they choose to.
+**Personal (non-GM) campaigns have no visibility levels.** They hold exactly one viewer, so every level would mean the same thing: the server stores `gm` on create regardless of what is sent, and ignores a `visibility` change on update rather than rejecting it (the UI has no control to have sent it from, so a `400` would turn a harmless no-op into an error). The frontend hides the dropdowns, badges, and row glyphs there entirely. Converting a personal campaign to a group one leaves its pages author-only, which is the safe direction - the GM opens up what they choose to.
 
-`gm` means **author only**, not "the campaign owner" — the campaign owner has no read access to a page they did not write. The UI labels it "GM only" on the GM's own pages and "Self only" on a player's, but it is one level with one rule. This is symmetric by design: a player's private note is as closed to their GM as the GM's is to them.
+`gm` means **author only**, not "the campaign owner" - the campaign owner has no read access to a page they did not write. The UI labels it "GM only" on the GM's own pages and "Self only" on a player's, but it is one level with one rule. This is symmetric by design: a player's private note is as closed to their GM as the GM's is to them.
 
-Sharing is two lists. `shared_user_ids` grants read; `shared_write_user_ids` grants read **and** write — naming a user only in the write list is enough, since the server adds the read grant. Both lists are returned only to the page's author; to anyone else they come back empty, so a reader cannot enumerate who else holds access.
+Sharing is two lists. `shared_user_ids` grants read; `shared_write_user_ids` grants read **and** write - naming a user only in the write list is enough, since the server adds the read grant. Both lists are returned only to the page's author; to anyone else they come back empty, so a reader cannot enumerate who else holds access.
 
 Three rights are narrower than editing:
 
@@ -745,19 +745,19 @@ Three rights are narrower than editing:
 
 ##### Hidden pages
 
-Any user may hide any page they can see, including ones they can neither edit nor delete. This is per-user decluttering, not a permission: it changes nothing for anybody else. Hiding a parent hides its whole subtree, resolved at read time from `parent_id` rather than stored per descendant — so moving a page out of a hidden subtree un-hides it, and a page created under a hidden parent starts hidden. Hidden pages are excluded from the list and from `search`; `GET /wiki?include_hidden=true` brings them back, each flagged with `is_hidden`. Unlike other wiki writes, hiding is permitted on an **archived** campaign, since it writes nothing to the campaign's content.
+Any user may hide any page they can see, including ones they can neither edit nor delete. This is per-user decluttering, not a permission: it changes nothing for anybody else. Hiding a parent hides its whole subtree, resolved at read time from `parent_id` rather than stored per descendant - so moving a page out of a hidden subtree un-hides it, and a page created under a hidden parent starts hidden. Hidden pages are excluded from the list and from `search`; `GET /wiki?include_hidden=true` brings them back, each flagged with `is_hidden`. Unlike other wiki writes, hiding is permitted on an **archived** campaign, since it writes nothing to the campaign's content.
 
-**Personal campaigns have no hidden pages.** The feature exists so one person can put *someone else's* notes out of their own way, and there is nobody else — deleting already covers your own. `POST .../hide` returns `409` there, and every read path (list, detail, `search`) reports nothing as hidden regardless of what rows exist. That last part matters for a campaign that was a group one when a row was written, or one predating the guard: honouring a stale row would drop the page from the list with no UI able to bring it back. `DELETE .../hide` stays available for exactly that reason — clearing the state is always safe.
+**Personal campaigns have no hidden pages.** The feature exists so one person can put *someone else's* notes out of their own way, and there is nobody else - deleting already covers your own. `POST .../hide` returns `409` there, and every read path (list, detail, `search`) reports nothing as hidden regardless of what rows exist. That last part matters for a campaign that was a group one when a row was written, or one predating the guard: honouring a stale row would drop the page from the list with no UI able to bring it back. `DELETE .../hide` stays available for exactly that reason - clearing the state is always safe.
 
 ##### GM secrets
 
-Within a page body, text wrapped in `||double pipes||` is a **GM-only secret** - finer-grained than page visibility, it hides a span inside an otherwise shared page. The campaign owner always receives the raw `||...||`. For every player the secret (markers and enclosed text, which may span multiple lines) is **fully stripped** from the page `body` server-side, leaving no trace — no secret text and no placeholder — so a player never learns a secret exists or where, whether in the rendered page, the raw editor body, or a `search` snippet/match. Personal (non-GM) campaigns are never stripped, since only the owner can view them.
+Within a page body, text wrapped in `||double pipes||` is a **GM-only secret** - finer-grained than page visibility, it hides a span inside an otherwise shared page. The campaign owner always receives the raw `||...||`. For every player the secret (markers and enclosed text, which may span multiple lines) is **fully stripped** from the page `body` server-side, leaving no trace - no secret text and no placeholder - so a player never learns a secret exists or where, whether in the rendered page, the raw editor body, or a `search` snippet/match. Personal (non-GM) campaigns are never stripped, since only the owner can view them.
 
-**Secrets are keyed on campaign ownership, not authorship** — deliberately unlike every other rule on this page. A secret's purpose is to hide text from *players*, so it belongs to the GM wherever the page came from: the GM may annotate a player-authored session log with hidden notes that page's own author cannot see. The visibility rework made read/write/delete author-relative; this mechanism did not follow.
+**Secrets are keyed on campaign ownership, not authorship** - deliberately unlike every other rule on this page. A secret's purpose is to hide text from *players*, so it belongs to the GM wherever the page came from: the GM may annotate a player-authored session log with hidden notes that page's own author cannot see. The visibility rework made read/write/delete author-relative; this mechanism did not follow.
 
-A player typing `||` is not the mirror of that. Their pipes are **escaped to literal text** on save — each `|` in a run of two or more is stored as `\|` — rather than honoured or rejected. Honouring them would create a secret the player themselves could not see: they would write a sentence, save, and watch it vanish on the next read. Escaping keeps what they typed on screen (markdown renders `\|` as a literal `|`) and stops it ever being mistaken for a GM secret. Single pipes are untouched, so markdown tables round-trip unchanged, and the escape is idempotent, so re-saving never stacks backslashes. Applied on both create and update, to every non-owner submission; wiki *import* is owner-only, so pipes arriving that way are the GM's and are left alone.
+A player typing `||` is not the mirror of that. Their pipes are **escaped to literal text** on save - each `|` in a run of two or more is stored as `\|` - rather than honoured or rejected. Honouring them would create a secret the player themselves could not see: they would write a sentence, save, and watch it vanish on the next read. Escaping keeps what they typed on screen (markdown renders `\|` as a literal `|`) and stops it ever being mistaken for a GM secret. Single pipes are untouched, so markdown tables round-trip unchanged, and the escape is idempotent, so re-saving never stacks backslashes. Applied on both create and update, to every non-owner submission; wiki *import* is owner-only, so pipes arriving that way are the GM's and are left alone.
 
-Because a player edits this stripped body, a player saving an edit would otherwise erase the secrets — which matters far more now that a `group` page is editable by the whole party, so any player may be the one saving over a GM's page. On such a save the stored secrets are **re-woven back by position** server-side: the stripped text the player was last shown is diffed against their submission, and each secret is re-inserted at the point its surrounding text maps to. A secret therefore stays exactly where the GM placed it even when the player edits the text above and/or below it (it does not drift past later paragraphs). If the text on both sides of a secret was rewritten past recognition, that secret is appended at the end of the body — preserved, never lost. The GM submits the raw body (secrets and all), which is stored verbatim.
+Because a player edits this stripped body, a player saving an edit would otherwise erase the secrets - which matters far more now that a `group` page is editable by the whole party, so any player may be the one saving over a GM's page. On such a save the stored secrets are **re-woven back by position** server-side: the stripped text the player was last shown is diffed against their submission, and each secret is re-inserted at the point its surrounding text maps to. A secret therefore stays exactly where the GM placed it even when the player edits the text above and/or below it (it does not drift past later paragraphs). If the text on both sides of a secret was rewritten past recognition, that secret is appended at the end of the body - preserved, never lost. The GM submits the raw body (secrets and all), which is stored verbatim.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -765,8 +765,8 @@ Because a player edits this stripped body, a player saving an edit would otherwi
 | `/api/campaigns/:id/wiki` | POST | member or owner | Create a page. Body: `{title?, body?, visibility?, page_type?, session_date?, shared_user_ids?, shared_write_user_ids?, parent_id?, icon?, icon_color?}` (`parent_id` nests the page and requires write access to that parent; see [Page permissions](#page-permissions) and [Entry icons](#entry-icons)). Any visibility may be created by any member |
 | `/api/campaigns/:id/wiki/search` | GET | member or owner | Search visible pages by title/body. Query: `q` |
 | `/api/campaigns/:id/wiki/titles` | GET | member or owner | `{id, title, slug, ambiguous, parent_title, headings[]}` list for `[[link]]` autocomplete. `ambiguous` is true when another visible page normalizes to the same slug (the editor then emits `:id-`, and labels the suggestion `Title (parent_title)` to tell the collisions apart); `parent_title` is the immediate parent's title, or null at top level **or when that parent isn't visible to the caller**; `headings` is the page's ATX headings as `{text, level}` in document order, for `:#Heading` completions. Headings inside `\|\|GM secrets\|\|` are omitted for non-owners |
-| `/api/campaigns/:id/wiki/reorder` | PUT | member or owner | Drag-and-drop order. Body: `{ordered_ids}`. **Relative, not absolute**: `sort_order` is global but a caller only sees a subset, so the submitted list is applied as an ordering *of the slots those pages already occupy* — the pages named are redealt into their own existing positions, and every other page (invisible to the caller, or visible but not writable by them) keeps the `sort_order` it had. A caller's drag therefore never renumbers pages they cannot see. Ids the caller cannot write are skipped and hold their slot; unknown and duplicate ids are ignored rather than rejected |
-| `/api/campaigns/:id/wiki/export` | GET | owner or member | Export the wiki - a member can take their own copy of a campaign with them (e.g. when leaving, or moving to another platform), and this **works on an archived campaign** since it only reads. Everyone receives exactly what they can see in the app: pages failing the `can_view_page` check are omitted, and `||GM secrets||` are stripped from a player's bodies. The page filter now applies to the campaign owner too — since `gm` visibility means author-only, a GM is no more entitled to export a player's self-only note than to read it — but secrets stay GM-only regardless of who authored the page holding them. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly), `mdfile` (a single `.md` file with every page concatenated in sidebar order, page titles as headings nested by tree depth and each page's own headings shifted below its title - for reading or printing, not re-import), or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
+| `/api/campaigns/:id/wiki/reorder` | PUT | member or owner | Drag-and-drop order. Body: `{ordered_ids}`. **Relative, not absolute**: `sort_order` is global but a caller only sees a subset, so the submitted list is applied as an ordering *of the slots those pages already occupy* - the pages named are redealt into their own existing positions, and every other page (invisible to the caller, or visible but not writable by them) keeps the `sort_order` it had. A caller's drag therefore never renumbers pages they cannot see. Ids the caller cannot write are skipped and hold their slot; unknown and duplicate ids are ignored rather than rejected |
+| `/api/campaigns/:id/wiki/export` | GET | owner or member | Export the wiki - a member can take their own copy of a campaign with them (e.g. when leaving, or moving to another platform), and this **works on an archived campaign** since it only reads. Everyone receives exactly what they can see in the app: pages failing the `can_view_page` check are omitted, and `||GM secrets||` are stripped from a player's bodies. The page filter now applies to the campaign owner too - since `gm` visibility means author-only, a GM is no more entitled to export a player's self-only note than to read it - but secrets stay GM-only regardless of who authored the page holding them. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly), `mdfile` (a single `.md` file with every page concatenated in sidebar order, page titles as headings nested by tree depth and each page's own headings shifted below its title - for reading or printing, not re-import), or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
 | `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
 | `/api/campaigns/:id/wiki/templates` | GET | owner | The campaign's note templates. Returns `{templates[], campaign_system, downloads_enabled}`; each template carries `{id, name, system, category, description, source_id, source_url, source_version, created_at}` (no `body` - use the detail read). `campaign_system` is the linked game-system name, falling back to free-text `system_name`, else `""`. `downloads_enabled` is false when `DISABLE_EXTERNAL_ADD_ON_INSTALL` is set. Also returns `categories` (the suggested set plus any the campaign already uses, for the editor's dropdown) and `authored_system` (the marker stored on hand-written templates) |
 | `/api/campaigns/:id/wiki/templates` | POST | owner | Write a new template. Body: `{name, category?, description?, body?, defaults?}`. `name` is required and non-blank. There is no `system`: a hand-written template is stored with the `__authored__` marker (reported as `authored_system` on the list endpoint). `defaults` is `{title?, icon?, icon_color?, visibility?, page_type?}` and is stored as a YAML frontmatter block on the body, so authored, uploaded, and downloaded templates all share one on-disk shape. Returns the template incl. `body` and `defaults` |
@@ -780,10 +780,10 @@ Because a player edits this stripped body, a player saving an edit would otherwi
 | `/api/campaigns/:id/wiki/templates/:template_id/export` | GET | owner | Download the template as a `.zip` holding `<id>/<id>.yml` + `<id>/<id>.md` - the community repo's folder layout, ready to contribute back. Uses `source_id` as the folder name when the template was downloaded, else a slug of its name |
 | `/api/campaigns/:id/wiki/templates/:template_id/use` | POST | owner | Create a wiki page from the template server-side. The Markdown body (with its frontmatter) is run through the same parser as file import. Non-destructive: always a new page with a de-duplicated slug. Returns `{imported, template_id, pages[]}`. **The web UI does not use this** - it reads the template and opens an unsaved editor instead, so picking the wrong template costs a cancel rather than a delete. Kept for API clients that do want a page created in one call |
 | `/api/campaigns/:id/wiki/:page_id` | GET | per visibility | Page detail incl. `body`, `backlinks`, `icon`, `icon_color`, `can_edit`, `can_delete`, `is_mine`, `is_hidden`. `shared_user_ids` / `shared_write_user_ids` are populated only for the page's author and empty for everyone else |
-| `/api/campaigns/:id/wiki/:page_id` | PATCH | page author, or anyone with write access | Update fields (each optional; `icon: ""` / `icon_color: ""` clear those fields). Body and metadata follow write access, but `visibility` / `shared_user_ids` / `shared_write_user_ids` are author-only (`403` otherwise), and either share list alone is a full replacement of the pair — the one you omit is preserved as stored. See [Page permissions](#page-permissions) |
+| `/api/campaigns/:id/wiki/:page_id` | PATCH | page author, or anyone with write access | Update fields (each optional; `icon: ""` / `icon_color: ""` clear those fields). Body and metadata follow write access, but `visibility` / `shared_user_ids` / `shared_write_user_ids` are author-only (`403` otherwise), and either share list alone is a full replacement of the pair - the one you omit is preserved as stored. See [Page permissions](#page-permissions) |
 | `/api/campaigns/:id/wiki/:page_id` | DELETE | page author | Delete the page and its link rows. Author-only: neither the campaign owner nor a member with write access may delete a page they did not author (`403`) |
 | `/api/campaigns/:id/wiki/:page_id/hide` | POST | per visibility | [Hide](#hidden-pages) the page from the caller's own view. Available on any page they can see, including ones they cannot edit or delete, and permitted on an archived campaign. `409` in a personal campaign, which has no hidden pages |
-| `/api/campaigns/:id/wiki/:page_id/hide` | DELETE | any member | Un-hide a page the caller had hidden. Clears only their own row; a page hidden because an ancestor is hidden has no row of its own, so this is a no-op for it. Allowed in a personal campaign even though hiding is not — clearing state is always safe, and refusing would strand a row written before that guard existed |
+| `/api/campaigns/:id/wiki/:page_id/hide` | DELETE | any member | Un-hide a page the caller had hidden. Clears only their own row; a page hidden because an ancestor is hidden has no row of its own, so this is a no-op for it. Allowed in a personal campaign even though hiding is not - clearing state is always safe, and refusing would strand a row written before that guard existed |
 
 #### Sessions (legacy)
 
@@ -843,7 +843,7 @@ Availability statuses: `available`, `tentative`, `unavailable`
 
 #### Calendar export and subscription
 
-Campaign schedules can be exported as iCalendar (`text/calendar`) — either a one-off download or a live feed a calendar app subscribes to and re-polls.
+Campaign schedules can be exported as iCalendar (`text/calendar`) - either a one-off download or a live feed a calendar app subscribes to and re-polls.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -856,31 +856,31 @@ Campaign schedules can be exported as iCalendar (`text/calendar`) — either a o
 
 **Feed-token auth.** Calendar apps cannot send an `Authorization` header, so the two feed endpoints carry a per-user token in the path and sit *outside* the JWT-protected `/api` dependency. The token is a dedicated `users.calendar_token`, not the JWT and not `opds_token`: it grants read access to schedule data alone and rotates independently of login sessions and OPDS. An unknown, rotated, or revoked token returns **404** rather than 401, so probing cannot distinguish a revoked feed from one that never existed.
 
-The token identifies the user; membership still authorises. A feed for a campaign the user has left — or that has been archived — returns 404, and the aggregate feed simply omits it.
+The token identifies the user; membership still authorises. A feed for a campaign the user has left - or that has been archived - returns 404, and the aggregate feed simply omits it.
 
 **Session times are published as local wall clocks with an explicit `TZID`.** A schedule's `days` are *local* weekday indices and its stored time is a *local* clock, so the definition also carries an optional IANA `timezone` (captured from the browser on save, validated on write). When it is present the feed emits `DTSTART;TZID=<zone>:<local time>` and ships a matching `VTIMEZONE`, so the session keeps its weekday in every reader's rendering and stays correct across DST.
 
-> Publishing a UTC instant instead is what put evening games on the wrong day. Collapsing "Sunday 19:30 America/Los_Angeles" to `20260816T023000Z` is arithmetically correct but *already Monday in UTC*, and every client re-renders that in the viewer's own zone — showing Saturday night to the Pacific players whose game it is. The instant was right; the format threw the weekday away.
+> Publishing a UTC instant instead is what put evening games on the wrong day. Collapsing "Sunday 19:30 America/Los_Angeles" to `20260816T023000Z` is arithmetically correct but *already Monday in UTC*, and every client re-renders that in the viewer's own zone - showing Saturday night to the Pacific players whose game it is. The instant was right; the format threw the weekday away.
 
-> **The storage model changed with it.** Schedules previously stored a *local* weekday beside a *UTC* clock, and the browser's conversion dropped the day the clock rolled into: 19:30 Pacific was saved as `02:30` while `days` still said Sunday, so the pair described Saturday evening and the feed published it faithfully. Both halves are now local (`time_local` + local `days`), which removes the rollover by construction. A startup migration (`_migrate_schedule_times_to_local`) converts existing rows back through their recorded zone, repairing the clock and leaving `days` untouched — the weekday was always the half the UI displayed correctly. It is marker-guarded (`time_model: "local"`) and therefore idempotent. Rows with no `timezone` have nothing to convert against and keep their clock; re-saving the schedule records a zone.
+> **The storage model changed with it.** Schedules previously stored a *local* weekday beside a *UTC* clock, and the browser's conversion dropped the day the clock rolled into: 19:30 Pacific was saved as `02:30` while `days` still said Sunday, so the pair described Saturday evening and the feed published it faithfully. Both halves are now local (`time_local` + local `days`), which removes the rollover by construction. A startup migration (`_migrate_schedule_times_to_local`) converts existing rows back through their recorded zone, repairing the clock and leaving `days` untouched - the weekday was always the half the UI displayed correctly. It is marker-guarded (`time_model: "local"`) and therefore idempotent. Rows with no `timezone` have nothing to convert against and keep their clock; re-saving the schedule records a zone.
 
-A schedule with no zone publishes a *floating* local time (`DTSTART:<local>`, no `TZID`, no trailing `Z`) — RFC 5545 §3.3.5 reads that in the viewer's own zone, which is the best available interpretation of a bare `19:30` and, unlike the old UTC form, cannot shift the weekday.
+A schedule with no zone publishes a *floating* local time (`DTSTART:<local>`, no `TZID`, no trailing `Z`) - RFC 5545 §3.3.5 reads that in the viewer's own zone, which is the best available interpretation of a bare `19:30` and, unlike the old UTC form, cannot shift the weekday.
 
-`VTIMEZONE` components are derived from the events themselves — every zone referenced by a `TZID` gets one emitted ahead of the events, with an explicit `STANDARD`/`DAYLIGHT` subcomponent per transition in the published window rather than an `RRULE`. Events carry `SEQUENCE:1`, bumped from `0` when the format changed so subscribers holding the old UTC events accept the correction.
+`VTIMEZONE` components are derived from the events themselves - every zone referenced by a `TZID` gets one emitted ahead of the events, with an explicit `STANDARD`/`DAYLIGHT` subcomponent per transition in the published window rather than an `RRULE`. Events carry `SEQUENCE:1`, bumped from `0` when the format changed so subscribers holding the old UTC events accept the correction.
 
-**Feeds answer `HEAD` as well as `GET`.** Google Calendar's *From URL* flow probes a subscription URL with `HEAD` before accepting it, and rejects the feed outright if that probe is not a success — importing nothing and surfacing no error. Both feed routes therefore register `HEAD`, which returns the real status and `Content-Type` with an empty body.
+**Feeds answer `HEAD` as well as `GET`.** Google Calendar's *From URL* flow probes a subscription URL with `HEAD` before accepting it, and rejects the feed outright if that probe is not a success - importing nothing and surfacing no error. Both feed routes therefore register `HEAD`, which returns the real status and `Content-Type` with an empty body.
 
-**Feeds are served `inline`; only the download is an `attachment`.** Google Calendar's *From URL* fetcher rejects an ICS feed sent with `Content-Disposition: attachment` — it reads the header as "save this file" rather than "poll this calendar". Apple Calendar and Outlook ignore the header on a URL they were explicitly asked to subscribe to, which is why an `attachment` feed appears to work everywhere *except* Google. Both feed routes therefore send `inline`; the one-off `/:id/calendar.ics` download keeps `attachment`, where prompting a save with a filename is the point.
+**Feeds are served `inline`; only the download is an `attachment`.** Google Calendar's *From URL* fetcher rejects an ICS feed sent with `Content-Disposition: attachment` - it reads the header as "save this file" rather than "poll this calendar". Apple Calendar and Outlook ignore the header on a URL they were explicitly asked to subscribe to, which is why an `attachment` feed appears to work everywhere *except* Google. Both feed routes therefore send `inline`; the one-off `/:id/calendar.ics` download keeps `attachment`, where prompting a save with a filename is the point.
 
-**Subscription URLs require `BASE_URL`.** The server has to know its own public origin to build a URL a calendar app can reach, so `GET`/`POST /calendar/subscription` report `base_url_configured: false` and withhold every URL while `BASE_URL` is still the `http://localhost:9481` default; `POST` returns 400. The one-off `.ics` download is unaffected. Responses also include `webcal_url` — the same URL under the `webcal://` scheme, which makes desktop calendar apps subscribe rather than download a static copy.
+**Subscription URLs require `BASE_URL`.** The server has to know its own public origin to build a URL a calendar app can reach, so `GET`/`POST /calendar/subscription` report `base_url_configured: false` and withhold every URL while `BASE_URL` is still the `http://localhost:9481` default; `POST` returns 400. The one-off `.ics` download is unaffected. Responses also include `webcal_url` - the same URL under the `webcal://` scheme, which makes desktop calendar apps subscribe rather than download a static copy.
 
-> **Google Calendar fetches server-side, so the feed must be publicly reachable.** Unlike Apple Calendar and Outlook, which poll from the user's own machine, Google fetches the URL from its infrastructure — a LAN address, a `.local` hostname, a Tailscale/VPN-only origin, or anything behind an authenticating reverse proxy will fail no matter what the feed returns. Google also requires the `https://` form: it does not understand `webcal://`, so paste `feed_url`, not `webcal_url`. Plain `http://` is likewise unreliable.
+> **Google Calendar fetches server-side, so the feed must be publicly reachable.** Unlike Apple Calendar and Outlook, which poll from the user's own machine, Google fetches the URL from its infrastructure - a LAN address, a `.local` hostname, a Tailscale/VPN-only origin, or anything behind an authenticating reverse proxy will fail no matter what the feed returns. Google also requires the `https://` form: it does not understand `webcal://`, so paste `feed_url`, not `webcal_url`. Plain `http://` is likewise unreliable.
 
 **Feed contents.** Up to 26 upcoming sessions per campaign. Each `VEVENT` uses a stable UID (`grimoire-session-<campaign_id>-<YYYY-MM-DD>@grimoire`), so rescheduling updates the existing event in place instead of duplicating it, and a cancelled session is published as `STATUS:CANCELLED` rather than disappearing. Sessions carry `DTSTART`/`DTEND` in UTC when the schedule sets a time, and are all-day events when it does not.
 
 Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DESCRIPTION` reflect that user's own availability, and `URL` deep-links to the campaign's schedule tab.
 
-> **RSVP does not travel back over a subscription.** A subscribed ICS feed is fetched by HTTP `GET`; iCalendar defines no write path back, so Accept/Tentative/Decline is inert in Google Calendar, Apple Calendar, and Outlook for subscribed events. Genuine RSVP requires iMIP (emailed `METHOD:REQUEST` invitations with replies parsed from a mailbox) or a CalDAV server — neither of which Grimoire implements. The deep link in every event is the round trip instead.
+> **RSVP does not travel back over a subscription.** A subscribed ICS feed is fetched by HTTP `GET`; iCalendar defines no write path back, so Accept/Tentative/Decline is inert in Google Calendar, Apple Calendar, and Outlook for subscribed events. Genuine RSVP requires iMIP (emailed `METHOD:REQUEST` invitations with replies parsed from a mailbox) or a CalDAV server - neither of which Grimoire implements. The deep link in every event is the round trip instead.
 
 ### Settings *(admin only)*
 
@@ -995,7 +995,7 @@ one `mode`, so the older shape keeps working.
 **App modes** are `grimoire` (TTRPG) and `codex` (wargaming), a second axis
 alongside the light/dark colour `mode`. Selection is stored per app mode, so
 switching restores what was chosen there. `built_in[]` lists the bundled themes
-— their colours live in the stylesheet, so they carry no `tokens` and can be
+- their colours live in the stylesheet, so they carry no `tokens` and can be
 selected without being installed. A theme's own `app_mode` is a preference the
 picker sorts by, not a restriction.
 
@@ -1006,7 +1006,7 @@ verified against the catalogue's SHA-256 and pinned to the catalogue's host.
 
 **Updates:** a scraper definition is expected to change whenever its source
 does, so `available_version` and `update_available` are reported on each
-*installed* add-on (not just the available list) — an update is only actionable
+*installed* add-on (not just the available list) - an update is only actionable
 if it is visible on the row the admin is looking at. Versions compare as semver,
 so `1.10.0` is correctly newer than `1.9.0` and a downgrade in the index is
 never offered as an update. Applying an update is the same
@@ -1019,7 +1019,7 @@ express. Grimoire runs one only when `allow_scripts` is on **and** that add-on
 was approved at install time (`approve_script: true`). Scripts execute in an
 isolated subprocess with a timeout and no database access. Approval is tied to
 the script's digest, so an update that changes the script drops back to
-unapproved — including via `update-all`, which never silently re-grants consent.
+unapproved - including via `update-all`, which never silently re-grants consent.
 Downloads are verified against the SHA-256 the index declares and refused on
 mismatch.
 
@@ -1033,11 +1033,30 @@ schema.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk |
+| `/api/maintenance/sidecars/settings` | GET | Read metadata sidecar export settings |
+| `/api/maintenance/sidecars/settings` | PUT | Configure sidecar export (`formats`, `covers`, `overwrite_foreign`) |
+| `/api/maintenance/sidecars/export` | POST | Write metadata sidecars for the whole library |
+
+Sidecar export (issue #300) writes Grimoire's curated metadata next to the
+content files so the library folder is self-describing. It is **off by default**:
+`formats` is empty until an admin enables at least one of `opf`, `nfo`,
+`json`, or `yaml`, and `POST /sidecars/export` returns 400 while it is
+disabled. The backfill is additive: it writes only the sidecars that are
+missing and leaves existing files alone, so re-running it is safe. Books newly
+indexed by a library scan also get their sidecars written automatically while
+export is enabled.
+
+The export response reports what the run did rather than failing on the first
+problem - `written`, `skipped_foreign` (files Grimoire did not write and so will
+not replace), `skipped_missing`, `failed`, `covers`, `read_only`, and a bounded
+`errors` list. A read-only library mount sets `read_only: true` with an
+actionable message instead of raising. See [`sidecars.md`](sidecars.md) for the
+per-format field mapping and how export interacts with sidecar import.
 
 ### Files *(admin only)*
 
 Structural file management for the library (issue #302). Every path is relative
-to the library root, forward-slashed, and validated against path traversal —
+to the library root, forward-slashed, and validated against path traversal -
 requests resolving outside the library root are rejected with `403`. These
 endpoints **write to the library**, so they require the library volume to be
 mounted read-write; a read-only mount returns `409` with an actionable message
@@ -1060,8 +1079,12 @@ rows) are re-homed or invalidated so no item silently loses its cover.
 | `/api/files/folder/scaffold` | POST | Create the standard category folders in a system folder |
 | `/api/files/upload` | POST | Upload a single file into a library folder |
 
-**`GET /api/files/browse`** — `?path=` (omit for the library root), `?limit=`
-(default and maximum 2000). Returns
+**`GET /api/files/browse`** - `?path=` (omit for the library root), `?limit=`
+(default and maximum 2000). Metadata sidecars (`<stem>.opf`, `.nfo`,
+`.grimoire.json`, `.grimoire.yaml`, `.cover.jpg`) are omitted from `entries` and
+from `total` when a content file with the same stem sits beside them; an
+orphaned one is listed normally. They are moved and re-stemmed automatically by
+`/api/files/move` and `/api/files/rename`. Returns
 `{path, parent, writable, entries[], total, truncated}`. Each entry carries
 `name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`, and
 `child_count`, while files add `record_id`, `title`, `collection`,
@@ -1072,25 +1095,25 @@ it. Note `collection` names the *library folder* (`books`, `maps`, …) for file
 but the resource type (`system`) for system folders. Marker/dotfiles
 are surfaced as folder properties, never as listable entries.
 
-The listing is **one folder's immediate children only** — it does not recurse —
+The listing is **one folder's immediate children only** - it does not recurse -
 and is bounded: `total` is the folder's true entry count and `truncated` says
 whether `entries` is a prefix of it, so a client can report what it is hiding
 instead of presenting a partial folder as complete. `child_count` is capped
 (counting stops at 1000) because an exact count of a very large folder costs a
 full directory walk per row; it is `null` when the folder cannot be read.
 
-**`POST /api/files/move`** — `{sources: [path], destination: path, on_conflict}`.
-`on_conflict` is `skip` (default — report the collision and leave the file) or
+**`POST /api/files/move`** - `{sources: [path], destination: path, on_conflict}`.
+`on_conflict` is `skip` (default - report the collision and leave the file) or
 `rename` (land it under a suffixed name). Neither ever overwrites an existing
 file. Per-item failures are collected rather than aborting the batch: the
 response is `{moved: [...], skipped: [{path, reason, code}], count}`. Moving a
 folder relinks every record beneath it.
 
-**`POST /api/files/rename`** — `{path, new_name}`. `new_name` is a bare name, not
+**`POST /api/files/rename`** - `{path, new_name}`. `new_name` is a bare name, not
 a path. This renames the file on disk, distinct from editing an item's display
 title. Returns `{from, to, records}`.
 
-**`POST /api/files/folder`** — `{parent, name, container_kind, nsfw}`.
+**`POST /api/files/folder`** - `{parent, name, container_kind, nsfw}`.
 `container_kind` is one of `parent`, `one-page`, `agnostic`, `family`,
 `publisher`, `generic`, or `""` for a plain folder; it writes the corresponding
 marker file (`.parent-system-container`, `.one-page-container`,
@@ -1104,15 +1127,15 @@ rejected with `409`. `GET /api/files/browse` reports which are claimed in
 available. A folder merely *named* by the reserved convention (`one-page-rpgs`,
 `system-agnostic`, …) counts as the incumbent.
 
-**`PUT /api/files/folder/markers`** — `{path, container_kind?, nsfw?}`. Omitted
+**`PUT /api/files/folder/markers`** - `{path, container_kind?, nsfw?}`. Omitted
 fields are left untouched. Container kinds are mutually exclusive: setting one
 clears the others.
 
-**`DELETE /api/files/folder`** — `{path}`. Refuses non-empty folders and
+**`DELETE /api/files/folder`** - `{path}`. Refuses non-empty folders and
 collection roots; recursive deletion of library content is deliberately not
 offered.
 
-**`POST /api/files/upload`** — multipart form: `file`, `destination`,
+**`POST /api/files/upload`** - multipart form: `file`, `destination`,
 `relative_dir` (optional), `on_conflict` (default `rename`). Returns
 `{path, name, size}`.
 
@@ -1122,7 +1145,7 @@ retry just the ones that did not. Sending files individually lets a client repor
 per-file progress and retry failures in isolation.
 
 The file is streamed to disk in chunks rather than buffered in memory, written
-under a temporary name, and renamed into place only once complete — so an
+under a temporary name, and renamed into place only once complete - so an
 interrupted upload never leaves a truncated file for the scanner to index.
 
 Validation is per collection: only extensions the destination tree actually
@@ -1131,7 +1154,7 @@ archives under `maps/` and `tokens/`, audio under `audio/`), because a file the
 scanner ignores is an upload that silently does nothing. Uploads into the library
 root are refused. The supplied filename is reduced to its final component, so a
 path smuggled through the multipart body cannot escape the destination, and
-hidden files are rejected outright — a dotfile upload could otherwise write a
+hidden files are rejected outright - a dotfile upload could otherwise write a
 container marker and reclassify a shelf. Single files are capped at 8 GB
 (`413` past that), and an upload never overwrites: a name clash is suffixed.
 
@@ -1139,14 +1162,14 @@ container marker and reclassify a shelf. Single files are capped at 8 GB
 `webkitRelativePath` minus the file name) so a dropped folder keeps its
 structure; it is validated against the library root like any other path.
 
-**`POST /api/files/folder/scaffold`** — `{path}`. Creates the standard category
+**`POST /api/files/folder/scaffold`** - `{path}`. Creates the standard category
 folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,
 `Handouts`, `Homebrew`, `Starter Sets`) inside a system folder. Each name is
 chosen to infer back to its canonical category slug, so the folders classify
 correctly on the next scan. Only valid for a folder directly under `books/`.
 Returns `{path, created, existing}`. A category is skipped when an existing
 folder already *resolves to* it, matched on the inferred category rather than the
-folder name — a system holding `Rules` will not gain a second `Core`, and one
+folder name - a system holding `Rules` will not gain a second `Core`, and one
 holding `Modules` will not gain `Adventures`. `existing` reports the incumbent
 folder's real name, so running it on a partly-organised system fills only the
 genuine gaps.

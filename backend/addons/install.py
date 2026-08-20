@@ -144,7 +144,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False) -> dict:
     entry = find_entry(db, addon_id)
     if entry is None:
         raise AddonError(
-            f"'{addon_id}' is not in the add-on index — try refreshing it"
+            f"'{addon_id}' is not in the add-on index - try refreshing it"
         )
 
     index_url = get_cached_index(db).get("_url") or get_index_url(db)

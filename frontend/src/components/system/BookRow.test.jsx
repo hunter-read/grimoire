@@ -104,7 +104,7 @@ describe('BookRow', () => {
   it('"Image Only" badge has the correct tooltip', () => {
     render(<BookRow book={makeBook({ indexed: true, index_error: 'image-only' })} />)
     const badge = screen.getByText('Image Only')
-    expect(badge.title).toBe('This PDF contains only scanned images — no text layer to search')
+    expect(badge.title).toBe('This PDF contains only scanned images - no text layer to search')
   })
 
   // --- OCR badge ---

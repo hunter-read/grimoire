@@ -58,6 +58,7 @@ from ..indexer.constants import (
     SINGLETON_CONTAINER_KINDS,
 )
 from ..indexer.thumbnails import archive_ext
+from ..metadata.formats import COVER_SUFFIX, SIDECAR_SUFFIXES
 from ..models.library import Book, GameSystem
 from ..models.media import Audio, GenericMap, Token
 
@@ -187,6 +188,76 @@ def collection_of(path: Path) -> Optional[str]:
         return None
     head = rel.split("/")[0].lower()
     return head if head in COLLECTIONS else None
+
+
+# Everything export can write beside a content file. The cover's compound
+# ``.cover.jpg`` is what lets it be listed here at all: a bare ``.jpg`` could
+# not be told apart from ordinary library content (a map, a token, an image
+# book), so hiding it would risk hiding the content itself.
+_COMPANION_SUFFIXES = (*SIDECAR_SUFFIXES, COVER_SUFFIX)
+
+# Content a sidecar can belong to. A sidecar is only recognised as one when it
+# sits beside a file the library actually indexes, so an orphaned ``.opf`` stays
+# visible and manageable rather than silently disappearing.
+_CONTENT_EXTS = DOC_EXTS | IMAGE_EXTS | AUDIO_EXTS | MAP_IMAGE_EXTS | ARCHIVE_EXTS
+
+
+def sidecar_stem(name: str) -> Optional[str]:
+    """The content stem a sidecar filename belongs to, or ``None``.
+
+    Compound suffixes are why this cannot be ``os.path.splitext``: that would
+    reduce ``Guide.grimoire.json`` to ``Guide.grimoire`` and the pairing check
+    would never find ``Guide.pdf``. Suffixes are tested longest-first for the
+    same reason - ``.cover.jpg`` must win over ``.jpg``.
+    """
+    lowered = name.lower()
+    for suffix in sorted(_COMPANION_SUFFIXES, key=len, reverse=True):
+        if lowered.endswith(suffix) and len(name) > len(suffix):
+            return name[: -len(suffix)]
+    return None
+
+
+def _has_content_sibling(directory: Path, stem: str, names: set[str]) -> bool:
+    """Whether ``stem`` names an indexable file in this directory.
+
+    ``names`` is the directory listing the caller already has, so a folder of
+    n entries costs one scan rather than one stat per candidate.
+    """
+    lowered = {n.lower() for n in names}
+    return any(f"{stem}{ext}".lower() in lowered for ext in _CONTENT_EXTS)
+
+
+def is_sidecar(path: Path, *, siblings: Optional[set[str]] = None) -> bool:
+    """Whether ``path`` is metadata *about* library content rather than content.
+
+    True only for a file that both carries a companion suffix **and** sits next
+    to content with the same stem. The pairing requirement is deliberate: it is
+    what keeps a hand-maintained ``.opf`` whose book has been deleted from
+    vanishing out of the file manager.
+    """
+    stem = sidecar_stem(path.name)
+    if stem is None:
+        return False
+
+    directory = path.parent
+    if siblings is None:
+        try:
+            siblings = {e.name for e in os.scandir(directory)}
+        except OSError:
+            return False
+    return _has_content_sibling(directory, stem, siblings)
+
+
+def sidecars_for(content: Path) -> list[Path]:
+    """Every sidecar file that belongs to ``content``, on disk now.
+
+    Used to carry them along on a move or rename. Only files that exist are
+    returned, so a book exported in one format does not drag phantom paths.
+    """
+    stem = content.name[: -len(content.suffix)] if content.suffix else content.name
+    directory = content.parent
+    candidates = (directory / f"{stem}{suffix}" for suffix in _COMPANION_SUFFIXES)
+    return [p for p in candidates if p.is_file()]
 
 
 def assert_writable(path: Path) -> None:
@@ -398,6 +469,60 @@ def _relink(db: Session, model: Any, record: Any, dest: Path) -> None:
     _fix_caches(db, model, record, old_path, str(dest))
 
 
+def _carry_sidecars(src: Path, dest: Path, *, is_dir: bool) -> list[tuple[Path, Path]]:
+    """Move ``src``'s sidecars alongside it, re-stemming them onto ``dest``.
+
+    A sidecar is named from its content's stem, so a move that renames the file
+    (a conflict-resolving ``ArtifactName (2).pdf``, or a rename outright) has to
+    rewrite the sidecar's name too, or the pair silently breaks: the scanner
+    looks for ``<stem>.opf`` and would no longer find it.
+
+    Returns the ``(from, to)`` pairs actually moved so the caller can undo them
+    if the database work that follows fails. Failures here are logged rather than
+    raised - the content file has already moved, and refusing to complete the
+    operation over a metadata file would leave the worse mess.
+
+    ``is_dir`` must be captured by the caller *before* the move: this runs after
+    the rename, when ``src`` no longer exists and would report False for a folder.
+    """
+    if is_dir:
+        # A folder move carries its contents already; the sidecars inside it
+        # keep both their names and their neighbours.
+        return []
+
+    moved: list[tuple[Path, Path]] = []
+    dest_stem = dest.name[: -len(dest.suffix)] if dest.suffix else dest.name
+    for sidecar in sidecars_for(src):
+        suffix = sidecar.name[len(src.name) - len(src.suffix) :]
+        target = dest.parent / f"{dest_stem}{suffix}"
+        if target.exists():
+            logger.warning("Not moving sidecar %s: %s already exists", sidecar, target)
+            continue
+        try:
+            os.replace(sidecar, target)
+        except OSError as e:
+            if getattr(e, "errno", None) == 18:  # EXDEV - different filesystems
+                try:
+                    shutil.move(str(sidecar), str(target))
+                except OSError as exc:
+                    logger.warning("Could not move sidecar %s: %s", sidecar, exc)
+                    continue
+            else:
+                logger.warning("Could not move sidecar %s: %s", sidecar, e)
+                continue
+        moved.append((sidecar, target))
+    return moved
+
+
+def _restore_sidecars(moved: list[tuple[Path, Path]]) -> None:
+    """Put carried sidecars back, for when the DB work after a move failed."""
+    for original, target in moved:
+        try:
+            os.replace(target, original)
+        except OSError as e:
+            logger.error("Could not roll back sidecar %s -> %s: %s", target, original, e)
+
+
 def _dest_for(dest_dir: Path, name: str, *, on_conflict: str) -> Path:
     """Resolve the final destination path, applying the collision policy.
 
@@ -494,6 +619,10 @@ def _move_one(
         else:
             raise
 
+    # Sidecars follow their content: they describe this file, and leaving them
+    # behind would both orphan them and break the pairing the scanner reads.
+    carried = _carry_sidecars(src, dest, is_dir=was_dir)
+
     try:
         for model, record, old_path in affected:
             new_path = dest / Path(old_path).relative_to(src) if was_dir else dest
@@ -502,6 +631,7 @@ def _move_one(
         # The DB could not be brought in line with the disk. Put the file back so
         # the two agree, rather than leaving rows pointing at a path that moved.
         db.rollback()
+        _restore_sidecars(carried)
         try:
             os.replace(dest, src)
         except OSError:
@@ -568,6 +698,10 @@ def rename_path(db: Session, target: str, new_name: str) -> dict:
             ) from e
         raise LibraryFSError(f"Could not rename: {e}", code="io_error") from e
 
+    # Re-stem the sidecars onto the new name, or the pair breaks: the scanner
+    # looks for ``<new stem>.opf`` and the old one would no longer match.
+    carried = _carry_sidecars(src, dest, is_dir=was_dir)
+
     try:
         for model, record, old_path in affected:
             new_path = dest / Path(old_path).relative_to(src) if was_dir else dest
@@ -575,6 +709,7 @@ def rename_path(db: Session, target: str, new_name: str) -> dict:
         db.commit()
     except Exception:
         db.rollback()
+        _restore_sidecars(carried)
         try:
             os.replace(dest, src)
         except OSError:

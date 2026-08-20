@@ -24,7 +24,7 @@ You'll see something like this on startup:
 
 ```
 SECRET_KEY is set to 'change-me', a placeholder published in Grimoire's own
-documentation — anyone could forge admin sessions on this instance.
+documentation - anyone could forge admin sessions on this instance.
 ```
 
 `SECRET_KEY` is the key Grimoire uses to sign login sessions. Because the example

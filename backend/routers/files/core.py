@@ -101,7 +101,17 @@ def browse(
         logger.warning("Could not read library folder %s: %s", target, e)
         raise HTTPException(status_code=500, detail="Could not read that folder") from e
 
-    visible = [c for c in children if not c.name.startswith(".")]
+    # Sidecars are metadata *about* content, not content: showing a book's
+    # .opf/.nfo/.grimoire.yaml and exported cover would triple the size of a
+    # folder listing with files the user never put there and cannot usefully
+    # act on. They still move with their book - see ``fs.sidecars_for``.
+    names = {c.name for c in children}
+    visible = [
+        c
+        for c in children
+        if not c.name.startswith(".")
+        and (c.is_dir() or not fs.is_sidecar(Path(c.path), siblings=names))
+    ]
     total = len(visible)
     children = visible[:limit]
 

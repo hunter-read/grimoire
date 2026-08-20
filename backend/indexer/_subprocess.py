@@ -309,10 +309,10 @@ def ocr_book(
     dpi = book.ocr_dpi  # per-book override; None => global OCR_DPI default
     _where = f" (from page {start + 1})" if start else ""
     logger.info(
-        f"Reading text from '{book.title or book.filename}' — {page_count} page(s){_where}…"
+        f"Reading text from '{book.title or book.filename}' - {page_count} page(s){_where}…"
     )
     logger.debug(
-        f"OCR: '{book.filename}' — {page_count} page(s), resuming at page {start + 1}"
+        f"OCR: '{book.filename}' - {page_count} page(s), resuming at page {start + 1}"
         + (f" (dpi={dpi})" if dpi else "")
     )
     for i in range(start, page_count):
@@ -358,7 +358,7 @@ def ocr_book(
     book.index_failed = False
     book.index_error = "ocr"
     _commit(session, f"ocr done '{book.filepath}'")
-    logger.info(f"Finished reading '{book.title or book.filename}' — it's now searchable.")
+    logger.info(f"Finished reading '{book.title or book.filename}' - it's now searchable.")
     return "done"
 
 

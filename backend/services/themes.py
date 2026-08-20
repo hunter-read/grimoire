@@ -415,7 +415,7 @@ def verify_digest(body: bytes, expected: str) -> None:
         return
     if hashlib.sha256(body).hexdigest() != expected:
         raise ThemeError(
-            "That theme failed its integrity check — the catalogue and the file disagree"
+            "That theme failed its integrity check - the catalogue and the file disagree"
         )
 
 

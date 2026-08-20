@@ -71,7 +71,7 @@ def migrate(db) -> None:
         base = session.title.strip() if session.title else ""
         if not base:
             base = f"Session {session.session_date}" if session.session_date else "Session"
-        return f"{base} — {suffix}" if suffix else base
+        return f"{base} - {suffix}" if suffix else base
 
     def _add_page(campaign_id, title, body, visibility, created_by_id, session_date):
         nonlocal created

@@ -261,7 +261,7 @@ def fetch_body(db: Session, entry: dict) -> str:
         actual = hashlib.sha256(body).hexdigest()
         if actual != expected:
             raise TemplateCatalogueError(
-                "That template failed its integrity check — the catalogue and "
+                "That template failed its integrity check - the catalogue and "
                 "the file disagree"
             )
 

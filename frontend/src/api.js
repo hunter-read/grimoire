@@ -388,6 +388,14 @@ export const settings = {
   revokeApiKey: () => api.delete('/settings/api-key'),
 }
 
+// Metadata sidecar export (issue #300). Admin-only; lives under /maintenance
+// because it writes into the library rather than changing app behaviour.
+export const sidecars = {
+  get: () => api.get('/maintenance/sidecars/settings'),
+  save: (data) => api.put('/maintenance/sidecars/settings', data),
+  export: () => api.post('/maintenance/sidecars/export'),
+}
+
 // Folder-tag collections that support batched writes (media folder tagging).
 const BULK_FOLDER_PATHS = {
   map: '/map-folders',

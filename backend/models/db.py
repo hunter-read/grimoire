@@ -388,7 +388,7 @@ def _apply_migrations(engine: Engine) -> None:
     is_pre_alembic = not has_version_table and bool(app_tables)
 
     if is_pre_alembic:
-        logger.info("Existing pre-Alembic database detected — cutting over to Alembic.")
+        logger.info("Existing pre-Alembic database detected - cutting over to Alembic.")
         # Create any tables missing from the old DB, then replay the legacy
         # column/index migrations so the schema exactly matches the baseline
         # before we stamp it. create_all only touches missing tables. The replay

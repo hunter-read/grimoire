@@ -309,3 +309,89 @@ class TestMetadataRefresh:
         _scan(self.lib, self.tmp, scope_path="books/RefreshNew", metadata_mode="new")
 
         assert _get_book("the_book.pdf", system="RefreshNew").publisher == "User Publisher"
+
+
+# ---------------------------------------------------------------------------
+# scan_library — sidecars for newly scanned books (issue #300)
+# ---------------------------------------------------------------------------
+
+class TestSidecarsOnScan:
+    """A scan that adds files keeps an export-enabled library complete."""
+
+    def setup_method(self):
+        self.tmp, self.lib = _mk_lib()
+
+    def teardown_method(self):
+        from backend.metadata import settings as export_settings
+        from backend.models import AppSetting
+
+        db = SessionLocal()
+        try:
+            for key in (
+                export_settings.SETTING_EXPORT_FORMATS,
+                export_settings.SETTING_EXPORT_COVERS,
+                export_settings.SETTING_EXPORT_OVERWRITE,
+            ):
+                row = db.query(AppSetting).filter_by(key=key).first()
+                if row:
+                    db.delete(row)
+            db.commit()
+        finally:
+            db.close()
+
+    def _enable(self, formats):
+        from backend.metadata import settings as export_settings
+
+        db = SessionLocal()
+        try:
+            export_settings.set_enabled_formats(db, formats)
+            db.commit()
+        finally:
+            db.close()
+
+    def _add_book(self, name="newly-scanned.pdf"):
+        folder = self.lib / "books" / "SidecarSys" / "core"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(b"%PDF-1.4")
+        return folder / name
+
+    def test_a_new_book_gets_its_sidecars(self):
+        self._enable(["json", "yaml"])
+        book = self._add_book()
+
+        _scan(self.lib, self.tmp)
+
+        assert book.with_suffix(".grimoire.json").is_file()
+        assert book.with_suffix(".grimoire.yaml").is_file()
+
+    def test_nothing_is_written_while_export_is_off(self):
+        """Off by default: a scan must not start writing into the library."""
+        book = self._add_book("no-export.pdf")
+
+        _scan(self.lib, self.tmp)
+
+        assert not book.with_suffix(".grimoire.json").exists()
+        assert not book.with_suffix(".opf").exists()
+
+    def test_an_existing_sidecar_is_not_clobbered(self):
+        """The folder may predate Grimoire; a file there is the user's."""
+        self._enable(["opf"])
+        book = self._add_book("has-own-opf.pdf")
+        opf = book.with_suffix(".opf")
+        opf.write_text("<package>the user's own</package>")
+
+        _scan(self.lib, self.tmp)
+
+        assert opf.read_text() == "<package>the user's own</package>"
+
+    def test_a_rescan_finding_nothing_new_writes_nothing(self):
+        """Only inserted books are considered, so a no-op scan stays a no-op."""
+        self._enable(["json"])
+        book = self._add_book("stable.pdf")
+        _scan(self.lib, self.tmp)
+        sidecar = book.with_suffix(".grimoire.json")
+        sidecar.write_text("Grimoire metadata sidecar v1 -- hand edited\n")
+
+        _scan(self.lib, self.tmp)
+
+        assert "hand edited" in sidecar.read_text()

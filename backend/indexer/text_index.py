@@ -70,7 +70,7 @@ def index_book_text(
             book.filepath, should_stop=should_stop, text_only=True
         )
     except PdfExtractionCrashError as e:
-        logger.error(f"Text extraction crashed for '{book.filename}': {e} — marking index_failed")
+        logger.error(f"Text extraction crashed for '{book.filename}': {e} - marking index_failed")
         book.index_error = f"extraction crashed: {e}"[:500]
         book.index_failed = True
         try:
@@ -96,7 +96,7 @@ def index_book_text(
             # worker (and startup recovery) picks it up; index_failed cleared so
             # it isn't mistaken for a hard failure.
             logger.info(
-                f"'{book.title or book.filename}' is a scanned book with no text — "
+                f"'{book.title or book.filename}' is a scanned book with no text - "
                 f"queued to read text from later."
             )
             book.ocr_pending = True
@@ -109,7 +109,7 @@ def index_book_text(
         # OCR unavailable (slim image): keep the pre-OCR behaviour — mark
         # image-only and indexed so it isn't retried every scan.
         logger.info(
-            f"'{book.title or book.filename}' is a scanned book with no text — "
+            f"'{book.title or book.filename}' is a scanned book with no text - "
             f"it won't be searchable (text recognition is off)."
         )
         book.index_error = "image-only"
@@ -121,7 +121,7 @@ def index_book_text(
                 session.commit, _DB_TIMEOUT, f"commit image-only indexed '{book.filepath}'"
             )
         except TimeoutError as e:
-            logger.error(f"DB hang: {e} — rolling back image-only indexed for '{book.filename}'")
+            logger.error(f"DB hang: {e} - rolling back image-only indexed for '{book.filename}'")
             session.rollback()
         return True
 
@@ -143,7 +143,7 @@ def index_book_text(
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index '{book.filepath}'")
     except TimeoutError as e:
-        logger.error(f"DB hang: {e} — rolling back index for '{book.filename}'")
+        logger.error(f"DB hang: {e} - rolling back index for '{book.filename}'")
         session.rollback()
         return False
     logger.info(f"'{book.title or book.filename}' is now searchable ({len(pages)} page(s)).")

@@ -1309,3 +1309,264 @@ class TestMutationEndpoints:
             json={"path": f"books/System-{library_tree}/api-delete"},
         )
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Metadata sidecars — hidden from the listing, carried on move/rename (#300)
+# ---------------------------------------------------------------------------
+
+
+class TestSidecarRecognition:
+    """``is_sidecar`` decides what the file manager hides, so its edges matter."""
+
+    @pytest.mark.parametrize(
+        "name",
+        ["guide.opf", "guide.nfo", "guide.grimoire.json", "guide.grimoire.yaml", "guide.cover.jpg"],
+    )
+    def test_a_paired_companion_is_a_sidecar(self, library_tree, name):
+        folder = f"books/System-{library_tree}/core"
+        _write(f"{folder}/guide.pdf")
+        path = Path(_write(f"{folder}/{name}"))
+        assert fs.is_sidecar(path) is True
+
+    def test_an_orphan_is_not_hidden(self, library_tree):
+        """Nothing may silently disappear: with no guide.pdf, the .opf is a real file."""
+        path = Path(_write(f"books/System-{library_tree}/core/orphan.opf"))
+        assert fs.is_sidecar(path) is False
+
+    def test_content_is_never_a_sidecar(self, library_tree):
+        path = Path(_write(f"books/System-{library_tree}/core/guide.pdf"))
+        assert fs.is_sidecar(path) is False
+
+    def test_a_plain_jpg_beside_a_book_stays_visible(self, library_tree):
+        """Only ``.cover.jpg`` is ours. A bare .jpg could be library content."""
+        folder = f"books/System-{library_tree}/core"
+        _write(f"{folder}/guide.pdf")
+        path = Path(_write(f"{folder}/guide.jpg"))
+        assert fs.is_sidecar(path) is False
+
+    def test_compound_suffix_resolves_to_the_content_stem(self):
+        assert fs.sidecar_stem("guide.grimoire.yaml") == "guide"
+        assert fs.sidecar_stem("guide.cover.jpg") == "guide"
+        assert fs.sidecar_stem("guide.pdf") is None
+
+    def test_a_dotted_filename_still_pairs(self, library_tree):
+        folder = f"books/System-{library_tree}/core"
+        _write(f"{folder}/Vol.2 Guide.pdf")
+        path = Path(_write(f"{folder}/Vol.2 Guide.opf"))
+        assert fs.is_sidecar(path) is True
+
+
+class TestSidecarsHiddenFromBrowse:
+    def test_listing_omits_sidecars_but_keeps_the_book(
+        self, client, admin_headers, library_tree
+    ):
+        folder = f"books/System-{library_tree}/core"
+        _write(f"{folder}/guide.pdf")
+        for name in ("guide.opf", "guide.nfo", "guide.grimoire.yaml", "guide.cover.jpg"):
+            _write(f"{folder}/{name}")
+
+        resp = client.get("/api/files/browse", params={"path": folder}, headers=admin_headers)
+        assert resp.status_code == 200
+        names = [e["name"] for e in resp.json()["entries"]]
+        assert names == ["guide.pdf"]
+
+    def test_total_reflects_the_hidden_ones(self, client, admin_headers, library_tree):
+        """``total`` drives the 'showing x of y' hint, so it must not count hidden files."""
+        folder = f"books/System-{library_tree}/core"
+        _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/guide.opf")
+
+        resp = client.get("/api/files/browse", params={"path": folder}, headers=admin_headers)
+        assert resp.json()["total"] == 1
+
+    def test_an_orphan_sidecar_is_still_listed(self, client, admin_headers, library_tree):
+        folder = f"books/System-{library_tree}/core"
+        _write(f"{folder}/orphan.opf")
+
+        resp = client.get("/api/files/browse", params={"path": folder}, headers=admin_headers)
+        names = [e["name"] for e in resp.json()["entries"]]
+        assert "orphan.opf" in names
+
+
+class TestSidecarsFollowTheirContent:
+    def test_move_carries_every_sidecar(self, library_tree):
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        src = _write(f"{folder}/guide.pdf")
+        for name in ("guide.opf", "guide.nfo", "guide.grimoire.yaml", "guide.cover.jpg"):
+            _write(f"{folder}/{name}")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        db = SessionLocal()
+        try:
+            dest = f"books/System-{library_tree}/adventures"
+            result = fs.move_paths(db, [f"{folder}/guide.pdf"], dest)
+            assert result.count == 1
+        finally:
+            db.close()
+
+        for name in ("guide.opf", "guide.nfo", "guide.grimoire.yaml", "guide.cover.jpg"):
+            assert os.path.isfile(os.path.join(LIB, f"{dest}/{name}")), f"{name} left behind"
+            assert not os.path.exists(os.path.join(LIB, f"{folder}/{name}"))
+
+    def test_rename_restems_the_sidecars(self, library_tree):
+        """The pairing is by stem, so a rename that skips this silently breaks it."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        src = _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/guide.opf")
+        _write(f"{folder}/guide.cover.jpg")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        db = SessionLocal()
+        try:
+            fs.rename_path(db, f"{folder}/guide.pdf", "Monster Manual.pdf")
+        finally:
+            db.close()
+
+        assert os.path.isfile(os.path.join(LIB, f"{folder}/Monster Manual.opf"))
+        assert os.path.isfile(os.path.join(LIB, f"{folder}/Monster Manual.cover.jpg"))
+        assert not os.path.exists(os.path.join(LIB, f"{folder}/guide.opf"))
+
+    def test_a_conflict_renamed_move_restems_too(self, library_tree):
+        """``on_conflict='rename'`` changes the stem mid-move; sidecars must follow it."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        dest = f"books/System-{library_tree}/adventures"
+        src = _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/guide.opf")
+        _write(f"{dest}/guide.pdf")  # forces the conflict
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(db, [f"{folder}/guide.pdf"], dest, on_conflict="rename")
+            assert result.count == 1
+            landed = Path(result.moved[0]["to"]).name
+        finally:
+            db.close()
+
+        stem = landed[: -len(".pdf")]
+        assert os.path.isfile(os.path.join(LIB, f"{dest}/{stem}.opf"))
+
+    def test_an_orphan_sidecar_is_not_dragged_along(self, library_tree):
+        """Only sidecars of the moved file move; an unrelated .opf stays put."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        src = _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/other.opf")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        db = SessionLocal()
+        try:
+            fs.move_paths(db, [f"{folder}/guide.pdf"], f"books/System-{library_tree}/adventures")
+        finally:
+            db.close()
+
+        assert os.path.isfile(os.path.join(LIB, f"{folder}/other.opf"))
+
+    def test_folder_move_keeps_sidecars_with_their_books(self, library_tree):
+        """A folder move carries contents wholesale - sidecars need no special work."""
+        system = make_game_system(name=f"System-{library_tree}")
+        sub = f"books/System-{library_tree}/core/boxed"
+        src = _write(f"{sub}/guide.pdf")
+        _write(f"{sub}/guide.opf")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        db = SessionLocal()
+        try:
+            fs.move_paths(db, [sub], f"books/System-{library_tree}/adventures")
+        finally:
+            db.close()
+
+        moved = f"books/System-{library_tree}/adventures/boxed"
+        assert os.path.isfile(os.path.join(LIB, f"{moved}/guide.pdf"))
+        assert os.path.isfile(os.path.join(LIB, f"{moved}/guide.opf"))
+
+
+class TestSidecarCarryEdgeCases:
+    """The failure paths: a sidecar problem must never cost the content file."""
+
+    def test_a_colliding_sidecar_is_left_behind_not_clobbered(self, library_tree):
+        """The destination's own .opf belongs to whatever is already there."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        dest = f"books/System-{library_tree}/adventures"
+        src = _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/guide.opf", b"the moving one")
+        _write(f"{dest}/guide.opf", b"already there")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(db, [f"{folder}/guide.pdf"], dest)
+            assert result.count == 1
+        finally:
+            db.close()
+
+        # The book moved; the colliding sidecar stayed put on both sides.
+        assert os.path.isfile(os.path.join(LIB, f"{dest}/guide.pdf"))
+        with open(os.path.join(LIB, f"{dest}/guide.opf"), "rb") as fh:
+            assert fh.read() == b"already there"
+        with open(os.path.join(LIB, f"{folder}/guide.opf"), "rb") as fh:
+            assert fh.read() == b"the moving one"
+
+    def test_an_unreadable_sidecar_does_not_fail_the_move(self, library_tree, monkeypatch):
+        """A metadata file must never block the content file it describes."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        src = _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/guide.opf")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        real_replace = os.replace
+
+        def _boom(a, b, *args, **kwargs):
+            if str(a).endswith(".opf"):
+                raise OSError(13, "Permission denied")
+            return real_replace(a, b, *args, **kwargs)
+
+        monkeypatch.setattr(os, "replace", _boom)
+
+        db = SessionLocal()
+        try:
+            dest = f"books/System-{library_tree}/adventures"
+            result = fs.move_paths(db, [f"{folder}/guide.pdf"], dest)
+            assert result.count == 1
+        finally:
+            db.close()
+
+        assert os.path.isfile(os.path.join(LIB, f"{dest}/guide.pdf"))
+
+    def test_sidecars_are_restored_when_the_relink_fails(self, library_tree, monkeypatch):
+        """A rolled-back move must put the sidecars back with the content."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core"
+        src = _write(f"{folder}/guide.pdf")
+        _write(f"{folder}/guide.opf")
+        make_book(system.id, filename="guide.pdf", filepath=src)
+
+        monkeypatch.setattr(
+            fs, "_relink", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
+
+        db = SessionLocal()
+        try:
+            with pytest.raises(RuntimeError):
+                fs.move_paths(db, [f"{folder}/guide.pdf"], f"books/System-{library_tree}/adventures")
+        finally:
+            db.close()
+
+        # Both the book and its sidecar are back where they started.
+        assert os.path.isfile(os.path.join(LIB, f"{folder}/guide.pdf"))
+        assert os.path.isfile(os.path.join(LIB, f"{folder}/guide.opf"))
+
+    def test_sidecars_for_lists_only_what_exists(self, library_tree):
+        folder = f"books/System-{library_tree}/core"
+        content = Path(_write(f"{folder}/guide.pdf"))
+        _write(f"{folder}/guide.opf")
+
+        found = {p.name for p in fs.sidecars_for(content)}
+
+        assert found == {"guide.opf"}
