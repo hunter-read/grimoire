@@ -66,7 +66,7 @@ describe('EmbedCard', () => {
 
   it('names the book alongside the page for a page-anchored book embed', async () => {
     renderEmbed({ spec: 'book:b1:42', campaignId: 'c1' })
-    expect(await screen.findByText("Player's Handbook — p. 42")).toBeInTheDocument()
+    expect(await screen.findByText("Player's Handbook - p. 42")).toBeInTheDocument()
     expect(get).toHaveBeenCalledWith('/books/b1')
   })
 
@@ -77,7 +77,7 @@ describe('EmbedCard', () => {
 
   it('book embed is a link to the book page anchor', async () => {
     renderEmbed({ spec: 'book:b1:42', campaignId: 'c1' })
-    await screen.findByText("Player's Handbook — p. 42")
+    await screen.findByText("Player's Handbook - p. 42")
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toBe('/library/book/b1?page=42')
   })
@@ -85,7 +85,7 @@ describe('EmbedCard', () => {
   it('falls back to the generic label when the book cannot be resolved', async () => {
     get.mockRejectedValue(new Error('404'))
     renderEmbed({ spec: 'book:gone:42', campaignId: 'c1' })
-    expect(await screen.findByText('Book — p. 42')).toBeInTheDocument()
+    expect(await screen.findByText('Book - p. 42')).toBeInTheDocument()
   })
 
   it('falls back to the generic label when the book has no title', async () => {

@@ -25,7 +25,7 @@ def _path_exists(filepath: str) -> bool:
     t.join(_FS_TIMEOUT)
     if t.is_alive():
         # Thread is stuck — treat the path as present to avoid false deletion
-        logger.warning(f"Cleanup: filesystem check timed out for '{filepath}' — skipping")
+        logger.warning(f"Cleanup: filesystem check timed out for '{filepath}' - skipping")
         return True
     return result[0]
 
@@ -84,14 +84,14 @@ def _prune_orphaned_systems(db) -> int:
         if campaign_count > 0:
             logger.debug(
                 f"Cleanup: empty system '{system.name}' still referenced by "
-                f"{campaign_count} campaign(s) — keeping"
+                f"{campaign_count} campaign(s) - keeping"
             )
             continue
         surviving = [cid for cid in children.get(system.id, []) if cid not in deleted]
         if surviving:
             logger.debug(
                 f"Cleanup: container '{system.name}' has {len(surviving)} surviving "
-                f"child system(s) — keeping"
+                f"child system(s) - keeping"
             )
             continue
         logger.info(f"Cleanup: removing empty game system '{system.name}' (id={system.id})")
@@ -128,7 +128,7 @@ def _do_cleanup(db) -> dict:
             logger.debug(f"Cleanup: committed removal of book id={book.id}")
             removed["books"] += 1
         else:
-            logger.debug(f"Cleanup: book '{book.title}' present — skipping")
+            logger.debug(f"Cleanup: book '{book.title}' present - skipping")
 
     removed["systems"] += _prune_orphaned_systems(db)
 
@@ -143,7 +143,7 @@ def _do_cleanup(db) -> dict:
             logger.debug(f"Cleanup: committed removal of map id={m.id}")
             removed["maps"] += 1
         else:
-            logger.debug(f"Cleanup: map '{m.filename}' present — skipping")
+            logger.debug(f"Cleanup: map '{m.filename}' present - skipping")
 
     tokens = db.query(Token).all()
     logger.debug(f"Cleanup: checking {len(tokens)} token(s)")
@@ -156,7 +156,7 @@ def _do_cleanup(db) -> dict:
             logger.debug(f"Cleanup: committed removal of token id={t.id}")
             removed["tokens"] += 1
         else:
-            logger.debug(f"Cleanup: token '{t.filename}' present — skipping")
+            logger.debug(f"Cleanup: token '{t.filename}' present - skipping")
 
     audio = db.query(Audio).all()
     logger.debug(f"Cleanup: checking {len(audio)} audio track(s)")
@@ -169,7 +169,7 @@ def _do_cleanup(db) -> dict:
             logger.debug(f"Cleanup: committed removal of audio id={a.id}")
             removed["audio"] += 1
         else:
-            logger.debug(f"Cleanup: audio '{a.filename}' present — skipping")
+            logger.debug(f"Cleanup: audio '{a.filename}' present - skipping")
 
     return removed
 

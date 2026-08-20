@@ -1,7 +1,7 @@
 # Wiki note templates
 
-A **note template** is a starting point for a campaign wiki page — a 5e NPC
-statblock, a Draw Steel negotiation, a session recap — so a GM builds on a
+A **note template** is a starting point for a campaign wiki page - a 5e NPC
+statblock, a Draw Steel negotiation, a session recap - so a GM builds on a
 structure instead of staring at a blank note.
 
 Templates are **per campaign**. They are small markdown files, so every campaign
@@ -16,17 +16,17 @@ modal has three tabs:
 | Tab | What it does |
 | --- | --- |
 | **My templates** | The campaign's own templates, grouped by category. Click one to start a page from it; the row also offers edit, export, and delete |
-| **Browse** | The community catalogue as a collapsible folder tree — download a copy into this campaign |
+| **Browse** | The community catalogue as a collapsible folder tree - download a copy into this campaign |
 | **Create** | Write a template by hand |
 
-Below the list, **Upload a template** adds one from disk — either a `.md` file
+Below the list, **Upload a template** adds one from disk - either a `.md` file
 or a `.zip` in the same layout **Export** produces, so a template can be
 exported from one campaign and uploaded into another (or shared with another
 GM) with its name, category, and description intact.
 
 Picking a template **does not create the page**. It opens the normal page
 editor pre-filled with the template's content, so you can edit before
-committing — and cancel without leaving a stray page to delete. The page exists
+committing - and cancel without leaving a stray page to delete. The page exists
 only once you save it, with a de-duplicated slug like any other new page. Use
 the same template five times and you get five pages.
 
@@ -37,7 +37,7 @@ The **Create** tab collects:
 | Field | What it is |
 | --- | --- |
 | **Name** | What the template is called in your list |
-| **Category** | Groups it in the list — pick an existing one or add your own |
+| **Category** | Groups it in the list - pick an existing one or add your own |
 | **Description** | One line, shown under the name |
 | **Page defaults** | The starting name, icon, and visibility a page gets |
 | **Page content** | The markdown the page starts with |
@@ -45,8 +45,8 @@ The **Create** tab collects:
 There is no game system field: a template you wrote isn't *for* a system, so
 Grimoire files it as your own rather than asking.
 
-**Page defaults** are stored as a YAML frontmatter block on the template body —
-the same format the community repo uses — but you never have to write or read
+**Page defaults** are stored as a YAML frontmatter block on the template body -
+the same format the community repo uses - but you never have to write or read
 that YAML. Grimoire splits the block out into the form fields when you open a
 template and rebuilds it when you save, including for templates you downloaded
 or uploaded. Editing and re-saving repeatedly will not stack duplicate blocks,
@@ -71,7 +71,7 @@ hunting. **Generic** is always sorted first; every other folder is alphabetical
 by display name.
 
 Downloaded templates are marked, and downloading one you already have is
-allowed — you may well want a tweaked variant alongside the original.
+allowed - you may well want a tweaked variant alongside the original.
 
 Each download is verified against the `body_sha256` the catalogue declares and
 refused on mismatch, the same integrity check add-on installs use.
@@ -94,7 +94,7 @@ internet:
 DISABLE_EXTERNAL_ADD_ON_INSTALL=true
 ```
 
-With that set, the Browse tab disappears and both catalogue endpoints refuse —
+With that set, the Browse tab disappears and both catalogue endpoints refuse -
 no outbound request is made. **Authoring and uploading still work**, which is
 the point: on a locked-down or air-gapped server a GM can still copy a `.md`
 file out of the community repo by hand and upload it.
@@ -119,7 +119,7 @@ Drop that into a fork of the community repo and open a PR, or keep it as your
 own catalogue. A template that was downloaded exports under the id it came from,
 so a round trip keeps its identity; one you wrote gets a slug of its name.
 
-The same `.zip` can be uploaded straight back into any campaign — export and
+The same `.zip` can be uploaded straight back into any campaign - export and
 upload are inverses, so this doubles as a way to copy a template between
 campaigns or hand one to another GM.
 
@@ -132,13 +132,13 @@ in the community repo for the authoring reference.
 | --- | --- |
 | `models/campaigns.py` → `WikiTemplate` | One row per template, keyed to a campaign. `source_id`/`source_url`/`source_version` record where a downloaded one came from; null for authored ones |
 | `services/wiki_template_catalogue.py` | Fetches the remote catalogue, builds the folder tree, verifies a downloaded body |
-| `routers/campaigns/_frontmatter.py` | Splits a body's frontmatter into fields and rebuilds it on save — written to be idempotent (no stacked blocks) and conservative (ordinary markdown starting with `---` is left alone) |
+| `routers/campaigns/_frontmatter.py` | Splits a body's frontmatter into fields and rebuilds it on save - written to be idempotent (no stacked blocks) and conservative (ordinary markdown starting with `---` is left alone) |
 | `routers/campaigns/wiki_templates.py` | The endpoints: CRUD, use, upload, export, browse, download |
 
 The catalogue service reuses the add-on subsystem's HTTP limits and on-disk
 response cache, so template fetches carry the same timeout, redirect, and size
 bounds. A body URL is resolved against the catalogue URL and then required to
-stay on the same host — a community catalogue must not be able to redirect a
+stay on the same host - a community catalogue must not be able to redirect a
 fetch somewhere else.
 
 Nothing is executed. A template is markdown, and the only thing Grimoire does

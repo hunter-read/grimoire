@@ -6,15 +6,17 @@ data back out so the library folder describes itself. Copy the library to
 another machine, or rebuild the container with a fresh ``DATA_PATH``, and the
 metadata travels with the files instead of dying with the database.
 
-Three formats, independently selectable, because the tools downstream disagree:
+Four formats, independently selectable, because the tools downstream disagree:
 
-    OPF   ``<book>.opf``            Calibre — and Grimoire reads it, so it round-trips
+    OPF   ``<book>.opf``            Calibre - and Grimoire reads it, so it round-trips
     NFO   ``<book>.nfo``            Jellyfin / Kodi / Emby
-    JSON  ``<book>.grimoire.json``  Grimoire-native; the only lossless one
+    JSON  ``<book>.grimoire.json``  Grimoire-native; lossless
+    YAML  ``<book>.grimoire.yaml``  Grimoire-native; lossless, hand-editable
 
 OPF and NFO are best-effort mappings: neither has a slot for most of what
-Grimoire tracks, so fields without a home are simply dropped. The JSON format
-exists so nothing is lost.
+Grimoire tracks, so fields without a home are simply dropped. The two
+Grimoire-native formats carry every field and differ only in syntax, so
+nothing is lost.
 
 Two rules shape the whole package, both from the issue's "never destructive"
 requirement:
@@ -36,6 +38,7 @@ from .export import (
     ExportResult,
     export_book,
     export_library,
+    export_new_book,
     refresh_existing,
 )
 from .formats import (
@@ -43,7 +46,10 @@ from .formats import (
     FORMAT_JSON,
     FORMAT_NFO,
     FORMAT_OPF,
+    FORMAT_YAML,
+    COVER_SUFFIX,
     GENERATOR,
+    SIDECAR_SUFFIXES,
     sidecar_path,
 )
 
@@ -52,10 +58,14 @@ __all__ = [
     "FORMAT_JSON",
     "FORMAT_NFO",
     "FORMAT_OPF",
+    "FORMAT_YAML",
+    "COVER_SUFFIX",
     "GENERATOR",
+    "SIDECAR_SUFFIXES",
     "ExportResult",
     "export_book",
     "export_library",
+    "export_new_book",
     "refresh_existing",
     "sidecar_path",
 ]

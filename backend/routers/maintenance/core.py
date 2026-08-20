@@ -18,7 +18,7 @@ def cleanup_missing(
 
     logger.debug("Cleanup: manual trigger received")
     if _lib._get_status()["running"]:
-        logger.debug("Cleanup: blocked — library scan is currently running")
+        logger.debug("Cleanup: blocked - library scan is currently running")
         raise HTTPException(
             status_code=409,
             detail="A library scan is already running; retry after it completes.",

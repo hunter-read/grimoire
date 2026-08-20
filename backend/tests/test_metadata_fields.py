@@ -142,7 +142,7 @@ class TestCoverExport:
             result = export_book(db, book, ["json"], covers=True)
 
             assert result.covers == 1
-            expected = os.path.splitext(book.filepath)[0] + ".jpg"
+            expected = os.path.splitext(book.filepath)[0] + ".cover.jpg"
             assert os.path.isfile(expected)
         finally:
             os.unlink(thumb)
@@ -158,7 +158,7 @@ class TestCoverExport:
             from backend.metadata.formats import sidecar_path
 
             with open(sidecar_path(book.filepath, "json")) as fh:
-                assert json.load(fh)["cover_filename"] == "fields-cover-named.jpg"
+                assert json.load(fh)["cover_filename"] == "fields-cover-named.cover.jpg"
         finally:
             os.unlink(thumb)
 
@@ -168,13 +168,13 @@ class TestCoverExport:
         result = export_book(db, book, ["json"], covers=True)
 
         assert result.covers == 0
-        assert not os.path.exists(os.path.splitext(book.filepath)[0] + ".jpg")
+        assert not os.path.exists(os.path.splitext(book.filepath)[0] + ".cover.jpg")
 
     def test_an_existing_cover_is_not_replaced(self, db, tmp_path):
         """A cover carries no marker, so an existing one is always left alone."""
         book = _make_book(db, tmp_path, book_id="fields-cover-existing")
         thumb = self._write_thumbnail(book)
-        dest = os.path.splitext(book.filepath)[0] + ".jpg"
+        dest = os.path.splitext(book.filepath)[0] + ".cover.jpg"
         with open(dest, "wb") as fh:
             fh.write(b"the user's own cover")
         try:

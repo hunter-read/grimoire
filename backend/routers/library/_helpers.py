@@ -130,23 +130,23 @@ def background_indexer():
         indexed_count = 0
         for book in unindexed:
             if is_stop_requested():
-                logger.info("Stopping — leaving the rest for next time.")
+                logger.info("Stopping - leaving the rest for next time.")
                 break
             logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
             try:
                 result = index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
                 if result:
                     indexed_count += 1
-                    logger.debug(f"Index end: '{book.filename}' — success")
+                    logger.debug(f"Index end: '{book.filename}' - success")
                 else:
-                    logger.debug(f"Index end: '{book.filename}' — skipped or no text extracted")
+                    logger.debug(f"Index end: '{book.filename}' - skipped or no text extracted")
             except Exception as e:
                 logger.error(f"Couldn't read text from '{book.title or book.filename}': {e}")
                 book.index_error = str(e)[:500]
                 book.index_failed = True
                 db.commit()
             _set_status({"indexed": _get_status()["indexed"] + 1})
-        logger.info(f"Finished — {indexed_count} of {len(unindexed)} book(s) are now searchable.")
+        logger.info(f"Finished - {indexed_count} of {len(unindexed)} book(s) are now searchable.")
     finally:
         db.close()
         if _get_status()["phase"] == "indexing":
@@ -236,7 +236,7 @@ def run_ocr_queue() -> int:
         {"running": True, "phase": "ocr", "total_ocr": len(pending_ids), "ocr_done": 0}
     )
     logger.info(
-        f"Reading text from {len(pending_ids)} scanned book(s) — this can take a while."
+        f"Reading text from {len(pending_ids)} scanned book(s) - this can take a while."
     )
     logger.debug(f"OCR queue: {len(pending_ids)} book(s) to OCR (concurrency={concurrency})")
     completed = 0
@@ -244,7 +244,7 @@ def run_ocr_queue() -> int:
         if concurrency <= 1:
             for book_id in pending_ids:
                 if is_stop_requested():
-                    logger.info("Stopping — leaving the rest for next time.")
+                    logger.info("Stopping - leaving the rest for next time.")
                     break
                 if _ocr_one_book(book_id) == "done":
                     completed += 1
@@ -303,7 +303,7 @@ def rescan_single_book(book_id: str) -> None:
     finishes). Progress is observable via GET /scan-status.
     """
     if _get_status()["running"]:
-        logger.info("A library scan is already running — skipping this single-book re-index.")
+        logger.info("A library scan is already running - skipping this single-book re-index.")
         return
 
     clear_stop()
@@ -314,7 +314,7 @@ def rescan_single_book(book_id: str) -> None:
         try:
             book = db.get(Book, book_id)
             if not book:
-                logger.warning(f"Re-index: book {book_id} no longer exists — skipping.")
+                logger.warning(f"Re-index: book {book_id} no longer exists - skipping.")
                 return
             logger.info(f"Re-reading '{book.title or book.filename}' from disk…")
             try:
@@ -350,7 +350,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     metadata_mode ("new"|"missing"|"replace") controls sidecar metadata re-application.
     """
     if _get_status()["running"]:
-        logger.info("A library scan is already running — ignoring this request.")
+        logger.info("A library scan is already running - ignoring this request.")
         return
 
     clear_stop()
@@ -393,7 +393,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             )
             _errors = stats.get("errors", 0)
             _msg = (
-                f"Scan finished — found {new_total} new item(s)"
+                f"Scan finished - found {new_total} new item(s)"
                 f", updated {stats.get('updated_books', 0)} book(s)"
             )
             if _errors:
@@ -424,7 +424,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             )
 
             if is_stop_requested():
-                logger.info("Stopped after scanning files — skipping the rest.")
+                logger.info("Stopped after scanning files - skipping the rest.")
                 return
 
             # --- Phase 2: PDF indexing ---
@@ -434,23 +434,23 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             indexed_count = 0
             for book in to_index:
                 if is_stop_requested():
-                    logger.info("Stopping — leaving the rest for next time.")
+                    logger.info("Stopping - leaving the rest for next time.")
                     break
                 logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
                 try:
                     result = index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
                     if result:
                         indexed_count += 1
-                        logger.debug(f"Index end: '{book.filename}' — success")
+                        logger.debug(f"Index end: '{book.filename}' - success")
                     else:
-                        logger.debug(f"Index end: '{book.filename}' — skipped or no text extracted")
+                        logger.debug(f"Index end: '{book.filename}' - skipped or no text extracted")
                 except Exception as e:
                     logger.error(f"Couldn't read text from '{book.title or book.filename}': {e}")
                     book.index_error = str(e)[:500]
                     book.index_failed = True
                     db.commit()
                 _set_status({"indexed": _get_status()["indexed"] + 1})
-            logger.info(f"Finished — {indexed_count} of {len(to_index)} book(s) are now searchable.")
+            logger.info(f"Finished - {indexed_count} of {len(to_index)} book(s) are now searchable.")
         finally:
             db.close()
 

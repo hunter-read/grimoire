@@ -138,7 +138,7 @@ def main():
     for rel, pct in passes:
         print(f"✓ {pct:6.2f}%  {rel}")
     for rel, pct, untested in failures:
-        note = " (no coverage — needs tests)" if untested else ""
+        note = " (no coverage - needs tests)" if untested else ""
         print(f"✗ {pct:6.2f}%  {rel}{note}", file=sys.stderr)
 
     if failures:

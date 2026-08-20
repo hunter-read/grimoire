@@ -57,7 +57,7 @@ def _load_or_create_secret_key(data_path: str) -> str:
             existing = fh.read().strip()
         if existing:
             logger.info(
-                "SECRET_KEY not set — using the auto-generated key at %s. "
+                "SECRET_KEY not set - using the auto-generated key at %s. "
                 "Set SECRET_KEY explicitly if you run more than one replica.",
                 key_path,
             )
@@ -86,7 +86,7 @@ def _load_or_create_secret_key(data_path: str) -> str:
         ) from exc
 
     logger.warning(
-        "SECRET_KEY was not set — generated a random key and saved it to %s. "
+        "SECRET_KEY was not set - generated a random key and saved it to %s. "
         "Sessions will survive restarts as long as that file persists. Set "
         "SECRET_KEY explicitly if you run more than one replica.",
         key_path,
@@ -109,7 +109,7 @@ def resolve_secret_key(env_value: Optional[str], data_path: str) -> str:
     if key in REJECTED_SECRET_KEYS:
         raise InsecureSecretKeyError(
             f"SECRET_KEY is set to {key!r}, a placeholder published in Grimoire's "
-            f"own documentation — anyone could forge admin sessions on this "
+            f"own documentation - anyone could forge admin sessions on this "
             f"instance. Set SECRET_KEY to a private random value "
             f"(generate one with: openssl rand -hex 32), or unset it entirely to "
             f"let Grimoire generate and persist one under DATA_PATH."
@@ -297,7 +297,7 @@ def get_current_user(
         # retrying, so it must stay distinguishable from other 401s.
         raise HTTPException(
             401,
-            "Token expired — please log in again",
+            "Token expired - please log in again",
             headers={"X-Token-Expired": "1"},
         )
     except jwt.InvalidTokenError:

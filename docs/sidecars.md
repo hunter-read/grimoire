@@ -1,7 +1,7 @@
 # Metadata sidecars
 
-Grimoire's curated metadata — hand-edited titles and descriptions, authors,
-tags, scraped add-on results — normally lives only in the app database. Sidecar
+Grimoire's curated metadata - hand-edited titles and descriptions, authors,
+tags, scraped add-on results - normally lives only in the app database. Sidecar
 export writes it back out as files next to the content, so the library folder
 describes itself: copy it to another machine, or rebuild the container with a
 fresh `DATA_PATH`, and the metadata travels with the files.
@@ -15,23 +15,29 @@ This is the write half of a loop Grimoire already had. The scanner has always
 
 ## Formats
 
-Enable any combination — the tools downstream disagree, so more than one may be
+Enable any combination - the tools downstream disagree, so more than one may be
 useful at once.
 
 | Format | File | Read by |
 |--------|------|---------|
-| OPF | `<book>.opf` | Calibre — and Grimoire itself, so it round-trips |
+| OPF | `<book>.opf` | Calibre - and Grimoire itself, so it round-trips |
 | NFO | `<book>.nfo` | Jellyfin, Kodi, Emby |
-| JSON | `<book>.grimoire.json` | Grimoire-native; the only lossless format |
+| JSON | `<book>.grimoire.json` | Grimoire-native; lossless |
+| YAML | `<book>.grimoire.yaml` | Grimoire-native; lossless, and the easiest to read or edit by hand |
+| Cover | `<book>.cover.jpg` | Optional image, see [Covers](#covers) |
 
 OPF and NFO are best-effort mappings: neither has a slot for most of what
-Grimoire tracks, and fields without a home are dropped. **Only the JSON format
-is lossless** — enable it if the point is a metadata backup rather than feeding
-another application.
+Grimoire tracks, and fields without a home are dropped. **Only the two
+Grimoire-native formats are lossless** - enable one of them if the point is a
+metadata backup rather than feeding another application.
+
+JSON and YAML carry exactly the same fields and differ only in syntax, so
+enabling both is redundant unless something downstream wants each. Pick YAML if
+a human will read or edit the file, JSON if a program will parse it.
 
 ## Field mapping
 
-| Grimoire field | OPF | NFO | JSON |
+| Grimoire field | OPF | NFO | JSON / YAML |
 |---|---|---|---|
 | `title` | `dc:title` | `<title>` | ✅ |
 | `description` | `dc:description` | `<plot>` | ✅ |
@@ -55,31 +61,60 @@ importer would then read back as fact.
 
 ## Covers
 
-Optionally writes the book's cached thumbnail beside it as `<book>.jpg`, which
-is what makes the folder render nicely in file managers and other apps.
+Optionally writes the book's cached thumbnail beside it as `<book>.cover.jpg`,
+which is what makes the folder render nicely in file managers and other apps.
+
+The compound `.cover.jpg` is deliberate. It makes an exported cover
+self-identifying, so Grimoire's own file manager can hide it without risking a
+plain `<book>.jpg` that is genuine library content.
 
 The bytes are copied, not transcoded: Grimoire caches thumbnails as WebP, and
 the `.jpg` name is the convention other tools expect. Consumers that sniff
 content handle this; those that trust the extension are why the setting is
-optional. **An existing cover is never replaced** — cover files carry no marker
+optional. **An existing cover is never replaced** - cover files carry no marker
 identifying who wrote them, so Grimoire cannot tell yours from its own.
+
+## In the file manager
+
+Sidecars are metadata *about* your content, not content, so Grimoire's file
+manager (**Settings → Maintenance → File Manager**) hides them. A book that
+exports in four formats plus a cover would otherwise turn one row into six, none
+of which you can usefully act on.
+
+They are still **moved and renamed with the file they describe**. Move a book to
+another folder and its sidecars go with it; rename it and they are re-stemmed to
+match, since the pairing is by filename and would otherwise break the next scan.
+
+Hiding requires the pairing: a sidecar is only hidden when a content file with
+the same stem sits beside it. An orphaned `.opf` whose book you deleted stays
+visible, so nothing disappears from the file manager with no way to reach it.
 
 ## When sidecars are written
 
-Two triggers, with deliberately different behaviour:
+Three triggers, with deliberately different behaviour:
 
-**The backfill** (`POST /api/maintenance/sidecars/export`) **creates**. It walks
-every indexed book and writes the enabled formats, creating files that do not
-exist yet. This is the one-shot run for an existing library.
+**The backfill** (`POST /api/maintenance/sidecars/export`) **fills the gaps**. It
+walks every indexed book and writes only the enabled formats that are *missing*,
+leaving every file already on disk untouched. That makes it additive and safe to
+re-run: it will not rewrite a sidecar you have since edited by hand, and enabling
+a new format later backfills just that one. (`skip_existing=False` forces a full
+rewrite from the database, for when the database is the source of truth.)
+
+**A scan creates them for new books.** When export is enabled, books newly picked
+up by a library scan get their sidecars written automatically, so the library
+stays complete as files arrive rather than only when someone remembers to run the
+backfill. Only *newly indexed* books are considered - a rescan that finds nothing
+new writes nothing - and an existing file is never overwritten.
 
 **Editing metadata refreshes what already exists.** After a book's metadata is
-saved — single edit, bulk edit, or bulk tagging — Grimoire rewrites the sidecars
+saved - single edit, bulk edit, or bulk tagging - Grimoire rewrites the sidecars
 that book *already has*, and creates none. So a `.nfo` that exists stays in step
 with the database automatically, while a library you have never backfilled never
 grows new files because you renamed a book.
 
 Refresh happens after the save is committed, and a sidecar failure never fails
 the edit: your metadata change is saved either way, and the problem is logged.
+The same is true of a scan: a sidecar problem is logged, never fatal to the scan.
 
 ## Never destructive
 
@@ -87,7 +122,7 @@ the edit: your metadata change is saved either way, and the problem is logged.
 generator marker, and a file without one is left alone and counted as
 `skipped_foreign`. A `.opf` you maintain in Calibre is yours.
 
-To take those files over, enable `overwrite_foreign` — an explicit choice, off by
+To take those files over, enable `overwrite_foreign` - an explicit choice, off by
 default. A sidecar Grimoire cannot read is also treated as foreign: being unable
 to prove authorship is not grounds for overwriting.
 
@@ -108,7 +143,7 @@ volumes:
 Sidecar export needs the mount to be read-write. Drop the `:ro` suffix to enable
 it. If you do not, export degrades gracefully rather than crashing: the run
 reports `read_only: true` with an actionable message and stops early instead of
-producing one identical error per book. Metadata edits keep working normally —
+producing one identical error per book. Metadata edits keep working normally -
 only the sidecar refresh is skipped.
 
 ## Interaction with sidecar import
@@ -116,8 +151,8 @@ only the sidecar refresh is skipped.
 Export and import have to agree, or a scan will fight the exporter: export
 writes a file, the next rescan reads it back, and any mismatch causes drift.
 
-Grimoire's OPF exporter is the exact inverse of its OPF importer — every element
-written is one the importer reads — so an export followed by a rescan reproduces
+Grimoire's OPF exporter is the exact inverse of its OPF importer - every element
+written is one the importer reads - so an export followed by a rescan reproduces
 the same values. This is enforced by a round-trip test.
 
 Precedence is set by the **metadata refresh mode** used when scanning:
@@ -125,24 +160,30 @@ Precedence is set by the **metadata refresh mode** used when scanning:
 | Mode | On rescan | Use with export |
 |------|-----------|-----------------|
 | `new` | Sidecars apply only to newly indexed books | Safe |
-| `missing` | Fills only fields the database has empty | **Recommended** — the database wins, so re-import is a no-op |
+| `missing` | Fills only fields the database has empty | **Recommended** - the database wins, so re-import is a no-op |
 | `replace` | Sidecar values overwrite the database | Only if the sidecars are your source of truth |
 
 With `missing`, the database is authoritative and exported sidecars are a
 one-way mirror. With `replace`, edit the sidecars in another tool and let
-Grimoire pick them up — but note the two triggers then compete, and a UI edit
+Grimoire pick them up - but note the two triggers then compete, and a UI edit
 followed by a rescan will lose to whatever the sidecar says.
 
-`.nfo` and `.grimoire.json` are export-only today; the scanner does not read
-them back, so they cannot drift regardless of mode.
+`.nfo`, `.grimoire.json`, and `.grimoire.yaml` are export-only today; the
+scanner does not read them back, so they cannot drift regardless of mode.
 
 ## Settings
 
-Configure via `PUT /api/maintenance/sidecars/settings` (admin only):
+In the app, go to **Settings → Maintenance → Metadata Sidecars**: tick the
+formats you want, save, then use **Export Metadata To Library** for the one-shot
+backfill. The export button stays disabled until at least one format has been
+saved, since the backfill writes what the server has stored rather than what is
+on screen.
+
+Or configure via `PUT /api/maintenance/sidecars/settings` (admin only):
 
 ```json
 {
-  "formats": ["opf", "json"],
+  "formats": ["opf", "yaml"],
   "covers": true,
   "overwrite_foreign": false
 }

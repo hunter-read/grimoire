@@ -414,7 +414,7 @@ books/
 
 To pull a system to the top of an alphabetically-sorted file browser, you can
 prefix its folder name with `!`, `$`, or `%`. Grimoire strips a leading run of
-those characters when deriving the system name (only the leading run — internal
+those characters when deriving the system name (only the leading run - internal
 occurrences are kept):
 
 ```
@@ -531,7 +531,7 @@ display name the first time it's seen.
 ```
 
 `tags.json` is **additive and read-only**: on every rescan it only *adds* the
-tags it lists — it never removes tags you set (or removed) in the web UI, and it
+tags it lists - it never removes tags you set (or removed) in the web UI, and it
 never overwrites a tag's display name once the tag exists. A new tag is created
 using the casing in the file; renaming a tag later in the web UI sticks, because
 the display name lives in the app's tag catalog rather than in `tags.json` (which
@@ -542,7 +542,7 @@ case-insensitively, so `"dungeon"` and `"Dungeon"` are the same tag.
 
 ## Ignoring Files with .grimoireignore
 
-Add a `.grimoireignore` file to keep files on disk but out of Grimoire. It uses the same syntax as `.gitignore` / `.dockerignore`, so anything matched by a rule is skipped during scanning and never appears in the UI — useful when a book ships extra print variants (black-and-white single pages, zine-sized layouts) you want kept next to the book but hidden.
+Add a `.grimoireignore` file to keep files on disk but out of Grimoire. It uses the same syntax as `.gitignore` / `.dockerignore`, so anything matched by a rule is skipped during scanning and never appears in the UI - useful when a book ships extra print variants (black-and-white single pages, zine-sized layouts) you want kept next to the book but hidden.
 
 Place it at your **library root** to apply everywhere, or in any subfolder to add rules for just that subtree. Rules are cumulative and nested, like git.
 
@@ -601,7 +601,7 @@ After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Ma
 | `OCR_DPI` | `150` | Optional. Resolution scanned pages are rasterized at before OCR (clamped 72–600). Higher = more accurate but slower and more memory per page. See [OCR performance](#ocr-performance--resource-tuning). |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
-| `TZ` | `UTC` | Optional. Timezone for all log timestamps — both console/Docker output and the in-app Logs tab. Use an IANA zone name such as `America/Toronto` or `Europe/Berlin`. Defaults to UTC when unset; an unknown zone name logs a warning and uses UTC. |
+| `TZ` | `UTC` | Optional. Timezone for all log timestamps - both console/Docker output and the in-app Logs tab. Use an IANA zone name such as `America/Toronto` or `Europe/Berlin`. Defaults to UTC when unset; an unknown zone name logs a warning and uses UTC. |
 | `ALLOW_PASSWORD_AUTHENTICATION` | - | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
 | `GUEST_ACCESS_ENABLED` | - | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
 | `DISABLE_FOLDER_CATEGORY_INFERENCE` | - | Optional, `true` or `false`. When set, pins folder-name category inference on or off and overrides the toggle in Settings → Maintenance (shown read-only). When `true`, books are not auto-assigned a category from their folder names and fall back to `uncategorized`. A per-system `.no-auto-category` marker file disables inference for just that system. |

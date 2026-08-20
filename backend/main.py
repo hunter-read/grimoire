@@ -62,39 +62,39 @@ JWT passed as `Authorization: Bearer <token>`, or as a `?token=` query
 parameter (required for browser-embedded images and file downloads).
 
 Roles:
-- **admin** — full access including user management
-- **gm** — can edit metadata, rescan, and manage maps/books
-- **player** — read-only access
+- **admin** - full access including user management
+- **gm** - can edit metadata, rescan, and manage maps/books
+- **player** - read-only access
 """
 
 _TAGS = [
     {
         "name": "auth",
-        "description": "Authentication — first-run setup, login, and token validation.",
+        "description": "Authentication - first-run setup, login, and token validation.",
     },
     {"name": "users", "description": "User management. **Admin only.**"},
     {"name": "library", "description": "Library-wide statistics and rescanning."},
     {
         "name": "systems",
-        "description": "Game system catalog — browse and edit game system metadata.",
+        "description": "Game system catalog - browse and edit game system metadata.",
     },
     {
         "name": "books",
-        "description": "Book catalog — browse, read, download, and edit book metadata.",
+        "description": "Book catalog - browse, read, download, and edit book metadata.",
     },
-    {"name": "maps", "description": "Map gallery — browse, tag, and download battle maps."},
-    {"name": "audio", "description": "Audio library — browse, tag, stream, and download tracks."},
+    {"name": "maps", "description": "Map gallery - browse, tag, and download battle maps."},
+    {"name": "audio", "description": "Audio library - browse, tag, stream, and download tracks."},
     {"name": "search", "description": "Full-text search across all indexed book pages."},
     {
         "name": "campaigns",
-        "description": "Campaign management — sessions, members, resources, and scheduling.",
+        "description": "Campaign management - sessions, members, resources, and scheduling.",
     },
     {"name": "settings", "description": "Application settings. **Admin only.**"},
     {"name": "maintenance", "description": "Admin housekeeping tasks."},
     {
         "name": "files",
         "description": (
-            "Structural file management — move, rename, and create library "
+            "Structural file management - move, rename, and create library "
             "folders while preserving item metadata. **Admin only.**"
         ),
     },

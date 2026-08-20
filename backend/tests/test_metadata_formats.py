@@ -3,6 +3,7 @@ import json
 from xml.etree import ElementTree
 
 import pytest
+import yaml
 
 from backend.indexer.metadata import parse_opf_metadata
 from backend.metadata.formats import (
@@ -12,6 +13,7 @@ from backend.metadata.formats import (
     render_json,
     render_nfo,
     render_opf,
+    render_yaml,
     sidecar_path,
 )
 
@@ -43,6 +45,7 @@ class TestSidecarPath:
             ("opf", "/lib/books/phb.opf"),
             ("nfo", "/lib/books/phb.nfo"),
             ("json", "/lib/books/phb.grimoire.json"),
+            ("yaml", "/lib/books/phb.grimoire.yaml"),
         ],
     )
     def test_path_sits_next_to_the_content(self, fmt, expected):
@@ -130,7 +133,7 @@ class TestNfo:
 
 class TestJson:
     def test_is_lossless(self):
-        """The other two formats drop fields; this one is why nothing is lost."""
+        """OPF and NFO drop fields; this one is why nothing is lost."""
         payload = json.loads(render_json(FIELDS))
         for key, value in FIELDS.items():
             assert payload[key] == value
@@ -141,6 +144,38 @@ class TestJson:
 
     def test_non_ascii_is_written_literally(self):
         assert "Æthelred" in render_json({"title": "Æthelred"})
+
+
+class TestYaml:
+    def test_is_lossless(self):
+        payload = yaml.safe_load(render_yaml(FIELDS))
+        for key, value in FIELDS.items():
+            assert payload[key] == value
+
+    def test_carries_exactly_what_json_carries(self):
+        """The two lossless formats must not drift into describing a book differently."""
+        assert yaml.safe_load(render_yaml(FIELDS)) == json.loads(render_json(FIELDS))
+
+    def test_is_byte_stable_across_renders(self):
+        assert render_yaml(FIELDS) == render_yaml(dict(reversed(list(FIELDS.items()))))
+
+    def test_non_ascii_is_written_literally(self):
+        """allow_unicode, so an accented title stays readable instead of escaping."""
+        assert "Æthelred" in render_yaml({"title": "Æthelred"})
+
+    def test_a_description_with_yaml_punctuation_round_trips(self):
+        """Colons and newlines are what would break a naive hand-rolled emitter."""
+        text = "Chapter 1: Intro\nCosts: $50 - a lot"
+        assert yaml.safe_load(render_yaml({"title": "T", "description": text}))[
+            "description"
+        ] == text
+
+    def test_lists_stay_block_style(self):
+        """One item per line is the whole point of choosing YAML over JSON."""
+        assert "- Jeremy Crawford\n" in render_yaml(FIELDS)
+
+    def test_leads_with_a_human_readable_marker_comment(self):
+        assert render_yaml(FIELDS).startswith("# Grimoire metadata sidecar v1\n")
 
 
 class TestDatePrecision:

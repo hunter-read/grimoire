@@ -129,7 +129,7 @@ def get_stats(
     summary="Build information",
     description=(
         "Returns the app version, commit hash, and Python version for the About "
-        "dialog. Login required — deliberately not exposed on the API-key-gated "
+        "dialog. Login required - deliberately not exposed on the API-key-gated "
         "/stats endpoint so build details aren't leaked to external integrations."
     ),
     response_model=AboutResponse,

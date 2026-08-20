@@ -31,14 +31,9 @@ from ..indexer.categories import slugify
 from ..models import Book
 from . import settings as export_settings
 from .fields import book_fields
-from .formats import is_grimoire_generated, render, sidecar_path
+from .formats import COVER_SUFFIX, is_grimoire_generated, render, sidecar_path
 
 logger = logging.getLogger("grimoire.metadata")
-
-# Covers are written beside the content, named from its stem, so a file manager
-# shows them paired. Jellyfin also accepts a folder-level ``thumb.jpg``, but a
-# per-book name is the only one that works when a folder holds several books.
-_COVER_SUFFIX = ".jpg"
 
 
 @dataclass
@@ -126,12 +121,15 @@ def _write_cover(book: Book, result: ExportResult, *, overwrite_foreign: bool) -
     expect, and the bytes are copied rather than transcoded — re-encoding would
     need a decoder here purely to satisfy an extension. Consumers that sniff
     content handle it; those that trust the extension are why this is optional.
+
+    The name is ``<stem>.cover.jpg``, which is what lets the file manager tell an
+    exported cover from a JPG that is itself library content.
     """
     source = _thumbnail_source(book)
     if not source:
         return None
     stem, _ = os.path.splitext(book.filepath)
-    dest = stem + _COVER_SUFFIX
+    dest = stem + COVER_SUFFIX
     if os.path.exists(dest) and not overwrite_foreign:
         # A cover we did not write carries no marker to check, so an existing
         # one is always left alone unless the operator opted into overwriting.
@@ -169,11 +167,17 @@ def export_book(
     covers: bool = False,
     overwrite_foreign: bool = False,
     only_existing: bool = False,
+    skip_existing: bool = False,
 ) -> ExportResult:
     """Write one book's sidecars.
 
     ``only_existing`` is the refresh posture: update the sidecars this book
     already has and create none. See :func:`refresh_existing`.
+
+    ``skip_existing`` is its mirror: create the ones that are missing and leave
+    every existing file untouched. That is what the backfill wants - a second
+    run should fill the gaps, not rewrite files whose content it would not
+    change - and what a newly scanned book wants.
     """
     result = ExportResult()
     if not formats:
@@ -190,7 +194,7 @@ def export_book(
         cover_name = _write_cover(book, result, overwrite_foreign=overwrite_foreign)
     elif covers:
         stem, _ = os.path.splitext(book.filepath)
-        existing_cover = stem + _COVER_SUFFIX
+        existing_cover = stem + COVER_SUFFIX
         if os.path.isfile(existing_cover):
             cover_name = _write_cover(book, result, overwrite_foreign=True)
 
@@ -198,14 +202,21 @@ def export_book(
 
     for fmt in formats:
         path = sidecar_path(book.filepath, fmt)
-        if only_existing and not os.path.exists(path):
+        exists = os.path.exists(path)
+        if only_existing and not exists:
             continue
+        # The foreign check runs before ``skip_existing`` deliberately. Both end
+        # in "leave the file alone", but a file we did not write is worth
+        # *reporting* — that is how the user learns their hand-maintained .opf
+        # was respected rather than silently ignored.
         ok, reason = _may_write(path, overwrite_foreign=overwrite_foreign)
         if not ok:
             result.skipped_foreign += 1
             message = f"{os.path.basename(path)}: {reason}"
             if message not in result.errors and len(result.errors) < 20:
                 result.errors.append(message)
+            continue
+        if skip_existing and exists:
             continue
         try:
             _atomic_write(path, render(fields, fmt))
@@ -253,6 +264,33 @@ def refresh_existing_safe(db: Session, book: Book) -> None:
         logger.exception("Sidecar refresh failed for book %s", getattr(book, "id", "?"))
 
 
+def export_new_book(db: Session, book: Book) -> None:
+    """Create the sidecars for a freshly indexed book, if export is enabled.
+
+    Called by the scanner once a new book is committed, so a library that has
+    export turned on stays complete as files arrive rather than only at the next
+    manual backfill.
+
+    Creates what is missing and never touches an existing file: a book being new
+    to *Grimoire* does not mean the folder is new, and a ``.opf`` already sitting
+    there is the user's. Like every other sidecar write, a failure here is logged
+    rather than raised — a scan must not die over a metadata file.
+    """
+    try:
+        formats = export_settings.enabled_formats(db)
+        if not formats:
+            return
+        export_book(
+            db,
+            book,
+            formats,
+            covers=export_settings.covers_enabled(db),
+            skip_existing=True,
+        )
+    except Exception:  # noqa: BLE001 - a sidecar must never fail the scan
+        logger.exception("Sidecar export failed for new book %s", getattr(book, "id", "?"))
+
+
 def export_library(
     db: Session,
     formats: Optional[list[str]] = None,
@@ -260,8 +298,15 @@ def export_library(
     covers: Optional[bool] = None,
     overwrite_foreign: Optional[bool] = None,
     progress: Optional[object] = None,
+    skip_existing: bool = True,
 ) -> ExportResult:
-    """Backfill sidecars for every indexed book.
+    """Backfill the sidecars that are **missing**, for every indexed book.
+
+    ``skip_existing`` defaults on, which makes the backfill additive: it fills
+    gaps and leaves every file already on disk alone. Re-running it after adding
+    books is therefore cheap and safe, and cannot disturb a sidecar a user has
+    since edited. Pass ``skip_existing=False`` to force a full rewrite from the
+    database.
 
     Committed per batch rather than at the end: a run over a large library that
     dies partway should leave the sidecars it already wrote, and those are files
@@ -287,6 +332,7 @@ def export_library(
                 formats,
                 covers=covers,
                 overwrite_foreign=overwrite_foreign,
+                skip_existing=skip_existing,
             )
         )
         if total.read_only:

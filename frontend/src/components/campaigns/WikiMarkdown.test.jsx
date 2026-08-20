@@ -126,7 +126,7 @@ describe('WikiMarkdown', () => {
     renderMd({ body: 'The duke is ||a doppelganger|| in disguise.' })
     const secret = screen.getByText('a doppelganger')
     expect(secret.tagName).toBe('SPAN')
-    expect(secret.getAttribute('title')).toBe('GM only — hidden from players')
+    expect(secret.getAttribute('title')).toBe('GM only - hidden from players')
     // The pipe markers themselves are not rendered.
     expect(screen.queryByText(/\|\|/)).toBeNull()
   })

@@ -461,7 +461,7 @@ class TestCampaignFeed:
         )
         tok = token_of(client, gm_headers)
         body = client.get(f"/api/campaigns/calendar/{tok}/{cid}.ics").text.replace("\r\n ", "")
-        assert "— Tentative" in body
+        assert "- Tentative" in body
         assert "Your availability: Tentative" in body
 
     def test_rescheduling_updates_the_event_under_the_same_uid(
@@ -565,7 +565,7 @@ class TestAggregateFeed:
         body = client.get(f"/api/campaigns/calendar/{tok}/all.ics").text.replace("\r\n ", "")
         assert scheduled_campaign["name"] in body
         assert second["name"] in body
-        assert "X-WR-CALNAME:Grimoire — My Campaigns" in body
+        assert "X-WR-CALNAME:Grimoire - My Campaigns" in body
 
     def test_accepted_member_sees_the_gms_campaign(
         self, client, gm_headers, player_headers, player_id, scheduled_campaign

@@ -309,7 +309,7 @@
     "title": "Gestor de archivos",
     "sectionDescription": "Move, rename, and organise the files in your library without leaving Grimoire. Moves keep each item's tags, favorites, reading progress, and campaign links intact.",
     "open": "Abrir el gestor de archivos",
-    "description": "Drag files and folders between the two panes to reorganise your library. Indexed items keep their metadata when moved — tags, favorites, progress, and campaign links all follow the file. Changes apply to disk immediately.",
+    "description": "Drag files and folders between the two panes to reorganise your library. Indexed items keep their metadata when moved - tags, favorites, progress, and campaign links all follow the file. Changes apply to disk immediately.",
     "backToSettings": "Volver a los ajustes",
     "libraryRoot": "Biblioteca",
     "up": "Subir",
@@ -387,7 +387,7 @@
     "metadataUnsupported": "Ese elemento no tiene metadatos editables",
     "uploadFiles": "Subir archivos…",
     "uploadFolder": "Subir una carpeta…",
-    "uploadingCount": "Subiendo — {{done}} de {{total}}",
+    "uploadingCount": "Subiendo - {{done}} de {{total}}",
     "uploadFinished": "{{done}} de {{total}} subidos",
     "uploadFailedCount": "{{count}} con error",
     "retry": "Reintentar",
@@ -779,7 +779,7 @@
       "scanningPercent": "Escaneando… {{pct}}%",
       "indexing": "Indexando PDF… {{indexed}} / {{total}}",
       "ocr": "OCR… {{done}} / {{total}}",
-      "ocrProgress": "{{pct}}% — {{done}} de {{total}} libros escaneados procesados con OCR",
+      "ocrProgress": "{{pct}}% - {{done}} de {{total}} libros escaneados procesados con OCR",
       "ocrCurrent": "Actual: {{name}}",
       "stop": "Detener",
       "stopping": "Deteniendo…",
@@ -800,7 +800,7 @@
       "mapsProgress": "{{scanned}}/{{total}} mapas",
       "tokensProgress": "{{scanned}}/{{total}} fichas",
       "audioProgress": "{{scanned}}/{{total}} audio",
-      "indexProgress": "{{pct}}% — {{indexed}} de {{total}} PDF indexados",
+      "indexProgress": "{{pct}}% - {{indexed}} de {{total}} PDF indexados",
       "updated_one": "{{count}} actualizado",
       "updated_other": "{{count}} actualizados"
     },
@@ -860,6 +860,48 @@
       "tokens_one": "{{count}} ficha",
       "tokens_other": "{{count}} fichas",
       "failed": "Error en la limpieza. Revisa los registros del servidor."
+    },
+    "sidecars": {
+      "title": "Archivos de metadatos",
+      "description": "Escribe los metadatos de Grimoire en tu carpeta de biblioteca, como archivos junto a cada libro, para que viajen con tus archivos y otras aplicaciones puedan leerlos. Desactivado hasta que elijas un formato abajo. Editar un libro después actualiza los archivos que ya existen. Se crean archivos nuevos para los libros recién analizados y con la exportación de abajo.",
+      "formats": {
+        "opf": {
+          "label": "OPF (.opf)",
+          "hint": "Lo lee Calibre, y también Grimoire, así que se conserva al reanalizar."
+        },
+        "nfo": {
+          "label": "NFO (.nfo)",
+          "hint": "Lo leen Jellyfin, Kodi y Emby."
+        },
+        "json": {
+          "label": "JSON de Grimoire (.grimoire.json)",
+          "hint": "Copia completa de todos los campos. Sin pérdidas."
+        },
+        "yaml": {
+          "label": "YAML de Grimoire (.grimoire.yaml)",
+          "hint": "La misma copia completa que JSON, en un formato más fácil de leer y editar a mano."
+        }
+      },
+      "covers": "Escribir también la portada junto a cada libro",
+      "overwriteForeign": "Reemplazar archivos que no escribió Grimoire",
+      "overwriteForeignHint": "Déjalo desactivado para proteger los archivos que mantienes tú, como un .opf editado en Calibre. Se informan como omitidos.",
+      "save": "Guardar ajustes",
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "export": "Exportar metadatos a la biblioteca",
+      "exporting": "Exportando…",
+      "enableFirst": "Elige y guarda al menos un formato primero.",
+      "written_one": "Se escribió {{count}} archivo.",
+      "written_other": "Se escribieron {{count}} archivos.",
+      "coversWritten_one": "{{count}} portada",
+      "coversWritten_other": "{{count}} portadas",
+      "skippedForeign_one": "{{count}} omitido (no lo escribió Grimoire)",
+      "skippedForeign_other": "{{count}} omitidos (no los escribió Grimoire)",
+      "failed_one": "{{count}} fallido",
+      "failed_other": "{{count}} fallidos",
+      "loadFailed": "No se pudieron cargar los ajustes.",
+      "saveFailed": "No se pudieron guardar los ajustes.",
+      "exportFailed": "La exportación falló. Consulta los registros del servidor."
     }
   },
   "logs": {
@@ -994,7 +1036,7 @@
     "stepIndicator": "Paso {{current}} de {{total}}",
     "resources": {
       "title": "Recursos",
-      "intro": "Los recursos son opcionales. Explora tu biblioteca por carpetas y marca lo que quieras incluir — los libros básicos se preseleccionan para el sistema elegido.",
+      "intro": "Los recursos son opcionales. Explora tu biblioteca por carpetas y marca lo que quieras incluir - los libros básicos se preseleccionan para el sistema elegido.",
       "selected": "Seleccionados",
       "selectedCount": "Seleccionados ({{count}})",
       "ungrouped": "Otros",
@@ -1067,7 +1109,7 @@
     "createSession": "Nueva sesión",
     "dateLabel": "Fecha *",
     "titleLabel": "Título (opcional)",
-    "titlePlaceholder": "Sesión 1 — El comienzo",
+    "titlePlaceholder": "Sesión 1 - El comienzo",
     "cancel": "Cancelar",
     "create": "Crear",
     "noSessions": "Aún no hay sesiones. Crea la primera arriba.",
@@ -1141,7 +1183,7 @@
       "sunday": "Domingo"
     },
     "availability": {
-      "title": "Próximas sesiones — Disponibilidad",
+      "title": "Próximas sesiones - Disponibilidad",
       "player": "Jugador",
       "cancelled": "CANCELADA",
       "cancelSession": "Cancelar sesión",
@@ -1170,7 +1212,7 @@
     "campaignFeed": "Esta campaña",
     "allFeed": "Todas mis campañas",
     "baseUrlRequired": "Los enlaces de suscripción requieren que BASE_URL apunte a la dirección pública de este servidor. Consulta a tu administrador.",
-    "privateUrlWarning": "Este enlace es personal — da acceso a tus horarios. No lo compartas; regenéralo si se filtra.",
+    "privateUrlWarning": "Este enlace es personal - da acceso a tus horarios. No lo compartas; regenéralo si se filtra.",
     "rsvpNote": "Los calendarios suscritos son de solo lectura, así que las respuestas desde tu aplicación no llegarán a Grimoire. Cada evento enlaza aquí para fijar tu disponibilidad."
   },
   "resources": {
@@ -1464,7 +1506,7 @@
     "embed_map": "Mapa",
     "embed_token": "Ficha",
     "embed_audio": "Audio",
-    "embedBookPage": "{{title}} — p. {{page}}",
+    "embedBookPage": "{{title}} - p. {{page}}",
     "parentLabel": "Página principal",
     "noParent": "Nivel superior",
     "addSubpage": "Añadir subpágina",
@@ -1975,7 +2017,7 @@
   },
   "appearance": {
     "title": "Appearance",
-    "description": "Choose how Grimoire looks. This applies to your account only — it does not change what anyone else sees.",
+    "description": "Choose how Grimoire looks. This applies to your account only - it does not change what anyone else sees.",
     "mode": "Colour mode",
     "modes": {
       "light": "Light",

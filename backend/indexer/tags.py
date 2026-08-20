@@ -39,7 +39,7 @@ def _load_tags_json(folder_path: str) -> dict:
     try:
         raw = json.loads(tags_file.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
-            logger.warning(f"tags.json at {folder_path} must be a JSON object — skipped")
+            logger.warning(f"tags.json at {folder_path} must be a JSON object - skipped")
             return {}
         result = {}
         for key, val in raw.items():

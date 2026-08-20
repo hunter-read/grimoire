@@ -11,13 +11,18 @@ vi.mock('../../api', () => ({
     get: vi.fn(),
     patch: vi.fn(),
   },
+  sidecars: {
+    get: vi.fn(),
+    save: vi.fn(),
+    export: vi.fn(),
+  },
   mediaUrl: vi.fn((path, params = {}) => {
     const qs = new URLSearchParams({ ...params, token: 'test-token' }).toString()
     return `/api${path}?${qs}`
   }),
 }))
 
-import api, { settings as settingsApi, mediaUrl } from '../../api'
+import api, { settings as settingsApi, sidecars as sidecarsApi, mediaUrl } from '../../api'
 
 const idleStatus = {
   running: false,
@@ -60,6 +65,9 @@ beforeEach(() => {
   vi.resetAllMocks()
   api.get.mockResolvedValue(idleStatus)
   api.post.mockResolvedValue({})
+  // Sidecar export is off by default; the section only needs to mount quietly
+  // here, it has its own test file.
+  sidecarsApi.get.mockResolvedValue({ formats: [], covers: false, overwrite_foreign: false })
   settingsApi.get.mockResolvedValue({
     rescan_schedule_enabled: false,
     rescan_schedule_interval: 'daily',

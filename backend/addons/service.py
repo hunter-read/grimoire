@@ -125,7 +125,7 @@ def _detail_record(manifest: AddonManifest, identity: str) -> dict:
         # not a broken source, so it reads as "no such item" rather than a 502.
         if "HTTP 404" in str(exc) or "HTTP 400" in str(exc):
             raise AddonError(
-                "the source has no item with that ID — check the link and try again"
+                "the source has no item with that ID - check the link and try again"
             ) from exc
         raise
     node = document

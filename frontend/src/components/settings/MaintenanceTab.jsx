@@ -3,6 +3,7 @@ import RescanSection from './RescanSection'
 import ScheduledRescanSection from './ScheduledRescanSection'
 import FolderCategorySection from './FolderCategorySection'
 import ExportTagsSection from './ExportTagsSection'
+import SidecarExportSection from './SidecarExportSection'
 import DatabaseCleanupSection from './DatabaseCleanupSection'
 
 export default function MaintenanceTab() {
@@ -17,6 +18,8 @@ export default function MaintenanceTab() {
       <FolderCategorySection />
       <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
       <ExportTagsSection />
+      <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
+      <SidecarExportSection />
       <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
       <DatabaseCleanupSection />
     </div>

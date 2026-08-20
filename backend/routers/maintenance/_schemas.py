@@ -21,7 +21,7 @@ class SidecarSettings(BaseModel):
 
     formats: list[str] = Field(
         default_factory=list,
-        description="Enabled sidecar formats: opf, nfo, json. Empty disables export.",
+        description="Enabled sidecar formats: opf, nfo, json, yaml. Empty disables export.",
     )
     covers: bool = Field(
         default=False, description="Write the cover image next to the metadata file."

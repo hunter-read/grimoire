@@ -22,7 +22,7 @@ app never flashes the wrong colours while it loads.
 
 | Button | What it does |
 | --- | --- |
-| **Browse community themes** | The catalogue from the community repository — install a copy into your account |
+| **Browse community themes** | The catalogue from the community repository - install a copy into your account |
 | **Import a theme** | Paste a theme's JSON to install it directly |
 
 A theme may cover one colour mode or both. One that ships a light **and** a dark
@@ -39,7 +39,7 @@ pure-white palette in one theme: every text-on-background pairing sits at WCAG
 AAA (7:1) either way, and it follows System. It is a good starting point if the
 default palette is hard to read.
 
-It raises **luminance contrast only**. It does not address colourblindness —
+It raises **luminance contrast only**. It does not address colourblindness -
 distinguishing states without relying on hue needs icons and labels in the
 interface itself, which no change of colour can provide.
 
@@ -56,7 +56,7 @@ is a built-in theme, so it can be selected from the theme list without being
 installed.
 
 A theme may declare the app mode it was designed for. That is a preference the
-picker sorts by, not a restriction — the same theme can be used in either, which
+picker sorts by, not a restriction - the same theme can be used in either, which
 is the point: one High Contrast theme serves both.
 
 ## Writing one
@@ -102,7 +102,7 @@ works with **System**:
 ```
 
 `variants` replaces `tokens` when present, and `mode` then names the primary
-one. A theme covering a single mode is still perfectly valid — it simply applies
+one. A theme covering a single mode is still perfectly valid - it simply applies
 in both.
 
 ### Tokens
@@ -136,7 +136,7 @@ A token value must be a plain colour: hex, `rgb()`/`rgba()`, `hsl()`/`hsla()`, o
 
 Anything else is dropped, as is any token name not in the list above. These
 values are written straight into the page's styles, so the allowlist and the
-colour grammar are a security boundary, not a formatting preference — a value
+colour grammar are a security boundary, not a formatting preference - a value
 like `red; background: url(https://example.com/)` is rejected rather than
 sanitised. A theme that sets nothing recognisable is refused outright instead of
 installing as a silent no-op.
@@ -160,7 +160,7 @@ somewhere else.
 ## Turning downloads off
 
 `DISABLE_EXTERNAL_ADD_ON_INSTALL=true` stops Grimoire fetching anything from a
-community repository — themes, note templates, and add-ons alike. **Browse
+community repository - themes, note templates, and add-ons alike. **Browse
 community themes** disappears and the catalogue endpoints refuse.
 
 **Import a theme** keeps working, because pasting one touches no network. On an

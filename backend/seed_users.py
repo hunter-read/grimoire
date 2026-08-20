@@ -26,16 +26,16 @@ def seed_users(db: Session, data_path: str) -> None:
     if not src.exists():
         return
 
-    log.info("Found users.json — starting user seed")
+    log.info("Found users.json - starting user seed")
 
     try:
         raw = json.loads(src.read_text(encoding="utf-8"))
     except Exception as exc:
-        log.error(f"users.json could not be parsed: {exc} — skipping seed")
+        log.error(f"users.json could not be parsed: {exc} - skipping seed")
         return
 
     if not isinstance(raw, list) or len(raw) == 0:
-        log.error("users.json must be a non-empty JSON array — skipping seed")
+        log.error("users.json must be a non-empty JSON array - skipping seed")
         return
 
     entries = []
@@ -45,7 +45,7 @@ def seed_users(db: Session, data_path: str) -> None:
 
     if not any(e["_role"] == "admin" for e in entries):
         log.error(
-            "users.json contains no admin entry — "
+            "users.json contains no admin entry - "
             "at least one user must have role 'admin'. Skipping seed."
         )
         return
@@ -63,7 +63,7 @@ def seed_users(db: Session, data_path: str) -> None:
             continue
 
         if db.query(User).filter_by(username=username).first():
-            log.info(f"User '{username}' already exists — skipping")
+            log.info(f"User '{username}' already exists - skipping")
             skipped += 1
             continue
 
@@ -82,7 +82,7 @@ def seed_users(db: Session, data_path: str) -> None:
         created += 1
 
     db.commit()
-    log.info(f"Seed complete — {created} created, {skipped} skipped")
+    log.info(f"Seed complete - {created} created, {skipped} skipped")
 
     dest = src.parent / "users.json.imported"
     src.rename(dest)

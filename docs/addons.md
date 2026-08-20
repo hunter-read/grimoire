@@ -11,7 +11,7 @@ be fixed by a community PR, not a Grimoire release.
 ## Using them
 
 **Settings → Add-ons** (admin only). Add-ons are grouped by what they do, under
-collapsible category headings — everything today is a **Metadata scraper**, and
+collapsible category headings - everything today is a **Metadata scraper**, and
 future kinds (VTT integrations, character sheet builders) get their own heading
 alongside it.
 
@@ -20,7 +20,7 @@ alongside it.
 2. **Install** the add-ons you want. They land in `DATA_PATH/add-ons/<id>/`.
 3. Open a game system or a book → **Edit** → **Fetch metadata**.
 
-Each add-on declares a `target` — `game-system` or `book` — and only appears in
+Each add-on declares a `target` - `game-system` or `book` - and only appears in
 the editor for that kind of thing.
 
 Pick a source, confirm the match, then review a per-field diff and tick what you
@@ -33,17 +33,17 @@ fetching adds the source's own page to whatever links you already had instead of
 clearing them.
 
 **Already know which one?** Where a source supports it, the dialog offers
-*"Know the exact one? Paste a link or ID"* — paste the item's page URL from the
+*"Know the exact one? Paste a link or ID"* - paste the item's page URL from the
 source (or just its ID) and it goes straight to the review step, no searching.
 That is the quickest route for a big catalogue like DriveThruRPG, where a title
 search returns many near-misses.
 
 To run a private or in-development add-on, drop its directory into
-`DATA_PATH/add-ons/<id>/` and restart — no index required.
+`DATA_PATH/add-ons/<id>/` and restart - no index required.
 
 ## Keeping them current
 
-Definitions are expected to change — that is the point of keeping them outside
+Definitions are expected to change - that is the point of keeping them outside
 Grimoire. When a source alters its layout, the fix ships as a new version of the
 add-on, and installed copies need to pick it up.
 
@@ -54,13 +54,13 @@ path as installing, so the checksum is still enforced.
 
 Two deliberate behaviours:
 
-- **Versions compare as semver**, not as strings — `1.10.0` is newer than
+- **Versions compare as semver**, not as strings - `1.10.0` is newer than
   `1.9.0`, and republishing an older version is never offered as an update.
 - **A changed script drops back to unapproved.** Consent was given to specific
   code; if the code changed, Grimoire asks again before running it. `Update all`
   is no exception.
 
-An add-on you placed by hand has no index entry, so it never reports an update —
+An add-on you placed by hand has no index entry, so it never reports an update -
 update it the way you installed it.
 
 ## Included sources
@@ -73,12 +73,12 @@ update it the way you installed it.
 **A note on DriveThruRPG:** its web storefront is behind a Cloudflare bot
 challenge, so the scraper does not touch it. It uses the OneBookShelf JSON API
 at `api.drivethrurpg.com`, which is unauthenticated and publishes an OpenAPI
-spec — more reliable than HTML scraping and lighter on their servers. The links
+spec - more reliable than HTML scraping and lighter on their servers. The links
 it writes carry no affiliate code.
 
 ## Add-ons that run code
 
-Most add-ons are declarative YAML — Grimoire interprets them itself and no
+Most add-ons are declarative YAML - Grimoire interprets them itself and no
 third-party code ever executes. Some sources need more, so an add-on may ship a
 Python script.
 
@@ -89,13 +89,13 @@ Grimoire will not run one unless **both** are true:
    script and its SHA-256.
 
 When one does run, it executes in a short-lived **subprocess** with a timeout,
-no database handle, and no access to Grimoire internals — so a crash, hang, or
+no database handle, and no access to Grimoire internals - so a crash, hang, or
 memory blow-up takes down only that subprocess. Approval is bound to the script's
 digest, so an update that changes the script requires fresh consent.
 
 This is process isolation, not a sandbox: a script can still reach the network
 and read what the server user can read. Treat installing one as running a
-program someone sent you. That is exactly why add-ons live in a public repo —
+program someone sent you. That is exactly why add-ons live in a public repo -
 the code is there to be read before you trust it.
 
 Downloads are checked against the SHA-256 in the index and refused on mismatch.
@@ -116,7 +116,7 @@ and point the index URL at `http://localhost:8000/index.json`.
 
 | Module | Role |
 | --- | --- |
-| `manifest.py` | Pydantic models — the Python twin of the repo's JSON Schema |
+| `manifest.py` | Pydantic models - the Python twin of the repo's JSON Schema |
 | `registry.py` | Discovery, loading, install state, enable/approval checks |
 | `install.py` | Index refresh, download + integrity verification, install/remove |
 | `fetch.py` | HTTP with shared limits and an on-disk response cache |
@@ -130,15 +130,15 @@ A manifest declares a source URL, how to find records in the response, how to
 rank them against a query, and how to map source fields onto Grimoire's. The
 interpreter is deliberately **not** an expression language: a definition can only
 name transforms that already exist, and can only write to a per-target allowlist
-of fields — a book scraper may set `isbn`, a system scraper may not. There is no
+of fields - a book scraper may set `isbn`, a system scraper may not. There is no
 `eval` anywhere in the YAML path.
 
 Two source shapes are supported:
 
-- **Catalogue** — one URL serving every record, fetched once and cached for the
+- **Catalogue** - one URL serving every record, fetched once and cached for the
   manifest's `cache_ttl`. Typically one fetch a day serves every lookup, and a
   warm cache keeps things working through a source outage. (TTRPG Wiki.)
-- **Search** — a URL containing `{query}`, answering per search. When results are
+- **Search** - a URL containing `{query}`, answering per search. When results are
   trimmed summaries, an optional `detail` block names a per-item endpoint, and
   the field mapping runs against that fuller response. (DriveThruRPG.)
 
@@ -160,7 +160,7 @@ enumerates its fields explicitly.
 ### Turning installs off
 
 `DISABLE_EXTERNAL_ADD_ON_INSTALL=true` stops Grimoire fetching anything from a
-community repository — add-ons, [note templates](wiki-templates.md), and
+community repository - add-ons, [note templates](wiki-templates.md), and
 [themes](themes.md) alike. Refreshing the index and installing both refuse, and
 no outbound request is made.
 

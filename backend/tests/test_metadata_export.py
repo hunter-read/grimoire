@@ -15,6 +15,7 @@ from backend.metadata.export import (
     ExportResult,
     export_book,
     export_library,
+    export_new_book,
     refresh_existing,
     refresh_existing_safe,
 )
@@ -316,3 +317,97 @@ class TestExportResult:
             total.merge(ExportResult(failed=1, errors=["the same problem"]))
 
         assert total.errors == ["the same problem"]
+
+
+class TestBackfillIsAdditive:
+    """The backfill fills gaps; it must not rewrite files already on disk."""
+
+    def test_an_existing_sidecar_is_left_untouched(self, db, tmp_path):
+        book = _make_book(db, tmp_path, book_id="sidecar-additive")
+        path = sidecar_path(book.filepath, "json")
+        with open(path, "w") as fh:
+            fh.write("Grimoire metadata sidecar v1 -- edited by hand\n")
+
+        export_library(db, ["json"])
+
+        with open(path) as fh:
+            assert "edited by hand" in fh.read()
+
+    def test_a_missing_sidecar_is_still_created(self, db, tmp_path):
+        book = _make_book(db, tmp_path, book_id="sidecar-additive-new")
+
+        export_library(db, ["json"])
+
+        assert os.path.isfile(sidecar_path(book.filepath, "json"))
+
+    def test_only_the_missing_format_is_written(self, db, tmp_path):
+        """Enabling a second format later should backfill just that one."""
+        book = _make_book(db, tmp_path, book_id="sidecar-additive-mixed")
+        export_library(db, ["json"])
+        json_path = sidecar_path(book.filepath, "json")
+        before = os.stat(json_path).st_mtime_ns
+
+        export_library(db, ["json", "yaml"])
+
+        assert os.path.isfile(sidecar_path(book.filepath, "yaml"))
+        # The already-present JSON was not rewritten.
+        assert os.stat(json_path).st_mtime_ns == before
+
+    def test_a_full_rewrite_can_still_be_forced(self, db, tmp_path):
+        book = _make_book(db, tmp_path, book_id="sidecar-additive-forced")
+        export_library(db, ["json"])
+        path = sidecar_path(book.filepath, "json")
+        with open(path, "w") as fh:
+            fh.write("Grimoire metadata sidecar v1 -- stale\n")
+
+        export_library(db, ["json"], skip_existing=False)
+
+        with open(path) as fh:
+            assert "stale" not in fh.read()
+
+
+class TestExportNewBook:
+    """New files picked up by a scan get sidecars without a manual backfill."""
+
+    def test_writes_nothing_while_export_is_disabled(self, db, tmp_path):
+        book = _make_book(db, tmp_path, book_id="sidecar-new-off")
+
+        export_new_book(db, book)
+
+        assert not os.path.exists(sidecar_path(book.filepath, "json"))
+
+    def test_creates_the_enabled_formats(self, db, tmp_path):
+        export_settings.set_enabled_formats(db, ["json", "yaml"])
+        db.commit()
+        book = _make_book(db, tmp_path, book_id="sidecar-new-on")
+
+        export_new_book(db, book)
+
+        assert os.path.isfile(sidecar_path(book.filepath, "json"))
+        assert os.path.isfile(sidecar_path(book.filepath, "yaml"))
+
+    def test_never_overwrites_a_file_already_there(self, db, tmp_path):
+        """A book new to Grimoire does not mean the folder is new."""
+        export_settings.set_enabled_formats(db, ["opf"])
+        db.commit()
+        book = _make_book(db, tmp_path, book_id="sidecar-new-existing")
+        path = sidecar_path(book.filepath, "opf")
+        with open(path, "w") as fh:
+            fh.write("<package>the user's own</package>")
+
+        export_new_book(db, book)
+
+        with open(path) as fh:
+            assert fh.read() == "<package>the user's own</package>"
+
+    def test_a_failure_cannot_propagate(self, db, tmp_path, monkeypatch):
+        """A scan must not die over a sidecar."""
+        export_settings.set_enabled_formats(db, ["json"])
+        db.commit()
+        book = _make_book(db, tmp_path, book_id="sidecar-new-boom")
+        monkeypatch.setattr(
+            "backend.metadata.export.export_book",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+        )
+
+        export_new_book(db, book)  # must not raise

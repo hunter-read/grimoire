@@ -30,6 +30,8 @@ from ..models import (
     GenericMap,
     Token,
 )
+from ..metadata import export as sidecar_export
+from ..metadata import settings as sidecar_settings
 from ..services import tag_service
 from ._subprocess import _run_with_timeout
 from .hashing import (
@@ -248,7 +250,7 @@ def _adopt_existing_system(
             f"query system by name '{name}'",
         )
     except TimeoutError as e:
-        logger.error(f"DB hang: {e} — cannot adopt system '{name}'")
+        logger.error(f"DB hang: {e} - cannot adopt system '{name}'")
         return None
     if existing is None or existing.parent_id or existing.container_kind:
         return None
@@ -272,7 +274,7 @@ def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
             f"query system by name '{name}'",
         )
     except TimeoutError as e:
-        logger.error(f"DB hang: {e} — using name '{name}' as-is")
+        logger.error(f"DB hang: {e} - using name '{name}' as-is")
         return name
     if taken is None:
         return name
@@ -337,7 +339,7 @@ def _register_system(
             f"query system '{folder.slug}'",
         )
     except TimeoutError as e:
-        logger.error(f"DB hang: {e} — skipping system '{name}'")
+        logger.error(f"DB hang: {e} - skipping system '{name}'")
         stats["errors"] += 1
         return None
 
@@ -382,7 +384,7 @@ def _register_system(
         try:
             _run_with_timeout(session.flush, _DB_TIMEOUT, f"flush system '{name}'")
         except TimeoutError as e:
-            logger.error(f"DB hang: {e} — skipping system '{name}'")
+            logger.error(f"DB hang: {e} - skipping system '{name}'")
             session.rollback()
             stats["errors"] += 1
             return None
@@ -816,7 +818,7 @@ def _scan_books_in_system(
                     f"query book '{filepath}'",
                 )
             except TimeoutError as e:
-                logger.error(f"DB hang: {e} — skipping '{filename}'")
+                logger.error(f"DB hang: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
 
@@ -1075,7 +1077,7 @@ def _register_book(
         stats["new_books"] += 1
         logger.info(f"Added book: {title} ({category}) in {system_name}")
     except TimeoutError as e:
-        logger.error(f"DB hang: {e} — rolling back '{filename}'")
+        logger.error(f"DB hang: {e} - rolling back '{filename}'")
         session.rollback()
         stats["errors"] += 1
         return None, False, False
@@ -1211,7 +1213,7 @@ def _scan_media(
                     f"query {singular} '{filepath}'",
                 )
             except TimeoutError as e:
-                logger.error(f"DB hang: {e} — skipping '{filename}'")
+                logger.error(f"DB hang: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
             if existing:
@@ -1254,7 +1256,7 @@ def _scan_media(
                 stats[f"new_{section}"] += 1
                 logger.info(f"Added {singular}: {title}")
             except TimeoutError as e:
-                logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                logger.error(f"DB hang: {e} - rolling back '{filename}'")
                 session.rollback()
                 stats["errors"] += 1
             except IntegrityError:
@@ -1304,7 +1306,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                     f"query audio '{filepath}'",
                 )
             except TimeoutError as e:
-                logger.error(f"DB hang: {e} — skipping '{filename}'")
+                logger.error(f"DB hang: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
             if existing:
@@ -1349,7 +1351,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 stats["new_audio"] += 1
                 logger.info(f"Added audio: {meta['title'] or filename}")
             except TimeoutError as e:
-                logger.error(f"DB hang: {e} — rolling back '{filename}'")
+                logger.error(f"DB hang: {e} - rolling back '{filename}'")
                 session.rollback()
                 stats["errors"] += 1
             except IntegrityError:
@@ -1399,7 +1401,7 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
         if len(old_rows) != 1 or len(new_rows) != 1:
             if new_rows:
                 logger.info(
-                    "Ambiguous move for hash %s (%d gone, %d found) — leaving as-is",
+                    "Ambiguous move for hash %s (%d gone, %d found) - leaving as-is",
                     key[0][:12],
                     len(old_rows),
                     len(new_rows),
@@ -1483,7 +1485,7 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
             lambda: session.query(GameSystem).all(), _DB_TIMEOUT, "query systems for pruning"
         )
     except TimeoutError as e:
-        logger.error(f"DB hang: {e} — skipping system pruning")
+        logger.error(f"DB hang: {e} - skipping system pruning")
         return 0
 
     unseen = [s for s in systems if s.id not in ctx.seen_system_ids]
@@ -1536,7 +1538,7 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
         if system.name_is_custom or system.description or system.cover_image:
             logger.info(
                 f"System '{system.name}' has no folder any more but carries user "
-                "metadata — leaving it in place"
+                "metadata - leaving it in place"
             )
             continue
         logger.info(f"Removing system '{system.name}': its folder is gone or now ignored")
@@ -1621,7 +1623,7 @@ def _reconcile_missing(
     total_moved = sum(moved.values())
     if total_moved:
         logger.info(
-            f"Recognised {total_moved} moved file(s) — kept their tags, favorites, "
+            f"Recognised {total_moved} moved file(s) - kept their tags, favorites, "
             f"and reading progress instead of re-adding them."
         )
     if missing_books or missing_maps or missing_tokens or missing_audio:
@@ -1643,6 +1645,37 @@ def _reconcile_missing(
     ctx.stats["moved_maps"] = moved["maps"]
     ctx.stats["moved_tokens"] = moved["tokens"]
     ctx.stats["moved_audio"] = moved["audio"]
+
+
+def _export_sidecars_for_new_books(ctx: "_ScanContext") -> None:
+    """Create sidecars for the books this scan inserted, if export is on.
+
+    Keeps an export-enabled library complete as files arrive, rather than only
+    when an admin remembers to run the backfill. Only ``ctx.inserted_ids`` are
+    considered — an already-indexed book is either untouched or handled by the
+    edit-triggered refresh, and rewriting the whole library on every scan would
+    be both slow and destructive to sidecars a user has edited.
+
+    Never creates a file that already exists, and never raises: sidecar export is
+    secondary to the scan that triggered it.
+    """
+    if not ctx.inserted_ids:
+        return
+    try:
+        if not sidecar_settings.export_enabled(ctx.session):
+            return
+
+        books = (
+            ctx.session.query(Book).filter(Book.id.in_(list(ctx.inserted_ids))).all()
+        )
+        written = 0
+        for book in books:
+            sidecar_export.export_new_book(ctx.session, book)
+            written += 1
+        if written:
+            logger.info("Wrote metadata sidecars for %d new book(s).", written)
+    except Exception:  # noqa: BLE001 - a sidecar must never fail the scan
+        logger.exception("Could not write sidecars for newly scanned books")
 
 
 def scan_library(
@@ -1778,6 +1811,11 @@ def scan_library(
             return stats
 
     _apply_tags_from_library(library_path, session, scope_dir=scope_dir)
+
+    # --- Write sidecars for the books this scan added ---
+    # After tags, deliberately: tags.json is applied above, and a sidecar written
+    # before that would describe the book without them.
+    _export_sidecars_for_new_books(ctx)
 
     # --- Mark / unmark missing files ---
     # After walking the filesystem, any DB record whose file is gone gets

@@ -15,13 +15,16 @@ import re
 from typing import Any, Optional
 from xml.etree import ElementTree
 
+import yaml
+
 from ..indexer.constants import _OPF_NS
 
 FORMAT_OPF = "opf"
 FORMAT_NFO = "nfo"
 FORMAT_JSON = "json"
+FORMAT_YAML = "yaml"
 
-ALL_FORMATS = (FORMAT_OPF, FORMAT_NFO, FORMAT_JSON)
+ALL_FORMATS = (FORMAT_OPF, FORMAT_NFO, FORMAT_JSON, FORMAT_YAML)
 
 # Stamped into every file we write and checked before overwriting one. The
 # version is the marker's own, not the app's: it identifies the sidecar layout,
@@ -36,7 +39,22 @@ _SUFFIXES = {
     FORMAT_OPF: ".opf",
     FORMAT_NFO: ".nfo",
     FORMAT_JSON: ".grimoire.json",
+    FORMAT_YAML: ".grimoire.yaml",
 }
+
+
+# Covers are written beside the content, named from its stem. The compound
+# ``.cover.jpg`` rather than a bare ``.jpg`` is what makes an exported cover
+# self-identifying: a plain ``<stem>.jpg`` is indistinguishable from ordinary
+# library content (a map, a token, an image book), so the file manager could
+# not hide one without risking the other.
+COVER_SUFFIX = ".cover.jpg"
+
+# Every suffix export can put next to a content file, longest first so a
+# compound suffix (``.grimoire.json``) is tested before a bare one. Consumers
+# that need to recognise a sidecar on disk - the file manager hides these, and
+# moves them with their content - read this rather than hard-coding the list.
+SIDECAR_SUFFIXES = tuple(sorted(_SUFFIXES.values(), key=len, reverse=True))
 
 
 def sidecar_path(content_path: str, fmt: str) -> str:
@@ -201,17 +219,16 @@ def render_nfo(fields: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# JSON
+# Grimoire-native (JSON / YAML)
 # ---------------------------------------------------------------------------
 
 
-def render_json(fields: dict) -> str:
-    """Grimoire-native JSON — the lossless format.
+def _native_payload(fields: dict) -> dict:
+    """The full field set both lossless formats serialise.
 
-    Every field is emitted, including empties, so the file documents the whole
-    shape rather than only what happens to be filled in. Keys are sorted so a
-    re-export with unchanged metadata produces a byte-identical file, which
-    keeps sidecars out of a user's git diffs and backup deltas.
+    Shared so JSON and YAML cannot drift into describing the same book
+    differently. Every field is emitted, including empties, so the file
+    documents the whole shape rather than only what happens to be filled in.
     """
     payload = {
         "generator": _GENERATOR_MARKER,
@@ -221,13 +238,49 @@ def render_json(fields: dict) -> str:
     cover = _clean(fields.get("cover_filename"))
     if cover:
         payload["cover_filename"] = cover
-    return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    return payload
+
+
+def render_json(fields: dict) -> str:
+    """Grimoire-native JSON — a lossless format.
+
+    Keys are sorted so a re-export with unchanged metadata produces a
+    byte-identical file, which keeps sidecars out of a user's git diffs and
+    backup deltas.
+    """
+    return json.dumps(_native_payload(fields), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+
+
+def render_yaml(fields: dict) -> str:
+    """Grimoire-native YAML — the same lossless payload, hand-editable.
+
+    Carries exactly what :func:`render_json` does; the difference is only
+    legibility, since YAML is the format a user is most likely to open in an
+    editor and adjust by hand.
+
+    ``default_flow_style=False`` forces block style so nested lists stay one
+    item per line rather than collapsing to ``[a, b]``, and ``allow_unicode``
+    keeps accented titles readable instead of escaping them. Keys are sorted
+    for the same byte-stability reason as JSON.
+    """
+    body = yaml.safe_dump(
+        _native_payload(fields),
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=True,
+        width=1000,
+    )
+    # The marker has to survive `is_grimoire_generated`, and it does: safe_dump
+    # writes the `generator` key as a plain scalar. The comment is for a human
+    # who opens the file, not for the ownership check.
+    return f"# {_GENERATOR_MARKER}\n{body}"
 
 
 _RENDERERS = {
     FORMAT_OPF: render_opf,
     FORMAT_NFO: render_nfo,
     FORMAT_JSON: render_json,
+    FORMAT_YAML: render_yaml,
 }
 
 
