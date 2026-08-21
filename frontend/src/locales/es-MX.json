@@ -225,7 +225,8 @@
     "zoomReset": "Restablecer zoom",
     "spreadIncludeCover": "Incluir portada en la doble página (emparejar páginas 1-2, 3-4…)",
     "spreadExcludeCover": "Excluir portada de la doble página (emparejar páginas 2-3, 4-5…)",
-    "archiveNotViewable": "Este es un archivo comprimido y no se puede ver en el lector. Descárgalo para abrir su contenido."
+    "archiveNotViewable": "Este es un archivo comprimido y no se puede ver en el lector. Descárgalo para abrir su contenido.",
+    "textUnavailable": "This document's text could not be loaded."
   },
   "search": {
     "title": "Buscar en tu biblioteca",

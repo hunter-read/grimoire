@@ -15,6 +15,7 @@ from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...file_cache import etag_matches
 from ...indexer import slugify
+from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
 from ...models import Book, GameSystem
@@ -283,9 +284,10 @@ def rescan_book(
     """Re-read a single book from disk and rebuild its search index.
 
     The general per-book re-index: unlike the OCR-only ``/reindex`` path, this
-    works for any PDF a user has edited externally. A text-layer PDF is
-    re-extracted and its FTS rows rebuilt; an image-only PDF is re-queued for
-    OCR. The page count and cover thumbnail are refreshed if the file changed.
+    works for any indexable book a user has edited externally — PDF, EPUB, DjVu,
+    or a text document. A text-layer PDF is re-extracted and its FTS rows
+    rebuilt; an image-only PDF is re-queued for OCR. The page count and cover
+    thumbnail are refreshed if the file changed.
 
     The work runs in the background; poll ``GET /api/scan-status`` for progress.
     No-ops (leaving the request for the running scan) if a library scan is
@@ -296,8 +298,9 @@ def rescan_book(
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    if book.mime_type != "application/pdf":
-        raise HTTPException(400, "Only PDF books can be re-indexed")
+    # Any indexable format can be re-read, not just PDF (issues #200/#373).
+    if not can_index(book.mime_type):
+        raise HTTPException(400, "This book's format cannot be re-indexed")
     if not os.path.exists(book.filepath):
         raise HTTPException(404, "File not found on disk")
 

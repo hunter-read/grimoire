@@ -163,7 +163,12 @@ _ONE_PAGE_SLUGS = frozenset(
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"}
 PDF_EXTS = {".pdf"}
-DOC_EXTS = {".pdf", ".epub", ".djvu"}
+# Plain-text book formats (issue #200). Paginated synthetically and indexed for
+# full-text search; see indexer/text_documents.py.
+TEXT_DOC_EXTS = {".txt", ".md", ".rtf"}
+# Every extension registered as a *book*. ``.epub``/``.djvu`` are opened by
+# PyMuPDF exactly like PDFs (issue #373); the text formats are decoded instead.
+DOC_EXTS = {".pdf", ".epub", ".djvu"} | TEXT_DOC_EXTS
 MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS
 AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
 # Archive files shown alongside books in a category and served/bundled as opaque
@@ -225,3 +230,13 @@ METADATA_MODES = ("new", "missing", "replace")
 # Note: OPF ``tags`` are applied separately via the shared-tag service (issue
 # #235); they are intentionally NOT in this setattr list (no column to set).
 _OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year", "isbn")
+
+# Ceiling on a "text" book we will decode and paginate (.txt/.md/.rtf, issue
+# #200). Well above any real homebrew document, but low enough that a stray
+# multi-hundred-MB log file can't stall the scan or exhaust memory.
+_TEXT_FILE_SIZE_CAP = 32 * 1024 * 1024
+
+# Ceiling on a single page image decompressed out of a comic archive (issue
+# #180). Comic pages are ordinary scans; anything past this is a
+# decompression-bomb attempt rather than a page.
+_COMIC_PAGE_SIZE_CAP = 128 * 1024 * 1024

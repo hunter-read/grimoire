@@ -10,6 +10,7 @@ import fitz  # type: ignore[import-untyped]
 from fastapi import HTTPException
 
 from ...config import PAGE_RECLAIM_INTERVAL, SessionLocal, logger
+from ...indexer.formats import open_document
 from ...models import Book, User
 
 
@@ -88,7 +89,10 @@ def _get_pdf_doc(filepath: str) -> fitz.Document:
         if filepath in _pdf_cache:
             _pdf_cache.move_to_end(filepath)
             return _pdf_cache[filepath]
-        doc = fitz.open(filepath)
+        # open_document applies the shared reflow layout, so an EPUB served by
+        # the reader paginates exactly as the indexer counted and indexed it
+        # (issue #373). A no-op for fixed-layout formats like PDF.
+        doc = open_document(filepath)
         _pdf_cache[filepath] = doc
         if len(_pdf_cache) > _PDF_CACHE_MAX:
             _, evicted = _pdf_cache.popitem(last=False)

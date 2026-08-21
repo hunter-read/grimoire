@@ -225,7 +225,8 @@
     "zoomReset": "Zoom zurücksetzen",
     "spreadIncludeCover": "Titelseite in Doppelseite einbeziehen (Seiten 1-2, 3-4 paaren…)",
     "spreadExcludeCover": "Titelseite aus Doppelseite ausschließen (Seiten 2-3, 4-5 paaren…)",
-    "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht im Reader angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen."
+    "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht im Reader angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen.",
+    "textUnavailable": "This document's text could not be loaded."
   },
   "search": {
     "title": "Bibliothek durchsuchen",

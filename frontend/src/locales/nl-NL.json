@@ -225,7 +225,8 @@
     "zoomReset": "Zoom herstellen",
     "spreadIncludeCover": "Omslag opnemen in dubbele pagina (pagina's 1-2, 3-4 koppelen…)",
     "spreadExcludeCover": "Omslag uitsluiten van dubbele pagina (pagina's 2-3, 4-5 koppelen…)",
-    "archiveNotViewable": "Dit is een archiefbestand en kan niet in de lezer worden bekeken. Download het om de inhoud te openen."
+    "archiveNotViewable": "Dit is een archiefbestand en kan niet in de lezer worden bekeken. Download het om de inhoud te openen.",
+    "textUnavailable": "This document's text could not be loaded."
   },
   "search": {
     "title": "Zoek in je bibliotheek",

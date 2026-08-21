@@ -26,6 +26,7 @@ from backend import indexer  # package namespace, for patch-sensitive calls
 from .. import config, ocr
 from ..models import Book
 from .constants import (
+    _COMIC_ARCHIVE_EXTS,
     _DB_TIMEOUT,
     _EXTRACT_TIMEOUT,
     _FITZ_TIMEOUT,
@@ -129,6 +130,12 @@ def extract_text_from_pdf(
     ocr_on = False if text_only else ocr.ocr_available()
     try:
         doc = _fitz_open_with_timeout(filepath, should_stop=should_stop)
+        # A reflowable book (EPUB) paginates according to the layout box, so the
+        # page numbers we write into the FTS index only line up with what the
+        # reader renders if both use the shared layout (issue #373).
+        from .formats import apply_reflow_layout
+
+        apply_reflow_layout(doc)
         for i, page in enumerate(doc):
             if should_stop and should_stop():
                 break
@@ -373,8 +380,27 @@ def ocr_book_page_isolated_wrapper(
 
 
 def _book_page_count(filepath: str) -> int:
+    """Page count for any book format (issues #180/#200/#373).
+
+    Dispatches on the format family rather than assuming a fitz-openable file,
+    so a comic archive counts its images and a text document counts its
+    synthetic pages.
+    """
+    from . import comics, text_documents
+    from .formats import TEXT_EXTS, apply_reflow_layout
+    from .thumbnails import archive_ext
+
+    arc_ext = archive_ext(filepath)
+    if arc_ext in _COMIC_ARCHIVE_EXTS:
+        return comics.page_count(filepath, arc_ext)
+    if os.path.splitext(filepath)[1].lower() in TEXT_EXTS:
+        return text_documents.text_page_count(filepath)
+
     doc = _fitz_open_with_timeout(filepath)
     try:
+        # EPUB has no page count until it is laid out, and must use the same
+        # layout box as every other read path (issue #373).
+        apply_reflow_layout(doc)
         return doc.page_count
     finally:
         doc.close()

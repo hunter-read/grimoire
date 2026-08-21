@@ -6,6 +6,7 @@ from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey
 from ...models import Book
 from ...indexer import scan_library, index_book_text, ocr_book, reindex_single_book
+from ...indexer.formats import INDEXABLE_MIMES
 from ..books import _invalidate_book_cache
 
 # Errors raised by the Valkey/Redis client for connection/protocol failures.
@@ -113,7 +114,17 @@ def background_indexer():
     time.sleep(2)
     db = SessionLocal()
     try:
-        unindexed = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
+        unindexed = (
+            db.query(Book)
+            .filter(
+                Book.indexed.is_(False),
+                Book.index_failed.is_(False),
+                # Every indexable format, not just PDF — an EPUB filtered out
+                # here is what left them permanently unsearchable (issue #373).
+                Book.mime_type.in_(INDEXABLE_MIMES),
+            )
+            .all()
+        )
         if not unindexed:
             logger.debug("Background indexer: no unindexed books found, exiting.")
             return
@@ -222,6 +233,7 @@ def run_ocr_queue() -> int:
         pending_ids = [
             b.id
             for b in db.query(Book)
+            # OCR remains PDF-only: it rasterises pages of scanned PDFs.
             .filter_by(ocr_pending=True, mime_type="application/pdf")
             .order_by(Book.ocr_pages_done.desc())  # finish nearly-done books first
             .all()
@@ -428,7 +440,17 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 return
 
             # --- Phase 2: PDF indexing ---
-            to_index = db.query(Book).filter_by(indexed=False, index_failed=False, mime_type="application/pdf").all()
+            to_index = (
+            db.query(Book)
+            .filter(
+                Book.indexed.is_(False),
+                Book.index_failed.is_(False),
+                # Every indexable format, not just PDF — an EPUB filtered out
+                # here is what left them permanently unsearchable (issue #373).
+                Book.mime_type.in_(INDEXABLE_MIMES),
+            )
+            .all()
+        )
             _set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
             logger.info(f"Making {len(to_index)} book(s) searchable…")
             indexed_count = 0

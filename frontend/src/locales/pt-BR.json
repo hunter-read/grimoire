@@ -225,7 +225,8 @@
     "zoomReset": "Redefinir zoom",
     "spreadIncludeCover": "Incluir capa na página dupla (parear páginas 1-2, 3-4…)",
     "spreadExcludeCover": "Excluir capa da página dupla (parear páginas 2-3, 4-5…)",
-    "archiveNotViewable": "Este é um arquivo compactado e não pode ser visualizado no leitor. Baixe-o para abrir seu conteúdo."
+    "archiveNotViewable": "Este é um arquivo compactado e não pode ser visualizado no leitor. Baixe-o para abrir seu conteúdo.",
+    "textUnavailable": "This document's text could not be loaded."
   },
   "search": {
     "title": "Buscar na sua biblioteca",
