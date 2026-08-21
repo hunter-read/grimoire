@@ -132,7 +132,7 @@ services:
     ports:
  - "9481:9481"
     volumes:
- - /path/to/your/library:/app/library:ro   # read-only; drop ":ro" to manage files in-app (see below)
+ - /path/to/your/library:/app/library   # add ":ro" to keep it read-only (see Volumes)
  - /path/to/grimoire/data:/app/data
 ```
 
@@ -144,7 +144,6 @@ Ready-to-use compose files for common setups are in [`docs/docker/`](docs/docker
 |---|---|
 | [`docs/docker/docker-compose.yml`](docs/docker/docker-compose.yml) | Grimoire (default, no extras) |
 | [`docs/docker/docker-compose.valkey.yml`](docs/docker/docker-compose.valkey.yml) | Grimoire + Valkey page cache (recommended for large libraries) |
-| [`docs/docker/docker-compose.filebrowser.yml`](docs/docker/docker-compose.filebrowser.yml) | Grimoire + Filebrowser Quantum (browser-based file uploads) |
 | [`docs/docker/docker-compose.calibre.yml`](docs/docker/docker-compose.calibre.yml) | Grimoire + Calibre full desktop (metadata editing, OPF export) |
 | [`docs/docker/docker-compose.calibre-web.yml`](docs/docker/docker-compose.calibre-web.yml) | Grimoire + Calibre-Web (lightweight Calibre browser UI) |
 
@@ -513,7 +512,7 @@ Grimoire only overwrites files it wrote: every exported sidecar carries a marker
 
 Sidecars are hidden in the **File Manager** - they describe your content rather than being content, and a book with four sidecars and a cover would otherwise show as six rows. They still travel with the file they belong to: move a book and its sidecars move too, rename it and they are renamed to match. A sidecar whose book no longer exists stays visible, so nothing vanishes with no way to reach it.
 
-> Sidecar export needs the library mounted **read-write**. The `docker-compose.dev.yml` example mounts it `:ro`; drop that suffix to use this feature. If the mount stays read-only, export reports it clearly and your metadata edits keep working - only the sidecar write is skipped.
+> Sidecar export writes into your library folder, so it needs the library mounted **writable** - the default. If you have mounted it `:ro`, export reports that clearly and your metadata edits keep working; only the sidecar write is skipped. See [Read-only or writable?](#read-only-or-writable).
 
 See [`docs/sidecars.md`](docs/sidecars.md) for the full field mapping per format and how export precedence pairs with the refresh modes above.
 
@@ -616,7 +615,7 @@ The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth,
 ### In-app file management
 
 Admins can reorganize the library from inside Grimoire - **Settings → Maintenance
-→ Open file manager**. It is a folder tree (think Finder or Filebrowser, but aware
+→ Open file manager**. It is a folder tree (think Finder or Explorer, but aware
 of Grimoire's own concepts) built for bulk reorganization:
 
 - **Expand folders in place** to see a file and its destination at once, instead
@@ -670,10 +669,11 @@ bookmarks, campaign links, and the search index all follow the file to its new
 home - and a book moved to a different system or category is re-filed
 automatically.
 
-> **This requires a writable library mount.** Drop the `:ro` from your library
-> volume (`- /path/to/your/library:/app/library`) to use it. With a read-only
+> **This requires a writable library mount** - the default. If you have appended
+> `:ro` to your library volume, drop it to use the file manager. With a read-only
 > mount, Grimoire tells you the library is read-only instead of failing oddly, and
-> everything else keeps working exactly as before.
+> everything else keeps working exactly as before. See
+> [Read-only or writable?](#read-only-or-writable).
 
 The file manager is admin-only, and all destinations are confined to the library
 root.
@@ -707,18 +707,21 @@ folder appearing beside it.
 On a read-only library the category is saved and nothing moves - no error, no
 failed edit.
 
-### Companion tools
+### Adding files from outside Grimoire
 
-Grimoire never modifies files on its own, and if you prefer to keep the library
-mounted read-only, companion tools that mount the same folder with write access
-still work well:
+Nothing stops you adding or reorganizing files by other means - your OS file
+manager, `scp`, a network share, or a companion container. This is also how you
+work if you keep the library mounted read-only.
 
-- **[Filebrowser Quantum](docs/file-management.md#filebrowser-quantum)** - drag-and-drop file uploads from any browser, no desktop app needed
-- **[Calibre](docs/file-management.md#calibre)** - full book management with metadata editing; Grimoire reads the `.opf` sidecar files Calibre writes ([see OPF support](#book-metadata-from-opf-files))
+**[Calibre](docs/file-management.md#calibre)** remains a genuine companion for
+ebook conversion and bulk metadata editing across a large collection, and
+Grimoire reads the `.opf` sidecar files it writes ([see OPF
+support](#book-metadata-from-opf-files)). See
+[docs/file-management.md](docs/file-management.md) for a Docker Compose example.
 
-See [docs/file-management.md](docs/file-management.md) for Docker Compose examples for each tool.
-
-After adding files with an external tool, trigger a **Rescan** in Grimoire (sidebar or Settings → Maintenance) to index the new content. Changes made in the built-in file manager apply immediately and need no rescan.
+After adding files with an external tool, trigger a **Rescan** in Grimoire
+(sidebar or Settings → Maintenance) to index the new content. Changes made in the
+built-in file manager apply immediately and need no rescan.
 
 ### Replacing and moving files
 
@@ -776,12 +779,43 @@ Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-
 
 ```yaml
 volumes:
-  # Your library - read-only is fine, Grimoire never modifies your files
- - /path/to/your/library:/app/library:ro
+  # Your library - writable, so you can manage files from inside Grimoire.
+  # Append ":ro" if you would rather Grimoire could not modify it (see below).
+ - /path/to/your/library:/app/library
 
   # Persistent data (database, thumbnails, page cache)
  - grimoire_data:/app/data
 ```
+
+#### Read-only or writable?
+
+Grimoire only writes to your library when you ask it to. Browsing, searching,
+reading, and metadata editing never touch the files, and no background job
+rewrites your library. Two features do write, and both are opt-in and admin-only:
+
+| Feature | Needs | What it writes |
+|---|---|---|
+| [File management](#in-app-file-management) - upload, move, rename, delete, new folders | Writable mount | The files and folders you act on |
+| [Sidecar export](#writing-metadata-back-out-sidecar-export) - `.opf` / `.nfo` / `.json` | Writable mount | Sidecar files next to your content |
+| Everything else - browse, search, read, tags, favorites, campaigns, metadata edits | Either | Nothing in the library folder |
+
+**Writable (the default)** is the recommended setup for most people: leave the
+`:ro` suffix off and uploading a new PDF is a drag-and-drop into the browser
+rather than a trip to the shell. Writes stay confined to the library root, and
+the destructive ones are guarded - deleting a folder that still holds files makes
+you type its name first.
+
+**Read-only** is opt-in hardening: append `:ro` and the container cannot modify
+the library at all. Everything except the two features above behaves identically,
+and nothing half-fails - the file manager browses normally and tells you the
+library is read-only, file actions on a book's ⋮ menu are not shown, changing a
+book's category saves the category without moving the file, and sidecar export
+reports the read-only mount and skips the write while your metadata edits are
+still saved.
+
+The mount is not a one-way decision and nothing in Grimoire's database depends on
+it. Edit the volume line, `docker compose up -d`, and the write features appear
+or disappear accordingly.
 
 ---
 

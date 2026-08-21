@@ -28,8 +28,10 @@ services:
 
     volumes:
       # Left side: absolute path on the host to your TTRPG library folder.
-      # Grimoire mounts it read-only — use Filebrowser Quantum or Calibre to add/manage files.
-      # See docs/file-management.md for companion tool examples.
-      - /path/to/your/library:/library:ro
+      # Mounted writable so you can upload, move, rename, and delete files from
+      # inside Grimoire. Append ":ro" if you would rather it could not modify the
+      # library — everything except in-app file management and sidecar export
+      # works the same. See docs/file-management.md.
+      - /path/to/your/library:/library
       # Left side: absolute path on the host where Grimoire stores its database, thumbnails, and cache
       - /path/to/grimoire/data:/data
