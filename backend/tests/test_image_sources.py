@@ -76,7 +76,12 @@ class TestLoadSourceImage:
         assert Image.open(io.BytesIO(data)).size == (24, 24)
 
     def test_404_when_neither_original_nor_thumbnail_exists(self, admin_setup):
-        m = make_map(filename="gone.png", filepath="/tmp/definitely-missing-286.png")
+        # A distinctive name on purpose: the test DB is shared across the whole
+        # session, and the indexer tests look their fixtures up by bare
+        # filename, so a generic one here would be picked up as theirs.
+        m = make_map(
+            filename="missing-source-286.png", filepath="/tmp/definitely-missing-286.png"
+        )
         db = SessionLocal()
         try:
             with pytest.raises(HTTPException) as exc:
