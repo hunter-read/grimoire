@@ -216,6 +216,21 @@ class TestOnePageContainer:
         _scan(lib, tmp)
         return tmp, lib
 
+    def test_a_loose_cover_image_is_artwork_not_a_system(self):
+        """Issue #372: ``one-page-rpgs/cover.jpg`` is the shelf's artwork, so it
+        must not also become a system named "Cover" holding one book."""
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "one-page-rpgs")
+        _touch_pdf(root, "honey-heist.pdf")
+        (root / "cover.jpg").write_bytes(b"\xff\xd8\xff\xe0")
+        _scan(lib, tmp)
+
+        # The artwork still applies to the container...
+        assert _system("one-page-rpgs").folder_cover_path == "books/one-page-rpgs/cover.jpg"
+        # ...without becoming a system, or a book on the container's own row.
+        assert _system("one-page-rpgs--cover") is None
+        assert _books_for("one-page-rpgs", lib) == []
+
     def test_container_marked_one_page(self):
         self._build()
         container = _system("one-page-rpgs")

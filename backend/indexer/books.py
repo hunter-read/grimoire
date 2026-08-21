@@ -54,7 +54,12 @@ from .hashing import (
     hash_file,
     signature_matches,
 )
-from .metadata import _apply_opf_to_book, _find_opf_meta, parse_opf_metadata
+from .metadata import (
+    _apply_opf_to_book,
+    _find_opf_meta,
+    is_folder_cover_name,
+    parse_opf_metadata,
+)
 from .systems import _SystemFolder, _register_system, _resolve_system_folder
 from .thumbnails import archive_ext, archive_mime
 from ..models import Book, GameSystem
@@ -132,7 +137,13 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
         # subtree; otherwise walk the whole system.
         walk_root = ctx.scope_dir if scoped else system_dir
         if _scan_books_in_system(
-            ctx, system, folder.name, system_category_off, is_special, walk_root
+            ctx,
+            system,
+            folder.name,
+            system_category_off,
+            is_special,
+            walk_root,
+            system_root=system_dir,
         ):
             return
 
@@ -345,6 +356,9 @@ def _scan_one_page_loose_files(
         ext = path.suffix.lower()
         if ext not in DOC_EXTS and ext not in IMAGE_EXTS and not archive_ext(path.name):
             continue
+        # The container's own shelf artwork, not a one-page game (issue #372).
+        if is_folder_cover_name(path.name):
+            continue
         stem = _title_from_filename(path.name)
         child_folder = _SystemFolder(
             path=path.parent,
@@ -389,6 +403,7 @@ def _scan_books_in_system(
     recurse: bool = True,
     only_filename: str | None = None,
     system_depth: int = 2,
+    system_root: Path | None = None,
 ) -> bool:
     """Walk one system's tree and register its books. Returns True if stop requested.
 
@@ -400,10 +415,16 @@ def _scan_books_in_system(
     ``only_filename`` further narrows it to a single file, for the one-page
     container's loose-file-as-a-system case. ``system_depth`` tells category
     inference how deep the system root sits (3 for a container's children).
+
+    ``system_root`` is the folder whose ``cover.*``/``folder.*`` image was
+    claimed as the system's shelf artwork, so the walk can skip that file rather
+    than registering it as a book too (issue #372). It defaults to ``walk_root``
+    and only differs when the walk is narrowed to a subtree by a scoped rescan.
     """
     session = ctx.session
     ignore = ctx.ignore
     stats = ctx.stats
+    cover_root = os.path.normpath(str(system_root if system_root is not None else walk_root))
     for root, dirs, files in os.walk(walk_root):
         dirs[:] = _prune_dirs(root, dirs, ignore)
         if not recurse:
@@ -439,6 +460,12 @@ def _scan_books_in_system(
 
             if filename in opf_cover_filenames:
                 logger.debug(f"Skipping OPF cover image: {filepath}")
+                continue
+
+            # The folder-cover convention claims a cover.*/folder.* image at the
+            # system root as shelf artwork; it is not also a book (issue #372).
+            if os.path.normpath(root) == cover_root and is_folder_cover_name(filename):
+                logger.debug(f"Skipping folder cover image: {filepath}")
                 continue
 
             ctx.scanned["books"] += 1

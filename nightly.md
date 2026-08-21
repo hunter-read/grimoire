@@ -392,7 +392,7 @@ books/
     └── 5e/
 ```
 
-Or set one from the container's page (**Cover image**, GM/admin only) - upload a file, paste an image from your clipboard, or pick one Grimoire already has (see [Setting images](#setting-images)). A `cover.*`/`folder.*` file in the library folder takes precedence over an upload, and both beat the book thumbnail an ordinary system falls back to. This works for any system, not just containers.
+Or set one from the container's page (**Cover image**, GM/admin only) - upload a file, paste an image from your clipboard, or pick one Grimoire already has (see [Setting images](#setting-images)). A `cover.*`/`folder.*` file in the library folder takes precedence over an upload, and both beat the book thumbnail an ordinary system falls back to. This works for any system, not just containers. A `cover.*`/`folder.*` image at a system's folder root is artwork only - it is not also indexed as a book.
 
 **Grouping toggle.** Containers are a way to organize the grid, not a cage. The **Group collections** switch beside the "Your Collection" heading (shown only when you actually have a container) flattens them: the container cards drop out and their child systems take their place, so you get a plain A-Z list of every real system with the usual sorting and filters applied. Switch it back on to return to the drill-down view. Your choice is remembered across sessions.
 
