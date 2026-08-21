@@ -466,6 +466,8 @@ def serialize_campaign(c: Campaign, members: list, db) -> dict:
         "has_schedule": schedule is not None,
         "next_session": next_session,
         "has_banner": bool(c.banner_path),
+        # Vertical focal point of the banner in the hero, 0-100 (issue #286).
+        "banner_focus_y": 50 if c.banner_focus_y is None else int(c.banner_focus_y),
         "resource_group_order": c.resource_group_order or [],
         "is_archived": bool(c.is_archived),
         "archived_at": c.archived_at.isoformat() if c.archived_at else None,

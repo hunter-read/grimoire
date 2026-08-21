@@ -2,11 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AudioDetailView from './AudioDetailView'
-import api from '../../api'
+import api, { imageSources } from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
   mediaUrl: (p) => `http://localhost${p}`,
+  imageSources: {
+    uploadAudioCover: vi.fn(),
+    setAudioCover: vi.fn(),
+    deleteAudioCover: vi.fn(),
+    search: vi.fn(() =>
+      Promise.resolve([
+        { resource_type: 'map', resource_id: 'm1', name: 'ruins.png', has_thumbnail: true },
+      ])
+    ),
+    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+  },
 }))
 
 let locationState = null
@@ -22,6 +33,11 @@ vi.mock('./AudioPlayer', () => ({
   default: () => <button>play</button>,
 }))
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+// Cover art is a gm/admin affordance (issue #286); default to an admin so it renders.
+let authUser = { id: 'u1', role: 'admin' }
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => (authUser ? { user: authUser } : null),
+}))
 // Stub the tag editor to immediately save, so the save-tag handlers run.
 vi.mock('../maps/InlineTagEditor', () => ({
   default: ({ onSave }) => (
@@ -37,6 +53,7 @@ vi.mock('../TagSection', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  authUser = { id: 'u1', role: 'admin' }
   locationState = null
 })
 
@@ -138,5 +155,78 @@ describe('AudioDetailView', () => {
     await userEvent.click(screen.getByText('edit-Folder Tags'))
     await userEvent.click(screen.getByTestId('save-tags'))
     expect(api.patch).toHaveBeenCalledWith('/audio-folders', { path: 'Ambient', tags: ['new'] })
+  })
+
+  describe('cover art (issue #286)', () => {
+    it('hides the cover control from players', async () => {
+      authUser = { id: 'u2', role: 'player' }
+      api.get.mockResolvedValue(detail())
+      render(<AudioDetailView />)
+      await waitFor(() => expect(api.get).toHaveBeenCalled())
+      await waitFor(() => expect(screen.getAllByText('Tavern Night').length).toBeGreaterThan(0))
+      expect(screen.queryByRole('button', { name: /Change cover/i })).not.toBeInTheDocument()
+    })
+
+    it('offers "set cover" when the track has no artwork at all', async () => {
+      api.get.mockResolvedValue(detail({ has_artwork: false }))
+      render(<AudioDetailView />)
+      await waitFor(() => screen.getByRole('button', { name: /Set cover/i }))
+    })
+
+    it('uploads a cover and refreshes the track', async () => {
+      api.get.mockResolvedValue(detail())
+      imageSources.uploadAudioCover.mockResolvedValue({ cover_image: 'a1.png' })
+      render(<AudioDetailView />)
+      await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
+
+      await userEvent.click(screen.getByRole('button', { name: /Change cover/i }))
+      const file = new File(['x'], 'c.png', { type: 'image/png' })
+      await userEvent.upload(screen.getByTestId('image-picker-input'), file)
+      await userEvent.click(screen.getByRole('button', { name: /Set image/i }))
+
+      await waitFor(() => expect(imageSources.uploadAudioCover).toHaveBeenCalledWith('a1', file))
+      // The track is re-fetched so has_cover/has_artwork reflect the new state.
+      expect(api.get).toHaveBeenCalledTimes(2)
+    })
+
+    it('sets the cover from a library image', async () => {
+      api.get.mockResolvedValue(detail())
+      imageSources.setAudioCover.mockResolvedValue({ cover_image: 'a1.webp' })
+      render(<AudioDetailView />)
+      await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
+
+      await userEvent.click(screen.getByRole('button', { name: /Change cover/i }))
+      await userEvent.click(screen.getByRole('button', { name: /Browse library/i }))
+      await waitFor(() => expect(screen.getByText('ruins.png')).toBeInTheDocument())
+      await userEvent.click(screen.getByText('ruins.png'))
+      await userEvent.click(screen.getByRole('button', { name: /Set image/i }))
+
+      await waitFor(() =>
+        expect(imageSources.setAudioCover).toHaveBeenCalledWith('a1', 'map', 'm1')
+      )
+    })
+
+    it('removes a set cover, but only offers it when one is set', async () => {
+      api.get.mockResolvedValue(detail({ has_cover: true }))
+      imageSources.deleteAudioCover.mockResolvedValue({ status: 'ok' })
+      render(<AudioDetailView />)
+      await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
+
+      await userEvent.click(screen.getByRole('button', { name: /Change cover/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^Remove$/i }))
+
+      await waitFor(() => expect(imageSources.deleteAudioCover).toHaveBeenCalledWith('a1'))
+    })
+
+    it('does not offer removal for folder or embedded art', async () => {
+      // has_artwork without has_cover means the art comes from the library or
+      // the file's own tags — neither is Grimoire's to delete.
+      api.get.mockResolvedValue(detail({ has_artwork: true, has_cover: false }))
+      render(<AudioDetailView />)
+      await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
+
+      await userEvent.click(screen.getByRole('button', { name: /Change cover/i }))
+      expect(screen.queryByRole('button', { name: /^Remove$/i })).not.toBeInTheDocument()
+    })
   })
 })

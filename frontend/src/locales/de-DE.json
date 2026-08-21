@@ -1028,7 +1028,10 @@
       "suggestedSize": "Empfohlene Größe: 1600 × 800",
       "edit": "Banner bearbeiten",
       "modalTitle": "Kampagnen-Banner",
-      "allowedFormats": "PNG, JPEG, WebP oder GIF, bis zu 5 MB."
+      "allowedFormats": "PNG, JPEG, WebP oder GIF, bis zu 5 MB.",
+      "dragToReposition": "Zum Verschieben ziehen",
+      "verticalPosition": "Vertikale Position",
+      "savePosition": "Position speichern"
     },
     "openNotes": "Notizen öffnen",
     "archive": "Archivieren",
@@ -1842,7 +1845,10 @@
       "folderTags": "Ordner-Tags",
       "trackTags": "Titel-Tags",
       "editTags": "Bearbeiten",
-      "noTags": "Keine"
+      "noTags": "Keine",
+      "setCover": "Cover festlegen",
+      "changeCover": "Cover ändern",
+      "coverTitle": "Track-Cover"
     },
     "player": {
       "title": "Aktuelle Wiedergabe",
@@ -2073,5 +2079,29 @@
     "builtInLabel": "Built-in",
     "bothModes": "Light & dark",
     "themeTitle": "Design"
+  },
+  "imagePicker": {
+    "mode": {
+      "upload": "Hochladen",
+      "browse": "Bibliothek durchsuchen"
+    },
+    "tab": {
+      "campaign_file": "Diese Kampagne",
+      "map": "Karten",
+      "token": "Marken",
+      "book": "Buchcover",
+      "audio": "Audio-Cover"
+    },
+    "searchPlaceholder": "Nach Name oder Ordner suchen…",
+    "noResults": "Keine Bilder gefunden",
+    "loadMore": "{{count}} weitere anzeigen",
+    "chooseFile": "Bild auswählen",
+    "pasteHint": "oder mit Strg/Cmd+V einfügen oder hierher ziehen",
+    "formats": "PNG, JPEG, WebP oder GIF.",
+    "save": "Bild festlegen",
+    "saving": "Wird gespeichert…",
+    "remove": "Entfernen",
+    "failed": "Bild konnte nicht festgelegt werden",
+    "searchFailed": "Bilder konnten nicht geladen werden"
   }
 }

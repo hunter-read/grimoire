@@ -92,6 +92,7 @@ class CampaignOut(BaseModel):
     # Null unless an enabled schedule yields an upcoming date.
     next_session: Optional[str] = None
     has_banner: bool
+    banner_focus_y: int = 50
     resource_group_order: list[str]
     is_archived: bool
     archived_at: Optional[str] = None
@@ -266,6 +267,10 @@ class OkResponse(BaseModel):
 
 class BannerUploadOut(BaseModel):
     banner_path: str
+
+
+class BannerFocusOut(BaseModel):
+    banner_focus_y: int
 
 
 class MemberArtUploadOut(BaseModel):

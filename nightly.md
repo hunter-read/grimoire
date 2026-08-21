@@ -392,7 +392,7 @@ books/
     └── 5e/
 ```
 
-Or upload one from the container's page (**Cover image**, GM/admin only). A `cover.*`/`folder.*` file in the library folder takes precedence over an upload, and both beat the book thumbnail an ordinary system falls back to. This works for any system, not just containers.
+Or set one from the container's page (**Cover image**, GM/admin only) - upload a file, paste an image from your clipboard, or pick one Grimoire already has (see [Setting images](#setting-images)). A `cover.*`/`folder.*` file in the library folder takes precedence over an upload, and both beat the book thumbnail an ordinary system falls back to. This works for any system, not just containers.
 
 **Grouping toggle.** Containers are a way to organize the grid, not a cage. The **Group collections** switch beside the "Your Collection" heading (shown only when you actually have a container) flattens them: the container cards drop out and their child systems take their place, so you get a plain A-Z list of every real system with the usual sorting and filters applied. Switch it back on to return to the drill-down view. Your choice is remembered across sessions.
 
@@ -984,11 +984,41 @@ Create additional accounts in **Settings → Users** after logging in as admin.
 
 ---
 
+## Setting images
+
+Three things in Grimoire carry an image you choose yourself: a **campaign banner**, a
+**game system cover**, and an **audio track cover**. All three use the same dialog, and it
+offers three ways to set one:
+
+- **Upload** a file from your device (PNG, JPEG, WebP, or GIF).
+- **Paste** an image straight from your clipboard with `Ctrl`/`Cmd`+`V` while the dialog is
+  open - handy for a screenshot or something copied from a browser. You can also drag a
+  file onto the dialog.
+- **Browse** what Grimoire already has: your maps, tokens, book covers, and audio artwork.
+  For a campaign banner, the campaign's own uploaded images come first, since that is
+  usually where the art you want already lives.
+
+Picking an existing image **copies** it into place rather than pointing at the original, so
+the banner or cover keeps working if you later delete the source or reorganise your library.
+Browsing only ever shows you images you can already open, and setting a campaign banner
+stays a GM/owner action; system and audio covers need the GM or admin role.
+
+**Banner positioning.** A banner fills a wide 2:1 hero, and most images aren't that shape,
+so the interesting part can end up cropped out. When the chosen image is taller than the
+frame, the dialog lets you **drag the preview** (or use the slider) to pick which slice
+stays in view. The position is saved with the campaign, and you can come back and nudge it
+later without re-uploading. Removing the banner resets it.
+
+Audio covers are worth calling out: a track's artwork previously came only from a `cover.*`
+image sitting next to it in your library or from the file's own embedded tags, neither of
+which you could change from inside Grimoire. A cover you set here takes precedence over
+both, and removing it hands control back to them.
+
 ## Campaigns
 
 Grimoire has a built-in campaign tracker with two modes:
 
-- **GM Campaigns** - Created by GMs or admins. Supports player invitations, a banner image, character art and character sheets per member (uploaded file or an external link), resource linking with per-resource visibility, a markdown wiki for notes, and scheduling.
+- **GM Campaigns** - Created by GMs or admins. Supports player invitations, a banner image (see [Setting images](#setting-images)), character art and character sheets per member (uploaded file or an external link), resource linking with per-resource visibility, a markdown wiki for notes, and scheduling.
 - **Personal Campaigns** - Private to a single user. No sharing.
 
 Campaign creation uses a short wizard: pick a system, then choose resources - the system's core books are suggested by default and anything can be added (with a search) or removed, each set to **Shared with players**, **GM only**, or **Private**. The campaign **description** supports markdown, and you can name a **custom game system** that isn't in your library (handy for keeping notes on a system you don't own).

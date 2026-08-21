@@ -1028,7 +1028,10 @@
       "suggestedSize": "Taille suggérée : 1600 × 800",
       "edit": "Modifier la bannière",
       "modalTitle": "Bannière de campagne",
-      "allowedFormats": "PNG, JPEG, WebP ou GIF, jusqu'à 5 Mo."
+      "allowedFormats": "PNG, JPEG, WebP ou GIF, jusqu'à 5 Mo.",
+      "dragToReposition": "Glisser pour repositionner",
+      "verticalPosition": "Position verticale",
+      "savePosition": "Enregistrer la position"
     },
     "openNotes": "Ouvrir les notes",
     "archive": "Archiver",
@@ -1842,7 +1845,10 @@
       "folderTags": "Étiquettes du dossier",
       "trackTags": "Étiquettes de la piste",
       "editTags": "Modifier",
-      "noTags": "Aucune"
+      "noTags": "Aucune",
+      "setCover": "Définir la pochette",
+      "changeCover": "Changer la pochette",
+      "coverTitle": "Pochette de la piste"
     },
     "player": {
       "title": "Lecture en cours",
@@ -2073,5 +2079,29 @@
     "builtInLabel": "Built-in",
     "bothModes": "Light & dark",
     "themeTitle": "Thème"
+  },
+  "imagePicker": {
+    "mode": {
+      "upload": "Téléverser",
+      "browse": "Parcourir la bibliothèque"
+    },
+    "tab": {
+      "campaign_file": "Cette campagne",
+      "map": "Cartes",
+      "token": "Jetons",
+      "book": "Couvertures",
+      "audio": "Pochettes audio"
+    },
+    "searchPlaceholder": "Rechercher par nom ou dossier…",
+    "noResults": "Aucune image trouvée",
+    "loadMore": "Afficher {{count}} de plus",
+    "chooseFile": "Choisir une image",
+    "pasteHint": "ou collez une image avec Ctrl/Cmd+V, ou déposez-la ici",
+    "formats": "PNG, JPEG, WebP ou GIF.",
+    "save": "Définir l'image",
+    "saving": "Enregistrement…",
+    "remove": "Supprimer",
+    "failed": "Impossible de définir l'image",
+    "searchFailed": "Impossible de charger les images"
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImagePlus } from 'react-icons/lu'
 import { campaigns } from '../../api'
@@ -23,7 +23,39 @@ export default function BannerHero({ campaign, isOwner, onChanged }) {
   const { t } = useTranslation()
   const [showModal, setShowModal] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(false)
+  // Images already attached to this campaign, offered first in the picker — the
+  // banner someone wants is usually art they have already uploaded here (#286).
+  const [campaignImages, setCampaignImages] = useState([])
   const hoverTimer = useRef(null)
+
+  // Loaded only when the dialog opens: the hero itself never needs this list,
+  // and campaigns with many resources shouldn't pay for it on every render.
+  useEffect(() => {
+    if (!showModal || !isOwner) return undefined
+    let cancelled = false
+    campaigns
+      .listResources(campaign.id)
+      .then((rows) => {
+        if (cancelled) return
+        setCampaignImages(
+          (rows || [])
+            .filter((r) => r.resource_type === 'file' && r.is_image)
+            .map((r) => ({
+              id: r.resource_id,
+              name: r.name,
+              url: campaigns.fileUrl(campaign.id, r.resource_id),
+            }))
+        )
+      })
+      .catch(() => {
+        // A failed lookup only costs the campaign tab in the picker; the
+        // library sources and upload still work, so this stays silent.
+        if (!cancelled) setCampaignImages([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showModal, isOwner, campaign.id])
 
   // Reveal the Edit control only after hovering the banner for >1s.
   const onEnter = () => {
@@ -63,7 +95,16 @@ export default function BannerHero({ campaign, isOwner, onChanged }) {
         <img
           src={bannerSrc}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            // `cover` + a focal point (issue #286): a banner set from a library
+            // asset is rarely 2:1, and letterboxing it wastes the hero. The
+            // stored focus decides which slice of a tall image stays in frame.
+            objectFit: 'cover',
+            objectPosition: `50% ${campaign.banner_focus_y ?? 50}%`,
+            display: 'block',
+          }}
         />
       ) : (
         <button
@@ -101,8 +142,18 @@ export default function BannerHero({ campaign, isOwner, onChanged }) {
         <BannerUploadModal
           hasBanner={campaign.has_banner}
           previewSrc={bannerSrc}
+          campaignImages={campaignImages}
+          focusY={campaign.banner_focus_y ?? 50}
           onPick={async (file) => {
             await campaigns.uploadBanner(campaign.id, file)
+            onChanged()
+          }}
+          onPickSource={async ({ source_type: type, source_id: id }) => {
+            await campaigns.setBannerFromSource(campaign.id, type, id)
+            onChanged()
+          }}
+          onFocusChange={async (focusY) => {
+            await campaigns.setBannerFocus(campaign.id, focusY)
             onChanged()
           }}
           onRemove={async () => {

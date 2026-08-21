@@ -20,6 +20,12 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../api', () => ({
   default: { upload: vi.fn(), delete: vi.fn() },
   mediaUrl: (p) => p,
+  // The cover is set through the shared image picker (issue #286).
+  imageSources: {
+    setSystemCover: vi.fn(),
+    search: vi.fn(() => Promise.resolve([])),
+    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+  },
 }))
 
 vi.mock('../FavoriteButton', () => ({ default: () => null }))
@@ -138,10 +144,12 @@ describe('SystemContainerView', () => {
       expect(screen.queryByText('systemEditor.uploadCover')).not.toBeInTheDocument()
     })
 
-    it('lets an editor open the cover uploader', async () => {
+    it('lets an editor open the cover picker', async () => {
       render(<SystemContainerView system={makeContainer()} canEdit onBack={vi.fn()} />)
-      await userEvent.click(screen.getByText('systemEditor.uploadCover'))
-      expect(screen.getByTestId('cover-upload-input')).toBeInTheDocument()
+      // The container view reveals CoverUpload, whose button opens the picker.
+      await userEvent.click(screen.getByTitle('systemEditor.uploadCover'))
+      await userEvent.click(screen.getByText('systemEditor.chooseImage'))
+      expect(screen.getByTestId('image-picker-input')).toBeInTheDocument()
     })
   })
 })

@@ -23,6 +23,7 @@ from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import LIBRARY_PATH, SYSTEM_COVER_DIR, get_db, logger
 from ...file_cache import cached_file_response
 from ...models import GameSystem
+from ._schemas import SystemCoverSourceIn
 
 _IMAGE_TYPES = {
     "image/png": ".png",
@@ -141,14 +142,41 @@ def upload_system_cover(
         raise HTTPException(400, "Empty file")
     _validate_image(data)
 
-    ext = _IMAGE_TYPES[file.content_type]
+    filename = _store_system_cover(system, data, _IMAGE_TYPES[file.content_type])
+    db.commit()
+    return {"cover_image": filename}
+
+
+def _store_system_cover(system: GameSystem, data: bytes, ext: str) -> str:
+    """Write cover bytes for a system and point the row at them."""
     _remove_existing(system.id)
     filename = f"{system.id}{ext}"
     os.makedirs(SYSTEM_COVER_DIR, exist_ok=True)
     with open(os.path.join(SYSTEM_COVER_DIR, filename), "wb") as f:
         f.write(data)
-
     system.cover_image = filename
+    return filename
+
+
+def set_system_cover_from_source(
+    system_id: str,
+    body: SystemCoverSourceIn,
+    current_user: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Set a system cover from an image Grimoire already holds (issue #286).
+
+    Copies the chosen bytes in exactly as an upload does, so the precedence
+    rules above are untouched: a folder ``cover.*`` still wins over this.
+    Especially useful for a container folder, which has no books of its own to
+    take a thumbnail from.
+    """
+    from ...services.image_source import load_source_image, source_ext, validate_image
+
+    system = _get_system_or_404(db, system_id)
+    data = load_source_image(db, current_user, body.source_type, body.source_id)
+    validate_image(data)
+    filename = _store_system_cover(system, data, source_ext(data))
     db.commit()
     return {"cover_image": filename}
 

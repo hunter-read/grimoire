@@ -15,7 +15,14 @@ from .core import (
     bulk_update_audio,
     bulk_add_audio_tags,
 )
+from .covers import (
+    delete_audio_cover,
+    serve_audio_cover,
+    set_audio_cover_from_source,
+    upload_audio_cover,
+)
 from ._schemas import (
+    AudioCoverResponse,
     AudioDetailResponse,
     AudioFoldersResponse,
     AudioListResponse,
@@ -75,7 +82,58 @@ router.add_api_route(
     serve_audio_artwork,
     methods=["GET"],
     summary="Audio artwork",
-    description="Returns folder cover art or embedded album art for a track. 404 if none.",
+    description=(
+        "Returns a track's artwork, resolving a cover set through the UI first, "
+        "then folder cover art, then embedded album art. 404 if none."
+    ),
+)
+# Cover art set through the UI (issue #286). Distinct from `/artwork` above:
+# these read and write only the chosen cover, so the editor can tell one apart
+# from folder or embedded art it must not offer to delete.
+router.add_api_route(
+    "/audio/{audio_id}/cover",
+    serve_audio_cover,
+    methods=["GET"],
+    summary="Audio cover image",
+    description=(
+        "Serves only a cover set through the UI, for the editor preview. 404 "
+        "when the track has none (even if it has folder or embedded art). "
+        "GM or admin role required."
+    ),
+)
+router.add_api_route(
+    "/audio/{audio_id}/cover",
+    upload_audio_cover,
+    methods=["POST"],
+    summary="Upload an audio cover",
+    description=(
+        "Stores a cover image for the track. PNG/JPEG/WebP/GIF, max 10 MB. It "
+        "takes precedence over folder and embedded art. GM or admin role required."
+    ),
+    response_model=AudioCoverResponse,
+)
+router.add_api_route(
+    "/audio/{audio_id}/cover/from-source",
+    set_audio_cover_from_source,
+    methods=["POST"],
+    summary="Set an audio cover from an existing image",
+    description=(
+        "Copies an image Grimoire already holds — a library map or token, book "
+        "cover, or another track's artwork — into this track's cover. Body: "
+        "{source_type, source_id}. GM or admin role required."
+    ),
+    response_model=AudioCoverResponse,
+)
+router.add_api_route(
+    "/audio/{audio_id}/cover",
+    delete_audio_cover,
+    methods=["DELETE"],
+    summary="Remove an audio cover",
+    description=(
+        "Deletes the set cover; folder and embedded art are untouched and take "
+        "over again. GM or admin role required."
+    ),
+    response_model=StatusResponse,
 )
 router.add_api_route(
     "/audio/{audio_id}",

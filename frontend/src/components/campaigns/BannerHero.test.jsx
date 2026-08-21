@@ -8,14 +8,23 @@ vi.mock('../../api', () => ({
     bannerUrl: (id, updated) => `http://localhost/banner/${id}?v=${updated}`,
     uploadBanner: vi.fn(() => Promise.resolve()),
     deleteBanner: vi.fn(() => Promise.resolve()),
+    setBannerFromSource: vi.fn(() => Promise.resolve()),
+    setBannerFocus: vi.fn(() => Promise.resolve()),
+    // The picker offers the campaign's own images first (issue #286).
+    listResources: vi.fn(() => Promise.resolve([])),
+    fileUrl: (id, fileId) => `http://localhost/files/${id}/${fileId}`,
   },
 }))
 
-// Stub the upload modal to expose the pick/remove/close callbacks as buttons.
+// Stub the picker modal to expose its callbacks as buttons.
 vi.mock('./BannerUploadModal', () => ({
-  default: ({ onPick, onRemove, onClose }) => (
+  default: ({ onPick, onPickSource, onFocusChange, onRemove, onClose }) => (
     <div data-testid="banner-modal">
       <button onClick={() => onPick(new File(['x'], 'b.png'))}>pick</button>
+      <button onClick={() => onPickSource({ source_type: 'map', source_id: 'm1' })}>
+        pick-source
+      </button>
+      <button onClick={() => onFocusChange(25)}>focus</button>
       <button onClick={onRemove}>remove</button>
       <button onClick={onClose}>close</button>
     </div>

@@ -84,6 +84,10 @@ class Audio(Base):
     album = Column(String(500), default="")
     # True when folder cover art or embedded album art is available.
     has_artwork = Column(Boolean, default=False)
+    # Bare filename of a cover set through the UI, under DATA_PATH/audio_covers/.
+    # Takes precedence over folder art and embedded tags, since it is the only
+    # one of the three a user can actually choose from Grimoire (issue #286).
+    cover_image = Column(String(255), default="")
     file_size = Column(Integer, default=0)
     # Content identity — see the note on GenericMap.content_hash.
     content_hash = Column(String(64), nullable=True, index=True)

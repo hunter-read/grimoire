@@ -1028,7 +1028,10 @@
       "suggestedSize": "Tamaño sugerido: 1600 × 800",
       "edit": "Editar banner",
       "modalTitle": "Banner de la campaña",
-      "allowedFormats": "PNG, JPEG, WebP o GIF, hasta 5 MB."
+      "allowedFormats": "PNG, JPEG, WebP o GIF, hasta 5 MB.",
+      "dragToReposition": "Arrastra para reposicionar",
+      "verticalPosition": "Posición vertical",
+      "savePosition": "Guardar posición"
     },
     "openNotes": "Abrir notas",
     "archive": "Archivar",
@@ -1842,7 +1845,10 @@
       "folderTags": "Etiquetas de carpeta",
       "trackTags": "Etiquetas de la pista",
       "editTags": "Editar",
-      "noTags": "Ninguna"
+      "noTags": "Ninguna",
+      "setCover": "Establecer portada",
+      "changeCover": "Cambiar portada",
+      "coverTitle": "Portada de la pista"
     },
     "player": {
       "title": "Reproduciendo ahora",
@@ -2073,5 +2079,29 @@
     "builtInLabel": "Built-in",
     "bothModes": "Light & dark",
     "themeTitle": "Tema"
+  },
+  "imagePicker": {
+    "mode": {
+      "upload": "Subir",
+      "browse": "Explorar biblioteca"
+    },
+    "tab": {
+      "campaign_file": "Esta campaña",
+      "map": "Mapas",
+      "token": "Fichas",
+      "book": "Portadas",
+      "audio": "Portadas de audio"
+    },
+    "searchPlaceholder": "Buscar por nombre o carpeta…",
+    "noResults": "No se encontraron imágenes",
+    "loadMore": "Mostrar {{count}} más",
+    "chooseFile": "Elegir una imagen",
+    "pasteHint": "o pega una imagen con Ctrl/Cmd+V, o suéltala aquí",
+    "formats": "PNG, JPEG, WebP o GIF.",
+    "save": "Establecer imagen",
+    "saving": "Guardando…",
+    "remove": "Quitar",
+    "failed": "No se pudo establecer la imagen",
+    "searchFailed": "No se pudieron cargar las imágenes"
   }
 }

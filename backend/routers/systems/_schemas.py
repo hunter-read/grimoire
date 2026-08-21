@@ -260,3 +260,25 @@ class StatusResponse(BaseModel):
 
 class SystemCoverResponse(BaseModel):
     cover_image: str
+
+
+class SystemCoverSourceIn(BaseModel):
+    """Set a system cover from an image Grimoire already holds (issue #286).
+
+    `source_type` is one of `services.image_source.SOURCE_TYPES`; the
+    campaign-scoped `campaign_file` kind is not reachable here, since a system
+    has no campaign context to resolve it against.
+    """
+
+    source_type: str
+    source_id: str
+
+    @field_validator("source_type")
+    @classmethod
+    def known_source(cls, v: str) -> str:
+        from ...services.image_source import SOURCE_TYPES
+
+        allowed = tuple(t for t in SOURCE_TYPES if t != "campaign_file")
+        if v not in allowed:
+            raise ValueError(f"source_type must be one of {', '.join(allowed)}")
+        return v

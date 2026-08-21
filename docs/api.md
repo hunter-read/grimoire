@@ -286,6 +286,7 @@ must be non-empty (`422` otherwise).
 | `/api/systems/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/systems/:id/cover` | GET | any | Serves the system's folder cover art or uploaded cover image. 404 when it has neither |
 | `/api/systems/:id/cover` | POST | gm/admin | Upload a cover image (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB |
+| `/api/systems/:id/cover/from-source` | POST | gm/admin | Set the cover from an image Grimoire already holds. Body: `{source_type, source_id}` - see [Setting an image from an existing asset](#setting-an-image-from-an-existing-asset) |
 | `/api/systems/:id/cover` | DELETE | gm/admin | Remove the uploaded cover. Folder art is library-managed and unaffected |
 | `/api/systems/:id/book-folders` | GET | any | Book subcategory folders for this system and their tags. Returns `{folders: [{path, tags}]}` |
 | `/api/systems/:id/book-folders` | PATCH | gm/admin | Create or replace a folder's tag list. Body `{path, tags}`. `path` must be `{system_id}/{category}/{subfolder…}` for this system - 400 otherwise |
@@ -484,7 +485,11 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
 | `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
-| `/api/audio/:id/artwork` | GET | any | Folder cover art or embedded album art. 404 if none |
+| `/api/audio/:id/artwork` | GET | any | Track artwork, resolving a cover set through the UI first, then folder cover art, then embedded album art. 404 if none |
+| `/api/audio/:id/cover` | GET | gm/admin | Only a cover set through the UI, for the editor preview. 404 when the track has none, even if it has folder or embedded art |
+| `/api/audio/:id/cover` | POST | gm/admin | Upload a cover image (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB. Takes precedence over folder and embedded art |
+| `/api/audio/:id/cover/from-source` | POST | gm/admin | Set the cover from an image Grimoire already holds. Body: `{source_type, source_id}` - see [Setting an image from an existing asset](#setting-an-image-from-an-existing-asset) |
+| `/api/audio/:id/cover` | DELETE | gm/admin | Remove the set cover. Folder and embedded art are untouched and take over again |
 | `/api/audio/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?}]}` |
 | `/api/audio/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/audio-folders` | GET | any | List folder tag assignments |
@@ -640,6 +645,34 @@ Guests are code-only accounts (role `guest`) scoped to a single GM campaign. All
 
 Guests authenticate via [`/api/auth/guest-login`](#auth) and may write only their own character name, art, sheet, session notes, and availability - everything else is read-only. The shared library, maps, tokens, and search return 403 for guests.
 
+#### Setting an image from an existing asset
+
+Three targets - the campaign banner, a game system's cover, and an audio track's
+cover - can be set from an image Grimoire already holds instead of a fresh upload
+from the user's device, via a `POST .../from-source` endpoint taking
+`{source_type, source_id}`.
+
+| `source_type` | Resolves to | Available on |
+|---------------|-------------|--------------|
+| `map` | The map image itself, or its generated thumbnail for a PDF/archive map | all three |
+| `token` | The token image, or its thumbnail | all three |
+| `book` | The book's cover thumbnail | all three |
+| `audio` | The track's folder or embedded artwork | all three |
+| `campaign_file` | An image uploaded to the campaign (`is_image`) | banner only |
+
+The chosen bytes are **copied** into the target's own storage exactly as an
+upload is, so the result survives the source asset being deleted or the library
+being reorganised, and the GET endpoints are unchanged. `campaign_file` is
+campaign-scoped and is rejected (422) on the system and audio endpoints, which
+have no campaign context to resolve it against.
+
+Authorisation is enforced twice: the caller must be allowed to write the target
+(campaign owner, or gm/admin for a system/track) **and** must be able to read the
+source in its own right, under the same rules its own content route applies. The
+picker therefore grants no access the caller did not already have. Unknown source
+types are rejected with 422; a source that is missing, or that has no image to
+give (a book with no cover thumbnail, a track with no artwork), returns 404.
+
 #### Banner, character art & sheets
 
 Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints authenticate via the `grimoire_session` cookie for use in `<img>`/download URLs (the deprecated `?token=` query param is still accepted - see [Authentication](#authentication)).
@@ -650,7 +683,9 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 |----------|--------|------|-------------|
 | `/api/campaigns/:id/banner` | POST | owner | Upload/replace campaign banner (multipart `file`). A downscaled (≤1000px-wide WebP) copy is generated for fast display alongside the stored original. |
 | `/api/campaigns/:id/banner` | GET | member or owner | Banner image. Defaults to the downscaled WebP; pass `?size=full` for the original upload. The small copy is generated on first access for banners uploaded before downscaling existed. |
-| `/api/campaigns/:id/banner` | DELETE | owner | Remove banner |
+| `/api/campaigns/:id/banner` | DELETE | owner | Remove banner. Also resets `banner_focus_y` to 50, so a stale focal point never carries onto the next banner |
+| `/api/campaigns/:id/banner/from-source` | POST | owner | Set the banner from an image Grimoire already holds. Body: `{source_type, source_id}` - see [Setting an image from an existing asset](#setting-an-image-from-an-existing-asset) |
+| `/api/campaigns/:id/banner/focus` | PUT | owner | Set where the banner sits vertically in the 2:1 hero. Body: `{focus_y}`, 0-100 (50 = centred). Returns `{banner_focus_y}` |
 | `/api/campaigns/:id/members/:member_id/art` | POST | member (own) or owner | Upload/replace character art (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/art` | GET | member or owner | Character art image |
 | `/api/campaigns/:id/members/:member_id/art` | DELETE | member (own) or owner | Remove character art |
