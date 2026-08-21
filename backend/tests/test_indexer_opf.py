@@ -9,6 +9,7 @@ from textwrap import dedent
 
 from backend.config import SessionLocal
 from backend.indexer import parse_opf_metadata, scan_library
+from backend.indexer.metadata import _apply_opf_to_book
 from backend.models import Book
 from backend.services import tag_service
 
@@ -262,6 +263,132 @@ class TestParseOpfMetadataEdgeCases:
 
 
 # ---------------------------------------------------------------------------
+# dc:identifier — ISBN scoped by opf:scheme (issue #376)
+# ---------------------------------------------------------------------------
+
+def _isbn_opf(*identifiers: str) -> str:
+    """Build an OPF whose only interesting content is its dc:identifier list."""
+    body = "\n".join(f"            {ident}" for ident in identifiers)
+    return dedent("""\
+        <?xml version='1.0' encoding='utf-8'?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+            <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+                <dc:title>Test</dc:title>
+        %s
+            </metadata>
+        </package>
+    """) % body
+
+
+class TestParseOpfIsbn:
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def _parse(self, *identifiers: str) -> dict:
+        path = _write_opf(self.tmp, "test.opf", _isbn_opf(*identifiers))
+        return parse_opf_metadata(path)
+
+    def test_isbn13_scheme_read(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">9780786965502</dc:identifier>')
+        assert meta["isbn"] == "9780786965502"
+
+    def test_isbn10_scheme_read(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">0786965509</dc:identifier>')
+        assert meta["isbn"] == "0786965509"
+
+    def test_isbn10_check_digit_x_accepted(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">043942089X</dc:identifier>')
+        assert meta["isbn"] == "043942089X"
+
+    def test_hyphens_and_spaces_stripped(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">978-0-7869-6550-2</dc:identifier>')
+        assert meta["isbn"] == "9780786965502"
+
+    def test_scheme_matched_case_insensitively(self):
+        meta = self._parse('<dc:identifier opf:scheme="isbn">9780786965502</dc:identifier>')
+        assert meta["isbn"] == "9780786965502"
+
+    def test_unscoped_identifier_ignored(self):
+        # Calibre's UUID has no scheme — the whole reason identifiers were
+        # ignored wholesale before.
+        meta = self._parse(
+            "<dc:identifier>urn:uuid:1c2f8f0e-6b0e-4f2d-9a1b-8c7d6e5f4a3b</dc:identifier>"
+        )
+        assert "isbn" not in meta
+
+    def test_uuid_scheme_identifier_ignored(self):
+        meta = self._parse(
+            '<dc:identifier opf:scheme="uuid" id="uuid_id">'
+            "1c2f8f0e-6b0e-4f2d-9a1b-8c7d6e5f4a3b</dc:identifier>"
+        )
+        assert "isbn" not in meta
+
+    def test_non_isbn_scheme_ignored(self):
+        meta = self._parse('<dc:identifier opf:scheme="DOI">10.1000/182</dc:identifier>')
+        assert "isbn" not in meta
+
+    def test_bad_check_digit_rejected(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">9780786965509</dc:identifier>')
+        assert "isbn" not in meta
+
+    def test_wrong_length_rejected(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">12345</dc:identifier>')
+        assert "isbn" not in meta
+
+    def test_non_numeric_isbn13_rejected(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">97807869655AB</dc:identifier>')
+        assert "isbn" not in meta
+
+    def test_isbn10_with_letter_in_body_rejected(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN">07869A5509</dc:identifier>')
+        assert "isbn" not in meta
+
+    def test_empty_identifier_ignored(self):
+        meta = self._parse('<dc:identifier opf:scheme="ISBN"></dc:identifier>')
+        assert "isbn" not in meta
+
+    def test_first_valid_isbn_wins_over_earlier_invalid(self):
+        meta = self._parse(
+            "<dc:identifier>urn:uuid:abc</dc:identifier>",
+            '<dc:identifier opf:scheme="ISBN">nonsense</dc:identifier>',
+            '<dc:identifier opf:scheme="ISBN">9780786965502</dc:identifier>',
+        )
+        assert meta["isbn"] == "9780786965502"
+
+    def test_absent_identifier_leaves_isbn_unset(self):
+        meta = self._parse()
+        assert "isbn" not in meta
+
+
+class TestIsbnRefreshModes:
+    """The recovery case from issue #376: rebuilding a database from sidecars.
+
+    ``isbn`` joins the OPF-sourced fields, so the refresh modes have to treat it
+    exactly like the fields that were already there.
+    """
+
+    def test_missing_fills_an_empty_isbn(self):
+        book = Book(title="T", isbn="")
+        assert _apply_opf_to_book(book, {"isbn": "9780786965502"}, "missing") is True
+        assert book.isbn == "9780786965502"
+
+    def test_missing_protects_a_user_entered_isbn(self):
+        book = Book(title="T", isbn="9780786965601")
+        assert _apply_opf_to_book(book, {"isbn": "9780786965502"}, "missing") is False
+        assert book.isbn == "9780786965601"
+
+    def test_replace_overwrites_an_existing_isbn(self):
+        book = Book(title="T", isbn="9780786965601")
+        assert _apply_opf_to_book(book, {"isbn": "9780786965502"}, "replace") is True
+        assert book.isbn == "9780786965502"
+
+    def test_an_opf_without_an_isbn_never_clears_one(self):
+        book = Book(title="T", isbn="9780786965601")
+        assert _apply_opf_to_book(book, {"title": "T"}, "replace") is False
+        assert book.isbn == "9780786965601"
+
+
+# ---------------------------------------------------------------------------
 # Calibre per-book-folder structure — scan_library integration
 # ---------------------------------------------------------------------------
 
@@ -273,6 +400,8 @@ CALIBRE_BOOK_OPF = dedent("""\
             <dc:creator opf:role="aut">Wizards of the Coast</dc:creator>
             <dc:date>2014-08-19T00:00:00+00:00</dc:date>
             <dc:publisher>Wizards of the Coast</dc:publisher>
+            <dc:identifier opf:scheme="ISBN">978-0-7869-6560-1</dc:identifier>
+            <dc:identifier opf:scheme="uuid" id="uuid_id">1c2f8f0e-6b0e-4f2d-9a1b-8c7d6e5f4a3b</dc:identifier>
             <dc:subject>tabletop rpg</dc:subject>
         </metadata>
         <guide>
@@ -328,6 +457,8 @@ class TestCalibrePerBookFolderStructure:
         assert book.authors == ["Wizards of the Coast"]
         assert book.publisher == "Wizards of the Coast"
         assert book.year == 2014
+        # Scoped ISBN round-trips in normalised form; the UUID stays ignored.
+        assert book.isbn == "9780786965601"
         # OPF subjects become shared tags; match on the internal (lowercased) key.
         db = SessionLocal()
         try:

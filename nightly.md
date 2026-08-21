@@ -454,9 +454,10 @@ Grimoire reads [OPF](https://idpf.org/epub/20/spec/OPF_2.0.1_draft.htm) sidecar 
 | `dc:date` | Year (4-digit year extracted) |
 | `dc:description` | Description (HTML tags stripped) |
 | `dc:subject` | Tags (lowercased) |
+| `dc:identifier` with `opf:scheme="ISBN"` | ISBN (hyphens stripped, check digit validated) |
 | `guide/reference[@type='cover']` | Cover image (file is excluded from the book list) |
 
-`dc:contributor` entries (e.g. Calibre's own tool credit) and `dc:identifier` (UUID/ISBN) are intentionally ignored. `dc:language` is parsed but not stored (no matching field).
+`dc:contributor` entries (e.g. Calibre's own tool credit) are intentionally ignored, as are `dc:identifier` elements without `opf:scheme="ISBN"` — that filter is what keeps Calibre's internal UUIDs out of the ISBN field while letting a real ISBN (including one Grimoire's own [sidecar export](docs/sidecars.md) wrote) come back in. An ISBN whose check digit does not validate is dropped rather than stored. `dc:language` is parsed but not stored (no matching field).
 
 #### OPF file discovery
 

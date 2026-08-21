@@ -125,13 +125,53 @@ def _find_folder_artwork(folder: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
+def _valid_isbn(value: str) -> bool:
+    """Check the check digit of an already-normalised ISBN-10/13.
+
+    ``value`` must be uppercase with separators removed.  Anything that is not a
+    well-formed ISBN-10 or ISBN-13 returns False, so a UUID that somehow carried
+    an ``ISBN`` scheme is still rejected rather than stored.
+    """
+    if len(value) == 10:
+        if not (value[:9].isdigit() and (value[9].isdigit() or value[9] == "X")):
+            return False
+        total = sum((10 - i) * int(d) for i, d in enumerate(value[:9]))
+        total += 10 if value[9] == "X" else int(value[9])
+        return total % 11 == 0
+    if len(value) == 13:
+        if not value.isdigit():
+            return False
+        total = sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(value))
+        return total % 10 == 0
+    return False
+
+
+def _parse_opf_isbn(root: ElementTree.Element) -> str:
+    """Return the first valid ISBN from ``dc:identifier opf:scheme="ISBN"``.
+
+    Unscoped identifiers stay ignored: Calibre writes its internal UUID as a
+    bare identifier, and reading those would fill the ISBN field with noise.
+    Only the scheme Grimoire's own exporter writes is read back, which is what
+    lets an export survive a rebuild from sidecars (issue #376).
+    """
+    scheme_attr = f"{{{_OPF_NS['opf']}}}scheme"
+    for el in root.findall("opf:metadata/dc:identifier", _OPF_NS):
+        if (el.get(scheme_attr) or "").strip().lower() != "isbn":
+            continue
+        # Strip the separators people actually type; keep the ISBN-10 "X".
+        normalised = re.sub(r"[-\s]", "", (el.text or "").strip()).upper()
+        if _valid_isbn(normalised):
+            return normalised
+    return ""
+
+
 def parse_opf_metadata(opf_path: str) -> dict:
     """Parse a Calibre/OPF metadata file and return a dict of book fields.
 
     Returns a dict containing any of: title, authors, description, publisher,
-    year, tags, cover_image_filename. Only keys with actual values are included.
-    cover_image_filename is the bare filename (not a path) of the cover image
-    referenced in the OPF <guide>, if present.
+    year, isbn, tags, cover_image_filename. Only keys with actual values are
+    included. cover_image_filename is the bare filename (not a path) of the
+    cover image referenced in the OPF <guide>, if present.
     """
     try:
         tree = ElementTree.parse(opf_path)
@@ -179,6 +219,10 @@ def parse_opf_metadata(opf_path: str) -> dict:
         except (ValueError, IndexError):
             # Non-numeric / malformed date string → leave year unset. Expected.
             pass
+
+    isbn = _parse_opf_isbn(root)
+    if isbn:
+        meta["isbn"] = isbn
 
     subjects = [
         el.text.strip().lower()

@@ -155,6 +155,13 @@ Grimoire's OPF exporter is the exact inverse of its OPF importer - every element
 written is one the importer reads - so an export followed by a rescan reproduces
 the same values. This is enforced by a round-trip test.
 
+`dc:identifier` is the one element read conditionally: the importer takes it
+**only** when it carries `opf:scheme="ISBN"`, which is the scheme the exporter
+writes. Unscoped identifiers stay ignored, so Calibre's internal UUID never
+lands in the ISBN field. The value is normalised (hyphens and spaces stripped)
+and its check digit validated; an ISBN that fails the check is dropped rather
+than imported.
+
 Precedence is set by the **metadata refresh mode** used when scanning:
 
 | Mode | On rescan | Use with export |
