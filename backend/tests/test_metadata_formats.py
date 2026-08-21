@@ -24,7 +24,7 @@ FIELDS = {
     "artists": ["Tyler Jacobson"],
     "publisher": "Wizards of the Coast",
     "genres": ["Fantasy"],
-    "isbn": "9780786965606",
+    "isbn": "9780786965601",
     "version": "5e",
     "language": "en",
     "license": "",
@@ -91,6 +91,9 @@ class TestOpf:
         assert parsed["description"] == FIELDS["description"]
         assert parsed["publisher"] == FIELDS["publisher"]
         assert parsed["year"] == 2014
+        # Scoped by opf:scheme="ISBN" on both sides, so it survives the trip
+        # (issue #376) — an unscoped identifier still would not.
+        assert parsed["isbn"] == FIELDS["isbn"]
         assert parsed["tags"] == ["core", "rules"]
         assert parsed["cover_image_filename"] == "phb.jpg"
 
