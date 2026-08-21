@@ -494,9 +494,18 @@ class TestCalibrePerBookFolderStructure:
 
         self._scan()
 
+        # Scoped to this test's library: the module-wide DB is shared, and a
+        # cover.jpg registered by another test's library is not this one's.
         db = SessionLocal()
         try:
-            cover_book = db.query(Book).filter(Book.filename == "cover.jpg").first()
+            cover_book = (
+                db.query(Book)
+                .filter(
+                    Book.filename == "cover.jpg",
+                    Book.filepath.like(f"{self.lib}%"),
+                )
+                .first()
+            )
         finally:
             db.close()
         assert cover_book is None

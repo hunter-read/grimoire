@@ -503,3 +503,152 @@ class TestExpandMetadataMigration:
         assert json.loads(g[0]) == ["Fantasy"]
         assert json.loads(g[1])[0]["url"] == "http://b"
         assert json.loads(b[0])[0]["url"] == "http://p"
+
+
+class TestFolderCoverBookCleanup:
+    """Migration b4d90c2e75af: drop books that were really shelf artwork (#372)."""
+
+    def _seed(self):
+        """A DB at the revision before the cleanup, holding one system whose
+        folder artwork was double-registered as a book, plus two look-alikes
+        that must survive: a cover image in a *different* folder, and a genuine
+        book whose title happens to be "cover"."""
+        path = os.path.join(tempfile.mkdtemp(), "covers.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            from alembic import command
+
+            cfg = _alembic_config(conn)
+            command.upgrade(cfg, "c72e5b81a934")
+            conn.commit()
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug, folder_cover_path) "
+                    "VALUES ('s1','Test System','test-system','books/Test System/cover.jpg')"
+                )
+            )
+            rows = [
+                # The bogus row: exactly the file claimed as artwork.
+                ("bogus", "cover", "cover.jpg", "/lib/books/Test System/cover.jpg"),
+                # Same name, deeper in the tree — a real image book.
+                ("deep", "cover", "cover.jpg", "/lib/books/Test System/handouts/cover.jpg"),
+                # A real PDF that merely shares the title.
+                ("pdf", "cover", "cover.pdf", "/lib/books/Test System/cover.pdf"),
+            ]
+            for bid, title, filename, filepath in rows:
+                conn.execute(
+                    text(
+                        "INSERT INTO books (id, title, filename, filepath, relative_path, "
+                        "game_system_id) VALUES (:id,:t,:f,:p,:r,'s1')"
+                    ),
+                    {"id": bid, "t": title, "f": filename, "p": filepath, "r": filepath[5:]},
+                )
+            # A one-page container: the artwork was registered as a book on a
+            # *child* system invented for it, not on the row holding the cover.
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug, folder_cover_path) VALUES "
+                    "('s2','One-Page RPGs','one-page-rpgs','books/one-page-rpgs/cover.jpg')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug, parent_id) "
+                    "VALUES ('s3','Cover','one-page-rpgs--cover','s2')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO books (id, title, filename, filepath, relative_path, "
+                    "game_system_id) VALUES ('onepage','cover','cover.jpg',"
+                    "'/lib/books/one-page-rpgs/cover.jpg','books/one-page-rpgs/cover.jpg','s3')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO users (id, username, role) VALUES ('u1','u','admin')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO bookmarks (id, user_id, book_id, page_number) "
+                    "VALUES ('bm1','u1','bogus',1)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO favorites (id, user_id, item_type, item_id) "
+                    "VALUES ('fv1','u1','book','bogus')"
+                )
+            )
+            conn.commit()
+        engine.dispose()
+        return path
+
+    def test_the_artwork_row_is_deleted_and_look_alikes_are_kept(self):
+        path = self._seed()
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            ids = {r[0] for r in conn.execute(text("SELECT id FROM books")).fetchall()}
+        assert ids == {"deep", "pdf"}
+
+    def test_a_one_page_containers_artwork_row_is_deleted_too(self):
+        """It hangs off an invented child system, so it cannot be found by
+        joining on the row that holds folder_cover_path."""
+        path = self._seed()
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            gone = conn.execute(
+                text("SELECT count(*) FROM books WHERE id='onepage'")
+            ).scalar()
+        assert gone == 0
+
+    def test_the_deleted_book_leaves_no_bookmarks_or_favorites_behind(self):
+        path = self._seed()
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            bookmarks = conn.execute(
+                text("SELECT count(*) FROM bookmarks WHERE book_id='bogus'")
+            ).scalar()
+            favorites = conn.execute(
+                text("SELECT count(*) FROM favorites WHERE item_id='bogus'")
+            ).scalar()
+        assert (bookmarks, favorites) == (0, 0)
+
+    def test_the_system_keeps_its_folder_cover(self):
+        """The artwork itself is untouched — only the duplicate book row goes."""
+        path = self._seed()
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            cover = conn.execute(
+                text("SELECT folder_cover_path FROM game_systems WHERE id='s1'")
+            ).scalar()
+        assert cover == "books/Test System/cover.jpg"
+
+    def test_a_library_with_no_folder_covers_is_untouched(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO books (id, title, filename, filepath, relative_path) "
+                    "VALUES ('b1','B','b.pdf','/b.pdf','b.pdf')"
+                )
+            )
+            conn.commit()
+        engine.dispose()
+
+        init_db(path)  # re-running must leave the row alone
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM books")).scalar() == 1

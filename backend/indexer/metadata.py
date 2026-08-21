@@ -105,14 +105,24 @@ def _extract_embedded_art(filepath: str) -> Optional[Tuple[bytes, str]]:
     return None
 
 
+def is_folder_cover_name(filename: str) -> bool:
+    """True if ``filename`` is a folder-cover image (``cover.*`` / ``folder.*``).
+
+    The folder-cover convention claims such a file as shelf artwork for the
+    folder it sits in, so collection walks skip it rather than registering it as
+    an item of its own (issue #372).
+    """
+    p = Path(filename)
+    return p.stem.lower() in _AUDIO_COVER_STEMS and p.suffix.lower() in IMAGE_EXTS
+
+
 def _find_folder_artwork(folder: str) -> Optional[str]:
     """Return the path of a ``cover.*`` / ``folder.*`` image in ``folder``, or None."""
     try:
         for entry in os.scandir(folder):
             if not entry.is_file():
                 continue
-            p = Path(entry.name)
-            if p.stem.lower() in _AUDIO_COVER_STEMS and p.suffix.lower() in IMAGE_EXTS:
+            if is_folder_cover_name(entry.name):
                 return entry.path
     except OSError:
         # Folder unreadable/missing → no artwork; genuinely expected, not an error.

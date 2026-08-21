@@ -15,7 +15,7 @@ from unittest.mock import patch
 from backend.config import SessionLocal
 from backend.indexer import scan_library
 from backend.indexer.categories import slugify
-from backend.models import Audio, GameSystem, GenericMap
+from backend.models import Audio, Book, GameSystem, GenericMap
 
 
 def _mk_lib() -> tuple[str, Path]:
@@ -362,5 +362,60 @@ class TestSystemRegistrationResilience:
         db = SessionLocal()
         try:
             assert db.query(GameSystem).filter_by(id=system_id).first().folder_cover_path == ""
+        finally:
+            db.close()
+
+    def test_the_cover_file_is_not_also_registered_as_a_book(self):
+        """Issue #372: shelf artwork is artwork, not a one-page "cover" book."""
+        tmp, lib = _mk_lib()
+        stamp = uuid.uuid4().hex[:6]
+        root = lib / "books" / f"CoverBook-{stamp}"
+        (root / "core").mkdir(parents=True)
+        (root / "core" / "tome.pdf").write_bytes(b"%PDF-1.4")
+        (root / "cover.jpg").write_bytes(b"\xff\xd8\xff\xe0")
+
+        _scan(lib, tmp)
+        db = SessionLocal()
+        try:
+            system = db.query(GameSystem).filter_by(name=f"CoverBook-{stamp}").first()
+            assert system.folder_cover_path  # artwork still applied
+            titles = [b.title for b in db.query(Book).filter_by(game_system_id=system.id)]
+            assert titles == ["tome"]
+        finally:
+            db.close()
+
+    def test_a_cover_image_below_the_system_root_is_still_a_book(self):
+        """The convention only claims the system root, so a category-folder
+        ``cover.jpg`` remains an ordinary image book."""
+        tmp, lib = _mk_lib()
+        stamp = uuid.uuid4().hex[:6]
+        root = lib / "books" / f"DeepCover-{stamp}"
+        (root / "handouts").mkdir(parents=True)
+        (root / "handouts" / "cover.jpg").write_bytes(b"\xff\xd8\xff\xe0")
+
+        _scan(lib, tmp)
+        db = SessionLocal()
+        try:
+            system = db.query(GameSystem).filter_by(name=f"DeepCover-{stamp}").first()
+            assert system.folder_cover_path == ""
+            titles = [b.title for b in db.query(Book).filter_by(game_system_id=system.id)]
+            assert titles == ["cover"]
+        finally:
+            db.close()
+
+    def test_a_real_book_named_cover_pdf_at_the_root_is_kept(self):
+        """Only image extensions are folder artwork; ``cover.pdf`` is a book."""
+        tmp, lib = _mk_lib()
+        stamp = uuid.uuid4().hex[:6]
+        root = lib / "books" / f"CoverPdf-{stamp}"
+        root.mkdir(parents=True)
+        (root / "cover.pdf").write_bytes(b"%PDF-1.4")
+
+        _scan(lib, tmp)
+        db = SessionLocal()
+        try:
+            system = db.query(GameSystem).filter_by(name=f"CoverPdf-{stamp}").first()
+            titles = [b.title for b in db.query(Book).filter_by(game_system_id=system.id)]
+            assert titles == ["cover"]
         finally:
             db.close()

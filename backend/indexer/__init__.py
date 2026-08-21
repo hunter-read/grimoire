@@ -104,6 +104,7 @@ from .metadata import (  # noqa: E402,F401
     _find_opf_meta,
     _has_embedded_art,
     _read_audio_metadata,
+    is_folder_cover_name,
     parse_opf_metadata,
     resolve_collection_dir,
     resolve_scope,
