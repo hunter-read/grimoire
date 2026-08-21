@@ -371,7 +371,19 @@ export const files = {
       ...(containerKind !== undefined ? { container_kind: containerKind } : {}),
       ...(nsfw !== undefined ? { nsfw } : {}),
     }),
-  deleteFolder: (path) => api.delete('/files/folder', { path }),
+  // A folder holding nothing but markers and empty descendants deletes on
+  // request; one still holding content needs `confirmName` to match its own
+  // name, or the API answers 428.
+  deleteFolder: (path, confirmName) =>
+    api.delete('/files/folder', { path, confirm_name: confirmName ?? null }),
+  // Irreversible: removes the file and the record keyed to it, with every tag,
+  // favorite, bookmark, and campaign link that record carried.
+  deleteEntry: (path, confirmName) =>
+    api.post('/files/delete', { path, confirm_name: confirmName ?? null }),
+  // Whether a folder holds content, so the UI knows to demand the typed name.
+  // Asked of the server rather than counted from a listing: the listing hides
+  // sidecars and markers, so the two definitions of "empty" would disagree.
+  folderContents: (path) => api.get(`/files/folder/contents?path=${encodeURIComponent(path)}`),
   // Create the standard category folders inside a system folder.
   scaffold: (path) => api.post('/files/folder/scaffold', { path }),
   // Fetch the full record behind a listing row, so the shared metadata editor

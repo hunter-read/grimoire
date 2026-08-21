@@ -9,9 +9,13 @@ import {
   LuScanText,
   LuRefreshCw,
   LuScroll,
+  LuFolderInput,
+  LuFilePen,
+  LuTrash2,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
+import useFileActions from '../../hooks/useFileActions'
 import AddToCampaignModal from '../AddToCampaignModal'
 
 const MENU_WIDTH = 220
@@ -37,10 +41,15 @@ const MENU_WIDTH = 220
  * a PDF, and it has actually been processed (indexed or index-failed) — a
  * never-scanned / still-pending book has nothing to re-do yet.
  *
+ * File actions (move / rename / delete) are grouped last, behind a divider:
+ * they act on the bytes on disk rather than on the record, and two of them are
+ * irreversible, so they are kept away from the routine items above. They appear
+ * only for an admin on a writable library — see `useFileActions`.
+ *
  * The menu is portalled to document.body at fixed coordinates so it isn't
  * clipped by the book row's `overflow: hidden`.
  */
-export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
+export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFileChanged }) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
@@ -51,6 +60,10 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
   const [state, setState] = useState('idle') // idle | working | done | error
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
+  const fileActions = useFileActions({ onChanged: onFileChanged })
+  // A book only has file actions once we know where its file lives; rows served
+  // by an older payload without `relative_path` simply do not offer them.
+  const showFileActions = fileActions.available && Boolean(book.relative_path)
 
   const isPdf = book.mime_type === 'application/pdf'
   // A book that finished indexing via OCR / as image-only. A hard index failure
@@ -319,9 +332,65 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing }) {
                 {isOcrBook ? t('reocr.error') : t('bookActions.rescanError')}
               </div>
             )}
+
+            {showFileActions && (
+              <>
+                <div
+                  role="separator"
+                  style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }}
+                />
+                <button
+                  role="menuitem"
+                  data-testid="book-move-file"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    close()
+                    fileActions.move(book)
+                  }}
+                  style={itemStyle}
+                >
+                  <LuFolderInput size={15} aria-hidden="true" />
+                  {fileActions.labels.move}
+                </button>
+                <button
+                  role="menuitem"
+                  data-testid="book-rename-file"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    close()
+                    fileActions.rename(book)
+                  }}
+                  style={itemStyle}
+                >
+                  <LuFilePen size={15} aria-hidden="true" />
+                  {fileActions.labels.rename}
+                </button>
+                <button
+                  role="menuitem"
+                  data-testid="book-delete-file"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    close()
+                    fileActions.remove(book)
+                  }}
+                  style={{ ...itemStyle, color: 'var(--danger)' }}
+                >
+                  <LuTrash2 size={15} aria-hidden="true" />
+                  {fileActions.labels.remove}
+                </button>
+              </>
+            )}
           </div>,
           document.body
         )}
+
+      {/* Portalled with propagation stopped for the same reason as the campaign
+          modal below: these sit inside a book row whose click handler opens the
+          reader, which would otherwise fire behind the dialog. */}
+      {createPortal(
+        <div onClick={(e) => e.stopPropagation()}>{fileActions.modals}</div>,
+        document.body
+      )}
 
       {/* Rendered outside the menu so it survives the menu closing on click, and
           portalled with propagation stopped: the menu sits inside a book row

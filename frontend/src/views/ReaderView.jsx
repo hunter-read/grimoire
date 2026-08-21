@@ -489,6 +489,13 @@ export default function ReaderView() {
           setPendingLabel('')
         }}
         onShowDetails={() => setPanel('details')}
+        onFileChanged={({ action }) => {
+          // A deleted book has nothing left to render, and a moved one is served
+          // from a path this view already resolved, so both leave the reader.
+          // A rename is safe to stay on: the record — and so every page URL,
+          // which is keyed by id — is unchanged.
+          if (action === 'delete' || action === 'move') goBack()
+        }}
         zoom={zoom}
         canZoomIn={canZoomIn}
         canZoomOut={canZoomOut}

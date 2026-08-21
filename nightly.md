@@ -631,6 +631,13 @@ of Grimoire's own concepts) built for bulk reorganization:
   extension is held aside and reattached on save - Grimoire infers a file's type
   from its suffix, so a mistyped `.pdf` would quietly drop a book out of the
   library.
+- **Delete** a file or folder. This cannot be undone: the file is removed from
+  disk, not moved to a trash folder, and its tags, favorites, bookmarks, reading
+  progress, and campaign links go with it. The confirmation matches the stakes -
+  a file, or a folder holding nothing but empty folders, deletes after a plain
+  confirm, while **a folder that still holds files makes you type its name**
+  first. The name is shown ready to copy, since the point is to make you look at
+  *which* folder you are about to lose, not to test your typing.
 - **Upload files and folders** by dragging them in from your desktop, or via
   right-click → **Upload files… / Upload a folder…**. A panel tracks each file's
   progress, names any that fail and why, and lets you retry them individually or
@@ -670,6 +677,35 @@ automatically.
 
 The file manager is admin-only, and all destinations are confined to the library
 root.
+
+#### File actions from anywhere
+
+Move, rename, and delete are also on the **⋮ menu of a book itself** - in the
+library views and in the reader - so a single file does not need a trip to the
+file manager. They sit at the bottom of the menu behind a divider, apart from the
+everyday items, and behave exactly as they do in the file manager: the same
+metadata-preserving move, the same typed-name guard on a folder with content.
+
+Moving from here opens a small folder picker rather than asking you to drag - the
+file manager can show both ends of a move at once, and a book's own page cannot.
+
+These actions appear only for **admins on a writable library**. On a read-only
+mount they are not shown at all, rather than being offered and then failing.
+
+#### Changing a category moves the book
+
+Editing a book's **category** now moves the file into the matching folder -
+change a book from *Core* to *Character Sheets* and it moves into that folder,
+which is created if it does not exist yet. Grimoire re-reads your folders on every
+rescan, so a category recorded without moving the file would be silently undone
+by the next scan.
+
+An existing folder wins over a new one: if your core books live in a folder called
+*Rulebooks*, a book re-categorised as *core* joins them instead of a second *Core*
+folder appearing beside it.
+
+On a read-only library the category is saved and nothing moves - no error, no
+failed edit.
 
 ### Companion tools
 

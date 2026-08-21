@@ -12,6 +12,7 @@ from ...config import (
     OIDC_ENV,
 )
 from ...auth import require_admin, get_current_user, CurrentUser
+from ...services.library_fs import library_writable
 from ._helpers import (
     _get_raw,
     _set,
@@ -209,4 +210,9 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
         "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),
         "guest_access_enabled": guest_access_effective(raw),
+        # Whether the library can be modified at all. The file-management actions
+        # (move / rename / delete) are hidden rather than shown-and-failing when
+        # the library is mounted read-only, and every view outside the file
+        # manager needs to know that without issuing a browse of its own.
+        "library_writable": library_writable(),
     }

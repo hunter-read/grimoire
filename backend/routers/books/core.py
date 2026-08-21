@@ -18,7 +18,7 @@ from ...indexer import slugify
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
 from ...models import Book, GameSystem
-from ...services import bulk_service, tag_service
+from ...services import bulk_service, library_fs, tag_service
 from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
 from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
@@ -66,6 +66,7 @@ def list_books(
                 "id": b.id,
                 "title": b.title,
                 "filename": b.filename,
+                "relative_path": b.relative_path,
                 "category": b.category,
                 "page_count": b.page_count,
                 "file_size": b.file_size,
@@ -102,6 +103,7 @@ def get_book(
         "id": book.id,
         "title": book.title,
         "filename": book.filename,
+        "relative_path": book.relative_path,
         "category": book.category,
         "description": book.description,
         "page_count": book.page_count,
@@ -145,9 +147,16 @@ def update_book(
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
+    previous_category = book.category
     # Tags live in the shared-tag tables, not a column on the book (issue #235);
     # apply_updates routes them through the tag service for us.
     bulk_service.apply_updates(db, "book", book, data.model_dump(exclude_none=True))
+    # A category change moves the file into the matching folder, because the
+    # folder is what the next rescan reads: leaving the file put would let the
+    # scan overwrite the edit with the old category. Best-effort by design — a
+    # read-only library records the change without moving anything.
+    if book.category and book.category != previous_category:
+        library_fs.relocate_book_for_category(db, book, book.category)
     db.commit()
     # Refresh sidecars this book already has (issue #300). After the commit, so a
     # rollback can never leave a sidecar describing metadata that was not saved,
@@ -162,15 +171,39 @@ def bulk_update_books(
     db: Session = Depends(get_db),
 ):
     """Apply per-book edits for a whole selection in one transaction (issue #270)."""
+    items = list(data.items)  # type: ignore[attr-defined]
+    # Captured before the update, so a category change can be told from a payload
+    # that merely restates the category the book already had.
+    before = {
+        b.id: b.category
+        for b in db.query(Book).filter(Book.id.in_([i.id for i in items] or [""])).all()
+    }
     result = bulk_service.run_bulk_update(
         db,
         "book",
-        list(data.items),  # type: ignore[attr-defined]
+        items,
         payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
         not_found_detail="Book not found",
     )
+    _relocate_recategorised(db, result["updated"], before)
     _refresh_sidecars(db, result["updated"])
     return result
+
+
+def _relocate_recategorised(db: Session, book_ids: list[str], before: dict[str, str]) -> None:
+    """Move every book whose category actually changed into its new folder.
+
+    Runs after the bulk service has committed, so a relocation failure cannot
+    roll back metadata the user successfully saved. Each move commits on its own
+    for the same reason: one book in a selection of forty landing in an
+    unwritable folder must not undo the other thirty-nine.
+    """
+    if not book_ids:
+        return
+    for book in db.query(Book).filter(Book.id.in_(book_ids)).all():
+        if book.category and book.category != before.get(book.id):
+            library_fs.relocate_book_for_category(db, book, book.category)
+    db.commit()
 
 
 def bulk_add_book_tags(

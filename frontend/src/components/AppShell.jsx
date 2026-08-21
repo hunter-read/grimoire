@@ -41,6 +41,10 @@ export default function AppShell() {
     hide_tokens: false,
     hide_audio: false,
     hide_campaigns: false,
+    // Assumed read-only until the server says otherwise, so the destructive
+    // file actions cannot flash into a menu during the first render and be
+    // clicked before the real answer arrives.
+    library_writable: false,
   })
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(

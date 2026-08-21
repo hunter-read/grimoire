@@ -26,6 +26,8 @@ vi.mock('../api', () => ({
     createFolder: vi.fn(),
     setMarkers: vi.fn(),
     deleteFolder: vi.fn(),
+    deleteEntry: vi.fn(),
+    folderContents: vi.fn(),
     scaffold: vi.fn(),
     record: vi.fn(),
   },
@@ -372,25 +374,70 @@ describe('FileManagerView', () => {
     )
   })
 
-  it('deletes an empty folder', async () => {
-    filesApi.deleteFolder.mockResolvedValue({ path: 'books/core' })
+  it('deletes an empty folder after a plain confirmation', async () => {
+    filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
+    filesApi.deleteEntry.mockResolvedValue({ path: 'books/core', files: 0, records: 0 })
     render(<FileManagerView />)
     await openMenuOn('core')
 
-    await userEvent.click(screen.getByText('files.deleteEmptyFolder'))
+    await userEvent.click(screen.getByTestId('delete-entry'))
+    // Nothing to lose, so no typed-name guard stands between here and the delete.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByTestId('delete-confirm-target')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByText('files.deletePermanently'))
 
-    await waitFor(() => expect(filesApi.deleteFolder).toHaveBeenCalledWith('books/core'))
-    expect(await screen.findByRole('status')).toHaveTextContent('files.folderDeleted')
+    await waitFor(() => expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', null))
+    expect(await screen.findByRole('status')).toHaveTextContent('files.folderDeletedCount')
   })
 
-  it('reports why a folder could not be deleted', async () => {
-    filesApi.deleteFolder.mockRejectedValue(new Error('Folder is not empty'))
+  it('makes a folder with content be confirmed by name before deleting', async () => {
+    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    filesApi.deleteEntry.mockResolvedValue({ path: 'books/core', files: 3, records: 3 })
     render(<FileManagerView />)
     await openMenuOn('core')
 
-    await userEvent.click(screen.getByText('files.deleteEmptyFolder'))
+    await userEvent.click(screen.getByTestId('delete-entry'))
+    const confirm = await screen.findByText('files.deletePermanently')
+    // Locked until the name matches — this is the whole guard.
+    await waitFor(() => expect(confirm).toBeDisabled())
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Folder is not empty')
+    await userEvent.type(screen.getByLabelText('files.deleteTypeName'), 'core')
+    await waitFor(() => expect(confirm).toBeEnabled())
+    await userEvent.click(confirm)
+
+    await waitFor(() => expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', 'core'))
+  })
+
+  it('reports why a delete failed', async () => {
+    filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
+    filesApi.deleteEntry.mockRejectedValue(new Error('Folder is not empty'))
+    render(<FileManagerView />)
+    await openMenuOn('core')
+
+    await userEvent.click(screen.getByTestId('delete-entry'))
+    await userEvent.click(await screen.findByText('files.deletePermanently'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Folder is not empty')
+  })
+
+  it('offers a destination picker for a file', async () => {
+    filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+    render(<FileManagerView />)
+    await openMenuOn('bestiary.pdf')
+
+    await userEvent.click(screen.getByTestId('move-entry'))
+    // The picker lists folders only: a file is never a destination.
+    const tree = await screen.findByTestId('move-tree')
+    expect(within(tree).queryByText('bestiary.pdf')).not.toBeInTheDocument()
+
+    // The picker browses from the library root, so the mock's folder is rooted
+    // there rather than under books/.
+    await userEvent.click(within(tree).getByText('core'))
+    await userEvent.click(screen.getByText('files.moveHere'))
+
+    await waitFor(() =>
+      expect(filesApi.move).toHaveBeenCalledWith(['books/bestiary.pdf'], '/core', 'rename')
+    )
   })
 
   it('highlights context-menu rows on hover', async () => {
@@ -408,9 +455,9 @@ describe('FileManagerView', () => {
     render(<FileManagerView />)
     await openMenuOn('bestiary.pdf')
 
-    // Rename applies to files too; marker and delete actions must not.
+    // Rename, move and delete apply to files too; marker actions must not.
     expect(screen.getByText('files.rename')).toBeInTheDocument()
-    expect(screen.queryByText('files.deleteEmptyFolder')).not.toBeInTheDocument()
+    expect(screen.getByTestId('delete-entry')).toBeInTheDocument()
     expect(screen.queryByText('files.markNsfw')).not.toBeInTheDocument()
   })
 

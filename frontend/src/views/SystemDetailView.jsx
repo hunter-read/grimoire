@@ -47,6 +47,7 @@ import matchBooks from '../utils/matchBooks'
 import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
+import useLibraryChanged from '../hooks/useLibraryChanged'
 
 const DEFAULT_BOOK_FILTER = { sort: 'title', order: 'asc', filters: {} }
 

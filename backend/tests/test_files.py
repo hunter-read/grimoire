@@ -1051,6 +1051,292 @@ class TestDeleteFolder:
             fs.delete_empty_folder("books")
         assert exc.value.code == "forbidden"
 
+    def test_nested_empty_folders_count_as_empty(self, library_tree):
+        """A shell of empty shells holds nothing a user would miss.
+
+        Deleting it one level at a time would be busywork whose only effect is to
+        teach people to click through the guard.
+        """
+        fs.create_folder(f"books/System-{library_tree}", "outer")
+        fs.create_folder(f"books/System-{library_tree}/outer", "inner")
+        fs.create_folder(f"books/System-{library_tree}/outer/inner", "deepest")
+
+        fs.delete_empty_folder(f"books/System-{library_tree}/outer")
+        assert not os.path.isdir(os.path.join(LIB, f"books/System-{library_tree}/outer"))
+
+    def test_orphaned_sidecar_still_counts_as_content(self, library_tree):
+        """An .opf with no book beside it is not recognised as a sidecar at all.
+
+        That is deliberate (see ``is_sidecar``): a hand-maintained file whose
+        content has gone stays visible and manageable rather than being swept up
+        as bookkeeping, so the folder holding it is not "empty".
+        """
+        _write(f"books/System-{library_tree}/orphans/ghost.opf", b"<opf/>")
+        assert fs.folder_has_content(
+            Path(os.path.join(LIB, f"books/System-{library_tree}/orphans"))
+        )
+
+    def test_paired_sidecars_do_not_keep_a_folder_alive(self, library_tree):
+        """Once the book is gone, its former sidecars are all that is left."""
+        target = Path(os.path.join(LIB, f"books/System-{library_tree}/paired"))
+        _write(f"books/System-{library_tree}/paired/tome.pdf")
+        _write(f"books/System-{library_tree}/paired/tome.opf", b"<opf/>")
+        assert fs.folder_has_content(target), "the book itself is content"
+
+        os.unlink(target / "tome.pdf")
+        # The .opf is now unpaired, so it reads as content in its own right —
+        # the same rule, applied consistently, rather than a special case.
+        assert fs.folder_has_content(target)
+
+    def test_folder_holding_a_file_has_content(self, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        assert fs.folder_has_content(
+            Path(os.path.join(LIB, f"books/System-{library_tree}/core"))
+        )
+
+    def test_deeply_nested_file_makes_folder_non_empty(self, library_tree):
+        _write(f"books/System-{library_tree}/outer/inner/buried.pdf")
+        assert fs.folder_has_content(
+            Path(os.path.join(LIB, f"books/System-{library_tree}/outer"))
+        )
+
+
+class TestDeletePath:
+    def test_deletes_file_and_its_record(self, library_tree):
+        """The record goes with the file: a row pointing at nothing is worse
+        than no row, since it shows up in every view as permanently missing."""
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/gone.pdf")
+        book = make_book(
+            system.id,
+            filename="gone.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/gone.pdf",
+        )
+
+        db = SessionLocal()
+        result = fs.delete_path(db, f"books/System-{library_tree}/core/gone.pdf")
+        db.close()
+
+        assert result["records"] == 1
+        assert not os.path.exists(src)
+        db = SessionLocal()
+        assert db.query(Book).filter(Book.id == book.id).first() is None
+        db.close()
+
+    def test_deletes_sidecars_with_their_file(self, library_tree):
+        """Sidecars describe the file that just went; leaving them orphans them."""
+        src = _write(f"books/System-{library_tree}/core/tome.pdf")
+        opf = _write(f"books/System-{library_tree}/core/tome.opf", b"<opf/>")
+
+        db = SessionLocal()
+        fs.delete_path(db, f"books/System-{library_tree}/core/tome.pdf")
+        db.close()
+
+        assert not os.path.exists(src)
+        assert not os.path.exists(opf)
+
+    def test_full_folder_requires_the_typed_name(self, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, f"books/System-{library_tree}/core")
+        finally:
+            db.close()
+        assert exc.value.code == "confirm_required"
+        # Nothing was touched by the refusal.
+        assert os.path.exists(os.path.join(LIB, f"books/System-{library_tree}/core/keep.pdf"))
+
+    def test_wrong_name_is_refused(self, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, f"books/System-{library_tree}/core", confirm_name="Core")
+        finally:
+            db.close()
+        assert exc.value.code == "confirm_required"
+
+    def test_confirmed_name_deletes_the_tree_and_its_records(self, library_tree):
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/doomed.pdf")
+        book = make_book(
+            system.id,
+            filename="doomed.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/doomed.pdf",
+        )
+
+        db = SessionLocal()
+        result = fs.delete_path(db, f"books/System-{library_tree}/core", confirm_name="core")
+        db.close()
+
+        assert result["files"] == 1
+        assert result["records"] == 1
+        assert not os.path.isdir(os.path.join(LIB, f"books/System-{library_tree}/core"))
+        db = SessionLocal()
+        assert db.query(Book).filter(Book.id == book.id).first() is None
+        db.close()
+
+    def test_empty_folder_needs_no_name(self, library_tree):
+        fs.create_folder(f"books/System-{library_tree}", "hollow")
+        db = SessionLocal()
+        fs.delete_path(db, f"books/System-{library_tree}/hollow")
+        db.close()
+        assert not os.path.isdir(os.path.join(LIB, f"books/System-{library_tree}/hollow"))
+
+    def test_refuses_library_root_and_collections(self, library_tree):
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, "books", confirm_name="books")
+        finally:
+            db.close()
+        assert exc.value.code == "forbidden"
+
+    def test_traversal_is_refused(self, library_tree):
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError):
+                fs.delete_path(db, "../../etc/passwd")
+        finally:
+            db.close()
+
+
+class TestCategoryRelocation:
+    def _system_with_book(self, stamp, category="core"):
+        system = make_game_system(name=f"System-{stamp}")
+        src = _write(f"books/System-{stamp}/core/sheet.pdf")
+        book = make_book(
+            system.id,
+            filename="sheet.pdf",
+            filepath=src,
+            relative_path=f"books/System-{stamp}/core/sheet.pdf",
+            category=category,
+        )
+        return system, book, src
+
+    def test_creates_the_category_folder_and_moves_the_file(self, library_tree):
+        """core -> character-sheet with no such folder yet: it gets created."""
+        _system, book, src = self._system_with_book(library_tree)
+        book_id = book.id
+
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        moved = fs.relocate_book_for_category(db, book, "character-sheet")
+        db.commit()
+        db.close()
+
+        assert moved is not None
+        landed = os.path.join(LIB, f"books/System-{library_tree}/Character Sheets/sheet.pdf")
+        assert os.path.exists(landed)
+        assert not os.path.exists(src)
+        db = SessionLocal()
+        refreshed = db.query(Book).filter(Book.id == book_id).first()
+        db.close()
+        assert refreshed.category == "character-sheet"
+        assert refreshed.filepath == landed
+
+    def test_reuses_an_existing_folder_however_it_is_spelled(self, library_tree):
+        """A library whose handouts live in "Quick Reference" must not gain a
+        second "Handouts" folder splitting one category across two shelves.
+
+        The match is on the folder's *inferred category*, not its name — which is
+        the only way an existing shelf under a non-canonical spelling can be
+        found at all.
+        """
+        os.makedirs(
+            os.path.join(LIB, f"books/System-{library_tree}/Quick Reference"), exist_ok=True
+        )
+        _system, book, _src = self._system_with_book(library_tree)
+        book_id = book.id
+
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        moved = fs.relocate_book_for_category(db, book, "handout")
+        db.commit()
+        db.close()
+
+        assert moved is not None
+        assert os.path.exists(
+            os.path.join(LIB, f"books/System-{library_tree}/Quick Reference/sheet.pdf")
+        )
+        assert not os.path.isdir(
+            os.path.join(LIB, f"books/System-{library_tree}/Handouts")
+        ), "the canonical name must not be created when a shelf already covers it"
+
+    def test_read_only_library_is_a_silent_no_op(self, library_tree, monkeypatch):
+        """A read-only mount records the category and moves nothing — no error.
+
+        This is the documented behaviour: the user asked to change a category,
+        not to move a file, and failing their edit over a move they never
+        requested would be the wrong trade.
+        """
+        _system, book, src = self._system_with_book(library_tree)
+        book_id = book.id
+        monkeypatch.setattr(os, "access", lambda *a, **k: False)
+
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        moved = fs.relocate_book_for_category(db, book, "character-sheet")
+        db.close()
+
+        assert moved is None
+        assert os.path.exists(src), "the file must stay put on a read-only library"
+
+    def test_no_move_when_already_in_the_right_folder(self, library_tree):
+        _system, book, src = self._system_with_book(library_tree)
+        book_id = book.id
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        assert fs.relocate_book_for_category(db, book, "core") is None
+        db.close()
+        assert os.path.exists(src)
+
+    def test_missing_file_is_a_no_op(self, library_tree):
+        system = make_game_system(name=f"System-{library_tree}")
+        book = make_book(
+            system.id,
+            filename="ghost.pdf",
+            filepath=os.path.join(LIB, f"books/System-{library_tree}/core/ghost.pdf"),
+            relative_path=f"books/System-{library_tree}/core/ghost.pdf",
+        )
+        book_id = book.id
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        assert fs.relocate_book_for_category(db, book, "adventure") is None
+        db.close()
+
+    def test_category_change_through_the_api_moves_the_file(
+        self, client, admin_headers, library_tree
+    ):
+        """The endpoint the metadata editor actually calls."""
+        _system, book, src = self._system_with_book(library_tree)
+        book_id = book.id
+
+        resp = client.patch(
+            f"/api/books/{book_id}",
+            json={"category": "adventure"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+
+        assert not os.path.exists(src)
+        assert os.path.exists(
+            os.path.join(LIB, f"books/System-{library_tree}/adventures/sheet.pdf")
+        ), "an existing 'adventures' folder should be reused"
+
+    def test_unrelated_edit_leaves_the_file_alone(self, client, admin_headers, library_tree):
+        _system, book, src = self._system_with_book(library_tree)
+        book_id = book.id
+
+        resp = client.patch(
+            f"/api/books/{book_id}", json={"title": "Renamed"}, headers=admin_headers
+        )
+        assert resp.status_code == 200
+        assert os.path.exists(src), "a title edit must not move anything"
+
 
 # ---------------------------------------------------------------------------
 # Read-only library
@@ -1081,6 +1367,8 @@ class TestEndpointAuth:
             ("post", "/api/files/rename", {"path": "a", "new_name": "b"}),
             ("post", "/api/files/folder", {"parent": "books", "name": "x"}),
             ("put", "/api/files/folder/markers", {"path": "books", "nsfw": True}),
+            ("post", "/api/files/delete", {"path": "books/x"}),
+            ("get", "/api/files/folder/contents", None),
         ],
     )
     def test_requires_auth(self, client, method, path, payload):
@@ -1570,3 +1858,390 @@ class TestSidecarCarryEdgeCases:
         found = {p.name for p in fs.sidecars_for(content)}
 
         assert found == {"guide.opf"}
+
+
+class TestDeleteEndpoint:
+    def test_deletes_a_file(self, client, admin_headers, library_tree):
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/spare.pdf")
+        make_book(
+            system.id,
+            filename="spare.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/spare.pdf",
+        )
+
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core/spare.pdf"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["records"] == 1
+        assert not os.path.exists(src)
+
+    def test_full_folder_without_a_name_is_428(self, client, admin_headers, library_tree):
+        """The UI keys its type-the-name prompt off this status."""
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core"},
+        )
+
+        assert resp.status_code == 428
+        assert "core" in resp.json()["detail"]
+        assert os.path.exists(os.path.join(LIB, f"books/System-{library_tree}/core/keep.pdf"))
+
+    def test_full_folder_with_the_name_succeeds(self, client, admin_headers, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core", "confirm_name": "core"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["files"] == 1
+        assert not os.path.isdir(os.path.join(LIB, f"books/System-{library_tree}/core"))
+
+    def test_collection_root_is_403(self, client, admin_headers, library_tree):
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": "books", "confirm_name": "books"},
+        )
+        assert resp.status_code == 403
+
+    def test_missing_path_is_404(self, client, admin_headers, library_tree):
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/nope.pdf"},
+        )
+        assert resp.status_code == 404
+
+    def test_delete_folder_route_shares_the_behaviour(self, client, admin_headers, library_tree):
+        """DELETE /folder and POST /delete are one handler; both must guard."""
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+
+        refused = client.request(
+            "DELETE",
+            "/api/files/folder",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core"},
+        )
+        assert refused.status_code == 428
+
+        ok = client.request(
+            "DELETE",
+            "/api/files/folder",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core", "confirm_name": "core"},
+        )
+        assert ok.status_code == 200
+
+
+class TestFolderContentsEndpoint:
+    def test_reports_an_empty_folder(self, client, admin_headers, library_tree):
+        resp = client.get(
+            "/api/files/folder/contents",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}/adventures"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "path": f"books/System-{library_tree}/adventures",
+            "name": "adventures",
+            "has_content": False,
+        }
+
+    def test_reports_a_folder_with_content(self, client, admin_headers, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        resp = client.get(
+            "/api/files/folder/contents",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}/core"},
+        )
+        assert resp.json()["has_content"] is True
+
+    def test_a_file_is_not_a_folder(self, client, admin_headers, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        resp = client.get(
+            "/api/files/folder/contents",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}/core/keep.pdf"},
+        )
+        assert resp.status_code == 400
+
+    def test_missing_folder_is_404(self, client, admin_headers, library_tree):
+        resp = client.get(
+            "/api/files/folder/contents",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}/ghost"},
+        )
+        assert resp.status_code == 404
+
+
+class TestDeleteFailureSafety:
+    """The paths where a delete goes wrong, which must not leave DB and disk
+    disagreeing or surface a raw OSError."""
+
+    def test_readonly_file_delete_reports_read_only(self, library_tree, monkeypatch):
+        _write(f"books/System-{library_tree}/core/locked.pdf")
+
+        def refuse(path):
+            raise OSError(30, "Read-only file system")
+
+        monkeypatch.setattr(Path, "unlink", lambda self, *a, **k: refuse(self))
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, f"books/System-{library_tree}/core/locked.pdf")
+        finally:
+            db.close()
+        assert exc.value.code == "read_only"
+        assert "read-only" in exc.value.message.lower()
+
+    def test_other_file_delete_errors_are_io_errors(self, library_tree, monkeypatch):
+        _write(f"books/System-{library_tree}/core/stuck.pdf")
+        monkeypatch.setattr(
+            Path, "unlink", lambda self, *a, **k: (_ for _ in ()).throw(OSError(5, "I/O error"))
+        )
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, f"books/System-{library_tree}/core/stuck.pdf")
+        finally:
+            db.close()
+        assert exc.value.code == "io_error"
+
+    def test_a_sidecar_that_will_not_delete_does_not_abort_the_delete(
+        self, library_tree, monkeypatch
+    ):
+        """The content is already gone; refusing to finish over a leftover .opf
+        would leave the worse mess."""
+        src = _write(f"books/System-{library_tree}/core/paired.pdf")
+        _write(f"books/System-{library_tree}/core/paired.opf", b"<opf/>")
+
+        real_unlink = Path.unlink
+
+        def selective(self, *a, **k):
+            if self.suffix == ".opf":
+                raise OSError(13, "Permission denied")
+            return real_unlink(self, *a, **k)
+
+        monkeypatch.setattr(Path, "unlink", selective)
+        db = SessionLocal()
+        result = fs.delete_path(db, f"books/System-{library_tree}/core/paired.pdf")
+        db.close()
+
+        assert result["path"].endswith("paired.pdf")
+        assert not os.path.exists(src)
+
+    def test_failed_tree_delete_rolls_the_records_back(self, library_tree, monkeypatch):
+        """A rmtree that fails must not leave the rows deleted: the DB would
+        then describe a library that still has the files."""
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/survivor.pdf")
+        book = make_book(
+            system.id,
+            filename="survivor.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/survivor.pdf",
+        )
+        book_id = book.id
+        monkeypatch.setattr(
+            fs.shutil, "rmtree", lambda *a, **k: (_ for _ in ()).throw(OSError(5, "I/O error"))
+        )
+
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, f"books/System-{library_tree}/core", confirm_name="core")
+        finally:
+            db.close()
+
+        assert exc.value.code == "io_error"
+        db = SessionLocal()
+        assert db.query(Book).filter(Book.id == book_id).first() is not None
+        db.close()
+        assert os.path.exists(src)
+
+    def test_a_rolled_back_tree_delete_keeps_the_thumbnails(self, library_tree, monkeypatch):
+        """Dropping a thumbnail is not transactional, so it must happen only
+        after the files are actually gone — a rollback cannot bring it back, and
+        a book that still exists would be left with no cover until a rescan."""
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/covered.pdf")
+        book = make_book(
+            system.id,
+            filename="covered.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/covered.pdf",
+            title="Covered",
+            has_thumbnail=True,
+        )
+        thumb = fs._thumb_file("books", "Covered", src)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        thumb.write_bytes(b"thumb")
+        monkeypatch.setattr(
+            fs.shutil, "rmtree", lambda *a, **k: (_ for _ in ()).throw(OSError(5, "I/O error"))
+        )
+
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError):
+                fs.delete_path(db, f"books/System-{library_tree}/core", confirm_name="core")
+        finally:
+            db.close()
+
+        assert thumb.exists(), "the thumbnail must survive a delete that failed"
+        thumb.unlink()
+        assert book.id  # the row is still there; asserted in the sibling test
+
+    def test_readonly_tree_delete_reports_read_only(self, library_tree, monkeypatch):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        monkeypatch.setattr(
+            fs.shutil,
+            "rmtree",
+            lambda *a, **k: (_ for _ in ()).throw(OSError(30, "Read-only file system")),
+        )
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.delete_path(db, f"books/System-{library_tree}/core", confirm_name="core")
+        finally:
+            db.close()
+        assert exc.value.code == "read_only"
+
+    def test_unreadable_folder_is_treated_as_holding_content(self, library_tree, monkeypatch):
+        """Refusing to sweep a folder we cannot inspect is the safe direction."""
+        target = Path(os.path.join(LIB, f"books/System-{library_tree}/core"))
+        monkeypatch.setattr(
+            fs.os, "scandir", lambda *a, **k: (_ for _ in ()).throw(OSError("denied"))
+        )
+        assert fs.folder_has_content(target) is True
+
+    def test_delete_empty_folder_rejects_a_file(self, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.delete_empty_folder(f"books/System-{library_tree}/core/keep.pdf")
+        assert exc.value.code == "invalid"
+
+    def test_delete_empty_folder_reports_io_errors(self, library_tree, monkeypatch):
+        fs.create_folder(f"books/System-{library_tree}", "doomed")
+        monkeypatch.setattr(
+            fs.shutil, "rmtree", lambda *a, **k: (_ for _ in ()).throw(OSError(5, "I/O error"))
+        )
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.delete_empty_folder(f"books/System-{library_tree}/doomed")
+        assert exc.value.code == "io_error"
+
+
+class TestCategoryRelocationEdges:
+    """The failure paths of the category move, all of which must stay silent:
+    the metadata edit that triggered them has already succeeded."""
+
+    def _book(self, stamp, **kw):
+        system = make_game_system(name=f"System-{stamp}")
+        src = _write(f"books/System-{stamp}/core/edge.pdf")
+        book = make_book(
+            system.id,
+            filename="edge.pdf",
+            filepath=src,
+            relative_path=f"books/System-{stamp}/core/edge.pdf",
+            category="core",
+            **kw,
+        )
+        return book.id, src
+
+    def test_unreadable_system_folder_is_a_no_op(self, library_tree, monkeypatch):
+        book_id, src = self._book(library_tree)
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        monkeypatch.setattr(
+            Path, "iterdir", lambda self: (_ for _ in ()).throw(OSError("denied"))
+        )
+        assert fs.relocate_book_for_category(db, book, "adventure") is None
+        db.close()
+        assert os.path.exists(src)
+
+    def test_uncreatable_category_folder_is_a_no_op(self, library_tree, monkeypatch):
+        book_id, src = self._book(library_tree)
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        monkeypatch.setattr(
+            Path, "mkdir", lambda self, **k: (_ for _ in ()).throw(OSError(13, "denied"))
+        )
+        assert fs.relocate_book_for_category(db, book, "homebrew") is None
+        db.close()
+        assert os.path.exists(src)
+
+    def test_a_failing_rename_leaves_the_file_alone(self, library_tree, monkeypatch):
+        book_id, src = self._book(library_tree)
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        monkeypatch.setattr(
+            fs.os, "replace", lambda *a: (_ for _ in ()).throw(OSError(5, "I/O error"))
+        )
+        assert fs.relocate_book_for_category(db, book, "adventure") is None
+        db.close()
+        assert os.path.exists(src)
+
+    def test_cross_filesystem_relocation_falls_back_to_copy(self, library_tree, monkeypatch):
+        book_id, src = self._book(library_tree)
+        moved = {}
+
+        def fake_replace(a, b):
+            raise OSError(18, "Invalid cross-device link")
+
+        def fake_move(a, b):
+            moved["pair"] = (a, b)
+            os.rename(a, b)
+
+        monkeypatch.setattr(fs.os, "replace", fake_replace)
+        monkeypatch.setattr(fs.shutil, "move", fake_move)
+
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        result = fs.relocate_book_for_category(db, book, "adventure")
+        db.commit()
+        db.close()
+
+        assert result is not None
+        assert moved["pair"][0] == src
+
+    def test_a_book_outside_books_is_a_no_op(self, library_tree):
+        """Categories are a books-tree concept; a map has none to act on."""
+        src = _write(f"maps/Battlemaps-{library_tree}/keep.png")
+        make_map(
+            filename="keep.png",
+            filepath=src,
+            relative_path=f"maps/Battlemaps-{library_tree}/keep.png",
+        )
+        db = SessionLocal()
+        row = db.query(GenericMap).filter(GenericMap.filepath == src).first()
+        assert fs.relocate_book_for_category(db, row, "core") is None
+        db.close()
+        assert os.path.exists(src)
+
+    def test_no_system_folder_means_no_relocation(self, library_tree):
+        """A book sitting directly in books/ has no system to hang a category off."""
+        src = _write("books/loose-edge.pdf")
+        try:
+            book = make_book(
+                None,
+                filename="loose-edge.pdf",
+                filepath=src,
+                relative_path="books/loose-edge.pdf",
+            )
+            db = SessionLocal()
+            row = db.query(Book).filter(Book.id == book.id).first()
+            assert fs.relocate_book_for_category(db, row, "adventure") is None
+            db.close()
+        finally:
+            os.path.exists(src) and os.unlink(src)
