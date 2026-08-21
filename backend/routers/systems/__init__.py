@@ -12,7 +12,12 @@ from .core import (
     bulk_update_systems,
     bulk_add_system_tags,
 )
-from .covers import delete_system_cover, serve_system_cover, upload_system_cover
+from .covers import (
+    delete_system_cover,
+    serve_system_cover,
+    set_system_cover_from_source,
+    upload_system_cover,
+)
 from .metadata import fetch_metadata, list_metadata_sources, search_metadata
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .._metadata_lookup import (
@@ -149,6 +154,21 @@ router.add_api_route(
         "Stores a cover image for the system. PNG/JPEG/WebP/GIF, max 10 MB. A "
         "`cover.*` file in the system's library folder still takes precedence. "
         "GM or admin role required."
+    ),
+    response_model=SystemCoverResponse,
+)
+# Set the cover from an asset the server already holds (issue #286) — the
+# picker path that complements the device upload above.
+router.add_api_route(
+    "/{system_id}/cover/from-source",
+    set_system_cover_from_source,
+    methods=["POST"],
+    summary="Set a system cover from an existing image",
+    description=(
+        "Copies an image Grimoire already holds — a library map or token, book "
+        "cover, or audio artwork — into the system cover. Body: {source_type, "
+        "source_id}. A `cover.*` file in the system's library folder still takes "
+        "precedence. GM or admin role required."
     ),
     response_model=SystemCoverResponse,
 )

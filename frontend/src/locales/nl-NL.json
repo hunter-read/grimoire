@@ -1028,7 +1028,10 @@
       "suggestedSize": "Aanbevolen grootte: 1600 × 800",
       "edit": "Banner bewerken",
       "modalTitle": "Campagnebanner",
-      "allowedFormats": "PNG, JPEG, WebP of GIF, tot 5 MB."
+      "allowedFormats": "PNG, JPEG, WebP of GIF, tot 5 MB.",
+      "dragToReposition": "Sleep om te verplaatsen",
+      "verticalPosition": "Verticale positie",
+      "savePosition": "Positie opslaan"
     },
     "openNotes": "Notities openen",
     "archive": "Archiveren",
@@ -1842,7 +1845,10 @@
       "folderTags": "Maplabels",
       "trackTags": "Tracklabels",
       "editTags": "Bewerken",
-      "noTags": "Geen"
+      "noTags": "Geen",
+      "setCover": "Hoes instellen",
+      "changeCover": "Hoes wijzigen",
+      "coverTitle": "Trackhoes"
     },
     "player": {
       "title": "Nu aan het afspelen",
@@ -2073,5 +2079,29 @@
     "builtInLabel": "Built-in",
     "bothModes": "Light & dark",
     "themeTitle": "Thema"
+  },
+  "imagePicker": {
+    "mode": {
+      "upload": "Uploaden",
+      "browse": "Bibliotheek doorbladeren"
+    },
+    "tab": {
+      "campaign_file": "Deze campagne",
+      "map": "Kaarten",
+      "token": "Tokens",
+      "book": "Boekomslagen",
+      "audio": "Audiohoezen"
+    },
+    "searchPlaceholder": "Zoeken op naam of map…",
+    "noResults": "Geen afbeeldingen gevonden",
+    "loadMore": "Toon nog {{count}}",
+    "chooseFile": "Kies een afbeelding",
+    "pasteHint": "of plak een afbeelding met Ctrl/Cmd+V, of sleep er een hierheen",
+    "formats": "PNG, JPEG, WebP of GIF.",
+    "save": "Afbeelding instellen",
+    "saving": "Opslaan…",
+    "remove": "Verwijderen",
+    "failed": "Kon de afbeelding niet instellen",
+    "searchFailed": "Kon afbeeldingen niet laden"
   }
 }

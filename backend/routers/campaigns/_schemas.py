@@ -262,3 +262,36 @@ class WikiTemplateUpdate(BaseModel):
 class WikiTemplateSourceInput(BaseModel):
     # "" restores the built-in catalogue URL.
     index_url: str = ""
+
+
+class BannerSourceIn(BaseModel):
+    """Set the banner from an image Grimoire already holds (issue #286).
+
+    `source_type` is one of the kinds `services.image_source.SOURCE_TYPES`
+    accepts; `campaign_file` resolves against this campaign's own uploads.
+    """
+
+    source_type: str
+    source_id: str
+
+    @field_validator("source_type")
+    @classmethod
+    def known_source(cls, v: str) -> str:
+        from ...services.image_source import SOURCE_TYPES
+
+        if v not in SOURCE_TYPES:
+            raise ValueError(f"source_type must be one of {', '.join(SOURCE_TYPES)}")
+        return v
+
+
+class BannerFocusIn(BaseModel):
+    """Vertical focal point of the banner in the 2:1 hero: 0 (top) to 100 (bottom)."""
+
+    focus_y: int
+
+    @field_validator("focus_y")
+    @classmethod
+    def in_range(cls, v: int) -> int:
+        if not 0 <= v <= 100:
+            raise ValueError("focus_y must be between 0 and 100")
+        return v

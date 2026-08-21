@@ -53,6 +53,8 @@ class AudioOut(BaseModel):
     artist: str
     album: str
     has_artwork: bool
+    # True only when a cover was set through the UI (issue #286).
+    has_cover: bool = False
     # `file_size` is `default=0`, not NOT NULL.
     file_size: Optional[int] = None
     is_missing: bool
@@ -88,3 +90,29 @@ class AudioFoldersResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str
+
+
+class AudioCoverResponse(BaseModel):
+    cover_image: str
+
+
+class AudioCoverSourceIn(BaseModel):
+    """Set a track's cover from an image Grimoire already holds (issue #286).
+
+    `source_type` is one of `services.image_source.SOURCE_TYPES`; the
+    campaign-scoped `campaign_file` kind is not reachable here, since a track
+    has no campaign context to resolve it against.
+    """
+
+    source_type: str
+    source_id: str
+
+    @field_validator("source_type")
+    @classmethod
+    def known_source(cls, v: str) -> str:
+        from ...services.image_source import SOURCE_TYPES
+
+        allowed = tuple(t for t in SOURCE_TYPES if t != "campaign_file")
+        if v not in allowed:
+            raise ValueError(f"source_type must be one of {', '.join(allowed)}")
+        return v

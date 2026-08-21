@@ -14,6 +14,8 @@ from backend.main import app
 # choice — a route only belongs here if it does NOT return a JSON object.
 UNTYPED_BY_DESIGN = {
     "/api/audio/{audio_id}/artwork",
+    # Serves the cover image file itself, like the system cover route below.
+    "/api/audio/{audio_id}/cover",
     "/api/audio/{audio_id}/file",
     "/api/auth/openid/callback",
     "/api/auth/openid/login",

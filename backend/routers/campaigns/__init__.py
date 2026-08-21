@@ -62,6 +62,8 @@ from .uploads import (
     upload_banner,
     get_banner,
     delete_banner,
+    set_banner_from_source,
+    set_banner_focus,
     upload_member_art,
     get_member_art,
     delete_member_art,
@@ -121,6 +123,7 @@ from ._response_schemas import (
     AdminCampaignOut,
     AvailabilityOut,
     AvailabilitySetOut,
+    BannerFocusOut,
     BannerUploadOut,
     CalendarSubscriptionOut,
     CampaignCategoryOut,
@@ -358,6 +361,33 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Remove campaign banner",
     status_code=204,
+)
+# Set the banner from an asset the server already holds, instead of a fresh
+# upload from the user's device (issue #286). The bytes are copied into the
+# banner directory, so `banner_path` and the GET route above are unchanged.
+router.add_api_route(
+    "/{campaign_id}/banner/from-source",
+    set_banner_from_source,
+    methods=["POST"],
+    summary="Set the banner from an existing image",
+    description=(
+        "Copies an image Grimoire already holds — a campaign file, library map "
+        "or token, book cover, or audio artwork — into the campaign banner. "
+        "Body: {source_type, source_id}. The caller must be able to read the "
+        "source in its own right. Campaign owner or GM required."
+    ),
+    response_model=BannerUploadOut,
+)
+router.add_api_route(
+    "/{campaign_id}/banner/focus",
+    set_banner_focus,
+    methods=["PUT"],
+    summary="Set the banner focal point",
+    description=(
+        "Sets where the banner sits vertically inside the 2:1 hero, as a 0-100 "
+        "percentage (50 = centred). Body: {focus_y}. Campaign owner or GM required."
+    ),
+    response_model=BannerFocusOut,
 )
 
 # --- Character art & sheets (keyed by CampaignMember id) ---

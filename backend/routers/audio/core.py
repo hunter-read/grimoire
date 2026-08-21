@@ -39,6 +39,9 @@ def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
         "artist": a.artist or "",
         "album": a.album or "",
         "has_artwork": bool(a.has_artwork),
+        # True only for a cover set through the UI (issue #286) — lets the editor
+        # offer "remove cover" without mistaking folder/embedded art for one.
+        "has_cover": bool(a.cover_image),
         "file_size": a.file_size,
         "is_missing": bool(a.is_missing),
         "is_archive": bool(archive_ext(a.filename)),
@@ -133,7 +136,14 @@ def serve_audio_artwork(
     if not a:
         raise HTTPException(404)
     assert_media_access(db, current_user, "audio", a.id)
-    # Prefer a folder cover image, then fall back to embedded album art.
+    # A cover set through the UI wins: it is the only one of the three the user
+    # actually chose (issue #286). Then folder art, then embedded album art.
+    from .covers import resolve_cover_file
+
+    chosen = resolve_cover_file(a)
+    if chosen:
+        ext = Path(chosen).suffix.lower().lstrip(".")
+        return FileResponse(chosen, media_type=f"image/{'jpeg' if ext == 'jpg' else ext}")
     cover = _find_folder_artwork(os.path.dirname(a.filepath))
     if cover and os.path.exists(cover):
         ext = Path(cover).suffix.lower().lstrip(".")

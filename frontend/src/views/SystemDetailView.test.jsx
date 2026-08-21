@@ -22,6 +22,12 @@ vi.mock('../api', () => ({
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
   mediaUrl: (path) => `http://localhost${path}`,
+  // The cover is set through the shared image picker (issue #286).
+  imageSources: {
+    setSystemCover: vi.fn(() => Promise.resolve({ cover_image: 'system-1.webp' })),
+    search: vi.fn(() => Promise.resolve([])),
+    thumbUrl: (type, id) => `http://localhost/api/${type}s/${id}/thumbnail`,
+  },
 }))
 
 // Open the shared filter modal (favourites/tags/genres live there now).
@@ -1022,7 +1028,10 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
 
     await userEvent.click(screen.getByText('Cover image'))
     const file = new File([new Uint8Array([137, 80, 78, 71])], 'c.png', { type: 'image/png' })
-    await userEvent.upload(screen.getByTestId('cover-upload-input'), file)
+    // The cover now goes through the image picker dialog rather than a bare input.
+    await userEvent.click(screen.getByText('Choose image'))
+    await userEvent.upload(screen.getByTestId('image-picker-input'), file)
+    await userEvent.click(screen.getByText('Set image'))
 
     await waitFor(() => expect(api.upload).toHaveBeenCalledWith('/systems/system-1/cover', file))
     // Still on the container view, now showing the uploaded art.

@@ -147,7 +147,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | --- | --- | --- |
 | `generic_maps` | A map image not tied to a system. | `filepath` unique. `content_hash`/`file_mtime` as on `books`. |
 | `tokens` | A token image for use on maps. | `filepath` unique. `is_explicit` gates by user preference. `content_hash`/`file_mtime` as on `books`. |
-| `audio` | An audio track. | `filepath` unique. Embedded metadata (`title`, `artist`, `duration`, …) populated by the indexer. `content_hash`/`file_mtime` as on `books`. |
+| `audio` | An audio track. | `filepath` unique. Embedded metadata (`title`, `artist`, `duration`, …) populated by the indexer. `content_hash`/`file_mtime` as on `books`. `cover_image` is a bare filename under `DATA_PATH/audio_covers/` for a cover set through the UI, which takes precedence over folder art and embedded tags; `has_artwork` is true when any of the three is available. |
 | `map_folders`, `token_folders`, `audio_folders` | Folder tags for a media folder path. `tags` is a JSON list of tag **internal keys**; display casing comes from the `tags` catalog. `tags.json` applies additively (adds keys, never removes/overwrites) since the library is read-only. | `path` unique. |
 
 ### Users - [`backend/models/users.py`](../backend/models/users.py)
@@ -183,7 +183,7 @@ path-keyed feature.
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `campaigns` | A GM-run or personal campaign. | FKs `owner_id`, `parent_campaign_id` (self), `system_id`. `system_name` is a free-text fallback when `system_id` is null. `is_gm_campaign` distinguishes group from personal (promoted one-way via `POST /:id/convert-to-group`). `is_archived` (NOT NULL, default false) + `archived_at` hide the campaign from listings and freeze it read-only. |
+| `campaigns` | A GM-run or personal campaign. | FKs `owner_id`, `parent_campaign_id` (self), `system_id`. `system_name` is a free-text fallback when `system_id` is null. `is_gm_campaign` distinguishes group from personal (promoted one-way via `POST /:id/convert-to-group`). `is_archived` (NOT NULL, default false) + `archived_at` hide the campaign from listings and freeze it read-only. `banner_path` is a filename under `DATA_PATH/campaign_uploads/banners/`; `banner_focus_y` (0-100, default 50) is where that image sits vertically in the 2:1 hero, and resets to 50 when the banner is removed. |
 | `campaign_members` | A player invited to / in a campaign. | FKs `campaign_id`, `user_id`. **Unique** `(campaign_id, user_id)`. `guest_code` (indexed) mints guest tokens. |
 | `campaign_resources` | A book/map/token/file linked to a campaign. | FK `campaign_id`, `category_id`. Polymorphic `(resource_type, resource_id)`. **Unique** `(campaign_id, resource_type, resource_id)`. `visibility` ∈ `public`/`private`/`gm`. |
 | `campaign_resource_shares` | A user a `private` resource is shared with. | FKs `resource_id`, `user_id`. **Unique** `(resource_id, user_id)`. |

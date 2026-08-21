@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuUpload, LuTrash2 } from 'react-icons/lu'
-import api, { mediaUrl } from '../../api'
+import api, { imageSources, mediaUrl } from '../../api'
+import ImagePickerModal from '../images/ImagePickerModal'
 
 /**
  * Upload (or remove) a cover image for a game system.
@@ -13,38 +14,40 @@ import api, { mediaUrl } from '../../api'
  *
  * A folder cover found by the scanner takes precedence over an upload, so the
  * note below tells the user when that's what they're seeing.
+ *
+ * The image can come from the device, the clipboard, or an asset Grimoire
+ * already holds — a library map, token, or book cover (issue #286) — through
+ * the shared image picker.
  */
 export default function CoverUpload({ system, onChange }) {
   const { t } = useTranslation()
-  const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [showPicker, setShowPicker] = useState(false)
   // Cache-buster so a replaced cover isn't served from the browser cache.
   const [version, setVersion] = useState(0)
 
   const hasUpload = Boolean(system.cover_image)
   const hasFolderCover = Boolean(system.has_cover) && !hasUpload
 
-  const pick = () => inputRef.current?.click()
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setBusy(true)
-    setError('')
-    try {
-      const res = await api.upload(`/systems/${system.id}/cover`, file)
-      setVersion((v) => v + 1)
-      onChange?.({ cover_image: res.cover_image, has_cover: true })
-    } catch (err) {
-      setError(err?.message || t('systemEditor.coverUploadFailed'))
-    } finally {
-      setBusy(false)
-    }
+  const applied = (res) => {
+    setVersion((v) => v + 1)
+    onChange?.({ cover_image: res.cover_image, has_cover: true })
   }
 
-  const remove = async () => {
+  const handleFile = async (file) => {
+    const res = await api.upload(`/systems/${system.id}/cover`, file)
+    applied(res)
+  }
+
+  const handleSource = async ({ source_type: type, source_id: id }) => {
+    applied(await imageSources.setSystemCover(system.id, type, id))
+  }
+
+  // `rethrow` is set by the picker, which needs the rejection to stay open and
+  // show the failure. The inline button handles it here instead — an unhandled
+  // rejection out of an onClick has nowhere to go.
+  const remove = async ({ rethrow = false } = {}) => {
     setBusy(true)
     setError('')
     try {
@@ -53,6 +56,7 @@ export default function CoverUpload({ system, onChange }) {
       onChange?.({ cover_image: '', has_cover: false })
     } catch (err) {
       setError(err?.message || t('systemEditor.coverUploadFailed'))
+      if (rethrow) throw err
     } finally {
       setBusy(false)
     }
@@ -95,7 +99,7 @@ export default function CoverUpload({ system, onChange }) {
         )}
         <button
           type="button"
-          onClick={pick}
+          onClick={() => setShowPicker(true)}
           disabled={busy}
           style={{
             padding: '6px 14px',
@@ -113,7 +117,7 @@ export default function CoverUpload({ system, onChange }) {
         {hasUpload && (
           <button
             type="button"
-            onClick={remove}
+            onClick={() => remove()}
             disabled={busy}
             style={{
               display: 'flex',
@@ -131,14 +135,6 @@ export default function CoverUpload({ system, onChange }) {
             <LuTrash2 size={13} /> {t('systemEditor.removeCover')}
           </button>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          onChange={handleFile}
-          style={{ display: 'none' }}
-          data-testid="cover-upload-input"
-        />
       </div>
 
       {hasFolderCover && (
@@ -150,6 +146,20 @@ export default function CoverUpload({ system, onChange }) {
         <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }} role="alert">
           {error}
         </div>
+      )}
+
+      {showPicker && (
+        <ImagePickerModal
+          title={t('systemEditor.uploadCover')}
+          hasImage={hasUpload}
+          previewSrc={previewUrl}
+          aspectRatio="3 / 4"
+          formatsText={t('imagePicker.formats')}
+          onUpload={handleFile}
+          onPickSource={handleSource}
+          onRemove={hasUpload ? () => remove({ rethrow: true }) : undefined}
+          onClose={() => setShowPicker(false)}
+        />
       )}
     </div>
   )

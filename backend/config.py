@@ -25,6 +25,7 @@ THUMB_DIR = os.path.join(DATA_PATH, "thumbnails")
 PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 CAMPAIGN_UPLOAD_DIR = os.path.join(DATA_PATH, "campaign_uploads")
 SYSTEM_COVER_DIR = os.path.join(DATA_PATH, "system_covers")
+AUDIO_COVER_DIR = os.path.join(DATA_PATH, "audio_covers")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
 
 # OCR: image-only PDFs (scanned pages with no embedded text layer) can be run
@@ -400,6 +401,7 @@ os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "art"), exist_ok=True)
 os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "sheets"), exist_ok=True)
 os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "files"), exist_ok=True)
 os.makedirs(SYSTEM_COVER_DIR, exist_ok=True)
+os.makedirs(AUDIO_COVER_DIR, exist_ok=True)
 
 engine, SessionLocal = init_db(DB_PATH)
 

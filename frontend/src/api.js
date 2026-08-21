@@ -141,6 +141,15 @@ export const campaigns = {
   // Banner (keyed by campaign id)
   uploadBanner: (id, file) => api.upload(`/campaigns/${id}/banner`, file),
   deleteBanner: (id) => api.delete(`/campaigns/${id}/banner`),
+  // Set the banner from an image the server already holds, instead of
+  // re-uploading a copy of something Grimoire has (issue #286).
+  setBannerFromSource: (id, sourceType, sourceId) =>
+    api.post(`/campaigns/${id}/banner/from-source`, {
+      source_type: sourceType,
+      source_id: sourceId,
+    }),
+  // Vertical focal point of the banner in the 2:1 hero, 0-100 (50 = centred).
+  setBannerFocus: (id, focusY) => api.put(`/campaigns/${id}/banner/focus`, { focus_y: focusY }),
   // `v` cache-busts the upload cache after a re-upload so the fresh banner is
   // fetched instead of the stale copy the browser is still holding. It must go
   // through mediaUrl as a real query param — media URLs no longer carry a
@@ -354,6 +363,40 @@ const BULK_PATHS = {
   map: '/maps',
   token: '/tokens',
   audio: '/audio',
+}
+
+// Setting an image from one Grimoire already holds (issue #286). Banner, system
+// cover, and audio cover all copy the chosen bytes server-side, so each target
+// keeps its own storage and its GET route is unchanged — only the source of the
+// bytes differs from a device upload.
+export const imageSources = {
+  // Library assets the picker can browse, reusing the campaign resource search
+  // (books/maps/tokens/audio) that already searches the whole library.
+  search: (q = '', resourceType = '', limit = 2000) =>
+    campaigns.searchResources(q, resourceType, '', limit),
+  setSystemCover: (systemId, sourceType, sourceId) =>
+    api.post(`/systems/${systemId}/cover/from-source`, {
+      source_type: sourceType,
+      source_id: sourceId,
+    }),
+  setAudioCover: (audioId, sourceType, sourceId) =>
+    api.post(`/audio/${audioId}/cover/from-source`, {
+      source_type: sourceType,
+      source_id: sourceId,
+    }),
+  uploadAudioCover: (audioId, file) => api.upload(`/audio/${audioId}/cover`, file),
+  deleteAudioCover: (audioId) => api.delete(`/audio/${audioId}/cover`),
+  // Thumbnail for a picker row. Books/maps/tokens each have their own endpoint;
+  // audio shows its artwork.
+  thumbUrl: (resourceType, id) => {
+    const paths = {
+      book: `/books/${id}/thumbnail`,
+      map: `/maps/${id}/thumbnail`,
+      token: `/tokens/${id}/thumbnail`,
+      audio: `/audio/${id}/artwork`,
+    }
+    return paths[resourceType] ? mediaUrl(paths[resourceType]) : null
+  },
 }
 
 export const files = {

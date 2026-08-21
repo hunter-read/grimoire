@@ -17,6 +17,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
+from ._schemas import BannerFocusIn, BannerSourceIn
 from ._helpers import (
     assert_can_manage,
     assert_not_archived,
@@ -131,6 +132,35 @@ def _assert_can_edit_member(campaign: Campaign, member: CampaignMember, user: Cu
 # --- Banner -----------------------------------------------------------------
 
 
+def _store_banner(c: Campaign, data: bytes, ext: str) -> str:
+    """Write banner bytes plus their downscaled copy, and point the campaign at them.
+
+    Shared by the device upload and the "choose an image Grimoire already has"
+    path (issue #286) so both end up with byte-identical storage — the copy-on-
+    select decision means `banner_path` and the GET handler never learn where
+    the image came from.
+    """
+    _remove_existing(_BANNER_DIR, c.id)
+    filename = f"{c.id}{ext}"
+    os.makedirs(_BANNER_DIR, exist_ok=True)
+    with open(os.path.join(_BANNER_DIR, filename), "wb") as f:
+        f.write(data)
+
+    # Store a downscaled copy served by default; failure is non-fatal — the
+    # get handler falls back to the original.
+    thumb = _make_banner_thumb(data)
+    thumb_path = _banner_thumb_path(c.id)
+    if thumb is not None:
+        with open(thumb_path, "wb") as f:
+            f.write(thumb)
+    elif os.path.isfile(thumb_path):
+        # A prior, now-stale thumbnail must not outlive this replacement.
+        os.remove(thumb_path)
+
+    c.banner_path = filename
+    return filename
+
+
 def upload_banner(
     campaign_id: str,
     file: UploadFile = File(...),
@@ -142,27 +172,61 @@ def upload_banner(
     data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
 
-    ext = _IMAGE_TYPES[file.content_type]
-    _remove_existing(_BANNER_DIR, campaign_id)
-    filename = f"{campaign_id}{ext}"
-    os.makedirs(_BANNER_DIR, exist_ok=True)
-    with open(os.path.join(_BANNER_DIR, filename), "wb") as f:
-        f.write(data)
-
-    # Store a downscaled copy served by default; failure is non-fatal — the
-    # get handler falls back to the original.
-    thumb = _make_banner_thumb(data)
-    thumb_path = _banner_thumb_path(campaign_id)
-    if thumb is not None:
-        with open(thumb_path, "wb") as f:
-            f.write(thumb)
-    elif os.path.isfile(thumb_path):
-        # A prior, now-stale thumbnail must not outlive this replacement.
-        os.remove(thumb_path)
-
-    c.banner_path = filename
+    filename = _store_banner(c, data, _IMAGE_TYPES[file.content_type])
     db.commit()
     return {"banner_path": filename}
+
+
+def set_banner_from_source(
+    campaign_id: str,
+    body: BannerSourceIn,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set the banner from an image Grimoire already holds (issue #286).
+
+    The bytes are copied into the banner directory exactly as an upload is, so
+    the banner survives the source asset being deleted or the library being
+    reorganised. `load_source_image` authorises the caller against the source's
+    own access rules, so the picker cannot reach an asset the user could not
+    already open.
+    """
+    from ...services.image_source import load_source_image, validate_image
+
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+
+    data = load_source_image(
+        db,
+        current_user,
+        body.source_type,
+        body.source_id,
+        campaign_id=campaign_id,
+    )
+    validate_image(data)
+
+    # Everything is normalised to WebP: a source may be any format the library
+    # holds, and the stored extension only has to describe these bytes.
+    normalised = _make_banner_thumb(data)
+    if normalised is None:
+        raise HTTPException(400, "Source image could not be processed")
+    filename = _store_banner(c, normalised, ".webp")
+    db.commit()
+    return {"banner_path": filename}
+
+
+def set_banner_focus(
+    campaign_id: str,
+    body: BannerFocusIn,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set where the banner sits vertically in the 2:1 hero (0-100, 50 = centred)."""
+    c = get_campaign_or_404(db, campaign_id)
+    assert_can_manage(c, current_user, db)
+    c.banner_focus_y = body.focus_y
+    db.commit()
+    return {"banner_focus_y": c.banner_focus_y}
 
 
 def get_banner(
@@ -211,6 +275,8 @@ def delete_banner(
     if os.path.isfile(thumb_path):
         os.remove(thumb_path)
     c.banner_path = None
+    # A stale focal point must not carry over onto whatever banner comes next.
+    c.banner_focus_y = 50
     db.commit()
 
 

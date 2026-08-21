@@ -34,6 +34,10 @@ class Campaign(Base):
 
     # Relative filename of the campaign banner, stored under DATA_PATH/campaign_uploads/banners/
     banner_path = Column(String(255), nullable=True)
+    # Vertical focal point of the banner inside the 2:1 hero, 0-100 (50 = centred).
+    # A banner picked from a library asset is rarely 2:1, so this is what keeps
+    # the interesting part of a tall image in frame (issue #286).
+    banner_focus_y = Column(Integer, default=50)
 
     # Whether this campaign accepts guest invite codes. Gated globally by the
     # app-level guest_access_enabled setting; this flips true the first time the

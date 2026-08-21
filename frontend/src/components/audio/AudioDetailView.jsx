@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown, LuMusic } from 'react-icons/lu'
-import api, { mediaUrl } from '../../api'
+import {
+  LuArrowLeft,
+  LuDownload,
+  LuInfo,
+  LuChevronDown,
+  LuMusic,
+  LuImagePlus,
+} from 'react-icons/lu'
+import api, { imageSources, mediaUrl } from '../../api'
+import ImagePickerModal from '../images/ImagePickerModal'
+import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
 import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
@@ -30,6 +39,15 @@ export default function AudioDetailView() {
   const [editingTrackTags, setEditingTrackTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  // Cover art set through the UI (issue #286) — gm/admin only, matching the
+  // rest of the library's edit affordances.
+  // `useAuth()` is null outside a provider, so read through it rather than
+  // destructuring — this view also renders in contexts without one.
+  const user = useAuth()?.user
+  const canEditCover = user?.role === 'admin' || user?.role === 'gm'
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
+  // Cache-buster so a replaced cover isn't served from the browser cache.
+  const [coverVersion, setCoverVersion] = useState(0)
 
   useEffect(() => {
     api.get(`/audio/${audioId}`).then(setTrack)
@@ -197,7 +215,10 @@ export default function AudioDetailView() {
             >
               {track.has_artwork ? (
                 <img
-                  src={mediaUrl(`/audio/${audioId}/artwork`)}
+                  src={mediaUrl(
+                    `/audio/${audioId}/artwork`,
+                    coverVersion ? { v: coverVersion } : {}
+                  )}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -205,6 +226,27 @@ export default function AudioDetailView() {
                 <LuMusic size={72} color="var(--text-muted)" style={{ opacity: 0.4 }} />
               )}
             </div>
+            {canEditCover && (
+              <button
+                type="button"
+                onClick={() => setShowCoverPicker(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  background: 'none',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-dim)',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                <LuImagePlus size={13} />{' '}
+                {track.has_artwork ? t('audio.detail.changeCover') : t('audio.detail.setCover')}
+              </button>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <AudioPlayer
                 track={{
@@ -312,6 +354,40 @@ export default function AudioDetailView() {
           )}
         </div>
       </div>
+
+      {showCoverPicker && (
+        <ImagePickerModal
+          title={t('audio.detail.coverTitle')}
+          hasImage={Boolean(track.has_cover)}
+          previewSrc={
+            track.has_artwork
+              ? mediaUrl(`/audio/${audioId}/artwork`, coverVersion ? { v: coverVersion } : {})
+              : null
+          }
+          aspectRatio="1 / 1"
+          formatsText={t('imagePicker.formats')}
+          onUpload={async (file) => {
+            await imageSources.uploadAudioCover(audioId, file)
+            setTrack(await api.get(`/audio/${audioId}`))
+            setCoverVersion((v) => v + 1)
+          }}
+          onPickSource={async ({ source_type: type, source_id: id }) => {
+            await imageSources.setAudioCover(audioId, type, id)
+            setTrack(await api.get(`/audio/${audioId}`))
+            setCoverVersion((v) => v + 1)
+          }}
+          onRemove={
+            track.has_cover
+              ? async () => {
+                  await imageSources.deleteAudioCover(audioId)
+                  setTrack(await api.get(`/audio/${audioId}`))
+                  setCoverVersion((v) => v + 1)
+                }
+              : undefined
+          }
+          onClose={() => setShowCoverPicker(false)}
+        />
+      )}
     </div>
   )
 }

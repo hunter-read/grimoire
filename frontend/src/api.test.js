@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import api, { mediaUrl, campaigns, auth, opds, settings, bulk } from './api'
+import api, { mediaUrl, campaigns, imageSources, auth, opds, settings, bulk } from './api'
 
 // Mirrors a real Response: handleResponse reads the body as text and parses it
 // itself, so an error body that isn't JSON can't throw a misleading SyntaxError
@@ -282,6 +282,62 @@ describe('api', () => {
     it('campaigns.list asks for archived campaigns when requested', async () => {
       await campaigns.list(true)
       expect(lastCall()[0]).toBe('/api/campaigns?include_archived=true')
+    })
+
+    // Setting an image from an asset Grimoire already holds (issue #286).
+    it('campaigns.setBannerFromSource POSTs the typed source reference', async () => {
+      await campaigns.setBannerFromSource('c1', 'map', 'm1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/campaigns/c1/banner/from-source')
+      expect(options.method).toBe('POST')
+      expect(JSON.parse(options.body)).toEqual({ source_type: 'map', source_id: 'm1' })
+    })
+
+    it('campaigns.setBannerFocus PUTs the focal point', async () => {
+      await campaigns.setBannerFocus('c1', 20)
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/campaigns/c1/banner/focus')
+      expect(options.method).toBe('PUT')
+      expect(JSON.parse(options.body)).toEqual({ focus_y: 20 })
+    })
+
+    it('imageSources.search reuses the campaign resource search', async () => {
+      await imageSources.search('ruins', 'map', 50)
+      expect(lastCall()[0]).toBe(
+        '/api/campaigns/resources/search?q=ruins&resource_type=map&limit=50'
+      )
+    })
+
+    it('imageSources.setSystemCover POSTs the source reference', async () => {
+      await imageSources.setSystemCover('s1', 'token', 't1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/systems/s1/cover/from-source')
+      expect(options.method).toBe('POST')
+      expect(JSON.parse(options.body)).toEqual({ source_type: 'token', source_id: 't1' })
+    })
+
+    it('imageSources.setAudioCover POSTs the source reference', async () => {
+      await imageSources.setAudioCover('a1', 'book', 'b1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/audio/a1/cover/from-source')
+      expect(options.method).toBe('POST')
+      expect(JSON.parse(options.body)).toEqual({ source_type: 'book', source_id: 'b1' })
+    })
+
+    it('imageSources.deleteAudioCover DELETEs the track cover', async () => {
+      await imageSources.deleteAudioCover('a1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/audio/a1/cover')
+      expect(options.method).toBe('DELETE')
+    })
+
+    it('imageSources.thumbUrl maps each type to its own endpoint', () => {
+      expect(imageSources.thumbUrl('book', 'b1')).toContain('/books/b1/thumbnail')
+      expect(imageSources.thumbUrl('map', 'm1')).toContain('/maps/m1/thumbnail')
+      expect(imageSources.thumbUrl('token', 't1')).toContain('/tokens/t1/thumbnail')
+      // Audio has no thumbnail of its own; its artwork stands in.
+      expect(imageSources.thumbUrl('audio', 'a1')).toContain('/audio/a1/artwork')
+      expect(imageSources.thumbUrl('campaign_file', 'f1')).toBeNull()
     })
 
     it('campaigns.setArchived PUTs the archived flag', async () => {

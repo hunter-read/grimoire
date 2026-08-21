@@ -1028,7 +1028,10 @@
       "suggestedSize": "Suggested size: 1600 × 800",
       "edit": "Edit banner",
       "modalTitle": "Campaign Banner",
-      "allowedFormats": "PNG, JPEG, WebP, or GIF, up to 5 MB."
+      "allowedFormats": "PNG, JPEG, WebP, or GIF, up to 5 MB.",
+      "dragToReposition": "Drag to reposition",
+      "verticalPosition": "Vertical position",
+      "savePosition": "Save position"
     },
     "openNotes": "Open Notes",
     "archive": "Archive",
@@ -1842,7 +1845,10 @@
       "folderTags": "Folder Tags",
       "trackTags": "Track Tags",
       "editTags": "Edit",
-      "noTags": "None"
+      "noTags": "None",
+      "setCover": "Set cover",
+      "changeCover": "Change cover",
+      "coverTitle": "Track Cover"
     },
     "player": {
       "title": "Now Playing",
@@ -2073,5 +2079,29 @@
     "builtInLabel": "Built-in",
     "bothModes": "Light & dark",
     "themeTitle": "Theme"
+  },
+  "imagePicker": {
+    "mode": {
+      "upload": "Upload",
+      "browse": "Browse library"
+    },
+    "tab": {
+      "campaign_file": "This campaign",
+      "map": "Maps",
+      "token": "Tokens",
+      "book": "Book covers",
+      "audio": "Audio art"
+    },
+    "searchPlaceholder": "Search by name or folder…",
+    "noResults": "No images found",
+    "loadMore": "Show {{count}} more",
+    "chooseFile": "Choose an image",
+    "pasteHint": "or paste an image with Ctrl/Cmd+V, or drop one here",
+    "formats": "PNG, JPEG, WebP, or GIF.",
+    "save": "Set image",
+    "saving": "Saving…",
+    "remove": "Remove",
+    "failed": "Could not set the image",
+    "searchFailed": "Could not load images"
   }
 }
