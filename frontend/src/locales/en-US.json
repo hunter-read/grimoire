@@ -393,7 +393,21 @@
     "retry": "Retry",
     "retryFailed": "Retry failed",
     "cancelAll": "Cancel all",
-    "clearCompleted": "Clear finished"
+    "clearCompleted": "Clear finished",
+    "newFolderHere": "Create a folder in the folder you are viewing",
+    "rescanLibrary": "Rescan",
+    "rescanHere": "Rescan this…",
+    "rescanStarted": "Rescanning {{path}}",
+    "rescanFailed": "Could not start that rescan",
+    "preview": "Preview…",
+    "previewTitle": "Preview of {{name}}",
+    "previewUnsupported": "There is nothing to preview for this item",
+    "previewFailed": "Could not load that preview",
+    "previewNoPages": "This book has no rendered pages yet",
+    "previewPageOf": "Page {{page}} of {{total}}",
+    "previewPageAlt": "Page {{page}}",
+    "previewPrev": "Previous page",
+    "previewNext": "Next page"
   },
   "maps": {
     "title": "Maps",
@@ -882,7 +896,8 @@
           "hint": "The same complete backup as JSON, in a format that is easier to read and edit by hand."
         }
       },
-      "covers": "Also write the cover image next to each book",
+      "covers": "Export cover images",
+      "coversHint": "Writes each book's cover as an image file beside it, so other apps show artwork too.",
       "overwriteForeign": "Replace sidecar files Grimoire did not write",
       "overwriteForeignHint": "Leave off to protect files you maintain yourself, such as a .opf edited in Calibre. They are reported as skipped instead.",
       "save": "Save Settings",

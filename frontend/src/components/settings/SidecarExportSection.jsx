@@ -134,7 +134,7 @@ export default function SidecarExportSection() {
           <label
             style={{
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 10,
               cursor: 'pointer',
               fontSize: 14,
@@ -147,9 +147,21 @@ export default function SidecarExportSection() {
               type="checkbox"
               checked={covers}
               onChange={(e) => setCovers(e.target.checked)}
-              style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--gold)' }}
+              style={{
+                width: 15,
+                height: 15,
+                cursor: 'pointer',
+                accentColor: 'var(--gold)',
+                marginTop: 2,
+                flexShrink: 0,
+              }}
             />
-            {t('maintenance.sidecars.covers')}
+            <span>
+              {t('maintenance.sidecars.covers')}
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)' }}>
+                {t('maintenance.sidecars.coversHint')}
+              </span>
+            </span>
           </label>
 
           <label

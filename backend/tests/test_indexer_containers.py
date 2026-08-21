@@ -900,3 +900,79 @@ class TestInterruptedScanStillRegistersSystems:
             slug = f"stop352-seq--{edition}"
             assert _system(slug) is not None
             assert len(_books_for(slug, lib)) == 10
+
+
+class TestAgnosticContainer:
+    """The agnostic collection keeps its category shape, marker or not.
+
+    ``.system-agnostic-container`` is the one container kind whose subfolders are
+    *categories* rather than systems: ``system-agnostic/maps/`` is the "maps"
+    category of one collection, not a game called "maps". Treating the marker
+    like every other container kind promoted each category to its own system and
+    left the collection itself holding no books — the library then showed it as a
+    shelf of systems with a child count instead of a book count.
+    """
+
+    def test_marker_keeps_subfolders_as_categories(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Agnostic Marked")
+        (root / ".system-agnostic-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Agnostic Marked", "maps"), "geomorphs.pdf")
+        _touch_pdf(_books_dir(lib, "Agnostic Marked", "adventures"), "tomb.pdf")
+        _scan(lib, tmp)
+
+        system = _system("agnostic-marked")
+        assert system is not None
+        assert system.is_system_agnostic is True
+
+        # No child systems: the subfolders are categories of this one collection.
+        assert _system("agnostic-marked--maps") is None
+        assert _system("agnostic-marked--adventures") is None
+
+        books = _books_for("agnostic-marked", lib)
+        assert len(books) == 2
+        assert {b.category for b in books} == {"maps", "adventures"}
+
+    def test_marker_on_a_folder_named_anything_still_agnostic(self):
+        """The marker is what claims the collection when the name does not.
+
+        A folder called "Generic Stuff" is not one of the reserved slugs, so the
+        flag can only come from the marker — and without it the library files the
+        collection as an ordinary game system.
+        """
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Generic Stuff")
+        (root / ".system-agnostic-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Generic Stuff", "handouts"), "sheet.pdf")
+        _scan(lib, tmp)
+
+        system = _system("generic-stuff")
+        assert system is not None
+        assert system.is_system_agnostic is True
+        assert [b.category for b in _books_for("generic-stuff", lib)] == ["handouts"]
+
+    def test_reserved_name_without_marker_is_unchanged(self):
+        """The pre-existing (unmarked) shape still behaves the same way."""
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "System Agnostic", "tokens"), "pack.pdf")
+        _scan(lib, tmp)
+
+        system = _system("system-agnostic")
+        assert system is not None
+        assert system.is_system_agnostic is True
+        assert _system("system-agnostic--tokens") is None
+        assert [b.category for b in _books_for("system-agnostic", lib)] == ["tokens"]
+
+    def test_one_page_container_still_promotes_children(self):
+        """The agnostic carve-out must not leak into the sibling kind.
+
+        One-page subfolders *are* systems — that is the whole point of the
+        collection — so this pins the boundary of the exception.
+        """
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Tiny Games")
+        (root / ".one-page-container").write_text("")
+        _touch_pdf(_books_dir(lib, "Tiny Games", "Honey Heist"), "hh.pdf")
+        _scan(lib, tmp)
+
+        assert _system("tiny-games--honey-heist") is not None

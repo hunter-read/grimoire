@@ -393,7 +393,21 @@
     "retry": "Reintentar",
     "retryFailed": "Reintentar los fallidos",
     "cancelAll": "Cancelar todo",
-    "clearCompleted": "Limpiar completados"
+    "clearCompleted": "Limpiar completados",
+    "newFolderHere": "Crear una carpeta en la carpeta que estás viendo",
+    "rescanLibrary": "Reanalizar",
+    "rescanHere": "Reanalizar esto…",
+    "rescanStarted": "Reanalizando {{path}}",
+    "rescanFailed": "No se pudo iniciar el reanálisis",
+    "preview": "Vista previa…",
+    "previewTitle": "Vista previa de {{name}}",
+    "previewUnsupported": "No hay nada que previsualizar para este elemento",
+    "previewFailed": "No se pudo cargar la vista previa",
+    "previewNoPages": "Este libro aún no tiene páginas renderizadas",
+    "previewPageOf": "Página {{page}} de {{total}}",
+    "previewPageAlt": "Página {{page}}",
+    "previewPrev": "Página anterior",
+    "previewNext": "Página siguiente"
   },
   "maps": {
     "title": "Mapas",
@@ -882,7 +896,8 @@
           "hint": "La misma copia completa que JSON, en un formato más fácil de leer y editar a mano."
         }
       },
-      "covers": "Escribir también la portada junto a cada libro",
+      "covers": "Exportar imágenes de portada",
+      "coversHint": "Escribe la portada de cada libro como archivo de imagen junto a él, para que otras aplicaciones también muestren la carátula.",
       "overwriteForeign": "Reemplazar archivos que no escribió Grimoire",
       "overwriteForeignHint": "Déjalo desactivado para proteger los archivos que mantienes tú, como un .opf editado en Calibre. Se informan como omitidos.",
       "save": "Guardar ajustes",

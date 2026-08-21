@@ -36,6 +36,34 @@ describe('AgnosticChip', () => {
     expect(screen.getByText('3 books')).toBeInTheDocument()
   })
 
+  it('counts books, not subfolders, for the system-agnostic collection', () => {
+    // The agnostic collection carries a container kind, but its subfolders are
+    // categories rather than systems — so a child count would be meaningless.
+    renderChip({
+      system: makeSystem({
+        name: 'system-agnostic',
+        is_one_page: false,
+        is_system_agnostic: true,
+        container_kind: 'agnostic',
+        child_count: 4,
+        book_count: 12,
+      }),
+      to: '/library/agnostic',
+    })
+    expect(screen.getByText('12 books')).toBeInTheDocument()
+    expect(screen.queryByText('4 systems')).not.toBeInTheDocument()
+  })
+
+  it('counts child systems for a one-page container', () => {
+    // The sibling collection genuinely does hold systems, so it keeps the
+    // child count — this pins the boundary of the exception above.
+    renderChip({
+      system: makeSystem({ container_kind: 'one-page', child_count: 4, book_count: 0 }),
+      to: '/library/one-page',
+    })
+    expect(screen.getByText('4 systems')).toBeInTheDocument()
+  })
+
   it('prettifies system-agnostic names', () => {
     renderChip({
       system: makeSystem({

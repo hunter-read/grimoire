@@ -88,7 +88,9 @@ describe('TokenDetailView', () => {
     render(<TokenDetailView />)
     await waitFor(() => expect(screen.getByText('t2.png')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to tokens'))
-    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources')
+    expect(navigate).toHaveBeenCalledWith('/campaigns/c1/resources', {
+      state: { restoreView: true },
+    })
   })
 
   it('falls back to the tokens list when there is no referring path', async () => {
@@ -96,7 +98,7 @@ describe('TokenDetailView', () => {
     render(<TokenDetailView />)
     await waitFor(() => expect(screen.getByText('t2.png')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to tokens'))
-    expect(navigate).toHaveBeenCalledWith('/tokens')
+    expect(navigate).toHaveBeenCalledWith('/tokens', { state: { restoreView: true } })
   })
 
   it('renders the archive placeholder instead of an <img> for an archive token', async () => {

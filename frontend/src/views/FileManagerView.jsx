@@ -18,6 +18,7 @@ import {
   LuLayoutGrid,
   LuUpload,
   LuFolderUp,
+  LuEye,
 } from 'react-icons/lu'
 import { files as filesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -29,6 +30,10 @@ import MenuSubmenu from '../components/files/MenuSubmenu'
 import UploadPanel from '../components/files/UploadPanel'
 import useUploadQueue from '../hooks/useUploadQueue'
 import BulkEditModal from '../components/BulkEditModal'
+import RescanButton from '../components/RescanButton'
+import RescanModal from '../components/RescanModal'
+import PreviewModal from '../components/files/PreviewModal'
+import useScanStatus from '../hooks/useScanStatus'
 
 // Where a pinned second pane sits relative to the first. Side-by-side splits
 // read as two columns; top/bottom stack them.
@@ -98,6 +103,11 @@ export default function FileManagerView() {
   const fileInput = useRef(null)
   const folderInput = useRef(null)
   const [showUploads, setShowUploads] = useState(false)
+  // Path a context-menu rescan will be scoped to, while its mode modal is open.
+  const [rescanning, setRescanning] = useState(null)
+  // { type, item } for the quick-look preview, once its record has loaded.
+  const [previewing, setPreviewing] = useState(null)
+  const { status: scanStatus, startRescan } = useScanStatus()
 
   useEffect(() => {
     if (!context) return
@@ -148,10 +158,14 @@ export default function FileManagerView() {
   const handleCreate = useCallback(
     async (parent, name, opts) => {
       await filesApi.createFolder(parent, name, opts)
-      refreshAll()
+      // Reload the folder it landed in *and* open it, rather than only
+      // re-reading what was already on screen: a folder created inside a
+      // collapsed parent is otherwise invisible until a manual refresh.
+      primary.refreshPath(parent)
+      if (split) secondary.refreshPath(parent)
       setFlash({ tone: 'ok', text: t('files.folderCreated', { name }) })
     },
-    [refreshAll, t]
+    [primary, secondary, split, t]
   )
 
   const handleRename = useCallback(
@@ -215,6 +229,18 @@ export default function FileManagerView() {
     [refreshAll, t]
   )
 
+  /** Re-index just this folder (or file). Scopes are library-relative paths,
+   * which is exactly what a browse entry's `path` already is.
+   */
+  const runRescan = useCallback(
+    (scope, metadataMode) => {
+      startRescan({ scope, metadata_mode: metadataMode })
+        .then(() => setFlash({ tone: 'ok', text: t('files.rescanStarted', { path: scope }) }))
+        .catch((e) => setFlash({ tone: 'error', text: e.message || t('files.rescanFailed') }))
+    },
+    [startRescan, t]
+  )
+
   /** Load the full record behind a row and open the shared metadata editor.
    *
    * The listing carries only what a row renders, so the record is fetched on
@@ -238,6 +264,33 @@ export default function FileManagerView() {
         setEditing({ type, item })
       } catch (e) {
         setFlash({ tone: 'error', text: e.message || t('files.metadataLoadFailed') })
+      } finally {
+        setBusy(false)
+      }
+    },
+    [t]
+  )
+
+  /** Load the record behind a row and open the quick-look preview.
+   *
+   * Same fetch as the metadata editor: the listing carries only what a row
+   * renders, and a book preview needs the page count and content token to
+   * address its pages at all.
+   */
+  const openPreview = useCallback(
+    async (entry) => {
+      const type = EDITOR_TYPES[entry.collection]
+      if (!type || type === 'system') {
+        setFlash({ tone: 'warn', text: t('files.previewUnsupported') })
+        return
+      }
+      setBusy(true)
+      try {
+        const item = await filesApi.record(type, entry.record_id)
+        if (!item?.id) throw new Error(t('files.previewFailed'))
+        setPreviewing({ type, item })
+      } catch (e) {
+        setFlash({ tone: 'error', text: e.message || t('files.previewFailed') })
       } finally {
         setBusy(false)
       }
@@ -366,6 +419,7 @@ export default function FileManagerView() {
       onDropPaths={runMove}
       onDropFiles={handleExternalDrop}
       onOpenContext={setContext}
+      onNewFolder={setCreatingIn}
       onPin={pinTo}
       // Both panes are closable once split: the user may want to keep either
       // one, and only offering it on the second forces a re-pin to get there.
@@ -452,6 +506,10 @@ export default function FileManagerView() {
           <button onClick={refreshAll} style={ghostBtn} disabled={busy} title={t('files.refresh')}>
             <LuRefreshCw size={14} /> {t('files.refresh')}
           </button>
+          {/* Refresh re-reads the folder listing; a rescan re-indexes what is on
+              disk. Reorganising files is exactly when the index goes stale, so
+              the two belong side by side. */}
+          <RescanButton compact={false} label={t('files.rescanLibrary')} />
         </div>
       </div>
 
@@ -570,6 +628,22 @@ export default function FileManagerView() {
             <LuPencil size={13} /> {t('files.rename')}
           </button>
 
+          {/* Only indexed *files* can be previewed — a system folder has a
+              record but nothing to show. */}
+          {context.entry.record_id && !context.entry.is_dir && (
+            <button
+              style={menuItem}
+              {...menuHover}
+              data-testid="preview-entry"
+              onClick={() => {
+                openPreview(context.entry)
+                setContext(null)
+              }}
+            >
+              <LuEye size={13} /> {t('files.preview')}
+            </button>
+          )}
+
           {/* Anything Grimoire has a record for — an indexed file, or a system
               folder — carries editable metadata. The same editor the item pages
               use is reused here rather than a second, diverging form. */}
@@ -586,6 +660,23 @@ export default function FileManagerView() {
               <LuTags size={13} /> {t('files.editMetadata')}
             </button>
           )}
+
+          {/* Scoped rescan. Offered for files as well as folders: the scope is a
+              path either way, and re-indexing the one book you just replaced
+              beats re-walking the whole library. Disabled while a scan runs,
+              since the backend takes one at a time. */}
+          <button
+            style={{ ...menuItem, opacity: scanStatus.running ? 0.5 : 1 }}
+            {...menuHover}
+            disabled={scanStatus.running}
+            data-testid="rescan-entry"
+            onClick={() => {
+              setRescanning(context.entry.path)
+              setContext(null)
+            }}
+          >
+            <LuRefreshCw size={13} /> {t('files.rescanHere')}
+          </button>
 
           {context.entry.is_dir && (
             <>
@@ -732,6 +823,22 @@ export default function FileManagerView() {
 
       {renaming && (
         <RenameModal entry={renaming} onClose={() => setRenaming(null)} onRename={handleRename} />
+      )}
+
+      {previewing && (
+        <PreviewModal
+          type={previewing.type}
+          item={previewing.item}
+          onClose={() => setPreviewing(null)}
+        />
+      )}
+
+      {rescanning !== null && (
+        <RescanModal
+          scope={rescanning}
+          onConfirm={(mode) => runRescan(rescanning, mode)}
+          onClose={() => setRescanning(null)}
+        />
       )}
 
       {editing && (

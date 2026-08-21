@@ -960,7 +960,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
     await userEvent.click(screen.getByText('Back to Library'))
-    expect(mockNavigate).toHaveBeenCalledWith('/library')
+    expect(mockNavigate).toHaveBeenCalledWith('/library', { state: { restoreView: true } })
   })
 
   it('counts the nested systems rather than books', async () => {
@@ -1138,7 +1138,9 @@ describe('SystemDetailView — back navigation from a nested system', () => {
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
     await userEvent.click(screen.getByText('Back to Dungeons & Dragons'))
-    expect(mockNavigate).toHaveBeenCalledWith('/library/system/container-9')
+    expect(mockNavigate).toHaveBeenCalledWith('/library/system/container-9', {
+      state: { restoreView: true },
+    })
   })
 
   it('prettifies a one-page collection name in the back label', async () => {
@@ -1160,6 +1162,8 @@ describe('SystemDetailView — back navigation from a nested system', () => {
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
     await userEvent.click(screen.getByText('Back to Library'))
-    expect(mockNavigate).toHaveBeenCalledWith('/library')
+    // The restoreView flag is what tells the library this is a *return*, so it
+    // shows the filters the user had rather than re-applying their default.
+    expect(mockNavigate).toHaveBeenCalledWith('/library', { state: { restoreView: true } })
   })
 })

@@ -135,6 +135,38 @@ export function useLibraryPane(initialPath = '') {
     targets.forEach((target) => load(target))
   }, [load, path, expanded])
 
+  /**
+   * Refresh one folder and make sure its contents are on screen.
+   *
+   * `refresh` only re-reads what is already loaded, which is right after a move
+   * but wrong after a *create*: a new folder made inside a collapsed parent
+   * lands in a folder the pane has never loaded, so nothing changes and the
+   * folder looks like it was never made. Expanding the parent — and reloading it
+   * even when it was already open — is what actually reveals the new row.
+   *
+   * The pane root is refreshed rather than expanded, since it is already the
+   * thing on screen and has no disclosure triangle of its own.
+   */
+  const refreshPath = useCallback(
+    (target) => {
+      const folderPath = target ?? ''
+      if (folderPath !== path) {
+        setExpanded((prev) => {
+          if (prev.has(folderPath)) return prev
+          const next = new Set(prev)
+          next.add(folderPath)
+          return next
+        })
+      }
+      // Bypass the in-flight guard: a listing fetched before the folder was
+      // created would not contain it, so reusing that request would show a
+      // stale folder and look like the create silently failed.
+      inFlight.current.delete(folderPath)
+      load(folderPath)
+    },
+    [load, path]
+  )
+
   const toggle = useCallback((entryPath) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -232,6 +264,7 @@ export function useLibraryPane(initialPath = '') {
     selected,
     navigate,
     refresh,
+    refreshPath,
     toggle,
     toggleExpand,
     expand,

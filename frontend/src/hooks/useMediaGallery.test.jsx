@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import useMediaGallery from './useMediaGallery'
 import api, { bulk } from '../api'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
@@ -23,11 +25,14 @@ vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite }),
 }))
 
-// Deterministic session state (start expanded / grouped true).
+// Deterministic session state (start expanded / grouped true). Real useState
+// underneath, because the sort/filter state now lives here too and a no-op
+// setter would silently swallow every filter change under test.
 vi.mock('./useSessionState', () => ({
   default: (key, init) => {
-    const val = key.endsWith(':grouped') ? true : init
-    return [val, vi.fn()]
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [val, setVal] = useState(key.endsWith(':grouped') ? true : init)
+    return [val, setVal]
   },
 }))
 
@@ -51,6 +56,14 @@ function setup(items, savedFilters = []) {
   })
 }
 
+// The hook distinguishes arriving fresh from returning via the back button, so
+// it needs a router. These render as a fresh arrival (no restoreView flag),
+// which is when the saved default preset applies.
+const renderGallery = () =>
+  renderHook(() => useMediaGallery(config), {
+    wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+  })
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockIsFavorite.mockReturnValue(false)
@@ -59,7 +72,7 @@ beforeEach(() => {
 describe('useMediaGallery', () => {
   it('loads items and exposes them grouped and flat', async () => {
     setup([item({ id: 'a', filename: 'beta.png' }), item({ id: 'b', filename: 'alpha.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     // Flat list sorted by filename ascending (default sort).
     expect(result.current.flatItems.map((i) => i.filename)).toEqual(['alpha.png', 'beta.png'])
@@ -70,7 +83,7 @@ describe('useMediaGallery', () => {
       item({ id: 'a', filename: 'small.png', file_size: 10 }),
       item({ id: 'b', filename: 'big.png', file_size: 500 }),
     ])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.setSortFilter({ sort: 'size', order: 'desc', filters: {} }))
     expect(result.current.flatItems.map((i) => i.filename)).toEqual(['big.png', 'small.png'])
@@ -78,7 +91,7 @@ describe('useMediaGallery', () => {
 
   it('filters by the search text (via setFilter)', async () => {
     setup([item({ id: 'a', filename: 'dragon.png' }), item({ id: 'b', filename: 'goblin.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.setFilter('dragon'))
     expect(result.current.flatItems.map((i) => i.filename)).toEqual(['dragon.png'])
@@ -87,7 +100,7 @@ describe('useMediaGallery', () => {
   it('filters by favorites', async () => {
     mockIsFavorite.mockImplementation((type, id) => id === 'a')
     setup([item({ id: 'a', filename: 'fav.png' }), item({ id: 'b', filename: 'other.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() =>
       result.current.setSortFilter((s) => ({ ...s, filters: { ...s.filters, favorites: true } }))
@@ -100,7 +113,7 @@ describe('useMediaGallery', () => {
       item({ id: 'a', filename: 'a.png', tags: ['forest'] }),
       item({ id: 'b', filename: 'b.png', tags: ['cave'] }),
     ])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.toggleTag('forest'))
     expect(result.current.flatItems.map((i) => i.id)).toEqual(['a'])
@@ -120,14 +133,14 @@ describe('useMediaGallery', () => {
         },
       ]
     )
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     await waitFor(() => expect(result.current.sortFilter.sort).toBe('size'))
   })
 
   it('clears tags and toggles grouping helpers', async () => {
     setup([item({ id: 'a', filename: 'a.png', tags: ['forest'] })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.toggleTag('forest'))
     expect(result.current.selectedTags.size).toBe(1)
@@ -140,7 +153,7 @@ describe('useMediaGallery', () => {
       item({ id: 'a', filename: 'a.png', tags: ['Forest', 'CAVE'] }),
       item({ id: 'b', filename: 'b.png', tags: ['forest'] }),
     ])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     expect(result.current.allTags).toEqual(['cave', 'forest'])
   })
@@ -149,7 +162,7 @@ describe('useMediaGallery', () => {
   // per-item fan-out raced on tag creation server-side and returned 500s.
   it('applies bulk tags to the whole selection in a single request', async () => {
     setup([item({ id: 'a', filename: 'a.png' }), item({ id: 'b', filename: 'b.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.toggleSelect('a'))
     act(() => result.current.toggleSelect('b'))
@@ -164,7 +177,7 @@ describe('useMediaGallery', () => {
   it('releases the applying flag when the bulk request fails', async () => {
     bulk.addTags.mockRejectedValueOnce(new Error('Internal Server Error'))
     setup([item({ id: 'a', filename: 'a.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.toggleSelect('a'))
     await act(async () => {
@@ -176,7 +189,7 @@ describe('useMediaGallery', () => {
 
   it('saves a folder tag list via PATCH', async () => {
     setup([item({ id: 'a', filename: 'a.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     await act(async () => {
       await result.current.saveFolderTags('maps/dungeons', ['spooky'])
@@ -189,7 +202,7 @@ describe('useMediaGallery', () => {
 
   it('patches local copies via applyEdits and returns selectedObjects', async () => {
     setup([item({ id: 'a', filename: 'a.png' })])
-    const { result } = renderHook(() => useMediaGallery(config))
+    const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.applyEdits({ a: { filename: 'renamed.png' } }))
     expect(result.current.flatItems[0].filename).toBe('renamed.png')

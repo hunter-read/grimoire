@@ -393,7 +393,21 @@
     "retry": "Tentar novamente",
     "retryFailed": "Repetir os que falharam",
     "cancelAll": "Cancelar tudo",
-    "clearCompleted": "Limpar concluídos"
+    "clearCompleted": "Limpar concluídos",
+    "newFolderHere": "Criar uma pasta na pasta que você está vendo",
+    "rescanLibrary": "Reescanear",
+    "rescanHere": "Reescanear isto…",
+    "rescanStarted": "Reescaneando {{path}}",
+    "rescanFailed": "Não foi possível iniciar o reescaneamento",
+    "preview": "Pré-visualizar…",
+    "previewTitle": "Pré-visualização de {{name}}",
+    "previewUnsupported": "Não há nada para pré-visualizar neste item",
+    "previewFailed": "Não foi possível carregar a pré-visualização",
+    "previewNoPages": "Este livro ainda não tem páginas renderizadas",
+    "previewPageOf": "Página {{page}} de {{total}}",
+    "previewPageAlt": "Página {{page}}",
+    "previewPrev": "Página anterior",
+    "previewNext": "Próxima página"
   },
   "maps": {
     "title": "Mapas",
@@ -882,7 +896,8 @@
           "hint": "A mesma cópia completa do JSON, em um formato mais fácil de ler e editar à mão."
         }
       },
-      "covers": "Escrever também a capa ao lado de cada livro",
+      "covers": "Exportar imagens de capa",
+      "coversHint": "Grava a capa de cada livro como arquivo de imagem ao lado dele, para que outros aplicativos também exibam a arte.",
       "overwriteForeign": "Substituir arquivos que o Grimoire não escreveu",
       "overwriteForeignHint": "Deixe desativado para proteger arquivos que você mantém, como um .opf editado no Calibre. Eles são informados como ignorados.",
       "save": "Salvar configurações",
