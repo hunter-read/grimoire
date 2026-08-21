@@ -79,10 +79,6 @@ class FolderResponse(BaseModel):
     markers: list[str] = Field(default_factory=list)
 
 
-class DeletedFolderResponse(BaseModel):
-    path: str
-
-
 class CreateFolderRequest(BaseModel):
     parent: str
     name: str = Field(..., min_length=1, max_length=255)
@@ -98,6 +94,32 @@ class MarkersRequest(BaseModel):
 
 class DeleteFolderRequest(BaseModel):
     path: str
+    # Required only when the folder still holds content: the API refuses the
+    # delete with `confirm_required` until this matches the folder's own name.
+    confirm_name: Optional[str] = None
+
+
+class DeleteRequest(BaseModel):
+    """A file or folder to remove, with the typed-name guard for full folders."""
+
+    path: str
+    confirm_name: Optional[str] = None
+
+
+class DeleteResponse(BaseModel):
+    """What the delete actually removed, for the confirmation message."""
+
+    path: str
+    records: int = 0
+    files: int = 0
+
+
+class FolderContentsResponse(BaseModel):
+    """Whether a folder holds anything, so the UI knows which guard to show."""
+
+    path: str
+    has_content: bool
+    name: str
 
 
 class ScaffoldRequest(BaseModel):

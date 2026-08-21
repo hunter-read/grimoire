@@ -154,3 +154,4 @@ class UISettingsResponse(BaseModel):
     campaign_upload_max_file_mb: int
     campaign_upload_max_total_mb: int
     guest_access_enabled: bool
+    library_writable: bool

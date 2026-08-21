@@ -3,7 +3,8 @@ from fastapi import APIRouter
 
 from ._schemas import (
     BrowseResponse,
-    DeletedFolderResponse,
+    DeleteResponse,
+    FolderContentsResponse,
     FolderResponse,
     MoveResponse,
     RenameResponse,
@@ -13,7 +14,9 @@ from ._schemas import (
 from .core import (
     browse,
     create_folder,
+    delete_entry,
     delete_folder,
+    folder_contents,
     move_files,
     rename_file,
     scaffold_categories,
@@ -62,8 +65,31 @@ router.add_api_route(
     "/folder",
     delete_folder,
     methods=["DELETE"],
-    summary="Delete an empty folder",
-    response_model=DeletedFolderResponse,
+    summary="Delete a folder, recursively when confirmed by name",
+    description=(
+        "Deletes a folder holding nothing but markers and empty descendants. One "
+        "still holding content is refused with 428 until `confirm_name` matches "
+        "the folder's own name."
+    ),
+    response_model=DeleteResponse,
+)
+router.add_api_route(
+    "/folder/contents",
+    folder_contents,
+    methods=["GET"],
+    summary="Report whether a folder holds content",
+    response_model=FolderContentsResponse,
+)
+router.add_api_route(
+    "/delete",
+    delete_entry,
+    methods=["POST"],
+    summary="Delete a file or folder, with its record and sidecars",
+    description=(
+        "Irreversible. Removes the file from disk along with its indexed record "
+        "and everything keyed to it. Non-empty folders require `confirm_name`."
+    ),
+    response_model=DeleteResponse,
 )
 router.add_api_route(
     "/folder/scaffold",

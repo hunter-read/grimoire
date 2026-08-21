@@ -260,6 +260,19 @@ def sidecars_for(content: Path) -> list[Path]:
     return [p for p in candidates if p.is_file()]
 
 
+def library_writable() -> bool:
+    """Whether the library root can be written to at all.
+
+    A cheap probe of the root, used to decide whether the UI offers destructive
+    file actions anywhere outside the file manager. Deliberately root-level: a
+    per-folder answer would need a stat per row, and a read-only *mount* is the
+    case this exists to detect. Individual operations still check their own
+    target, so a folder made read-only on its own is caught where it matters.
+    """
+    root = library_root()
+    return root.is_dir() and os.access(root, os.W_OK | os.X_OK)
+
+
 def assert_writable(path: Path) -> None:
     """Raise a clear error when ``path``'s filesystem cannot be written.
 
@@ -339,6 +352,150 @@ def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str],
     if is_special_collection_folder(system_folder):
         return (system.id if system else None), agnostic_category(rel)
     return (system.id if system else None), guess_category(rel, system_depth=depth)
+
+
+# The folder name to create for a canonical category that has no folder yet.
+# Derived from SCAFFOLD_CATEGORY_FOLDERS so a category relocation and the
+# scaffold button produce the same shelf rather than two spellings of it.
+CATEGORY_FOLDER_NAMES = {
+    guess_category(f"books/system/{name}/x.pdf"): name for name in SCAFFOLD_CATEGORY_FOLDERS
+}
+
+
+def _system_root_for(db: Session, book_path: Path) -> Optional[Path]:
+    """The system folder a book sits under, or None when it is not in one.
+
+    The category folder is a *child* of this, so relocating a book means finding
+    this root first. Depth mirrors ``resolve_book_placement``: a system nested in
+    a container folder pushes everything one segment right.
+    """
+    rel = to_relative(book_path)
+    parts = rel.split("/")
+    if len(parts) < 3:
+        return None
+
+    system = (
+        db.query(GameSystem).filter(GameSystem.name == _system_folder_name(parts[1])).first()
+    )
+    depth = 2
+    if system is not None and getattr(system, "parent_id", None):
+        depth = 3
+    if len(parts) <= depth:
+        return None
+    return library_root().joinpath(*parts[:depth])
+
+
+def category_folder_for(
+    db: Session, book_path: Path, category: str, *, create: bool = True
+) -> Optional[Path]:
+    """The folder under a book's system that holds ``category``, creating it if asked.
+
+    Matched on the *inferred category* of each existing child rather than on the
+    folder's name, for the same reason ``scaffold_categories`` does: a user whose
+    core books live in "Rulebooks" should have a re-categorised book join them,
+    not gain a second "Core" folder splitting one category across two shelves.
+
+    Returns None when there is no system folder to hang a category off, or when
+    the folder is absent and ``create`` is False.
+    """
+    root = _system_root_for(db, book_path)
+    if root is None or not root.is_dir():
+        return None
+
+    try:
+        for child in sorted(root.iterdir(), key=lambda c: c.name.lower()):
+            if not child.is_dir() or child.name.startswith("."):
+                continue
+            if guess_category(f"{to_relative(child)}/x.pdf") == category:
+                return child
+    except OSError as e:
+        logger.warning("Could not read %s while resolving a category folder: %s", root, e)
+        return None
+
+    if not create:
+        return None
+    # No folder covers this category. Use the canonical spelling when the
+    # category is one of the standard set; otherwise title-case the slug, which
+    # is what the scanner would infer straight back to a custom category.
+    name = CATEGORY_FOLDER_NAMES.get(category) or category.replace("-", " ").title()
+    target = root / name
+    try:
+        target.mkdir(exist_ok=True)
+    except OSError as e:
+        logger.warning("Could not create category folder %s: %s", target, e)
+        return None
+    return target
+
+
+def relocate_book_for_category(db: Session, book: Any, category: str) -> Optional[str]:
+    """Move a book into the folder matching its new category, best-effort.
+
+    Changing a book's category in the metadata editor previously changed only the
+    row, which the next rescan would then overwrite from the unchanged folder —
+    the edit silently reverted. Moving the file makes the folder the source of
+    truth it already was, so the category sticks.
+
+    **Never raises.** This is a side effect of a metadata save that has already
+    succeeded, and a read-only library is a supported configuration: a user on a
+    read-only mount should get their category change recorded, not an error about
+    a move they never asked for. Every failure path returns None and leaves the
+    file where it is.
+
+    Returns the new library-relative path when the file moved, else None.
+    """
+    filepath = getattr(book, "filepath", "") or ""
+    if not filepath or not category:
+        return None
+    src = Path(filepath)
+    if not src.is_file() or collection_of(src) != "books":
+        return None
+
+    # A read-only library must degrade silently: this is the documented
+    # behaviour, not a failure to report.
+    if not os.access(src.parent, os.W_OK | os.X_OK):
+        return None
+
+    dest_dir = category_folder_for(db, src, category)
+    if dest_dir is None or dest_dir == src.parent:
+        return None
+    if not os.access(dest_dir, os.W_OK | os.X_OK):
+        return None
+
+    try:
+        dest = _dest_for(dest_dir, src.name, on_conflict="rename")
+    except LibraryFSError:
+        return None
+
+    try:
+        os.replace(src, dest)
+    except OSError as e:
+        if getattr(e, "errno", None) == 18:  # EXDEV
+            try:
+                shutil.move(str(src), str(dest))
+            except OSError as exc:
+                logger.warning("Could not relocate %s for category %s: %s", src, category, exc)
+                return None
+        else:
+            logger.warning("Could not relocate %s for category %s: %s", src, category, e)
+            return None
+
+    carried = _carry_sidecars(src, dest, is_dir=False)
+    try:
+        _relink(db, Book, book, dest)
+        # ``_relink`` re-derives the category from the destination path. That is
+        # right for a drag-and-drop move, but here the user's explicit choice is
+        # the input: keep it, so a folder whose name infers to something else
+        # cannot quietly overrule the edit that caused the move.
+        book.category = category
+    except Exception:
+        _restore_sidecars(carried)
+        try:
+            os.replace(dest, src)
+        except OSError:
+            logger.error("Could not roll back relocation %s -> %s", src, dest)
+        raise
+    logger.info("Recategorised %s -> %s (%s)", to_relative(src), to_relative(dest), category)
+    return to_relative(dest)
 
 
 # ---------------------------------------------------------------------------
@@ -1143,13 +1300,193 @@ def scaffold_categories(path: str) -> dict:
     return {"path": to_relative(target), "created": created, "existing": existing}
 
 
-def delete_empty_folder(path: str) -> dict:
-    """Remove a folder that holds nothing but marker files.
+def _purge_derived(db: Session, model: Any, record: Any) -> None:
+    """Drop everything derived from a record whose file is being deleted.
 
-    Deliberately refuses non-empty folders. Reorganising leaves empty shells
-    behind and sweeping them up is part of the job, but recursive deletion of
-    library content is a different and far more dangerous feature than this issue
-    asks for — there is no undo, and the blast radius is the user's collection.
+    The mirror of ``_fix_caches``: where a move re-homes the thumbnail and drops
+    the rendered pages, a delete drops both. Nothing will regenerate them and the
+    row that named them is about to go, so leaving either behind would strand
+    files under DATA_PATH that no code path can ever find again.
+    """
+    section = _THUMB_SECTIONS.get(_section_for_model(model))
+    if section and getattr(record, "has_thumbnail", False):
+        thumb = _thumb_file(section, record.title, record.filepath)
+        try:
+            thumb.unlink()
+        except OSError as e:
+            if getattr(e, "errno", None) != 2:  # ENOENT - already gone
+                logger.warning("Could not delete thumbnail %s: %s", thumb, e)
+
+    if model is Book:
+        from .content_cache import invalidate_book_content
+
+        invalidate_book_content(record.id, record.filepath, db=db)
+
+
+def _delete_records(
+    db: Session, affected: list[tuple[Any, Any, str]], *, purge: bool = True
+) -> int:
+    """Remove indexed rows for deleted files, purging their derived artifacts.
+
+    Deleting the row is what distinguishes this from a move: there is no file to
+    point at any more, so keeping the record would leave a permanently missing
+    entry in every view. Everything hanging off the id (tags, favorites,
+    bookmarks, progress, campaign links) is cascade-deleted with it.
+
+    ``purge`` splits the two halves for callers that delete the rows *before* the
+    files. Dropping thumbnails and rendered pages is not transactional — a later
+    rollback cannot bring them back — so a caller that might still fail must
+    delete the rows first and purge only once the files are actually gone.
+    """
+    for model, record, _old in affected:
+        if purge:
+            _purge_derived(db, model, record)
+        db.delete(record)
+    return len(affected)
+
+
+def delete_path(db: Session, path: str, *, confirm_name: Optional[str] = None) -> dict:
+    """Delete a file, or a folder and everything under it, from the library.
+
+    Irreversible, so the guard scales with the blast radius rather than being
+    uniform. A file (and its sidecars) goes on request; a folder holding nothing
+    but empty descendants and markers goes on request too, since sweeping up the
+    shells a reorganisation leaves behind is routine. A folder that still holds
+    *content* requires ``confirm_name`` to match its name exactly — the one case
+    where a mis-click could destroy a collection, and where making the user type
+    the name proves they read which folder they were about to lose.
+
+    "Empty" is deliberately recursive: a folder of empty folders holds nothing a
+    user would miss, and forcing them to delete a nested shell one level at a
+    time would be busywork that teaches them to click through the guard.
+    """
+    target = safe_join(path, must_exist=True)
+    if target == library_root():
+        raise LibraryFSError("The library root cannot be deleted", code="forbidden")
+    if collection_of(target) is None:
+        raise LibraryFSError("That path cannot be deleted", code="forbidden")
+    assert_writable(target.parent)
+
+    if not target.is_dir():
+        return _delete_file(db, target)
+
+    # Collection folders (`books/`, `maps/`…) are structural: the scanner expects
+    # them and removing one would take the whole collection with it.
+    if to_relative(target).count("/") == 0:
+        raise LibraryFSError("Collection folders cannot be deleted", code="forbidden")
+
+    if folder_has_content(target):
+        expected = target.name
+        if (confirm_name or "").strip() != expected:
+            raise LibraryFSError(
+                f"This folder is not empty. Type its name ({expected}) to confirm deletion.",
+                code="confirm_required",
+            )
+    return _delete_folder_tree(db, target)
+
+
+def _delete_file(db: Session, target: Path) -> dict:
+    """Delete one file, its sidecars, and the record that indexed it."""
+    affected = _records_under(db, target)
+    companions = sidecars_for(target)
+
+    try:
+        target.unlink()
+    except OSError as e:
+        if getattr(e, "errno", None) == 30:  # EROFS
+            raise LibraryFSError(
+                "The library is mounted read-only, so it cannot be modified.",
+                code="read_only",
+            ) from e
+        raise LibraryFSError(f"Could not delete: {e}", code="io_error") from e
+
+    # Sidecars only describe the file that just went, so they follow it. Failures
+    # are logged rather than raised: the content is already gone, and aborting
+    # over a leftover .opf would leave a worse mess than the leftover itself.
+    for sidecar in companions:
+        try:
+            sidecar.unlink()
+        except OSError as e:
+            logger.warning("Could not delete sidecar %s: %s", sidecar, e)
+
+    records = _delete_records(db, affected)
+    db.commit()
+    logger.info("Library delete: %s (%d record(s))", to_relative(target), records)
+    return {"path": to_relative(target), "records": records, "files": 1}
+
+
+def _delete_folder_tree(db: Session, target: Path) -> dict:
+    """Delete a folder and everything beneath it, with its records.
+
+    The rows go before the tree does. A ``rmtree`` that fails halfway leaves some
+    files gone and some present, and the DB can be rolled back to match reality
+    only if it has not been committed yet — so the commit happens last, once the
+    disk is known to be in the state the DB describes.
+    """
+    affected = _records_under(db, target)
+    files = sum(1 for _ in target.rglob("*") if _.is_file())
+    # Rows now, derived artifacts after the tree is actually gone. Purging first
+    # would destroy thumbnails and rendered pages that the rollback below cannot
+    # restore, leaving books that still exist with no cover until a rescan.
+    purgeable = [(model, record) for model, record, _ in affected]
+    records = _delete_records(db, affected, purge=False)
+
+    try:
+        shutil.rmtree(target)
+    except OSError as e:
+        db.rollback()
+        if getattr(e, "errno", None) == 30:  # EROFS
+            raise LibraryFSError(
+                "The library is mounted read-only, so it cannot be modified.",
+                code="read_only",
+            ) from e
+        raise LibraryFSError(f"Could not delete folder: {e}", code="io_error") from e
+
+    for model, record in purgeable:
+        _purge_derived(db, model, record)
+    db.commit()
+    logger.info(
+        "Library delete: %s and %d file(s) (%d record(s))", to_relative(target), files, records
+    )
+    return {"path": to_relative(target), "records": records, "files": files}
+
+
+def folder_has_content(target: Path) -> bool:
+    """Whether a folder holds anything a user would miss, at any depth.
+
+    Marker files and sidecars do not count: a marker is Grimoire's own bookkeeping,
+    and a sidecar without its content is already an orphan. Nested folders are
+    recursed into rather than counted, so a shell of empty shells reads as empty
+    and can be swept without the typed-name guard.
+    """
+    known_markers = set(CONTAINER_MARKERS.values()) | {NSFW_MARKER}
+    try:
+        children = list(os.scandir(target))
+    except OSError:
+        # Unreadable is treated as "has content": refusing to sweep a folder we
+        # cannot inspect is the safe direction to fail in.
+        return True
+
+    names = {c.name for c in children}
+    for child in children:
+        if child.is_dir():
+            if folder_has_content(Path(child.path)):
+                return True
+            continue
+        if child.name in known_markers or child.name.startswith("."):
+            continue
+        if is_sidecar(Path(child.path), siblings=names):
+            continue
+        return True
+    return False
+
+
+def delete_empty_folder(path: str) -> dict:
+    """Remove a folder that holds nothing but markers and empty descendants.
+
+    Kept as the narrow, DB-free primitive for the sweep-up case. Anything holding
+    real content goes through ``delete_path``, which takes a session (records must
+    be removed with the files) and demands the typed-name confirmation.
     """
     target = safe_join(path, must_exist=True)
     if not target.is_dir():
@@ -1160,15 +1497,11 @@ def delete_empty_folder(path: str) -> dict:
         raise LibraryFSError("Collection folders cannot be deleted", code="forbidden")
     assert_writable(target.parent)
 
-    known_markers = set(CONTAINER_MARKERS.values()) | {NSFW_MARKER}
-    leftovers = [e.name for e in target.iterdir() if e.name not in known_markers]
-    if leftovers:
+    if folder_has_content(target):
         raise LibraryFSError("Folder is not empty", code="conflict")
 
-    for marker in known_markers:
-        _remove_marker(target / marker)
     try:
-        target.rmdir()
+        shutil.rmtree(target)
     except OSError as e:
         raise LibraryFSError(f"Could not delete folder: {e}", code="io_error") from e
     return {"path": to_relative(target)}

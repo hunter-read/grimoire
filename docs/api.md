@@ -356,7 +356,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 |----------|--------|------|-------------|
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
 | `/api/books/:id` | GET | any | Book detail with game system |
-| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`. `license` overrides the system license for this book (blank inherits it). `file_size`/`page_count`/`mime_type` are read-only. |
+| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`. `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
@@ -436,6 +436,19 @@ books-only and are not indexed here.
 |----------|--------|------|-------------|
 | `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level) |
 | `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_archive`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
+**Changing a book's category moves its file.** The folder a book sits in is what
+the next rescan reads, so recording a new category without moving the file would
+let the scan silently revert the edit. The book is moved into the sibling folder
+whose *inferred category* matches the new one - an existing `Rulebooks` shelf is
+reused rather than a second `Core` being created beside it - and the folder is
+created with its canonical name when nothing covers that category yet.
+
+Best-effort by design, and **never an error**: on a read-only library the
+category is recorded and nothing moves, because the user asked to change a
+category, not to move a file. The same applies to a name collision at the
+destination (the file lands under a suffixed name), a book outside `books/`, and
+a book whose file is missing.
+
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size` |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
@@ -892,6 +905,13 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 | `/api/settings/api-key/generate` | POST | Generate a stats API key |
 | `/api/settings/api-key` | DELETE | Revoke the stats API key |
 
+`GET /api/settings/ui` also returns `library_writable`: whether the library root
+can be written to at all. It is not a stored setting - it is probed at request
+time - and it gates the move / rename / delete affordances in views outside the
+file manager, which have no folder listing of their own to ask. Clients should
+treat a missing value as `false` so the destructive actions stay hidden rather
+than appearing and failing.
+
 **Configurable settings:**
 
 | Key | Type | Description |
@@ -1075,7 +1095,9 @@ rows) are re-homed or invalidated so no item silently loses its cover.
 | `/api/files/rename` | POST | Rename a file or folder on disk, relinking records |
 | `/api/files/folder` | POST | Create a folder, writing container/NSFW marker files |
 | `/api/files/folder/markers` | PUT | Set or clear a folder's container-kind and NSFW markers |
-| `/api/files/folder` | DELETE | Delete a folder that contains nothing but marker files |
+| `/api/files/folder` | DELETE | Delete a folder, recursively when confirmed by name |
+| `/api/files/folder/contents` | GET | Report whether a folder holds content |
+| `/api/files/delete` | POST | Delete a file or folder, with its record and sidecars |
 | `/api/files/folder/scaffold` | POST | Create the standard category folders in a system folder |
 | `/api/files/upload` | POST | Upload a single file into a library folder |
 
@@ -1131,9 +1153,39 @@ available. A folder merely *named* by the reserved convention (`one-page-rpgs`,
 fields are left untouched. Container kinds are mutually exclusive: setting one
 clears the others.
 
-**`DELETE /api/files/folder`** - `{path}`. Refuses non-empty folders and
-collection roots; recursive deletion of library content is deliberately not
-offered.
+**`DELETE /api/files/folder`** - `{path, confirm_name?}`. Same handler as
+`POST /api/files/delete`; both are described below.
+
+**`POST /api/files/delete`** - `{path, confirm_name?}`. Deletes a file or a
+folder. Returns `{path, records, files}`: how many indexed rows were removed and
+how many files went with them.
+
+**Irreversible, and guarded in proportion to the blast radius.** The file is
+unlinked rather than moved to a trash folder, and its record is deleted with it,
+taking every tag, favorite, bookmark, reading-progress entry, and campaign link
+keyed to that id. A file's sidecars (`.opf`, `.nfo`, `.grimoire.yaml`, exported
+cover) go too, since they describe a file that no longer exists.
+
+The guard scales rather than being uniform, because a uniform guard trains people
+to click through it:
+
+* A **file** deletes on request.
+* A folder holding nothing but marker files and **empty descendants** deletes on
+  request. "Empty" is recursive on purpose - a shell of empty shells holds
+  nothing a user would miss, and making them delete it a level at a time is
+  busywork. An *orphaned* sidecar, whose content is already gone, counts as
+  content: it stays visible and manageable rather than being swept up.
+* A folder that still holds **content** is refused with `428` and
+  `confirm_required` until `confirm_name` matches the folder's own name exactly.
+
+Collection roots (`books/`, `maps/`, …) and the library root are always refused
+with `403`.
+
+**`GET /api/files/folder/contents`** - `?path=`. Returns
+`{path, name, has_content}`. Asked before opening a delete dialog so the UI knows
+which guard applies. Answered server-side deliberately: the browse listing hides
+sidecars and marker files, so a client counting rows would disagree with the
+check the delete itself performs.
 
 **`POST /api/files/upload`** - multipart form: `file`, `destination`,
 `relative_dir` (optional), `on_conflict` (default `rename`). Returns

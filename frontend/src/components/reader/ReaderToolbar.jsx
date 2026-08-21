@@ -62,6 +62,7 @@ export default function ReaderToolbar({
   onToggleFavorite,
   onBookmarkPage,
   onShowDetails,
+  onFileChanged,
   zoom = 1,
   canZoomIn = false,
   canZoomOut = false,
@@ -285,6 +286,7 @@ export default function ReaderToolbar({
           )}
 
           <ReaderMoreMenu
+            book={book}
             bookId={bookId}
             mode={mode}
             onModeChange={onModeChange}
@@ -295,6 +297,7 @@ export default function ReaderToolbar({
             onToggleFavorite={onToggleFavorite}
             onShowDetails={onShowDetails}
             onToggleShortcuts={onToggleShortcuts}
+            onFileChanged={onFileChanged}
           />
         </div>
       </div>

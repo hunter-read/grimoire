@@ -13,9 +13,13 @@ import {
   LuDownload,
   LuKeyboard,
   LuCheck,
+  LuFolderInput,
+  LuFilePen,
+  LuTrash2,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
+import useFileActions from '../../hooks/useFileActions'
 import AddToCampaignModal from '../AddToCampaignModal'
 
 const MENU_WIDTH = 236
@@ -35,10 +39,16 @@ export const MODE_ITEMS = [
  * actually reading — navigation, zoom, and the sidebar panels — so the page
  * position stays centred rather than being pushed around by a row of actions.
  *
+ * File actions (move / rename / delete) are grouped last, behind a divider, for
+ * an admin on a writable library — the same group, in the same order, as the
+ * library views' kebab. Deleting the open book leaves the reader pointed at a
+ * file that is gone, so `onFileChanged` is how the caller navigates away.
+ *
  * The menu is portalled to document.body at fixed coordinates so it isn't
  * clipped by the toolbar, mirroring BookActionsMenu in the library views.
  */
 export default function ReaderMoreMenu({
+  book,
   bookId,
   mode,
   onModeChange,
@@ -49,12 +59,15 @@ export default function ReaderMoreMenu({
   onToggleFavorite,
   onShowDetails,
   onToggleShortcuts,
+  onFileChanged,
 }) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
   const [addToCampaign, setAddToCampaign] = useState(false)
+  const fileActions = useFileActions({ onChanged: onFileChanged })
+  const showFileActions = fileActions.available && Boolean(book?.relative_path)
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
 
@@ -248,9 +261,45 @@ export default function ReaderMoreMenu({
               <LuKeyboard size={15} aria-hidden="true" />
               {t('reader.keyboardShortcuts')}
             </button>
+
+            {showFileActions && (
+              <>
+                <div style={dividerStyle} role="separator" />
+                <button
+                  role="menuitem"
+                  data-testid="reader-move-file"
+                  onClick={run(() => fileActions.move(book))}
+                  style={itemStyle}
+                >
+                  <LuFolderInput size={15} aria-hidden="true" />
+                  {fileActions.labels.move}
+                </button>
+                <button
+                  role="menuitem"
+                  data-testid="reader-rename-file"
+                  onClick={run(() => fileActions.rename(book))}
+                  style={itemStyle}
+                >
+                  <LuFilePen size={15} aria-hidden="true" />
+                  {fileActions.labels.rename}
+                </button>
+                <button
+                  role="menuitem"
+                  data-testid="reader-delete-file"
+                  onClick={run(() => fileActions.remove(book))}
+                  style={{ ...itemStyle, color: 'var(--danger)' }}
+                >
+                  <LuTrash2 size={15} aria-hidden="true" />
+                  {fileActions.labels.remove}
+                </button>
+              </>
+            )}
           </div>,
           document.body
         )}
+
+      {/* Outside the menu so the dialogs survive it closing on click. */}
+      {fileActions.modals}
 
       {/* Rendered outside the menu so it survives the menu closing on click. */}
       {addToCampaign && (

@@ -19,6 +19,7 @@ import {
   LuUpload,
   LuFolderUp,
   LuEye,
+  LuFolderInput,
 } from 'react-icons/lu'
 import { files as filesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -33,6 +34,8 @@ import BulkEditModal from '../components/BulkEditModal'
 import RescanButton from '../components/RescanButton'
 import RescanModal from '../components/RescanModal'
 import PreviewModal from '../components/files/PreviewModal'
+import DeleteModal from '../components/files/DeleteModal'
+import MoveModal from '../components/files/MoveModal'
 import useScanStatus from '../hooks/useScanStatus'
 
 // Where a pinned second pane sits relative to the first. Side-by-side splits
@@ -97,6 +100,8 @@ export default function FileManagerView() {
   const [context, setContext] = useState(null) // right-click menu
   const [creatingIn, setCreatingIn] = useState(null) // parent path for the new folder
   const [renaming, setRenaming] = useState(null) // entry
+  const [deleting, setDeleting] = useState(null) // entry pending delete confirmation
+  const [movingEntries, setMovingEntries] = useState(null) // entries pending a destination
   const [editing, setEditing] = useState(null) // { type, item } for the metadata editor
   // Where a file picker will drop its files, set just before the input opens.
   const uploadTarget = useRef('')
@@ -177,18 +182,19 @@ export default function FileManagerView() {
     [refreshAll, t]
   )
 
-  const handleDelete = useCallback(
-    async (path) => {
-      setBusy(true)
-      try {
-        await filesApi.deleteFolder(path)
-        refreshAll()
-        setFlash({ tone: 'ok', text: t('files.folderDeleted') })
-      } catch (e) {
-        setFlash({ tone: 'error', text: e.message || t('files.deleteFailed') })
-      } finally {
-        setBusy(false)
-      }
+  // The confirmation, the typed-name guard for a non-empty folder, and the call
+  // itself all live in DeleteModal; this only reports what came back. Counts are
+  // worth surfacing because a folder delete can take far more with it than the
+  // one row that was clicked.
+  const handleDeleted = useCallback(
+    (res, entry) => {
+      refreshAll()
+      setFlash({
+        tone: 'ok',
+        text: entry.is_dir
+          ? t('files.folderDeletedCount', { name: entry.name, count: res.files || 0 })
+          : t('files.fileDeleted', { name: entry.name }),
+      })
     },
     [refreshAll, t]
   )
@@ -617,17 +623,6 @@ export default function FileManagerView() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            style={menuItem}
-            {...menuHover}
-            onClick={() => {
-              setRenaming(context.entry)
-              setContext(null)
-            }}
-          >
-            <LuPencil size={13} /> {t('files.rename')}
-          </button>
-
           {/* Only indexed *files* can be previewed — a system folder has a
               record but nothing to show. */}
           {context.entry.record_id && !context.entry.is_dir && (
@@ -796,20 +791,47 @@ export default function FileManagerView() {
               >
                 {context.entry.nsfw ? t('files.markSfw') : t('files.markNsfw')}
               </button>
-
-              <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-              <button
-                style={{ ...menuItem, color: 'var(--danger)' }}
-                {...menuHover}
-                onClick={() => {
-                  handleDelete(context.entry.path)
-                  setContext(null)
-                }}
-              >
-                <LuTrash2 size={13} /> {t('files.deleteEmptyFolder')}
-              </button>
             </>
           )}
+
+          {/* Move / rename / delete last, behind a divider: they change the
+              bytes on disk rather than the record, and one of them cannot be
+              undone. Rename appears here too rather than at the top, so the
+              three file operations read as one group. */}
+          <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+          <button
+            style={menuItem}
+            {...menuHover}
+            data-testid="move-entry"
+            onClick={() => {
+              setMovingEntries([context.entry])
+              setContext(null)
+            }}
+          >
+            <LuFolderInput size={13} /> {t('files.moveTo')}
+          </button>
+          <button
+            style={menuItem}
+            {...menuHover}
+            data-testid="rename-entry"
+            onClick={() => {
+              setRenaming(context.entry)
+              setContext(null)
+            }}
+          >
+            <LuPencil size={13} /> {t('files.rename')}
+          </button>
+          <button
+            style={{ ...menuItem, color: 'var(--danger)' }}
+            {...menuHover}
+            data-testid="delete-entry"
+            onClick={() => {
+              setDeleting(context.entry)
+              setContext(null)
+            }}
+          >
+            <LuTrash2 size={13} /> {t('files.delete')}
+          </button>
         </div>
       )}
 
@@ -823,6 +845,21 @@ export default function FileManagerView() {
 
       {renaming && (
         <RenameModal entry={renaming} onClose={() => setRenaming(null)} onRename={handleRename} />
+      )}
+
+      {deleting && (
+        <DeleteModal entry={deleting} onClose={() => setDeleting(null)} onDeleted={handleDeleted} />
+      )}
+
+      {movingEntries && (
+        <MoveModal
+          items={movingEntries}
+          onClose={() => setMovingEntries(null)}
+          onMoved={(res) => {
+            refreshAll()
+            setFlash({ tone: 'ok', text: t('files.movedCount', { count: res.count }) })
+          }}
+        />
       )}
 
       {previewing && (

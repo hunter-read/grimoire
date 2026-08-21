@@ -26,6 +26,7 @@ from ._schemas import (
     BrowseResponse,
     CreateFolderRequest,
     DeleteFolderRequest,
+    DeleteRequest,
     MarkersRequest,
     MoveRequest,
     MoveResponse,
@@ -57,6 +58,10 @@ _STATUS = {
     "io_error": 500,
     "noop": 400,
     "invalid": 400,
+    # The folder still holds content and the typed-name confirmation was absent
+    # or wrong. 428 rather than 400: the request is well-formed, it is the
+    # precondition that is unmet, and the UI keys its confirm prompt off this.
+    "confirm_required": 428,
 }
 
 
@@ -278,12 +283,63 @@ def update_markers(
 def delete_folder(
     req: DeleteFolderRequest,
     _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    """Delete an empty folder left behind by a reorganisation."""
+    """Delete a folder, and everything under it when confirmed by name.
+
+    A folder holding nothing but markers and empty descendants goes on request —
+    sweeping up after a reorganisation is routine. One still holding content is
+    refused with ``confirm_required`` until ``confirm_name`` matches the folder's
+    own name, which is the only guard standing between a mis-click and a
+    collection.
+    """
     try:
-        return fs.delete_empty_folder(req.path)
+        return fs.delete_path(db, req.path, confirm_name=req.confirm_name)
     except fs.LibraryFSError as e:
         raise _http(e) from e
+
+
+def delete_entry(
+    req: DeleteRequest,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Delete a file or folder from the library, with its record and sidecars.
+
+    Irreversible: the file is unlinked, not moved to a trash folder, and the row
+    goes with it along with the tags, favorites, bookmarks, progress, and campaign
+    links keyed to its id. The UI is expected to confirm before calling this; the
+    typed-name guard on non-empty folders is enforced here regardless.
+    """
+    try:
+        return fs.delete_path(db, req.path, confirm_name=req.confirm_name)
+    except fs.LibraryFSError as e:
+        raise _http(e) from e
+
+
+def folder_contents(
+    path: str,
+    _: CurrentUser = Depends(require_admin),
+):
+    """Whether a folder holds content, so the UI can pick the right guard.
+
+    Asked before opening the delete dialog: an empty folder gets a plain
+    confirmation, a full one gets the type-the-name prompt. Answering this
+    server-side keeps one definition of "empty" — the browse listing hides
+    sidecars and marker files, so a UI counting rows would disagree with the
+    check the delete itself performs.
+    """
+    try:
+        target = fs.safe_join(path, must_exist=True)
+    except fs.LibraryFSError as e:
+        raise _http(e) from e
+    if not target.is_dir():
+        raise HTTPException(status_code=400, detail="Not a folder")
+    return {
+        "path": fs.to_relative(target),
+        "name": target.name,
+        "has_content": fs.folder_has_content(target),
+    }
 
 
 def scaffold_categories(

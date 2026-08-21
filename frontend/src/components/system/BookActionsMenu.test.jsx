@@ -19,12 +19,18 @@ vi.mock('../../api', () => ({
 }))
 
 let mockHideCampaigns = false
+// The file-action group is gated on both of these, so tests drive them.
+let mockLibraryWritable = false
+let mockRole = 'gm'
 vi.mock('../../context/UISettingsContext', () => ({
-  useUISettings: () => ({ hide_campaigns: mockHideCampaigns }),
+  useUISettings: () => ({
+    hide_campaigns: mockHideCampaigns,
+    library_writable: mockLibraryWritable,
+  }),
 }))
 
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 'u1' } }),
+  useAuth: () => ({ user: { id: 'u1', role: mockRole } }),
 }))
 
 function makeBook(overrides = {}) {
@@ -49,6 +55,8 @@ describe('BookActionsMenu', () => {
     mockCampaignList.mockClear()
     mockCampaignList.mockResolvedValue([])
     mockHideCampaigns = false
+    mockLibraryWritable = false
+    mockRole = 'gm'
   })
 
   it('is collapsed until the trigger is clicked', () => {
@@ -235,5 +243,78 @@ describe('BookActionsMenu', () => {
     renderMenu({}, { editing: true })
     const trigger = screen.getByLabelText('bookActions.menu')
     expect(trigger).toHaveStyle({ color: 'var(--gold)' })
+  })
+
+  describe('file actions', () => {
+    const withFile = { relative_path: 'books/System/core/tome.pdf', filename: 'tome.pdf' }
+
+    it('offers move, rename and delete to an admin on a writable library', () => {
+      mockRole = 'admin'
+      mockLibraryWritable = true
+      renderMenu(withFile)
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+
+      expect(screen.getByTestId('book-move-file')).toBeInTheDocument()
+      expect(screen.getByTestId('book-rename-file')).toBeInTheDocument()
+      expect(screen.getByTestId('book-delete-file')).toBeInTheDocument()
+    })
+
+    it('groups them last, behind a divider', () => {
+      mockRole = 'admin'
+      mockLibraryWritable = true
+      renderMenu(withFile)
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+
+      // They act on the bytes rather than the record, and one cannot be undone,
+      // so they must stay separated from the routine items above.
+      const menu = screen.getByRole('menu')
+      expect(menu.querySelector('[role="separator"]')).toBeInTheDocument()
+      const items = [...menu.querySelectorAll('[role="menuitem"]')]
+      expect(items.slice(-3).map((el) => el.dataset.testid)).toEqual([
+        'book-move-file',
+        'book-rename-file',
+        'book-delete-file',
+      ])
+    })
+
+    it('hides them on a read-only library', () => {
+      mockRole = 'admin'
+      mockLibraryWritable = false
+      renderMenu(withFile)
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+
+      expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('book-delete-file')).not.toBeInTheDocument()
+    })
+
+    it('hides them from a gm', () => {
+      mockRole = 'gm'
+      mockLibraryWritable = true
+      renderMenu(withFile)
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+
+      expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
+    })
+
+    it('hides them for a book whose path is unknown', () => {
+      mockRole = 'admin'
+      mockLibraryWritable = true
+      renderMenu()
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+
+      // Nothing to act on without a path, so the group is not offered.
+      expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
+    })
+
+    it('opens the delete confirmation', async () => {
+      mockRole = 'admin'
+      mockLibraryWritable = true
+      renderMenu(withFile)
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByTestId('book-delete-file'))
+
+      // Deleting is never one click: the dialog is the guard.
+      expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    })
   })
 })
