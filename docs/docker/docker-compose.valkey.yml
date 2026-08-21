@@ -24,7 +24,10 @@ services:
       # - SECRET_KEY=
       - VALKEY_URL=redis://valkey:6379/0
     volumes:
-      - /path/to/your/library:/library:ro
+      # Writable so you can manage files from inside Grimoire. Append ":ro" to
+      # keep the library read-only (in-app file management and sidecar export
+      # are then unavailable; everything else works the same).
+      - /path/to/your/library:/library
       - /path/to/grimoire/data:/data
     depends_on:
       - valkey

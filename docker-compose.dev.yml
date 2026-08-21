@@ -10,7 +10,8 @@ services:
     ports:
       - "9481:9481"
     volumes:
-      - ./library:/library:ro
+      # Writable so in-app file management and sidecar export work in dev.
+      - ./library:/library
       - ./data:/data
     environment:
       - LIBRARY_PATH=/library

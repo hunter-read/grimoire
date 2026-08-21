@@ -122,7 +122,7 @@ services:
     environment:
       SECRET_KEY: "generate-with-openssl-rand-hex-32"
     volumes:
- - /path/to/your/library:/app/library:ro   # read-only - use Filebrowser or Calibre to manage files
+ - /path/to/your/library:/app/library:ro   # read-only - use Calibre or your OS to manage files
  - /path/to/grimoire/data:/app/data
 ```
 
@@ -134,7 +134,6 @@ Ready-to-use compose files for common setups are in [`docs/docker/`](docs/docker
 |---|---|
 | [`docs/docker/docker-compose.yml`](docs/docker/docker-compose.yml) | Grimoire (default, no extras) |
 | [`docs/docker/docker-compose.valkey.yml`](docs/docker/docker-compose.valkey.yml) | Grimoire + Valkey page cache (recommended for large libraries) |
-| [`docs/docker/docker-compose.filebrowser.yml`](docs/docker/docker-compose.filebrowser.yml) | Grimoire + Filebrowser Quantum (browser-based file uploads) |
 | [`docs/docker/docker-compose.calibre.yml`](docs/docker/docker-compose.calibre.yml) | Grimoire + Calibre full desktop (metadata editing, OPF export) |
 | [`docs/docker/docker-compose.calibre-web.yml`](docs/docker/docker-compose.calibre-web.yml) | Grimoire + Calibre-Web (lightweight Calibre browser UI) |
 
@@ -572,12 +571,11 @@ The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth,
 
 Grimoire mounts your library folder **read-only** and never modifies your files. To upload, organize, or remove content, use a companion tool that mounts the same library folder with write access.
 
-Two tools integrate especially well:
+Calibre integrates especially well:
 
-- **[Filebrowser Quantum](docs/file-management.md#filebrowser-quantum)** - drag-and-drop file uploads from any browser, no desktop app needed
 - **[Calibre](docs/file-management.md#calibre)** - full book management with metadata editing; Grimoire reads the `.opf` sidecar files Calibre writes ([see OPF support](#book-metadata-from-opf-files))
 
-See [docs/file-management.md](docs/file-management.md) for Docker Compose examples for each tool.
+See [docs/file-management.md](docs/file-management.md) for Docker Compose examples.
 
 After adding files, trigger a **Rescan** in Grimoire (sidebar or Settings → Maintenance) to index the new content.
 

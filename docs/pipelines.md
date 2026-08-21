@@ -129,6 +129,14 @@ Cuts a stable release. Triggered by pushing a semver tag matching `v[0-9]+.[0-9]
    own centered header block (logo + badges). Both files sit at the repo root, so relative
    links need no adjustment. Leave `nightly.md` in place - it stays the working copy for
    the next cycle.
+
+   Then **repoint `../nightly.md#…` links in `docs/`** at `../README.md#…`. Pages under
+   `docs/` are linked from both files, so they point at `nightly.md` while a feature is
+   unreleased and at `README.md` once it ships:
+   ```bash
+   grep -rn '\.\./nightly\.md#' docs/
+   ```
+   (Prose references to `nightly.md` itself, like the one in this checklist, stay put.)
 2. **Commit and push** the docs change to `main`.
 3. **Tag `main`:**
    ```bash

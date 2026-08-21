@@ -1,62 +1,30 @@
 # Adding Files to Your Library
 
-Grimoire is a **read-only viewer** - it never modifies the files in your library folder. This keeps your source files safe and lets you use whatever file manager you prefer to add, organize, and remove content.
+Grimoire manages library files itself. Admins can upload, move, rename, and
+delete content from **Settings → Maintenance → Open file manager**, or from the
+**⋮** menu on any book, and the metadata attached to a file follows it wherever
+it goes. See [In-app file management](../nightly.md#in-app-file-management) for
+what the file manager does.
 
-Two tools integrate especially well with Grimoire:
+This needs the library mounted **writable**, which is the default - it is simply
+the absence of a `:ro` suffix on the volume. See [Read-only or
+writable?](../nightly.md#read-only-or-writable) for what each mount allows.
 
-| Tool | Best for |
-|---|---|
-| [Filebrowser Quantum](#filebrowser-quantum) | Simple drag-and-drop file uploads from any browser |
-| [Calibre](#calibre-web) | Rich book management, metadata editing, and OPF export |
+This page covers the other route: adding and organizing files from outside
+Grimoire. That is how you work if you keep the library mounted read-only, and it
+is what [Calibre](#calibre) is for even when you don't.
 
-Both run as Docker containers sharing the same library volume as Grimoire. After adding files with either tool, trigger a **Rescan** in Grimoire (sidebar or Settings → Maintenance) to pick up the new content.
-
----
-
-## Filebrowser Quantum
-
-[Filebrowser Quantum](https://github.com/gtsteffaniak/filebrowser) is a lightweight, browser-based file manager. Use it to upload PDFs, create folders, rename or move files, and delete content - all from a web UI with no software to install on your local machine.
-
-### How it works with Grimoire
-
-Filebrowser Quantum mounts your library folder with **read-write** access. Grimoire continues to mount the same folder **read-only**. Anything you upload or reorganize through Filebrowser immediately shows up to Grimoire after a rescan.
-
-### Docker Compose example
-
-Use the ready-made example file:
-
-```bash
-cp docs/docker/docker-compose.filebrowser.yml docker-compose.yml
-# Edit SECRET_KEY and the two /path/to/your/library volume paths, then:
-docker compose up -d
-```
-
-See [`docs/docker/docker-compose.filebrowser.yml`](./docker/docker-compose.filebrowser.yml) for the full file with inline comments.
-
-Access Filebrowser at `http://localhost:8080`. Default credentials are `admin` / `admin` - change these immediately in the settings.
-
-### Recommended folder layout
-
-Filebrowser Quantum shows your library root as its home directory. Create folders matching Grimoire's expected structure:
-
-```
-/srv/                               ← library root
-├── books/
-│   └── Dungeons and Dragons 5e/
-│       ├── core/
-│       │   └── Players Handbook.pdf
-│       └── supplements/
-├── maps/
-└── tokens/
-```
-
-See [Library Structure](../README.md#library-structure) for the full folder conventions.
+After adding files with an external tool, trigger a **Rescan** in Grimoire
+(sidebar or **Settings → Maintenance**) to pick up the new content. Changes made
+in the built-in file manager apply immediately and need no rescan.
 
 ---
 
 ## Calibre
 
-[Calibre](https://calibre-ebook.com/) is a full-featured ebook management application. Its [Content Server](https://manual.calibre-ebook.com/server.html) exposes a web UI for browsing and uploading books. Beyond uploads, Calibre's main value here is its metadata editing - it can write `.opf` sidecar files that Grimoire reads automatically on the next scan to populate titles, authors, publishers, descriptions, and tags.
+[Calibre](https://calibre-ebook.com/) is a full-featured ebook management application. Its value alongside Grimoire is what Grimoire deliberately does not do: format conversion, and bulk metadata editing across a large collection. It writes `.opf` sidecar files that Grimoire reads automatically on the next scan to populate titles, authors, publishers, descriptions, and tags.
+
+Grimoire can send metadata the other way too - see [sidecar export](../nightly.md#writing-metadata-back-out-sidecar-export).
 
 ### How it works with Grimoire
 
@@ -116,7 +84,7 @@ Point Calibre-Web at `/library/books` as its library path on first setup.
 
 ## After adding files
 
-Regardless of which tool you use, trigger a rescan in Grimoire to index new content:
+After using any external tool, trigger a rescan in Grimoire to index new content:
 
 1. Click **Rescan** in the sidebar, or go to **Settings → Maintenance → Rescan Library**.
 2. Wait for the scan to complete - new books, maps, and tokens will appear.
