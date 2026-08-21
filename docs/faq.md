@@ -247,3 +247,53 @@ In Grimoire **Settings → Authentication**:
 5. Set **Advanced Permissions Claim** to `permissions`.
 6. Enable **Auto-register** if you want accounts created automatically on first login.
 7. Enable **OpenID Connect**.
+
+---
+
+## How do I configure OIDC with Google?
+
+Google works with Grimoire's built-in OIDC client — no intermediary IdP needed. Setup is a Google Cloud OAuth client plus a handful of Grimoire settings.
+
+### 1. Create the OAuth client in Google Cloud
+
+1. In [console.cloud.google.com](https://console.cloud.google.com), create a project (any name).
+2. **APIs & Services → OAuth consent screen**: User type **External**, fill in the app name and support email. The default non-sensitive scopes (`openid`, `email`, `profile`) are all Grimoire needs — no Google verification required.
+3. **Publish** the consent screen. Leaving it in **Testing** status also works but caps you at 100 explicitly listed test users and shows everyone an "unverified app" warning interstitial.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID** → type **Web application**. Add the Authorized redirect URI:
+
+   ```
+   https://<your-grimoire-host>/api/auth/openid/callback
+   ```
+
+5. Copy the **Client ID** and **Client secret**.
+
+> Edits to redirect URIs can take 5–15 minutes to propagate on Google's side. A `redirect_uri_mismatch` error immediately after saving usually just needs patience, not more configuration.
+
+### 2. Configure Grimoire
+
+In **Settings → Authentication**:
+
+1. Set **Issuer URL** to `https://accounts.google.com` and click **Autopopulate** — or enter the endpoints by hand:
+
+   | Field | Value |
+   |---|---|
+   | Authorization endpoint | `https://accounts.google.com/o/oauth2/v2/auth` |
+   | Token endpoint | `https://oauth2.googleapis.com/token` |
+   | Userinfo endpoint | `https://openidconnect.googleapis.com/v1/userinfo` |
+   | JWKS URI | `https://www.googleapis.com/oauth2/v3/certs` |
+
+2. Enter the **Client ID** and **Client secret** from step 1.
+3. Set the **signing algorithm** to `RS256` — Google signs ID tokens with RS256 only, so pinning it rejects anything unexpected.
+4. Google publishes no end-session endpoint; leave that field empty (logout stays local, which is what you want).
+5. Button text: `Sign in with Google`.
+
+### 3. Decide who gets in
+
+- **Match by: email** with **Auto-register OFF** — recommended for a personal library. The user table becomes your allowlist: create each person a user with their Google account email (password can be left empty — the account is OIDC-only). Anyone else who signs in at Google is rejected with *"no matching user and auto-register is disabled"* and gets no session.
+- **Auto-register ON** means *any* Google account on Earth can create itself a user. Only do that behind some other gate.
+
+Password login can then be disabled (Settings, or the `ALLOW_PASSWORD_AUTHENTICATION` environment variable). Tip: keep one password-capable admin documented somewhere safe — re-enabling that variable is your recovery path if the OAuth client ever breaks.
+
+### If you pin the settings by environment variable instead
+
+All of the above exists as `OIDC_*` environment variables (see the README table), which locks the corresponding fields in the UI. One Docker Compose trap: **compose does not pass `.env` variables that the service's `environment:` block doesn't list.** Setting `OIDC_*` only in `.env` looks correct and silently does nothing — every variable needs a line in both files.
