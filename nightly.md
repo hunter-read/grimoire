@@ -235,6 +235,28 @@ books/
 
 Books without a subfolder are shown ungrouped at the top of their category section, above any subfolder groups. Subfolder groups are collapsible and include a download button for the whole group.
 
+#### Book formats
+
+Grimoire indexes more than PDFs. Every format below appears in the library, gets a cover thumbnail where one can be produced, and has its text added to the full-text search index:
+
+| Format | Extensions | Reader | Full-text search | Thumbnail |
+|---|---|---|---|---|
+| PDF | `.pdf` | Rendered pages | Yes (text layer or OCR) | Yes |
+| E-book | `.epub` | Rendered pages | Yes | Yes |
+| Scanned document | `.djvu` | Rendered pages | Yes | Yes |
+| Comic archive | `.cbz`, `.cbr`, `.cb7`, `.cbt` | Page images from the archive | No (images only) | Yes |
+| Plain text | `.txt`, `.md`, `.rtf` | Formatted text | Yes | No |
+| Image | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.tiff`, `.svg` | Single image | No | Yes |
+
+A few notes:
+
+- **EPUB is reflowable**, so it has no fixed page count of its own. Grimoire lays every EPUB out at one fixed page size, which keeps page numbers stable: a search result for page 12 always opens the same page 12 you would see while reading.
+- **Text files are paginated** into fixed-size pages, split at paragraph boundaries so a page break never lands mid-sentence. Markdown keeps its source markers (`#`, `*`) rather than being rendered as HTML, so searching for a heading finds what you typed.
+- **`.rtf` files are unwrapped to plain text**; formatting is not preserved. Older files saved in a legacy Windows encoding are decoded correctly.
+- **Comic archives have no text layer**, so they are readable but not searchable.
+
+If you have EPUB or DjVu books that were added by an earlier version, a rescan backfills their thumbnails, page counts, and search index - you do not need to re-add them.
+
 #### Archive files
 
 Archive files placed anywhere under `books/` are shown alongside your books in their category - handy for bundling a set of related files (a maps pack, a COMP/CON export, loose handouts) next to the book they belong to. Recognized extensions:
@@ -246,7 +268,9 @@ Archive files placed anywhere under `books/` are shown alongside your books in t
 | 7-Zip | `.7z`, `.cb7` |
 | Tar | `.tar`, `.cbt`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2` |
 
-Archives are treated as opaque downloads - Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive. Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) additionally get a cover thumbnail generated from the first image inside them.
+Ordinary archives are treated as opaque downloads - Grimoire does not extract or read their contents, so clicking one downloads the file rather than opening the reader. They're also included when you download a whole system, category, or subfolder as an archive.
+
+Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are the exception: they open in the reader and page through the images inside them, and they get a cover thumbnail from the first page. Pages are ordered by filename, which is the convention comic archives are built on (`page01.jpg`, `page02.jpg`, ...); macOS resource-fork entries and hidden files are skipped. Only the page you are looking at is decompressed, so a large collection doesn't have to be unpacked to read one issue.
 
 Archives are also recognized under `maps/`, `tokens/`, and `audio/`, where they appear in the gallery next to your images and tracks marked with an **Archive** badge. Map packs and art collections are often distributed zipped alongside supplementary files (PSDs, STLs, source files), so bundling them keeps the extras with the maps they belong to without cluttering the gallery. Opening one offers a download instead of a preview - there is no thumbnail, no image viewer, and no audio player, since the contents are never extracted. The comic-book extensions (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are books-only and are skipped in these collections.
 

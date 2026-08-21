@@ -24,6 +24,7 @@ from typing import Any, Optional
 from sqlalchemy.exc import IntegrityError
 
 from backend import indexer  # package namespace, for patch-sensitive calls
+from . import comics, text_documents
 from ._context import _ScanContext, _keep_entry, _prune_dirs, _title_from_filename
 from ._subprocess import _run_with_timeout
 from .categories import (
@@ -43,9 +44,16 @@ from .constants import (
     DOC_EXTS,
     IMAGE_EXTS,
     NO_AUTO_CATEGORY_MARKER,
+    TEXT_DOC_EXTS,
     UNCATEGORIZED,
     _COMIC_ARCHIVE_EXTS,
     _DB_TIMEOUT,
+)
+from .formats import (
+    apply_reflow_layout,
+    can_thumbnail,
+    has_page_count,
+    mime_for_ext,
 )
 from .hashing import (
     apply_signature,
@@ -673,11 +681,14 @@ def _register_book(
         if existing.scan_failed and not replaced:
             logger.debug(f"Already registered, skipping: {filename}")
             return None, False, False
-        # Archives are opaque: only comic-book variants get a
-        # cover thumbnail, and none carry a page count.
-        thumbnailable = ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
+        # Non-comic archives stay opaque. Asking the format table here is what
+        # backfills books registered before their format was supported: an EPUB
+        # scanned by an older build sits at has_thumbnail=0/page_count=0 and
+        # picks both up on the next rescan (issues #180/#200/#373).
+        thumbnailable = ext in IMAGE_EXTS or can_thumbnail(ext) or arc_ext in _COMIC_ARCHIVE_EXTS
+        countable = has_page_count(ext) or arc_ext in _COMIC_ARCHIVE_EXTS
         needs_thumbnail = thumbnailable and not existing.has_thumbnail
-        needs_page_count = ext == ".pdf" and existing.page_count == 0 and not existing.index_error
+        needs_page_count = countable and existing.page_count == 0 and not existing.index_error
         if ext in IMAGE_EXTS and existing.page_count == 0:
             existing.page_count = 1
         if not needs_thumbnail and not needs_page_count:
@@ -717,9 +728,13 @@ def _register_book(
         file_size=file_size,
         file_mtime=file_mtime,
         content_hash=content_hash,
+        # Extensions with a known book format (PDF/EPUB/DjVu/text/comic) get
+        # their canonical MIME from the format table. Before this, only ".pdf"
+        # was special-cased and an .epub fell through to the image branch as
+        # "image/epub", which is what routed it away from indexing (issue #373).
         mime_type=(
-            "application/pdf"
-            if ext == ".pdf"
+            format_mime
+            if (format_mime := mime_for_ext(ext))
             else archive_mime(arc_ext)
             if arc_ext
             else f"image/{ext[1:]}"
@@ -755,10 +770,10 @@ def _register_book(
         session.rollback()
         logger.debug(f"Book already exists, skipping: {filepath}")
         return None, False, False
-    # Archives are opaque: only comic-book variants get a
-    # cover thumbnail, and none carry a page count.
-    needs_thumbnail = ext in IMAGE_EXTS or ext == ".pdf" or arc_ext in _COMIC_ARCHIVE_EXTS
-    needs_page_count = ext == ".pdf"
+    # Non-comic archives stay opaque: no cover, no page count. Everything else
+    # asks the format table rather than testing for ".pdf" (issues #180/#200/#373).
+    needs_thumbnail = ext in IMAGE_EXTS or can_thumbnail(ext) or arc_ext in _COMIC_ARCHIVE_EXTS
+    needs_page_count = has_page_count(ext) or arc_ext in _COMIC_ARCHIVE_EXTS
     if ext in IMAGE_EXTS:
         book.page_count = 1
     return book, needs_thumbnail, needs_page_count
@@ -801,11 +816,24 @@ def _do_book_page_count(ctx: _ScanContext, book: Book, filepath: str, filename: 
         except (TimeoutError, IntegrityError) as e:
             logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
             session.rollback()
-    logger.debug(f"Opening PDF for page count: {filepath}")
+    logger.debug(f"Reading page count: {filepath}")
+    ext = Path(filepath).suffix.lower()
+    arc_ext = archive_ext(filepath)
     try:
-        doc = indexer._fitz_open_with_timeout(filepath, should_stop=ctx.should_stop)
-        book.page_count = len(doc)
-        doc.close()
+        if arc_ext in _COMIC_ARCHIVE_EXTS:
+            # A comic's "pages" are the image members inside the archive.
+            book.page_count = comics.page_count(filepath, arc_ext)
+        elif ext in TEXT_DOC_EXTS:
+            # Text formats have no intrinsic pages; the count is whatever the
+            # shared pagination produces, so it matches the reader exactly.
+            book.page_count = text_documents.text_page_count(filepath)
+        else:
+            doc = indexer._fitz_open_with_timeout(filepath, should_stop=ctx.should_stop)
+            # EPUB is reflowable: len(doc) is meaningless until it is laid out,
+            # and must use the same box the reader does (issue #373).
+            apply_reflow_layout(doc)
+            book.page_count = len(doc)
+            doc.close()
         logger.debug(f"Page count: {book.page_count} pages in '{filename}'")
         book.scan_failed = False
         _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit page_count '{filepath}'")

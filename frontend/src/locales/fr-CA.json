@@ -225,7 +225,8 @@
     "zoomReset": "Réinitialiser le zoom",
     "spreadIncludeCover": "Inclure la couverture dans la double page (pages 1-2, 3-4…)",
     "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)",
-    "archiveNotViewable": "Ce fichier est une archive et ne peut pas être affiché dans le lecteur. Téléchargez-le pour en ouvrir le contenu."
+    "archiveNotViewable": "Ce fichier est une archive et ne peut pas être affiché dans le lecteur. Téléchargez-le pour en ouvrir le contenu.",
+    "textUnavailable": "This document's text could not be loaded."
   },
   "search": {
     "title": "Rechercher dans votre bibliothèque",

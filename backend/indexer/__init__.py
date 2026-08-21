@@ -43,8 +43,32 @@ from .constants import (  # noqa: E402,F401
     ONE_PAGE_MARKER,
     PARENT_SYSTEM_MARKER,
     PDF_EXTS,
+    TEXT_DOC_EXTS,
     UNCATEGORIZED,
     _MP_CONTEXT,
+)
+
+# --- Per-format capability table (issues #180/#200/#373) -----------------------
+from . import comics, text_documents  # noqa: E402,F401
+from .formats import (  # noqa: E402,F401
+    COMIC_EXTS,
+    COMIC_MIMES,
+    FITZ_EXTS,
+    FITZ_MIMES,
+    INDEXABLE_MIMES,
+    TEXT_EXTS,
+    TEXT_MIMES,
+    apply_reflow_layout,
+    can_index,
+    can_thumbnail,
+    family_for_mime,
+    has_page_count,
+    is_comic_path,
+    is_fitz_mime,
+    mime_for_ext,
+    open_document,
+    spec_for_ext,
+    spec_for_path,
 )
 
 # --- Category inference --------------------------------------------------------

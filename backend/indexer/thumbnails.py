@@ -1,14 +1,13 @@
 """Archive cover extraction and thumbnail generation.
 
 Covers comic-book archive cover images (CBZ/CBR/CB7/CBT) and the timeout-guarded
-thumbnail worker used for PDFs, images, and comic covers during a scan.
+thumbnail worker used during a scan for fitz-backed documents (PDF/EPUB/DjVu),
+plain images, and comic covers.
 """
 import io
 import os
 import logging
-import tarfile
 import threading
-import zipfile
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -18,12 +17,12 @@ from PIL import Image
 from .constants import (
     ARCHIVE_EXTS,
     IMAGE_EXTS,
-    _ARCHIVE_LIST_CAP,
     _ARCHIVE_MEMBER_SIZE_CAP,
     _ARCHIVE_MIME,
     _COMIC_ARCHIVE_EXTS,
     _THUMBNAIL_TIMEOUT,
 )
+from .formats import FITZ_EXTS, open_document
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -84,47 +83,19 @@ def _extract_7z_member(zf: Any, name: str) -> Optional[bytes]:
 def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
     """Return the raw bytes of the first image inside a comic-book archive.
 
-    Entries are considered in case-insensitive name order (the usual page
-    ordering for CBZ/CBR), and only the single chosen member is decompressed.
+    The cover is simply page 1, so this delegates to the comic pager rather than
+    keeping a second, subtly different ordering. That shared ordering is what
+    skips macOS ``__MACOSX`` resource forks and dotfiles — packaging noise that
+    sorts before the real first page and used to be picked as the cover, failing
+    the thumbnail for archives created on a Mac.
+
     Returns None if the archive can't be opened or holds no image.  Never
     raises — callers treat a None as "no cover available".
     """
-    try:
-        if arc_ext in (".cbz", ".zip"):
-            with zipfile.ZipFile(filepath) as zf:
-                names = [n for n in zf.namelist()[:_ARCHIVE_LIST_CAP] if not n.endswith("/")]
-                for name in sorted(names, key=str.lower):
-                    if Path(name).suffix.lower() in IMAGE_EXTS:
-                        return zf.read(name)
-        elif arc_ext in (".cbr", ".rar"):
-            import rarfile
+    from . import comics
 
-            with rarfile.RarFile(filepath) as rf:
-                names = [n for n in rf.namelist()[:_ARCHIVE_LIST_CAP]]
-                for name in sorted(names, key=str.lower):
-                    if Path(name).suffix.lower() in IMAGE_EXTS:
-                        return rf.read(name)
-        elif arc_ext in (".cb7", ".7z"):
-            import py7zr
-
-            with py7zr.SevenZipFile(filepath) as zf:
-                names = [n for n in zf.getnames()[:_ARCHIVE_LIST_CAP]]
-                targets = sorted(
-                    (n for n in names if Path(n).suffix.lower() in IMAGE_EXTS),
-                    key=str.lower,
-                )
-                if targets:
-                    return _extract_7z_member(zf, targets[0])
-        elif arc_ext in (".cbt", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2"):
-            with tarfile.open(filepath) as tf:
-                members = [m for m in tf.getmembers() if m.isfile()]
-                for member in sorted(members, key=lambda m: m.name.lower()):
-                    if Path(member.name).suffix.lower() in IMAGE_EXTS:
-                        fh = tf.extractfile(member)
-                        return fh.read() if fh is not None else None
-    except Exception as exc:
-        logger.debug(f"Could not read cover image from archive '{filepath}': {exc}")
-    return None
+    page = comics.read_page(filepath, arc_ext, 1)
+    return page[0] if page is not None else None
 
 
 def _generate_thumbnail_task(
@@ -142,8 +113,10 @@ def _generate_thumbnail_task(
             img = Image.open(io.BytesIO(data))
             if img.mode != "RGB":
                 img = img.convert("RGB")
-        elif ext == ".pdf":
-            doc = fitz.open(filepath)
+        elif ext in FITZ_EXTS:
+            # PDF, EPUB, and DjVu all open through PyMuPDF. EPUB is reflowable,
+            # so it must be laid out before it has pages at all (issue #373).
+            doc = open_document(filepath)
             if len(doc) == 0:
                 result[0] = False
                 return
@@ -174,7 +147,7 @@ def generate_thumbnail(
     size: tuple = (300, 400),
     should_stop: Optional[Callable[[], bool]] = None,
 ) -> bool:
-    """Generate a thumbnail from the first page of a PDF or from an image.
+    """Generate a thumbnail from a document's first page, an image, or a comic cover.
 
     Runs in a daemon thread with a timeout so a corrupt or pathologically large
     file cannot hang the scan indefinitely.  If `should_stop` is provided the

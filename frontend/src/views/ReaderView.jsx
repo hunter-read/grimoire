@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { bookPageUrl, mediaUrl } from '../api'
-import { isArchiveBook } from '../constants'
+import { isArchiveBook, isSingleImageBook, isTextBook } from '../constants'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
 import { getUserPrefs, getWheelAction } from '../hooks/useUserPrefs'
@@ -21,6 +21,7 @@ import ReaderToolbar from '../components/reader/ReaderToolbar'
 import SpreadPage from '../components/reader/SpreadPage'
 import SinglePage from '../components/reader/SinglePage'
 import ImageBookViewer from '../components/reader/ImageBookViewer'
+import TextBookViewer from '../components/reader/TextBookViewer'
 import {
   PAGE_WIDTH,
   PRELOAD_CACHE_MAX,
@@ -394,8 +395,14 @@ export default function ReaderView() {
       </div>
     )
 
-  if (book.mime_type?.startsWith('image/')) {
+  if (isSingleImageBook(book)) {
     return <ImageBookViewer book={book} bookId={bookId} backPath={backPathRef.current} />
+  }
+
+  // Text documents have no rendered pages — they read as formatted text
+  // instead of page images (issue #200).
+  if (isTextBook(book)) {
+    return <TextBookViewer book={book} bookId={bookId} backPath={backPathRef.current} />
   }
 
   // Archives have no page reader — offer a download instead of a broken viewer.

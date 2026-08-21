@@ -1,8 +1,11 @@
 """Full-text search indexing for individual books.
 
-``index_book_text`` extracts a PDF's text (in an isolated worker) and inserts it
-into the FTS index, queuing image-only PDFs for deferred OCR.
-``reindex_single_book`` rebuilds one book's index in place.
+``index_book_text`` extracts a book's text and inserts it into the FTS index,
+queuing image-only PDFs for deferred OCR. Which books are eligible is decided by
+the format table (``formats.can_index``) rather than a hard-coded PDF check, so
+EPUB and DjVu are indexed alongside PDFs (issue #373) and .txt/.md/.rtf are
+decoded directly (issue #200). ``reindex_single_book`` rebuilds one book's index
+in place.
 
 Patch-safety: ``extract_text_isolated``, ``generate_thumbnail``, and
 ``_book_page_count`` are stubbed by tests via ``patch.object(indexer, "…")`` /
@@ -21,6 +24,7 @@ from sqlalchemy.orm import Session
 from backend import indexer  # package namespace, for patch-sensitive calls
 from .. import ocr
 from ..models import Book
+from . import text_documents
 from ._subprocess import (
     PdfExtractionCrashError,
     _commit,
@@ -28,6 +32,7 @@ from ._subprocess import (
 )
 from .categories import slugify
 from .constants import _DB_TIMEOUT
+from .formats import TEXT_MIMES, can_index
 from .hashing import apply_signature, file_signature, hash_file
 
 logger = logging.getLogger("grimoire.indexer")
@@ -39,17 +44,22 @@ def index_book_text(
     session: Session,
     should_stop: Optional[Callable[[], bool]] = None,
 ) -> bool:
-    """Extract and index text from a PDF for full-text search.
+    """Extract and index a book's text for full-text search.
 
-    Text extraction runs in an isolated worker process (see
+    PDF/EPUB/DjVu text extraction runs in an isolated worker process (see
     ``extract_text_isolated``).  Before extraction the book is marked
     ``index_failed`` and committed, so that even if a native crash escaped the
     isolation and took down the whole server, the book would already be flagged
     and skipped on the next scan instead of re-crashing in an endless loop.  The
     flag is cleared once extraction succeeds.
     """
-    if book.indexed or book.index_failed or book.mime_type != "application/pdf":
+    if book.indexed or book.index_failed or not can_index(book.mime_type):
         return False
+
+    # Text formats (.txt/.md/.rtf) are decoded and paginated in-process — no
+    # PDF machinery, no OCR, no crash-isolation worker needed (issue #200).
+    if book.mime_type in TEXT_MIMES:
+        return _index_text_document(book, session)
 
     # Crash-loop guard: persist "attempt in progress" before the risky call so a
     # process-killing crash (segfault / OOM) can't cause this file to be retried
@@ -150,6 +160,44 @@ def index_book_text(
     return True
 
 
+def _index_text_document(book: Book, session: Session) -> bool:
+    """Index a .txt/.md/.rtf book into the FTS table (issue #200).
+
+    Much simpler than the PDF path: no isolated worker, no crash-loop guard, and
+    no OCR. Decoding a text file cannot segfault MuPDF, so the risk the PDF path
+    guards against does not exist here. A file that yields no text is marked
+    indexed anyway so the scan does not retry it every pass.
+    """
+    pages = text_documents.extract_text_pages(book.filepath)
+    if not pages:
+        logger.info(
+            f"'{book.title or book.filename}' has no readable text - "
+            f"it won't be searchable."
+        )
+        book.index_error = "no-text"
+        book.indexed = True
+        book.index_failed = False
+        _commit(session, f"commit empty text doc '{book.filepath}'")
+        return True
+
+    for page_data in pages:
+        session.execute(
+            text(
+                "INSERT INTO book_search (book_id, page_number, content) VALUES (:bid, :pnum, :content)"
+            ),
+            {"bid": book.id, "pnum": page_data["page"], "content": page_data["content"]},
+        )
+    book.indexed = True
+    book.index_failed = False
+    book.index_error = ""
+    # Keep the stored page count consistent with what we just indexed, so search
+    # results can never point past the end of the book.
+    book.page_count = len(pages)
+    _commit(session, f"commit text index '{book.filepath}'")
+    logger.info(f"'{book.title or book.filename}' is now searchable ({len(pages)} page(s)).")
+    return True
+
+
 def reindex_single_book(
     book: Book,
     data_path: str,
@@ -169,7 +217,7 @@ def reindex_single_book(
     book may be left ``ocr_pending``).  Only PDFs are re-indexable; other types
     return without change.
     """
-    if book.mime_type != "application/pdf":
+    if not can_index(book.mime_type):
         return
 
     # Drop everything rendered from the previous bytes first. This is the whole
