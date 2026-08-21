@@ -485,6 +485,180 @@ class TestThumbnails:
         db.close()
 
 
+class TestMoveAndRenameGuards:
+    """The refusals and error mappings that keep a bulk move survivable."""
+
+    def test_the_library_root_cannot_be_moved(self, library_tree):
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs._move_one(db, fs.library_root(), fs.safe_join(
+                    f"books/System-{library_tree}/core"), "skip", fs.MoveResult())
+            assert exc.value.code == "forbidden"
+        finally:
+            db.close()
+
+    def test_the_library_root_cannot_be_renamed(self, library_tree):
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.rename_path(db, ".", "elsewhere")
+            assert exc.value.code == "forbidden"
+        finally:
+            db.close()
+
+    def test_rename_rejects_an_empty_name(self, library_tree):
+        _write(f"books/System-{library_tree}/core/keep.pdf")
+        db = SessionLocal()
+        try:
+            for candidate in ("", "   ", ".", ".."):
+                with pytest.raises(fs.LibraryFSError) as exc:
+                    fs.rename_path(
+                        db, f"books/System-{library_tree}/core/keep.pdf", candidate
+                    )
+                assert exc.value.code == "invalid"
+        finally:
+            db.close()
+
+    def test_renaming_to_the_same_name_is_a_no_op(self, library_tree):
+        """Not an error — the UI can submit an unchanged field harmlessly."""
+        _write(f"books/System-{library_tree}/core/same.pdf")
+        db = SessionLocal()
+        try:
+            result = fs.rename_path(
+                db, f"books/System-{library_tree}/core/same.pdf", "same.pdf"
+            )
+        finally:
+            db.close()
+        assert result["records"] == 0
+        assert os.path.exists(os.path.join(LIB, f"books/System-{library_tree}/core/same.pdf"))
+
+    def test_a_read_only_library_reports_read_only_on_rename(
+        self, library_tree, monkeypatch
+    ):
+        _write(f"books/System-{library_tree}/core/ro.pdf")
+        monkeypatch.setattr(
+            fs.os, "replace", lambda *a: (_ for _ in ()).throw(OSError(30, "Read-only"))
+        )
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.rename_path(db, f"books/System-{library_tree}/core/ro.pdf", "rw.pdf")
+            assert exc.value.code == "read_only"
+        finally:
+            db.close()
+
+    def test_a_failed_rename_reports_io_error(self, library_tree, monkeypatch):
+        _write(f"books/System-{library_tree}/core/io.pdf")
+        monkeypatch.setattr(
+            fs.os, "replace", lambda *a: (_ for _ in ()).throw(OSError(5, "I/O error"))
+        )
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.rename_path(db, f"books/System-{library_tree}/core/io.pdf", "ok.pdf")
+            assert exc.value.code == "io_error"
+        finally:
+            db.close()
+
+    def test_a_rename_rollback_restores_the_original_path(
+        self, library_tree, monkeypatch
+    ):
+        """A failed relink must put the file back under its original name."""
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/rb3.pdf")
+        make_book(
+            system.id, filepath=src, filename="rb3.pdf",
+            relative_path=f"books/System-{library_tree}/core/rb3.pdf",
+        )
+        monkeypatch.setattr(
+            fs, "_relink", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
+        db = SessionLocal()
+        try:
+            with pytest.raises(RuntimeError):
+                fs.rename_path(db, f"books/System-{library_tree}/core/rb3.pdf", "rb4.pdf")
+        finally:
+            db.close()
+        assert os.path.exists(src), "file must be restored after a failed relink"
+
+    def test_moving_onto_a_file_is_rejected(self, library_tree):
+        _write(f"books/System-{library_tree}/core/dest.pdf")
+        _write(f"books/System-{library_tree}/core/src.pdf")
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.move_paths(
+                    db,
+                    [f"books/System-{library_tree}/core/src.pdf"],
+                    f"books/System-{library_tree}/core/dest.pdf",
+                )
+            assert exc.value.code == "invalid"
+        finally:
+            db.close()
+
+    def test_a_bulk_move_skips_the_bad_item_and_moves_the_rest(self, library_tree):
+        """One clash must not abort the other thirty-nine files."""
+        _write(f"books/System-{library_tree}/core/good.pdf")
+        _write(f"books/System-{library_tree}/adventures/clash.pdf", b"existing")
+        _write(f"books/System-{library_tree}/core/clash.pdf", b"incoming")
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(
+                db,
+                [
+                    f"books/System-{library_tree}/core/good.pdf",
+                    f"books/System-{library_tree}/core/clash.pdf",
+                    f"books/System-{library_tree}/core/absent.pdf",
+                ],
+                f"books/System-{library_tree}/adventures",
+            )
+        finally:
+            db.close()
+        assert len(result.moved) == 1
+        assert {s["code"] for s in result.skipped} == {"conflict", "not_found"}
+        # The colliding destination kept its original contents.
+        with open(
+            os.path.join(LIB, f"books/System-{library_tree}/adventures/clash.pdf"), "rb"
+        ) as f:
+            assert f.read() == b"existing"
+
+    def test_rename_conflict_is_refused(self, library_tree):
+        _write(f"books/System-{library_tree}/core/a.pdf")
+        _write(f"books/System-{library_tree}/core/b.pdf")
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.rename_path(db, f"books/System-{library_tree}/core/a.pdf", "b.pdf")
+            assert exc.value.code == "conflict"
+        finally:
+            db.close()
+
+    def test_rename_rejects_a_path_separator(self, library_tree):
+        """Rename takes a bare name; a path would be an unguarded second move."""
+        _write(f"books/System-{library_tree}/core/sep.pdf")
+        db = SessionLocal()
+        try:
+            for candidate in ("sub/x.pdf", "sub\\x.pdf", "x\x00.pdf"):
+                with pytest.raises(fs.LibraryFSError) as exc:
+                    fs.rename_path(
+                        db, f"books/System-{library_tree}/core/sep.pdf", candidate
+                    )
+                assert exc.value.code == "invalid"
+        finally:
+            db.close()
+
+    def test_conflict_suffixing_gives_up_rather_than_looping(
+        self, library_tree, monkeypatch
+    ):
+        """With every candidate taken, the caller gets a conflict, not a hang."""
+        dest = fs.safe_join(f"books/System-{library_tree}/adventures")
+        monkeypatch.setattr(Path, "exists", lambda self: True)
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs._dest_for(dest, "busy.pdf", on_conflict="rename")
+        assert exc.value.code == "conflict"
+
+
 class TestFailureSafety:
     def test_indexed_move_rollback_restores_file(self, library_tree, monkeypatch):
         """If the relink fails, the file must return to where it started.
@@ -998,6 +1172,99 @@ class TestUpload:
             fs.save_upload("", "stray.pdf", self._stream(b"%PDF"))
         # The library root holds collections, not files.
         assert exc.value.code in ("invalid", "forbidden")
+
+    def test_accepts_an_image_under_tokens(self, library_tree):
+        """tokens/ takes images and archives — the one collection arm not yet walked."""
+        os.makedirs(os.path.join(LIB, f"tokens/Portraits-{library_tree}"), exist_ok=True)
+        try:
+            result = fs.save_upload(
+                f"tokens/Portraits-{library_tree}", "goblin.png", self._stream(b"\x89PNG")
+            )
+            assert result["name"] == "goblin.png"
+        finally:
+            import shutil
+
+            shutil.rmtree(
+                os.path.join(LIB, f"tokens/Portraits-{library_tree}"), ignore_errors=True
+            )
+
+    def test_a_name_that_reduces_to_nothing_is_rejected(self, library_tree):
+        """``../`` strips to ``..``, which is not a filename the library can hold."""
+        dest = fs.safe_join(f"books/System-{library_tree}/core")
+        for candidate in ("", "   ", "../", "."):
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.validate_upload_name(candidate, dest)
+            assert exc.value.code == "invalid"
+
+    def test_a_null_byte_in_the_name_is_rejected(self, library_tree):
+        """A NUL truncates the path at the syscall boundary, so it never gets there."""
+        dest = fs.safe_join(f"books/System-{library_tree}/core")
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.validate_upload_name("evil\x00.pdf", dest)
+        assert exc.value.code == "invalid"
+
+    def test_uploading_onto_a_file_is_rejected(self, library_tree):
+        """The destination must be a folder; a file path is a caller mistake."""
+        _write(f"books/System-{library_tree}/core/target.pdf")
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.save_upload(
+                f"books/System-{library_tree}/core/target.pdf",
+                "x.pdf",
+                self._stream(b"%PDF"),
+            )
+        assert exc.value.code == "invalid"
+
+    def test_a_relative_dir_that_cannot_be_created_reports_io_error(
+        self, library_tree, monkeypatch
+    ):
+        """A folder upload that cannot build its tree fails loudly, not silently."""
+        monkeypatch.setattr(
+            Path, "mkdir", lambda self, **k: (_ for _ in ()).throw(OSError(13, "denied"))
+        )
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.save_upload(
+                f"books/System-{library_tree}",
+                "phb.pdf",
+                self._stream(b"%PDF"),
+                relative_dir="Core/2024",
+            )
+        assert exc.value.code == "io_error"
+
+    def test_a_read_only_library_is_reported_as_such(self, library_tree, monkeypatch):
+        """EROFS is worth its own message: the fix is mounting, not retrying."""
+        monkeypatch.setattr(
+            fs.os, "replace", lambda *a: (_ for _ in ()).throw(OSError(30, "Read-only"))
+        )
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.save_upload(
+                f"books/System-{library_tree}/core", "ro.pdf", self._stream(b"%PDF")
+            )
+        assert exc.value.code == "read_only"
+        leftovers = os.listdir(os.path.join(LIB, f"books/System-{library_tree}/core"))
+        assert not any(n.endswith(".part") for n in leftovers)
+
+    def test_a_full_disk_is_reported_as_such(self, library_tree, monkeypatch):
+        monkeypatch.setattr(
+            fs.os, "replace", lambda *a: (_ for _ in ()).throw(OSError(28, "No space"))
+        )
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.save_upload(
+                f"books/System-{library_tree}/core", "full.pdf", self._stream(b"%PDF")
+            )
+        assert exc.value.code == "io_error"
+
+    def test_an_unremovable_partial_upload_is_logged_not_raised(
+        self, library_tree, monkeypatch
+    ):
+        """Cleanup is best-effort: the original error must reach the caller."""
+        monkeypatch.setattr(
+            Path, "unlink", lambda self, *a, **k: (_ for _ in ()).throw(OSError("locked"))
+        )
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.save_upload(
+                f"books/System-{library_tree}/core", "empty.pdf", self._stream(b"")
+            )
+        assert exc.value.code == "invalid"
 
     def test_endpoint_uploads(self, client, admin_headers, library_tree):
         resp = client.post(
