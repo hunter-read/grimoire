@@ -27,7 +27,9 @@ export default function DatabaseCleanupSection() {
   const total = result ? result.books + result.maps + result.tokens : 0
 
   return (
-    <div>
+    // Matches the other maintenance sections: each owns the space above the
+    // divider that follows it.
+    <div style={{ marginBottom: 40 }}>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
         {t('maintenance.cleanup.title')}
       </h3>
