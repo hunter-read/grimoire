@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from slowapi import _rate_limit_exceeded_handler
 
-from . import scheduler, session_creator, session_purger
+from . import backup_scheduler, scheduler, session_creator, session_purger
 from ._health_schemas import HealthResponse
 from .auth import get_current_user
 from .security import RateLimitExceeded, SecurityHeadersMiddleware, limiter
@@ -29,11 +29,11 @@ from .routers import (
     addons as addons_router,
     audio as audio_router,
     auth as auth_router,
+    backups as backups_router,
     bookmarks as bookmarks_router,
     books as books_router,
     campaigns as campaigns_router,
     downloads as downloads_router,
-    export as export_router,
     favorites as favorites_router,
     files as files_router,
     library as library_router,
@@ -91,6 +91,15 @@ _TAGS = [
     },
     {"name": "settings", "description": "Application settings. **Admin only.**"},
     {"name": "maintenance", "description": "Admin housekeeping tasks."},
+    {
+        "name": "backups",
+        "description": (
+            "Database and user-asset snapshots. **Admin only.** A backup is a "
+            "timestamped `.zip` holding a consistent copy of the SQLite database "
+            "plus campaign uploads, system covers, and audio covers. It does "
+            "**not** include your library files \u2014 back those up separately."
+        ),
+    },
     {
         "name": "files",
         "description": (
@@ -179,6 +188,7 @@ async def lifespan(app: FastAPI):
         db = SessionLocal()
         try:
             scheduler.apply(db)
+            backup_scheduler.apply(db)
         finally:
             db.close()
         session_creator.start()
@@ -286,11 +296,11 @@ api.include_router(tags_router.router)
 api.include_router(saved_filters_router.router)
 api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
-api.include_router(export_router.router)
 api.include_router(settings_router.router)
 api.include_router(addons_router.router)
 api.include_router(themes_router.router)
 api.include_router(maintenance_router.router)
+api.include_router(backups_router.router)
 api.include_router(files_router.router)
 api.include_router(logs_router.router)
 app.include_router(api)

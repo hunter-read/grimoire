@@ -16,13 +16,31 @@ vi.mock('../../api', () => ({
     save: vi.fn(),
     export: vi.fn(),
   },
-  mediaUrl: vi.fn((path, params = {}) => {
-    const qs = new URLSearchParams({ ...params, token: 'test-token' }).toString()
-    return `/api${path}?${qs}`
-  }),
+  backups: {
+    list: vi.fn(() => Promise.resolve({ backups: [], directory: '/data/backups', total_bytes: 0 })),
+    create: vi.fn(),
+    remove: vi.fn(),
+    download: vi.fn(),
+    getSettings: vi.fn(() =>
+      Promise.resolve({
+        backup_schedule: 'off',
+        backup_schedule_hour: 3,
+        backup_schedule_minute: 0,
+        backup_schedule_weekday: 0,
+        backup_retention_count: 0,
+        backup_retention_gb: 0,
+        backup_dir: '/data/backups',
+        schedule_env_locked: false,
+        retention_count_env_locked: false,
+        retention_gb_env_locked: false,
+        dir_env_locked: false,
+      })
+    ),
+    saveSettings: vi.fn(),
+  },
 }))
 
-import api, { settings as settingsApi, sidecars as sidecarsApi, mediaUrl } from '../../api'
+import api, { settings as settingsApi, sidecars as sidecarsApi } from '../../api'
 
 const idleStatus = {
   running: false,
@@ -276,122 +294,5 @@ describe('MaintenanceTab — ScheduledRescanSection', () => {
         expect.objectContaining({ cleanup_on_rescan: false })
       )
     })
-  })
-})
-
-describe('MaintenanceTab — ExportTagsSection', () => {
-  let appendedAnchors
-  let origAppendChild
-  let origRemoveChild
-
-  beforeEach(() => {
-    appendedAnchors = []
-    origAppendChild = document.body.appendChild.bind(document.body)
-    origRemoveChild = document.body.removeChild.bind(document.body)
-
-    vi.spyOn(document.body, 'appendChild').mockImplementation((el) => {
-      if (el && el.tagName === 'A') {
-        appendedAnchors.push(el)
-        el.click = vi.fn()
-        return el
-      }
-      return origAppendChild(el)
-    })
-    vi.spyOn(document.body, 'removeChild').mockImplementation((el) => {
-      if (el && el.tagName === 'A') return el
-      return origRemoveChild(el)
-    })
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('renders the Export Tags button', () => {
-    render(<MaintenanceTab />)
-    expect(screen.getByRole('button', { name: /export tags/i })).toBeInTheDocument()
-  })
-
-  it('renders all four section checkboxes checked by default', () => {
-    render(<MaintenanceTab />)
-    const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes).toHaveLength(4)
-    checkboxes.forEach((cb) => expect(cb).toBeChecked())
-  })
-
-  it('calls mediaUrl with all sections enabled by default on click', () => {
-    render(<MaintenanceTab />)
-    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
-    expect(mediaUrl).toHaveBeenCalledWith('/export/tags', {
-      include_library: true,
-      include_maps: true,
-      include_tokens: true,
-      include_audio: true,
-    })
-  })
-
-  it('triggers a programmatic anchor click to download the file', () => {
-    render(<MaintenanceTab />)
-    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
-    expect(appendedAnchors).toHaveLength(1)
-    expect(appendedAnchors[0].click).toHaveBeenCalled()
-  })
-
-  it('passes include_library=false when Library checkbox is unchecked', () => {
-    render(<MaintenanceTab />)
-    const [libraryCheckbox] = screen.getAllByRole('checkbox')
-    fireEvent.click(libraryCheckbox)
-    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
-    expect(mediaUrl).toHaveBeenCalledWith('/export/tags', {
-      include_library: false,
-      include_maps: true,
-      include_tokens: true,
-      include_audio: true,
-    })
-  })
-
-  it('passes include_maps=false when Maps checkbox is unchecked', () => {
-    render(<MaintenanceTab />)
-    const [, mapsCheckbox] = screen.getAllByRole('checkbox')
-    fireEvent.click(mapsCheckbox)
-    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
-    expect(mediaUrl).toHaveBeenCalledWith('/export/tags', {
-      include_library: true,
-      include_maps: false,
-      include_tokens: true,
-      include_audio: true,
-    })
-  })
-
-  it('passes include_tokens=false when Tokens checkbox is unchecked', () => {
-    render(<MaintenanceTab />)
-    const [, , tokensCheckbox] = screen.getAllByRole('checkbox')
-    fireEvent.click(tokensCheckbox)
-    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
-    expect(mediaUrl).toHaveBeenCalledWith('/export/tags', {
-      include_library: true,
-      include_maps: true,
-      include_tokens: false,
-      include_audio: true,
-    })
-  })
-
-  it('passes include_audio=false when Audio checkbox is unchecked', () => {
-    render(<MaintenanceTab />)
-    const [, , , audioCheckbox] = screen.getAllByRole('checkbox')
-    fireEvent.click(audioCheckbox)
-    fireEvent.click(screen.getByRole('button', { name: /export tags/i }))
-    expect(mediaUrl).toHaveBeenCalledWith('/export/tags', {
-      include_library: true,
-      include_maps: true,
-      include_tokens: true,
-      include_audio: false,
-    })
-  })
-
-  it('disables the button when all checkboxes are unchecked', () => {
-    render(<MaintenanceTab />)
-    screen.getAllByRole('checkbox').forEach((cb) => fireEvent.click(cb))
-    expect(screen.getByRole('button', { name: /export tags/i })).toBeDisabled()
   })
 })

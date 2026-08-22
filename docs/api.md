@@ -1108,6 +1108,51 @@ not replace), `skipped_missing`, `failed`, `covers`, `read_only`, and a bounded
 actionable message instead of raising. See [`sidecars.md`](sidecars.md) for the
 per-format field mapping and how export interacts with sidecar import.
 
+### Backups *(admin only)*
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/backups` | GET | List backups, newest first, with `created_at`, `size_bytes`, and `version` |
+| `/api/backups` | POST | Create a backup now |
+| `/api/backups/settings` | GET | Read backup schedule, retention, and storage location |
+| `/api/backups/settings` | PUT | Configure schedule, retention, and storage location |
+| `/api/backups/{backup_id}/download` | GET | Download a backup archive (`application/zip`) |
+| `/api/backups/{backup_id}` | DELETE | Delete a backup archive (`204`) |
+
+A backup is a single timestamped `.zip` named `grimoire-backup-<UTC timestamp>.zip`,
+holding a consistent snapshot of the SQLite database (taken with SQLite's online
+backup API, not a file copy) plus the user-authored directories under `DATA_PATH`:
+`campaign_uploads/`, `system_covers/`, and `audio_covers/`. A `details.json`
+manifest records the app version, timestamp, and trigger. The **library is never
+included**, nor are the regenerable caches (`thumbnails/`, `page_cache/`).
+
+The `backup_id` is the timestamp portion of the filename (e.g. `20260821T140355Z`)
+and is matched against a strict pattern before it reaches the filesystem, so it
+cannot be used to read a file outside the backup directory.
+
+`GET /api/backups` is what makes a check-before-destructive-operation flow possible:
+a client can read the newest `created_at`, decide whether it is stale, and `POST` a
+fresh backup before running a destructive rescan or cleanup. `version` comes from
+the archive's manifest (`"unknown"` if it is missing or unreadable), which makes a
+cross-version restore detectable.
+
+Creating a backup pauses database writes for the length of the snapshot, and a
+second concurrent create returns `409`.
+
+**There is no restore endpoint, by design** - restoring replaces the live database
+and is done by hand with the server stopped. See
+[`restore-from-backup.md`](../restore-from-backup.md).
+
+Backup settings are `backup_schedule` (`off` | `hourly` | `daily` | `weekly`),
+`backup_schedule_hour` / `_minute` / `_weekday` (UTC), `backup_retention_count`,
+`backup_retention_gb`, and `backup_dir`. Retention limits apply independently -
+oldest-first pruning runs once *either* is exceeded, always leaving at least one
+backup - and pruning happens after a new archive is written, so the ceiling can be
+briefly exceeded. Each setting can be pinned by an environment variable
+(`BACKUP_SCHEDULE`, `BACKUP_RETENTION_COUNT`, `BACKUP_RETENTION_GB`, `BACKUP_DIR`);
+when pinned, the response flags it via `*_env_locked` and a `PUT` touching it
+returns `400`.
+
 ### Files *(admin only)*
 
 Structural file management for the library (issue #302). Every path is relative

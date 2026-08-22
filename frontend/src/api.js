@@ -443,6 +443,19 @@ export const settings = {
   revokeApiKey: () => api.delete('/settings/api-key'),
 }
 
+// Backups (issue #338). Admin-only. A backup is a timestamped .zip holding the
+// database plus user-authored assets — never the library itself.
+export const backups = {
+  list: () => api.get('/backups'),
+  create: () => api.post('/backups'),
+  remove: (id) => api.delete(`/backups/${id}`),
+  getSettings: () => api.get('/backups/settings'),
+  saveSettings: (data) => api.put('/backups/settings', data),
+  // Uses the shared download helper so the request carries the Authorization
+  // header (and refreshes a stale token) rather than relying on a bare URL.
+  download: (id, filename) => api.download(`/backups/${id}/download`, filename),
+}
+
 // Metadata sidecar export (issue #300). Admin-only; lives under /maintenance
 // because it writes into the library rather than changing app behaviour.
 export const sidecars = {
