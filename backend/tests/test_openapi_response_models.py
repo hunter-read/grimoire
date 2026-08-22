@@ -19,6 +19,8 @@ UNTYPED_BY_DESIGN = {
     "/api/audio/{audio_id}/file",
     "/api/auth/openid/callback",
     "/api/auth/openid/login",
+    # Streams the backup .zip itself, not JSON.
+    "/api/backups/{backup_id}/download",
     "/api/books/{book_id}/file",
     "/api/books/{book_id}/page/{page_num}",
     "/api/books/{book_id}/thumbnail",
@@ -29,7 +31,6 @@ UNTYPED_BY_DESIGN = {
     "/api/campaigns/{campaign_id}/wiki/export",
     "/api/campaigns/{campaign_id}/wiki/templates/{template_id}/export",
     "/api/downloads/archive",
-    "/api/export/tags",
     "/api/maps/{map_id}/file",
     "/api/maps/{map_id}/page/{page_num}",
     "/api/maps/{map_id}/thumbnail",

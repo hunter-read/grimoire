@@ -746,6 +746,13 @@
       "perFile": "Maximale bestandsgrootte (MB, 0 = onbeperkt)",
       "perCampaign": "Maximaal totaal per campagne (MB, 0 = onbeperkt)",
       "hint": "Bestanden worden opgeslagen in de gegevensmap, gescheiden van de bibliotheek."
+    },
+    "folderCategory": {
+      "title": "Categorie afleiden uit map",
+      "description": "Standaard wordt de categorie van een boek afgeleid uit de mapnaam (bijv. een boek in een \"Core\"-map krijgt de categorie Core). Schakel dit uit om boeken in plaats daarvan zonder categorie te laten.",
+      "disable": "Categorie afleiden uit mapnaam uitschakelen",
+      "perSystemHint": "Om afleiden alleen voor één systeem uit te schakelen, plaats je een leeg bestand met de naam .no-auto-category in de hoofdmap van dat systeem.",
+      "envLocked": "Deze instelling is vergrendeld door de omgevingsvariabele DISABLE_FOLDER_CATEGORY_INFERENCE (momenteel {{value}}) en kan hier niet worden gewijzigd."
     }
   },
   "users": {
@@ -858,23 +865,6 @@
         "sat": "Za",
         "sun": "Zo"
       }
-    },
-    "folderCategory": {
-      "title": "Categorie afleiden uit map",
-      "description": "Standaard wordt de categorie van een boek afgeleid uit de mapnaam (bijv. een boek in een \"Core\"-map krijgt de categorie Core). Schakel dit uit om boeken in plaats daarvan zonder categorie te laten.",
-      "disable": "Categorie afleiden uit mapnaam uitschakelen",
-      "perSystemHint": "Om afleiden alleen voor één systeem uit te schakelen, plaats je een leeg bestand met de naam .no-auto-category in de hoofdmap van dat systeem.",
-      "envLocked": "Deze instelling is vergrendeld door de omgevingsvariabele DISABLE_FOLDER_CATEGORY_INFERENCE (momenteel {{value}}) en kan hier niet worden gewijzigd."
-    },
-    "tagExport": {
-      "title": "Labels exporteren",
-      "description": "Download alle labels die aan boeken, kaarten, tokens, systemen en mappen zijn toegewezen als een JSON-bestand.",
-      "button": "Labels exporteren",
-      "exporting": "Exporteren…",
-      "library": "Bibliotheek",
-      "maps": "Kaarten",
-      "tokens": "Tokens",
-      "audio": "Audio"
     },
     "cleanup": {
       "title": "Databaseopschoning",
@@ -2104,5 +2094,67 @@
     "remove": "Verwijderen",
     "failed": "Kon de afbeelding niet instellen",
     "searchFailed": "Kon afbeeldingen niet laden"
+  },
+  "backups": {
+    "notice": {
+      "title": "What a backup covers",
+      "noLibrary": "Your library files are never included. A backup holds only the database and the files you uploaded through Grimoire (campaign uploads, system covers, audio covers). Back up your library separately.",
+      "threeTwoOne": "These backups live on the same machine as Grimoire. Follow a 3-2-1 strategy: three copies, on two kinds of media, with one off-site.",
+      "restore": "Restoring is done by hand, with the server stopped. See restore-from-backup.md in the Grimoire repository."
+    },
+    "list": {
+      "title": "Backups",
+      "description": "Each backup is a single timestamped .zip holding a consistent snapshot of the database plus the files you uploaded through Grimoire.",
+      "createButton": "Back Up Now",
+      "creating": "Backing up…",
+      "blockingWarning": "Database writes are paused until this finishes.",
+      "empty": "No backups yet.",
+      "download": "Download",
+      "delete": "Delete",
+      "version": "v{{version}}",
+      "summary": "{{count}} backup, {{size}} total",
+      "summary_one": "{{count}} backup, {{size}} total",
+      "summary_other": "{{count}} backups, {{size}} total",
+      "storedIn": "Stored in {{path}}",
+      "confirmDelete": "Delete the backup from {{date}}? This cannot be undone.",
+      "loadFailed": "Could not load backups.",
+      "createFailed": "Backup failed.",
+      "downloadFailed": "Download failed.",
+      "deleteFailed": "Could not delete backup.",
+      "age": {
+        "justNow": "just now",
+        "minutes_one": "{{count}} minute ago",
+        "minutes_other": "{{count}} minutes ago",
+        "hours_one": "{{count}} hour ago",
+        "hours_other": "{{count}} hours ago",
+        "days_one": "{{count}} day ago",
+        "days_other": "{{count}} days ago"
+      }
+    },
+    "schedule": {
+      "title": "Automatic Backups",
+      "description": "Run a backup on a schedule. Times are shown in your local timezone.",
+      "off": "Off",
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "save": "Save Backup Settings",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "envLocked": "Set by {{name}}",
+      "loadFailed": "Could not load backup settings.",
+      "saveFailed": "Could not save backup settings."
+    },
+    "retention": {
+      "title": "Retention",
+      "description": "Old backups are removed once either limit is passed. Set a limit to 0 to leave it unlimited.",
+      "countLabel": "Keep at most (backups)",
+      "sizeLabel": "Keep at most (GB)",
+      "note": "Pruning runs after a new backup is written, so the limit can be briefly exceeded during a backup. At least one backup is always kept, even if it exceeds the size limit on its own."
+    },
+    "location": {
+      "title": "Storage location",
+      "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
   }
 }

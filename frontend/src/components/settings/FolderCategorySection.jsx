@@ -42,10 +42,10 @@ export default function FolderCategorySection() {
   return (
     <div style={{ marginBottom: 40 }}>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
-        {t('maintenance.folderCategory.title')}
+        {t('appSettings.folderCategory.title')}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-        {t('maintenance.folderCategory.description')}
+        {t('appSettings.folderCategory.description')}
       </p>
 
       <label
@@ -73,14 +73,14 @@ export default function FolderCategorySection() {
           }}
         />
         <span style={{ fontSize: 14, color: 'var(--text)' }}>
-          {t('maintenance.folderCategory.disable')}
+          {t('appSettings.folderCategory.disable')}
         </span>
         {saving && <Spinner size={13} />}
         {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />}
       </label>
 
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12, lineHeight: 1.5 }}>
-        {t('maintenance.folderCategory.perSystemHint')}
+        {t('appSettings.folderCategory.perSystemHint')}
       </p>
 
       {envLocked && (
@@ -96,7 +96,7 @@ export default function FolderCategorySection() {
             lineHeight: 1.5,
           }}
         >
-          {t('maintenance.folderCategory.envLocked', {
+          {t('appSettings.folderCategory.envLocked', {
             value: disabled ? 'true' : 'false',
           })}
         </div>

@@ -206,7 +206,7 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 >
 > Any subfolder name that doesn't match the recognized keywords becomes its own category, slugified from the folder name. For example, a folder named `Bestiary` becomes the `bestiary` category.
 >
-> **Prefer to organize categories yourself?** Turn folder-name inference off in **Settings → Maintenance → Folder Category Inference** (or pin it with the `DISABLE_FOLDER_CATEGORY_INFERENCE` env var); books then fall back to the `uncategorized` category. To disable inference for a single system only, drop an empty `.no-auto-category` file at that system's folder root.
+> **Prefer to organize categories yourself?** Turn folder-name inference off in **Settings → Application → Folder Category Inference** (or pin it with the `DISABLE_FOLDER_CATEGORY_INFERENCE` env var); books then fall back to the `uncategorized` category. To disable inference for a single system only, drop an empty `.no-auto-category` file at that system's folder root.
 >
 > After adding new files, use **Rescan** in the sidebar (or Settings → Maintenance) to pick up the changes. For large libraries you can also rescan a single corner: every system, category, subfolder, and map/token group has its own rescan button that re-scans just that folder.
 
@@ -787,11 +787,15 @@ Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-
 | `OCR_CONCURRENCY` | `1` | Optional. Number of scanned books OCR'd in parallel by the background OCR worker. Raise on multi-core hosts with spare CPU; keep at `1` on small boxes. Set to `0` to turn OCR off (same as `OCR_ENABLED=false`). See [OCR performance](#ocr-performance--resource-tuning). |
 | `OCR_DPI` | `150` | Optional. Resolution scanned pages are rasterized at before OCR (clamped 72–600). Higher = more accurate but slower and more memory per page. See [OCR performance](#ocr-performance--resource-tuning). |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
+| `BACKUP_DIR` | `DATA_PATH/backups` | Optional. Where backup archives are written. Point this at another mounted volume to keep backups off the main disk. When set, the field is read-only in Settings → Maintenance. See [Backups](#backups) below. |
+| `BACKUP_SCHEDULE` | `off` | Optional. `off`, `hourly`, `daily`, or `weekly`. When set, pins the backup schedule and the control is shown read-only in the UI. See [Backups](#backups) below. |
+| `BACKUP_RETENTION_COUNT` | `0` | Optional. Keep at most this many backups, deleting oldest-first. `0` means unlimited. When set, the field is read-only in the UI. See [Backups](#backups) below. |
+| `BACKUP_RETENTION_GB` | `0` | Optional. Keep at most this many gigabytes of backups in total, deleting oldest-first. `0` means unlimited. When set, the field is read-only in the UI. See [Backups](#backups) below. |
 | `LOG_LEVEL` | `info` | Optional Console/Docker log verbosity: `debug`, `info`, `warning`, `error`, or `critical`. The in-app Logs tab (Settings → Logs) always captures `debug`-level entries regardless of this setting. |
 | `TZ` | `UTC` | Optional. Timezone for all log timestamps - both console/Docker output and the in-app Logs tab. Use an IANA zone name such as `America/Toronto` or `Europe/Berlin`. Defaults to UTC when unset; an unknown zone name logs a warning and uses UTC. |
 | `ALLOW_PASSWORD_AUTHENTICATION` | - | Optional, `true` or `false`. When set, pins password authentication on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. First-run admin setup always requires a username and password regardless of this value. |
 | `GUEST_ACCESS_ENABLED` | - | Optional, `true` or `false`. When set, pins guest invite codes on or off and overrides the toggle in Settings → Authentication (the toggle is shown read-only). When unset, the in-app setting is used. See [Guest invites](#guest-invites) below. |
-| `DISABLE_FOLDER_CATEGORY_INFERENCE` | - | Optional, `true` or `false`. When set, pins folder-name category inference on or off and overrides the toggle in Settings → Maintenance (shown read-only). When `true`, books are not auto-assigned a category from their folder names and fall back to `uncategorized`. A per-system `.no-auto-category` marker file disables inference for just that system. |
+| `DISABLE_FOLDER_CATEGORY_INFERENCE` | - | Optional, `true` or `false`. When set, pins folder-name category inference on or off and overrides the toggle in Settings → Application (shown read-only). When `true`, books are not auto-assigned a category from their folder names and fall back to `uncategorized`. A per-system `.no-auto-category` marker file disables inference for just that system. |
 | `DISABLE_EXTERNAL_ADD_ON_INSTALL` | `false` | Optional, `true` or `false`. When `true`, Grimoire never fetches anything from a community repository: wiki note templates, metadata add-ons, and themes alike. The **Browse** tabs disappear and the catalogue endpoints refuse. Writing templates in the app, uploading a `.md`, and pasting a theme still work, so a locked-down or air-gapped server keeps every feature - it just stops fetching. **Replaces `WIKI_TEMPLATES_DOWNLOAD_DISABLED`**, which is no longer read. See [Themes](docs/themes.md) and [Wiki note templates](docs/wiki-templates.md). |
 | `OIDC_*` env vars | - | Optional. Each OIDC setting (`OIDC_ENABLED`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_ISSUER`, `OIDC_AUTHORIZATION_ENDPOINT`, `OIDC_TOKEN_ENDPOINT`, `OIDC_USERINFO_ENDPOINT`, `OIDC_JWKS_URI`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SIGNING_ALG`, `OIDC_BUTTON_TEXT`, `OIDC_GROUPS_CLAIM`, `OIDC_PERMISSIONS_CLAIM`, `OIDC_MATCH_BY`, `OIDC_AUTO_LAUNCH`, `OIDC_AUTO_REGISTER`) can be pinned via env. When set, the field is read-only in Settings → Authentication. When unset, the in-app value is used. See [OpenID Connect](#openid-connect) below. |
 | `AUTH_RATE_LIMIT` | `10/minute` | Per-IP throttle applied to the credential-checking endpoints (`/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and the API-key-guarded `/api/stats`). Exceeding it returns `429`. Uses a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string like `20/minute` or `100/hour`. See [Security hardening](#security-hardening) below. |
@@ -897,6 +901,86 @@ Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an i
 Cache entries are keyed by a hash of the source file's **contents**, so replacing a book with a different file at the same path automatically supersedes everything cached from the old one - pages, cover, and search text. The next rescan notices the change, and the reader picks up the new pages without a restart or a manual cache purge.
 
 The on-disk cache is trimmed oldest-first back under `PAGE_CACHE_MAX_MB` (default 2 GiB) at startup and after each library scan.
+
+---
+
+## Backups
+
+Grimoire can take a snapshot of its own database and the files you have uploaded through
+it, on demand or on a schedule. Backups live under **Settings → Maintenance → Backups**.
+
+Each backup is a single timestamped `.zip`:
+
+```
+grimoire-backup-20260821T140355Z.zip
+├── details.json        manifest: app version, timestamp, what is inside
+├── grimoire.db         the SQLite database
+├── campaign_uploads/   banners, character art, sheets, campaign files
+├── system_covers/      custom game-system cover images
+└── audio_covers/       custom audio cover art
+```
+
+The database is copied with SQLite's online backup API rather than a file copy, so the
+snapshot is consistent even while Grimoire is running. Database writes are paused for the
+duration of the snapshot - brief for a typical library, but not instant.
+
+### Your library is not backed up
+
+**Backups do not include your PDFs, maps, tokens, or audio files.** The library is
+yours, is mounted read-only, and is usually far too large to copy on a schedule - so
+Grimoire never touches it. **Back your library up separately.**
+
+Thumbnails and rendered pages are also excluded, because both regenerate on demand. After
+a restore, the first view of a book or map is a little slower while they rebuild.
+
+### Please do not rely on these alone
+
+Backups are written to the same machine Grimoire runs on. A failed disk takes the
+backups with the original. They protect against *application-level* accidents - a bad
+rescan, a cleanup that removed more than you meant - which is worth having, but they are
+not disaster recovery.
+
+Follow **3-2-1**: three copies, on two kinds of storage, with one off-site. In practice:
+point `BACKUP_DIR` at a volume on a different disk, and sync that directory somewhere
+off-site (`rclone`, `restic`, `Syncthing`, or your NAS's own backup job). Do the same for
+your library directory.
+
+### Scheduling and retention
+
+The schedule is `off`, `hourly`, `daily`, or `weekly` - set in the UI, in your local
+timezone, or pinned with `BACKUP_SCHEDULE`.
+
+Two independent retention limits keep the directory bounded, and a backup is removed once
+*either* is passed:
+
+- **`BACKUP_RETENTION_COUNT`** - keep at most N backups
+- **`BACKUP_RETENTION_GB`** - keep at most N GB in total
+
+`0` means unlimited (the default for both). Old backups are deleted oldest-first, and
+**at least one backup is always kept**, even if it is larger than the size limit on its
+own. Pruning happens *after* a new backup is written, so the limit can be briefly
+exceeded while a backup runs - leave headroom for one extra archive.
+
+Any of the four settings can be pinned with an environment variable, in which case the
+value wins and the field is read-only in the UI.
+
+### Restoring
+
+Restoring is deliberately **not** something Grimoire does for you: it means replacing the
+live database underneath a running app, which is safe when done by hand with the server
+stopped and dangerous when a web request can trigger it.
+
+The full procedure - stop the server, unpack, integrity-check, restart, rescan - is in
+[restore-from-backup.md](restore-from-backup.md). It takes about five minutes.
+
+### From the API
+
+The endpoints are admin-only. `GET /api/backups` lists every backup newest-first with its
+`created_at`, `size_bytes`, and `version`; `POST /api/backups` takes one now. Together
+these support a check-before-destructive-operation flow - see how stale the newest backup
+is, and take a fresh one before a risky rescan or cleanup. `GET /api/backups/{id}/download`
+retrieves an archive and `DELETE /api/backups/{id}` removes one. There is no restore
+endpoint, by design.
 
 ---
 

@@ -160,6 +160,57 @@ def _bool_env(name: str) -> Optional[bool]:
 GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 
 
+# ---------------------------------------------------------------------------
+# Backups (issue #338)
+# ---------------------------------------------------------------------------
+# A backup is a single timestamped .zip holding a consistent snapshot of the
+# SQLite database plus the user-authored files under DATA_PATH that no rescan
+# could rebuild (campaign uploads, system covers, audio covers). It deliberately
+# does NOT include the library itself — that is mounted read-only and is the
+# operator's to back up — nor the regenerable caches (thumbnails, page_cache).
+#
+# Each of these settings can be pinned by an environment variable. When
+# one is set it wins over the DB value and the admin UI renders that field
+# read-only, matching how password auth and OIDC are locked.
+#
+#   BACKUP_DIR — where backups are written. Defaults to DATA_PATH/backups.
+#                Pointing this at a mount outside DATA_PATH is supported (and
+#                encouraged); backups are never nested inside a backup.
+#   BACKUP_SCHEDULE — "off" | "hourly" | "daily" | "weekly". Human-readable on
+#                purpose: the UI offers the same four, not a cron expression.
+#   BACKUP_RETENTION_COUNT — keep at most N backups. 0 = unlimited.
+#   BACKUP_RETENTION_GB — keep at most N GB of backups total. 0 = unlimited.
+#
+# Retention prunes oldest-first and always leaves at least one backup standing,
+# so a single archive larger than the GB budget is kept rather than deleted into
+# nothing. Pruning runs *after* a new backup is written, so the configured
+# ceiling can be exceeded for the duration of the run — sizing headroom for one
+# extra archive is expected.
+BACKUP_DIR_ENV: Optional[str] = os.environ.get("BACKUP_DIR") or None
+BACKUP_DIR = BACKUP_DIR_ENV or os.path.join(DATA_PATH, "backups")
+
+_BACKUP_SCHEDULE_RAW = os.environ.get("BACKUP_SCHEDULE")
+BACKUP_SCHEDULE_ENV: Optional[str] = (
+    _BACKUP_SCHEDULE_RAW.strip().lower() if _BACKUP_SCHEDULE_RAW else None
+)
+
+
+def _int_env(name: str) -> Optional[int]:
+    """Read a non-negative int env var. Unset or unparseable yields None, which
+    leaves the corresponding DB setting in charge."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return max(0, int(raw.strip()))
+    except ValueError:
+        return None
+
+
+BACKUP_RETENTION_COUNT_ENV: Optional[int] = _int_env("BACKUP_RETENTION_COUNT")
+BACKUP_RETENTION_GB_ENV: Optional[int] = _int_env("BACKUP_RETENTION_GB")
+
+
 # Single kill-switch for every install that reaches out to a community
 # repository: wiki note templates, metadata add-ons, and themes. When true,
 # Grimoire makes no outbound request for any of them and the browse/install

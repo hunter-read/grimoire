@@ -746,6 +746,13 @@
       "perFile": "Maximale Dateigröße (MB, 0 = unbegrenzt)",
       "perCampaign": "Maximum pro Kampagne insgesamt (MB, 0 = unbegrenzt)",
       "hint": "Dateien werden im Datenverzeichnis gespeichert, getrennt von der Bibliothek."
+    },
+    "folderCategory": {
+      "title": "Kategorie-Erkennung aus Ordnern",
+      "description": "Standardmäßig wird die Kategorie eines Buchs aus seinem Ordnernamen abgeleitet (z. B. wird ein Buch in einem \"Core\"-Ordner der Kategorie Core zugeordnet). Deaktivieren Sie dies, um Bücher stattdessen nicht kategorisiert zu lassen.",
+      "disable": "Kategorie-Erkennung aus Ordnernamen deaktivieren",
+      "perSystemHint": "Um die Erkennung nur für ein einzelnes System zu deaktivieren, legen Sie eine leere Datei namens .no-auto-category im Stammordner dieses Systems ab.",
+      "envLocked": "Diese Einstellung ist durch die Umgebungsvariable DISABLE_FOLDER_CATEGORY_INFERENCE festgelegt (derzeit {{value}}) und kann hier nicht geändert werden."
     }
   },
   "users": {
@@ -858,23 +865,6 @@
         "sat": "Sa",
         "sun": "So"
       }
-    },
-    "folderCategory": {
-      "title": "Kategorie-Erkennung aus Ordnern",
-      "description": "Standardmäßig wird die Kategorie eines Buchs aus seinem Ordnernamen abgeleitet (z. B. wird ein Buch in einem \"Core\"-Ordner der Kategorie Core zugeordnet). Deaktivieren Sie dies, um Bücher stattdessen nicht kategorisiert zu lassen.",
-      "disable": "Kategorie-Erkennung aus Ordnernamen deaktivieren",
-      "perSystemHint": "Um die Erkennung nur für ein einzelnes System zu deaktivieren, legen Sie eine leere Datei namens .no-auto-category im Stammordner dieses Systems ab.",
-      "envLocked": "Diese Einstellung ist durch die Umgebungsvariable DISABLE_FOLDER_CATEGORY_INFERENCE festgelegt (derzeit {{value}}) und kann hier nicht geändert werden."
-    },
-    "tagExport": {
-      "title": "Tags exportieren",
-      "description": "Lade alle Tags, die Büchern, Karten, Tokens, Systemen und Ordnern zugewiesen sind, als JSON-Datei herunter.",
-      "button": "Tags exportieren",
-      "exporting": "Wird exportiert…",
-      "library": "Bibliothek",
-      "maps": "Karten",
-      "tokens": "Tokens",
-      "audio": "Audio"
     },
     "cleanup": {
       "title": "Datenbankbereinigung",
@@ -2104,5 +2094,67 @@
     "remove": "Entfernen",
     "failed": "Bild konnte nicht festgelegt werden",
     "searchFailed": "Bilder konnten nicht geladen werden"
+  },
+  "backups": {
+    "notice": {
+      "title": "What a backup covers",
+      "noLibrary": "Your library files are never included. A backup holds only the database and the files you uploaded through Grimoire (campaign uploads, system covers, audio covers). Back up your library separately.",
+      "threeTwoOne": "These backups live on the same machine as Grimoire. Follow a 3-2-1 strategy: three copies, on two kinds of media, with one off-site.",
+      "restore": "Restoring is done by hand, with the server stopped. See restore-from-backup.md in the Grimoire repository."
+    },
+    "list": {
+      "title": "Backups",
+      "description": "Each backup is a single timestamped .zip holding a consistent snapshot of the database plus the files you uploaded through Grimoire.",
+      "createButton": "Back Up Now",
+      "creating": "Backing up…",
+      "blockingWarning": "Database writes are paused until this finishes.",
+      "empty": "No backups yet.",
+      "download": "Download",
+      "delete": "Delete",
+      "version": "v{{version}}",
+      "summary": "{{count}} backup, {{size}} total",
+      "summary_one": "{{count}} backup, {{size}} total",
+      "summary_other": "{{count}} backups, {{size}} total",
+      "storedIn": "Stored in {{path}}",
+      "confirmDelete": "Delete the backup from {{date}}? This cannot be undone.",
+      "loadFailed": "Could not load backups.",
+      "createFailed": "Backup failed.",
+      "downloadFailed": "Download failed.",
+      "deleteFailed": "Could not delete backup.",
+      "age": {
+        "justNow": "just now",
+        "minutes_one": "{{count}} minute ago",
+        "minutes_other": "{{count}} minutes ago",
+        "hours_one": "{{count}} hour ago",
+        "hours_other": "{{count}} hours ago",
+        "days_one": "{{count}} day ago",
+        "days_other": "{{count}} days ago"
+      }
+    },
+    "schedule": {
+      "title": "Automatic Backups",
+      "description": "Run a backup on a schedule. Times are shown in your local timezone.",
+      "off": "Off",
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "save": "Save Backup Settings",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "envLocked": "Set by {{name}}",
+      "loadFailed": "Could not load backup settings.",
+      "saveFailed": "Could not save backup settings."
+    },
+    "retention": {
+      "title": "Retention",
+      "description": "Old backups are removed once either limit is passed. Set a limit to 0 to leave it unlimited.",
+      "countLabel": "Keep at most (backups)",
+      "sizeLabel": "Keep at most (GB)",
+      "note": "Pruning runs after a new backup is written, so the limit can be briefly exceeded during a backup. At least one backup is always kept, even if it exceeds the size limit on its own."
+    },
+    "location": {
+      "title": "Storage location",
+      "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
   }
 }

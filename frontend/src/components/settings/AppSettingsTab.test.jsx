@@ -191,3 +191,41 @@ describe('AppSettingsTab — ApiKeySection', () => {
     expect(screen.queryByText('my-secret-key')).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// FolderCategorySection
+// ---------------------------------------------------------------------------
+// Moved here from the Maintenance tab: it is a persistent setting for how
+// Grimoire interprets the library, not a one-off housekeeping task.
+
+describe('AppSettingsTab — FolderCategorySection', () => {
+  it('renders the folder category inference toggle', async () => {
+    render(<AppSettingsTab />)
+
+    const box = await screen.findByRole('checkbox', {
+      name: (_, el) => el.id === 'disable_folder_category_inference',
+    })
+    expect(box).toBeInTheDocument()
+    expect(box).not.toBeChecked()
+  })
+
+  it('reflects the stored setting and saves a change', async () => {
+    settingsApi.get.mockResolvedValue({
+      ...defaultSettings,
+      disable_folder_category_inference: true,
+    })
+    render(<AppSettingsTab />)
+
+    const box = await screen.findByRole('checkbox', {
+      name: (_, el) => el.id === 'disable_folder_category_inference',
+    })
+    expect(box).toBeChecked()
+
+    fireEvent.click(box)
+    await waitFor(() =>
+      expect(settingsApi.patch).toHaveBeenCalledWith(
+        expect.objectContaining({ disable_folder_category_inference: false })
+      )
+    )
+  })
+})
