@@ -231,25 +231,33 @@ class TestUpdateSystem:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
-    def test_system_tags_lowercased_on_update(self, client, admin_headers, system):
+    def test_system_tags_keep_display_casing_on_update(self, client, admin_headers, system):
+        # Shared tags preserve the entered casing (display value); only the
+        # internal match key is lowercased, so "GM Screen" stays "GM Screen".
+        # Unique tag names avoid reusing a display value set by another test —
+        # get_or_create_tag never rewrites an existing tag's display, so a name
+        # another test created first would decide this assertion.
+        uid = uuid.uuid4().hex[:6]
         resp = client.patch(
             f"/api/systems/{system.id}",
-            json={"tags": ["Draw Steel", "FANTASY"]},
+            json={"tags": [f"Draw Steel{uid}", f"FANTASY{uid}"]},
             headers=admin_headers,
         )
         assert resp.status_code == 200
         detail = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
-        assert detail["tags"] == ["draw steel", "fantasy"]
+        assert detail["tags"] == [f"Draw Steel{uid}", f"FANTASY{uid}"]
 
     def test_system_tags_deduplicated_after_lowercase(self, client, admin_headers, system):
+        uid = uuid.uuid4().hex[:6]
         resp = client.patch(
             f"/api/systems/{system.id}",
-            json={"tags": ["draw steel", "Draw Steel"]},
+            json={"tags": [f"draw steel{uid}", f"Draw Steel{uid}"]},
             headers=admin_headers,
         )
         assert resp.status_code == 200
         detail = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
-        assert detail["tags"] == ["draw steel"]
+        # Case-variants collapse to one tag, keeping the first-entered display.
+        assert detail["tags"] == [f"draw steel{uid}"]
 
     def test_player_cannot_update(self, client, player_headers, system):
         resp = client.patch(
