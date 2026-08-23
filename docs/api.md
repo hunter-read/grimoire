@@ -424,6 +424,19 @@ each section is collapsible.
 Defaults for both tables are seeded on migration and are removable. A genre or
 family removed while attached to systems/books is detached from them (`?force=true`).
 
+**Variants (issues #304, #306):** a book, map, token, or audio record may be a
+*variant* of another — a printer-friendly cut, a gridless map, an older version.
+A variant is **hidden from list endpoints, counts, and search**, so one book
+occupies one shelf slot, but it stays fully reachable by id: `GET /api/books/:id`,
+its page renders, and its thumbnail all work normally. Detail responses carry
+`variant_parent_id`, `variant_kind`, `variant_label`, `variant_main_id` (the
+entry that represents the family in listings), and `variants` (the full sibling
+list, so a version picker needs no second request). List rows carry
+`variant_count`. Variants are deliberately **included** in bulk downloads and the
+OPDS catalogue — an archive or a feed should be complete — and in
+`/api/stats`'s `total_size_mb`, since those bytes really are on disk, while the
+item counts exclude them.
+
 ### Maps
 
 Archive files (`.zip`, `.rar`, `.7z`, `.tar`, `.tar.gz`, …) under `maps/`, `tokens/`,
@@ -598,6 +611,13 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 ```
 
 `maps` and `tokens` are empty when `book_id` or `system_id` is scoped.
+
+**Variants and search:** global and system-scoped search return only variant
+parents, so one book yields one result rather than five. A consequence worth
+knowing: text that exists *only* in a variant — errata added in a v1.0.1, or the
+OCR'd copy of a scan — is not findable from global search. Scoping with
+`book_id` searches that specific record, variant or not, which is how the reader
+searches inside whichever version is open.
 
 Each result's `snippet` is HTML-safe: the matched term is wrapped in `<mark>…</mark>`
 and all surrounding text (which originates from an untrusted PDF text layer) is
@@ -1082,6 +1102,105 @@ mismatch.
 placed there by hand works without any UI step. Config and install state ride in
 the generic `app_settings` table under `addons.*` keys, so this feature adds no
 schema.
+
+### Duplicates *(admin only)*
+
+Finding files that look like copies of one another, and deciding what to do
+about them (issues #304, #306).
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/duplicates/scan-status` | GET | Progress of the detection scan |
+| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = all four) |
+| `/api/duplicates/cancel-scan` | POST | Stop a running scan |
+| `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset` |
+| `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids` |
+| `/api/duplicates/link` | POST | File items under a parent as its variants |
+| `/api/duplicates/promote` | POST | Make a different copy the main version of an existing family |
+| `/api/duplicates/unlink` | POST | Promote variants back to standalone entries |
+| `/api/duplicates/merge-metadata` | POST | Copy chosen metadata fields between two records |
+| `/api/duplicates/items/:type/:id` | DELETE | Delete one record, optionally its file |
+| `/api/duplicates/dismiss` | POST | Record that a group is *not* duplicates |
+| `/api/duplicates/dismissals` | GET | List dismissed groups |
+| `/api/duplicates/dismissals/:id` | DELETE | Undo a dismissal |
+
+**Nothing is ever deleted automatically.** Detection only surfaces candidates;
+every deletion, link, and metadata copy is one explicit request about one group
+the user looked at. There is no setting that changes this.
+
+**Detection** is an explicitly triggered scan, never part of the normal rescan,
+and it refuses to start (409) while a library scan is running. Three signals,
+each catching what the others cannot:
+
+- `hash` — byte-identical files, from the `content_hash` the scanner already
+  stores. Confidence 1.0, and free: no file is re-read.
+- `metadata` — near-identical titles and authors, catching `book.pdf` beside
+  `book_v2.pdf`. Comparison is blocked on a title prefix so a large library
+  stays tractable.
+- `text` — overlapping extracted text from the FTS index, for the same book
+  scanned twice or a PDF beside a CBZ of one scan. Only computed for pairs a
+  cheaper signal already flagged.
+
+Maps additionally get a `grid` signal, pairing `Tavern_grid.png` with
+`Tavern_nogrid.png` by filename marker and comparable file size.
+
+**Dismissals persist across rescans**, and are remembered pair-wise rather than
+per group: dismissing {A,B} keeps that pair suppressed even when a later scan
+finds a third copy C, while C still surfaces against both. A dismissal is
+dropped automatically once any of its members is deleted.
+
+**Search accuracy.** `POST /duplicates/scan` takes an `accuracy` of `exact`,
+`high`, `medium` (default), or `low`. `exact` runs only the byte-identical pass —
+an indexed lookup with no file reads and no false positives; the looser levels
+progressively lower the title and text-overlap cutoffs, taking longer and
+returning matches that need judging. `exact` disables the fuzzy signals outright
+rather than running them with an impossible threshold, which is what makes it
+fast rather than merely strict.
+
+**Cross-system matching.** A title match between two different game systems is
+discounted, and suppressed entirely when either file is under 10 pages: generic
+handouts ("Character Sheet.pdf") exist once per system and are not copies of one
+another. A missing `game_system_id` is not treated as "a different system" —
+maps and tokens are routinely system-agnostic. Byte-identical matches are
+unaffected: the same bytes are the same file wherever they are filed.
+
+**Group edges.** A group's `edges` list the pairwise matches it was built from
+(`{a, b, reason, score}`). Clustering is transitive, so a group is *not* a set of
+mutual duplicates: if D resembles A, B, and C while the only real duplicate is
+A–B, all four land in one group. Reviewing that as "D versus everything" would
+invent pairs that never matched and hide the pair that did, so clients should
+render the edges rather than the member cross-product. Dismissing a pair removes
+the matching edge from the live results — and with it the transitive path that
+would otherwise put the rejected pair back on screen.
+
+**Variants** are how #306 collapses versions. `POST /duplicates/link` points one
+record at another via `variant_parent_id`, with a `kind` from `printer-friendly`,
+`form-fillable`, `spreads`, `single-page`, `version`, `black-and-white`,
+`gridded`, `gridless`, `other`, and a free-text `label` ("v1.0.1"). Only two
+levels are allowed — a variant cannot itself have variants — which makes cycles
+impossible and keeps the version picker flat. Deleting a record that has
+variants requires `reparent_to`: either an id naming which variant inherits the
+rest, or `""` to promote them all. A variant is never left pointing at a deleted
+parent.
+
+`POST /duplicates/promote` re-elects the main version of a family that already
+exists. It is separate from `link` because `link` refuses to file a parent under
+something else — the two-level rule — which would otherwise leave a user stuck
+with whichever copy they happened to review first: link the printable cut under
+the form-fillable one, then meet the lined edition you actually consider the
+original, and there is no way to say so. Promote moves the whole family at once:
+`new_parent_id` becomes the main version, `old_parent_id` becomes one of its
+variants carrying the given `kind`/`label`, and the old parent's children
+re-home onto the new parent rather than dangling one level too deep. It returns
+`moved`, the number of rows re-homed including the demoted parent. The new
+parent may already be a variant of the old one (the common case — promoting a
+copy you linked earlier); a new parent belonging to a *different* family is a
+409.
+
+**Merge whitelist:** `merge-metadata` accepts only descriptive fields. Anything
+identifying the file — `filepath`, `filename`, `relative_path`, `content_hash`,
+`file_size`, `game_system_id`, and the `variant_*` columns — is rejected with a
+400. `tags` merges additively; it never removes a tag from the record being kept.
 
 ### Maintenance *(admin only)*
 

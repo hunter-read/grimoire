@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import MaintenanceTab from './MaintenanceTab'
 
 vi.mock('../../api', () => ({
@@ -10,6 +11,15 @@ vi.mock('../../api', () => ({
   settings: {
     get: vi.fn(),
     patch: vi.fn(),
+  },
+  duplicates: {
+    scanStatus: vi.fn(() => Promise.resolve({ running: false })),
+    startScan: vi.fn(() => Promise.resolve({})),
+    cancelScan: vi.fn(() => Promise.resolve({})),
+    groups: vi.fn(() => Promise.resolve({ groups: [] })),
+    link: vi.fn(),
+    dismiss: vi.fn(),
+    deleteItem: vi.fn(),
   },
   sidecars: {
     get: vi.fn(),
@@ -148,7 +158,7 @@ describe('MaintenanceTab — RescanSection', () => {
     api.get.mockResolvedValue(scanningStatus)
     render(<MaintenanceTab />)
     await waitFor(() => {
-      expect(screen.getByText(/scanning/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /scanning… 28%/i })).toBeInTheDocument()
     })
   })
 
@@ -294,5 +304,56 @@ describe('MaintenanceTab — ScheduledRescanSection', () => {
         expect.objectContaining({ cleanup_on_rescan: false })
       )
     })
+  })
+})
+
+describe('MaintenanceTab — grouping', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('renders the four collapsible groups', () => {
+    render(<MaintenanceTab />)
+    for (const name of [/library scanning/i, /library manager/i, /^metadata$/i, /^backups$/i]) {
+      expect(screen.getByRole('button', { name, expanded: true })).toBeInTheDocument()
+    }
+  })
+
+  it('groups each section under its category', () => {
+    render(<MaintenanceTab />)
+    // Scanning group.
+    expect(screen.getByRole('heading', { name: /rescan library/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /database cleanup/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /scheduled rescan/i })).toBeInTheDocument()
+    // Library manager group.
+    expect(screen.getByRole('heading', { name: /library file manager/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /duplicate detection/i })).toBeInTheDocument()
+    // Metadata group.
+    expect(screen.getByRole('heading', { name: /metadata sidecars/i })).toBeInTheDocument()
+  })
+
+  it('collapsing a group hides its sections', async () => {
+    render(<MaintenanceTab />)
+    await userEvent.click(screen.getByRole('button', { name: /library manager/i }))
+    expect(screen.queryByRole('heading', { name: /library file manager/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /duplicate detection/i })).not.toBeInTheDocument()
+  })
+
+  it('remembers a collapsed group across remounts', async () => {
+    const { unmount } = render(<MaintenanceTab />)
+    await userEvent.click(screen.getByRole('button', { name: /^backups$/i }))
+    expect(localStorage.getItem('grimoire:settings:maintenance:backups')).toBe('0')
+    unmount()
+
+    render(<MaintenanceTab />)
+    expect(screen.getByRole('button', { name: /^backups$/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+  })
+
+  it('collapsing the scanning group hides the rescan controls', async () => {
+    render(<MaintenanceTab />)
+    await userEvent.click(screen.getByRole('button', { name: /library scanning/i }))
+    expect(screen.queryByRole('heading', { name: /rescan library/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /rescan library/i })).not.toBeInTheDocument()
   })
 })

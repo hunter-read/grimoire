@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
+from .._variant_schemas import VariantCountMixin, VariantFamilyMixin
 
 
 class AudioUpdate(BaseModel):
@@ -32,7 +33,7 @@ class FolderTagsUpdate(BaseModel):
         return tag_service.dedupe_tags(v)
 
 
-class AudioOut(BaseModel):
+class AudioOut(VariantCountMixin):
     """One audio track, as built by `core._serialize`.
 
     Columns declared `default=...` rather than `nullable=False` can still hold
@@ -66,7 +67,7 @@ class AudioListResponse(BaseModel):
     audio: list[AudioOut]
 
 
-class AudioDetailResponse(AudioOut):
+class AudioDetailResponse(AudioOut, VariantFamilyMixin):
     """`GET /audio/{id}` — the serialized track plus its folder context."""
 
     folder_path: str

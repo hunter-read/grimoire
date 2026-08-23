@@ -82,6 +82,11 @@ function changedSourceFiles(base, root) {
     .filter((p) => !p.startsWith('frontend/src/lib/'))
     .filter((p) => !/\.config\.(js|jsx)$/.test(p))
     .map((p) => resolve(root, p))
+    // A file the branch added and then deleted is still "changed" against the
+    // base, but there is nothing left to cover. `--diff-filter` cannot express
+    // this: the add is in base...HEAD while the delete is only in the working
+    // tree, so the two never cancel out.
+    .filter((p) => existsSync(p))
 }
 
 function main() {

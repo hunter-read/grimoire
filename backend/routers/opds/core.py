@@ -140,6 +140,9 @@ def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
     feed_url = f"{base_url}/opds/{token}/all"
     root_url = f"{base_url}/opds/{token}"
 
+    # Variants are included on purpose. A catalogue an e-reader syncs from
+    # should list every file the user owns; silently omitting the
+    # printer-friendly edition would read as a missing book.
     q = db.query(Book).filter(Book.is_missing != True)
     if not (user.allow_explicit if user.allow_explicit is not None else True):
         q = q.filter(Book.is_explicit != True)

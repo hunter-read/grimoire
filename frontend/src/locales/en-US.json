@@ -86,7 +86,8 @@
     "removeFromFavorites": "Remove from favorites",
     "select": "Select",
     "archive": "Archive",
-    "archiveNotViewable": "This is an archive file and cannot be previewed. Download it to open its contents."
+    "archiveNotViewable": "This is an archive file and cannot be previewed. Download it to open its contents.",
+    "versions": "Versions"
   },
   "login": {
     "username": "Username",
@@ -809,6 +810,16 @@
     "emailLabel": "Email"
   },
   "maintenance": {
+    "groups": {
+      "scanning": "Library Scanning",
+      "scanningDesc": "Scan the library for new or changed files, clear out entries whose files are gone, and put scans on a schedule.",
+      "library": "Library Manager",
+      "libraryDesc": "Organise the files in your library and review items that look like copies of each other.",
+      "metadata": "Metadata",
+      "metadataDesc": "Write Grimoire's metadata back into your library folder as sidecar files.",
+      "backups": "Backups",
+      "backupsDesc": "Create and download backups, and keep them running automatically."
+    },
     "rescan": {
       "title": "Rescan Library",
       "description": "Scan the library directory for new or changed files and update the search index.",
@@ -924,6 +935,93 @@
       "loadFailed": "Could not load sidecar settings.",
       "saveFailed": "Could not save sidecar settings.",
       "exportFailed": "Export failed. Check the server logs for details."
+    },
+    "dupes": {
+      "title": "Duplicate detection",
+      "description": "Find files that look like copies of each other, then decide what to do with them. Nothing is ever deleted automatically.",
+      "open": "Open duplicate detection",
+      "adminOnly": "Only administrators can manage duplicates.",
+      "scan": "Scan for duplicates",
+      "scanning": "Scanning…",
+      "cancel": "Stop scan",
+      "noResults": "No duplicates found.",
+      "notScanned": "No scan has been run yet.",
+      "groupsFound": "{{count}} groups found",
+      "confidence": "Confidence",
+      "compare": "Compare",
+      "dismiss": "Not duplicates",
+      "dismissed": "Dismissed groups",
+      "undismiss": "Restore",
+      "keepThis": "Keep this one",
+      "deleteOther": "Delete the other",
+      "linkAs": "Link as version",
+      "merge": "Copy metadata",
+      "scanFailed": "The scan could not be started.",
+      "loadFailed": "Could not load duplicate groups.",
+      "actionFailed": "That action could not be completed.",
+      "reason": "Reason",
+      "bookmarks": "bookmarks",
+      "favorites": "favorites",
+      "tags": "tags",
+      "campaigns": "campaign links",
+      "deleteFile": "Also delete the file from disk",
+      "confirmDelete": "Delete this copy?",
+      "linked": "Linked as a version.",
+      "of": "of",
+      "pairsFound": "{{count}} pairs to review",
+      "compareTitle": "Compare copies",
+      "compareDescription": "Two copies side by side. Choose which one is the main version, say what the other one is, or mark them as unrelated.",
+      "backToList": "Back to duplicates",
+      "isParent": "Main version",
+      "makeParent": "Make this the main version",
+      "swapParent": "Swap main version",
+      "kindLabel": "The other copy is a…",
+      "labelLabel": "Label (optional)",
+      "labelPlaceholder": "e.g. v1.0.1",
+      "linkExplainer": "{{child}} will be filed under {{parent}} as a variant.",
+      "promoteWarning": "{{count}} existing variant(s) will move across to the new main version.",
+      "deleteThis": "Delete this copy",
+      "syncedPage": "Page",
+      "noPairs": "No duplicate pairs to review.",
+      "field": {
+        "album": "Album",
+        "artist": "Artist",
+        "category": "Category",
+        "content_hash": "Content hash",
+        "description": "Description",
+        "duration": "Duration",
+        "file_size": "Size",
+        "grid_size": "Grid size",
+        "is_explicit": "Explicit",
+        "isbn": "ISBN",
+        "language": "Language",
+        "map_type": "Map type",
+        "mime_type": "Format",
+        "page_count": "Pages",
+        "publisher": "Publisher",
+        "title": "Title",
+        "version": "Version",
+        "year": "Year"
+      },
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "keepFileWarning": "The file stays on disk. If it is still inside your library folder, the next scan will find it again.",
+      "copyMetadata": "Copy metadata",
+      "copyExplainer": "Copy fields from {{source}} onto {{target}}, the copy you are keeping.",
+      "copySelected": "Copy {{count}} field(s)",
+      "accuracy": "Search accuracy",
+      "accuracyLevel": {
+        "exact": "Exact",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "accuracyHint": {
+        "exact": "Byte-identical files only. Fastest, and never a false positive.",
+        "high": "Identical files plus very close titles. Few false positives.",
+        "medium": "Identical files plus similar titles and overlapping text. The usual choice.",
+        "low": "Casts the widest net. Slowest, and expect matches that need judging."
+      }
     }
   },
   "logs": {
@@ -2155,6 +2253,23 @@
     "location": {
       "title": "Storage location",
       "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
+  },
+  "variants": {
+    "badge": "{{count}} versions",
+    "mainVersion": "Main version",
+    "switchLabel": "Switch version",
+    "otherVersions": "Other versions",
+    "kind": {
+      "printer-friendly": "Printer friendly",
+      "form-fillable": "Form fillable",
+      "spreads": "Two-page spreads",
+      "single-page": "Single pages",
+      "version": "Version",
+      "black-and-white": "Black and white",
+      "gridded": "Gridded",
+      "gridless": "Gridless",
+      "other": "Other"
     }
   }
 }

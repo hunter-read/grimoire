@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import api, { mediaUrl, campaigns, imageSources, auth, opds, settings, bulk } from './api'
+import api, {
+  mediaUrl,
+  campaigns,
+  imageSources,
+  auth,
+  opds,
+  settings,
+  bulk,
+  duplicates,
+} from './api'
 
 // Mirrors a real Response: handleResponse reads the body as text and parses it
 // itself, so an error body that isn't JSON can't throw a misleading SyntaxError
@@ -666,5 +675,142 @@ describe('api', () => {
       expect(url).toBe('/api/auth/sessions/others')
       expect(options.method).toBe('DELETE')
     })
+  })
+})
+
+// -----------------------------------------------------------------------------
+// duplicates (issues #304, #306)
+// -----------------------------------------------------------------------------
+
+describe('duplicates', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+  })
+
+  const url = () => fetch.mock.calls[0][0]
+
+  it('reads scan status', async () => {
+    global.fetch = mockFetch(200, { running: false })
+    await duplicates.scanStatus()
+    expect(url()).toBe('/api/duplicates/scan-status')
+  })
+
+  it('starts and cancels a scan', async () => {
+    global.fetch = mockFetch(200, { status: 'scan_started' })
+    await duplicates.startScan(['book'])
+    expect(url()).toBe('/api/duplicates/scan')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      resource_types: ['book'],
+      accuracy: 'medium',
+    })
+
+    global.fetch = mockFetch(200, { status: 'stop_requested' })
+    await duplicates.cancelScan()
+    expect(url()).toBe('/api/duplicates/cancel-scan')
+  })
+
+  it('defaults to scanning every collection', async () => {
+    global.fetch = mockFetch(200, {})
+    await duplicates.startScan()
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      resource_types: [],
+      accuracy: 'medium',
+    })
+  })
+
+  it('builds a group query, dropping empty params', async () => {
+    global.fetch = mockFetch(200, { groups: [] })
+    await duplicates.groups({ resource_type: 'book', limit: 50, min_confidence: '' })
+    expect(url()).toBe('/api/duplicates/groups?resource_type=book&limit=50')
+  })
+
+  it('omits the query string entirely when there are no params', async () => {
+    global.fetch = mockFetch(200, { groups: [] })
+    await duplicates.groups()
+    expect(url()).toBe('/api/duplicates/groups')
+  })
+
+  it('repeats the ids param for compare', async () => {
+    global.fetch = mockFetch(200, { items: [] })
+    await duplicates.compare('book', ['a', 'b'])
+    expect(url()).toBe('/api/duplicates/compare?resource_type=book&ids=a&ids=b')
+  })
+
+  it('links children under a parent', async () => {
+    global.fetch = mockFetch(200, { linked: ['b2'] })
+    await duplicates.link('book', 'b1', [{ id: 'b2', kind: 'version', label: 'v2' }])
+    expect(url()).toBe('/api/duplicates/link')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      resource_type: 'book',
+      parent_id: 'b1',
+      children: [{ id: 'b2', kind: 'version', label: 'v2' }],
+    })
+  })
+
+  it('unlinks by ids or by parent', async () => {
+    global.fetch = mockFetch(200, { unlinked: [] })
+    await duplicates.unlink('book', { ids: ['b2'] })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      resource_type: 'book',
+      ids: ['b2'],
+      parent_id: null,
+    })
+
+    global.fetch = mockFetch(200, { unlinked: [] })
+    await duplicates.unlink('map', { parentId: 'm1' })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      resource_type: 'map',
+      ids: [],
+      parent_id: 'm1',
+    })
+  })
+
+  it('merges metadata', async () => {
+    global.fetch = mockFetch(200, { updated: ['title'] })
+    await duplicates.mergeMetadata({
+      resource_type: 'book',
+      source_id: 'a',
+      target_id: 'b',
+      fields: ['title'],
+    })
+    expect(url()).toBe('/api/duplicates/merge-metadata')
+  })
+
+  it('deletes an item, defaulting to removing the file', async () => {
+    global.fetch = mockFetch(200, { file_deleted: true })
+    await duplicates.deleteItem('book', 'b1')
+    expect(url()).toBe('/api/duplicates/items/book/b1')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      delete_file: true,
+      reparent_to: null,
+    })
+  })
+
+  it('can keep the file and name an heir', async () => {
+    global.fetch = mockFetch(200, {})
+    await duplicates.deleteItem('book', 'b1', { deleteFile: false, reparentTo: 'b2' })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      delete_file: false,
+      reparent_to: 'b2',
+    })
+  })
+
+  it('dismisses, lists, and restores dismissals', async () => {
+    global.fetch = mockFetch(200, {})
+    await duplicates.dismiss('book', ['a', 'b'], 'deliberate')
+    expect(url()).toBe('/api/duplicates/dismiss')
+
+    global.fetch = mockFetch(200, { dismissals: [] })
+    await duplicates.dismissals('book')
+    expect(url()).toBe('/api/duplicates/dismissals?resource_type=book')
+
+    global.fetch = mockFetch(200, { dismissals: [] })
+    await duplicates.dismissals()
+    expect(url()).toBe('/api/duplicates/dismissals')
+
+    global.fetch = mockFetch(200, { status: 'removed' })
+    await duplicates.undismiss('d1')
+    expect(url()).toBe('/api/duplicates/dismissals/d1')
   })
 })

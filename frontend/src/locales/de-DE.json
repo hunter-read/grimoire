@@ -86,7 +86,8 @@
     "removeFromFavorites": "Aus Favoriten entfernen",
     "select": "Auswählen",
     "archive": "Archiv",
-    "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht in der Vorschau angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen."
+    "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht in der Vorschau angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen.",
+    "versions": "Versionen"
   },
   "login": {
     "username": "Benutzername",
@@ -809,6 +810,16 @@
     "emailLabel": "E-Mail"
   },
   "maintenance": {
+    "groups": {
+      "scanning": "Bibliotheks-Scan",
+      "scanningDesc": "Die Bibliothek nach neuen oder geänderten Dateien durchsuchen, Einträge ohne Datei entfernen und Scans planen.",
+      "library": "Dateiverwaltung",
+      "libraryDesc": "Die Dateien deiner Bibliothek organisieren und mögliche Duplikate prüfen.",
+      "metadata": "Metadaten",
+      "metadataDesc": "Grimoires Metadaten als Sidecar-Dateien in deinen Bibliotheksordner schreiben.",
+      "backups": "Sicherungen",
+      "backupsDesc": "Sicherungen erstellen und herunterladen sowie automatisch ausführen lassen."
+    },
     "rescan": {
       "title": "Bibliothek neu scannen",
       "description": "Das Bibliotheksverzeichnis nach neuen oder geänderten Dateien durchsuchen und den Suchindex aktualisieren.",
@@ -924,6 +935,93 @@
       "loadFailed": "Einstellungen für Begleitdateien konnten nicht geladen werden.",
       "saveFailed": "Einstellungen für Begleitdateien konnten nicht gespeichert werden.",
       "exportFailed": "Export fehlgeschlagen. Einzelheiten stehen im Serverprotokoll."
+    },
+    "dupes": {
+      "title": "Duplikaterkennung",
+      "description": "Finde Dateien, die Kopien voneinander sein könnten, und entscheide dann, was damit geschehen soll. Es wird niemals automatisch gelöscht.",
+      "open": "Duplikaterkennung öffnen",
+      "adminOnly": "Nur Administratoren können Duplikate verwalten.",
+      "scan": "Nach Duplikaten suchen",
+      "scanning": "Suche läuft…",
+      "cancel": "Suche stoppen",
+      "noResults": "Keine Duplikate gefunden.",
+      "notScanned": "Es wurde noch keine Suche durchgeführt.",
+      "groupsFound": "{{count}} Gruppen gefunden",
+      "confidence": "Sicherheit",
+      "compare": "Vergleichen",
+      "dismiss": "Keine Duplikate",
+      "dismissed": "Verworfene Gruppen",
+      "undismiss": "Wiederherstellen",
+      "keepThis": "Diese behalten",
+      "deleteOther": "Die andere löschen",
+      "linkAs": "Als Version verknüpfen",
+      "merge": "Metadaten kopieren",
+      "scanFailed": "Die Suche konnte nicht gestartet werden.",
+      "loadFailed": "Duplikatgruppen konnten nicht geladen werden.",
+      "actionFailed": "Die Aktion konnte nicht abgeschlossen werden.",
+      "reason": "Grund",
+      "bookmarks": "Lesezeichen",
+      "favorites": "Favoriten",
+      "tags": "Schlagwörter",
+      "campaigns": "Kampagnen-Verknüpfungen",
+      "deleteFile": "Datei auch von der Festplatte löschen",
+      "confirmDelete": "Diese Kopie löschen?",
+      "linked": "Als Version verknüpft.",
+      "of": "von",
+      "pairsFound": "{{count}} Paare zu prüfen",
+      "compareTitle": "Kopien vergleichen",
+      "compareDescription": "Zwei Kopien nebeneinander. Wähle die Hauptversion, gib an, was die andere ist, oder markiere sie als nicht verwandt.",
+      "backToList": "Zurück zu Duplikaten",
+      "isParent": "Hauptversion",
+      "makeParent": "Als Hauptversion festlegen",
+      "swapParent": "Hauptversion tauschen",
+      "kindLabel": "Die andere Kopie ist eine…",
+      "labelLabel": "Bezeichnung (optional)",
+      "labelPlaceholder": "z. B. v1.0.1",
+      "linkExplainer": "{{child}} wird als Variante unter {{parent}} eingeordnet.",
+      "promoteWarning": "{{count}} vorhandene Variante(n) werden zur neuen Hauptversion verschoben.",
+      "deleteThis": "Diese Kopie löschen",
+      "syncedPage": "Seite",
+      "noPairs": "Keine Duplikatpaare zu prüfen.",
+      "field": {
+        "album": "Album",
+        "artist": "Künstler",
+        "category": "Kategorie",
+        "content_hash": "Inhalts-Hash",
+        "description": "Beschreibung",
+        "duration": "Dauer",
+        "file_size": "Größe",
+        "grid_size": "Rastergröße",
+        "is_explicit": "Explizit",
+        "isbn": "ISBN",
+        "language": "Sprache",
+        "map_type": "Kartentyp",
+        "mime_type": "Format",
+        "page_count": "Seiten",
+        "publisher": "Verlag",
+        "title": "Titel",
+        "version": "Version",
+        "year": "Jahr"
+      },
+      "prevPage": "Vorherige Seite",
+      "nextPage": "Nächste Seite",
+      "keepFileWarning": "Die Datei bleibt auf der Festplatte. Liegt sie weiterhin im Bibliotheksordner, findet der nächste Scan sie erneut.",
+      "copyMetadata": "Metadaten kopieren",
+      "copyExplainer": "Felder von {{source}} auf {{target}} kopieren, die Kopie, die du behältst.",
+      "copySelected": "{{count}} Feld(er) kopieren",
+      "accuracy": "Suchgenauigkeit",
+      "accuracyLevel": {
+        "exact": "Exakt",
+        "high": "Hoch",
+        "medium": "Mittel",
+        "low": "Niedrig"
+      },
+      "accuracyHint": {
+        "exact": "Nur bytegleiche Dateien. Am schnellsten und ohne Fehltreffer.",
+        "high": "Identische Dateien und sehr ähnliche Titel. Wenige Fehltreffer.",
+        "medium": "Identische Dateien, ähnliche Titel und übereinstimmender Text. Die übliche Wahl.",
+        "low": "Weitester Suchbereich. Am langsamsten, mit Treffern, die geprüft werden müssen."
+      }
     }
   },
   "logs": {
@@ -2155,6 +2253,23 @@
     "location": {
       "title": "Storage location",
       "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
+  },
+  "variants": {
+    "badge": "{{count}} Versionen",
+    "mainVersion": "Hauptversion",
+    "switchLabel": "Version wechseln",
+    "otherVersions": "Andere Versionen",
+    "kind": {
+      "printer-friendly": "Druckfreundlich",
+      "form-fillable": "Ausfüllbar",
+      "spreads": "Doppelseiten",
+      "single-page": "Einzelseiten",
+      "version": "Version",
+      "black-and-white": "Schwarzweiß",
+      "gridded": "Mit Raster",
+      "gridless": "Ohne Raster",
+      "other": "Andere"
     }
   }
 }

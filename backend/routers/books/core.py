@@ -19,7 +19,7 @@ from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
 from ...models import Book, GameSystem
-from ...services import bulk_service, library_fs, tag_service
+from ...services import bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
 from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
@@ -51,7 +51,10 @@ def list_books(
     db: Session = Depends(get_db),
 ):
     can_see_explicit = _allow_explicit(db, current_user.id)
-    q = db.query(Book)
+    # Variants (printer-friendly cuts, older versions) collapse into their parent
+    # entry, so the browse list shows one row per book (issues #304, #306). They
+    # stay reachable by id, which is what the version picker opens.
+    q = variants.parents_only(db.query(Book), Book)
     if system_id:
         q = q.filter_by(game_system_id=system_id)
     if category:
@@ -60,6 +63,9 @@ def list_books(
         q = q.filter(Book.is_explicit != True)
     total = q.count()
     books = q.order_by(Book.title).offset(offset).limit(limit).all()
+    # One grouped query for the whole page rather than one per row, so the
+    # "has other versions" badge costs nothing per book.
+    vcounts = variants.variant_counts(db, Book, [b.id for b in books])
     return {
         "total": total,
         "books": [
@@ -79,6 +85,7 @@ def list_books(
                 "ocr_indexed": b.index_error == "ocr",
                 "is_explicit": bool(b.is_explicit),
                 "is_missing": bool(b.is_missing),
+                "variant_count": vcounts.get(b.id, 0),
             }
             for b in books
         ],
@@ -100,6 +107,7 @@ def get_book(
         if book.game_system_id
         else None
     )
+    variant_parent, siblings = variants.family_for(db, Book, book)
     return {
         "id": book.id,
         "title": book.title,
@@ -133,6 +141,14 @@ def get_book(
         "has_thumbnail": book.has_thumbnail,
         "is_explicit": bool(book.is_explicit),
         "content_token": content_token(book.content_hash, book.filepath),
+        # The whole variant family, resolved from whichever end was requested, so
+        # the reader's version picker renders without a second round trip. A book
+        # with no variants gets its own single-entry family.
+        "variant_parent_id": book.variant_parent_id,
+        "variant_kind": book.variant_kind or "",
+        "variant_label": book.variant_label or "",
+        "variant_main_id": variant_parent.id,
+        "variants": [variants.serialize_variant(v) for v in siblings],
         "game_system": {"id": system.id, "name": system.name, "slug": system.slug}
         if system
         else None,

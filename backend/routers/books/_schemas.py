@@ -5,6 +5,7 @@ from pydantic import BaseModel, field_validator
 
 from .._bulk_schemas import bulk_update_model
 from .._json_list_coercion import coerce_link_list, coerce_str_list
+from .._variant_schemas import VariantEntry
 
 
 class LinkEntry(BaseModel):
@@ -14,6 +15,11 @@ class LinkEntry(BaseModel):
     url: str = ""
 
 
+# NOTE: the variant_* columns are deliberately absent from BookUpdate and
+# BookBulkUpdate. bulk_service.apply_updates does a blind setattr for any field
+# present in the schema, which would bypass every guard in services/variants.py
+# (two-level rule, self-parenting, cycles). Variant links are set only through
+# the /api/duplicates endpoints.
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     category: Optional[str] = None
@@ -118,6 +124,9 @@ class BookListItem(BaseModel):
     ocr_indexed: bool
     is_explicit: bool
     is_missing: bool
+    # How many other versions collapse into this entry; 0 for most books. Drives
+    # the "has other versions" badge without a per-row query.
+    variant_count: int = 0
 
 
 class BookListResponse(BaseModel):
@@ -173,6 +182,15 @@ class BookDetail(BaseModel):
     # serving what the browser cached under the old ones (those are immutable for
     # a year). Null until the scanner has hashed the book.
     content_token: Optional[str] = None
+    # Variant grouping (issues #304, #306). `variant_main_id` is the entry that
+    # represents this family in listings — this book itself unless it is a
+    # variant. `variants` is the full sibling list, so the reader's picker needs
+    # no second request; it is empty for a book with no other versions.
+    variant_parent_id: Optional[str] = None
+    variant_kind: str = ""
+    variant_label: str = ""
+    variant_main_id: Optional[str] = None
+    variants: list[VariantEntry] = []
     game_system: Optional[BookSystemRef] = None
 
     # These columns are free-form JSON; normalize legacy shapes rather than

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Audio, Book, GameSystem, GenericMap, Token
+from ...services import variants
 
 # Hard ceiling on how many rows one search may return per resource type. The
 # picker browses a whole collection as a folder tree, so this has to be large
@@ -110,7 +111,9 @@ def search_resources_global(
         # Map system id → name in one pass so each book's tree path can lead
         # with its system without a per-book relationship lookup.
         system_names = {s.id: s.name for s in db.query(GameSystem.id, GameSystem.name).all()}
-        query = db.query(Book)
+        # You link the main entry, not one of its variants: a picker listing the
+        # same book five times is noise, and the variants travel with the parent.
+        query = variants.parents_only(db.query(Book), Book)
         if system_id:
             query = query.filter(Book.game_system_id.in_(_system_id_filter(db, system_id)))
         if like is not None:
@@ -151,7 +154,7 @@ def search_resources_global(
 
     # Maps/tokens/audio: prefer folder-path matches, then filename matches.
     def _media_results(rtype, model):
-        query = db.query(model)
+        query = variants.parents_only(db.query(model), model)
         if like is not None:
             conditions = [
                 model.filename.ilike(like, escape="\\"),
@@ -208,7 +211,11 @@ def suggested_resources(
     """
     if current_user.role == "guest":
         raise HTTPException(403, "Guests cannot browse the library")
-    books = db.query(Book).filter_by(game_system_id=system_id).order_by(Book.title).all()
+    books = (
+        variants.parents_only(db.query(Book).filter_by(game_system_id=system_id), Book)
+        .order_by(Book.title)
+        .all()
+    )
     out = [
         {
             "resource_type": "book",

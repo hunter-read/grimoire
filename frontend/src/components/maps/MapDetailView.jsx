@@ -19,6 +19,7 @@ import MapPdfViewer from './MapPdfViewer'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import VariantPicker from '../VariantPicker'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -225,6 +226,7 @@ export default function MapDetailView() {
             />
           </button>
         )}
+        <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} compact />
         <AddToCampaignButton resourceType="map" resourceId={mapId} />
         <a
           href={mediaUrl(`/maps/${mapId}/file`)}

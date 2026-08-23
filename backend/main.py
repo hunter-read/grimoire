@@ -39,6 +39,7 @@ from .routers import (
     library as library_router,
     logs as logs_router,
     lookups as lookups_router,
+    duplicates as duplicates_router,
     maintenance as maintenance_router,
     maps as maps_router,
     oidc as oidc_router,
@@ -90,6 +91,7 @@ _TAGS = [
         "description": "Campaign management - sessions, members, resources, and scheduling.",
     },
     {"name": "settings", "description": "Application settings. **Admin only.**"},
+    {"name": "duplicates", "description": "Finding and resolving duplicate files."},
     {"name": "maintenance", "description": "Admin housekeeping tasks."},
     {
         "name": "backups",
@@ -299,6 +301,7 @@ api.include_router(downloads_router.router)
 api.include_router(settings_router.router)
 api.include_router(addons_router.router)
 api.include_router(themes_router.router)
+api.include_router(duplicates_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(backups_router.router)
 api.include_router(files_router.router)

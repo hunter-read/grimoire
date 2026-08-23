@@ -86,7 +86,8 @@
     "removeFromFavorites": "Retirer des favoris",
     "select": "Sélectionner",
     "archive": "Archive",
-    "archiveNotViewable": "Ce fichier est une archive et ne peut pas être prévisualisé. Téléchargez-le pour en ouvrir le contenu."
+    "archiveNotViewable": "Ce fichier est une archive et ne peut pas être prévisualisé. Téléchargez-le pour en ouvrir le contenu.",
+    "versions": "Versions"
   },
   "login": {
     "username": "Nom d'utilisateur",
@@ -809,6 +810,16 @@
     "emailLabel": "E-mail"
   },
   "maintenance": {
+    "groups": {
+      "scanning": "Analyse de la bibliothèque",
+      "scanningDesc": "Analysez la bibliothèque à la recherche de fichiers nouveaux ou modifiés, supprimez les entrées dont le fichier a disparu et planifiez les analyses.",
+      "library": "Gestionnaire de bibliothèque",
+      "libraryDesc": "Organisez les fichiers de votre bibliothèque et examinez les éléments qui semblent être des doublons.",
+      "metadata": "Métadonnées",
+      "metadataDesc": "Écrivez les métadonnées de Grimoire dans votre dossier de bibliothèque sous forme de fichiers annexes.",
+      "backups": "Sauvegardes",
+      "backupsDesc": "Créez et téléchargez des sauvegardes, et automatisez leur exécution."
+    },
     "rescan": {
       "title": "Réanalyser la bibliothèque",
       "description": "Analyse le répertoire de la bibliothèque à la recherche de fichiers nouveaux ou modifiés et met à jour l'index de recherche.",
@@ -924,6 +935,93 @@
       "loadFailed": "Impossible de charger les paramètres.",
       "saveFailed": "Impossible d'enregistrer les paramètres.",
       "exportFailed": "L'export a échoué. Consultez les journaux du serveur."
+    },
+    "dupes": {
+      "title": "Détection des doublons",
+      "description": "Trouvez les fichiers qui semblent être des copies les uns des autres, puis décidez quoi en faire. Rien n'est jamais supprimé automatiquement.",
+      "open": "Ouvrir la détection des doublons",
+      "adminOnly": "Seuls les administrateurs peuvent gérer les doublons.",
+      "scan": "Rechercher les doublons",
+      "scanning": "Analyse en cours…",
+      "cancel": "Arrêter l'analyse",
+      "noResults": "Aucun doublon trouvé.",
+      "notScanned": "Aucune analyse n'a encore été lancée.",
+      "groupsFound": "{{count}} groupes trouvés",
+      "confidence": "Confiance",
+      "compare": "Comparer",
+      "dismiss": "Pas des doublons",
+      "dismissed": "Groupes écartés",
+      "undismiss": "Restaurer",
+      "keepThis": "Garder celui-ci",
+      "deleteOther": "Supprimer l'autre",
+      "linkAs": "Lier comme version",
+      "merge": "Copier les métadonnées",
+      "scanFailed": "L'analyse n'a pas pu démarrer.",
+      "loadFailed": "Impossible de charger les groupes de doublons.",
+      "actionFailed": "Cette action n'a pas pu être effectuée.",
+      "reason": "Raison",
+      "bookmarks": "signets",
+      "favorites": "favoris",
+      "tags": "étiquettes",
+      "campaigns": "liens de campagne",
+      "deleteFile": "Supprimer aussi le fichier du disque",
+      "confirmDelete": "Supprimer cette copie ?",
+      "linked": "Lié comme version.",
+      "of": "sur",
+      "pairsFound": "{{count}} paires à examiner",
+      "compareTitle": "Comparer les copies",
+      "compareDescription": "Deux copies côte à côte. Choisissez la version principale, indiquez ce qu'est l'autre, ou marquez-les comme sans rapport.",
+      "backToList": "Retour aux doublons",
+      "isParent": "Version principale",
+      "makeParent": "Définir comme version principale",
+      "swapParent": "Permuter la version principale",
+      "kindLabel": "L'autre copie est une…",
+      "labelLabel": "Étiquette (facultatif)",
+      "labelPlaceholder": "ex. v1.0.1",
+      "linkExplainer": "{{child}} sera classé sous {{parent}} comme variante.",
+      "promoteWarning": "{{count}} variante(s) existante(s) seront déplacées vers la nouvelle version principale.",
+      "deleteThis": "Supprimer cette copie",
+      "syncedPage": "Page",
+      "noPairs": "Aucune paire de doublons à examiner.",
+      "field": {
+        "album": "Album",
+        "artist": "Artiste",
+        "category": "Catégorie",
+        "content_hash": "Empreinte du contenu",
+        "description": "Description",
+        "duration": "Durée",
+        "file_size": "Taille",
+        "grid_size": "Taille de la grille",
+        "is_explicit": "Explicite",
+        "isbn": "ISBN",
+        "language": "Langue",
+        "map_type": "Type de carte",
+        "mime_type": "Format",
+        "page_count": "Pages",
+        "publisher": "Éditeur",
+        "title": "Titre",
+        "version": "Version",
+        "year": "Année"
+      },
+      "prevPage": "Page précédente",
+      "nextPage": "Page suivante",
+      "keepFileWarning": "Le fichier reste sur le disque. S'il est toujours dans votre dossier de bibliothèque, la prochaine analyse le retrouvera.",
+      "copyMetadata": "Copier les métadonnées",
+      "copyExplainer": "Copier des champs de {{source}} vers {{target}}, la copie que vous gardez.",
+      "copySelected": "Copier {{count}} champ(s)",
+      "accuracy": "Précision de recherche",
+      "accuracyLevel": {
+        "exact": "Exacte",
+        "high": "Élevée",
+        "medium": "Moyenne",
+        "low": "Faible"
+      },
+      "accuracyHint": {
+        "exact": "Uniquement les fichiers identiques octet par octet. Le plus rapide, sans faux positifs.",
+        "high": "Fichiers identiques et titres très proches. Peu de faux positifs.",
+        "medium": "Fichiers identiques, titres similaires et texte commun. Le choix habituel.",
+        "low": "La recherche la plus large. La plus lente, avec des résultats à examiner."
+      }
     }
   },
   "logs": {
@@ -2155,6 +2253,23 @@
     "location": {
       "title": "Storage location",
       "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
+  },
+  "variants": {
+    "badge": "{{count}} versions",
+    "mainVersion": "Version principale",
+    "switchLabel": "Changer de version",
+    "otherVersions": "Autres versions",
+    "kind": {
+      "printer-friendly": "Adapté à l'impression",
+      "form-fillable": "Formulaire remplissable",
+      "spreads": "Double page",
+      "single-page": "Page simple",
+      "version": "Version",
+      "black-and-white": "Noir et blanc",
+      "gridded": "Avec grille",
+      "gridless": "Sans grille",
+      "other": "Autre"
     }
   }
 }

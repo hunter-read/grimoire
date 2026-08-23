@@ -19,6 +19,7 @@ from ...models import GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ...security import AUTH_RATE_LIMIT, limiter
+from ...services import variants
 from ..settings import get_stats_api_key
 from . import _helpers
 from ._schemas import (
@@ -114,12 +115,21 @@ def get_stats(
         .filter(GameSystem.is_one_page != True)  # noqa: E712
         .filter(func.coalesce(GameSystem.container_kind, "") == "")
         .count(),
-        "books": db.query(Book).count(),
-        "maps": db.query(GenericMap).count(),
-        "tokens": db.query(Token).count(),
-        "audio": db.query(Audio).count(),
-        "indexed_books": db.query(Book).filter_by(indexed=True).count(),
-        "total_pages": db.query(func.sum(Book.page_count)).scalar() or 0,
+        # Item counts exclude variants: a printer-friendly cut is the same book,
+        # and counting it twice would contradict what the library view shows.
+        # Bytes are the opposite case — every variant is a real file on the
+        # disk, so total_size_mb deliberately counts them all (issues #304/#306).
+        "books": variants.parents_only(db.query(Book), Book).count(),
+        "maps": variants.parents_only(db.query(GenericMap), GenericMap).count(),
+        "tokens": variants.parents_only(db.query(Token), Token).count(),
+        "audio": variants.parents_only(db.query(Audio), Audio).count(),
+        "indexed_books": variants.parents_only(
+            db.query(Book).filter_by(indexed=True), Book
+        ).count(),
+        "total_pages": db.query(func.sum(Book.page_count))
+        .filter(variants.parent_filter(Book))
+        .scalar()
+        or 0,
         "total_size_mb": round((db.query(func.sum(Book.file_size)).scalar() or 0) / 1048576, 1),
     }
 

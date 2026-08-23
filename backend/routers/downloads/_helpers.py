@@ -140,6 +140,10 @@ def _safe_arcname(arcname: str) -> str:
     return "/".join(cleaned_parts) if cleaned_parts else "_"
 
 
+# Bulk downloads deliberately include variants. A "download this whole system"
+# archive should contain every file the user owns — the gridless map as well as
+# the gridded one — so these helpers do not filter on variant_parent_id the way
+# the browse endpoints do (issues #304, #306).
 def _files_for_system(db, system_id: str, see_explicit: bool) -> tuple[list, str]:
     system = db.query(GameSystem).filter_by(id=system_id).first()
     if not system:

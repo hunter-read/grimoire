@@ -2,10 +2,9 @@
 import os
 import threading
 
-from sqlalchemy import text
-
 from ...config import logger
-from ...models import Audio, Book, Bookmark, Campaign, GameSystem, GenericMap, Token
+from ...models import Audio, Book, Campaign, GameSystem, GenericMap, Token
+from ...services.library_fs.references import purge_references
 
 _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
 
@@ -77,6 +76,9 @@ def _prune_orphaned_systems(db) -> int:
     deleted: set[str] = set()
     count = 0
     for system in sorted(systems, key=_depth, reverse=True):
+        # Deliberately counts variants too: a system whose only remaining
+        # books are printer-friendly cuts is NOT empty, and pruning it here
+        # would cascade through GameSystem.books and delete them.
         book_count = db.query(Book).filter_by(game_system_id=system.id).count()
         if book_count > 0:
             continue
@@ -118,11 +120,8 @@ def _do_cleanup(db) -> dict:
         logger.debug(f"Cleanup: checking book '{book.title}' ({book.filepath})")
         if not _path_exists(book.filepath):
             logger.info(f"Cleanup: removing missing book '{book.title}' ({book.filepath})")
-            logger.debug(f"Cleanup: deleting FTS index for book id={book.id}")
-            db.execute(text("DELETE FROM book_search WHERE book_id = :id"), {"id": book.id})
-            bookmark_count = db.query(Bookmark).filter_by(book_id=book.id).count()
-            logger.debug(f"Cleanup: deleting {bookmark_count} bookmark(s) for book id={book.id}")
-            db.query(Bookmark).filter_by(book_id=book.id).delete()
+            logger.debug(f"Cleanup: purging references for book id={book.id}")
+            purge_references(db, Book, book.id)
             db.delete(book)
             db.commit()
             logger.debug(f"Cleanup: committed removal of book id={book.id}")
@@ -138,6 +137,7 @@ def _do_cleanup(db) -> dict:
         logger.debug(f"Cleanup: checking map '{m.filename}' ({m.filepath})")
         if not _path_exists(m.filepath):
             logger.info(f"Cleanup: removing missing map '{m.filename}' ({m.filepath})")
+            purge_references(db, GenericMap, m.id)
             db.delete(m)
             db.commit()
             logger.debug(f"Cleanup: committed removal of map id={m.id}")
@@ -151,6 +151,7 @@ def _do_cleanup(db) -> dict:
         logger.debug(f"Cleanup: checking token '{t.filename}' ({t.filepath})")
         if not _path_exists(t.filepath):
             logger.info(f"Cleanup: removing missing token '{t.filename}' ({t.filepath})")
+            purge_references(db, Token, t.id)
             db.delete(t)
             db.commit()
             logger.debug(f"Cleanup: committed removal of token id={t.id}")
@@ -164,6 +165,7 @@ def _do_cleanup(db) -> dict:
         logger.debug(f"Cleanup: checking audio '{a.filename}' ({a.filepath})")
         if not _path_exists(a.filepath):
             logger.info(f"Cleanup: removing missing audio '{a.filename}' ({a.filepath})")
+            purge_references(db, Audio, a.id)
             db.delete(a)
             db.commit()
             logger.debug(f"Cleanup: committed removal of audio id={a.id}")

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from ..library_ignore import IgnoreMatcher
 from .categories import slugify
+from .metadata import is_exported_cover_name
 from .thumbnails import archive_ext
 
 
@@ -53,13 +54,21 @@ def _keep_entry(path: Path, ignore: Optional[IgnoreMatcher], *, is_dir: bool) ->
 
 
 def _count_eligible_files(
-    directory: Path, extensions: set, ignore: Optional[IgnoreMatcher] = None
+    directory: Path,
+    extensions: set,
+    ignore: Optional[IgnoreMatcher] = None,
+    *,
+    skip_exported_covers: bool = False,
 ) -> int:
     """Count non-hidden files with matching extensions under directory.
 
     When an ``ignore`` matcher is supplied, directories and files excluded by a
     ``.grimoireignore`` rule are skipped so the count matches what the scan will
     actually process (keeping progress totals accurate).
+
+    ``skip_exported_covers`` mirrors the books walk, which skips ``.cover.jpg``
+    files written by the sidecar exporter. It is off by default because maps and
+    tokens are image collections where such a name is ordinary content.
     """
     count = 0
     for root, dirs, files in os.walk(directory):
@@ -68,6 +77,8 @@ def _count_eligible_files(
             if f.startswith("."):
                 continue
             if ignore and ignore.is_ignored(os.path.join(root, f), is_dir=False):
+                continue
+            if skip_exported_covers and is_exported_cover_name(f):
                 continue
             if Path(f).suffix.lower() in extensions or archive_ext(f) in extensions:
                 count += 1

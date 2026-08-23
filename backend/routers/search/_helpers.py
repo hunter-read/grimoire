@@ -13,7 +13,7 @@ from ...models import (
     Token,
     TokenFolder,
 )
-from ...services import tag_service
+from ...services import tag_service, variants
 
 
 def _ids_matching_tag(db, resource_type: str, term: str) -> set:
@@ -51,6 +51,14 @@ _SNIPPET_CLOSE = "\ue001"
 
 # The snippet() column call callers embed in their FTS query. Column index 2 is
 # ``content``; ``40`` is the token budget; ``...`` is the ellipsis for truncation.
+# Variants (printer-friendly cuts, older versions, gridless maps) collapse into
+# their parent entry everywhere else, so search hides them too — one book, one
+# result. Applied in SQL rather than in the Python enrichment loop below because
+# the FTS LIMIT runs first: filtering afterwards would silently shrink a full
+# page of results (issues #304, #306).
+VISIBLE_BOOKS_SQL = "book_id IN (SELECT id FROM books WHERE variant_parent_id IS NULL)"
+
+
 SNIPPET_SQL = f"snippet(book_search, 2, '{_SNIPPET_OPEN}', '{_SNIPPET_CLOSE}', '...', 40)"
 
 
@@ -88,7 +96,10 @@ def _search_maps(db, q: str) -> list:
     tag_ids = _ids_matching_tag(db, "map", term)
     direct = (
         db.query(GenericMap)
-        .filter(or_(GenericMap.filename.ilike(term), GenericMap.id.in_(tag_ids)))
+        .filter(
+            or_(GenericMap.filename.ilike(term), GenericMap.id.in_(tag_ids)),
+            variants.parent_filter(GenericMap),
+        )
         .limit(50)
         .all()
     )
@@ -109,7 +120,12 @@ def _search_maps(db, q: str) -> list:
         # Folder paths are stored relative to the collection dir (e.g. "Swamps"),
         # while relative_path keeps the collection prefix ("maps/Swamps/...").
         for m in (
-            db.query(GenericMap).filter(GenericMap.relative_path.ilike(f"%/{folder.path}/%")).all()
+            db.query(GenericMap)
+            .filter(
+                GenericMap.relative_path.ilike(f"%/{folder.path}/%"),
+                variants.parent_filter(GenericMap),
+            )
+            .all()
         ):
             if m.id not in seen:
                 seen.add(m.id)
@@ -133,7 +149,10 @@ def _search_tokens(db, q: str) -> list:
     tag_ids = _ids_matching_tag(db, "token", term)
     direct = (
         db.query(Token)
-        .filter(or_(Token.filename.ilike(term), Token.id.in_(tag_ids)))
+        .filter(
+            or_(Token.filename.ilike(term), Token.id.in_(tag_ids)),
+            variants.parent_filter(Token),
+        )
         .limit(50)
         .all()
     )
@@ -151,7 +170,14 @@ def _search_tokens(db, q: str) -> list:
     )
     extra = []
     for folder in matching_folders:
-        for t in db.query(Token).filter(Token.relative_path.ilike(f"%/{folder.path}/%")).all():
+        for t in (
+            db.query(Token)
+            .filter(
+                Token.relative_path.ilike(f"%/{folder.path}/%"),
+                variants.parent_filter(Token),
+            )
+            .all()
+        ):
             if t.id not in seen:
                 seen.add(t.id)
                 extra.append(t)
@@ -181,7 +207,8 @@ def _search_audio(db, q: str) -> list:
                 Audio.artist.ilike(term),
                 Audio.album.ilike(term),
                 Audio.id.in_(tag_ids),
-            )
+            ),
+            variants.parent_filter(Audio),
         )
         .limit(50)
         .all()
@@ -200,7 +227,14 @@ def _search_audio(db, q: str) -> list:
     )
     extra = []
     for folder in matching_folders:
-        for a in db.query(Audio).filter(Audio.relative_path.ilike(f"%/{folder.path}/%")).all():
+        for a in (
+            db.query(Audio)
+            .filter(
+                Audio.relative_path.ilike(f"%/{folder.path}/%"),
+                variants.parent_filter(Audio),
+            )
+            .all()
+        ):
             if a.id not in seen:
                 seen.add(a.id)
                 extra.append(a)

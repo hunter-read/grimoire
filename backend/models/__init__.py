@@ -24,6 +24,7 @@ from .campaigns import (
     WikiTemplate,
 )
 from .db import init_db
+from .duplicates import DuplicateDismissal, DuplicateGroup
 from .library import (
     Book,
     BookFolder,
@@ -37,6 +38,7 @@ from .library import (
 from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
 from .settings import AppSetting
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
+from .variants import VARIANT_KINDS
 from .users import AuthSession, Bookmark, Favorite, SavedFilter, User, UserTheme
 
 __all__ = [
@@ -58,6 +60,10 @@ __all__ = [
     "TokenFolder",
     "Audio",
     "AudioFolder",
+    # Variants / duplicates
+    "VARIANT_KINDS",
+    "DuplicateGroup",
+    "DuplicateDismissal",
     # Users
     "User",
     "AuthSession",

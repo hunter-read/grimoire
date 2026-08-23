@@ -68,6 +68,13 @@ The compound `.cover.jpg` is deliberate. It makes an exported cover
 self-identifying, so Grimoire's own file manager can hide it without risking a
 plain `<book>.jpg` that is genuine library content.
 
+That same suffix is how the library scanner knows to skip exported covers. It
+has to: an indexed cover would be a book in its own right, so the next export
+would write *it* a cover named `<book>.cover.cover.jpg`, and every rescan would
+add another level. Only the compound suffix is skipped - a plain `<book>.jpg`
+stays a first-class image book, and a `cover.jpg`/`folder.jpg` keeps its
+existing meaning as folder artwork.
+
 The bytes are copied, not transcoded: Grimoire caches thumbnails as WebP, and
 the `.jpg` name is the convention other tools expect. Consumers that sniff
 content handle this; those that trust the extension are why the setting is

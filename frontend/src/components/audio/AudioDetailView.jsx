@@ -16,6 +16,7 @@ import Spinner from '../Spinner'
 import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import VariantPicker from '../VariantPicker'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
@@ -153,6 +154,7 @@ export default function AudioDetailView() {
             />
           </button>
         )}
+        <VariantPicker item={track} detailPath={(id) => `/audio/${id}`} compact />
         <AddToCampaignButton resourceType="audio" resourceId={audioId} />
         <a
           href={mediaUrl(`/audio/${audioId}/file`)}

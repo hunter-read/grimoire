@@ -9,6 +9,7 @@ from ...config import get_db
 from ...models import Book, GameSystem
 from ._helpers import (
     SNIPPET_SQL,
+    VISIBLE_BOOKS_SQL,
     _CATEGORY_PRIORITY,
     _search_audio,
     _search_maps,
@@ -49,7 +50,10 @@ def search_library(
                    rank
             FROM book_search
             WHERE content MATCH :query
-              AND book_id IN (SELECT id FROM books WHERE game_system_id = :system_id)
+              AND book_id IN (
+                  SELECT id FROM books
+                  WHERE game_system_id = :system_id AND variant_parent_id IS NULL
+              )
             ORDER BY rank
             LIMIT :limit
         """
@@ -63,6 +67,7 @@ def search_library(
                    rank
             FROM book_search
             WHERE content MATCH :query
+              AND {VISIBLE_BOOKS_SQL}
             ORDER BY rank
             LIMIT :limit
         """

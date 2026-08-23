@@ -13,7 +13,8 @@ The backend runs on SQLite. All primary keys are 36-char UUID strings (`_uuid()`
 
 The diagram groups tables by their model file. Solid lines are foreign keys; the crow's-foot
 end marks the "many" side. Media tables (`generic_maps`, `tokens`, `audio`) and the
-`*_folders` tag tables have no foreign keys - they are linked to campaigns only indirectly,
+`*_folders` tag tables have no foreign keys - their `variant_parent_id` self-link is a soft
+reference, not a declared FK (see below) - and they are linked to campaigns only indirectly,
 through `campaign_resources` (a polymorphic `resource_type` + `resource_id`, not a real FK),
 so they are omitted from the relationship graph for clarity.
 
@@ -36,6 +37,7 @@ erDiagram
     users ||--o{ campaign_files : "uploaded by"
 
     game_systems ||--o{ books : contains
+    books ||--o{ books : "has variant"
     game_systems ||--o{ campaigns : "system for"
     game_systems ||--o{ game_systems : "container of"
 
@@ -77,6 +79,15 @@ There are 34 `ForeignKey` declarations across the models, plus the three self-re
 keys (`campaigns.parent_campaign_id`, `wiki_pages.parent_id`, `genres.parent_id`) and the
 polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, which are
 *not* declared foreign keys.
+
+`variant_parent_id` on `books`/`generic_maps`/`tokens`/`audio` (issues #304, #306) is a
+self-referential **soft** link, deliberately not declared as a `ForeignKey`. SQLite cannot
+add a real one without a `batch_alter_table` rebuild of a heavily-indexed table, and with
+`PRAGMA foreign_keys=ON` it would make deleting a game system fail — `GameSystem.books`
+cascades to its books, and any book carrying variants would trip the constraint.
+`game_systems.cover_book_id` is the existing precedent. The invariants an FK could not
+express anyway (two levels only, no self-parenting, no cycles) are enforced in
+`backend/services/variants.py`.
 
 | From (table.column) | To (table.column) | Notes |
 | --- | --- | --- |
@@ -130,7 +141,7 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
 | `game_systems` | A TTRPG system (D&D 5e, PbtA, …). | `name`, `slug` unique. `is_system_agnostic` flags cross-system content; `is_one_page` flags the special one-page/small-RPG collection (both grouped together in the library UI). Metadata (issue #202): `genres` (JSON list; supersedes the legacy scalar `genre`), `dice_materials` (JSON list), `system_family`, `parent_system` (mid-tier grouping, e.g. "Dungeons & Dragons"), `edition` (e.g. "5e"/"Red"; combines with `parent_system` for display), `license`, `year`, `urls` and `character_builder_urls` (JSON lists of `{label, url}`; supersede the legacy scalar `character_builder_url`). System containers (issues #261/#262): `container_kind` (`""`, `"parent"`, or `"one-page"`) marks a folder whose children are systems rather than categories, `parent_id` self-references the containing system, and `name_is_custom` stops the scanner overwriting a user-renamed system on rescan. |
-| `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, OCR unavailable) / `ocr` (indexed via OCR). `ocr_pending` (indexed `ix_books_ocr_pending`) flags a scanned PDF queued for deferred OCR; `ocr_pages_done` is the per-page OCR checkpoint so a long book resumes rather than restarts after an interruption. `ocr_dpi` is an optional per-book OCR resolution override (NULL = global `OCR_DPI`), set when a book is re-OCR'd at a higher DPI via `POST /api/books/{id}/reindex`. Metadata (issue #202): `artists` and `genres` (JSON lists), `isbn`, `version`, `language`, `license` (per-book override of the system license - an OGL SRD inside a proprietary system), `urls` (JSON list of `{label, url}`; supersedes the legacy scalar `publisher_url`), and a variable-precision publication date `year`/`month`/`day` (all nullable - `year` may stand alone). Content identity (issue #284): `content_hash` (SHA-256 hex, indexed `ix_books_content_hash`) with `file_mtime` + `file_size` as the cheap gate - the scan only re-hashes when the stat signature changes, and the hash then tells a replaced file (same path, new bytes) from a moved one (new path, same bytes). NULL on rows predating the feature; backfilled on the next scan and deliberately not treated as a change. |
+| `books` | One PDF/document in the library. | `filepath` unique. `game_system_id` FK. Index `ix_books_indexer_queue` on `(indexed, mime_type)` drives the indexer. `indexed`/`index_failed`/`is_missing` track scan state. `index_error` holds the failure message, or the sentinel `image-only` (no text layer, OCR unavailable) / `ocr` (indexed via OCR). `ocr_pending` (indexed `ix_books_ocr_pending`) flags a scanned PDF queued for deferred OCR; `ocr_pages_done` is the per-page OCR checkpoint so a long book resumes rather than restarts after an interruption. `ocr_dpi` is an optional per-book OCR resolution override (NULL = global `OCR_DPI`), set when a book is re-OCR'd at a higher DPI via `POST /api/books/{id}/reindex`. Metadata (issue #202): `artists` and `genres` (JSON lists), `isbn`, `version`, `language`, `license` (per-book override of the system license - an OGL SRD inside a proprietary system), `urls` (JSON list of `{label, url}`; supersedes the legacy scalar `publisher_url`), and a variable-precision publication date `year`/`month`/`day` (all nullable - `year` may stand alone). Content identity (issue #284): `content_hash` (SHA-256 hex, indexed `ix_books_content_hash`) with `file_mtime` + `file_size` as the cheap gate - the scan only re-hashes when the stat signature changes, and the hash then tells a replaced file (same path, new bytes) from a moved one (new path, same bytes). NULL on rows predating the feature; backfilled on the next scan and deliberately not treated as a change. Variant grouping (issues #304, #306): `variant_parent_id` (soft self-link, indexed `ix_books_variant_parent`) points at the entry this book is a version of - a printer-friendly cut, a form-fillable sheet, an older release. A row with it set is hidden from listings, counts, and search but stays reachable by id. `variant_kind` is one of the closed set in `backend/models/variants.py`; `variant_label` is free text ("v1.0.1"). Only two levels are allowed - a variant may not itself have variants. |
 | `book_folders` | Folder tags for a book subcategory folder path (`{system_id}/{category}/{subfolder…}`), editable inline on the system page and surfaced on the tags page under Books. `tags` stores internal keys (display comes from the `tags` catalog); `tags.json` applies additively. | `path` unique. |
 | `genres` | Curated genre lookup, tiered via a self-referential `parent_id` (e.g. Cyberpunk → Science Fiction). | `name` unique. `is_default` marks seeded rows; `sort_order` orders siblings. Children cascade-delete. |
 | `system_families` | Curated system-family / engine lookup (PbtA, d20, Year Zero, …). | `name` unique. `is_default`, `sort_order`. |
@@ -139,6 +150,11 @@ polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`, wh
 | `dice_materials` | Curated dice / materials lookup for the system picker. | `name` unique. `group` (`Dice`\|`Cards`\|`Other`\|`Custom`). `is_default`, `sort_order`. |
 
 ### Media - [`backend/models/media.py`](../backend/models/media.py)
+
+All three media tables carry the same `variant_parent_id` / `variant_kind` /
+`variant_label` columns as `books` (see above), each with an
+`ix_<table>_variant_parent` index. Maps use them for gridded/gridless pairs, and
+any collection can use them for an alternate cut of the same file.
 
 None of these tables carry foreign keys; they are linked to campaigns polymorphically via
 `campaign_resources`.
@@ -200,6 +216,13 @@ path-keyed feature.
 | `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
 | `wiki_templates` | A reusable starting point for a wiki page, owned by one campaign. | FKs `campaign_id`, `created_by_id`. `body` holds the markdown (with frontmatter). `source_id`/`source_url`/`source_version` record a downloaded template's provenance and are null for authored/uploaded ones. Deliberately **not** unique on anything - a GM may keep several copies of the same community template. |
 
+### Duplicates - [`backend/models/duplicates.py`](../backend/models/duplicates.py)
+
+| Table | Purpose | Key columns / constraints |
+|-------|---------|---------------------------|
+| `duplicate_groups` | One cluster of look-alikes found by a detection run (issue #304). | `scan_id` groups a run's output; rows are replaced wholesale, and the previous run's are deleted only once the new one completes, so the review UI never blanks out mid-scan. `group_key` is the SHA-256 of the sorted `member_ids`, stable across re-runs. `confidence` is the strongest signal in the group; `reasons` is a JSON list of `hash`/`metadata`/`text`/`grid`. `edges` is the JSON list of pairwise matches (`{a, b, reason, score}`) the cluster was built from — kept because clustering is transitive and the member list alone cannot say *which* comparisons fired, so review would otherwise invent pairs that never matched. `suggested_parent_id` and `suggested_kinds` pre-fill the resolution form and are advisory only. Index `ix_duplicate_groups_scan_type` on `(scan_id, resource_type)`. |
+| `duplicate_dismissals` | A user's standing "these are not duplicates" judgement. | Unique on `(resource_type, group_key)`. Must outlive every future scan or detection re-proposes the same false positive forever. Matching is done **pair-wise** rather than by key: dismissing {A,B} keeps that pair suppressed even when a later scan finds a third copy C, while C still surfaces against both. `dismissed_by` is a soft user reference with no FK - the judgement should outlive the account that made it. A dismissal is swept once any member row is gone, so a recycled id cannot inherit it. |
+
 ### Settings - [`backend/models/settings.py`](../backend/models/settings.py)
 
 | Table | Purpose | Key columns / constraints |
@@ -220,4 +243,17 @@ resources, session notes, schedule, availability, wiki pages, categories, and fi
 Deleting a `GameSystem` cascades to its books. Deleting a `SessionNote` cascades to its
 player notes and GM note; deleting a `WikiPage`/`CampaignResource` cascades to its shares.
 Other relationships (e.g. `users` → `bookmarks`) have **no** cascade, so those rows must be
-cleaned up explicitly.
+cleaned up explicitly. That cleanup is centralised in
+[`backend/services/library_fs/references.py`](../backend/services/library_fs/references.py):
+`purge_references()` removes the `book_search` rows, bookmarks, favorites, resource tags,
+and campaign resources that point at a deleted record. Nothing in the schema does this —
+the polymorphic references carry no FK at all, and `bookmarks.book_id` has one with no
+`ondelete`, so deleting a bookmarked book used to raise `IntegrityError` rather than
+cascade. Campaign resources are deleted one row at a time through the ORM, because
+`CampaignResourceShare` cascades off the relationship rather than a DB constraint.
+
+Deleting a record that has **variants** promotes them to standalone entries rather than
+leaving them pointing at a row that no longer exists. A variant is a real file that still
+exists on disk, so orphaning it into permanent invisibility would be silent data loss; the
+delete endpoint requires the caller to say which variant inherits the others, or to promote
+them all.

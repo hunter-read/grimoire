@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 
 from ...config import THUMB_DIR, get_db
 from ...models import Token, TokenFolder
-from ...services import bulk_service, tag_service
+from ...services import bulk_service, tag_service, variants
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
@@ -29,12 +29,13 @@ def list_tokens(
     db: Session = Depends(get_db),
 ):
     can_see_explicit = _allow_explicit(db, current_user.id)
-    q = db.query(Token)
+    q = variants.parents_only(db.query(Token), Token)
     if not can_see_explicit:
         q = q.filter(Token.is_explicit != True)
     total = q.count()
     tokens = q.order_by(Token.filename).offset(offset).limit(limit).all()
     token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
+    vcounts = variants.variant_counts(db, Token, [t.id for t in tokens])
     return {
         "total": total,
         "tokens": [
@@ -48,6 +49,7 @@ def list_tokens(
                 "has_thumbnail": t.has_thumbnail,
                 "is_explicit": bool(t.is_explicit),
                 "is_missing": bool(t.is_missing),
+                "variant_count": vcounts.get(t.id, 0),
                 "is_archive": bool(archive_ext(t.filename)),
             }
             for t in tokens
@@ -101,6 +103,7 @@ def get_token(
         except Exception:
             pixel_width, pixel_height = None, None
 
+    variant_parent, siblings = variants.family_for(db, Token, t)
     return {
         "id": t.id,
         "filename": t.filename,
@@ -116,6 +119,11 @@ def get_token(
         "is_archive": is_archive,
         "pixel_width": pixel_width,
         "pixel_height": pixel_height,
+        "variant_parent_id": t.variant_parent_id,
+        "variant_kind": t.variant_kind or "",
+        "variant_label": t.variant_label or "",
+        "variant_main_id": variant_parent.id,
+        "variants": [variants.serialize_variant(v) for v in siblings],
     }
 
 
