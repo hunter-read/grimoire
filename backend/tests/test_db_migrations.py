@@ -652,3 +652,86 @@ class TestFolderCoverBookCleanup:
         engine = create_engine(f"sqlite:///{path}")
         with engine.connect() as conn:
             assert conn.execute(text("SELECT count(*) FROM books")).scalar() == 1
+
+
+class TestDuplicateGroupsEdgesBackfill:
+    """The 0026 backfill, for installs stamped before ``edges`` existed.
+
+    ``edges`` was added to ``duplicate_groups`` inside revision f2a86d31c705,
+    after that revision had already shipped and created the table without it.
+    Those installs are stamped at f2a86d31c705, so its own backfill branch can
+    never run for them - which left every scan failing on INSERT and the groups
+    endpoint failing on SELECT, reported to the user as "0 duplicates found".
+    """
+
+    def _db_without_edges(self):
+        """A current DB rewound to the broken shape: table stamped, column gone."""
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            # SQLite cannot DROP COLUMN on older versions, so rebuild the table
+            # exactly as the early build of f2a86d31c705 created it.
+            conn.execute(text("DROP TABLE duplicate_groups"))
+            conn.execute(
+                text(
+                    "CREATE TABLE duplicate_groups ("
+                    "id VARCHAR(36) NOT NULL PRIMARY KEY, "
+                    "scan_id VARCHAR(36) NOT NULL, "
+                    "resource_type VARCHAR(20) NOT NULL, "
+                    "group_key VARCHAR(64) NOT NULL, "
+                    "member_ids JSON, confidence FLOAT, reasons JSON, "
+                    "suggested_parent_id VARCHAR(36), suggested_kinds JSON, "
+                    "created_at DATETIME)"
+                )
+            )
+            conn.execute(text("UPDATE alembic_version SET version_num = 'f2a86d31c705'"))
+        engine.dispose()
+        return path
+
+    def _columns(self, path):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            return {c["name"] for c in inspect(engine).get_columns("duplicate_groups")}
+        finally:
+            engine.dispose()
+
+    def test_missing_edges_column_is_added(self):
+        path = self._db_without_edges()
+        assert "edges" not in self._columns(path)
+
+        init_db(path)
+
+        assert "edges" in self._columns(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_existing_rows_survive_the_backfill(self):
+        """The column is added, not the table rebuilt: prior findings stay put."""
+        path = self._db_without_edges()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO duplicate_groups "
+                    "(id, scan_id, resource_type, group_key, confidence) "
+                    "VALUES ('g1', 's1', 'book', 'k1', 1.0)"
+                )
+            )
+        engine.dispose()
+
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT confidence, edges FROM duplicate_groups WHERE id='g1'")
+            ).fetchone()
+        engine.dispose()
+        assert row[0] == 1.0
+        assert row[1] is None  # findings are per-scan; nothing to backfill
+
+    def test_a_current_db_is_left_alone(self):
+        """Re-running against a healthy DB is a no-op, not a second ALTER."""
+        path = _fresh_db()
+        assert "edges" in self._columns(path)
+        init_db(path)
+        assert "edges" in self._columns(path)

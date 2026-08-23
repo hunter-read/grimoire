@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { LuArrowLeft, LuSearch, LuSquare, LuTriangleAlert } from 'react-icons/lu'
@@ -31,6 +31,9 @@ export default function DuplicatesView() {
   const [status, setStatus] = useState({ running: false })
   const [groups, setGroups] = useState(null)
   const [error, setError] = useState(null)
+  // The last error reported by the scan status, so a successful group load
+  // can clear a stale load failure without discarding a real scan failure.
+  const scanErrorRef = useRef(null)
   const [starting, setStarting] = useState(false)
   // Search accuracy, chosen per scan. 'exact' is byte-identical only: fast and
   // certain. Looser levels take longer and return matches that need judging.
@@ -42,8 +45,21 @@ export default function DuplicatesView() {
     if (!isAdmin) return Promise.resolve()
     return dupesApi
       .groups({ limit: 200 })
-      .then((data) => setGroups(data.groups || []))
-      .catch(() => setGroups([]))
+      .then((data) => {
+        setGroups(data.groups || [])
+        // Only a previous *load* failure is cleared here. A scan error comes
+        // from the status poll and describes a run that really did fail, so a
+        // successful list request is no reason to drop it.
+        setError((prev) => (prev === scanErrorRef.current ? prev : null))
+      })
+      .catch((e) => {
+        // Surfaced rather than swallowed: an empty list and a failed request
+        // look identical on screen, and reading "no duplicates found" when the
+        // query actually errored is what makes this class of bug invisible.
+        setGroups([])
+        setError(e.message || t('maintenance.dupes.loadFailed'))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin])
 
   useEffect(() => {
@@ -54,6 +70,12 @@ export default function DuplicatesView() {
         .scanStatus()
         .then((next) => {
           if (cancelled) return
+          // The job records a crash in its status and returns normally, so
+          // without this a scan that died mid-run is indistinguishable from one
+          // that genuinely found nothing. Recorded before the reload below,
+          // which consults the ref to decide what it may clear.
+          scanErrorRef.current = next.error || null
+          if (next.error) setError(next.error)
           setStatus((prev) => {
             // A run that just finished is the moment new results exist.
             if (prev.running && !next.running) loadGroups()
@@ -77,6 +99,8 @@ export default function DuplicatesView() {
   const startScan = async () => {
     setStarting(true)
     setError(null)
+    // A new run supersedes the last one's failure.
+    scanErrorRef.current = null
     try {
       await dupesApi.startScan([], accuracy)
       setStatus((s) => ({ ...s, running: true, phase: 'hashing' }))

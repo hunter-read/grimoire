@@ -167,3 +167,49 @@ describe('DuplicatesView', () => {
     expect(navigate).toHaveBeenCalledWith('/settings/maintenance')
   })
 })
+
+describe('DuplicatesView error reporting', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    role = 'admin'
+    scanStatus.mockResolvedValue(IDLE)
+    groups.mockResolvedValue({ groups: [] })
+    startScan.mockResolvedValue({ status: 'scan_started' })
+    cancelScan.mockResolvedValue({ status: 'stop_requested' })
+  })
+
+  it('shows why the group list failed instead of an empty result', async () => {
+    // A failed query used to render as "no duplicates found", which is what
+    // made the missing duplicate_groups.edges column invisible for so long.
+    groups.mockRejectedValue(new Error('no such column: duplicate_groups.edges'))
+
+    render(<DuplicatesView />)
+
+    await waitFor(() =>
+      expect(screen.getByText(/no such column: duplicate_groups.edges/)).toBeInTheDocument()
+    )
+  })
+
+  it('surfaces a scan that failed mid-run', async () => {
+    // The job catches its own exceptions and returns a settled status, so the
+    // error field is the only evidence the run died rather than found nothing.
+    scanStatus.mockResolvedValue({ ...IDLE, error: 'table has no column named edges' })
+
+    render(<DuplicatesView />)
+
+    await waitFor(() =>
+      expect(screen.getByText(/table has no column named edges/)).toBeInTheDocument()
+    )
+  })
+
+  it('clears a stale error once the groups load cleanly', async () => {
+    groups.mockRejectedValueOnce(new Error('boom'))
+    render(<DuplicatesView />)
+    await waitFor(() => expect(screen.getByText(/boom/)).toBeInTheDocument())
+
+    groups.mockResolvedValue({ groups: [] })
+    await userEvent.click(screen.getByText('maintenance.dupes.scan'))
+
+    await waitFor(() => expect(screen.queryByText(/boom/)).not.toBeInTheDocument())
+  })
+})
