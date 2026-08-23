@@ -397,6 +397,138 @@ class TestGrantsApi:
         resp = client.get(f"/api/users/{user['id']}/access-grants", headers=gm_headers)
         assert resp.status_code == 403
 
+    def test_lists_a_users_grants(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        system = make_game_system()
+        client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "system", "scope_id": system.id, "level": "gm"},
+            headers=admin_headers,
+        )
+        resp = client.get(f"/api/users/{user['id']}/access-grants", headers=admin_headers)
+        assert resp.status_code == 200
+        rows = resp.json()
+        assert len(rows) == 1
+        assert rows[0]["scope_type"] == "system"
+        assert rows[0]["scope_id"] == system.id
+        # The name is resolved for display, so the UI need not fetch it.
+        assert rows[0]["scope_name"] == system.name
+        assert rows[0]["level"] == "gm"
+
+    def test_lists_empty_for_a_user_with_no_grants(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        resp = client.get(f"/api/users/{user['id']}/access-grants", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_book_grant_reports_the_book_title(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        book = make_book(make_game_system().id, title="Granted Tome")
+        client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "book", "scope_id": book.id, "level": "admin"},
+            headers=admin_headers,
+        )
+        rows = client.get(
+            f"/api/users/{user['id']}/access-grants", headers=admin_headers
+        ).json()
+        assert rows[0]["scope_name"] == "Granted Tome"
+
+    def test_deleted_scope_reports_an_empty_name(self, client, admin_headers):
+        """scope_id carries no FK, so a deleted target leaves a listable orphan."""
+        user = self._gm(client, admin_headers)
+        book = make_book(make_game_system().id)
+        client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "book", "scope_id": book.id, "level": "gm"},
+            headers=admin_headers,
+        )
+        db = SessionLocal()
+        db.query(Book).filter_by(id=book.id).delete()
+        db.commit()
+        db.close()
+        rows = client.get(
+            f"/api/users/{user['id']}/access-grants", headers=admin_headers
+        ).json()
+        assert rows[0]["scope_name"] == ""
+
+    def test_listing_unknown_user_404s(self, client, admin_headers):
+        resp = client.get(f"/api/users/{uuid.uuid4()}/access-grants", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_granting_to_unknown_user_404s(self, client, admin_headers):
+        book = make_book(make_game_system().id)
+        resp = client.post(
+            f"/api/users/{uuid.uuid4()}/access-grants",
+            json={"scope_type": "book", "scope_id": book.id, "level": "gm"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+
+    def test_rejects_an_unknown_scope_type(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        resp = client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "campaign", "scope_id": "x", "level": "gm"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "scope_type" in resp.json()["detail"]
+
+    def test_rejects_an_unknown_level(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        book = make_book(make_game_system().id)
+        resp = client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "book", "scope_id": book.id, "level": "superuser"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "level" in resp.json()["detail"]
+
+    def test_rejects_an_open_level(self, client, admin_headers):
+        """Granting "open" would be a no-op, so it is not a valid grant."""
+        user = self._gm(client, admin_headers)
+        book = make_book(make_game_system().id)
+        resp = client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "book", "scope_id": book.id, "level": ""},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_system_grant_requires_an_existing_system(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        resp = client.post(
+            f"/api/users/{user['id']}/access-grants",
+            json={"scope_type": "system", "scope_id": str(uuid.uuid4()), "level": "gm"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+        assert "system" in resp.json()["detail"]
+
+    def test_revoking_an_unknown_grant_404s(self, client, admin_headers):
+        user = self._gm(client, admin_headers)
+        resp = client.delete(
+            f"/api/users/{user['id']}/access-grants/{uuid.uuid4()}", headers=admin_headers
+        )
+        assert resp.status_code == 404
+
+    def test_cannot_revoke_another_users_grant(self, client, admin_headers):
+        """The grant id is scoped to its user, so ids cannot be used across accounts."""
+        owner = self._gm(client, admin_headers)
+        other = self._gm(client, admin_headers)
+        book = make_book(make_game_system().id)
+        grant = client.post(
+            f"/api/users/{owner['id']}/access-grants",
+            json={"scope_type": "book", "scope_id": book.id, "level": "gm"},
+            headers=admin_headers,
+        ).json()
+        resp = client.delete(
+            f"/api/users/{other['id']}/access-grants/{grant['id']}", headers=admin_headers
+        )
+        assert resp.status_code == 404
+
     def test_demoting_a_gm_drops_their_grants(self, client, admin_headers):
         user = self._gm(client, admin_headers)
         book = make_book(make_game_system().id)
