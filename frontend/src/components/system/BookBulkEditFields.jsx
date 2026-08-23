@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { CATEGORY_ORDER, categoryLabel } from '../../constants'
+import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import GenrePicker from '../metadata/GenrePicker'
 import CategoryPicker from '../metadata/CategoryPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -238,6 +239,13 @@ export default function BookBulkEditFields({
           />
         </div>
       </div>
+
+      <AccessLevelPicker
+        id="book-bulk-access-level"
+        value={draft.access_level}
+        effectiveLevel={draft.effective_access_level}
+        onChange={(v) => setField('access_level', v)}
+      />
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
         <input

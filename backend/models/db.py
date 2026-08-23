@@ -276,6 +276,12 @@ def _apply_legacy_migrations(conn: Connection) -> None:
         # Per-user write access on a Private page's share rows. Existing rows
         # granted read only, which is exactly what the 0 default preserves.
         "ALTER TABLE wiki_page_shares ADD COLUMN can_write BOOLEAN DEFAULT 0",
+        # Book access levels (issue #258). Books default to NULL ("inherit"),
+        # systems to '' (open), so an upgraded library stays fully visible until
+        # an admin restricts something.
+        "ALTER TABLE books ADD COLUMN access_level VARCHAR(10)",
+        "ALTER TABLE game_systems ADD COLUMN access_level VARCHAR(10) DEFAULT ''",
+        "CREATE INDEX IF NOT EXISTS ix_books_access_level ON books(access_level)",
     ]:
         try:
             conn.execute(text(migration))

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 from ...models import Audio, Book, GameSystem, GenericMap, Token, User
+from ...services import access_control
 
 
 _FORMATS = {
@@ -46,6 +47,19 @@ def _safe_filepath(raw: str) -> Optional[str]:
     if not resolved.is_file():
         return None
     return str(resolved)
+
+
+def _visible(db, q, user):
+    """Drop the books ``user`` may not see from an archive query (issue #258).
+
+    A bulk download is the easiest way to walk out with a restricted book, so
+    every book-bearing archive builder routes its query through here. ``user`` is
+    optional only so the builders stay directly callable from tests; a None user
+    means "no filtering", which is why the *routers* always pass one.
+    """
+    if user is None:
+        return q
+    return access_control.visible_books(db, q, user)
 
 
 def _can_see_explicit(db, user_id: str) -> bool:
@@ -144,16 +158,19 @@ def _safe_arcname(arcname: str) -> str:
 # archive should contain every file the user owns — the gridless map as well as
 # the gridded one — so these helpers do not filter on variant_parent_id the way
 # the browse endpoints do (issues #304, #306).
-def _files_for_system(db, system_id: str, see_explicit: bool) -> tuple[list, str]:
+def _files_for_system(db, system_id: str, see_explicit: bool, user=None) -> tuple[list, str]:
     system = db.query(GameSystem).filter_by(id=system_id).first()
     if not system:
         raise HTTPException(404, "System not found")
     if system.is_explicit and not see_explicit:
         raise HTTPException(403, "Explicit content disabled")
+    if user is not None and not access_control.can_access_system(db, user, system):
+        raise HTTPException(404, "System not found")
 
     q = db.query(Book).filter_by(game_system_id=system_id)
     if not see_explicit:
         q = q.filter(Book.is_explicit != True)
+    q = _visible(db, q, user)
 
     files = [
         (safe, _safe_arcname(f"{b.category or 'misc'}/{b.filename}"))
@@ -164,17 +181,20 @@ def _files_for_system(db, system_id: str, see_explicit: bool) -> tuple[list, str
 
 
 def _files_for_system_category(
-    db, system_id: str, category: str, see_explicit: bool
+    db, system_id: str, category: str, see_explicit: bool, user=None
 ) -> tuple[list, str]:
     system = db.query(GameSystem).filter_by(id=system_id).first()
     if not system:
         raise HTTPException(404, "System not found")
     if system.is_explicit and not see_explicit:
         raise HTTPException(403, "Explicit content disabled")
+    if user is not None and not access_control.can_access_system(db, user, system):
+        raise HTTPException(404, "System not found")
 
     q = db.query(Book).filter_by(game_system_id=system_id, category=category)
     if not see_explicit:
         q = q.filter(Book.is_explicit != True)
+    q = _visible(db, q, user)
 
     files = [
         (safe, _safe_arcname(b.filename))
@@ -185,7 +205,7 @@ def _files_for_system_category(
 
 
 def _files_for_book_folder(
-    db, system_id: str, folder: str, see_explicit: bool
+    db, system_id: str, folder: str, see_explicit: bool, user=None
 ) -> tuple[list, str]:
     """Books in a nested subfolder within any category.
     Path structure: books/{SystemName}/{categoryDir}/{folder...}/...
@@ -197,10 +217,13 @@ def _files_for_book_folder(
     system = db.query(GameSystem).filter_by(id=system_id).first()
     if not system:
         raise HTTPException(404, "System not found")
+    if user is not None and not access_control.can_access_system(db, user, system):
+        raise HTTPException(404, "System not found")
 
     q = db.query(Book).filter_by(game_system_id=system_id)
     if not see_explicit:
         q = q.filter(Book.is_explicit != True)
+    q = _visible(db, q, user)
 
     target = [seg for seg in folder.replace("\\", "/").split("/") if seg]
 

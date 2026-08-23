@@ -754,6 +754,13 @@
       "disable": "Desativar inferência de categoria pelo nome da pasta",
       "perSystemHint": "Para desativar a inferência apenas em um sistema, coloque um arquivo vazio chamado .no-auto-category na raiz da pasta desse sistema.",
       "envLocked": "Esta configuração está bloqueada pela variável de ambiente DISABLE_FOLDER_CATEGORY_INFERENCE (atualmente {{value}}) e não pode ser alterada aqui."
+    },
+    "categoryAccess": {
+      "title": "Restrições por categoria",
+      "description": "Restrinja categorias inteiras em toda a biblioteca. Isto define a predefinição de cada livro da categoria — um livro ou sistema específico pode substituí-la em qualquer direção.",
+      "hint": "Livros de regras base e fichas de personagem não podem ser restritos. Livros restritos ficam totalmente ocultos para utilizadores sem acesso, incluindo na pesquisa e nas transferências.",
+      "saveFailed": "Não foi possível guardar as restrições de categoria.",
+      "selectLabel": "Nível de acesso para {{category}}"
     }
   },
   "users": {
@@ -2270,6 +2277,28 @@
       "gridded": "Com grelha",
       "gridless": "Sem grelha",
       "other": "Outro"
+    }
+  },
+  "access": {
+    "pickerLabel": "Quem pode ver isto",
+    "inheritedAs": "Atualmente resolve para: {{level}}",
+    "levels": {
+      "inherit": "Herdar (do sistema ou categoria)",
+      "open": "Todos",
+      "gm": "Apenas mestres e administradores",
+      "admin": "Apenas administradores"
+    },
+    "restrictedBadge": "Restrito",
+    "grants": {
+      "title": "Acesso à biblioteca",
+      "description": "Dê a este mestre acesso a sistemas ou livros restritos específicos, sem reduzir a restrição para os restantes.",
+      "gmOnly": "Apenas mestres podem ter acessos concedidos. Os administradores já veem tudo e os jogadores não podem contornar uma restrição.",
+      "empty": "Ainda não há acessos concedidos.",
+      "addSystem": "Conceder um sistema",
+      "addBook": "Conceder um livro",
+      "remove": "Revogar",
+      "levelLabel": "Nível",
+      "deletedScope": "(eliminado)"
     }
   }
 }

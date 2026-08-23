@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
-from ...services import bulk_service, tag_service, variants
+from ...services import access_control, bulk_service, tag_service, variants
 from .._bulk_schemas import BulkAddTags
+from ..books._helpers import _enforce_campaign_visibility, pop_access_level
 from ._helpers import resolve_cover_book_id
 from ._schemas import BookFolderUpdate, GameSystemBulkUpdate, GameSystemUpdate
 from ._serializers import serialize_book, serialize_system_summary
@@ -59,12 +60,15 @@ def list_systems(
     ).filter(variants.parent_filter(Book))
     if not can_see_explicit:
         agg_q = agg_q.filter(Book.is_explicit != True)  # noqa: E712
+    # Counts must reflect what this user can open (issue #258): a card reading
+    # "12 books" over a shelf showing 9 is itself a disclosure that three exist.
+    agg_q = access_control.visible_books(db, agg_q, user)
     agg = {
         gsid: (count, pages)
         for gsid, count, pages in agg_q.group_by(Book.game_system_id).all()
     }
 
-    systems = db.query(GameSystem).all()
+    systems = access_control.visible_systems(db, db.query(GameSystem), user).all()
     # Number of child systems per container, for the container's card.
     child_counts = {
         pid: count
@@ -155,11 +159,19 @@ def get_system(
     if system.is_explicit and not can_see_explicit:
         raise HTTPException(404, "System not found")
 
+    # A restricted system is hidden outright rather than shown empty — an empty
+    # "Curse of Strahd" shelf is the same spoiler as the books inside it. 404
+    # rather than 403 so it is indistinguishable from a system that never
+    # existed.
+    if not access_control.can_access_system(db, user, system):
+        raise HTTPException(404, "System not found")
+
     book_q = variants.parents_only(
         db.query(Book).filter_by(game_system_id=system.id), Book
     )
     if not can_see_explicit:
         book_q = book_q.filter(Book.is_explicit != True)
+    book_q = access_control.visible_books(db, book_q, user)
     books = book_q.all()
 
     # Cover resolution ignores the sort/filter args (must be stable). Containers
@@ -338,7 +350,7 @@ def delete_book_folder(
 def update_system(
     system_id: str,
     data: GameSystemUpdate,
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     system = db.query(GameSystem).filter_by(id=system_id).first()
@@ -347,6 +359,9 @@ def update_system(
     # model_dump serializes nested Pydantic models (publishers, urls,
     # character_builder_urls) to plain dicts, which SQLAlchemy stores as JSON.
     payload = data.model_dump(exclude_none=True)
+    # Removed before apply_updates' blind setattr so the admin-only rule is
+    # actually enforced. A system has no "inherit" state — it is the fallback.
+    has_access, access_level = pop_access_level(payload, current_user, allow_inherit=False)
     try:
         _apply_rename(db, system, payload)
     except bulk_service.BulkItemError as exc:
@@ -354,8 +369,26 @@ def update_system(
         # the commit fail with an opaque 500.
         raise HTTPException(409, str(exc)) from exc
     bulk_service.apply_updates(db, "system", system, payload)
+    if has_access:
+        system.access_level = access_level
+        _enforce_system_campaign_visibility(db, system)
     db.commit()
     return {"status": "ok"}
+
+
+def _enforce_system_campaign_visibility(db: Session, system: GameSystem) -> None:
+    """Demote campaign shares of the books a newly-restricted system covers.
+
+    Restricting a system restricts every book in it that expresses no level of
+    its own, so the same campaign rule that applies to a directly-restricted
+    book has to reach those too — otherwise "restrict the whole D&D shelf" would
+    leave each book still shared with the players. Books carrying an explicit
+    level are skipped by ``_enforce_campaign_visibility`` itself, which re-runs
+    the full cascade per book rather than assuming the system's level applies.
+    """
+    books = db.query(Book).filter(Book.game_system_id == system.id).all()
+    for book in books:
+        _enforce_campaign_visibility(db, book)
 
 
 def _apply_rename(db: Session, system: GameSystem, payload: dict) -> None:

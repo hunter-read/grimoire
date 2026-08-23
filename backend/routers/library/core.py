@@ -19,7 +19,7 @@ from ...models import GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ...security import AUTH_RATE_LIMIT, limiter
-from ...services import variants
+from ...services import access_control, variants
 from ..settings import get_stats_api_key
 from . import _helpers
 from ._schemas import (
@@ -106,6 +106,16 @@ def get_stats(
         stored_key = get_stats_api_key(db)
         if not stored_key or x_api_key != stored_key:
             raise HTTPException(401, "Authentication required")
+
+    # Book counts are scoped to what the caller may actually see (issue #258):
+    # a sidebar reading "340 books" over a library showing 320 discloses both
+    # that restricted books exist and exactly how many. The API-key path has no
+    # user and is an admin-configured integration, so it keeps the full totals.
+    def _books(q):
+        if user is None:
+            return q
+        return access_control.visible_books(db, q, access_control.load_user(db, user))
+
     return {
         # Container folders are shelves, not systems, so they are excluded — but
         # the systems nested inside them do count (issues #261/#262). A one-page
@@ -119,18 +129,20 @@ def get_stats(
         # and counting it twice would contradict what the library view shows.
         # Bytes are the opposite case — every variant is a real file on the
         # disk, so total_size_mb deliberately counts them all (issues #304/#306).
-        "books": variants.parents_only(db.query(Book), Book).count(),
+        "books": _books(variants.parents_only(db.query(Book), Book)).count(),
         "maps": variants.parents_only(db.query(GenericMap), GenericMap).count(),
         "tokens": variants.parents_only(db.query(Token), Token).count(),
         "audio": variants.parents_only(db.query(Audio), Audio).count(),
-        "indexed_books": variants.parents_only(
-            db.query(Book).filter_by(indexed=True), Book
+        "indexed_books": _books(
+            variants.parents_only(db.query(Book).filter_by(indexed=True), Book)
         ).count(),
-        "total_pages": db.query(func.sum(Book.page_count))
-        .filter(variants.parent_filter(Book))
-        .scalar()
+        "total_pages": _books(
+            db.query(func.sum(Book.page_count)).filter(variants.parent_filter(Book))
+        ).scalar()
         or 0,
-        "total_size_mb": round((db.query(func.sum(Book.file_size)).scalar() or 0) / 1048576, 1),
+        "total_size_mb": round(
+            (_books(db.query(func.sum(Book.file_size))).scalar() or 0) / 1048576, 1
+        ),
     }
 
 

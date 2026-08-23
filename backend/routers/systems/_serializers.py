@@ -45,6 +45,9 @@ def serialize_book(book: Book, tags: list[str] | None = None) -> dict[str, Any]:
         "has_thumbnail": book.has_thumbnail,
         "tags": tags if tags is not None else [],
         "is_explicit": bool(book.is_explicit),
+        # Raw column, not the resolved level: NULL ("inherit") must survive the
+        # round trip so the editor can tell it from an explicit "open".
+        "access_level": book.access_level,
         "is_missing": bool(book.is_missing),
         "relative_path": book.relative_path,
     }
@@ -90,6 +93,7 @@ def serialize_system_summary(
         # upload. Lets the client pick a cover source without a speculative 404.
         "has_cover": has_cover_file(system),
         "is_explicit": bool(system.is_explicit),
+        "access_level": system.access_level or "",
         "is_system_agnostic": bool(system.is_system_agnostic),
         "is_one_page": bool(system.is_one_page),
         # System containers (issues #261, #262).

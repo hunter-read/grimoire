@@ -754,6 +754,13 @@
       "disable": "Kategorie-Erkennung aus Ordnernamen deaktivieren",
       "perSystemHint": "Um die Erkennung nur für ein einzelnes System zu deaktivieren, legen Sie eine leere Datei namens .no-auto-category im Stammordner dieses Systems ab.",
       "envLocked": "Diese Einstellung ist durch die Umgebungsvariable DISABLE_FOLDER_CATEGORY_INFERENCE festgelegt (derzeit {{value}}) und kann hier nicht geändert werden."
+    },
+    "categoryAccess": {
+      "title": "Kategorie-Einschränkungen",
+      "description": "Schränke ganze Kategorien in der gesamten Bibliothek ein. Dies legt die Voreinstellung für jedes Buch der Kategorie fest — einzelne Bücher oder Systeme können sie in beide Richtungen überschreiben.",
+      "hint": "Grundregelwerke und Charakterbögen können nicht eingeschränkt werden. Eingeschränkte Bücher sind für Benutzer ohne Zugriff vollständig verborgen, auch in Suche und Downloads.",
+      "saveFailed": "Die Kategorie-Einschränkungen konnten nicht gespeichert werden.",
+      "selectLabel": "Zugriffsstufe für {{category}}"
     }
   },
   "users": {
@@ -2270,6 +2277,28 @@
       "gridded": "Mit Raster",
       "gridless": "Ohne Raster",
       "other": "Andere"
+    }
+  },
+  "access": {
+    "pickerLabel": "Wer dies sehen kann",
+    "inheritedAs": "Ergibt derzeit: {{level}}",
+    "levels": {
+      "inherit": "Erben (von System oder Kategorie)",
+      "open": "Alle",
+      "gm": "Nur Spielleiter und Administratoren",
+      "admin": "Nur Administratoren"
+    },
+    "restrictedBadge": "Eingeschränkt",
+    "grants": {
+      "title": "Bibliothekszugriff",
+      "description": "Gewähre dieser Spielleitung Zugriff auf bestimmte eingeschränkte Systeme oder Bücher, ohne die Einschränkung für andere aufzuheben.",
+      "gmOnly": "Nur Spielleiter können Zugriffsrechte erhalten. Administratoren sehen bereits alles, und Spieler können nicht an einer Einschränkung vorbei berechtigt werden.",
+      "empty": "Noch keine Zugriffsrechte.",
+      "addSystem": "System freigeben",
+      "addBook": "Buch freigeben",
+      "remove": "Entziehen",
+      "levelLabel": "Stufe",
+      "deletedScope": "(gelöscht)"
     }
   }
 }

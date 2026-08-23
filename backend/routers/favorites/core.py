@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from ...config import get_db
 from ...auth import get_current_user, CurrentUser
 from ...models import Favorite, Book, GenericMap, Token, Audio, GameSystem
-from ...services import tag_service
+from ...services import access_control, tag_service
 from ..systems._helpers import resolve_cover_book_id
 from ..systems.covers import has_cover_file
 from ._schemas import FavoriteIn
@@ -19,6 +19,8 @@ VALID_TYPES = {"book", "map", "token", "audio", "system", "tag"}
 
 def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = db.query(Favorite).filter_by(user_id=user.id).order_by(Favorite.created_at).all()
+    # The ORM row, not the token payload: grant lookups query against it.
+    access_user = access_control.load_user(db, user)
 
     book_ids = [r.item_id for r in rows if r.item_type == "book"]
     map_ids = [r.item_id for r in rows if r.item_type == "map"]
@@ -27,11 +29,23 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
     system_ids = [r.item_id for r in rows if r.item_type == "system"]
     tag_internals = [r.item_id for r in rows if r.item_type == "tag"]
 
-    books = {b.id: b for b in db.query(Book).filter(Book.id.in_(book_ids))}
+    # A favourited book that later becomes restricted drops out of the list
+    # rather than 404ing when opened (issue #258).
+    books = {
+        b.id: b
+        for b in access_control.visible_books(
+            db, db.query(Book).filter(Book.id.in_(book_ids)), access_user
+        )
+    }
     maps = {m.id: m for m in db.query(GenericMap).filter(GenericMap.id.in_(map_ids))}
     tokens = {t.id: t for t in db.query(Token).filter(Token.id.in_(token_ids))}
     audio = {a.id: a for a in db.query(Audio).filter(Audio.id.in_(audio_ids))}
-    systems = {s.id: s for s in db.query(GameSystem).filter(GameSystem.id.in_(system_ids))}
+    systems = {
+        s.id: s
+        for s in access_control.visible_systems(
+            db, db.query(GameSystem).filter(GameSystem.id.in_(system_ids)), access_user
+        )
+    }
     tag_meta = tag_service.tags_meta_for_internals(db, tag_internals)
 
     # Shared tags (display strings) for the media types that surface them.

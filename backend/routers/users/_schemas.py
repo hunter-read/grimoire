@@ -241,3 +241,22 @@ class OpdsStatusResponse(BaseModel):
     has_token: Optional[bool] = None
     # Null when no token has been generated yet.
     feed_url: Optional[str] = None
+
+
+class AccessGrantCreate(BaseModel):
+    """Grant a user access to one restricted system or book (issue #258)."""
+
+    scope_type: str  # "system" | "book"
+    scope_id: str
+    # Only the restriction levels are grantable; "" (open) would be a no-op.
+    level: str = "gm"
+
+
+class AccessGrantOut(BaseModel):
+    id: str
+    user_id: str
+    scope_type: str
+    scope_id: str
+    # "" when the target system/book has since been deleted.
+    scope_name: str
+    level: str

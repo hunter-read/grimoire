@@ -84,6 +84,12 @@ class GameSystem(Base):
     # Dragons") survives every subsequent rescan.
     name_is_custom = Column(Boolean, default=False)
 
+    # Minimum role required to see this system and everything under it (issue
+    # #258). One of backend.models.access.LEVEL_*; "" (the default) is open to
+    # everyone. Acts as the fallback for books that set no level of their own,
+    # and hides the system card itself from users below the level.
+    access_level = Column(String(10), default="")
+
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
@@ -185,6 +191,17 @@ class Book(Base):
     # override survives a restart mid-re-OCR. See indexer.ocr_book / the
     # POST /api/books/{id}/reindex endpoint.
     ocr_dpi = Column(Integer, nullable=True)
+
+    # Minimum role required to see this book (issue #258). One of
+    # backend.models.access.LEVEL_*, or NULL for "inherit".
+    #
+    # The three-state distinction matters: NULL means this book expresses no
+    # opinion and the resolver falls through to the system's level and then the
+    # category default, while "" is an *explicit* open that overrides both — how
+    # a freely-shared player's guide stays visible inside an otherwise
+    # admin-only adventure line. The book level always wins when it is set,
+    # in either direction.
+    access_level = Column(String(10), nullable=True, index=True)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)

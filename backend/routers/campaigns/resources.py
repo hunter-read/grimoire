@@ -26,6 +26,7 @@ from ._helpers import (
     assert_can_manage,
     can_see_resource as _can_see_resource,
     can_view,
+    clamp_visibility_for_access,
     get_campaign_or_404,
 )
 from ._schemas import ResourceAdd, ResourceBulkAdd, ResourceReorder, ResourceUpdate
@@ -161,6 +162,9 @@ def add_resource(
         raise HTTPException(409, "Resource already linked")
 
     visibility = data.visibility if data.visibility in _VISIBILITIES else "gm"
+    visibility = clamp_visibility_for_access(
+        db, data.resource_type, data.resource_id, visibility
+    )
     category_id = _resolve_category(db, campaign_id, data.category_id)
     max_order = (
         db.query(CampaignResource).filter_by(campaign_id=campaign_id).count()
@@ -208,6 +212,9 @@ def bulk_add_resources(
             continue
         existing_keys.add(key)
         visibility = item.visibility if item.visibility in _VISIBILITIES else "gm"
+        visibility = clamp_visibility_for_access(
+            db, item.resource_type, item.resource_id, visibility
+        )
         res = CampaignResource(
             campaign_id=campaign_id,
             resource_type=item.resource_type,
@@ -243,7 +250,9 @@ def update_resource(
     if data.visibility is not None:
         if data.visibility not in _VISIBILITIES:
             raise HTTPException(400, "Invalid visibility")
-        res.visibility = data.visibility
+        res.visibility = clamp_visibility_for_access(
+            db, res.resource_type, res.resource_id, data.visibility
+        )
     if data.category_id is not None:
         res.category_id = _resolve_category(db, campaign_id, data.category_id)
     if data.shared_user_ids is not None:

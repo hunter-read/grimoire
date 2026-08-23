@@ -155,16 +155,22 @@ class TestUpdateMap:
         assert detail["tags"] == [f"Alpha{uid}", f"BRAVO{uid}", f"charlie{uid}"]
 
     def test_duplicate_tags_deduplicated_on_map_update(self, client, gm_headers):
+        # Unique tag name for the same reason as the test above: an existing
+        # tag keeps its own display value, so a name another test created first
+        # would decide the assertion rather than this test's own input.
+        uid = uuid.uuid4().hex[:6]
         m = make_map()
         resp = client.patch(
             f"/api/maps/{m.id}",
-            json={"tags": ["draw steel", "Draw Steel", "DRAW STEEL"]},
+            json={
+                "tags": [f"draw steel{uid}", f"Draw Steel{uid}", f"DRAW STEEL{uid}"],
+            },
             headers=gm_headers,
         )
         assert resp.status_code == 200
         detail = client.get(f"/api/maps/{m.id}", headers=gm_headers).json()
         # Case-variants collapse to one tag, keeping the first-entered display.
-        assert detail["tags"] == ["draw steel"]
+        assert detail["tags"] == [f"draw steel{uid}"]
 
     def test_player_cannot_update_map(self, client, player_headers, map_entry):
         resp = client.patch(
@@ -214,23 +220,32 @@ class TestMapFolders:
         assert resp.status_code == 200
 
     def test_folder_tags_are_lowercased(self, client, gm_headers):
+        # The folder PATCH echoes back the stored *internal* keys, which are
+        # lowercased — unlike GET /map-folders, which returns display tags (see
+        # FolderTagsOut). The unique suffix keeps the assertion independent of
+        # tags other tests happen to have created.
+        uid = uuid.uuid4().hex[:6]
         resp = client.patch(
             "/api/map-folders",
-            json={"path": "maps/case-test", "tags": ["Draw Steel", "DUNGEON"]},
+            json={"path": "maps/case-test", "tags": [f"Draw Steel{uid}", f"DUNGEON{uid}"]},
             headers=gm_headers,
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["tags"] == ["draw steel", "dungeon"]
+        assert body["tags"] == [f"draw steel{uid}", f"dungeon{uid}"]
 
     def test_folder_tags_deduplicated_after_lowercase(self, client, gm_headers):
+        uid = uuid.uuid4().hex[:6]
         resp = client.patch(
             "/api/map-folders",
-            json={"path": "maps/dedup-test", "tags": ["draw steel", "Draw Steel"]},
+            json={
+                "path": "maps/dedup-test",
+                "tags": [f"draw steel{uid}", f"Draw Steel{uid}"],
+            },
             headers=gm_headers,
         )
         assert resp.status_code == 200
-        assert resp.json()["tags"] == ["draw steel"]
+        assert resp.json()["tags"] == [f"draw steel{uid}"]
 
     def test_player_cannot_update_folder_tags(self, client, player_headers):
         resp = client.patch(

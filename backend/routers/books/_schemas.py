@@ -15,6 +15,13 @@ class LinkEntry(BaseModel):
     url: str = ""
 
 
+# Accepted ``access_level`` values on the wire. "inherit" is the API spelling of
+# a NULL column (no book-level opinion); "" is an explicit "open" that overrides
+# a restricted system. See backend.models.access.
+ACCESS_INHERIT = "inherit"
+_BOOK_ACCESS_VALUES = frozenset({ACCESS_INHERIT, "", "gm", "admin"})
+
+
 # NOTE: the variant_* columns are deliberately absent from BookUpdate and
 # BookBulkUpdate. bulk_service.apply_updates does a blind setattr for any field
 # present in the schema, which would bypass every guard in services/variants.py
@@ -40,6 +47,24 @@ class BookUpdate(BaseModel):
     day: Optional[int] = None
     tags: Optional[list[str]] = None
     is_explicit: Optional[bool] = None
+    # Who may see this book (issue #258). Three-state, and the states cannot be
+    # expressed with a bare Optional[str]: the handlers drop None fields so an
+    # omitted key leaves the book alone, which makes None unusable as "set back
+    # to inherit". The literal string "inherit" carries that instead and is
+    # translated to a NULL column write in the handler.
+    #
+    # Admin-only on the write path — enforced in the handler, not here.
+    access_level: Optional[str] = None
+
+    @field_validator("access_level")
+    @classmethod
+    def check_access_level(cls, v):
+        if v is None:
+            return v
+        if v not in _BOOK_ACCESS_VALUES:
+            allowed = ", ".join(sorted(_BOOK_ACCESS_VALUES))
+            raise ValueError(f"access_level must be one of: {allowed}")
+        return v
 
     @field_validator("genres", mode="before")
     @classmethod
