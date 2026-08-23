@@ -560,3 +560,142 @@ class TestDismissPrunesLiveResults:
             if {a.id, b.id} & {m["id"] for m in g["members"]}
         ]
         assert mine == []
+
+
+class TestListGroups:
+    """The review listing: what it returns, and that a page comes back full.
+
+    Hydration is batched and paginated rather than building every group in the
+    table per request (the listing used to issue over two thousand queries for a
+    200-group page). These pin the behaviour that batching has to preserve.
+    """
+
+    @staticmethod
+    def _row(ids, scan_id="s", conf=1.0, rtype="book"):
+        from backend.models.duplicates import DuplicateGroup
+
+        return DuplicateGroup(
+            scan_id=scan_id,
+            resource_type=rtype,
+            group_key=str(ids),
+            member_ids=list(ids),
+            confidence=conf,
+            reasons=["hash"],
+            edges=[{"a": ids[0], "b": ids[1], "reason": "hash", "score": 1.0}],
+            suggested_parent_id=ids[0],
+            suggested_kinds={},
+        )
+
+    @pytest.fixture
+    def clean_groups(self):
+        """Each test owns the table: the listing is global across scans."""
+        from backend.config import SessionLocal
+        from backend.models.duplicates import DuplicateGroup
+
+        db = SessionLocal()
+        db.query(DuplicateGroup).delete()
+        db.commit()
+        db.close()
+        yield
+        db = SessionLocal()
+        db.query(DuplicateGroup).delete()
+        db.commit()
+        db.close()
+
+    def _pair(self, system, db):
+        a = make_book(system.id, content_hash="dup", file_size=1)
+        b = make_book(system.id, content_hash="dup", file_size=1)
+        db.add(self._row([a.id, b.id]))
+        return a, b
+
+    def test_returns_the_group_with_its_members(self, client, admin_headers, system,
+                                                clean_groups):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        a, b = self._pair(system, db)
+        db.commit()
+        db.close()
+
+        data = client.get(f"{API}/groups", headers=admin_headers).json()
+        assert data["total"] == 1
+        group = data["groups"][0]
+        assert {m["id"] for m in group["members"]} == {a.id, b.id}
+        assert group["members"][0]["game_system_name"] == system.name
+        # Counts are batched now; they must still be per-member, not shared.
+        assert all("favorites" in m["reference_counts"] for m in group["members"])
+        # scan_id is reported once for the response, not repeated per group.
+        assert data["scan_id"] == "s"
+        assert "scan_id" not in group
+
+    def test_a_page_is_filled_past_groups_that_drop_out(self, client, admin_headers,
+                                                        system, clean_groups):
+        """Dead groups must not eat the page.
+
+        Members are filtered *after* loading, so a SQL LIMIT alone would return a
+        short page whenever the leading rows turn out to be stale.
+        """
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        for i in range(30):
+            db.add(self._row([f"ghost-{i}a", f"ghost-{i}b"]))
+        for _ in range(5):
+            self._pair(system, db)
+        db.commit()
+        db.close()
+
+        data = client.get(f"{API}/groups?limit=5", headers=admin_headers).json()
+        assert len(data["groups"]) == 5
+        assert data["total"] == 5
+
+    def test_total_is_page_scoped(self, client, admin_headers, system, clean_groups):
+        """`total` counts what was walked for this page, not the whole table."""
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        for _ in range(8):
+            self._pair(system, db)
+        db.commit()
+        db.close()
+
+        small = client.get(f"{API}/groups?limit=3", headers=admin_headers).json()
+        assert len(small["groups"]) == 3
+        assert small["total"] == 3
+        whole = client.get(f"{API}/groups?limit=50", headers=admin_headers).json()
+        assert whole["total"] == 8
+
+    def test_groups_resolved_into_a_variant_are_hidden(self, client, admin_headers,
+                                                       system, clean_groups):
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        db = SessionLocal()
+        a, b = self._pair(system, db)
+        db.commit()
+        db.query(Book).filter_by(id=b.id).update({"variant_parent_id": a.id})
+        db.commit()
+        db.close()
+
+        data = client.get(f"{API}/groups", headers=admin_headers).json()
+        assert data["total"] == 0
+
+    def test_paging_covers_every_group_exactly_once(self, client, admin_headers,
+                                                    system, clean_groups):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        for _ in range(12):
+            self._pair(system, db)
+        db.commit()
+        db.close()
+
+        whole = client.get(f"{API}/groups?limit=200", headers=admin_headers).json()
+        seen = []
+        for offset in range(0, 12, 4):
+            page = client.get(
+                f"{API}/groups?limit=4&offset={offset}", headers=admin_headers
+            ).json()
+            seen += [g["id"] for g in page["groups"]]
+        assert seen == [g["id"] for g in whole["groups"]]
+        assert len(set(seen)) == 12

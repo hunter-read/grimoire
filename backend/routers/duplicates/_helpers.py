@@ -1,5 +1,5 @@
 """Shared internals for the duplicates router."""
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -118,3 +118,25 @@ def is_empty(value: Any) -> bool:
     if isinstance(value, (list, dict)):
         return len(value) == 0
     return False
+
+
+def system_names(db: Session, records: Iterable[Any]) -> dict[str, Optional[str]]:
+    """:func:`system_name` for many records at once, keyed by record id.
+
+    One query for the whole set rather than one per record: the review page asks
+    this for every member of every group it shows, and the same handful of
+    systems answers nearly all of them.
+    """
+    records = list(records)
+    system_ids = {
+        sid for r in records if (sid := getattr(r, "game_system_id", None))
+    }
+    names: dict[str, str] = {}
+    if system_ids:
+        names = {
+            s.id: s.name
+            for s in db.query(GameSystem).filter(GameSystem.id.in_(list(system_ids))).all()
+        }
+    return {
+        r.id: names.get(getattr(r, "game_system_id", None) or "") for r in records
+    }

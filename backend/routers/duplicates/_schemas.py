@@ -227,7 +227,12 @@ class DuplicateGroupOut(BaseModel):
 
 
 class GroupListResponse(BaseModel):
+    """A page of candidate groups from the most recent completed scan."""
+
     scan_id: Optional[str] = None
+    # Open groups walked to fill this page - not a count of the whole table.
+    # See the note in detection.list_groups: a table-wide total would mean
+    # hydrating every group on every request.
     total: int = 0
     groups: list[DuplicateGroupOut] = []
 

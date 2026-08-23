@@ -1113,7 +1113,7 @@ about them (issues #304, #306).
 | `/api/duplicates/scan-status` | GET | Progress of the detection scan |
 | `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = all four) |
 | `/api/duplicates/cancel-scan` | POST | Stop a running scan |
-| `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset` |
+| `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset`. `total` counts the open groups walked to fill the page, not the whole table - a short page means the end |
 | `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids` |
 | `/api/duplicates/link` | POST | File items under a parent as its variants |
 | `/api/duplicates/promote` | POST | Make a different copy the main version of an existing family |

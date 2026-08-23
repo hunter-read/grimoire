@@ -8,8 +8,8 @@ from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
 from ...models.duplicates import DuplicateGroup
 from ...services import duplicates
-from ...services.library_fs.references import reference_counts
-from ._helpers import resolve_model, system_name
+from ...services.library_fs.references import reference_counts_for
+from ._helpers import resolve_model, system_names
 from ._schemas import DismissRequest, ScanRequest
 
 
@@ -76,49 +76,102 @@ def list_groups(
         query = query.filter_by(resource_type=resource_type)
     if min_confidence:
         query = query.filter(DuplicateGroup.confidence >= min_confidence)
-    rows = query.order_by(DuplicateGroup.confidence.desc()).all()
+    query = query.order_by(DuplicateGroup.confidence.desc(), DuplicateGroup.id)
 
-    out = []
+    # Hydrated a slice at a time rather than all at once. Building every group
+    # in the table only to return a page of them meant a page load cost work
+    # proportional to the whole library: a 200-group page issued over two
+    # thousand queries and took noticeably long to come back.
+    #
+    # The scan does not know which groups are still open - members get deleted
+    # or resolved into a variant family between scans - and that filtering can
+    # only happen after the members are loaded. So SQL LIMIT alone would return
+    # short pages; instead this walks the ordered rows in blocks, keeping the
+    # survivors, until the requested page is full.
+    out: list[dict] = []
+    wanted = offset + limit
+    seen = 0
+    block = max(wanted, 1)
+    while len(out) < wanted:
+        rows = query.offset(seen).limit(block).all()
+        if not rows:
+            break
+        seen += len(rows)
+        out.extend(_hydrate(db, rows))
+
+    page = out[offset : offset + limit]
+    # The id of the run these groups came from. Read from the first surviving
+    # group rather than a separate query - every row of a completed scan carries
+    # the same scan_id.
+    scan_id = out[0]["scan_id"] if out else None
+    for group in page:
+        group.pop("scan_id", None)
+
+    # Page-scoped: the number of open groups walked to fill this page, not a
+    # count of the whole table. Whether a group is still open depends on member
+    # rows the scan does not join to, so an exact table-wide total would mean
+    # hydrating every group on every request - which is the cost this endpoint
+    # exists to avoid. Callers that need "is there more" should ask for the next
+    # page; a short one means the end.
+    return {"scan_id": scan_id, "total": len(out), "groups": page}
+
+
+def _hydrate(db: Session, rows: list) -> list[dict]:
+    """Turn scan rows into review payloads, batching every lookup they need.
+
+    Grouped by resource type so the member records, their game system names, and
+    their reference counts are each fetched once for the whole block instead of
+    once per member.
+    """
+    by_type: dict[str, list] = {}
     for row in rows:
-        model = resolve_model(row.resource_type)
-        records = {
-            r.id: r
-            for r in db.query(model).filter(model.id.in_(list(row.member_ids or []))).all()
-        }
-        # A member that vanished, or a family the user has already collapsed,
-        # is no longer an open question.
-        if len(records) < 2:
-            continue
-        if sum(1 for r in records.values() if r.variant_parent_id is None) < 2:
-            continue
+        by_type.setdefault(row.resource_type, []).append(row)
 
-        kinds = row.suggested_kinds or {}
-        members = []
-        for member_id in row.member_ids or []:
-            record = records.get(member_id)
-            if record is None:
+    built: dict[str, dict] = {}
+    for rtype, type_rows in by_type.items():
+        model = resolve_model(rtype)
+        ids = {mid for row in type_rows for mid in (row.member_ids or [])}
+        records = {
+            r.id: r for r in db.query(model).filter(model.id.in_(list(ids))).all()
+        }
+        systems = system_names(db, records.values())
+        counts = reference_counts_for(db, model, list(records))
+
+        for row in type_rows:
+            present = {
+                mid: records[mid] for mid in (row.member_ids or []) if mid in records
+            }
+            # A member that vanished, or a family the user has already collapsed,
+            # is no longer an open question.
+            if len(present) < 2:
                 continue
-            hint = kinds.get(member_id) or {}
-            members.append(
-                {
-                    "id": record.id,
-                    "filename": record.filename,
-                    "relative_path": record.relative_path,
-                    "file_size": record.file_size or 0,
-                    "title": getattr(record, "title", None),
-                    "page_count": getattr(record, "page_count", None),
-                    "has_thumbnail": bool(getattr(record, "has_thumbnail", False)),
-                    "is_missing": bool(getattr(record, "is_missing", False)),
-                    "game_system_name": system_name(db, record),
-                    "content_hash": record.content_hash,
-                    "suggested_kind": hint.get("kind", "other"),
-                    "suggested_label": hint.get("label", ""),
-                    "reference_counts": reference_counts(db, model, record.id),
-                }
-            )
-        out.append(
-            {
+            if sum(1 for r in present.values() if r.variant_parent_id is None) < 2:
+                continue
+
+            kinds = row.suggested_kinds or {}
+            members = []
+            for member_id, record in present.items():
+                hint = kinds.get(member_id) or {}
+                members.append(
+                    {
+                        "id": record.id,
+                        "filename": record.filename,
+                        "relative_path": record.relative_path,
+                        "file_size": record.file_size or 0,
+                        "title": getattr(record, "title", None),
+                        "page_count": getattr(record, "page_count", None),
+                        "has_thumbnail": bool(getattr(record, "has_thumbnail", False)),
+                        "is_missing": bool(getattr(record, "is_missing", False)),
+                        "game_system_name": systems.get(record.id),
+                        "content_hash": record.content_hash,
+                        "suggested_kind": hint.get("kind", "other"),
+                        "suggested_label": hint.get("label", ""),
+                        "reference_counts": counts.get(record.id, {}),
+                    }
+                )
+            built[row.id] = {
                 "id": row.id,
+                "scan_id": row.scan_id,
                 "resource_type": row.resource_type,
                 "confidence": row.confidence or 0.0,
                 "reasons": row.reasons or [],
@@ -130,15 +183,12 @@ def list_groups(
                 "edges": [
                     e
                     for e in (row.edges or [])
-                    if e.get("a") in records and e.get("b") in records
+                    if e.get("a") in present and e.get("b") in present
                 ],
             }
-        )
-
-    total = len(out)
-    page = out[offset : offset + limit]
-    scan_id = rows[0].scan_id if rows else None
-    return {"scan_id": scan_id, "total": total, "groups": page}
+    # Grouping by type above loses the confidence ordering the query applied, so
+    # the block is re-emitted in the order it arrived.
+    return [built[row.id] for row in rows if row.id in built]
 
 
 def dismiss_group(

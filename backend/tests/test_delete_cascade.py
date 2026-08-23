@@ -29,6 +29,7 @@ from backend.services.library_fs.references import (
     item_type_for,
     purge_references,
     reference_counts,
+    reference_counts_for,
 )
 from backend.tests.conftest import (
     make_audio,
@@ -291,5 +292,78 @@ class TestDeleteRecord:
             db.rollback()
             # The row survived, because nothing was committed.
             assert db.query(Book).filter_by(id=book.id).first() is not None
+        finally:
+            db.close()
+
+
+class TestBatchedReferenceCounts:
+    """``reference_counts_for`` must agree with ``reference_counts``, per record.
+
+    The duplicate listing switched to the batched form to avoid four COUNT
+    queries per member; the counts it reports are what a user decides a deletion
+    on, so "same answer, fewer queries" is the whole contract.
+    """
+
+    def test_matches_the_single_record_function(self, admin_id):
+        system = make_game_system()
+        loaded = make_book(system_id=system.id)
+        bare = make_book(system_id=system.id)
+        campaign = make_campaign(owner_id=admin_id)
+
+        db = SessionLocal()
+        try:
+            db.add(Bookmark(user_id=admin_id, book_id=loaded.id, page_number=1))
+            _attach_all(db, "book", loaded.id, admin_id, campaign.id)
+            db.commit()
+
+            batched = reference_counts_for(db, Book, [loaded.id, bare.id])
+            assert batched[loaded.id] == reference_counts(db, Book, loaded.id)
+            assert batched[bare.id] == reference_counts(db, Book, bare.id)
+            # A record with nothing pointing at it reports explicit zeros rather
+            # than dropping out of the result.
+            assert batched[bare.id] == {
+                "favorites": 0,
+                "tags": 0,
+                "campaigns": 0,
+                "bookmarks": 0,
+            }
+        finally:
+            db.close()
+
+    def test_counts_are_not_shared_between_records(self, admin_id):
+        """The bug a batched rewrite invites: one record's counts on everyone."""
+        system = make_game_system()
+        a = make_book(system_id=system.id)
+        b = make_book(system_id=system.id)
+        db = SessionLocal()
+        try:
+            db.add(Bookmark(user_id=admin_id, book_id=a.id, page_number=1))
+            db.add(Bookmark(user_id=admin_id, book_id=a.id, page_number=2))
+            db.commit()
+
+            counts = reference_counts_for(db, Book, [a.id, b.id])
+            assert counts[a.id]["bookmarks"] == 2
+            assert counts[b.id]["bookmarks"] == 0
+        finally:
+            db.close()
+
+    def test_media_models_have_no_bookmark_key(self):
+        m = make_map()
+        db = SessionLocal()
+        try:
+            counts = reference_counts_for(db, GenericMap, [m.id])
+            assert "bookmarks" not in counts[m.id]
+            assert counts[m.id] == reference_counts(db, GenericMap, m.id)
+        finally:
+            db.close()
+
+    def test_unknown_model_and_empty_input(self):
+        class Nope:
+            pass
+
+        db = SessionLocal()
+        try:
+            assert reference_counts_for(db, Nope, ["x"]) == {"x": {}}
+            assert reference_counts_for(db, Book, []) == {}
         finally:
             db.close()
