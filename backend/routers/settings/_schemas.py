@@ -15,6 +15,9 @@ class SettingsPatch(BaseModel):
     hide_tokens: Optional[bool] = None
     hide_audio: Optional[bool] = None
     hide_campaigns: Optional[bool] = None
+    # {category_slug: "gm"|"admin"} restricting whole categories app-wide
+    # (issue #258). Validated in the handler against the unrestrictable list.
+    restricted_categories: Optional[dict] = None
     show_stat_systems: Optional[bool] = None
     show_stat_books: Optional[bool] = None
     show_stat_pages: Optional[bool] = None
@@ -75,6 +78,7 @@ class SettingsResponse(BaseModel):
     hide_tokens: bool
     hide_audio: bool
     hide_campaigns: bool
+    restricted_categories: dict
     show_stat_systems: bool
     show_stat_books: bool
     show_stat_pages: bool

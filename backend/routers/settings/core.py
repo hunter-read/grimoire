@@ -1,4 +1,5 @@
 """App settings endpoints."""
+import json
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,6 +13,7 @@ from ...config import (
     OIDC_ENV,
 )
 from ...auth import require_admin, get_current_user, CurrentUser
+from ...services import access_control
 from ...services.library_fs import library_writable
 from ._helpers import (
     _get_raw,
@@ -70,6 +72,15 @@ def update_settings(
         _set(db, "hide_audio", "true" if data.hide_audio else "false")
     if data.hide_campaigns is not None:
         _set(db, "hide_campaigns", "true" if data.hide_campaigns else "false")
+    if data.restricted_categories is not None:
+        # Validated rather than stored as sent: an admin who mistypes a level or
+        # tries to restrict a category that may not be restricted (core,
+        # character sheets) should be told, not silently ignored.
+        try:
+            cleaned = access_control.validate_category_defaults(data.restricted_categories)
+        except access_control.AccessError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        _set(db, "restricted_categories", json.dumps(cleaned))
     for key in (
         "show_stat_systems",
         "show_stat_books",

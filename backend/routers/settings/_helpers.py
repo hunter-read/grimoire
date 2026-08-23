@@ -1,4 +1,5 @@
 """Shared helpers and defaults for settings endpoints."""
+import json
 import re
 
 from ...config import (
@@ -25,6 +26,9 @@ _DEFAULTS = {
     "hide_tokens": "false",
     "hide_audio": "false",
     "hide_campaigns": "false",
+    # Category → access-level map restricting whole categories app-wide (issue
+    # #258), as a JSON object. "{}" means nothing is restricted by category.
+    "restricted_categories": "{}",
     # Sidebar stats visibility (true = shown)
     "show_stat_systems": "true",
     "show_stat_books": "false",
@@ -113,6 +117,7 @@ def _to_typed(raw: dict) -> dict:
         "hide_tokens": raw["hide_tokens"] == "true",
         "hide_audio": raw["hide_audio"] == "true",
         "hide_campaigns": raw["hide_campaigns"] == "true",
+        "restricted_categories": _restricted_categories_to_typed(raw),
         "show_stat_systems": raw["show_stat_systems"] == "true",
         "show_stat_books": raw["show_stat_books"] == "true",
         "show_stat_pages": raw["show_stat_pages"] == "true",
@@ -133,6 +138,20 @@ def _to_typed(raw: dict) -> dict:
         # OIDC
         **_oidc_to_typed(raw),
     }
+
+
+def _restricted_categories_to_typed(raw) -> dict:
+    """Parse the stored category→level JSON for the settings response.
+
+    Mirrors ``access_control.category_defaults``' forgiveness: a corrupt value
+    reads as "nothing restricted" rather than failing the whole settings request
+    and locking an admin out of the page they would fix it on.
+    """
+    try:
+        parsed = json.loads(raw.get("restricted_categories", "{}") or "{}")
+    except (ValueError, TypeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _oidc_to_typed(raw: dict) -> dict:

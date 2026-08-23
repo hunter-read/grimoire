@@ -4,6 +4,7 @@ import { LuTrash2, LuScroll } from 'react-icons/lu'
 import SetEmailInline from './SetEmailInline'
 import SetPasswordInline from './SetPasswordInline'
 import UserCampaignsList from './UserCampaignsList'
+import UserAccessGrantsSection from './UserAccessGrantsSection'
 import EditorField, { fieldLabelStyle } from './EditorField'
 import PermissionToggle from './PermissionToggle'
 import { ghostBtnStyle } from './settingsButtons'
@@ -124,6 +125,9 @@ export default function UserExpandedEditor({
           </EditorField>
         )}
       </div>
+
+      {/* Library access grants (issue #258) */}
+      {isAdmin && !isSelf && <UserAccessGrantsSection userId={user.id} userRole={user.role} />}
 
       {/* Campaigns */}
       {showCampaigns && (

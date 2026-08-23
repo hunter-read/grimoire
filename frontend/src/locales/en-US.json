@@ -754,6 +754,13 @@
       "disable": "Disable folder-name category inference",
       "perSystemHint": "To disable inference for a single system only, place an empty file named .no-auto-category at that system's folder root.",
       "envLocked": "This setting is locked by the DISABLE_FOLDER_CATEGORY_INFERENCE environment variable (currently {{value}}) and cannot be changed here."
+    },
+    "categoryAccess": {
+      "title": "Category Restrictions",
+      "description": "Restrict whole categories across the library. This sets the default for every book in the category — an individual book or system can still override it in either direction.",
+      "hint": "Core rulebooks and character sheets cannot be restricted. Restricted books are hidden entirely from users who lack access, including in search and downloads.",
+      "saveFailed": "Could not save the category restrictions.",
+      "selectLabel": "Access level for {{category}}"
     }
   },
   "users": {
@@ -2270,6 +2277,28 @@
       "gridded": "Gridded",
       "gridless": "Gridless",
       "other": "Other"
+    }
+  },
+  "access": {
+    "pickerLabel": "Who can see this",
+    "inheritedAs": "Currently resolves to: {{level}}",
+    "levels": {
+      "inherit": "Inherit (from system or category)",
+      "open": "Everyone",
+      "gm": "GMs and admins only",
+      "admin": "Admins only"
+    },
+    "restrictedBadge": "Restricted",
+    "grants": {
+      "title": "Library access grants",
+      "description": "Give this GM access to specific restricted systems or books, without lowering the restriction for anyone else.",
+      "gmOnly": "Only GMs can hold access grants. Admins already see everything, and players cannot be granted past a restriction.",
+      "empty": "No grants yet.",
+      "addSystem": "Grant a system",
+      "addBook": "Grant a book",
+      "remove": "Revoke",
+      "levelLabel": "Level",
+      "deletedScope": "(deleted)"
     }
   }
 }

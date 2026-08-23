@@ -4,6 +4,7 @@ Models are organised by domain (library, media, users, campaigns, settings)
 and re-exported here so callers can keep using ``from backend.models import X``.
 """
 
+from .access import UserAccessGrant
 from .base import Base
 from .campaigns import (
     Campaign,
@@ -44,6 +45,8 @@ from .users import AuthSession, Bookmark, Favorite, SavedFilter, User, UserTheme
 __all__ = [
     "Base",
     "init_db",
+    # Access control
+    "UserAccessGrant",
     # Library
     "GameSystem",
     "Book",

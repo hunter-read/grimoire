@@ -50,6 +50,7 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 - **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. An "apply to all" button opens a checklist of fields to copy from the item you are on to the whole selection - tick Category and every selected book moves at once - and books and systems can pull metadata from an installed add-on without leaving the carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
 - **Duplicate Detection & Versions** - Find files that are copies of one another, then decide what happens to them. An admin-triggered scan on its own full page (**Settings → Maintenance → Open duplicate detection**) matches byte-identical files, near-identical titles, overlapping page text (so a book scanned twice is caught even though its bytes differ), and gridded/gridless map pairs, labelling each group with why it was flagged and how confident it is. Nothing is ever deleted automatically. Results are reviewed two copies at a time, side by side, so one odd file in a cluster of five can be separated out on its own: per pair you can collapse them into one entry and say what kind of variant the other copy is, copy metadata from the better record onto the one you are keeping, delete a copy, or mark the pair as "not duplicates" - which sticks across every future scan
 - **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
+- **Book Restrictions** - Keep the adventure module your players are inside out of their hands. Restrict a single book, a whole system, or an entire category to *GMs and admins* or *admins only*, set by admins in the book/system editors, in bulk edit, or in **Settings → Application**. Restricted content is hidden outright - from the library, search, downloads, favourites, and OPDS - rather than shown behind a padlock, since the title and cover are the spoiler. Settings cascade book → system → category, so one free player's guide can stay visible inside an otherwise restricted line, and individual GMs can be granted access to just their own campaign's material. See [Restricting books](#restricting-books)
 - **OPDS Catalog** - Each user can generate a personal OPDS feed URL to connect e-reader apps directly to their library
 - **Docker Ready** - One command to run, mount your library directory, done
 - **Responsive** - Works on desktop, tablet, and phone with mobile navigation
@@ -1127,11 +1128,69 @@ docker compose up -d
 | Role | What they can do |
 |---|---|
 | `admin` | Everything - user management, app settings, metadata editing, rescan |
-| `gm` | Read everything, edit metadata, create GM campaigns |
+| `gm` | Read everything except admin-only content, edit metadata, create GM campaigns |
 | `player` | Read-only access, personal campaigns, session notes |
 | `guest` | Code-only account scoped to a single campaign. No access to the library, maps, tokens, audio, or search. See [Guest invites](#guest-invites). |
 
 Create additional accounts in **Settings → Users** after logging in as admin.
+
+---
+
+## Restricting books
+
+By default every user can see every book. If you would rather keep the adventure
+module your players are currently inside out of their hands, books, systems, and
+whole categories can be restricted to a minimum role.
+
+There are two restriction levels:
+
+| Level | Who can see it |
+|---|---|
+| **Everyone** | No restriction. The default. |
+| **GMs and admins only** | Hidden from players and guests. |
+| **Admins only** | Hidden from GMs as well. |
+
+Restricted content is **hidden**, not locked - it disappears from the library,
+search, system pages, downloads, favourites, and the OPDS feed. A title and cover
+are themselves the spoiler, so a padlock nobody can open would defeat the point.
+
+### Where restrictions can be set
+
+Restrictions resolve most-specific-first, so a narrower setting always wins:
+
+```
+book  →  system  →  category default  →  everyone
+```
+
+- **A single book** - in the book editor, or for many at once through bulk edit.
+  A book set to *Inherit* takes its system's or category's setting; a book set
+  explicitly to *Everyone* stays visible even inside a restricted system, which is
+  how a free player's guide can sit in an otherwise admin-only adventure line.
+- **A whole system** - in the system editor. Restricting a system hides the system
+  itself along with every book in it that has no setting of its own.
+- **A whole category** - in **Settings → Application → Category Restrictions**.
+  This is the library-wide default for that category. Core rulebooks and character
+  sheets cannot be restricted: everyone at the table needs those by definition.
+
+Only admins can change any of these, including in bulk edit.
+
+### Granting one GM access
+
+A locked-down library still needs the GM running the campaign to reach their own
+material. In **Settings → Users**, expand a GM's row and use **Library access
+grants** to give that person access to a specific system or book without lowering
+the restriction for anyone else.
+
+Grants are only available for GMs. Admins already see everything, and players and
+guests are exactly who the restrictions exist to exclude, so they cannot be
+granted past one. A grant is removed automatically if the user stops being a GM.
+
+### Restricted books in campaigns
+
+A restricted book can still be linked into a campaign - the GM needs it - but it is
+always forced to **GM-only** visibility there, and cannot be made public or private
+to the players. If you restrict a book that was already shared, its existing shares
+are demoted to GM-only for you.
 
 ---
 

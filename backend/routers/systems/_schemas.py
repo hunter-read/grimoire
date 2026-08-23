@@ -79,6 +79,20 @@ class GameSystemUpdate(BaseModel):
     year: Optional[int] = None
     cover_book_id: Optional[str] = None
     is_explicit: Optional[bool] = None
+    # Minimum role required to see this system and, by inheritance, the books in
+    # it that express no level of their own (issue #258). Admin-only on the write
+    # path — enforced in the handler. Unlike a book there is no "inherit": a
+    # system sits at the top of the cascade, so "" is simply open.
+    access_level: Optional[str] = None
+
+    @field_validator("access_level")
+    @classmethod
+    def check_access_level(cls, v):
+        if v is None:
+            return v
+        if v not in ("", "gm", "admin"):
+            raise ValueError("access_level must be one of: '', gm, admin")
+        return v
 
     @field_validator("tags", mode="before")
     @classmethod

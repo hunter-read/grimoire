@@ -19,10 +19,16 @@ from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
 from ...models import Book, GameSystem
-from ...services import bulk_service, library_fs, tag_service, variants
+from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
-from ._helpers import _allow_explicit, _assert_book_access, _invalidate_book_cache
+from ._helpers import (
+    _allow_explicit,
+    _assert_book_access,
+    _enforce_campaign_visibility,
+    _invalidate_book_cache,
+    pop_access_level,
+)
 from ._schemas import BookBulkUpdate, BookUpdate
 
 # OCR DPI bounds, mirroring backend.config._read_ocr_dpi clamping.
@@ -55,6 +61,11 @@ def list_books(
     # entry, so the browse list shows one row per book (issues #304, #306). They
     # stay reachable by id, which is what the version picker opens.
     q = variants.parents_only(db.query(Book), Book)
+    # Restricted books are hidden outright rather than shown locked (issue #258):
+    # a title and cover are themselves the spoiler this feature exists to
+    # withhold. Applied before the count, so pagination reflects what the user
+    # can actually see.
+    q = access_control.visible_books(db, q, access_control.load_user(db, current_user))
     if system_id:
         q = q.filter_by(game_system_id=system_id)
     if category:
@@ -66,6 +77,9 @@ def list_books(
     # One grouped query for the whole page rather than one per row, so the
     # "has other versions" badge costs nothing per book.
     vcounts = variants.variant_counts(db, Book, [b.id for b in books])
+    # Resolved once for the page with the shared category map and system rows,
+    # so the badge costs no extra query per book.
+    effective_levels = access_control.effective_levels(db, books)
     return {
         "total": total,
         "books": [
@@ -84,6 +98,11 @@ def list_books(
                 "index_failed": b.index_failed,
                 "ocr_indexed": b.index_error == "ocr",
                 "is_explicit": bool(b.is_explicit),
+                # NULL ("inherit") is passed through as-is rather than
+                # normalised, so the editor can tell "no opinion" from an
+                # explicit "open" and round-trip the value unchanged.
+                "access_level": b.access_level,
+                "effective_access_level": effective_levels.get(b.id, ""),
                 "is_missing": bool(b.is_missing),
                 "variant_count": vcounts.get(b.id, 0),
             }
@@ -99,6 +118,12 @@ def get_book(
 ):
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
+        raise HTTPException(404, "Book not found")
+    if not access_control.can_access_book(
+        db, access_control.load_user(db, current_user), book
+    ):
+        # 404 rather than 403: a restricted book must be indistinguishable from
+        # one that does not exist, or probing ids leaks the library's contents.
         raise HTTPException(404, "Book not found")
     if book.is_explicit and not _allow_explicit(db, current_user.id):
         raise HTTPException(403, "Explicit content is disabled for your account")
@@ -140,6 +165,8 @@ def get_book(
         "mime_type": book.mime_type,
         "has_thumbnail": book.has_thumbnail,
         "is_explicit": bool(book.is_explicit),
+        "access_level": book.access_level,
+        "effective_access_level": access_control.resolve_level(db, book),
         "content_token": content_token(book.content_hash, book.filepath),
         # The whole variant family, resolved from whichever end was requested, so
         # the reader's version picker renders without a second round trip. A book
@@ -158,16 +185,23 @@ def get_book(
 def update_book(
     book_id: str,
     data: BookUpdate,
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
     previous_category = book.category
+    payload = data.model_dump(exclude_none=True)
+    # Pulled out before apply_updates, which would otherwise setattr it blind —
+    # skipping the admin check and the inherit-sentinel translation.
+    has_access, access_level = pop_access_level(payload, current_user)
     # Tags live in the shared-tag tables, not a column on the book (issue #235);
     # apply_updates routes them through the tag service for us.
-    bulk_service.apply_updates(db, "book", book, data.model_dump(exclude_none=True))
+    bulk_service.apply_updates(db, "book", book, payload)
+    if has_access:
+        book.access_level = access_level
+        _enforce_campaign_visibility(db, book)
     # A category change moves the file into the matching folder, because the
     # folder is what the next rescan reads: leaving the file put would let the
     # scan overwrite the edit with the old category. Best-effort by design — a
@@ -184,7 +218,7 @@ def update_book(
 
 def bulk_update_books(
     data: BookBulkUpdate,  # type: ignore[valid-type]
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Apply per-book edits for a whole selection in one transaction (issue #270)."""
@@ -195,11 +229,27 @@ def bulk_update_books(
         b.id: b.category
         for b in db.query(Book).filter(Book.id.in_([i.id for i in items] or [""])).all()
     }
+
+    def _apply_access(db_, obj, payload):
+        """Handle access_level per item, inside the bulk transaction.
+
+        Runs as the ``validate`` hook because that is the one place with both the
+        resolved row and its still-mutable payload, before apply_updates blindly
+        setattrs it. The 403 for a non-admin propagates out of the whole request
+        rather than becoming a per-item error: it is a statement about the
+        caller, not about one book, so failing the batch is the honest response.
+        """
+        has_access, level = pop_access_level(payload, current_user)
+        if has_access:
+            obj.access_level = level
+            _enforce_campaign_visibility(db_, obj)
+
     result = bulk_service.run_bulk_update(
         db,
         "book",
         items,
         payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
+        validate=_apply_access,
         not_found_detail="Book not found",
     )
     _relocate_recategorised(db, result["updated"], before)

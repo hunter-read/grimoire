@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
+from ...services import access_control
 from ._helpers import (
     _archive_response,
     _can_see_explicit,
@@ -35,25 +36,28 @@ def download_archive(
     db: Session = Depends(get_db),
 ):
     see_explicit = _can_see_explicit(db, current_user.id)
+    # Bulk archives are the easiest way to walk out with a restricted book, so
+    # every book-bearing builder is handed the user and filters accordingly.
+    user = access_control.load_user(db, current_user)
 
     if type == "system":
         if not id:
             raise HTTPException(400, "id is required for type=system")
-        files, base = _files_for_system(db, id, see_explicit)
+        files, base = _files_for_system(db, id, see_explicit, user)
 
     elif type == "system_category":
         if not id:
             raise HTTPException(400, "id is required for type=system_category")
         if not category:
             raise HTTPException(400, "category is required for type=system_category")
-        files, base = _files_for_system_category(db, id, category, see_explicit)
+        files, base = _files_for_system_category(db, id, category, see_explicit, user)
 
     elif type == "book_folder":
         if not id:
             raise HTTPException(400, "id is required for type=book_folder")
         if not folder:
             raise HTTPException(400, "folder is required for type=book_folder")
-        files, base = _files_for_book_folder(db, id, folder, see_explicit)
+        files, base = _files_for_book_folder(db, id, folder, see_explicit, user)
 
     elif type == "map_folder":
         if not folder:

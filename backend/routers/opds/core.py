@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ...config import get_db
 from ...models import Book, User
-from ...services import tag_service
+from ...services import access_control, tag_service
 
 
 _ATOM_NS = 'xmlns="http://www.w3.org/2005/Atom"'
@@ -146,6 +146,10 @@ def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
     q = db.query(Book).filter(Book.is_missing != True)
     if not (user.allow_explicit if user.allow_explicit is not None else True):
         q = q.filter(Book.is_explicit != True)
+    # The OPDS token authenticates the user, so their access level applies here
+    # exactly as it does in the web UI (issue #258) — an e-reader must not be a
+    # way around a restriction.
+    q = access_control.visible_books(db, q, user)
     books = q.order_by(Book.title).all()
 
     links = (
@@ -165,6 +169,10 @@ def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Respo
     user = _resolve_user(db, token)
     book = db.query(Book).filter_by(id=book_id).first()
     if not book or book.is_missing:
+        raise HTTPException(404, "Book not found")
+    if not access_control.can_access_book(db, user, book):
+        # 404, matching the web UI: a restricted book stays indistinguishable
+        # from one that does not exist.
         raise HTTPException(404, "Book not found")
     if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
         raise HTTPException(403, "Forbidden")
@@ -192,6 +200,10 @@ def download_book(token: str, book_id: str, db: Session = Depends(get_db)) -> Fi
     user = _resolve_user(db, token)
     book = db.query(Book).filter_by(id=book_id).first()
     if not book or book.is_missing:
+        raise HTTPException(404, "Book not found")
+    if not access_control.can_access_book(db, user, book):
+        # 404, matching the web UI: a restricted book stays indistinguishable
+        # from one that does not exist.
         raise HTTPException(404, "Book not found")
     if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
         raise HTTPException(403, "Forbidden")

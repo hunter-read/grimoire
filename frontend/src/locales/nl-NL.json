@@ -754,6 +754,13 @@
       "disable": "Categorie afleiden uit mapnaam uitschakelen",
       "perSystemHint": "Om afleiden alleen voor één systeem uit te schakelen, plaats je een leeg bestand met de naam .no-auto-category in de hoofdmap van dat systeem.",
       "envLocked": "Deze instelling is vergrendeld door de omgevingsvariabele DISABLE_FOLDER_CATEGORY_INFERENCE (momenteel {{value}}) en kan hier niet worden gewijzigd."
+    },
+    "categoryAccess": {
+      "title": "Categoriebeperkingen",
+      "description": "Beperk hele categorieën in de bibliotheek. Dit stelt de standaard in voor elk boek in de categorie — een afzonderlijk boek of systeem kan dit in beide richtingen overschrijven.",
+      "hint": "Basisregelboeken en personagebladen kunnen niet worden beperkt. Beperkte boeken zijn volledig verborgen voor gebruikers zonder toegang, ook in zoekresultaten en downloads.",
+      "saveFailed": "De categoriebeperkingen konden niet worden opgeslagen.",
+      "selectLabel": "Toegangsniveau voor {{category}}"
     }
   },
   "users": {
@@ -2270,6 +2277,28 @@
       "gridded": "Met raster",
       "gridless": "Zonder raster",
       "other": "Overig"
+    }
+  },
+  "access": {
+    "pickerLabel": "Wie dit kan zien",
+    "inheritedAs": "Momenteel: {{level}}",
+    "levels": {
+      "inherit": "Overerven (van systeem of categorie)",
+      "open": "Iedereen",
+      "gm": "Alleen spelleiders en beheerders",
+      "admin": "Alleen beheerders"
+    },
+    "restrictedBadge": "Beperkt",
+    "grants": {
+      "title": "Bibliotheektoegang",
+      "description": "Geef deze spelleider toegang tot specifieke beperkte systemen of boeken, zonder de beperking voor anderen op te heffen.",
+      "gmOnly": "Alleen spelleiders kunnen toegangsrechten hebben. Beheerders zien al alles en spelers kunnen geen toegang krijgen langs een beperking heen.",
+      "empty": "Nog geen toegangsrechten.",
+      "addSystem": "Systeem toekennen",
+      "addBook": "Boek toekennen",
+      "remove": "Intrekken",
+      "levelLabel": "Niveau",
+      "deletedScope": "(verwijderd)"
     }
   }
 }

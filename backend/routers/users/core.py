@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ...config import get_db
-from ...models import User, Campaign, CampaignMember
+from ...models import User, Campaign, CampaignMember, UserAccessGrant
 from ...auth import require_admin, CurrentUser, hash_password
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..campaigns._helpers import purge_user_data, reassign_user_data
@@ -140,6 +140,15 @@ def update_user(
     revoke_reason = (data.role and data.role != user.role) or bool(data.password)
 
     if data.role:
+        if data.role != user.role and user.role == "gm":
+            # Access grants are only meaningful for GMs (issue #258), and
+            # ``access_control`` ignores them for every other role. Dropping them
+            # on demotion keeps the stored state honest, so a user promoted back
+            # to GM months later does not silently regain access an admin granted
+            # for a campaign that ended.
+            db.query(UserAccessGrant).filter_by(user_id=user.id).delete(
+                synchronize_session=False
+            )
         user.role = data.role
     if data.password:
         user.hashed_password = hash_password(data.password)

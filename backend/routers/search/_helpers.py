@@ -59,6 +59,30 @@ _SNIPPET_CLOSE = "\ue001"
 VISIBLE_BOOKS_SQL = "book_id IN (SELECT id FROM books WHERE variant_parent_id IS NULL)"
 
 
+def access_clause(excluded_book_ids) -> tuple[str, dict]:
+    """Build the ``AND book_id NOT IN (...)`` fragment hiding restricted books.
+
+    Returns ``(sql, params)``. The ids are emitted as **bound parameters**, one
+    per id, never interpolated: these strings come from the database rather than
+    the request, but this fragment is spliced into an f-string alongside
+    user-supplied search text, and a query builder that interpolates *some* of
+    its values is one refactor away from interpolating the wrong one.
+
+    An empty list yields an empty fragment rather than ``NOT IN ()``, which is a
+    syntax error in SQLite — and is also the overwhelmingly common case, since
+    an unrestricted library excludes nothing and an admin excludes nothing.
+    """
+    ids = list(excluded_book_ids)
+    if not ids:
+        return "", {}
+    names = [f"excl_{i}" for i in range(len(ids))]
+    placeholders = ", ".join(f":{n}" for n in names)
+    return (
+        f"AND book_id NOT IN ({placeholders})",
+        dict(zip(names, ids)),
+    )
+
+
 SNIPPET_SQL = f"snippet(book_search, 2, '{_SNIPPET_OPEN}', '{_SNIPPET_CLOSE}', '...', 40)"
 
 

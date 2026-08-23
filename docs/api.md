@@ -115,10 +115,13 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 | `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
 | `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
-| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, or `email` (use `""` to clear the email). `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. |
+| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, or `email` (use `""` to clear the email). `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
 | `/api/users/:id/merge` | POST | admin | Fold one or more guest accounts into the account at `:id`, so someone invited to several campaigns ends up with a single login. Body: `{source_ids: [...]}` (non-empty, no duplicates, cannot contain `:id`). Moves each source's campaign memberships, notes, characters, and personal rows onto the target, then deletes the emptied sources and ends their sessions. Merged-in memberships have their invite code cleared - campaign access comes from the membership itself, so the person keeps every campaign and uses the surviving account's credentials. Rows that would collide (target is already in that campaign) are dropped in favour of the target's. Sources must be guests; the target may be a guest or a permanent user. Returns `{id, display_name, merged_ids, memberships_moved}`. 400 if a source isn't a guest or `:id` is among the sources, 404 if the target or any source is missing. |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin). Also the way to remove a guest account, including one orphaned by its campaign's deletion (null `campaign_id`/`invited_by`). |
+| `/api/users/:id/access-grants` | GET | admin | List this user's library access grants. Each: `{id, user_id, scope_type, scope_id, scope_name, level}`. `scope_name` is `""` when the granted system/book has since been deleted. |
+| `/api/users/:id/access-grants` | POST | admin | Grant access to one restricted system or book. Body: `{scope_type: "system"\|"book", scope_id, level: "gm"\|"admin"}`. Only **GMs** may hold grants (400 otherwise) - admins already see everything and players cannot be granted past a restriction. Re-granting an existing scope updates its level rather than erroring. 404 if the target system/book does not exist. See [Access levels](#access-levels-issue-258). |
+| `/api/users/:id/access-grants/:grant_id` | DELETE | admin | Revoke a grant. `204` on success. |
 | `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear) |
 | `/api/users/me/password` | PATCH | any | Change own password. Body: `{current_password, new_password}` |
 | `/api/users/me` | DELETE | any | Delete own account (admin accounts cannot self-delete) |
@@ -292,7 +295,7 @@ must be non-empty (`422` otherwise).
 | `/api/systems/:id/book-folders` | PATCH | gm/admin | Create or replace a folder's tag list. Body `{path, tags}`. `path` must be `{system_id}/{category}/{subfolder…}` for this system - 400 otherwise |
 | `/api/systems/:id/book-folders` | DELETE | gm/admin | Delete a folder row and its tags. Query: `path` (same grammar as PATCH). 404 when no such row |
 
-**PATCH fields:** `name`, `slug`, `description`, `publishers`, `character_builder_url` (legacy), `character_builder_urls`, `urls`, `cover_image`, `cover_book_id`, `tags`, `genre` (legacy), `genres`, `dice_materials`, `system_family`, `parent_system`, `edition`, `license`, `year`, `is_explicit`
+**PATCH fields:** `name`, `slug`, `description`, `publishers`, `character_builder_url` (legacy), `character_builder_urls`, `urls`, `cover_image`, `cover_book_id`, `tags`, `genre` (legacy), `genres`, `dice_materials`, `system_family`, `parent_system`, `edition`, `license`, `year`, `is_explicit`, `access_level` (**admin only**; `""`/`"gm"`/`"admin"` - a system has no `inherit` state. See [Access levels](#access-levels-issue-258))
 
 **Publishers format:** `[{"name": "Publisher Name", "url": "https://..."}]`
 
@@ -357,7 +360,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 |----------|--------|------|-------------|
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
 | `/api/books/:id` | GET | any | Book detail with game system |
-| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`. `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. |
+| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
@@ -372,6 +375,45 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 **Book list response:** `{"total": int, "books": [...]}`
 
 **Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled - the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
+
+#### Access levels (issue #258)
+
+A book can be restricted to a minimum role, so a library shared with players can
+withhold the adventure module they are currently inside. Both `Book` and
+`GameSystem` carry an `access_level`, and a category-wide default lives in the
+`restricted_categories` app setting.
+
+| Value | Meaning |
+|---|---|
+| `""` | Open - every user, including players and guests |
+| `"gm"` | GMs and admins only |
+| `"admin"` | Admins only |
+| `null` | **Books only:** inherit (no book-level opinion) |
+
+The effective level resolves most-specific-first: **book → system → category
+default → open**. On a book, `null` means "inherit" and continues the cascade,
+while `""` is an *explicit* open that ends it - that is how a freely-shared
+player's guide stays visible inside an otherwise admin-only system. A system has
+no inherit state; it sits at the top of the cascade.
+
+`PATCH`/bulk bodies use the string `"inherit"` for the null write, because the
+handlers drop `null` fields so an omitted key leaves the book alone.
+
+**Effect on reads.** Restricted content is *hidden*, not locked. It is filtered
+out of `GET /api/books`, `GET /api/systems` (and their counts), `/api/search`,
+`/api/favorites`, the OPDS feeds, and bulk `/api/downloads` archives. By-id
+routes return **404**, not 403, so a restricted book is indistinguishable from
+one that does not exist and ids cannot be probed to enumerate the library.
+Guests are held to the player ceiling (open books only) *and* still restricted to
+their campaign shares.
+
+**Grants** (`/api/users/:id/access-grants`) raise one user's ceiling within one
+system or book. Only GMs may hold them: admins already see everything, and
+players and guests are exactly who restrictions exclude.
+
+**Campaigns.** A restricted book linked into a campaign is forced to `gm`
+visibility and cannot be made `public` or `private`; restricting a book demotes
+its existing shares.
 
 **Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
 
@@ -980,6 +1022,7 @@ than appearing and failing.
 | `hide_tokens` | bool | Hide the tokens section in the UI |
 | `hide_audio` | bool | Hide the audio section in the UI |
 | `hide_campaigns` | bool | Hide the campaigns section in the UI |
+| `restricted_categories` | object | `{category_slug: "gm"\|"admin"}` restricting whole categories library-wide (issue #258). The category-level tier of the access cascade; a book or system still overrides it in either direction. `core` and `character-sheet` are rejected with 400 - everyone at the table needs those. An entry set to `""` is dropped rather than stored, since "open" is the absence of an entry. See [Access levels](#access-levels-issue-258). |
 | `show_stat_systems` | bool | Show/hide game system count in sidebar |
 | `show_stat_books` | bool | Show/hide book count in sidebar |
 | `show_stat_pages` | bool | Show/hide page count in sidebar |

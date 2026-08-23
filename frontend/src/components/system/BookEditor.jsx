@@ -4,6 +4,7 @@ import { LuDownload, LuX } from 'react-icons/lu'
 import api from '../../api'
 import { saveBookPrefs, getBookPrefs } from '../../hooks/useBookPrefs'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
+import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import GenrePicker from '../metadata/GenrePicker'
 import CategoryPicker from '../metadata/CategoryPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -11,6 +12,8 @@ import LookupCombobox from '../metadata/LookupCombobox'
 import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
+import { ACCESS_INHERIT } from '../../accessLevels'
+import { useAuth } from '../../context/AuthContext'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
@@ -24,6 +27,8 @@ export default function BookEditor({
   systemGenres = [],
 }) {
   const { t } = useTranslation()
+  // May be null outside an AuthProvider; see AccessLevelPicker.
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
   const licenseOptions = licenses.map((l) => l.name)
   const [form, setForm] = useState({
@@ -43,6 +48,8 @@ export default function BookEditor({
     urls: linksForEditing(book.urls),
     category: book.category || 'core',
     is_explicit: book.is_explicit || false,
+    // null means "inherit"; the picker maps it to its sentinel and back.
+    access_level: book.access_level ?? null,
   })
   const [tags, setTags] = useState(book.tags || [])
   // "Fetch metadata" only appears when a source is actually available, so the
@@ -111,8 +118,9 @@ export default function BookEditor({
 
   const handleSave = () => {
     setSaving(true)
+    const { access_level, ...rest } = form
     const payload = {
-      ...form,
+      ...rest,
       category: slugify(form.category) || 'core',
       authors: splitCsv(form.authors),
       artists: splitCsv(form.artists),
@@ -121,6 +129,12 @@ export default function BookEditor({
       month: form.month ? parseInt(form.month) : null,
       day: form.day ? parseInt(form.day) : null,
       tags,
+    }
+    // Only sent when the admin actually changed it. The endpoint 403s any
+    // non-admin who includes the key at all, so a GM editing a title must not
+    // send back the value the form merely loaded.
+    if (isAdmin && access_level !== (book.access_level ?? null)) {
+      payload.access_level = access_level === null ? ACCESS_INHERIT : access_level
     }
     api
       .patch(`/books/${book.id}`, payload)
@@ -266,6 +280,14 @@ export default function BookEditor({
               {t('bookEditor.markExplicit')}
             </span>
           </label>
+          <AccessLevelPicker
+            id="book-access-level"
+            value={form.access_level}
+            effectiveLevel={book.effective_access_level}
+            onChange={(v) =>
+              setForm((f) => ({ ...f, access_level: v === ACCESS_INHERIT ? null : v }))
+            }
+          />
         </div>
       </div>
 

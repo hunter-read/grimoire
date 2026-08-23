@@ -754,6 +754,13 @@
       "disable": "Désactiver la déduction de catégorie à partir du nom de dossier",
       "perSystemHint": "Pour désactiver la déduction pour un seul système, placez un fichier vide nommé .no-auto-category à la racine du dossier de ce système.",
       "envLocked": "Ce paramètre est verrouillé par la variable d'environnement DISABLE_FOLDER_CATEGORY_INFERENCE (actuellement {{value}}) et ne peut pas être modifié ici."
+    },
+    "categoryAccess": {
+      "title": "Restrictions par catégorie",
+      "description": "Restreignez des catégories entières dans toute la bibliothèque. Ceci définit la valeur par défaut de chaque livre de la catégorie — un livre ou un système peut toujours la remplacer dans un sens ou dans l'autre.",
+      "hint": "Les livres de règles de base et les feuilles de personnage ne peuvent pas être restreints. Les livres restreints sont entièrement masqués aux utilisateurs sans accès, y compris dans la recherche et les téléchargements.",
+      "saveFailed": "Impossible d'enregistrer les restrictions de catégorie.",
+      "selectLabel": "Niveau d'accès pour {{category}}"
     }
   },
   "users": {
@@ -2270,6 +2277,28 @@
       "gridded": "Avec grille",
       "gridless": "Sans grille",
       "other": "Autre"
+    }
+  },
+  "access": {
+    "pickerLabel": "Qui peut voir ceci",
+    "inheritedAs": "Actuellement résolu en : {{level}}",
+    "levels": {
+      "inherit": "Hériter (du système ou de la catégorie)",
+      "open": "Tout le monde",
+      "gm": "MJ et administrateurs uniquement",
+      "admin": "Administrateurs uniquement"
+    },
+    "restrictedBadge": "Restreint",
+    "grants": {
+      "title": "Accès à la bibliothèque",
+      "description": "Donnez à ce MJ l'accès à des systèmes ou livres restreints précis, sans lever la restriction pour les autres.",
+      "gmOnly": "Seuls les MJ peuvent recevoir des accès. Les administrateurs voient déjà tout, et les joueurs ne peuvent pas contourner une restriction.",
+      "empty": "Aucun accès accordé.",
+      "addSystem": "Accorder un système",
+      "addBook": "Accorder un livre",
+      "remove": "Révoquer",
+      "levelLabel": "Niveau",
+      "deletedScope": "(supprimé)"
     }
   }
 }

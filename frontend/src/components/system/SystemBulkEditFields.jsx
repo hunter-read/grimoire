@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuPlus } from 'react-icons/lu'
 import api from '../../api'
@@ -248,6 +249,13 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
           idPrefix="sys-bulk-cb-url"
         />
       </div>
+
+      <AccessLevelPicker
+        id="sys-bulk-access-level"
+        value={draft.access_level}
+        allowInherit={false}
+        onChange={(v) => setField('access_level', v)}
+      />
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
         <input

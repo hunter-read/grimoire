@@ -25,6 +25,14 @@ _USER_SCOPED_TABLES = (
     "campaign_resource_shares",
 )
 
+# Rows deleted with their user but never *moved* to another one. Access grants
+# (issue #258) authorise one specific person to reach restricted content, so
+# folding them into a merge target would silently widen that person's access —
+# the opposite of what a grant is for. Guests cannot hold grants anyway, and
+# merges only ever source from a guest, so this is belt and braces rather than a
+# live path; it is spelled out so a future non-guest merge cannot get it wrong.
+_USER_DELETE_ONLY_TABLES = ("user_access_grants",)
+
 # Nullable FKs that are *attribution*, not ownership: the content lives inside
 # someone else's campaign and must outlive the user, so these are nulled rather
 # than cascaded. Read paths already tolerate a missing author.
@@ -96,7 +104,7 @@ def purge_user_data(db, user_id: str) -> None:
     """
     for campaign in db.query(Campaign).filter_by(owner_id=user_id).all():
         db.delete(campaign)
-    for table in _USER_SCOPED_TABLES:
+    for table in (*_USER_SCOPED_TABLES, *_USER_DELETE_ONLY_TABLES):
         db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
     for table, column in _USER_ATTRIBUTION_COLUMNS:
         db.execute(
@@ -338,6 +346,31 @@ def can_see_resource(r, is_owner: bool, user_id: str, share_map) -> bool:
     if r.visibility == "private":
         return user_id in share_map.get(r.id, set())
     return False  # gm
+
+
+def clamp_visibility_for_access(db, resource_type: str, resource_id: str, visibility: str) -> str:
+    """Force a restricted book's campaign share down to GM-only (issue #258).
+
+    A restricted book may be linked into a campaign — the GM running the
+    adventure needs it — but never at a visibility that would show it to the
+    campaign's players, since that is precisely who it is being withheld from.
+    Anything other than ``gm`` is clamped rather than rejected, so linking one is
+    a silent, correct downgrade instead of an error the GM has to decode.
+
+    Only books carry access levels, so every other resource type passes through.
+    """
+    if resource_type != "book" or visibility == "gm":
+        return visibility
+    from ...models import Book
+    from ...models.access import LEVEL_OPEN
+    from ...services import access_control
+
+    book = db.query(Book).filter_by(id=resource_id).first()
+    if book is None:
+        return visibility
+    if access_control.resolve_level(db, book) == LEVEL_OPEN:
+        return visibility
+    return "gm"
 
 
 def user_can_access_resource(db, user_id: str, resource_type: str, resource_id: str) -> bool:

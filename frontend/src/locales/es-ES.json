@@ -754,6 +754,13 @@
       "disable": "Desactivar la inferencia de categoría por nombre de carpeta",
       "perSystemHint": "Para desactivar la inferencia solo en un sistema, coloca un archivo vacío llamado .no-auto-category en la raíz de la carpeta de ese sistema.",
       "envLocked": "Este ajuste está bloqueado por la variable de entorno DISABLE_FOLDER_CATEGORY_INFERENCE (actualmente {{value}}) y no se puede cambiar aquí."
+    },
+    "categoryAccess": {
+      "title": "Restricciones por categoría",
+      "description": "Restringe categorías enteras en toda la biblioteca. Esto define el valor predeterminado de cada libro de la categoría; un libro o sistema concreto puede anularlo en cualquier dirección.",
+      "hint": "Los manuales básicos y las hojas de personaje no se pueden restringir. Los libros restringidos se ocultan por completo a los usuarios sin acceso, también en la búsqueda y las descargas.",
+      "saveFailed": "No se han podido guardar las restricciones de categoría.",
+      "selectLabel": "Nivel de acceso para {{category}}"
     }
   },
   "users": {
@@ -2270,6 +2277,28 @@
       "gridded": "Con cuadrícula",
       "gridless": "Sin cuadrícula",
       "other": "Otra"
+    }
+  },
+  "access": {
+    "pickerLabel": "Quién puede ver esto",
+    "inheritedAs": "Actualmente se resuelve como: {{level}}",
+    "levels": {
+      "inherit": "Heredar (del sistema o la categoría)",
+      "open": "Todos",
+      "gm": "Solo DJ y administradores",
+      "admin": "Solo administradores"
+    },
+    "restrictedBadge": "Restringido",
+    "grants": {
+      "title": "Acceso a la biblioteca",
+      "description": "Da a este DJ acceso a sistemas o libros restringidos concretos, sin rebajar la restricción para los demás.",
+      "gmOnly": "Solo los DJ pueden tener accesos concedidos. Los administradores ya lo ven todo y a los jugadores no se les puede conceder acceso saltándose una restricción.",
+      "empty": "Todavía no hay accesos concedidos.",
+      "addSystem": "Conceder un sistema",
+      "addBook": "Conceder un libro",
+      "remove": "Revocar",
+      "levelLabel": "Nivel",
+      "deletedScope": "(eliminado)"
     }
   }
 }

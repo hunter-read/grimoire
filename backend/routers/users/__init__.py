@@ -18,7 +18,13 @@ from .me import (
     generate_opds_token,
     revoke_opds_token,
 )
+from .access_grants import (
+    create_access_grant,
+    delete_access_grant,
+    list_access_grants,
+)
 from ._schemas import (
+    AccessGrantOut,
     GuestMergeResponse,
     GuestOut,
     OpdsStatusResponse,
@@ -101,6 +107,35 @@ router.add_api_route(
     summary="Revoke OPDS token",
     status_code=200,
     response_model=OpdsStatusResponse,
+)
+
+# --- Access grants (issue #258) ---
+router.add_api_route(
+    "/{user_id}/access-grants",
+    list_access_grants,
+    methods=["GET"],
+    summary="List a user's access grants",
+    description="Admin only. Lists the restricted systems/books this user has been granted.",
+    response_model=list[AccessGrantOut],
+)
+router.add_api_route(
+    "/{user_id}/access-grants",
+    create_access_grant,
+    methods=["POST"],
+    summary="Grant a user access to a restricted system or book",
+    description=(
+        "Admin only, and only for GMs. Re-granting an existing scope updates its "
+        "level rather than erroring."
+    ),
+    status_code=201,
+    response_model=AccessGrantOut,
+)
+router.add_api_route(
+    "/{user_id}/access-grants/{grant_id}",
+    delete_access_grant,
+    methods=["DELETE"],
+    summary="Revoke an access grant",
+    status_code=204,
 )
 
 # --- Admin single-user operations ---

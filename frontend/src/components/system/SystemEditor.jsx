@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import AccessLevelPicker from '../metadata/AccessLevelPicker'
+import { useAuth } from '../../context/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { LuDownload, LuX, LuPlus } from 'react-icons/lu'
 import api from '../../api'
@@ -18,6 +20,8 @@ import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
 export default function SystemEditor({ system, onSave, onCoverChange }) {
   const { t } = useTranslation()
+  // May be null outside an AuthProvider; see AccessLevelPicker.
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const {
     genres: genreTree,
     families,
@@ -44,6 +48,7 @@ export default function SystemEditor({ system, onSave, onCoverChange }) {
     year: system.year ?? '',
     cover_book_id: system.cover_book_id || null,
     is_explicit: system.is_explicit || false,
+    access_level: system.access_level || '',
   })
   // "Fetch metadata" only appears when a source is actually available, so the
   // button never promises something the server cannot do. Cached per kind, so
@@ -77,12 +82,18 @@ export default function SystemEditor({ system, onSave, onCoverChange }) {
   const handleSave = () => {
     const publishers = form.publishers.filter((p) => p.name.trim())
     const year = form.year === '' ? null : Number(form.year)
+    const { access_level, ...rest } = form
     const data = {
-      ...form,
+      ...rest,
       publishers,
       urls: cleanLinks(form.urls),
       character_builder_urls: cleanLinks(form.character_builder_urls),
       year,
+    }
+    // Only an admin may set this, and only when it changed — the endpoint 403s
+    // any non-admin request carrying the key at all.
+    if (isAdmin && access_level !== (system.access_level || '')) {
+      data.access_level = access_level
     }
     // A rename makes the name sticky server-side (issues #261/#262), so mirror
     // that locally rather than waiting for a reload to reflect it.
@@ -419,6 +430,12 @@ export default function SystemEditor({ system, onSave, onCoverChange }) {
                 {t('systemEditor.markExplicit')}
               </span>
             </label>
+            <AccessLevelPicker
+              id="system-access-level"
+              value={form.access_level}
+              allowInherit={false}
+              onChange={(v) => setForm((f) => ({ ...f, access_level: v }))}
+            />
           </div>
         </div>
       </div>
