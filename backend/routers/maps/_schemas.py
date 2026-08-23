@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
+from .._variant_schemas import VariantCountMixin, VariantFamilyMixin
 
 
 class MapUpdate(BaseModel):
@@ -34,7 +35,7 @@ class FolderTagsUpdate(BaseModel):
         return tag_service.dedupe_tags(v)
 
 
-class MapOut(BaseModel):
+class MapOut(VariantCountMixin):
     """One map, as returned by the list endpoint.
 
     `description`/`map_type`/`file_size`/`has_thumbnail` are declared
@@ -74,7 +75,7 @@ class MapGrid(BaseModel):
     source: str
 
 
-class MapDetailResponse(BaseModel):
+class MapDetailResponse(VariantFamilyMixin):
     """`GET /maps/{id}` — map metadata, folder context, and image info.
 
     Everything from `_map_image_info` is nullable by construction: the dict is

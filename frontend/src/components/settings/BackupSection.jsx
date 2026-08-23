@@ -8,9 +8,8 @@ export default function BackupSection() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       <BackupListSection refreshKey={refreshKey} />
-      <div style={{ height: 32 }} />
       <BackupScheduleSection onSaved={() => setRefreshKey((k) => k + 1)} />
     </div>
   )

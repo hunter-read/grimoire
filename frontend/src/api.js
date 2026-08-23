@@ -458,6 +458,65 @@ export const backups = {
 
 // Metadata sidecar export (issue #300). Admin-only; lives under /maintenance
 // because it writes into the library rather than changing app behaviour.
+// Duplicate detection and variant grouping (issues #304, #306). Every one of
+// these is admin-only and, apart from the scan itself, acts on exactly the group
+// the user is looking at - nothing here runs on its own.
+export const duplicates = {
+  scanStatus: () => api.get('/duplicates/scan-status'),
+  startScan: (resourceTypes = [], accuracy = 'medium') =>
+    api.post('/duplicates/scan', { resource_types: resourceTypes, accuracy }),
+  cancelScan: () => api.post('/duplicates/cancel-scan'),
+  groups: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+    ).toString()
+    return api.get(`/duplicates/groups${qs ? `?${qs}` : ''}`)
+  },
+  compare: (resourceType, ids) => {
+    const qs = new URLSearchParams({ resource_type: resourceType })
+    ids.forEach((id) => qs.append('ids', id))
+    return api.get(`/duplicates/compare?${qs.toString()}`)
+  },
+  link: (resourceType, parentId, children) =>
+    api.post('/duplicates/link', {
+      resource_type: resourceType,
+      parent_id: parentId,
+      children,
+    }),
+  // Hand an existing family a different main version. Distinct from `link`,
+  // which refuses to put a parent under something else — see the promote
+  // endpoint for why re-electing a parent needs its own call.
+  promote: (resourceType, { newParentId, oldParentId, kind = 'other', label = '' }) =>
+    api.post('/duplicates/promote', {
+      resource_type: resourceType,
+      new_parent_id: newParentId,
+      old_parent_id: oldParentId,
+      kind,
+      label,
+    }),
+  unlink: (resourceType, { ids = [], parentId = null } = {}) =>
+    api.post('/duplicates/unlink', {
+      resource_type: resourceType,
+      ids,
+      parent_id: parentId,
+    }),
+  mergeMetadata: (payload) => api.post('/duplicates/merge-metadata', payload),
+  deleteItem: (resourceType, itemId, options = {}) =>
+    api.delete(`/duplicates/items/${resourceType}/${itemId}`, {
+      delete_file: options.deleteFile !== false,
+      reparent_to: options.reparentTo ?? null,
+    }),
+  dismiss: (resourceType, memberIds, note = '') =>
+    api.post('/duplicates/dismiss', {
+      resource_type: resourceType,
+      member_ids: memberIds,
+      note,
+    }),
+  dismissals: (resourceType) =>
+    api.get(`/duplicates/dismissals${resourceType ? `?resource_type=${resourceType}` : ''}`),
+  undismiss: (id) => api.delete(`/duplicates/dismissals/${id}`),
+}
+
 export const sidecars = {
   get: () => api.get('/maintenance/sidecars/settings'),
   save: (data) => api.put('/maintenance/sidecars/settings', data),

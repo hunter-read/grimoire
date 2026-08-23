@@ -22,6 +22,8 @@ import SettingsView from '../views/SettingsView'
 import FavoritesView from '../views/FavoritesView'
 import TagsView from '../views/TagsView'
 import FileManagerView from '../views/FileManagerView'
+import DuplicatesView from '../views/DuplicatesView'
+import DuplicateCompareView from '../views/DuplicateCompareView'
 import CampaignsView from '../views/CampaignsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
@@ -177,6 +179,13 @@ export default function AppShell() {
               {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}
               <Route path="/settings/files" element={<FileManagerView />} />
+              {/* Full-page for the same reason: comparing copies wants the
+                  width, and destructive actions stay off the settings tab. */}
+              <Route path="/settings/duplicates" element={<DuplicatesView />} />
+              <Route
+                path="/settings/duplicates/compare/:resourceType"
+                element={<DuplicateCompareView />}
+              />
               <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
               <Route
                 path="/settings/:tab"

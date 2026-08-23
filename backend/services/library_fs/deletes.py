@@ -28,6 +28,8 @@ from .paths import (
     sidecars_for,
     to_relative,
 )
+from .references import purge_references
+
 
 def _purge_derived(db: Session, model: Any, record: Any) -> None:
     """Drop everything derived from a record whose file is being deleted.
@@ -59,19 +61,76 @@ def _delete_records(
 
     Deleting the row is what distinguishes this from a move: there is no file to
     point at any more, so keeping the record would leave a permanently missing
-    entry in every view. Everything hanging off the id (tags, favorites,
-    bookmarks, progress, campaign links) is cascade-deleted with it.
+    entry in every view.
 
-    ``purge`` splits the two halves for callers that delete the rows *before* the
-    files. Dropping thumbnails and rendered pages is not transactional — a later
-    rollback cannot bring them back — so a caller that might still fail must
-    delete the rows first and purge only once the files are actually gone.
+    Everything hanging off the id — bookmarks, favorites, tags, campaign links —
+    is removed first by :func:`purge_references`. Nothing in the schema does that
+    for us: the polymorphic references carry no foreign key, and ``bookmarks``
+    has one with no ``ondelete``, so deleting a bookmarked book used to fail
+    outright with an IntegrityError instead of cascading.
+
+    ``purge`` splits the *derived-artifact* half for callers that delete the rows
+    *before* the files. Dropping thumbnails and rendered pages is not
+    transactional — a later rollback cannot bring them back — so a caller that
+    might still fail must delete the rows first and purge only once the files are
+    actually gone. Reference rows are unaffected by that split: they live in the
+    database and roll back with everything else.
     """
     for model, record, _old in affected:
         if purge:
             _purge_derived(db, model, record)
+        purge_references(db, model, record.id)
         db.delete(record)
     return len(affected)
+
+
+def delete_record(db: Session, model: Any, record: Any, *, delete_file: bool = True) -> dict:
+    """Delete one library row by id, with its references, artifacts, and file.
+
+    The id-keyed counterpart to :func:`delete_path`, which resolves what to
+    delete from a path and requires that path to still exist on disk. Duplicate
+    resolution needs the other direction: the user picked a *record* — the copy
+    with worse metadata, or the one whose file a rescan has already lost — and
+    the row has to go whether or not the file is still there.
+
+    ``delete_file=False`` drops the row and keeps the file, for "this is indexed
+    twice, forget one" rather than "delete this download".
+    """
+    filepath = record.filepath
+    target = Path(filepath)
+    companions = sidecars_for(target) if delete_file else []
+
+    purge_references(db, model, record.id)
+    _purge_derived(db, model, record)
+    db.delete(record)
+
+    removed_file = False
+    if delete_file:
+        try:
+            target.unlink()
+            removed_file = True
+        except OSError as e:
+            errno = getattr(e, "errno", None)
+            if errno == 30:  # EROFS
+                # Nothing is committed yet, so the row survives with the file.
+                db.rollback()
+                raise LibraryFSError(
+                    "The library is mounted read-only, so it cannot be modified.",
+                    code="read_only",
+                ) from e
+            if errno != 2:  # ENOENT - the row outlived its file, which is fine
+                db.rollback()
+                raise LibraryFSError(f"Could not delete: {e}", code="io_error") from e
+
+        for sidecar in companions:
+            try:
+                sidecar.unlink()
+            except OSError as e:
+                logger.warning("Could not delete sidecar %s: %s", sidecar, e)
+
+    db.commit()
+    logger.info("Deleted record %s (%s), file removed: %s", record.id, filepath, removed_file)
+    return {"id": record.id, "path": filepath, "file_deleted": removed_file}
 
 
 def delete_path(db: Session, path: str, *, confirm_name: Optional[str] = None) -> dict:

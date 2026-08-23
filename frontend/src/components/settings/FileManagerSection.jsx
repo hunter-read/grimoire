@@ -16,9 +16,7 @@ export default function FileManagerSection() {
   const { t } = useTranslation()
 
   return (
-    // Sections own the space above the divider that follows them — matching the
-    // other maintenance sections, which all carry this same bottom margin.
-    <div style={{ marginBottom: 40 }}>
+    <div>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{t('files.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('files.sectionDescription')}

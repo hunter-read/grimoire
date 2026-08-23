@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
+from .._variant_schemas import VariantCountMixin, VariantFamilyMixin
 
 
 class TokenUpdate(BaseModel):
@@ -33,7 +34,7 @@ class FolderTagsUpdate(BaseModel):
         return tag_service.dedupe_tags(v)
 
 
-class TokenOut(BaseModel):
+class TokenOut(VariantCountMixin):
     """One token, as returned by the list endpoint.
 
     `description`/`file_size`/`has_thumbnail` are declared `default=...` on
@@ -60,7 +61,7 @@ class TokenListResponse(BaseModel):
     tokens: list[TokenOut]
 
 
-class TokenDetailResponse(TokenOut):
+class TokenDetailResponse(TokenOut, VariantFamilyMixin):
     """`GET /tokens/{id}` — token metadata, folder context, and image size.
 
     `pixel_width`/`pixel_height` are None for archives and for any image PIL

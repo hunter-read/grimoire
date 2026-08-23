@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
-from ...services import bulk_service, tag_service
+from ...services import bulk_service, tag_service, variants
 from .._bulk_schemas import BulkAddTags
 from ._helpers import resolve_cover_book_id
 from ._schemas import BookFolderUpdate, GameSystemBulkUpdate, GameSystemUpdate
@@ -49,12 +49,14 @@ def list_systems(
         bool(user.allow_explicit) if user and user.allow_explicit is not None else True
     )
 
-    # Per-system book count + total page count in one grouped query.
+    # Per-system book count + total page count in one grouped query. Variants
+    # are excluded so the card's count matches the number of rows the detail
+    # view actually renders (issues #304, #306).
     agg_q = db.query(
         Book.game_system_id,
         func.count(Book.id),
         func.coalesce(func.sum(Book.page_count), 0),
-    )
+    ).filter(variants.parent_filter(Book))
     if not can_see_explicit:
         agg_q = agg_q.filter(Book.is_explicit != True)  # noqa: E712
     agg = {
@@ -153,7 +155,9 @@ def get_system(
     if system.is_explicit and not can_see_explicit:
         raise HTTPException(404, "System not found")
 
-    book_q = db.query(Book).filter_by(game_system_id=system.id)
+    book_q = variants.parents_only(
+        db.query(Book).filter_by(game_system_id=system.id), Book
+    )
     if not can_see_explicit:
         book_q = book_q.filter(Book.is_explicit != True)
     books = book_q.all()
@@ -217,7 +221,10 @@ def _serialize_children(
         Book.game_system_id,
         func.count(Book.id),
         func.coalesce(func.sum(Book.page_count), 0),
-    ).filter(Book.game_system_id.in_([c.id for c in children]))
+    ).filter(
+        Book.game_system_id.in_([c.id for c in children]),
+        variants.parent_filter(Book),
+    )
     if not can_see_explicit:
         agg_q = agg_q.filter(Book.is_explicit != True)  # noqa: E712
     agg = {

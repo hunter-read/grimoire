@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import get_db
 from ...models import Audio, AudioFolder
-from ...services import bulk_service, tag_service
+from ...services import bulk_service, tag_service, variants
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import _extract_embedded_art, _find_folder_artwork, archive_ext, archive_mime
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
@@ -53,13 +53,20 @@ def list_audio(
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    q = db.query(Audio)
+    q = variants.parents_only(db.query(Audio), Audio)
     total = q.count()
     tracks = q.order_by(Audio.filename).offset(offset).limit(limit).all()
     audio_tags = tag_service.display_tags_for_resources(db, "audio", [a.id for a in tracks])
+    vcounts = variants.variant_counts(db, Audio, [a.id for a in tracks])
     return {
         "total": total,
-        "audio": [_serialize(a, tags=audio_tags.get(a.id, [])) for a in tracks],
+        "audio": [
+            {
+                **_serialize(a, tags=audio_tags.get(a.id, [])),
+                "variant_count": vcounts.get(a.id, 0),
+            }
+            for a in tracks
+        ],
     }
 
 
@@ -96,10 +103,16 @@ def get_audio(
     assert_media_access(db, current_user, "audio", a.id)
     folder_path = "/".join(Path(a.relative_path).parts[1:-1])
     folder = db.query(AudioFolder).filter_by(path=folder_path).first()
+    variant_parent, siblings = variants.family_for(db, Audio, a)
     return {
         **_serialize(a, tags=tag_service.display_tags_for_resource(db, "audio", a.id)),
         "folder_path": folder_path,
         "folder_tags": tag_service.folder_display_tags(db, folder.tags if folder else []),
+        "variant_parent_id": a.variant_parent_id,
+        "variant_kind": a.variant_kind or "",
+        "variant_label": a.variant_label or "",
+        "variant_main_id": variant_parent.id,
+        "variants": [variants.serialize_variant(v) for v in siblings],
     }
 
 

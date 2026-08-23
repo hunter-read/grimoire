@@ -169,7 +169,12 @@ def scan_library(
 
     totals = {
         "books": (
-            _count_eligible_files(books_walk_dir, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS, ignore)
+            _count_eligible_files(
+                books_walk_dir,
+                DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS,
+                ignore,
+                skip_exported_covers=True,
+            )
             if scan_books and books_walk_dir.exists()
             else 0
         ),

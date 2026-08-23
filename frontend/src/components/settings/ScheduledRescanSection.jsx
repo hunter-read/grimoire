@@ -73,7 +73,7 @@ export default function ScheduledRescanSection() {
   const showTimePicker = schedule === 'daily' || schedule === 'weekly'
 
   return (
-    <div style={{ marginBottom: 40 }}>
+    <div>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
         {t('maintenance.scheduledRescan.title')}
       </h3>

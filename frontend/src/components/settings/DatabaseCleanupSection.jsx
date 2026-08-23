@@ -29,7 +29,7 @@ export default function DatabaseCleanupSection() {
   return (
     // Matches the other maintenance sections: each owns the space above the
     // divider that follows it.
-    <div style={{ marginBottom: 40 }}>
+    <div>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
         {t('maintenance.cleanup.title')}
       </h3>

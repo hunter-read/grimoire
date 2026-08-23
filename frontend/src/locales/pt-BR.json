@@ -86,7 +86,8 @@
     "removeFromFavorites": "Remover dos favoritos",
     "select": "Selecionar",
     "archive": "Arquivo",
-    "archiveNotViewable": "Este é um arquivo compactado e não pode ser visualizado. Baixe-o para abrir seu conteúdo."
+    "archiveNotViewable": "Este é um arquivo compactado e não pode ser visualizado. Baixe-o para abrir seu conteúdo.",
+    "versions": "Versões"
   },
   "login": {
     "username": "Nome de usuário",
@@ -809,6 +810,16 @@
     "emailLabel": "E-mail"
   },
   "maintenance": {
+    "groups": {
+      "scanning": "Varredura da biblioteca",
+      "scanningDesc": "Procure arquivos novos ou alterados na biblioteca, remova entradas cujos arquivos não existem mais e agende as varreduras.",
+      "library": "Gerenciador da biblioteca",
+      "libraryDesc": "Organize os arquivos da sua biblioteca e revise itens que parecem ser cópias uns dos outros.",
+      "metadata": "Metadados",
+      "metadataDesc": "Grave os metadados do Grimoire na pasta da sua biblioteca como arquivos complementares.",
+      "backups": "Backups",
+      "backupsDesc": "Crie e baixe backups, e mantenha-os sendo executados automaticamente."
+    },
     "rescan": {
       "title": "Reescanear biblioteca",
       "description": "Escanear o diretório da biblioteca em busca de arquivos novos ou alterados e atualizar o índice de busca.",
@@ -924,6 +935,93 @@
       "loadFailed": "Não foi possível carregar as configurações.",
       "saveFailed": "Não foi possível salvar as configurações.",
       "exportFailed": "A exportação falhou. Consulte os registros do servidor."
+    },
+    "dupes": {
+      "title": "Deteção de duplicados",
+      "description": "Encontre ficheiros que parecem cópias uns dos outros e decida o que fazer com eles. Nada é eliminado automaticamente.",
+      "open": "Abrir a deteção de duplicados",
+      "adminOnly": "Apenas administradores podem gerir os duplicados.",
+      "scan": "Procurar duplicados",
+      "scanning": "A analisar…",
+      "cancel": "Parar análise",
+      "noResults": "Nenhum duplicado encontrado.",
+      "notScanned": "Ainda não foi executada nenhuma análise.",
+      "groupsFound": "{{count}} grupos encontrados",
+      "confidence": "Confiança",
+      "compare": "Comparar",
+      "dismiss": "Não são duplicados",
+      "dismissed": "Grupos ignorados",
+      "undismiss": "Restaurar",
+      "keepThis": "Manter este",
+      "deleteOther": "Eliminar o outro",
+      "linkAs": "Ligar como versão",
+      "merge": "Copiar metadados",
+      "scanFailed": "Não foi possível iniciar a análise.",
+      "loadFailed": "Não foi possível carregar os grupos de duplicados.",
+      "actionFailed": "Não foi possível concluir a ação.",
+      "reason": "Motivo",
+      "bookmarks": "marcadores",
+      "favorites": "favoritos",
+      "tags": "etiquetas",
+      "campaigns": "ligações de campanha",
+      "deleteFile": "Eliminar também o ficheiro do disco",
+      "confirmDelete": "Eliminar esta cópia?",
+      "linked": "Ligado como versão.",
+      "of": "de",
+      "pairsFound": "{{count}} pares para rever",
+      "compareTitle": "Comparar cópias",
+      "compareDescription": "Duas cópias lado a lado. Escolha qual é a versão principal, indique o que é a outra, ou marque-as como não relacionadas.",
+      "backToList": "Voltar aos duplicados",
+      "isParent": "Versão principal",
+      "makeParent": "Tornar a versão principal",
+      "swapParent": "Trocar a versão principal",
+      "kindLabel": "A outra cópia é uma…",
+      "labelLabel": "Etiqueta (opcional)",
+      "labelPlaceholder": "ex. v1.0.1",
+      "linkExplainer": "{{child}} será arquivado sob {{parent}} como variante.",
+      "promoteWarning": "{{count}} variante(s) existente(s) passarão para a nova versão principal.",
+      "deleteThis": "Eliminar esta cópia",
+      "syncedPage": "Página",
+      "noPairs": "Não há pares de duplicados para rever.",
+      "field": {
+        "album": "Álbum",
+        "artist": "Artista",
+        "category": "Categoria",
+        "content_hash": "Hash do conteúdo",
+        "description": "Descrição",
+        "duration": "Duração",
+        "file_size": "Tamanho",
+        "grid_size": "Tamanho da grelha",
+        "is_explicit": "Explícito",
+        "isbn": "ISBN",
+        "language": "Idioma",
+        "map_type": "Tipo de mapa",
+        "mime_type": "Formato",
+        "page_count": "Páginas",
+        "publisher": "Editora",
+        "title": "Título",
+        "version": "Versão",
+        "year": "Ano"
+      },
+      "prevPage": "Página anterior",
+      "nextPage": "Página seguinte",
+      "keepFileWarning": "O ficheiro permanece no disco. Se continuar dentro da pasta da biblioteca, a próxima análise volta a encontrá-lo.",
+      "copyMetadata": "Copiar metadados",
+      "copyExplainer": "Copiar campos de {{source}} para {{target}}, a cópia que vai manter.",
+      "copySelected": "Copiar {{count}} campo(s)",
+      "accuracy": "Precisão da pesquisa",
+      "accuracyLevel": {
+        "exact": "Exata",
+        "high": "Alta",
+        "medium": "Média",
+        "low": "Baixa"
+      },
+      "accuracyHint": {
+        "exact": "Apenas ficheiros idênticos byte a byte. O mais rápido e sem falsos positivos.",
+        "high": "Ficheiros idênticos e títulos muito parecidos. Poucos falsos positivos.",
+        "medium": "Ficheiros idênticos, títulos semelhantes e texto coincidente. A opção habitual.",
+        "low": "A pesquisa mais abrangente. A mais lenta, com resultados que precisam de ser avaliados."
+      }
     }
   },
   "logs": {
@@ -2155,6 +2253,23 @@
     "location": {
       "title": "Storage location",
       "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
+  },
+  "variants": {
+    "badge": "{{count}} versões",
+    "mainVersion": "Versão principal",
+    "switchLabel": "Trocar de versão",
+    "otherVersions": "Outras versões",
+    "kind": {
+      "printer-friendly": "Pronto para impressão",
+      "form-fillable": "Preenchível",
+      "spreads": "Páginas duplas",
+      "single-page": "Página única",
+      "version": "Versão",
+      "black-and-white": "Preto e branco",
+      "gridded": "Com grelha",
+      "gridless": "Sem grelha",
+      "other": "Outro"
     }
   }
 }

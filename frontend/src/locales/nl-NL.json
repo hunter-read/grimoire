@@ -86,7 +86,8 @@
     "removeFromFavorites": "Uit favorieten verwijderen",
     "select": "Selecteren",
     "archive": "Archief",
-    "archiveNotViewable": "Dit is een archiefbestand en kan niet worden voorvertoond. Download het om de inhoud te openen."
+    "archiveNotViewable": "Dit is een archiefbestand en kan niet worden voorvertoond. Download het om de inhoud te openen.",
+    "versions": "Versies"
   },
   "login": {
     "username": "Gebruikersnaam",
@@ -809,6 +810,16 @@
     "emailLabel": "E-mail"
   },
   "maintenance": {
+    "groups": {
+      "scanning": "Bibliotheek scannen",
+      "scanningDesc": "Scan de bibliotheek op nieuwe of gewijzigde bestanden, ruim vermeldingen op waarvan het bestand weg is en plan scans in.",
+      "library": "Bibliotheekbeheer",
+      "libraryDesc": "Organiseer de bestanden in je bibliotheek en beoordeel items die op kopieën lijken.",
+      "metadata": "Metadata",
+      "metadataDesc": "Schrijf de metadata van Grimoire als sidecar-bestanden terug naar je bibliotheekmap.",
+      "backups": "Back-ups",
+      "backupsDesc": "Maak en download back-ups en laat ze automatisch draaien."
+    },
     "rescan": {
       "title": "Bibliotheek opnieuw scannen",
       "description": "Scan de bibliotheekmap op nieuwe of gewijzigde bestanden en werk de zoekindex bij.",
@@ -924,6 +935,93 @@
       "loadFailed": "Kon de instellingen niet laden.",
       "saveFailed": "Kon de instellingen niet opslaan.",
       "exportFailed": "Export mislukt. Bekijk de serverlogboeken voor details."
+    },
+    "dupes": {
+      "title": "Duplicaatdetectie",
+      "description": "Zoek bestanden die kopieën van elkaar lijken en beslis wat ermee gebeurt. Er wordt nooit automatisch iets verwijderd.",
+      "open": "Duplicaatdetectie openen",
+      "adminOnly": "Alleen beheerders kunnen duplicaten beheren.",
+      "scan": "Zoek duplicaten",
+      "scanning": "Bezig met scannen…",
+      "cancel": "Scan stoppen",
+      "noResults": "Geen duplicaten gevonden.",
+      "notScanned": "Er is nog geen scan uitgevoerd.",
+      "groupsFound": "{{count}} groepen gevonden",
+      "confidence": "Zekerheid",
+      "compare": "Vergelijken",
+      "dismiss": "Geen duplicaten",
+      "dismissed": "Genegeerde groepen",
+      "undismiss": "Herstellen",
+      "keepThis": "Deze behouden",
+      "deleteOther": "De andere verwijderen",
+      "linkAs": "Koppelen als versie",
+      "merge": "Metadata kopiëren",
+      "scanFailed": "De scan kon niet worden gestart.",
+      "loadFailed": "Kon duplicaatgroepen niet laden.",
+      "actionFailed": "Deze actie kon niet worden voltooid.",
+      "reason": "Reden",
+      "bookmarks": "bladwijzers",
+      "favorites": "favorieten",
+      "tags": "labels",
+      "campaigns": "campagnekoppelingen",
+      "deleteFile": "Verwijder het bestand ook van schijf",
+      "confirmDelete": "Deze kopie verwijderen?",
+      "linked": "Gekoppeld als versie.",
+      "of": "van",
+      "pairsFound": "{{count}} paren te beoordelen",
+      "compareTitle": "Kopieën vergelijken",
+      "compareDescription": "Twee kopieën naast elkaar. Kies welke de hoofdversie is, geef aan wat de andere is, of markeer ze als niet-gerelateerd.",
+      "backToList": "Terug naar duplicaten",
+      "isParent": "Hoofdversie",
+      "makeParent": "Als hoofdversie instellen",
+      "swapParent": "Hoofdversie wisselen",
+      "kindLabel": "De andere kopie is een…",
+      "labelLabel": "Label (optioneel)",
+      "labelPlaceholder": "bijv. v1.0.1",
+      "linkExplainer": "{{child}} wordt als variant onder {{parent}} geplaatst.",
+      "promoteWarning": "{{count}} bestaande variant(en) verhuizen mee naar de nieuwe hoofdversie.",
+      "deleteThis": "Deze kopie verwijderen",
+      "syncedPage": "Pagina",
+      "noPairs": "Geen duplicaatparen te beoordelen.",
+      "field": {
+        "album": "Album",
+        "artist": "Artiest",
+        "category": "Categorie",
+        "content_hash": "Inhoudshash",
+        "description": "Beschrijving",
+        "duration": "Duur",
+        "file_size": "Grootte",
+        "grid_size": "Rastergrootte",
+        "is_explicit": "Expliciet",
+        "isbn": "ISBN",
+        "language": "Taal",
+        "map_type": "Kaarttype",
+        "mime_type": "Formaat",
+        "page_count": "Pagina's",
+        "publisher": "Uitgever",
+        "title": "Titel",
+        "version": "Versie",
+        "year": "Jaar"
+      },
+      "prevPage": "Vorige pagina",
+      "nextPage": "Volgende pagina",
+      "keepFileWarning": "Het bestand blijft op schijf staan. Staat het nog in je bibliotheekmap, dan vindt de volgende scan het opnieuw.",
+      "copyMetadata": "Metadata kopiëren",
+      "copyExplainer": "Velden van {{source}} naar {{target}} kopiëren, de kopie die je houdt.",
+      "copySelected": "{{count}} veld(en) kopiëren",
+      "accuracy": "Zoeknauwkeurigheid",
+      "accuracyLevel": {
+        "exact": "Exact",
+        "high": "Hoog",
+        "medium": "Gemiddeld",
+        "low": "Laag"
+      },
+      "accuracyHint": {
+        "exact": "Alleen byte-identieke bestanden. Het snelst, en nooit een valse match.",
+        "high": "Identieke bestanden en zeer vergelijkbare titels. Weinig valse matches.",
+        "medium": "Identieke bestanden, vergelijkbare titels en overlappende tekst. De gebruikelijke keuze.",
+        "low": "Het breedste net. Het traagst, met resultaten die beoordeeld moeten worden."
+      }
     }
   },
   "logs": {
@@ -2155,6 +2253,23 @@
     "location": {
       "title": "Storage location",
       "hint": "Leave empty to use the default ({{path}}). Point this at another mounted volume to keep backups off the main disk."
+    }
+  },
+  "variants": {
+    "badge": "{{count}} versies",
+    "mainVersion": "Hoofdversie",
+    "switchLabel": "Versie wisselen",
+    "otherVersions": "Andere versies",
+    "kind": {
+      "printer-friendly": "Printvriendelijk",
+      "form-fillable": "Invulbaar",
+      "spreads": "Dubbele pagina's",
+      "single-page": "Enkele pagina's",
+      "version": "Versie",
+      "black-and-white": "Zwart-wit",
+      "gridded": "Met raster",
+      "gridless": "Zonder raster",
+      "other": "Overig"
     }
   }
 }

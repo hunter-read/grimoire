@@ -141,6 +141,27 @@ class Book(Base):
     # NULL means "not yet hashed" (pre-upgrade row) and is treated as unchanged.
     content_hash = Column(String(64), nullable=True, index=True)
     file_mtime = Column(Float, nullable=True)
+    # Variant grouping (issues #304, #306). A book that is a *variant* of another
+    # — a printer-friendly cut, a form-fillable sheet, an older version — points
+    # at its parent here and is hidden from browsing, counts, and search, while
+    # staying fully reachable by id so it can still be opened and read. The
+    # parent keeps its own id, so the tags, favorites, bookmarks, and progress
+    # attached to it survive the grouping untouched.
+    #
+    # Deliberately not a ForeignKey: SQLite cannot add one without a
+    # batch_alter_table rebuild of this heavily-indexed table, and with
+    # PRAGMA foreign_keys=ON it would make deleting a system (which cascades to
+    # its books via GameSystem.books) fail on any book that had variants. The
+    # two-level guarantee below is enforced in services/variants.py instead,
+    # which an FK could not express anyway.
+    #
+    # Only two levels are ever allowed: a variant may not itself have variants.
+    # That makes cycles impossible by construction and keeps the picker flat.
+    variant_parent_id = Column(String(36), nullable=True, index=True)
+    # One of models.variants.VARIANT_KINDS; drives the badge and picker label.
+    variant_kind = Column(String(30), default="")
+    # Free text for the specifics the kind cannot carry ("v1.0.1", "Gridded").
+    variant_label = Column(String(120), default="")
     page_count = Column(Integer, default=0)
     mime_type = Column(String(100), default="application/pdf")
     has_thumbnail = Column(Boolean, default=False)

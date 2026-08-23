@@ -91,6 +91,12 @@ def changed_source_files(base, root):
         # generated/boilerplate and exercised via integration, not unit-covered.
         if p.startswith("backend/migrations/"):
             continue
+        # A file the branch added and then deleted is still "changed" against
+        # the base, but there is nothing left to cover. --diff-filter cannot
+        # express this: the add is in base...HEAD while the delete is only in
+        # the working tree, so the two never cancel out.
+        if not os.path.exists(os.path.join(root, p)):
+            continue
         result.append(p)
     return sorted(result)
 

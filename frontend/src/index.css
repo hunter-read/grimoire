@@ -77,6 +77,10 @@
   --p-type-token: #34d399;
   --p-type-audio: #f0a868;
   --p-type-file: #e0b341;
+  /* Variant grouping badge (issues #304, #306): an entry that collapses
+     several versions of one thing. Deliberately outside the --p-type-*
+     family, since it describes a relationship, not a kind of file. */
+  --p-variant: #4fd1c5;
 }
 
 /* Light mode. Not an inversion of the dark palette — the accents are darkened
@@ -133,6 +137,10 @@
   --p-type-token: #0f7a52;
   --p-type-audio: #9a5410;
   --p-type-file: #8a6510;
+  /* Variant grouping badge (issues #304, #306): an entry that collapses
+     several versions of one thing. Deliberately outside the --p-type-*
+     family, since it describes a relationship, not a kind of file. */
+  --p-variant: #0d7f76;
 }
 
 /* ---------------------------------------------------------------------------
@@ -201,6 +209,10 @@
   --p-type-token: #63ab88;
   --p-type-audio: #d8a15c;
   --p-type-file: #c3ccd4;
+  /* Variant grouping badge (issues #304, #306): an entry that collapses
+     several versions of one thing. Deliberately outside the --p-type-*
+     family, since it describes a relationship, not a kind of file. */
+  --p-variant: #7fd4cc;
 }
 
 /* Codex, light. Steel darkens to hold contrast on pale surfaces; crimson can
@@ -253,6 +265,10 @@
   --p-type-token: #1f6b4d;
   --p-type-audio: #8a4b06;
   --p-type-file: #4a5661;
+  /* Variant grouping badge (issues #304, #306): an entry that collapses
+     several versions of one thing. Deliberately outside the --p-type-*
+     family, since it describes a relationship, not a kind of file. */
+  --p-variant: #0f6f68;
 }
 
 /* The semantic layer the app actually consumes. Stable names, theme-driven
@@ -305,6 +321,7 @@
   --type-token: var(--p-type-token);
   --type-audio: var(--p-type-audio);
   --type-file: var(--p-type-file);
+  --variant: var(--p-variant);
 }
 
 * {

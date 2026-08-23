@@ -44,6 +44,16 @@ export const MEDIA_CONFIGS = {
     // thumbnail; `inline` badges render in the list-mode metadata row.
     badges: [
       {
+        // variant_count is a number, and the badge system treats any truthy
+        // value as "show it" - so 0 hides this without a special case.
+        flag: 'variant_count',
+        labelKey: 'common.versions',
+        label: 'versions',
+        color: 'rgba(79,209,197,0.9)',
+        corner: 'top-right',
+        inlineColor: 'var(--variant)',
+      },
+      {
         flag: 'is_archive',
         // Absolute i18n key — the archive label is shared, not per-collection.
         labelKey: 'common.archive',
@@ -84,6 +94,16 @@ export const MEDIA_CONFIGS = {
     gridGap: 12,
     thumb: { kind: 'square' },
     badges: [
+      {
+        // variant_count is a number, and the badge system treats any truthy
+        // value as "show it" - so 0 hides this without a special case.
+        flag: 'variant_count',
+        labelKey: 'common.versions',
+        label: 'versions',
+        color: 'rgba(79,209,197,0.9)',
+        corner: 'top-right',
+        inlineColor: 'var(--variant)',
+      },
       {
         flag: 'is_archive',
         // Absolute i18n key — the archive label is shared, not per-collection.
@@ -136,6 +156,16 @@ export const MEDIA_CONFIGS = {
     // Inline play/pause button overlaid on the card artwork.
     audioFileUrl: (id) => `/audio/${id}/file`,
     badges: [
+      {
+        // variant_count is a number, and the badge system treats any truthy
+        // value as "show it" - so 0 hides this without a special case.
+        flag: 'variant_count',
+        labelKey: 'common.versions',
+        label: 'versions',
+        color: 'rgba(79,209,197,0.9)',
+        corner: 'top-right',
+        inlineColor: 'var(--variant)',
+      },
       {
         flag: 'is_archive',
         // Absolute i18n key — the archive label is shared, not per-collection.

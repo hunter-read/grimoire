@@ -22,6 +22,11 @@ class GenericMap(Base):
     # the hash then distinguishes a replaced file from a moved one (issue #284).
     content_hash = Column(String(64), nullable=True, index=True)
     file_mtime = Column(Float, nullable=True)
+    # Variant grouping — see the note on Book.variant_parent_id. Two levels
+    # only, no ForeignKey; enforced in services/variants.py.
+    variant_parent_id = Column(String(36), nullable=True, index=True)
+    variant_kind = Column(String(30), default="")
+    variant_label = Column(String(120), default="")
     has_thumbnail = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
@@ -52,6 +57,11 @@ class Token(Base):
     # Content identity — see the note on GenericMap.content_hash.
     content_hash = Column(String(64), nullable=True, index=True)
     file_mtime = Column(Float, nullable=True)
+    # Variant grouping — see the note on Book.variant_parent_id. Two levels
+    # only, no ForeignKey; enforced in services/variants.py.
+    variant_parent_id = Column(String(36), nullable=True, index=True)
+    variant_kind = Column(String(30), default="")
+    variant_label = Column(String(120), default="")
     has_thumbnail = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
@@ -92,6 +102,11 @@ class Audio(Base):
     # Content identity — see the note on GenericMap.content_hash.
     content_hash = Column(String(64), nullable=True, index=True)
     file_mtime = Column(Float, nullable=True)
+    # Variant grouping — see the note on Book.variant_parent_id. Two levels
+    # only, no ForeignKey; enforced in services/variants.py.
+    variant_parent_id = Column(String(36), nullable=True, index=True)
+    variant_kind = Column(String(30), default="")
+    variant_label = Column(String(120), default="")
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
 

@@ -236,6 +236,24 @@ export default function BookRow({
             >
               {book.page_count > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
             </span>
+            {book.variant_count > 0 && (
+              // The grid card has no badge strip, so this rides alongside the
+              // page count rather than introducing a whole new row.
+              <span
+                title={t('variants.otherVersions')}
+                style={{
+                  fontSize: 10,
+                  padding: '0 5px',
+                  borderRadius: 7,
+                  flexShrink: 0,
+                  color: 'var(--variant)',
+                  background: 'rgba(79,209,197,0.12)',
+                  border: '1px solid rgba(79,209,197,0.35)',
+                }}
+              >
+                {t('variants.badge', { count: book.variant_count + 1 })}
+              </span>
+            )}
             {!bulkMode && (
               // Positioned so the menu trigger paints above the CardLink overlay.
               <div style={{ position: 'relative', display: 'flex' }}>
@@ -482,6 +500,21 @@ export default function BookRow({
                 </span>
               )}
             </>
+          )}
+          {book.variant_count > 0 && (
+            <span
+              title={t('variants.otherVersions')}
+              style={{
+                fontSize: 11,
+                padding: '1px 6px',
+                borderRadius: 8,
+                color: 'var(--variant)',
+                background: 'rgba(79,209,197,0.12)',
+                border: '1px solid rgba(79,209,197,0.35)',
+              }}
+            >
+              {t('variants.badge', { count: book.variant_count + 1 })}
+            </span>
           )}
           {(book.tags || []).map((tag) => (
             <span

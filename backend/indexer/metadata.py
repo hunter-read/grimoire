@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from xml.etree import ElementTree
 
+from ..metadata.formats import COVER_SUFFIX
 from ..models import Book
 from .constants import (
     IMAGE_EXTS,
@@ -114,6 +115,22 @@ def is_folder_cover_name(filename: str) -> bool:
     """
     p = Path(filename)
     return p.stem.lower() in _AUDIO_COVER_STEMS and p.suffix.lower() in IMAGE_EXTS
+
+
+def is_exported_cover_name(filename: str) -> bool:
+    """True if ``filename`` is a cover image written by the sidecar exporter.
+
+    Export names a book's cover ``<stem>.cover.jpg`` and writes it beside the
+    book. That file is an *export artifact*, not library content, so the books
+    walk must skip it — indexing it would create a book whose own exported cover
+    is ``<stem>.cover.cover.jpg``, and every rescan would add another level
+    without bound.
+
+    Unlike :func:`is_folder_cover_name` this is not anchored to a folder: an
+    exported cover is identified by its compound suffix wherever it sits, which
+    is exactly what the suffix was chosen to make possible.
+    """
+    return filename.lower().endswith(COVER_SUFFIX)
 
 
 def _find_folder_artwork(folder: str) -> Optional[str]:

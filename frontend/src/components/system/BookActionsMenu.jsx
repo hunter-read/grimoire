@@ -17,6 +17,7 @@ import api, { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
 import AddToCampaignModal from '../AddToCampaignModal'
+import VariantMenuItems from './VariantMenuItems'
 
 const MENU_WIDTH = 220
 
@@ -209,6 +210,9 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
                 <LuInfo size={15} aria-hidden="true" />
                 {t('bookActions.details')}
               </button>
+            )}
+            {book.variant_count > 0 && (
+              <VariantMenuItems book={book} itemStyle={itemStyle} onPick={close} />
             )}
             {onEdit && (
               <button

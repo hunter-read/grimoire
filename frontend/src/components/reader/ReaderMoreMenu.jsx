@@ -2,25 +2,26 @@ import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  LuEllipsisVertical,
-  LuScroll,
-  LuInfo,
-  LuHeart,
-  LuFileText,
-  LuColumns2,
-  LuFile,
   LuBookCopy,
-  LuDownload,
-  LuKeyboard,
   LuCheck,
-  LuFolderInput,
+  LuColumns2,
+  LuDownload,
+  LuEllipsisVertical,
+  LuFile,
   LuFilePen,
+  LuFileText,
+  LuFolderInput,
+  LuHeart,
+  LuInfo,
+  LuKeyboard,
+  LuScroll,
   LuTrash2,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
 import AddToCampaignModal from '../AddToCampaignModal'
+import ReaderVariantItems from './ReaderVariantItems'
 
 const MENU_WIDTH = 236
 
@@ -177,6 +178,15 @@ export default function ReaderMoreMenu({
                 <LuScroll size={15} aria-hidden="true" />
                 {t('resources.addToCampaign')}
               </button>
+            )}
+            {(book?.variants || []).length > 0 && (
+              <ReaderVariantItems
+                book={book}
+                bookId={bookId}
+                itemStyle={itemStyle}
+                dividerStyle={dividerStyle}
+                run={run}
+              />
             )}
 
             <button role="menuitem" onClick={run(onShowDetails)} style={itemStyle}>

@@ -14,6 +14,7 @@ import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import VariantPicker from '../VariantPicker'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
@@ -184,6 +185,7 @@ export default function TokenDetailView() {
             />
           </button>
         )}
+        <VariantPicker item={token} detailPath={(id) => `/tokens/${id}`} compact />
         <AddToCampaignButton resourceType="token" resourceId={tokenId} />
         <a
           href={mediaUrl(`/tokens/${tokenId}/file`)}

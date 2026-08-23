@@ -65,6 +65,7 @@ from .hashing import (
 from .metadata import (
     _apply_opf_to_book,
     _find_opf_meta,
+    is_exported_cover_name,
     is_folder_cover_name,
     parse_opf_metadata,
 )
@@ -367,6 +368,10 @@ def _scan_one_page_loose_files(
         # The container's own shelf artwork, not a one-page game (issue #372).
         if is_folder_cover_name(path.name):
             continue
+        # A cover written by the sidecar exporter is an export artifact, never
+        # a game of its own.
+        if is_exported_cover_name(path.name):
+            continue
         stem = _title_from_filename(path.name)
         child_folder = _SystemFolder(
             path=path.parent,
@@ -474,6 +479,14 @@ def _scan_books_in_system(
             # system root as shelf artwork; it is not also a book (issue #372).
             if os.path.normpath(root) == cover_root and is_folder_cover_name(filename):
                 logger.debug(f"Skipping folder cover image: {filepath}")
+                continue
+
+            # A ``<stem>.cover.jpg`` written by the sidecar exporter is not a
+            # book. Indexing one would give it an exported cover of its own
+            # (``<stem>.cover.cover.jpg``) and each rescan would add a further
+            # level without bound.
+            if is_exported_cover_name(filename):
+                logger.debug(f"Skipping exported sidecar cover: {filepath}")
                 continue
 
             ctx.scanned["books"] += 1

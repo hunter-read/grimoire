@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import GenericMap, MapFolder
-from ...services import bulk_service, tag_service
+from ...services import bulk_service, tag_service, variants
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
@@ -34,7 +34,10 @@ def list_maps(
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    q = db.query(GenericMap)
+    # Applied before the folder branch below, which materialises the query with
+    # .all() and filters in Python — a variant must never reach that list
+    # (issues #304, #306).
+    q = variants.parents_only(db.query(GenericMap), GenericMap)
     if map_type:
         q = q.filter_by(map_type=map_type)
     q = q.order_by(GenericMap.filename)
@@ -48,6 +51,7 @@ def list_maps(
         total = q.count()
         maps = q.offset(offset).limit(limit).all()
     map_tags = tag_service.display_tags_for_resources(db, "map", [m.id for m in maps])
+    vcounts = variants.variant_counts(db, GenericMap, [m.id for m in maps])
     return {
         "total": total,
         "maps": [
@@ -62,6 +66,7 @@ def list_maps(
                 "has_thumbnail": m.has_thumbnail,
                 "is_missing": bool(m.is_missing),
                 "is_archive": bool(archive_ext(m.filename)),
+                "variant_count": vcounts.get(m.id, 0),
             }
             for m in maps
         ],
@@ -102,6 +107,7 @@ def get_map(
     img_info = _map_image_info(m.filepath, m.relative_path)
     folder_path = _folder_path(m.relative_path)
     folder = db.query(MapFolder).filter_by(path=folder_path).first()
+    variant_parent, siblings = variants.family_for(db, GenericMap, m)
     return {
         "id": m.id,
         "filename": m.filename,
@@ -116,6 +122,11 @@ def get_map(
         "has_thumbnail": m.has_thumbnail,
         "is_missing": bool(m.is_missing),
         "is_archive": bool(archive_ext(m.filename)),
+        "variant_parent_id": m.variant_parent_id,
+        "variant_kind": m.variant_kind or "",
+        "variant_label": m.variant_label or "",
+        "variant_main_id": variant_parent.id,
+        "variants": [variants.serialize_variant(v) for v in siblings],
         **img_info,
     }
 
