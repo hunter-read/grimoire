@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ..models import AppSetting
+from .authors import parse_author
 from .constants import (
     ADDONS_DIR,
     DEFAULT_INDEX_URL,
@@ -260,6 +261,7 @@ def describe(db: Session, addon_id: str, manifest: Optional[AddonManifest] = Non
         manifest = load_manifest(addon_id)
     state = get_state_for(db, addon_id)
     runnable, reason = is_runnable(db, addon_id, manifest)
+    author_name, author_url = parse_author(manifest.author)
     return {
         "id": manifest.id,
         "name": manifest.name,
@@ -268,6 +270,8 @@ def describe(db: Session, addon_id: str, manifest: Optional[AddonManifest] = Non
         "target": manifest.target,
         "description": manifest.description,
         "homepage": manifest.homepage,
+        "author": author_name,
+        "author_url": author_url,
         "attribution": manifest.attribution,
         "requires_script": manifest.requires_script,
         "script_approved": bool(state.get("script_approved", False)),

@@ -2072,6 +2072,8 @@
     }
   },
   "addons": {
+    "byAuthor": "door {{author}}",
+    "githubProfile": "{{author}} op GitHub",
     "title": "Community-add-ons",
     "description": "Installeer metadata-scrapers die door de community zijn gemaakt. Add-ons kunnen details van spelsystemen aanvullen uit externe bronnen.",
     "indexUrl": "URL van add-on-index",

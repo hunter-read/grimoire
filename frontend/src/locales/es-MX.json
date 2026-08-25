@@ -2072,6 +2072,8 @@
     }
   },
   "addons": {
+    "byAuthor": "por {{author}}",
+    "githubProfile": "{{author}} en GitHub",
     "title": "Complementos de la comunidad",
     "description": "Instala recopiladores de metadatos aportados por la comunidad. Los complementos pueden rellenar los detalles del sistema de juego desde fuentes externas.",
     "indexUrl": "URL del índice de complementos",

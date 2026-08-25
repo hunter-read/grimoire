@@ -53,6 +53,8 @@ class InstalledAddon(BaseModel):
     target: str
     description: str
     homepage: str
+    author: str
+    author_url: str
     attribution: str
     requires_script: bool
     script_approved: bool
@@ -78,6 +80,8 @@ class AvailableAddon(BaseModel):
     version: str
     description: str
     homepage: str
+    author: str
+    author_url: str
     requires_script: bool
     script_sha256: str
     installed: bool

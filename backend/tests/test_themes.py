@@ -399,6 +399,22 @@ class TestPairedVariants:
         doc = {"themes": [{"id": "solo", "name": "Solo", "mode": "light"}]}
         assert svc.list_entries(doc)[0]["modes"] == ["light"]
 
+    def test_a_catalogue_entry_resolves_its_author_link(self):
+        """A GitHub username becomes a profile link; a display name does not."""
+        doc = {
+            "themes": [
+                {"id": "one", "name": "One", "mode": "dark", "author": "hunter-read"},
+                {"id": "two", "name": "Two", "mode": "dark", "author": "Jane Doe"},
+                {"id": "three", "name": "Three", "mode": "dark"},
+            ]
+        }
+        entries = {e["id"]: e for e in svc.list_entries(doc)}
+        assert entries["one"]["author_url"] == "https://github.com/hunter-read"
+        assert entries["two"]["author"] == "Jane Doe"
+        assert entries["two"]["author_url"] == ""
+        assert entries["three"]["author"] == ""
+        assert entries["three"]["author_url"] == ""
+
 
 class TestAppModes:
     """Product mode (grimoire/codex) is a second axis alongside light/dark."""

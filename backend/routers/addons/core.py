@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ... import addons
+from ...addons.authors import parse_author
 from ...addons.constants import DEFAULT_INDEX_URL
 from ...auth import CurrentUser, require_admin
 from ...config import get_db
@@ -33,6 +34,7 @@ def list_addons(
             # reported on the row the user is actually looking at.
             current["available_version"] = entry.version
             current["update_available"] = newer
+        entry_author, entry_author_url = parse_author(entry.author)
         available.append(
             {
                 "id": entry.id,
@@ -42,6 +44,8 @@ def list_addons(
                 "version": entry.version,
                 "description": entry.description,
                 "homepage": entry.homepage,
+                "author": entry_author,
+                "author_url": entry_author_url,
                 "requires_script": entry.requires_script,
                 "script_sha256": entry.script_sha256,
                 "installed": current is not None,

@@ -8,11 +8,13 @@ import {
   LuLink,
   LuCheck,
 } from 'react-icons/lu'
+import { SiGithub } from 'react-icons/si'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
 import {
   row,
   rowDesc,
+  rowAuthor,
   systemTag,
   folderRow,
   iconBtn,
@@ -188,6 +190,30 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
                             <span style={systemTag}>{tpl.category}</span>
                           </span>
                           {tpl.description && <span style={rowDesc}>{tpl.description}</span>}
+                          {tpl.author && (
+                            <span style={rowAuthor}>
+                              {t('addons.byAuthor', { author: tpl.author })}
+                              {/* The name stays plain text; only the icon links,
+                                  and only to a resolved GitHub profile. */}
+                              {tpl.author_url && (
+                                <a
+                                  href={tpl.author_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={t('addons.githubProfile', { author: tpl.author })}
+                                  aria-label={t('addons.githubProfile', { author: tpl.author })}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    marginLeft: 4,
+                                    color: 'inherit',
+                                  }}
+                                >
+                                  <SiGithub size={11} />
+                                </a>
+                              )}
+                            </span>
+                          )}
                         </span>
                         {/* Three states, so the result of a click is never
                             ambiguous: downloading, just-added (a green tick

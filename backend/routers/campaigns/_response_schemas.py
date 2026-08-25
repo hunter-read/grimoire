@@ -633,6 +633,8 @@ class CatalogueTemplateOut(BaseModel):
     system: str
     category: str
     description: str
+    author: str
+    author_url: str
 
 
 class CatalogueFolderOut(BaseModel):

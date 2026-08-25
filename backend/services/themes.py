@@ -29,6 +29,7 @@ from ..addons.constants import (
     HTTP_MAX_REDIRECTS,
     external_installs_enabled,
 )
+from ..addons.authors import parse_author
 from ..addons.fetch import AddonFetchError, fetch_document
 from ..models import AppSetting
 
@@ -329,6 +330,7 @@ def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
     for entry in raw:
         if not isinstance(entry, dict) or not valid_theme_id(entry.get("id")):
             continue
+        author_name, author_url = _author(entry)
         out.append(
             {
                 "id": entry["id"],
@@ -351,13 +353,19 @@ def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
                 ]
                 or [str(entry.get("mode") or "dark").lower()],
                 "version": str(entry.get("version") or "")[:20],
-                "author": str(entry.get("author") or "")[:120],
+                "author": author_name,
+                "author_url": author_url,
                 "path": str(entry.get("path") or ""),
                 "sha256": str(entry.get("sha256") or ""),
                 "grimoire_min_version": str(entry.get("grimoire_min_version") or "")[:20],
             }
         )
     return out
+
+
+def _author(entry: dict[str, Any]) -> tuple[str, str]:
+    """The byline name and its GitHub URL, if the declared author is a username."""
+    return parse_author(str(entry.get("author") or "")[:120])
 
 
 def find_entry(doc: dict[str, Any], theme_id: str) -> Optional[dict[str, Any]]:

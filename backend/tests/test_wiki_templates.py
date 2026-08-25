@@ -109,6 +109,7 @@ CATALOGUE = {
             "version": "1.0.0",
             "folder": "generic",
             "category": "Sessions",
+            "author": "octocat",
             "path": "templates/generic/session-recap/session-recap.yml",
             "body_path": "templates/generic/session-recap/session-recap.md",
             "sha256": "c" * 64,
@@ -602,6 +603,20 @@ class TestBrowse:
             "Dungeons & Dragons 5e",
         ]
         assert [t["id"] for t in folders[0]["templates"]] == ["session-recap"]
+
+    def test_reports_the_template_author(self, client, gm_headers, remote):
+        """The catalogue byline reaches the browser; templates without one get ""."""
+        c = _campaign(client, gm_headers)
+        folders = client.get(
+            f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=gm_headers
+        ).json()["folders"]
+        generic = {t["id"]: t for t in folders[0]["templates"]}
+        assert generic["session-recap"]["author"] == "octocat"
+        assert generic["session-recap"]["author_url"] == "https://github.com/octocat"
+        # A template that declares no author still serialises the key.
+        others = [t for f in folders[1:] for t in f["templates"]]
+        assert all(t["author"] == "" for t in others)
+        assert all(t["author_url"] == "" for t in others)
 
     def test_marks_templates_already_downloaded(self, client, gm_headers, remote):
         c = _campaign(client, gm_headers)

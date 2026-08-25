@@ -2072,6 +2072,8 @@
     }
   },
   "addons": {
+    "byAuthor": "por {{author}}",
+    "githubProfile": "{{author}} no GitHub",
     "title": "Extras da comunidade",
     "description": "Instale recolhedores de metadados criados pela comunidade. Os extras podem preencher detalhes do sistema de jogo a partir de fontes externas.",
     "indexUrl": "URL do índice de extras",

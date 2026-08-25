@@ -21,6 +21,7 @@ from urllib.parse import urljoin, urlparse
 from sqlalchemy.orm import Session
 
 from .. import config
+from ..addons.authors import parse_author
 from ..addons.constants import (
     HTTP_MAX_BYTES,
     HTTP_MAX_REDIRECTS,
@@ -148,6 +149,7 @@ def build_tree(catalogue: dict) -> list[dict]:
         if not template_id:
             continue
         folder = _clean_str(entry.get("folder"), 200)
+        author_name, author_url = parse_author(_clean_str(entry.get("author"), 120))
         grouped.setdefault(folder, []).append(
             {
                 "id": template_id,
@@ -156,6 +158,8 @@ def build_tree(catalogue: dict) -> list[dict]:
                 "system": _clean_str(entry.get("system"), 200),
                 "category": _clean_str(entry.get("category"), 200) or "General",
                 "description": _clean_str(entry.get("description"), 500),
+                "author": author_name,
+                "author_url": author_url,
             }
         )
 

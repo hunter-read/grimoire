@@ -309,6 +309,10 @@ class AddonManifest(BaseModel):
     target: Literal["game-system", "book"] = "game-system"
     description: str = ""
     homepage: str = ""
+    # Who wrote the add-on. A GitHub username (optionally "@name"), or a plain
+    # display name. Distinct from ``attribution``, which credits the upstream
+    # *data source* the add-on scrapes — the two are often different people.
+    author: str = ""
     attribution: str = ""
     grimoire_min_version: str = ""
 
@@ -385,6 +389,7 @@ class IndexEntry(BaseModel):
     sha256: str = ""
     description: str = ""
     homepage: str = ""
+    author: str = ""
     requires_script: bool = False
     script_sha256: str = ""
     grimoire_min_version: str = ""

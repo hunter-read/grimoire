@@ -135,6 +135,7 @@ class CatalogueTheme(BaseModel):
     modes: list[str]
     version: str
     author: str
+    author_url: str
     path: str
     sha256: str
     grimoire_min_version: str

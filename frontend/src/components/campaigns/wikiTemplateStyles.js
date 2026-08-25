@@ -81,6 +81,15 @@ const rowDesc = {
   lineHeight: 1.5,
 }
 
+// The "by <author>" credit under a catalogue row. Dimmer and smaller than the
+// description so it reads as a byline rather than more description text.
+const rowAuthor = {
+  display: 'block',
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  marginTop: 2,
+}
+
 const systemTag = { fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6, fontSize: 12 }
 
 const folderRow = {
@@ -203,6 +212,7 @@ export {
   row,
   rowMain,
   rowDesc,
+  rowAuthor,
   systemTag,
   folderRow,
   iconBtn,

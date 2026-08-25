@@ -110,6 +110,31 @@ for the script contract.
 To test locally without publishing, serve the repo (`python3 -m http.server 8000`)
 and point the index URL at `http://localhost:8000/index.json`.
 
+### Crediting yourself
+
+A manifest may set an optional `author` - your GitHub username, or any display
+name - and Grimoire shows it as a "by <author>" byline on the add-on in
+**Settings → Add-ons**, both for installed add-ons and for ones still listed in
+the catalogue. The same field works the same way on
+[themes](themes.md) and [wiki note templates](wiki-templates.md).
+
+It is separate from `attribution`, which credits the **upstream source** an
+add-on scrapes and appears next to the fetched metadata rather than on the
+add-on itself. One add-on commonly carries both, naming two different parties.
+
+If what you put there is a **GitHub username**, Grimoire links it to your
+profile: `hunter-read` gets a small GitHub icon next to the byline pointing at
+`https://github.com/hunter-read`. A leading `@` is fine (`@hunter-read`), and so
+is pasting the full profile URL. Anything that is not a username - a display
+name like `Jane Doe` - is still credited, just without the icon.
+
+Omit `author` entirely to stay anonymous.
+
+Grimoire *derives* that link from the username rather than letting the manifest
+supply a URL, and the name itself is always plain text - only the icon is
+clickable. So the byline can only ever point at a GitHub profile, never at an
+arbitrary destination. To link somewhere else, use `homepage`.
+
 ## How it works
 
 `backend/addons/` (see [`architecture.md`](architecture.md)):

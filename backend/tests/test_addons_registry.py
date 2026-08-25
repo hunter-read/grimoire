@@ -380,6 +380,47 @@ class TestDescribe:
         assert described["runnable"] is False
         assert described["blocked_reason"]
 
+    def test_serialises_the_author_credit(self, db, addons_dir):
+        """The author byline reaches the UI, separately from `attribution`."""
+        _write_addon(
+            addons_dir,
+            "credited",
+            manifest={**VALID, "author": "octocat", "attribution": "Data from Example"},
+        )
+        described = registry.describe(db, "credited")
+        assert described["author"] == "octocat"
+        # A username resolves to a profile link the UI can offer.
+        assert described["author_url"] == "https://github.com/octocat"
+        # The two credits are different things and must not be conflated.
+        assert described["attribution"] == "Data from Example"
+
+    def test_author_defaults_to_empty_when_unset(self, db, addons_dir):
+        """Add-ons predating the field stay valid and serialise a blank byline."""
+        _write_addon(addons_dir, "anon")
+        described = registry.describe(db, "anon")
+        assert described["author"] == ""
+        assert described["author_url"] == ""
+
+    def test_a_non_username_author_gets_no_link(self, db, addons_dir):
+        """A display name is credited but never linked."""
+        _write_addon(addons_dir, "named", manifest={**VALID, "author": "Jane Doe"})
+        described = registry.describe(db, "named")
+        assert described["author"] == "Jane Doe"
+        assert described["author_url"] == ""
+
+
+def test_index_entry_carries_the_author_through():
+    """The community index relays the byline, so it shows before installing."""
+    from backend.addons.manifest import IndexEntry
+
+    entry = IndexEntry(
+        id="demo", name="Demo", version="1.0.0", path="scrapers/demo/demo.yml", author="octocat"
+    )
+    assert entry.author == "octocat"
+    # An index generated before the field existed still loads.
+    bare = IndexEntry(id="demo", name="Demo", version="1.0.0", path="p.yml")
+    assert bare.author == ""
+
 
 def test_state_is_stored_as_json_in_app_settings(db):
     """State rides in the generic KV table, so the feature needs no migration."""

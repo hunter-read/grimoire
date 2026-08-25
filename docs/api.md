@@ -880,7 +880,7 @@ Because a player edits this stripped body, a player saving an edit would otherwi
 | `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
 | `/api/campaigns/:id/wiki/templates` | GET | owner | The campaign's note templates. Returns `{templates[], campaign_system, downloads_enabled}`; each template carries `{id, name, system, category, description, source_id, source_url, source_version, created_at}` (no `body` - use the detail read). `campaign_system` is the linked game-system name, falling back to free-text `system_name`, else `""`. `downloads_enabled` is false when `DISABLE_EXTERNAL_ADD_ON_INSTALL` is set. Also returns `categories` (the suggested set plus any the campaign already uses, for the editor's dropdown) and `authored_system` (the marker stored on hand-written templates) |
 | `/api/campaigns/:id/wiki/templates` | POST | owner | Write a new template. Body: `{name, category?, description?, body?, defaults?}`. `name` is required and non-blank. There is no `system`: a hand-written template is stored with the `__authored__` marker (reported as `authored_system` on the list endpoint). `defaults` is `{title?, icon?, icon_color?, visibility?, page_type?}` and is stored as a YAML frontmatter block on the body, so authored, uploaded, and downloaded templates all share one on-disk shape. Returns the template incl. `body` and `defaults` |
-| `/api/campaigns/:id/wiki/templates/browse` | GET | owner | The community catalogue as a folder tree. Returns `{folders[], downloaded_ids[], campaign_system, index_url, is_custom_url, generated}`; each folder is `{path, name, templates[]}` with the generic folder pinned first and the rest alphabetical. Query `refresh=true` bypasses the 1-hour cache. `403` when downloading is disabled, `502` when the catalogue is unreachable |
+| `/api/campaigns/:id/wiki/templates/browse` | GET | owner | The community catalogue as a folder tree. Returns `{folders[], downloaded_ids[], campaign_system, index_url, is_custom_url, generated}`; each folder is `{path, name, templates[]}` with the generic folder pinned first and the rest alphabetical. Each template is `{id, name, version, system, category, description, author, author_url}`, where `author` is the "by <author>" credit and `author_url` its server-derived GitHub profile link (both `""` when absent). Query `refresh=true` bypasses the 1-hour cache. `403` when downloading is disabled, `502` when the catalogue is unreachable |
 | `/api/campaigns/:id/wiki/templates/upload` | POST | owner | Add a template from a multipart `file` (max 512 KB), either a `.md`/`.markdown`/`.txt` or a `.zip` in the export layout (`<id>/<id>.yml` + `<id>/<id>.md`). For markdown, the frontmatter `title` names it, falling back to the filename; for a zip, the manifest supplies `name`/`category`/`description`, falling back to the body's frontmatter when absent or malformed. Zips are detected by magic bytes as well as extension, `__MACOSX/` and dotfiles are skipped, and a member declaring more than the size cap is refused with `413` before decompression. A zip with no markdown in it, or a corrupt archive, is `400`. **Works even when downloading is disabled** - the hand-copy path for locked-down servers |
 | `/api/campaigns/:id/wiki/templates/source` | PUT | owner | Set the catalogue URL. Body: `{index_url}`; `""` restores the built-in default. Must be http(s). Returns `{index_url, is_custom_url}` |
 | `/api/campaigns/:id/wiki/templates/download/:template_id` | POST | owner | Copy a community template into the campaign, verifying the body against the catalogue's `body_sha256`. Recorded with `source_id`/`source_url`/`source_version`. Downloading the same template twice deliberately makes a second copy. `403` when disabled, `404` if unknown, `502` if the fetch fails |
@@ -1072,14 +1072,27 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 | `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |
 
 **Installed add-on fields:** `id`, `name`, `version`, `kind`, `target`,
-`description`, `homepage`, `attribution`, `requires_script`, `script_approved`,
-`enabled`, `runnable`, `blocked_reason`, `source`, `available_version`,
-`update_available`. `runnable` is false (with a
+`description`, `homepage`, `author`, `author_url`, `attribution`, `requires_script`,
+`script_approved`, `enabled`, `runnable`, `blocked_reason`, `source`,
+`available_version`, `update_available`. `runnable` is false (with a
 human-readable `blocked_reason`) when an add-on is disabled, or is script-backed
 and lacks either consent.
 
+`author` is who wrote the add-on - a GitHub username or display name, shown as a
+"by <author>" byline. It is distinct from `attribution`, which credits the
+upstream data source the add-on scrapes; both are `""` when the manifest omits
+them.
+
+`author_url` is **derived by the server**, never taken from the manifest: when
+`author` is a valid GitHub username (a leading `@` is accepted, as is a bare
+`https://github.com/<username>`), it resolves to that profile, and is `""`
+otherwise. Because the manifest cannot supply a URL of its own, a `javascript:`
+value, another host, or a `github.com` lookalike can never be linked. The name
+itself always renders as plain text - only a separate GitHub icon is clickable.
+
 **Available add-on fields:** the index entry plus `installed` and
-`update_available`.
+`update_available`. The index relays `author` too, so the byline shows before
+an add-on is installed.
 
 ### Themes
 
@@ -1103,6 +1116,11 @@ configuration. See [`docs/themes.md`](themes.md).
 
 **Theme fields:** `id`, `name`, `mode`, `modes[]`, `app_mode`, `variants`,
 `tokens`, `source_id`, `source_url`, `source_version`, `is_community`.
+
+**Catalogue entry fields** (from `/api/themes/browse`): `id`, `name`,
+`description`, `mode`, `app_mode`, `modes[]`, `version`, `author`, `author_url`,
+`path`, `sha256`, `grimoire_min_version`, `installed`. `author`/`author_url` are
+the same credit and derived profile link add-ons and note templates carry.
 
 `variants` maps a colour mode to its token set, so one theme can cover light and
 dark and **System** can follow the OS within it. `modes[]` lists what it covers,

@@ -2072,6 +2072,8 @@
     }
   },
   "addons": {
+    "byAuthor": "par {{author}}",
+    "githubProfile": "{{author}} sur GitHub",
     "title": "Modules communautaires",
     "description": "Installez des collecteurs de métadonnées proposés par la communauté. Les modules peuvent compléter les détails des systèmes de jeu depuis des sources externes.",
     "indexUrl": "URL de l'index des modules",

@@ -2072,6 +2072,8 @@
     }
   },
   "addons": {
+    "byAuthor": "von {{author}}",
+    "githubProfile": "{{author}} auf GitHub",
     "title": "Community-Add-ons",
     "description": "Installiere von der Community beigesteuerte Metadaten-Scraper. Add-ons können Spielsystem-Details aus externen Quellen ergänzen.",
     "indexUrl": "Add-on-Index-URL",

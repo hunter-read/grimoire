@@ -2072,6 +2072,8 @@
     }
   },
   "addons": {
+    "byAuthor": "by {{author}}",
+    "githubProfile": "{{author}} on GitHub",
     "title": "Community add-ons",
     "description": "Install metadata scrapers contributed by the community. Add-ons can fill in game system details from external sources.",
     "indexUrl": "Add-on index URL",

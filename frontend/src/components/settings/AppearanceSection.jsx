@@ -5,6 +5,7 @@ import api from '../../api'
 import Spinner from '../Spinner'
 import { useTheme } from '../../context/ThemeContext'
 import { THEME_MODES } from '../../utils/theme'
+import AuthorByline from './AuthorByline'
 
 /**
  * Per-user appearance: light/dark/system, plus installing and picking a theme.
@@ -286,6 +287,7 @@ export default function AppearanceSection() {
                       {theme.description}
                     </div>
                   )}
+                  <AuthorByline author={theme.author} authorUrl={theme.author_url} />
                 </div>
                 {theme.installed ? (
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>

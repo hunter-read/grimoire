@@ -11,6 +11,7 @@ import {
 import api from '../../api'
 import Spinner from '../Spinner'
 import AddonInstallDialog from './AddonInstallDialog'
+import AuthorByline from './AuthorByline'
 
 /**
  * Admin panel for community add-ons (issue #203).
@@ -282,6 +283,7 @@ export default function AddonsSection() {
               {addon.description && (
                 <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
               )}
+              <AuthorByline author={addon.author} authorUrl={addon.author_url} />
               {!addon.runnable && addon.blocked_reason && (
                 <div style={{ fontSize: 12, color: 'var(--warning, #d98324)' }}>
                   {addon.blocked_reason}
@@ -384,6 +386,7 @@ export default function AddonsSection() {
               {addon.description && (
                 <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
               )}
+              <AuthorByline author={addon.author} authorUrl={addon.author_url} />
             </div>
             <button
               onClick={() => startInstall(addon)}
