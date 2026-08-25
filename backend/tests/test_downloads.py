@@ -963,3 +963,193 @@ class TestDownloadExplicitFilter:
             params={"type": "token_folder", "folder": "nsfw"},
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# type=library_folder — an arbitrary folder taken straight off disk
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def lib_root(tmp_path):
+    """A throwaway library root, with both path guards pointed at it.
+
+    ``safe_join`` resolves the caller's folder against ``LIBRARY_PATH`` while
+    ``_safe_filepath`` checks each file against the router's ``_LIBRARY_ROOT``;
+    the two are separate constants, so both are patched here.
+    """
+    import backend.routers.downloads as dl_mod
+    from backend.services.library_fs import paths as fs_paths
+
+    root = tmp_path / "library"
+    (root / "books" / "DnD" / "core" / "deep").mkdir(parents=True)
+    (root / "books" / "DnD" / "core" / "rulebook.pdf").write_bytes(b"%PDF-core")
+    (root / "books" / "DnD" / "core" / "notes.txt").write_bytes(b"loose, unindexed")
+    (root / "books" / "DnD" / "core" / "deep" / "appendix.pdf").write_bytes(b"%PDF-deep")
+    (root / "books" / "DnD" / "core" / ".hidden").write_bytes(b"dotfile")
+    (root / "books" / "DnD" / "adventures").mkdir()
+    (root / "books" / "DnD" / "adventures" / "module.pdf").write_bytes(b"%PDF-mod")
+
+    with patch.object(dl_mod, "_LIBRARY_ROOT", root.resolve()), \
+         patch.object(fs_paths, "LIBRARY_PATH", str(root)):
+        yield root
+
+
+class TestLibraryFolderArchive:
+    def test_includes_every_file_under_the_folder(self, client, admin_headers, lib_root):
+        names = _zip_names(
+            _get_archive(
+                client,
+                admin_headers,
+                {"type": "library_folder", "folder": "books/DnD/core"},
+            )
+        )
+        # The loose .txt is the point: it has no DB row, and a record-driven
+        # archive would silently drop it.
+        assert names == {"rulebook.pdf", "notes.txt", "deep/appendix.pdf"}
+
+    def test_arcnames_are_relative_to_the_requested_folder(
+        self, client, admin_headers, lib_root
+    ):
+        names = _zip_names(
+            _get_archive(
+                client,
+                admin_headers,
+                {"type": "library_folder", "folder": "books/DnD"},
+            )
+        )
+        assert names == {
+            "core/rulebook.pdf",
+            "core/notes.txt",
+            "core/deep/appendix.pdf",
+            "adventures/module.pdf",
+        }
+
+    def test_dotfiles_are_skipped(self, client, admin_headers, lib_root):
+        names = _zip_names(
+            _get_archive(
+                client,
+                admin_headers,
+                {"type": "library_folder", "folder": "books/DnD/core"},
+            )
+        )
+        assert ".hidden" not in names
+
+    def test_archive_is_named_for_the_folder(self, client, admin_headers, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder", "folder": "books/DnD/core"},
+        )
+        assert resp.status_code == 200
+        assert 'filename="core.zip"' in resp.headers["content-disposition"]
+
+    def test_honours_the_format_picker(self, client, admin_headers, lib_root):
+        content = _get_archive(
+            client,
+            admin_headers,
+            {"type": "library_folder", "folder": "books/DnD/core", "fmt": "tar.gz"},
+        )
+        assert _tar_names(content) == {"rulebook.pdf", "notes.txt", "deep/appendix.pdf"}
+
+    def test_file_contents_survive_the_round_trip(self, client, admin_headers, lib_root):
+        content = _get_archive(
+            client,
+            admin_headers,
+            {"type": "library_folder", "folder": "books/DnD/core"},
+        )
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            assert zf.read("deep/appendix.pdf") == b"%PDF-deep"
+
+    def test_missing_folder_param_returns_400(self, client, admin_headers, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder"},
+        )
+        assert resp.status_code == 400
+
+    def test_nonexistent_folder_returns_404(self, client, admin_headers, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder", "folder": "books/Nope"},
+        )
+        assert resp.status_code == 404
+
+    def test_traversal_outside_the_library_is_refused(self, client, admin_headers, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder", "folder": "../../etc"},
+        )
+        assert resp.status_code == 403
+
+    def test_absolute_path_is_refused(self, client, admin_headers, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder", "folder": "/etc"},
+        )
+        assert resp.status_code == 403
+
+    def test_a_file_is_not_a_folder(self, client, admin_headers, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder", "folder": "books/DnD/core/rulebook.pdf"},
+        )
+        assert resp.status_code == 400
+
+    def test_empty_folder_returns_404(self, client, admin_headers, lib_root):
+        (lib_root / "books" / "Empty").mkdir()
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "library_folder", "folder": "books/Empty"},
+        )
+        assert resp.status_code == 404
+
+    def test_players_are_refused(self, client, player_headers, lib_root):
+        # This scope bypasses per-book visibility because it never resolves a
+        # book row, so it is admin-only — the same audience as the file manager.
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=player_headers,
+            params={"type": "library_folder", "folder": "books/DnD/core"},
+        )
+        assert resp.status_code == 403
+
+    def test_unauthenticated_rejected(self, client, lib_root):
+        resp = client.get(
+            "/api/downloads/archive",
+            params={"type": "library_folder", "folder": "books/DnD/core"},
+        )
+        assert resp.status_code in (401, 403)
+
+    def test_too_many_files_is_refused(self, client, admin_headers, lib_root):
+        from backend.routers.downloads import _helpers
+
+        big = lib_root / "books" / "Big"
+        big.mkdir()
+        for i in range(5):
+            (big / f"f{i}.pdf").write_bytes(b"x")
+
+        with patch.object(_helpers, "_MAX_FOLDER_FILES", 2):
+            resp = client.get(
+                "/api/downloads/archive",
+                headers=admin_headers,
+                params={"type": "library_folder", "folder": "books/Big"},
+            )
+        assert resp.status_code == 413
+
+    def test_too_many_bytes_is_refused(self, client, admin_headers, lib_root):
+        from backend.routers.downloads import _helpers
+
+        with patch.object(_helpers, "_MAX_FOLDER_BYTES", 1):
+            resp = client.get(
+                "/api/downloads/archive",
+                headers=admin_headers,
+                params={"type": "library_folder", "folder": "books/DnD/core"},
+            )
+        assert resp.status_code == 413

@@ -388,6 +388,7 @@
     "metadataUnsupported": "Ese elemento no tiene metadatos editables",
     "uploadFiles": "Subir archivos…",
     "uploadFolder": "Subir una carpeta…",
+    "downloadFolder": "Descargar carpeta…",
     "uploadingCount": "Subiendo - {{done}} de {{total}}",
     "uploadFinished": "{{done}} de {{total}} subidos",
     "uploadFailedCount": "{{count}} con error",

@@ -1,0 +1,7 @@
+# Standalone dependency set for the Selenium E2E suite.
+# Deliberately independent of the app's backend/requirements.txt so this
+# directory can be lifted into its own repository unchanged.
+selenium>=4.27,<5
+pytest>=8.3
+pytest-xdist>=3.6
+requests>=2.32

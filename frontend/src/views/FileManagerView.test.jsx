@@ -44,6 +44,18 @@ const uploadQueue = {
   clearCompleted: vi.fn(),
 }
 vi.mock('../hooks/useUploadQueue', () => ({ default: () => uploadQueue }))
+// Stubbed so the assertion is about what this view *asks for* — the scope and
+// folder it hands the picker. The picker's own tests cover the format choice
+// and the URL it builds from those params.
+vi.mock('../components/DownloadArchiveModal', () => ({
+  default: ({ title, params, onClose }) => (
+    <div data-testid="download-modal">
+      <span data-testid="download-title">{title}</span>
+      <span data-testid="download-params">{JSON.stringify(params)}</span>
+      <button onClick={onClose}>close-download</button>
+    </div>
+  ),
+}))
 vi.mock('../components/BulkEditModal', () => ({
   default: ({ items, onSaved }) => (
     <div data-testid="metadata-modal">
@@ -310,6 +322,44 @@ describe('FileManagerView', () => {
     // The mode modal owns the actual request; opening it with the row's path is
     // this view's job.
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('downloads a folder through the shared format picker', async () => {
+    render(<FileManagerView />)
+    await openMenuOn('core')
+
+    await userEvent.click(await screen.findByTestId('download-folder'))
+
+    // library_folder, not book_folder: the file manager browses the filesystem,
+    // so the archive must be the folder as it sits on disk — loose, unindexed
+    // files included — rather than the subset with DB rows.
+    expect(JSON.parse(screen.getByTestId('download-params').textContent)).toEqual({
+      type: 'library_folder',
+      folder: 'books/core',
+    })
+    expect(screen.getByTestId('download-title')).toHaveTextContent('books/core')
+  })
+
+  it('offers the folder download only on folders', async () => {
+    render(<FileManagerView />)
+
+    await openMenuOn('bestiary.pdf')
+    // A single file is not an archive scope; downloading one is the file's own
+    // affordance, not this menu's.
+    expect(screen.queryByTestId('download-folder')).not.toBeInTheDocument()
+
+    await openMenuOn('core')
+    expect(await screen.findByTestId('download-folder')).toBeInTheDocument()
+  })
+
+  it('closes the download picker without leaving it mounted', async () => {
+    render(<FileManagerView />)
+    await openMenuOn('core')
+    await userEvent.click(await screen.findByTestId('download-folder'))
+
+    await userEvent.click(screen.getByText('close-download'))
+
+    expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
   })
 
   it('previews an indexed file but not a folder', async () => {

@@ -388,6 +388,7 @@
     "metadataUnsupported": "That item has no editable metadata",
     "uploadFiles": "Upload files…",
     "uploadFolder": "Upload a folder…",
+    "downloadFolder": "Download folder…",
     "uploadingCount": "Uploading - {{done}} of {{total}} done",
     "uploadFinished": "Uploaded {{done}} of {{total}}",
     "uploadFailedCount": "{{count}} failed",

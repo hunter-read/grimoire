@@ -673,6 +673,13 @@ of Grimoire's own concepts) built for bulk reorganization:
   a book's rendered pages (arrow keys or the pager move between them), a map or
   token image, or an audio player. It answers "which file is this?" in place,
   rather than sending you to the reader and losing your spot in the tree.
+- **Download a folder** - right-click any folder → **Download folder…** and pick
+  ZIP, TAR, TAR.GZ, or TAR.BZ2, the same picker the library and gallery pages
+  use. Unlike those, this archives the folder *as it sits on disk*: every file
+  underneath it, in its existing subfolder structure, including loose files
+  Grimoire never indexed. That is usually the point of asking from here - you are
+  looking at the real folder, so you get the real folder. Very large folders are
+  refused rather than started and stalled; download a subfolder instead.
 - **Edit an item's metadata** with the same editor the library views use.
 - **Create folders**, including system, category, and container folders. Choosing
   a container type writes the right marker file for you, so you no longer have to

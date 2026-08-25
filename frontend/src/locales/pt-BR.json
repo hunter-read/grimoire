@@ -388,6 +388,7 @@
     "metadataUnsupported": "Esse item não tem metadados editáveis",
     "uploadFiles": "Enviar arquivos…",
     "uploadFolder": "Enviar uma pasta…",
+    "downloadFolder": "Baixar pasta…",
     "uploadingCount": "Enviando - {{done}} de {{total}}",
     "uploadFinished": "{{done}} de {{total}} enviados",
     "uploadFailedCount": "{{count}} com falha",

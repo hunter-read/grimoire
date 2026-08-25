@@ -20,6 +20,7 @@ import {
   LuFolderUp,
   LuEye,
   LuFolderInput,
+  LuDownload,
 } from 'react-icons/lu'
 import { files as filesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -35,6 +36,7 @@ import RescanButton from '../components/RescanButton'
 import RescanModal from '../components/RescanModal'
 import PreviewModal from '../components/files/PreviewModal'
 import DeleteModal from '../components/files/DeleteModal'
+import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import MoveModal from '../components/files/MoveModal'
 import useScanStatus from '../hooks/useScanStatus'
 
@@ -110,6 +112,8 @@ export default function FileManagerView() {
   const [showUploads, setShowUploads] = useState(false)
   // Path a context-menu rescan will be scoped to, while its mode modal is open.
   const [rescanning, setRescanning] = useState(null)
+  // Folder path whose download-format picker is open, or null.
+  const [downloading, setDownloading] = useState(null)
   // { type, item } for the quick-look preview, once its record has loaded.
   const [previewing, setPreviewing] = useState(null)
   const { status: scanStatus, startRescan } = useScanStatus()
@@ -675,6 +679,22 @@ export default function FileManagerView() {
 
           {context.entry.is_dir && (
             <>
+              {/* Downloads the folder *as it sits on disk* — every file under
+                  it, indexed or not — rather than the subset Grimoire has rows
+                  for. That is the whole point of asking for it from the file
+                  manager, which browses the filesystem rather than the index. */}
+              <button
+                style={menuItem}
+                {...menuHover}
+                data-testid="download-folder"
+                onClick={() => {
+                  setDownloading(context.entry)
+                  setContext(null)
+                }}
+              >
+                <LuDownload size={13} /> {t('files.downloadFolder')}
+              </button>
+
               {/* Creating a folder is a property of the place you clicked, so it
                   belongs here rather than in a toolbar that has no idea which
                   folder you meant. */}
@@ -845,6 +865,14 @@ export default function FileManagerView() {
 
       {renaming && (
         <RenameModal entry={renaming} onClose={() => setRenaming(null)} onRename={handleRename} />
+      )}
+
+      {downloading && (
+        <DownloadArchiveModal
+          title={downloading.path}
+          params={{ type: 'library_folder', folder: downloading.path }}
+          onClose={() => setDownloading(null)}
+        />
       )}
 
       {deleting && (

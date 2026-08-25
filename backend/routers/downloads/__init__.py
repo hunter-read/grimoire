@@ -21,7 +21,9 @@ router.add_api_route(
     description=(
         "Stream a collection of files as a single archive. `fmt` controls the "
         "format: `zip` (default), `tar`, `tar.gz`, `tar.bz2`. `type` controls "
-        "the scope: `system`, `system_category`, `map_folder`, `token_folder`."
+        "the scope: `system`, `system_category`, `book_folder`, `map_folder`, "
+        "`token_folder`, `audio_folder`, or `library_folder` (admin-only; any "
+        "folder as it sits on disk, indexed or not)."
     ),
 )
 

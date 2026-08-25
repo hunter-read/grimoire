@@ -388,6 +388,7 @@
     "metadataUnsupported": "Dat item heeft geen bewerkbare metadata",
     "uploadFiles": "Bestanden uploaden…",
     "uploadFolder": "Map uploaden…",
+    "downloadFolder": "Map downloaden…",
     "uploadingCount": "Uploaden - {{done}} van {{total}}",
     "uploadFinished": "{{done}} van {{total}} geüpload",
     "uploadFailedCount": "{{count}} mislukt",

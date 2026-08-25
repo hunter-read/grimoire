@@ -1468,6 +1468,51 @@ holding `Modules` will not gain `Adventures`. `existing` reports the incumbent
 folder's real name, so running it on a partly-organised system fills only the
 genuine gaps.
 
+### Downloads
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/downloads/archive` | GET | user | Stream a collection of files as one archive |
+
+**Query parameters:** `type` (required) selects the scope, `fmt` selects the
+format — `zip` (default), `tar`, `tar.gz`, `tar.bz2` — and the remaining
+parameters depend on the scope:
+
+| `type` | Required params | Contents |
+|--------|-----------------|----------|
+| `system` | `id` | Every book in a game system, foldered by category |
+| `system_category` | `id`, `category` | Every book in one category of a system |
+| `book_folder` | `id`, `folder` | Books in a nested subfolder, sub-hierarchy preserved |
+| `map_folder` | `folder` | Every map under a maps subfolder |
+| `token_folder` | `folder` | Every token under a tokens subfolder |
+| `audio_folder` | `folder` | Every track under an audio subfolder |
+| `library_folder` *(admin)* | `folder` | Any library folder **as it sits on disk** |
+
+Every scope except `library_folder` is built from indexed records, so each is
+filtered by what the caller may see: explicit content is dropped for users with
+`allow_explicit` off, and books are filtered through the same access rules the
+browse endpoints use — a bulk archive is the easiest way to walk out with a
+restricted book. Variants are deliberately **included** (issues #304, #306): a
+"download this whole system" archive should hold every file the user owns.
+
+`library_folder` is the file manager's scope and works differently. It walks the
+filesystem rather than the index, so the archive holds *everything* under the
+folder — loose files the scanner ignored, unindexed formats, sidecars — with
+in-archive paths relative to the requested folder. That is the point: the file
+manager browses the filesystem, and an archive of only the rows Grimoire happens
+to have would silently drop files the user can plainly see. Because nothing here
+resolves through a book row, no per-book access rule can be applied to it, so the
+scope is **admin-only** — the same audience as the file manager itself. Dotfiles
+are skipped, symlinks pointing outside the library are dropped, `folder` is
+validated against traversal (`403`), and the walk is capped at 5000 files /
+50 GB (`413` past that, asking for a subfolder instead).
+
+Archive entry paths are sanitised for cross-platform extraction: Windows-illegal
+characters are replaced, leading/trailing dots and spaces stripped, and each
+component clamped to 255 bytes. Responses stream with a
+`Content-Disposition: attachment` filename derived from the scope. `404` when the
+scope resolves to no files.
+
 ### Logs *(admin only)*
 
 | Endpoint | Method | Auth | Description |

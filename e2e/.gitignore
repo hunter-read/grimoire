@@ -1,0 +1,5 @@
+# Failure screenshots, DOM dumps, and console logs from test runs.
+artifacts/
+.pytest_cache/
+__pycache__/
+*.pyc

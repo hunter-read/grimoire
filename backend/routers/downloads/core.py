@@ -12,6 +12,7 @@ from ._helpers import (
     _can_see_explicit,
     _files_for_audio_folder,
     _files_for_book_folder,
+    _files_for_library_folder,
     _files_for_map_folder,
     _files_for_system,
     _files_for_system_category,
@@ -22,7 +23,10 @@ from ._helpers import (
 def download_archive(
     type: str = Query(
         ...,
-        description="Scope: system | system_category | book_folder | map_folder | token_folder | audio_folder",
+        description=(
+            "Scope: system | system_category | book_folder | map_folder | "
+            "token_folder | audio_folder | library_folder"
+        ),
     ),
     fmt: str = Query("zip", description="Archive format: zip | tar | tar.gz | tar.bz2"),
     id: Optional[str] = Query(
@@ -30,7 +34,11 @@ def download_archive(
     ),
     category: Optional[str] = Query(None, description="Book category slug (system_category)"),
     folder: Optional[str] = Query(
-        None, description="Folder path (book_folder / map_folder / token_folder / audio_folder)"
+        None,
+        description=(
+            "Folder path (book_folder / map_folder / token_folder / audio_folder / "
+            "library_folder — the latter is library-root-relative)"
+        ),
     ),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -73,6 +81,18 @@ def download_archive(
         if not folder:
             raise HTTPException(400, "folder is required for type=audio_folder")
         files, base = _files_for_audio_folder(db, folder)
+
+    elif type == "library_folder":
+        # The file manager's scope: an arbitrary folder taken as it sits on
+        # disk, including files the scanner never indexed. Nothing here is
+        # filtered by book visibility because nothing here is resolved through a
+        # book row, so it is restricted to admins — the same audience the file
+        # manager itself is restricted to.
+        if current_user.role != "admin":
+            raise HTTPException(403, "Admin access required")
+        if not folder:
+            raise HTTPException(400, "folder is required for type=library_folder")
+        files, base = _files_for_library_folder(folder)
 
     else:
         raise HTTPException(400, f"Unknown type: {type!r}")

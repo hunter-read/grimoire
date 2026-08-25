@@ -388,6 +388,7 @@
     "metadataUnsupported": "Dieses Element hat keine bearbeitbaren Metadaten",
     "uploadFiles": "Dateien hochladen…",
     "uploadFolder": "Ordner hochladen…",
+    "downloadFolder": "Ordner herunterladen…",
     "uploadingCount": "Wird hochgeladen - {{done}} von {{total}} fertig",
     "uploadFinished": "{{done}} von {{total}} hochgeladen",
     "uploadFailedCount": "{{count}} fehlgeschlagen",

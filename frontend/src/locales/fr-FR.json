@@ -388,6 +388,7 @@
     "metadataUnsupported": "Cet élément n'a pas de métadonnées modifiables",
     "uploadFiles": "Téléverser des fichiers…",
     "uploadFolder": "Téléverser un dossier…",
+    "downloadFolder": "Télécharger le dossier…",
     "uploadingCount": "Téléversement - {{done}} sur {{total}}",
     "uploadFinished": "{{done}} sur {{total}} téléversés",
     "uploadFailedCount": "{{count}} en échec",

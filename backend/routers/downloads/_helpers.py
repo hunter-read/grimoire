@@ -1,5 +1,6 @@
 """Archive-streaming helpers and file-resolution logic for the downloads router."""
 import io
+import os
 import tarfile
 import zipfile
 from pathlib import Path
@@ -301,3 +302,61 @@ def _files_for_audio_folder(db, folder: str) -> tuple[list, str]:
         and (safe := _safe_filepath(a.filepath))
     ]
     return files, f"audio_{_safe_name(folder)}"
+
+
+# A ceiling on what one library-folder archive will stream. The file manager can
+# point at any folder, including the library root, and a request that walks
+# hundreds of gigabytes ties up a worker for the whole transfer. Refusing up
+# front with a clear message beats a download that stalls and dies half-written.
+_MAX_FOLDER_FILES = 5000
+_MAX_FOLDER_BYTES = 50 * 1024 * 1024 * 1024
+
+
+def _files_for_library_folder(folder: str) -> tuple[list, str]:
+    """Every real file under an arbitrary library folder, as it sits on disk.
+
+    The file manager browses the *filesystem*, not the index, so this is the one
+    archive builder that does not start from a query. A folder there may hold
+    loose files the scanner ignored, unindexed formats, and sidecars, and the
+    admin asking for "download this folder" means the folder — not the subset
+    Grimoire happens to have rows for.
+
+    That is also why it is admin-only at the router: no per-book access grant is
+    consulted here because there is no book row to consult one for.
+    """
+    from ...services import library_fs as fs
+
+    try:
+        target = fs.safe_join(folder, must_exist=True)
+    except fs.LibraryFSError as e:
+        raise HTTPException(404 if e.code == "not_found" else 403, e.message) from e
+    if not target.is_dir():
+        raise HTTPException(400, "Not a folder")
+
+    files: list[tuple[str, str]] = []
+    total = 0
+    # Sorted at each level so the archive's entry order is stable between runs;
+    # an unordered os.walk makes two archives of the same folder differ.
+    for dirpath, dirnames, filenames in os.walk(target):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        for name in sorted(filenames):
+            if name.startswith("."):
+                continue
+            full = Path(dirpath) / name
+            safe = _safe_filepath(str(full))
+            if not safe:
+                continue
+            try:
+                total += full.stat().st_size
+            except OSError:
+                continue
+            files.append((safe, _safe_arcname(str(full.relative_to(target)))))
+            if len(files) > _MAX_FOLDER_FILES or total > _MAX_FOLDER_BYTES:
+                raise HTTPException(
+                    413,
+                    "That folder is too large to download as one archive "
+                    f"(limit {_MAX_FOLDER_FILES} files / "
+                    f"{_MAX_FOLDER_BYTES // (1024 ** 3)} GB). Download a subfolder instead.",
+                )
+
+    return files, _safe_name(target.name or "library")
