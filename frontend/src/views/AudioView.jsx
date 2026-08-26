@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import useMediaGallery from '../hooks/useMediaGallery'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
 import GalleryLayout from '../components/media/GalleryLayout'
+import gallerySubtitle from '../components/media/gallerySubtitle'
 
 export default function AudioView() {
   const { t } = useTranslation()
@@ -34,7 +35,10 @@ export default function AudioView() {
         gallery={gallery}
         isPlayer={isPlayer}
         title={t('audio.title')}
-        subtitle={t('audio.subtitle', { count: gallery.data.total })}
+        subtitle={gallerySubtitle(t, 'audio', {
+          count: gallery.filteredCount,
+          total: gallery.totalCount,
+        })}
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}
         onBulkEdit={() => setShowBulkEdit(true)}

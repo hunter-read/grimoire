@@ -117,8 +117,13 @@ export default function LibraryView() {
     !isOnePageChild(s) &&
     (grouped ? !s.parent_id : !s.container_kind)
 
+  // Every regular system this user can see, before the sort/filter bar narrows
+  // it. The subtitle's denominator, so it only ever counts systems already
+  // scoped to the user by /systems.
+  const gridSystems = systems.filter(inGrid)
+
   // The bar filters (genre/family/explicit/favorites/tags), then sorts.
-  const normalSystems = applySystemSortFilter(systems.filter(inGrid), sortFilter, {
+  const normalSystems = applySystemSortFilter(gridSystems, sortFilter, {
     isFavorite: isFavSystem,
   })
 
@@ -142,7 +147,6 @@ export default function LibraryView() {
   // hides them again — an option that can never match is worse than a missing
   // one. (Edition is deliberately not offered: it isn't recorded consistently
   // enough across systems to filter on.)
-  const gridSystems = systems.filter(inGrid)
   const optionsFrom = (pick) =>
     [...new Set(gridSystems.flatMap((s) => [pick(s)].flat().filter(Boolean)))]
       .sort((a, b) => a.localeCompare(b))
@@ -418,7 +422,12 @@ export default function LibraryView() {
                   fontStyle: 'italic',
                 }}
               >
-                {t('library.subtitle', { count: normalSystems.length })}
+                {normalSystems.length === gridSystems.length
+                  ? t('library.subtitle', { count: normalSystems.length })
+                  : t('library.subtitleFiltered', {
+                      count: normalSystems.length,
+                      total: gridSystems.length,
+                    })}
               </p>
             </div>
 

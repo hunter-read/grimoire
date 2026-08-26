@@ -722,4 +722,57 @@ describe('LibraryView', () => {
       expect(screen.getByText('Special Collections')).toBeInTheDocument()
     })
   })
+  describe('subtitle count (filtered vs total)', () => {
+    it('shows the plain total when nothing is filtered out', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 'a', name: 'Alpha' }),
+        makeSystem({ id: 'b', name: 'Beta' }),
+      ])
+      renderView()
+      await waitFor(() =>
+        expect(screen.getByText('2 game systems in your library')).toBeInTheDocument()
+      )
+    })
+
+    it('switches to "x of y" once a filter hides something', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 'sys-fav', name: 'Favorite System' }),
+        makeSystem({ id: 'sys-other', name: 'Other System' }),
+        makeSystem({ id: 'sys-third', name: 'Third System' }),
+      ])
+      mockIsFavorite.mockImplementation((type, id) => type === 'system' && id === 'sys-fav')
+
+      renderView()
+      await waitFor(() =>
+        expect(screen.getByText('3 game systems in your library')).toBeInTheDocument()
+      )
+
+      await openFilters()
+      await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
+
+      expect(screen.getByText('Displaying 1 of 3 game systems in your library')).toBeInTheDocument()
+      expect(screen.queryByText('3 game systems in your library')).not.toBeInTheDocument()
+    })
+
+    it('counts only systems the grid could show, not hidden children', async () => {
+      // Grouped by default, so the container's child is not a grid row — the
+      // denominator must not count it, or an unfiltered view would read
+      // "2 of 3".
+      api.get.mockResolvedValue([
+        makeSystem({
+          id: 'ctr',
+          name: 'Dungeons & Dragons',
+          container_kind: 'parent',
+          book_count: 0,
+          child_count: 1,
+        }),
+        makeSystem({ id: 'kid', name: 'D&D 5e', parent_id: 'ctr' }),
+        makeSystem({ id: 'plain', name: 'Fate Core' }),
+      ])
+      renderView()
+      await waitFor(() =>
+        expect(screen.getByText('2 game systems in your library')).toBeInTheDocument()
+      )
+    })
+  })
 })

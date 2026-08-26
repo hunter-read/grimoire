@@ -222,6 +222,13 @@ export default function useMediaGallery(config) {
   // Flat sorted item list (used when folder grouping is turned off).
   const flatItems = sortItems(filtered)
 
+  // Subtitle counts. `totalCount` is every row the list endpoint returned for
+  // this user (not data.total, which is the server's pre-pagination count and
+  // can exceed what is actually on the page), so the "x of y" never advertises
+  // items the user did not receive. `filteredCount` is what the filters leave.
+  const totalCount = items.length
+  const filteredCount = filtered.length
+
   // Flat ordered list of visible ids, for shift-range selection. Matches the
   // on-screen order: grouped → by folder; flat → the single sorted list.
   const orderedIds = grouped
@@ -278,6 +285,9 @@ export default function useMediaGallery(config) {
     // grouped + flat data
     folderEntries,
     flatItems,
+    // subtitle counts
+    totalCount,
+    filteredCount,
     // collapse-all affordances
     allKeys,
     noFolders,

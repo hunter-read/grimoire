@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import useMediaGallery from '../hooks/useMediaGallery'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
 import GalleryLayout from '../components/media/GalleryLayout'
+import gallerySubtitle from '../components/media/gallerySubtitle'
 
 export default function TokensView() {
   const { t } = useTranslation()
@@ -34,7 +35,10 @@ export default function TokensView() {
         gallery={gallery}
         isPlayer={isPlayer}
         title={t('tokens.title')}
-        subtitle={t('tokens.subtitle', { count: gallery.data.total })}
+        subtitle={gallerySubtitle(t, 'tokens', {
+          count: gallery.filteredCount,
+          total: gallery.totalCount,
+        })}
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}
         onBulkEdit={() => setShowBulkEdit(true)}

@@ -335,4 +335,56 @@ describe('MapsView', () => {
     await waitFor(() => expect(screen.queryByText('dungeon.png')).not.toBeInTheDocument())
     expect(screen.getByText('dragon.png')).toBeInTheDocument()
   })
+  describe('subtitle count (filtered vs total)', () => {
+    it('shows the plain total when nothing is filtered out', async () => {
+      setupMaps([
+        makeMap({ filename: 'dungeon.png', relative_path: 'maps/dungeon.png' }),
+        makeMap({ filename: 'cave.png', relative_path: 'maps/cave.png' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('2 maps in your collection')).toBeInTheDocument())
+    })
+
+    it('switches to "x of y" once a filter hides something', async () => {
+      setupMaps([
+        makeMap({ filename: 'dungeon.png', relative_path: 'maps/dungeon.png' }),
+        makeMap({ filename: 'cave.png', relative_path: 'maps/cave.png' }),
+        makeMap({ filename: 'forest.png', relative_path: 'maps/forest.png' }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('3 maps in your collection')).toBeInTheDocument())
+
+      await userEvent.type(screen.getByPlaceholderText(/filter maps/i), 'cave')
+
+      await waitFor(() =>
+        expect(screen.getByText('Displaying 1 of 3 maps in your collection')).toBeInTheDocument()
+      )
+      expect(screen.queryByText('3 maps in your collection')).not.toBeInTheDocument()
+    })
+
+    it('counts only the rows this user received, not the server total', async () => {
+      // A server-side total that exceeds the delivered rows (pagination, or a
+      // user who may not see everything) must never become the denominator.
+      api.get.mockImplementation((url) => {
+        if (url === '/maps')
+          return Promise.resolve({
+            maps: [
+              makeMap({ filename: 'dungeon.png', relative_path: 'maps/dungeon.png' }),
+              makeMap({ filename: 'cave.png', relative_path: 'maps/cave.png' }),
+            ],
+            total: 99,
+          })
+        if (url === '/map-folders') return Promise.resolve({ folders: [] })
+        return Promise.resolve({})
+      })
+      renderView()
+      await waitFor(() => expect(screen.getByText('2 maps in your collection')).toBeInTheDocument())
+
+      await userEvent.type(screen.getByPlaceholderText(/filter maps/i), 'cave')
+
+      await waitFor(() =>
+        expect(screen.getByText('Displaying 1 of 2 maps in your collection')).toBeInTheDocument()
+      )
+    })
+  })
 })
