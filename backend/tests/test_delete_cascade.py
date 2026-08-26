@@ -24,7 +24,7 @@ from backend.models import (
     Token,
 )
 from backend.models.users import Bookmark
-from backend.services.library_fs.deletes import delete_record
+from backend.services.library_fs.deletes import delete_record, unindex_path
 from backend.services.library_fs.references import (
     item_type_for,
     purge_references,
@@ -182,6 +182,104 @@ class TestPurgeReferences:
             }
             purge_references(db, Book, book.id)  # must not raise
             db.commit()
+        finally:
+            db.close()
+
+
+class TestUnindexPath:
+    """The soft delete: rows and their references go, the file stays put."""
+
+    def test_removes_references_but_leaves_the_file(self, admin_id, monkeypatch, tmp_path):
+        """A forgotten book must not leave favorites and tags pointing at it.
+
+        Soft is about the *file*, not about the bookkeeping: a row that is gone
+        from the index has to take its references with it, exactly as a permanent
+        delete does, or the orphans outlive it and a rescan re-adds the book with
+        someone else's stale bookmarks attached.
+        """
+        library = tmp_path / "lib"
+        target = library / "books" / "System" / "keeper.pdf"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"%PDF-1.4 stub")
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        system = make_game_system()
+        book = make_book(system_id=system.id, filepath=str(target))
+        campaign = make_campaign(owner_id=admin_id)
+
+        db = SessionLocal()
+        try:
+            db.add(Bookmark(user_id=admin_id, book_id=book.id, page_number=3))
+            _attach_all(db, "book", book.id, admin_id, campaign.id)
+            db.commit()
+
+            result = unindex_path(db, "books/System/keeper.pdf")
+
+            assert result["records"] == 1
+            # The whole point: nothing was unlinked, so a rescan can restore it.
+            assert result["files"] == 0
+            assert target.exists()
+            assert db.query(Book).filter_by(id=book.id).first() is None
+            assert reference_counts(db, Book, book.id) == {
+                "favorites": 0,
+                "tags": 0,
+                "campaigns": 0,
+                "bookmarks": 0,
+            }
+        finally:
+            db.close()
+
+    def test_forgets_a_whole_folder(self, monkeypatch, tmp_path):
+        library = tmp_path / "lib"
+        folder = library / "books" / "System" / "core"
+        folder.mkdir(parents=True)
+        system = make_game_system()
+        for name in ("a.pdf", "b.pdf"):
+            path = folder / name
+            path.write_bytes(b"%PDF-1.4 stub")
+            make_book(system_id=system.id, filepath=str(path))
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        db = SessionLocal()
+        try:
+            result = unindex_path(db, "books/System/core")
+            assert result["records"] == 2
+            # Every file survives; only the index forgot the folder.
+            assert sorted(p.name for p in folder.iterdir()) == ["a.pdf", "b.pdf"]
+        finally:
+            db.close()
+
+    def test_a_path_that_no_longer_exists_is_still_forgettable(self, monkeypatch, tmp_path):
+        """The `.grimoireignore` / deleted-outside-Grimoire case.
+
+        ``delete_path`` resolves with ``must_exist`` and would 404 here, which is
+        precisely the dead end this mode exists to open: the file is already gone
+        and the stale row is the only thing left to clean up.
+        """
+        library = tmp_path / "lib"
+        (library / "books" / "System").mkdir(parents=True)
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        system = make_game_system()
+        make_book(system_id=system.id, filepath=str(library / "books/System/ghost.pdf"))
+
+        db = SessionLocal()
+        try:
+            result = unindex_path(db, "books/System/ghost.pdf")
+            assert result["records"] == 1
+        finally:
+            db.close()
+
+    def test_refuses_a_collection_root(self, monkeypatch, tmp_path):
+        library = tmp_path / "lib"
+        (library / "books").mkdir(parents=True)
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        db = SessionLocal()
+        try:
+            with pytest.raises(Exception) as exc:
+                unindex_path(db, "books")
+            assert getattr(exc.value, "code", "") == "forbidden"
         finally:
             db.close()
 

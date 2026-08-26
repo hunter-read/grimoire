@@ -657,13 +657,29 @@ of Grimoire's own concepts) built for bulk reorganization:
   extension is held aside and reattached on save - Grimoire infers a file's type
   from its suffix, so a mistyped `.pdf` would quietly drop a book out of the
   library.
-- **Delete** a file or folder. This cannot be undone: the file is removed from
-  disk, not moved to a trash folder, and its tags, favorites, bookmarks, reading
-  progress, and campaign links go with it. The confirmation matches the stakes -
-  a file, or a folder holding nothing but empty folders, deletes after a plain
-  confirm, while **a folder that still holds files makes you type its name**
-  first. The name is shown ready to copy, since the point is to make you look at
-  *which* folder you are about to lose, not to test your typing.
+- **Remove** a file or folder, in one of two ways chosen in the same dialog.
+  - **Remove from library** (the default) takes the item out of Grimoire but
+    **leaves the file on disk**. Its tags, favorites, bookmarks, reading
+    progress, and campaign links go, but a rescan puts the item back unless it is
+    gone from disk or newly excluded. That makes it the tidy-up for two everyday
+    cases: clearing something you have just excluded with a
+    [`.grimoireignore`](#ignoring-files-with-grimoireignore) rule, and dropping a
+    single stale entry whose file you deleted outside Grimoire - neither of which
+    should require a full database cleanup. It also works on a read-only library,
+    where nothing can be deleted anyway.
+  - **Also delete the files from disk** - tick the box in the dialog - makes it
+    permanent. The file is removed from disk, not moved to a trash folder, and
+    cannot be recovered. The dialog changes with the box: the wording and the
+    button switch to the permanent version, so the red **Delete permanently**
+    button always means the same thing.
+
+  The box is unticked when the dialog opens, so the destructive option is always
+  one you chose rather than one you defaulted into. When it *is* ticked the
+  confirmation matches the stakes - a file, or a folder holding nothing but empty
+  folders, deletes after a plain confirm, while **a folder that still holds files
+  makes you type its name** first. The name is shown ready to copy, since the
+  point is to make you look at *which* folder you are about to lose, not to test
+  your typing. Removing from the library needs no typed name: a rescan undoes it.
 - **Upload files and folders** by dragging them in from your desktop, or via
   right-click → **Upload files… / Upload a folder…**. A panel tracks each file's
   progress, names any that fail and why, and lets you retry them individually or

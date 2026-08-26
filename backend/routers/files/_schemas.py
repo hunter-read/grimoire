@@ -104,6 +104,11 @@ class DeleteRequest(BaseModel):
 
     path: str
     confirm_name: Optional[str] = None
+    # False (the default) is the *soft* delete: the indexed rows go, the files
+    # stay, and a rescan brings back anything still present and not excluded.
+    # The safer of the two is the default deliberately: the destructive one is
+    # opted into, never fallen into by omitting a field.
+    delete_files: bool = False
 
 
 class DeleteResponse(BaseModel):
@@ -112,6 +117,10 @@ class DeleteResponse(BaseModel):
     path: str
     records: int = 0
     files: int = 0
+    # Whether files were unlinked, so the UI can word its confirmation for what
+    # happened rather than for what was asked. A soft delete reports False and
+    # `files: 0` even though it removed rows.
+    files_deleted: bool = True
 
 
 class FolderContentsResponse(BaseModel):

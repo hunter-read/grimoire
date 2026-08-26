@@ -304,15 +304,30 @@ def delete_entry(
     _: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Delete a file or folder from the library, with its record and sidecars.
+    """Remove a file or folder from the library, from the index or from disk.
 
-    Irreversible: the file is unlinked, not moved to a trash folder, and the row
-    goes with it along with the tags, favorites, bookmarks, progress, and campaign
-    links keyed to its id. The UI is expected to confirm before calling this; the
-    typed-name guard on non-empty folders is enforced here regardless.
+    Two operations behind one route, chosen by ``delete_files``, because they are
+    the same decision made at the same moment: the user wants this gone, and the
+    only question is how far "gone" reaches.
+
+    The default, ``delete_files=False``, is a **soft** delete: the indexed rows
+    and everything keyed to them go, the files stay, and the next rescan re-adds
+    whatever is still on disk and not excluded. That makes it the right tool
+    after adding a ``.grimoireignore``, or for clearing one row whose file was
+    removed outside Grimoire, without a full cleanup pass. It also works on a
+    read-only library, where nothing can be unlinked anyway.
+
+    ``delete_files=True`` is the irreversible one: the file is unlinked, not
+    moved to a trash folder, and the row goes with the tags, favorites,
+    bookmarks, progress, and campaign links keyed to its id. The UI confirms
+    before calling this; the typed-name guard on non-empty folders is enforced
+    here regardless of what the UI did.
     """
     try:
-        return fs.delete_path(db, req.path, confirm_name=req.confirm_name)
+        if not req.delete_files:
+            return {**fs.unindex_path(db, req.path), "files_deleted": False}
+        result = fs.delete_path(db, req.path, confirm_name=req.confirm_name)
+        return {**result, "files_deleted": True}
     except fs.LibraryFSError as e:
         raise _http(e) from e
 

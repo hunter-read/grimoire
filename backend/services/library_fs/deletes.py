@@ -293,3 +293,40 @@ def delete_empty_folder(path: str) -> dict:
     except OSError as e:
         raise LibraryFSError(f"Could not delete folder: {e}", code="io_error") from e
     return {"path": to_relative(target)}
+
+
+def unindex_path(db: Session, path: str) -> dict:
+    """Forget a file or folder's indexed rows, leaving the files untouched.
+
+    The soft counterpart to :func:`delete_path`. Nothing is unlinked: only the
+    rows, and everything keyed to their ids, go. A rescan walks the same library
+    it always did, so anything still on disk and not excluded comes straight
+    back, which is exactly the point. It exists for the two cases where the file
+    is not the problem:
+
+    * A ``.grimoireignore`` was just added and the now-excluded item should stop
+      showing up without waiting for a full cleanup pass.
+    * Something was deleted from the filesystem outside Grimoire and left a row
+      pointing at nothing, and the user wants that one entry gone rather than a
+      whole-library cleanup.
+
+    Both of those happen on libraries that may be mounted read-only, and neither
+    needs the path to still exist, so this deliberately skips the writability
+    probe and the ``must_exist`` resolution that :func:`delete_path` performs.
+    The path is still confined to the library root, and the same structural
+    guards apply: the root and the collection folders are never unindexable,
+    since forgetting one would silently empty a whole collection.
+    """
+    target = safe_join(path)
+    if target == library_root():
+        raise LibraryFSError("The library root cannot be deleted", code="forbidden")
+    if collection_of(target) is None:
+        raise LibraryFSError("That path cannot be deleted", code="forbidden")
+    if target.is_dir() and to_relative(target).count("/") == 0:
+        raise LibraryFSError("Collection folders cannot be deleted", code="forbidden")
+
+    affected = _records_under(db, target)
+    records = _delete_records(db, affected)
+    db.commit()
+    logger.info("Library unindex: %s (%d record(s))", to_relative(target), records)
+    return {"path": to_relative(target), "records": records, "files": 0}

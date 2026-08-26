@@ -114,4 +114,5 @@ from .deletes import (  # noqa: F401
     delete_empty_folder,
     delete_path,
     folder_has_content,
+    unindex_path,
 )

@@ -84,10 +84,12 @@ router.add_api_route(
     "/delete",
     delete_entry,
     methods=["POST"],
-    summary="Delete a file or folder, with its record and sidecars",
+    summary="Remove a file or folder from the index, or from disk",
     description=(
-        "Irreversible. Removes the file from disk along with its indexed record "
-        "and everything keyed to it. Non-empty folders require `confirm_name`."
+        "Soft by default: removes the indexed record and everything keyed to it "
+        "while leaving the files alone, so a rescan re-adds whatever is still "
+        "present and not excluded. Set `delete_files` to also unlink the files, "
+        "which is irreversible. Non-empty folders require `confirm_name`."
     ),
     response_model=DeleteResponse,
 )

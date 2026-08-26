@@ -2141,11 +2141,12 @@ class TestDeleteEndpoint:
         resp = client.post(
             "/api/files/delete",
             headers=admin_headers,
-            json={"path": f"books/System-{library_tree}/core/spare.pdf"},
+            json={"path": f"books/System-{library_tree}/core/spare.pdf", "delete_files": True},
         )
 
         assert resp.status_code == 200
         assert resp.json()["records"] == 1
+        assert resp.json()["files_deleted"] is True
         assert not os.path.exists(src)
 
     def test_full_folder_without_a_name_is_428(self, client, admin_headers, library_tree):
@@ -2155,7 +2156,7 @@ class TestDeleteEndpoint:
         resp = client.post(
             "/api/files/delete",
             headers=admin_headers,
-            json={"path": f"books/System-{library_tree}/core"},
+            json={"path": f"books/System-{library_tree}/core", "delete_files": True},
         )
 
         assert resp.status_code == 428
@@ -2168,7 +2169,11 @@ class TestDeleteEndpoint:
         resp = client.post(
             "/api/files/delete",
             headers=admin_headers,
-            json={"path": f"books/System-{library_tree}/core", "confirm_name": "core"},
+            json={
+                "path": f"books/System-{library_tree}/core",
+                "confirm_name": "core",
+                "delete_files": True,
+            },
         )
 
         assert resp.status_code == 200
@@ -2179,15 +2184,16 @@ class TestDeleteEndpoint:
         resp = client.post(
             "/api/files/delete",
             headers=admin_headers,
-            json={"path": "books", "confirm_name": "books"},
+            json={"path": "books", "confirm_name": "books", "delete_files": True},
         )
         assert resp.status_code == 403
 
     def test_missing_path_is_404(self, client, admin_headers, library_tree):
+        """Only when files are being deleted: there is nothing there to unlink."""
         resp = client.post(
             "/api/files/delete",
             headers=admin_headers,
-            json={"path": f"books/System-{library_tree}/nope.pdf"},
+            json={"path": f"books/System-{library_tree}/nope.pdf", "delete_files": True},
         )
         assert resp.status_code == 404
 
@@ -2210,6 +2216,120 @@ class TestDeleteEndpoint:
             json={"path": f"books/System-{library_tree}/core", "confirm_name": "core"},
         )
         assert ok.status_code == 200
+
+
+class TestSoftDeleteEndpoint:
+    """`delete_files` false (the default): rows go, files stay, a rescan re-adds.
+
+    The mode exists for libraries where the file is not the problem (a
+    `.grimoireignore` was just added, or something was removed from disk outside
+    Grimoire), so its tests care most about what it *doesn't* touch.
+    """
+
+    def test_default_removes_the_record_and_keeps_the_file(
+        self, client, admin_headers, library_tree
+    ):
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/spare.pdf")
+        book = make_book(
+            system.id,
+            filename="spare.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/spare.pdf",
+        )
+
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core/spare.pdf"},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["records"] == 1
+        # Nothing was unlinked, and the response says so rather than reporting a
+        # file count of 0 that the UI would have to interpret.
+        assert body["files"] == 0
+        assert body["files_deleted"] is False
+        assert os.path.exists(src)
+
+        db = SessionLocal()
+        try:
+            assert db.get(Book, book.id) is None
+        finally:
+            db.close()
+
+    def test_forgets_a_record_whose_file_is_already_gone(
+        self, client, admin_headers, library_tree
+    ):
+        """The reason this mode skips the exists-on-disk check.
+
+        A file removed outside Grimoire leaves a row pointing at nothing. The
+        hard delete cannot clear it, since there is nothing to unlink and it
+        404s, and clearing one stale row should not require a full cleanup.
+        """
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/vanished.pdf")
+        make_book(
+            system.id,
+            filename="vanished.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/vanished.pdf",
+        )
+        os.remove(src)
+
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core/vanished.pdf"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["records"] == 1
+
+    def test_full_folder_needs_no_typed_name(self, client, admin_headers, library_tree):
+        """The typed-name guard is spent on irreversible loss only."""
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/keep.pdf")
+        make_book(
+            system.id,
+            filename="keep.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/keep.pdf",
+        )
+
+        resp = client.post(
+            "/api/files/delete",
+            headers=admin_headers,
+            json={"path": f"books/System-{library_tree}/core"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["records"] == 1
+        # The whole tree survives: only the index forgot it.
+        assert os.path.exists(src)
+
+    def test_collection_root_is_still_forbidden(self, client, admin_headers, library_tree):
+        """Being reversible does not make emptying a whole collection sane."""
+        resp = client.post(
+            "/api/files/delete", headers=admin_headers, json={"path": "books"}
+        )
+        assert resp.status_code == 403
+
+    def test_path_outside_the_library_is_refused(self, client, admin_headers, library_tree):
+        """Skipping `must_exist` must not also skip the containment check."""
+        resp = client.post(
+            "/api/files/delete", headers=admin_headers, json={"path": "../../etc/passwd"}
+        )
+        assert resp.status_code in (400, 403)
+
+    def test_requires_admin(self, client, gm_headers, library_tree):
+        resp = client.post(
+            "/api/files/delete",
+            headers=gm_headers,
+            json={"path": f"books/System-{library_tree}/core"},
+        )
+        assert resp.status_code == 403
 
 
 class TestFolderContentsEndpoint:

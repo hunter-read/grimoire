@@ -68,7 +68,11 @@ export default function ReaderMoreMenu({
   const [coords, setCoords] = useState({ top: 0, left: 0 })
   const [addToCampaign, setAddToCampaign] = useState(false)
   const fileActions = useFileActions({ onChanged: onFileChanged })
-  const showFileActions = fileActions.available && Boolean(book?.relative_path)
+  const knowsFile = Boolean(book?.relative_path)
+  const showFileActions = fileActions.available && knowsFile
+  // Offered on a read-only library too: the default remove drops only the
+  // record, which is the one form of cleanup a read-only mount still allows.
+  const showRemove = fileActions.canRemove && knowsFile
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
 
@@ -272,9 +276,9 @@ export default function ReaderMoreMenu({
               {t('reader.keyboardShortcuts')}
             </button>
 
+            {(showFileActions || showRemove) && <div style={dividerStyle} role="separator" />}
             {showFileActions && (
               <>
-                <div style={dividerStyle} role="separator" />
                 <button
                   role="menuitem"
                   data-testid="reader-move-file"
@@ -293,16 +297,18 @@ export default function ReaderMoreMenu({
                   <LuFilePen size={15} aria-hidden="true" />
                   {fileActions.labels.rename}
                 </button>
-                <button
-                  role="menuitem"
-                  data-testid="reader-delete-file"
-                  onClick={run(() => fileActions.remove(book))}
-                  style={{ ...itemStyle, color: 'var(--danger)' }}
-                >
-                  <LuTrash2 size={15} aria-hidden="true" />
-                  {fileActions.labels.remove}
-                </button>
               </>
+            )}
+            {showRemove && (
+              <button
+                role="menuitem"
+                data-testid="reader-delete-file"
+                onClick={run(() => fileActions.remove(book))}
+                style={{ ...itemStyle, color: 'var(--danger)' }}
+              >
+                <LuTrash2 size={15} aria-hidden="true" />
+                {fileActions.labels.remove}
+              </button>
             )}
           </div>,
           document.body

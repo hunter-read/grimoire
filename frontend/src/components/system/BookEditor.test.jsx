@@ -22,6 +22,13 @@ vi.mock('../../api', () => ({
   tags: { list: () => Promise.resolve({ tags: [] }) },
 }))
 
+// AccessLevelPicker renders only for an admin; most cases here leave this as a
+// non-admin, matching the previous no-provider behaviour.
+let mockRole = 'gm'
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ user: { role: mockRole } }),
+}))
+
 const mockGetBookPrefs = vi.fn(() => ({}))
 const mockSaveBookPrefs = vi.fn()
 vi.mock('../../hooks/useBookPrefs', () => ({
@@ -71,6 +78,7 @@ describe('BookEditor category combobox', () => {
     )
     mockGetBookPrefs.mockReturnValue({})
     mockSaveBookPrefs.mockClear()
+    mockRole = 'gm'
   })
 
   const categoryInput = () => screen.getByRole('combobox', { name: 'bookEditor.categoryLabel' })
@@ -199,12 +207,12 @@ describe('BookEditor category combobox', () => {
     expect(mockPatch.mock.calls[0][1].tags).toEqual([])
   })
 
-  it('resets reading progress when the book has progress', () => {
+  it('no longer offers a reset-progress control; it lives in the actions menu', () => {
+    // Progress is per-user browser state, so it moved to BookActionsMenu where
+    // every role can reach it — this editor is gm/admin only.
     mockGetBookPrefs.mockReturnValue({ page: 12 })
     renderEditor({ book: { id: 'book-9' } })
-    fireEvent.click(screen.getByText('bookEditor.resetProgress'))
-    expect(mockSaveBookPrefs).toHaveBeenCalledWith('book-9', { page: null })
-    expect(screen.getByText(/bookEditor.progressReset/)).toBeInTheDocument()
+    expect(screen.queryByText('bookEditor.resetProgress')).not.toBeInTheDocument()
   })
 
   describe('fetch metadata trigger', () => {
@@ -244,5 +252,37 @@ describe('BookEditor category combobox', () => {
       fireEvent.click(await screen.findByText('bookEditor.fetchMetadata'))
       expect(await screen.findByRole('dialog')).toBeInTheDocument()
     })
+  })
+})
+
+describe('BookEditor access picker placement', () => {
+  beforeEach(() => {
+    clearMetadataSourcesCache()
+    mockRole = 'admin'
+  })
+
+  it('sits above the button row, not inside it', () => {
+    // Regression: the picker was briefly a flex sibling of the buttons, which
+    // let its two-line height shift save/cancel off the bottom-left corner.
+    renderEditor()
+    const picker = screen.getByLabelText('access.pickerLabel')
+    const save = screen.getByText('bookEditor.save')
+    // DOCUMENT_POSITION_FOLLOWING — the picker comes first in DOM order.
+    expect(picker.compareDocumentPosition(save) & 4).toBeTruthy()
+    expect(save.parentElement.contains(picker)).toBe(false)
+  })
+
+  it('follows the explicit checkbox in its own column', () => {
+    renderEditor()
+    const explicit = screen.getByLabelText(/bookEditor.markExplicit/)
+    const picker = screen.getByLabelText('access.pickerLabel')
+    expect(explicit.compareDocumentPosition(picker) & 4).toBeTruthy()
+  })
+
+  it('is withheld from a non-admin, leaving the buttons alone', () => {
+    mockRole = 'gm'
+    renderEditor()
+    expect(screen.queryByLabelText('access.pickerLabel')).not.toBeInTheDocument()
+    expect(screen.getByText('bookEditor.save')).toBeInTheDocument()
   })
 })

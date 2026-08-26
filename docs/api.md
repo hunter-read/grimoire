@@ -1357,7 +1357,7 @@ rows) are re-homed or invalidated so no item silently loses its cover.
 | `/api/files/folder/markers` | PUT | Set or clear a folder's container-kind and NSFW markers |
 | `/api/files/folder` | DELETE | Delete a folder, recursively when confirmed by name |
 | `/api/files/folder/contents` | GET | Report whether a folder holds content |
-| `/api/files/delete` | POST | Delete a file or folder, with its record and sidecars |
+| `/api/files/delete` | POST | Remove a file or folder from the index, or also from disk |
 | `/api/files/folder/scaffold` | POST | Create the standard category folders in a system folder |
 | `/api/files/upload` | POST | Upload a single file into a library folder |
 
@@ -1413,18 +1413,36 @@ available. A folder merely *named* by the reserved convention (`one-page-rpgs`,
 fields are left untouched. Container kinds are mutually exclusive: setting one
 clears the others.
 
-**`DELETE /api/files/folder`** - `{path, confirm_name?}`. Same handler as
-`POST /api/files/delete`; both are described below.
+**`DELETE /api/files/folder`** - `{path, confirm_name?}`. Always deletes from
+disk, with the same guards as the permanent mode of `POST /api/files/delete`
+described below.
 
-**`POST /api/files/delete`** - `{path, confirm_name?}`. Deletes a file or a
-folder. Returns `{path, records, files}`: how many indexed rows were removed and
-how many files went with them.
+**`POST /api/files/delete`** - `{path, confirm_name?, delete_files?}`. Two
+operations behind one route, chosen by `delete_files` (default `false`). Returns
+`{path, records, files, files_deleted}`: how many indexed rows were removed, how
+many files went with them, and whether anything was unlinked at all.
 
-**Irreversible, and guarded in proportion to the blast radius.** The file is
-unlinked rather than moved to a trash folder, and its record is deleted with it,
-taking every tag, favorite, bookmark, reading-progress entry, and campaign link
-keyed to that id. A file's sidecars (`.opf`, `.nfo`, `.grimoire.yaml`, exported
-cover) go too, since they describe a file that no longer exists.
+**Soft (`delete_files: false`, the default) - reversible.** The indexed record is
+removed, along with every tag, favorite, bookmark, reading-progress entry, and
+campaign link keyed to its id, but **nothing on disk is touched**. A rescan
+re-adds whatever is still present and not excluded, which is the point: it is the
+tool for clearing an entry after adding a `.grimoireignore`, or for dropping one
+stale row whose file was deleted outside Grimoire, without a full DB cleanup.
+
+Because no file is written, this mode deliberately relaxes two constraints the
+permanent mode enforces. The path **need not still exist** - a row pointing at a
+missing file is exactly what it is often used to clear - and the library **need
+not be writable**, so it works on a read-only mount. `files` is `0` and
+`files_deleted` is `false`; the record count is in `records`. The typed-name
+guard does not apply: a rescan undoes this, so spending the guard here would
+cheapen it where it matters.
+
+**Permanent (`delete_files: true`) - irreversible, and guarded in proportion to
+the blast radius.** The file is unlinked rather than moved to a trash folder, and
+its record is deleted with it, taking every reference above. A file's sidecars
+(`.opf`, `.nfo`, `.grimoire.yaml`, exported cover) go too, since they describe a
+file that no longer exists. The path must exist (`404` otherwise) and the library
+must be writable (`read_only` otherwise).
 
 The guard scales rather than being uniform, because a uniform guard trains people
 to click through it:
@@ -1439,7 +1457,8 @@ to click through it:
   `confirm_required` until `confirm_name` matches the folder's own name exactly.
 
 Collection roots (`books/`, `maps/`, …) and the library root are always refused
-with `403`.
+with `403`, in **both** modes: forgetting a whole collection is not made
+reasonable by being reversible.
 
 **`GET /api/files/folder/contents`** - `?path=`. Returns
 `{path, name, has_content}`. Asked before opening a delete dialog so the UI knows

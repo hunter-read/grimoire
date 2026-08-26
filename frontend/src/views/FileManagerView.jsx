@@ -190,15 +190,26 @@ export default function FileManagerView() {
   // itself all live in DeleteModal; this only reports what came back. Counts are
   // worth surfacing because a folder delete can take far more with it than the
   // one row that was clicked.
+  //
+  // Which of the two deletes ran is read from the response rather than from what
+  // the dialog was asked to do, so the message describes what actually happened.
+  // A soft remove counts records, not files: no file was touched, and reporting
+  // "and 0 file(s)" would read as a failure.
   const handleDeleted = useCallback(
     (res, entry) => {
       refreshAll()
-      setFlash({
-        tone: 'ok',
-        text: entry.is_dir
-          ? t('files.folderDeletedCount', { name: entry.name, count: res.files || 0 })
-          : t('files.fileDeleted', { name: entry.name }),
-      })
+      const removedFiles = res.files_deleted !== false
+      let text
+      if (!entry.is_dir) {
+        text = removedFiles
+          ? t('files.fileDeleted', { name: entry.name })
+          : t('files.fileRemoved', { name: entry.name })
+      } else if (removedFiles) {
+        text = t('files.folderDeletedCount', { name: entry.name, count: res.files || 0 })
+      } else {
+        text = t('files.folderRemovedCount', { name: entry.name, count: res.records || 0 })
+      }
+      setFlash({ tone: 'ok', text })
     },
     [refreshAll, t]
   )

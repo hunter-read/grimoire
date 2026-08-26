@@ -27,6 +27,14 @@ export const LIBRARY_CHANGED = 'grimoire:library-changed'
  * read-only mount is a deployment choice rather than a temporary state, and a
  * permanently greyed-out row is just clutter.
  *
+ * `canRemove` is the exception, and needs only the admin half. Removing an item
+ * from the library is offered in two flavours, and the soft one writes nothing
+ * to disk: it drops the record and lets a rescan decide. That is *most* useful
+ * on a read-only mount, where the file cannot be deleted and tidying the index
+ * is the only recourse available; hiding it there would withhold the one action
+ * that still works. The permanent flavour is guarded inside the dialog, and the
+ * API refuses it on a read-only library regardless of what the UI offered.
+ *
  * Every completed action also broadcasts `grimoire:library-changed` on window,
  * carrying the same detail as `onChanged`. A book row sits four components below
  * the view that owns its data, and threading a refresh callback down that chain
@@ -49,7 +57,10 @@ export default function useFileActions({ onChanged } = {}) {
   const [renaming, setRenaming] = useState(null)
   const [deleting, setDeleting] = useState(null)
 
-  const available = user?.role === 'admin' && libraryWritable !== false
+  const isAdmin = user?.role === 'admin'
+  const available = isAdmin && libraryWritable !== false
+  // Move and rename must write; removing from the library need not.
+  const canRemove = isAdmin
 
   // Normalises the several shapes a caller can hold — a browse row, a book
   // record, a map/token/audio row — onto the { path, name, is_dir } the modals
@@ -119,6 +130,7 @@ export default function useFileActions({ onChanged } = {}) {
 
   return {
     available,
+    canRemove,
     entryFor,
     labels: {
       move: t('files.moveTo'),

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload, LuX } from 'react-icons/lu'
 import api from '../../api'
-import { saveBookPrefs, getBookPrefs } from '../../hooks/useBookPrefs'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
 import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import GenrePicker from '../metadata/GenrePicker'
@@ -68,8 +67,6 @@ export default function BookEditor({
     if (fetchedTags) setTags(fetchedTags)
   }
   const [saving, setSaving] = useState(false)
-  const [progressReset, setProgressReset] = useState(false)
-  const hasProgress = !!getBookPrefs(book.id).page
 
   // Category combobox options: built-in categories (with friendly labels)
   // followed by any custom category slugs already used in the library, deduped
@@ -280,18 +277,30 @@ export default function BookEditor({
               {t('bookEditor.markExplicit')}
             </span>
           </label>
-          <AccessLevelPicker
-            id="book-access-level"
-            value={form.access_level}
-            effectiveLevel={book.effective_access_level}
-            onChange={(v) =>
-              setForm((f) => ({ ...f, access_level: v === ACCESS_INHERIT ? null : v }))
-            }
-          />
+          {/* Renders nothing for non-admins. The explicit checkbox above is a
+              bare label with no bottom margin, so the gap between the two is
+              set here rather than left to the picker's own label spacing —
+              which is what made it read as a stray gap before. */}
+          {isAdmin && (
+            <div style={{ marginTop: 14 }}>
+              <AccessLevelPicker
+                id="book-access-level"
+                value={form.access_level}
+                effectiveLevel={book.effective_access_level}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, access_level: v === ACCESS_INHERIT ? null : v }))
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Buttons stay a plain row anchored bottom-left; nothing else shares it,
+          so the pair never shifts as fields above them change height. */}
+      <div
+        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}
+      >
         <button
           onClick={onClose}
           style={{
@@ -340,27 +349,6 @@ export default function BookEditor({
           >
             <LuDownload size={13} />
             {t('bookEditor.fetchMetadata')}
-          </button>
-        )}
-        {(hasProgress || progressReset) && (
-          <button
-            onClick={() => {
-              saveBookPrefs(book.id, { page: null })
-              setProgressReset(true)
-            }}
-            disabled={progressReset}
-            style={{
-              marginLeft: 'auto',
-              padding: '6px 14px',
-              borderRadius: 5,
-              background: 'none',
-              border: '1px solid var(--border)',
-              color: progressReset ? 'var(--green)' : 'var(--text-muted)',
-              fontSize: 12,
-              cursor: progressReset ? 'default' : 'pointer',
-            }}
-          >
-            {progressReset ? `✓ ${t('bookEditor.progressReset')}` : t('bookEditor.resetProgress')}
           </button>
         )}
       </div>

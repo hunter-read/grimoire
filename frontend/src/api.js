@@ -419,10 +419,17 @@ export const files = {
   // name, or the API answers 428.
   deleteFolder: (path, confirmName) =>
     api.delete('/files/folder', { path, confirm_name: confirmName ?? null }),
-  // Irreversible: removes the file and the record keyed to it, with every tag,
-  // favorite, bookmark, and campaign link that record carried.
-  deleteEntry: (path, confirmName) =>
-    api.post('/files/delete', { path, confirm_name: confirmName ?? null }),
+  // Two deletes behind one call. Soft by default (`deleteFiles` false): the
+  // record goes, the file stays, and a rescan re-adds it. For clearing an entry
+  // after a .grimoireignore, or one whose file vanished outside Grimoire.
+  // `deleteFiles` true is irreversible: the file goes too, with every tag,
+  // favorite, bookmark, and campaign link the record carried.
+  deleteEntry: (path, confirmName, deleteFiles = false) =>
+    api.post('/files/delete', {
+      path,
+      confirm_name: confirmName ?? null,
+      delete_files: deleteFiles,
+    }),
   // Whether a folder holds content, so the UI knows to demand the typed name.
   // Asked of the server rather than counted from a listing: the listing hides
   // sidecars and markers, so the two definitions of "empty" would disagree.

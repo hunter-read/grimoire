@@ -33,6 +33,15 @@ vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: mockRole } }),
 }))
 
+// Reading progress is per-user browser state; mocked so the reset item's
+// visibility is driven by the test rather than by leftover localStorage.
+const mockGetBookPrefs = vi.fn(() => ({}))
+const mockSaveBookPrefs = vi.fn()
+vi.mock('../../hooks/useBookPrefs', () => ({
+  getBookPrefs: (...args) => mockGetBookPrefs(...args),
+  saveBookPrefs: (...args) => mockSaveBookPrefs(...args),
+}))
+
 function makeBook(overrides = {}) {
   return {
     id: 'b1',
@@ -57,6 +66,8 @@ describe('BookActionsMenu', () => {
     mockHideCampaigns = false
     mockLibraryWritable = false
     mockRole = 'gm'
+    mockGetBookPrefs.mockReturnValue({})
+    mockSaveBookPrefs.mockClear()
   })
 
   it('is collapsed until the trigger is clicked', () => {
@@ -64,6 +75,34 @@ describe('BookActionsMenu', () => {
     expect(screen.queryByRole('menuitem', { name: 'bookActions.edit' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     expect(screen.getByRole('menuitem', { name: 'bookActions.edit' })).toBeInTheDocument()
+  })
+
+  describe('reset reading progress', () => {
+    it('is hidden when the book has no saved page', () => {
+      renderMenu()
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      expect(screen.queryByTestId('book-reset-progress')).not.toBeInTheDocument()
+    })
+
+    it('clears the saved page and confirms in place', () => {
+      mockGetBookPrefs.mockReturnValue({ page: 12 })
+      renderMenu({ id: 'book-9' })
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByTestId('book-reset-progress'))
+      expect(mockSaveBookPrefs).toHaveBeenCalledWith('book-9', { page: null })
+      expect(screen.getByTestId('book-reset-progress')).toHaveTextContent(
+        'bookActions.progressReset'
+      )
+    })
+
+    it('is offered to a player, who has no edit rights but owns their progress', () => {
+      mockGetBookPrefs.mockReturnValue({ page: 3 })
+      mockRole = 'player'
+      renderMenu({}, { onEdit: undefined })
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      expect(screen.queryByRole('menuitem', { name: 'bookActions.edit' })).not.toBeInTheDocument()
+      expect(screen.getByTestId('book-reset-progress')).toBeInTheDocument()
+    })
   })
 
   it('portals the menu to document.body so it escapes the row clip', () => {
@@ -277,14 +316,18 @@ describe('BookActionsMenu', () => {
       ])
     })
 
-    it('hides them on a read-only library', () => {
+    it('hides move and rename on a read-only library, but keeps remove', () => {
+      // Remove survives because its default writes nothing to disk: it drops the
+      // record and leaves the file. On a read-only mount that is the only
+      // cleanup still possible, so hiding it would remove the one usable action.
       mockRole = 'admin'
       mockLibraryWritable = false
       renderMenu(withFile)
       fireEvent.click(screen.getByLabelText('bookActions.menu'))
 
       expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
-      expect(screen.queryByTestId('book-delete-file')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('book-rename-file')).not.toBeInTheDocument()
+      expect(screen.getByTestId('book-delete-file')).toBeInTheDocument()
     })
 
     it('hides them from a gm', () => {

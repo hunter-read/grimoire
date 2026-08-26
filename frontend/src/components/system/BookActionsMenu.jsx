@@ -12,9 +12,11 @@ import {
   LuFolderInput,
   LuFilePen,
   LuTrash2,
+  LuBookmarkX,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
+import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
 import AddToCampaignModal from '../AddToCampaignModal'
 import VariantMenuItems from './VariantMenuItems'
@@ -27,6 +29,11 @@ const MENU_WIDTH = 220
  * campaign, and Download are available to every user; Edit and re-index are
  * gm/admin only. Favorite is deliberately left out — it stays a standalone
  * always-visible control on the row.
+ *
+ * "Reset reading progress" clears this book's saved page. Reading progress is
+ * per-user browser state, so — unlike the metadata editor it used to live in —
+ * the item is offered to every role, not just gm/admin. It appears only when
+ * there is progress to clear.
  *
  * "Add to campaign" opens the shared AddToCampaignModal with this one book,
  * mirroring the bulk-select action so a single book doesn't need multi-select.
@@ -59,12 +66,20 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
   const [showDpi, setShowDpi] = useState(false)
   const [dpi, setDpi] = useState(book.ocr_dpi ? String(book.ocr_dpi) : '')
   const [state, setState] = useState('idle') // idle | working | done | error
+  // Read once per open so the item doesn't vanish mid-interaction; `reset`
+  // keeps it visible (as a confirmation) after the page is cleared.
+  const [progressReset, setProgressReset] = useState(false)
+  const hasProgress = open && (!!getBookPrefs(book.id).page || progressReset)
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
   const fileActions = useFileActions({ onChanged: onFileChanged })
   // A book only has file actions once we know where its file lives; rows served
   // by an older payload without `relative_path` simply do not offer them.
-  const showFileActions = fileActions.available && Boolean(book.relative_path)
+  const knowsFile = Boolean(book.relative_path)
+  const showFileActions = fileActions.available && knowsFile
+  // Removing is offered on a read-only library too: its default is the soft
+  // remove, which drops the record and never touches the file.
+  const showRemove = fileActions.canRemove && knowsFile
 
   const isPdf = book.mime_type === 'application/pdf'
   // A book that finished indexing via OCR / as image-only. A hard index failure
@@ -160,6 +175,7 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
           setOpen((o) => !o)
           setShowDpi(false)
           setState('idle')
+          setProgressReset(false)
         }}
         aria-label={t('bookActions.menu')}
         aria-haspopup="menu"
@@ -258,6 +274,29 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
               {t('bookActions.download')}
             </a>
 
+            {hasProgress && (
+              <button
+                role="menuitem"
+                data-testid="book-reset-progress"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  saveBookPrefs(book.id, { page: null })
+                  setProgressReset(true)
+                }}
+                disabled={progressReset}
+                style={{
+                  ...itemStyle,
+                  color: progressReset ? 'var(--green)' : 'var(--text)',
+                  cursor: progressReset ? 'default' : 'pointer',
+                }}
+              >
+                <LuBookmarkX size={15} aria-hidden="true" />
+                {progressReset
+                  ? `✓ ${t('bookActions.progressReset')}`
+                  : t('bookActions.resetProgress')}
+              </button>
+            )}
+
             {canReindex && isOcrBook && (
               <button
                 role="menuitem"
@@ -337,12 +376,14 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
               </div>
             )}
 
+            {(showFileActions || showRemove) && (
+              <div
+                role="separator"
+                style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }}
+              />
+            )}
             {showFileActions && (
               <>
-                <div
-                  role="separator"
-                  style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }}
-                />
                 <button
                   role="menuitem"
                   data-testid="book-move-file"
@@ -369,20 +410,22 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
                   <LuFilePen size={15} aria-hidden="true" />
                   {fileActions.labels.rename}
                 </button>
-                <button
-                  role="menuitem"
-                  data-testid="book-delete-file"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    close()
-                    fileActions.remove(book)
-                  }}
-                  style={{ ...itemStyle, color: 'var(--danger)' }}
-                >
-                  <LuTrash2 size={15} aria-hidden="true" />
-                  {fileActions.labels.remove}
-                </button>
               </>
+            )}
+            {showRemove && (
+              <button
+                role="menuitem"
+                data-testid="book-delete-file"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                  fileActions.remove(book)
+                }}
+                style={{ ...itemStyle, color: 'var(--danger)' }}
+              >
+                <LuTrash2 size={15} aria-hidden="true" />
+                {fileActions.labels.remove}
+              </button>
             )}
           </div>,
           document.body

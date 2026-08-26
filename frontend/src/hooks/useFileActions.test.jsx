@@ -20,6 +20,7 @@ function Host({ item, onChanged }) {
   return (
     <div>
       <span data-testid="available">{String(actions.available)}</span>
+      <span data-testid="can-remove">{String(actions.canRemove)}</span>
       {actions.available && (
         <>
           <button onClick={() => actions.move(item)}>move</button>
@@ -63,6 +64,23 @@ describe('useFileActions', () => {
     expect(screen.getByTestId('available')).toHaveTextContent('false')
   })
 
+  it('still allows removing on a read-only library', () => {
+    // The soft remove writes nothing to disk, so a read-only mount is no reason
+    // to withhold it: it is the only cleanup such a library can perform. Move
+    // and rename stay hidden, and the permanent mode is refused by the API.
+    useUISettings.mockReturnValue({ library_writable: false })
+    render(<Host item={book} />)
+
+    expect(screen.getByTestId('available')).toHaveTextContent('false')
+    expect(screen.getByTestId('can-remove')).toHaveTextContent('true')
+  })
+
+  it('withholds removing from a non-admin regardless of writability', () => {
+    useAuth.mockReturnValue({ user: { role: 'gm' } })
+    render(<Host item={book} />)
+    expect(screen.getByTestId('can-remove')).toHaveTextContent('false')
+  })
+
   it('survives a missing auth or settings provider', () => {
     useAuth.mockReturnValue(null)
     useUISettings.mockReturnValue(null)
@@ -97,7 +115,7 @@ describe('useFileActions', () => {
     render(<Host item={book} />)
 
     await userEvent.click(screen.getByText('remove'))
-    await userEvent.click(await screen.findByText('files.deletePermanently'))
+    await userEvent.click(await screen.findByTestId('delete-submit'))
 
     await waitFor(() => expect(listener).toHaveBeenCalled())
     expect(listener.mock.calls[0][0].detail).toMatchObject({
@@ -113,9 +131,9 @@ describe('useFileActions', () => {
     await userEvent.click(screen.getByText('remove'))
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    await userEvent.click(screen.getByText('files.deletePermanently'))
+    await userEvent.click(screen.getByTestId('delete-submit'))
     await waitFor(() =>
-      expect(filesApi.deleteEntry).toHaveBeenCalledWith('maps/City/keep.png', null)
+      expect(filesApi.deleteEntry).toHaveBeenCalledWith('maps/City/keep.png', null, false)
     )
   })
 

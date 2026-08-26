@@ -424,9 +424,14 @@ describe('FileManagerView', () => {
     )
   })
 
-  it('deletes an empty folder after a plain confirmation', async () => {
+  it('deletes an empty folder from disk after a plain confirmation', async () => {
     filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
-    filesApi.deleteEntry.mockResolvedValue({ path: 'books/core', files: 0, records: 0 })
+    filesApi.deleteEntry.mockResolvedValue({
+      path: 'books/core',
+      files: 0,
+      records: 0,
+      files_deleted: true,
+    })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -434,10 +439,33 @@ describe('FileManagerView', () => {
     // Nothing to lose, so no typed-name guard stands between here and the delete.
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.queryByTestId('delete-confirm-target')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('delete-files-toggle'))
     await userEvent.click(screen.getByText('files.deletePermanently'))
 
-    await waitFor(() => expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', null))
+    await waitFor(() => expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', null, true))
     expect(await screen.findByRole('status')).toHaveTextContent('files.folderDeletedCount')
+  })
+
+  it('soft-removes a folder and says so, counting records rather than files', async () => {
+    // The default path. The flash has to describe what happened, not what was
+    // asked for: no file was touched, so "and 0 file(s)" would read as a failure.
+    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    filesApi.deleteEntry.mockResolvedValue({
+      path: 'books/core',
+      files: 0,
+      records: 3,
+      files_deleted: false,
+    })
+    render(<FileManagerView />)
+    await openMenuOn('core')
+
+    await userEvent.click(screen.getByTestId('delete-entry'))
+    await userEvent.click(await screen.findByText('files.removeFromLibrary'))
+
+    await waitFor(() =>
+      expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', null, false)
+    )
+    expect(await screen.findByRole('status')).toHaveTextContent('files.folderRemovedCount')
   })
 
   it('makes a folder with content be confirmed by name before deleting', async () => {
@@ -447,6 +475,7 @@ describe('FileManagerView', () => {
     await openMenuOn('core')
 
     await userEvent.click(screen.getByTestId('delete-entry'))
+    await userEvent.click(await screen.findByTestId('delete-files-toggle'))
     const confirm = await screen.findByText('files.deletePermanently')
     // Locked until the name matches — this is the whole guard.
     await waitFor(() => expect(confirm).toBeDisabled())
@@ -455,7 +484,9 @@ describe('FileManagerView', () => {
     await waitFor(() => expect(confirm).toBeEnabled())
     await userEvent.click(confirm)
 
-    await waitFor(() => expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', 'core'))
+    await waitFor(() =>
+      expect(filesApi.deleteEntry).toHaveBeenCalledWith('books/core', 'core', true)
+    )
   })
 
   it('reports why a delete failed', async () => {
@@ -465,7 +496,7 @@ describe('FileManagerView', () => {
     await openMenuOn('core')
 
     await userEvent.click(screen.getByTestId('delete-entry'))
-    await userEvent.click(await screen.findByText('files.deletePermanently'))
+    await userEvent.click(await screen.findByTestId('delete-submit'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Folder is not empty')
   })
