@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { MEDIA_CONFIGS, getFolderPath, getTopFolder, getSubPath } from './mediaConfig'
+import {
+  MEDIA_CONFIGS,
+  getFolderPath,
+  getTopFolder,
+  getSubPath,
+  getFolderAncestors,
+  getEffectiveTags,
+} from './mediaConfig'
 
 describe('MEDIA_CONFIGS', () => {
   it('defines map, token, and audio configs', () => {
@@ -54,5 +61,64 @@ describe('folder path helpers', () => {
 
   it('handles backslash separators', () => {
     expect(getTopFolder(item('audio\\Ambient\\track.mp3'))).toBe('Ambient')
+  })
+})
+
+describe('getFolderAncestors', () => {
+  const item = (rp) => ({ relative_path: rp })
+
+  it('lists every folder from the item up to the top level', () => {
+    expect(getFolderAncestors(item('maps/Fall Of Blackbottom/Alleyways/Map1.png'))).toEqual([
+      'Fall Of Blackbottom/Alleyways',
+      'Fall Of Blackbottom',
+    ])
+  })
+
+  it('returns the single folder for a shallow item', () => {
+    expect(getFolderAncestors(item('maps/Fall Of Blackbottom/Map1.png'))).toEqual([
+      'Fall Of Blackbottom',
+    ])
+  })
+
+  it('returns nothing for an item at the collection root', () => {
+    expect(getFolderAncestors(item('maps/Map1.png'))).toEqual([])
+  })
+
+  it('handles backslash separators', () => {
+    expect(getFolderAncestors(item('maps\\Town\\Inn\\Map1.png'))).toEqual(['Town/Inn', 'Town'])
+  })
+})
+
+describe('getEffectiveTags', () => {
+  const nested = { relative_path: 'maps/Fall Of Blackbottom/Alleyways/Map1.png', tags: ['night'] }
+
+  it('inherits a tag set on an ancestor folder', () => {
+    expect(getEffectiveTags(nested, { 'Fall Of Blackbottom': ['urban'] })).toEqual([
+      'night',
+      'urban',
+    ])
+  })
+
+  it('combines the item, its own folder, and every folder above it', () => {
+    const tags = getEffectiveTags(nested, {
+      'Fall Of Blackbottom': ['urban'],
+      'Fall Of Blackbottom/Alleyways': ['cramped'],
+    })
+    expect(tags).toEqual(['night', 'cramped', 'urban'])
+  })
+
+  it('de-duplicates case-insensitively, keeping the first casing seen', () => {
+    expect(getEffectiveTags(nested, { 'Fall Of Blackbottom': ['Night', 'urban'] })).toEqual([
+      'night',
+      'urban',
+    ])
+  })
+
+  it('ignores folder tags that belong to an unrelated folder', () => {
+    expect(getEffectiveTags(nested, { Elsewhere: ['desert'] })).toEqual(['night'])
+  })
+
+  it('returns just the item tags when no folder tags are given', () => {
+    expect(getEffectiveTags(nested)).toEqual(['night'])
   })
 })

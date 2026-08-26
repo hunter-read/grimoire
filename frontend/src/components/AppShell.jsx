@@ -66,8 +66,12 @@ export default function AppShell() {
     location.pathname.startsWith('/maps/') ||
     location.pathname.startsWith('/tokens/')
   // The file manager sizes itself to the viewport and gives each tree its own
-  // scrollbar, so the page must not scroll underneath them (issue #302).
-  const isFullHeight = isReader || location.pathname === '/settings/files'
+  // scrollbar, so the page must not scroll underneath them (issue #302). The
+  // tags page does the same with its list/detail columns — without this the
+  // panels have no bounded height and grow together on one page scrollbar
+  // instead of scrolling independently.
+  const isFullHeight =
+    isReader || location.pathname === '/settings/files' || location.pathname === '/tags'
   const mainRef = useScrollRestoration()
   const { queue } = useAudioPlayer()
   const playerActive = queue.length > 0

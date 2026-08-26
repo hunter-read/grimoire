@@ -203,3 +203,38 @@ export const getSubPath = (item) => {
   const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.slice(2, -1).join('/')
 }
+
+/**
+ * Every folder path that owns an item, from its own folder up to the top-level
+ * one. `Fall Of Blackbottom/Alleyways` yields ['Fall Of Blackbottom/Alleyways',
+ * 'Fall Of Blackbottom'], so a tag set on an ancestor folder reaches the items
+ * nested below it.
+ */
+export const getFolderAncestors = (item) => {
+  const parts = (item.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1)
+  const out = []
+  for (let i = parts.length; i > 0; i--) out.push(parts.slice(0, i).join('/'))
+  return out
+}
+
+/**
+ * An item's effective tags: its own plus the tags of every folder above it.
+ * Folder tags are inherited down the tree (issue: a tag on a parent folder must
+ * apply to maps in its subfolders), and the backend's tag counting already
+ * resolves folder tags through ancestor paths — this matches that behaviour in
+ * the gallery. Returned de-duplicated case-insensitively, own tags first.
+ */
+export const getEffectiveTags = (item, folderTags = {}) => {
+  const out = []
+  const seen = new Set()
+  const push = (tag) => {
+    const lower = String(tag).toLowerCase()
+    if (!seen.has(lower)) {
+      seen.add(lower)
+      out.push(tag)
+    }
+  }
+  ;(item.tags || []).forEach(push)
+  for (const path of getFolderAncestors(item)) (folderTags[path] || []).forEach(push)
+  return out
+}

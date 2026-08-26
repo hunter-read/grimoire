@@ -41,6 +41,7 @@ vi.mock('../views/FavoritesView', () => ({ default: () => <div>favorites</div> }
 vi.mock('../views/CampaignsView', () => ({ default: () => <div>campaigns</div> }))
 vi.mock('../views/CampaignDetailView', () => ({ default: () => <div>campaign-detail</div> }))
 vi.mock('../views/CampaignNotesView', () => ({ default: () => <div>campaign-notes</div> }))
+vi.mock('../views/TagsView', () => ({ default: () => <div>tags</div> }))
 vi.mock('./campaigns/PendingInvitesBanner', () => ({ default: () => null }))
 
 const renderAt = (path) =>
@@ -111,6 +112,26 @@ describe('AppShell', () => {
     it('still renders the guest campaign detail view', async () => {
       renderAt('/campaigns/c1/overview')
       await waitFor(() => expect(screen.getByText('campaign-detail')).toBeInTheDocument())
+    })
+  })
+
+  // Full-height routes give `main` a fixed height and hand their own children
+  // the scrollbars. The tags page needs it so its list and detail columns can
+  // scroll independently instead of growing one shared page scrollbar.
+  describe('full-height routes', () => {
+    const main = () => document.querySelector('main')
+
+    it('makes the tags page full-height', async () => {
+      renderAt('/tags')
+      await waitFor(() => expect(screen.getByText('tags')).toBeInTheDocument())
+      expect(main()).toHaveStyle({ overflow: 'hidden' })
+      expect(main()).toHaveStyle({ display: 'flex' })
+    })
+
+    it('leaves an ordinary page scrolling normally', async () => {
+      renderAt('/maps')
+      await waitFor(() => expect(screen.getByText('maps')).toBeInTheDocument())
+      expect(main()).toHaveStyle({ overflow: 'auto' })
     })
   })
 })

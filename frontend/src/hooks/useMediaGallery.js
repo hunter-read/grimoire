@@ -7,7 +7,7 @@ import useSavedFilters from './useSavedFilters'
 import useSortFilterState from './useSortFilterState'
 import { useFavorites } from '../context/FavoritesContext'
 // (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
-import { getFolderPath, getTopFolder, getSubPath } from '../components/media/mediaConfig'
+import { getEffectiveTags, getTopFolder, getSubPath } from '../components/media/mediaConfig'
 import { splitSpecial, isSpecialFilter } from '../components/library/specialFilters'
 
 /**
@@ -155,11 +155,7 @@ export default function useMediaGallery(config) {
   const allTags = data
     ? [
         ...new Set(
-          items.flatMap((item) =>
-            [...(item.tags || []), ...(folderTags[getFolderPath(item)] || [])].map((t) =>
-              t.toLowerCase()
-            )
-          )
+          items.flatMap((item) => getEffectiveTags(item, folderTags).map((t) => t.toLowerCase()))
         ),
       ].sort()
     : []
@@ -171,14 +167,14 @@ export default function useMediaGallery(config) {
       item.filename.toLowerCase().includes(q) ||
       getTopFolder(item).toLowerCase().includes(q) ||
       getSubPath(item).toLowerCase().includes(q) ||
-      (item.tags || []).some((tag) => tag.toLowerCase().includes(q)) ||
-      (folderTags[getFolderPath(item)] || []).some((tag) => tag.toLowerCase().includes(q))
+      getEffectiveTags(item, folderTags).some((tag) => tag.toLowerCase().includes(q))
     const tagMatch =
       rawSelectedTags.length === 0 ||
       (() => {
-        // An item's effective tags are its own plus its folder's, so the
-        // special "untagged"/"tagged" sentinels test that combined set.
-        const effective = [...(item.tags || []), ...(folderTags[getFolderPath(item)] || [])]
+        // An item's effective tags are its own plus those of every folder
+        // above it, so the special "untagged"/"tagged" sentinels test that
+        // combined set.
+        const effective = getEffectiveTags(item, folderTags)
         const { values, pass } = splitSpecial(rawSelectedTags, effective)
         if (!pass) return false
         if (values.length === 0) return true

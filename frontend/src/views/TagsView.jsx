@@ -183,9 +183,12 @@ export default function TagsView() {
   }
 
   return (
+    // `minHeight: 0` (not `100%`) all the way down is what lets the two panels
+    // below claim the remaining height and scroll independently, rather than
+    // growing the page and sharing one scrollbar.
     <div
       className="fade-in"
-      style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
     >
       <div
         style={{
@@ -195,6 +198,7 @@ export default function TagsView() {
           margin: '0 auto',
           boxSizing: 'border-box',
           flex: 1,
+          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -207,6 +211,7 @@ export default function TagsView() {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
+            flexShrink: 0,
           }}
         >
           <LuTags size={24} color="var(--gold)" /> {t('tags.title')}

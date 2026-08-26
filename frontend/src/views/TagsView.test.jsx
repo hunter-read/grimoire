@@ -211,4 +211,34 @@ describe('TagsView', () => {
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('forest'))
     window.confirm.mockRestore()
   })
+
+  // The tag list and the selected tag's items each own a scrollbar, so a long
+  // tag list no longer drags the whole page (and the detail column with it).
+  // That only works while every ancestor is height-bounded — an unbounded
+  // `min-height: 100%` chain let both panels grow onto one page scrollbar.
+  describe('independent panel scrolling', () => {
+    it('gives the tag list and the detail column their own scroll containers', async () => {
+      renderView()
+      await screen.findByRole('list')
+
+      const list = screen.getByRole('list')
+      expect(list).toHaveStyle({ overflowY: 'auto' })
+      expect(list).toHaveStyle({ flex: '1' })
+
+      const detail = document.querySelector('.tags-detail-panel')
+      expect(detail).toHaveStyle({ overflowY: 'auto' })
+    })
+
+    it('bounds the page column so the panels size to the space left over', async () => {
+      const { container } = renderView()
+      await screen.findByRole('list')
+
+      // `minHeight: 0` (not `100%`) is what allows the flex children to shrink
+      // below their content height and scroll internally.
+      const root = container.querySelector('.fade-in')
+      expect(root).toHaveStyle({ minHeight: '0px' })
+      expect(root.firstElementChild).toHaveStyle({ minHeight: '0px' })
+      expect(document.querySelector('.tags-layout')).toBeInTheDocument()
+    })
+  })
 })

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import useMediaGallery from './useMediaGallery'
 import api, { bulk } from '../api'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
+import { FILTER_NONE } from '../components/library/specialFilters'
 
 vi.mock('../api', () => ({
   default: {
@@ -47,10 +48,10 @@ const item = (over) => ({
   ...over,
 })
 
-function setup(items, savedFilters = []) {
+function setup(items, savedFilters = [], folders = []) {
   api.get.mockImplementation((url) => {
     if (url === '/maps') return Promise.resolve({ maps: items, total: items.length })
-    if (url === '/map-folders') return Promise.resolve({ folders: [] })
+    if (url === '/map-folders') return Promise.resolve({ folders })
     if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: savedFilters })
     return Promise.resolve({})
   })
@@ -156,6 +157,69 @@ describe('useMediaGallery', () => {
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     expect(result.current.allTags).toEqual(['cave', 'forest'])
+  })
+
+  // A folder tag applies to everything beneath the folder, however deeply
+  // nested. Previously only an item whose immediate folder carried the tag
+  // picked it up, so a tag on "Fall Of Blackbottom" missed the maps sitting in
+  // "Fall Of Blackbottom/Alleyways".
+  describe('folder tags inherited by nested items', () => {
+    const nested = () =>
+      item({
+        id: 'n',
+        filename: 'map1.png',
+        relative_path: 'maps/Fall Of Blackbottom/Alleyways/map1.png',
+      })
+    const parentTagged = [{ path: 'Fall Of Blackbottom', tags: ['Urban'] }]
+
+    it('includes an ancestor folder tag in allTags', async () => {
+      setup([nested()], [], parentTagged)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      expect(result.current.allTags).toEqual(['urban'])
+    })
+
+    it('matches a nested item when filtering by an ancestor folder tag', async () => {
+      setup([nested(), item({ id: 'o', filename: 'other.png' })], [], parentTagged)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+
+      act(() => result.current.toggleTag('urban'))
+
+      await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['n']))
+    })
+
+    it('matches a nested item when searching text against an ancestor folder tag', async () => {
+      setup([nested(), item({ id: 'o', filename: 'other.png' })], [], parentTagged)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+
+      act(() => result.current.setFilter('urba'))
+
+      await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['n']))
+    })
+
+    // The "no tags" sentinel tests the effective set, so an item that inherits
+    // a tag from an ancestor folder is not untagged.
+    it('counts a nested item as tagged for the "no tags" sentinel', async () => {
+      setup([nested()], [], parentTagged)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+
+      act(() => result.current.toggleTag(FILTER_NONE))
+
+      await waitFor(() => expect(result.current.flatItems).toEqual([]))
+    })
+
+    it('does not leak a folder tag to items outside that folder', async () => {
+      setup([nested(), item({ id: 'o', filename: 'other.png' })], [], parentTagged)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+
+      act(() => result.current.toggleTag('urban'))
+
+      await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).not.toContain('o'))
+    })
   })
 
   // Issue #270: tagging a selection sends ONE request, not one per item — the

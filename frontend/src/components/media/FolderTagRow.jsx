@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { LuTag } from 'react-icons/lu'
 import { useTranslation } from 'react-i18next'
 import InlineTagEditor from '../maps/InlineTagEditor'
@@ -9,6 +10,8 @@ const tagPillStyle = {
   background: 'var(--tag-bg)',
   border: '1px solid var(--tag-border)',
   color: 'var(--text-dim)',
+  textDecoration: 'none',
+  cursor: 'pointer',
 }
 
 /**
@@ -44,9 +47,17 @@ export default function FolderTagRow({
   return (
     <>
       {tags.map((tag) => (
-        <span key={tag} style={tagPillStyle}>
+        // A folder tag chip deep-links to the tags page filtered to it, the same
+        // as every other tag chip in the app — matching is by internal key, i.e.
+        // the lowercased label.
+        <Link
+          key={tag}
+          to={`/tags?tag=${encodeURIComponent(String(tag).trim().toLowerCase())}`}
+          onClick={(e) => e.stopPropagation()}
+          style={tagPillStyle}
+        >
           {tag.charAt(0).toUpperCase() + tag.slice(1)}
-        </span>
+        </Link>
       ))}
       {canTag && (
         <button

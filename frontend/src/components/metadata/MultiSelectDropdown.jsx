@@ -1,6 +1,19 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuSearch, LuX } from 'react-icons/lu'
+
+// List sizing. The panel is portalled to <body> and positioned `fixed`, so the
+// only thing bounding it is the viewport — it is free to extend past the edge
+// of the filter modal it was opened from. LIST_MAX keeps that freedom in check:
+// a list taller than this is more scrolling than reading, so past it the list
+// scrolls internally instead of growing. LIST_MIN keeps a few rows visible when
+// the trigger sits in a genuinely cramped spot. SEARCH_H is the fixed search box
+// above the list, GAP the breathing room left against the viewport edge.
+const LIST_MAX = 320
+const LIST_MIN = 140
+const SEARCH_H = 46
+const GAP = 12
 
 /**
  * A searchable multi-select dropdown. Shows a trigger with the count of
@@ -30,10 +43,59 @@ export default function MultiSelectDropdown({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const wrapRef = useRef(null)
+  const panelRef = useRef(null)
+  // Viewport coordinates for the portalled panel, plus how tall its list may be.
+  // The panel is rendered into <body>, so the filter modal's `overflow-y: auto`
+  // no longer clips it and the list can spill past the modal's edge. Position is
+  // measured from the trigger against the viewport: drop into whichever side has
+  // more room, and cap the list to what fits there (never more than LIST_MAX).
+  const [pos, setPos] = useState(null)
 
+  const measure = useCallback(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vh = window.innerHeight
+    const below = vh - rect.bottom - GAP
+    const above = rect.top - GAP
+    // Prefer dropping down; flip up only when down cannot fit a full panel and
+    // up has more room to offer.
+    const drop = below >= LIST_MAX + SEARCH_H || below >= above ? 'down' : 'up'
+    const space = (drop === 'down' ? below : above) - SEARCH_H
+    setPos({
+      left: rect.left,
+      width: rect.width,
+      // `fixed` coordinates: anchor to the edge the panel grows away from.
+      top: drop === 'down' ? rect.bottom + 4 : undefined,
+      bottom: drop === 'up' ? vh - rect.top + 4 : undefined,
+      maxHeight: Math.max(LIST_MIN, Math.min(LIST_MAX, space)),
+    })
+  }, [])
+
+  // Measured before paint so the panel never flashes in the wrong place, and
+  // re-measured while open because scrolling or resizing moves the trigger.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [open, measure])
+
+  // The panel is portalled out of this subtree, so "outside" has to test the
+  // trigger and the panel separately — a DOM-containment check on the wrapper
+  // alone would treat every click inside the open list as an outside click.
   useEffect(() => {
     const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+      const inTrigger = wrapRef.current?.contains(e.target)
+      const inPanel = panelRef.current?.contains(e.target)
+      if (!inTrigger && !inPanel) {
         setOpen(false)
         setQuery('')
       }
@@ -41,6 +103,22 @@ export default function MultiSelectDropdown({
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
+
+  // Escape closes the list — with the panel floating over the page rather than
+  // nested in the modal, a keyboard user needs a way out that is not a click.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+        setQuery('')
+        wrapRef.current?.querySelector('button')?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open])
 
   // A presence filter ("no tags" / "any tags") is exclusive: it can't be
   // combined with a concrete value, or with the other sentinel. Picking one
@@ -150,77 +228,83 @@ export default function MultiSelectDropdown({
         </span>
       </button>
 
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: '110%',
-            zIndex: 30,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            boxShadow: '0 6px 20px var(--shadow)',
-            overflow: 'hidden',
-          }}
-        >
+      {open &&
+        pos &&
+        createPortal(
           <div
-            style={{ position: 'relative', padding: 6, borderBottom: '1px solid var(--border)' }}
+            ref={panelRef}
+            data-testid="multiselect-panel"
+            style={{
+              position: 'fixed',
+              left: pos.left,
+              width: pos.width,
+              ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
+              // Above the filter modal (z-index 100) it floats out of.
+              zIndex: 200,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              boxShadow: '0 6px 20px var(--shadow)',
+              overflow: 'hidden',
+            }}
           >
-            <LuSearch
-              size={13}
-              style={{
-                position: 'absolute',
-                left: 14,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
-                pointerEvents: 'none',
-              }}
-            />
-            <input
-              type="text"
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={searchPlaceholder || t('common.search')}
-              aria-label={searchPlaceholder || t('common.search')}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                fontSize: 13,
-                padding: '6px 8px 6px 28px',
-                borderRadius: 6,
-                border: '1px solid var(--border)',
-                background: 'var(--bg-input)',
-              }}
-            />
-          </div>
-          <div style={{ maxHeight: 220, overflowY: 'auto', padding: 4 }}>
-            {/* Special entries are pinned above the list and stay visible while
-                searching — they aren't values you'd search for by name. */}
-            {specialOptions.length > 0 && (
-              <div
+            <div
+              style={{ position: 'relative', padding: 6, borderBottom: '1px solid var(--border)' }}
+            >
+              <LuSearch
+                size={13}
                 style={{
-                  borderBottom: '1px solid var(--border)',
-                  paddingBottom: 4,
-                  marginBottom: 4,
+                  position: 'absolute',
+                  left: 14,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
                 }}
-              >
-                {specialOptions.map(renderOption)}
-              </div>
-            )}
-            {filtered.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 8px' }}>
-                {t('common.noResults')}
-              </div>
-            ) : (
-              filtered.map(renderOption)
-            )}
-          </div>
-        </div>
-      )}
+              />
+              <input
+                type="text"
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={searchPlaceholder || t('common.search')}
+                aria-label={searchPlaceholder || t('common.search')}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  fontSize: 13,
+                  padding: '6px 8px 6px 28px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-input)',
+                }}
+              />
+            </div>
+            <div style={{ maxHeight: pos.maxHeight, overflowY: 'auto', padding: 4 }}>
+              {/* Special entries are pinned above the list and stay visible while
+                searching — they aren't values you'd search for by name. */}
+              {specialOptions.length > 0 && (
+                <div
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    paddingBottom: 4,
+                    marginBottom: 4,
+                  }}
+                >
+                  {specialOptions.map(renderOption)}
+                </div>
+              )}
+              {filtered.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 8px' }}>
+                  {t('common.noResults')}
+                </div>
+              ) : (
+                filtered.map(renderOption)
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
