@@ -169,7 +169,18 @@ TEXT_DOC_EXTS = {".txt", ".md", ".rtf"}
 # Every extension registered as a *book*. ``.epub``/``.djvu`` are opened by
 # PyMuPDF exactly like PDFs (issue #373); the text formats are decoded instead.
 DOC_EXTS = {".pdf", ".epub", ".djvu"} | TEXT_DOC_EXTS
-MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS
+# Animated battlemaps (issue: CzePeku and similar publishers ship looping video
+# variants alongside the stills). Registered and served like any other map, but
+# opaque to the thumbnailer — there is no still frame to render without pulling
+# in a video decoder, so they carry no thumbnail for now.
+MAP_VIDEO_EXTS = {".webm", ".mp4"}
+# Universal VTT exports: a JSON envelope carrying the map image as base64 plus
+# wall/portal/light data. Registered so the file is visible and downloadable in
+# the gallery; its contents are not parsed during the scan.
+VTT_DATA_EXTS = {".uvtt", ".dd2vtt"}
+# Map-tree extensions that cannot produce a thumbnail from the file itself.
+MAP_OPAQUE_EXTS = MAP_VIDEO_EXTS | VTT_DATA_EXTS
+MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS | MAP_OPAQUE_EXTS
 AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
 # Archive files shown alongside books in a category and served/bundled as opaque
 # blobs (their contents are not extracted during the scan).  Comic-book variants

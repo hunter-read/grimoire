@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from backend import indexer  # package namespace, for patch-sensitive calls
 from ._context import _ScanContext, _prune_dirs, _title_from_filename
 from ._subprocess import _run_with_timeout
-from .constants import AUDIO_EXTS, MEDIA_ARCHIVE_EXTS, _DB_TIMEOUT
+from .constants import AUDIO_EXTS, MAP_OPAQUE_EXTS, MEDIA_ARCHIVE_EXTS, _DB_TIMEOUT
 from .hashing import file_signature, hash_file
 from .metadata import _find_folder_artwork, _read_audio_metadata
 from .thumbnails import archive_ext
@@ -114,8 +114,9 @@ def _scan_media(
                 content_hash=hash_file(filepath, should_stop=ctx.should_stop),
             )
 
-            # Archives are opaque blobs — nothing to render a thumbnail from.
-            if not arc_ext:
+            # Archives, videos and VTT data files are opaque blobs — nothing
+            # to render a thumbnail from without a decoder we do not ship.
+            if not arc_ext and ext not in MAP_OPAQUE_EXTS:
                 thumb_path = ctx.thumb_path(section, title, filepath)
                 logger.debug(f"Generating thumbnail: {filepath}")
                 if indexer.generate_thumbnail(

@@ -553,6 +553,8 @@ maps/
 
 The folder name is shown as a group header in the map gallery. Both image maps and PDF maps (including multi-page PDFs) are supported and viewable in-app.
 
+Animated maps (`.webm`, `.mp4`) and Universal VTT exports (`.uvtt`, `.dd2vtt`) are also registered so they stay visible and downloadable alongside the stills they belong to - publishers commonly ship a looping video and a VTT data file next to each still variant. Like archives, they are opaque: no thumbnail is generated, since there is no still frame to render without a video decoder.
+
 ### Tokens - organize by type
 
 ```

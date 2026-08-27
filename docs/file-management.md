@@ -3,12 +3,12 @@
 Grimoire manages library files itself. Admins can upload, move, rename, and
 delete content from **Settings → Maintenance → Open file manager**, or from the
 **⋮** menu on any book, and the metadata attached to a file follows it wherever
-it goes. See [In-app file management](../nightly.md#in-app-file-management) for
+it goes. See [In-app file management](../README.md#in-app-file-management) for
 what the file manager does.
 
 This needs the library mounted **writable**, which is the default - it is simply
 the absence of a `:ro` suffix on the volume. See [Read-only or
-writable?](../nightly.md#read-only-or-writable) for what each mount allows.
+writable?](../README.md#read-only-or-writable) for what each mount allows.
 
 This page covers the other route: adding and organizing files from outside
 Grimoire. That is how you work if you keep the library mounted read-only, and it
@@ -24,7 +24,7 @@ in the built-in file manager apply immediately and need no rescan.
 
 [Calibre](https://calibre-ebook.com/) is a full-featured ebook management application. Its value alongside Grimoire is what Grimoire deliberately does not do: format conversion, and bulk metadata editing across a large collection. It writes `.opf` sidecar files that Grimoire reads automatically on the next scan to populate titles, authors, publishers, descriptions, and tags.
 
-Grimoire can send metadata the other way too - see [sidecar export](../nightly.md#writing-metadata-back-out-sidecar-export).
+Grimoire can send metadata the other way too - see [sidecar export](../README.md#writing-metadata-back-out-sidecar-export).
 
 ### How it works with Grimoire
 

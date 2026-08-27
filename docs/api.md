@@ -1480,8 +1480,10 @@ under a temporary name, and renamed into place only once complete - so an
 interrupted upload never leaves a truncated file for the scanner to index.
 
 Validation is per collection: only extensions the destination tree actually
-indexes are accepted (documents/images/archives under `books/`, images and
-archives under `maps/` and `tokens/`, audio under `audio/`), because a file the
+indexes are accepted (documents/images/archives under `books/`, images,
+animated maps (`.webm`/`.mp4`), Universal VTT data (`.uvtt`/`.dd2vtt`) and
+archives under `maps/`, images and archives under `tokens/`, audio under
+`audio/`), because a file the
 scanner ignores is an upload that silently does nothing. Uploads into the library
 root are refused. The supplied filename is reduced to its final component, so a
 path smuggled through the multipart body cannot escape the destination, and
