@@ -176,6 +176,46 @@ describe('PageEditor', () => {
     )
   })
 
+  // Resending unchanged classification on an ordinary body edit is what locked
+  // non-authors out of pages they may edit (#386), so it travels only on change.
+  it('omits visibility and share lists when they did not change', async () => {
+    const user = userEvent.setup()
+    renderEditor({
+      page: { ...existing, is_mine: false, visibility: 'group', created_by_id: 'u1' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(campaigns.updateWikiPage).toHaveBeenCalled())
+    const payload = campaigns.updateWikiPage.mock.calls[0][2]
+    expect(payload).not.toHaveProperty('visibility')
+    expect(payload).not.toHaveProperty('shared_user_ids')
+    expect(payload).not.toHaveProperty('shared_write_user_ids')
+    // The body edit itself still goes through.
+    expect(payload).toMatchObject({ title: 'Dragons' })
+  })
+
+  it('omits parent_id when the nesting did not change', async () => {
+    const user = userEvent.setup()
+    renderEditor({ page: { ...existing, parent_id: 'p9' } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(campaigns.updateWikiPage).toHaveBeenCalled())
+    expect(campaigns.updateWikiPage.mock.calls[0][2]).not.toHaveProperty('parent_id')
+  })
+
+  // The same rule applies to the author: only a real change is sent.
+  it('sends the share list when the author actually changes it', async () => {
+    const user = userEvent.setup()
+    renderEditor({
+      page: { ...existing, visibility: 'members', shared_user_ids: [], shared_write_user_ids: [] },
+    })
+    await user.click(screen.getByRole('checkbox', { name: 'Read access for alice' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(campaigns.updateWikiPage).toHaveBeenCalled())
+    const payload = campaigns.updateWikiPage.mock.calls[0][2]
+    expect(payload.shared_user_ids).toEqual(['u2'])
+    // Visibility was untouched, so it stays out of the payload.
+    expect(payload).not.toHaveProperty('visibility')
+  })
+
   it('clears the share list when visibility moves away from members', async () => {
     const user = userEvent.setup()
     renderEditor({ page: { ...existing, visibility: 'members', shared_user_ids: ['u2'] } })

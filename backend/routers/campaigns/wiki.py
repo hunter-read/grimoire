@@ -709,7 +709,12 @@ def update_page(
         page.session_date = data.session_date or None
     if data.page_type is not None and data.page_type in ("note", "session"):
         page.page_type = data.page_type
-    if data.parent_id is not None:
+    # Only an actual *re-nest* is validated. _resolve_parent requires write
+    # access to the destination, so re-checking a parent the page already sits
+    # under would refuse an edit to a child whose parent the user cannot write —
+    # a group page under a GM-only parent, say — even though nothing moved
+    # (issue #386, same shape as the sharing gate below).
+    if data.parent_id is not None and (data.parent_id or None) != page.parent_id:
         page.parent_id = _resolve_parent(
             db,
             campaign_id,
@@ -724,8 +729,6 @@ def update_page(
         page.icon_color = data.icon_color or None
 
     if (data.shared_user_ids is not None or data.shared_write_user_ids is not None):
-        if not is_author:
-            raise HTTPException(403, "Only the page's author can change its sharing")
         # Either list alone is a full replacement of the pair, so fall back to
         # what's stored for whichever one the client didn't send.
         existing = db.query(WikiPageShare).filter_by(page_id=page.id).all()
@@ -739,7 +742,28 @@ def update_page(
             if data.shared_write_user_ids is not None
             else [s.user_id for s in existing if s.can_write]
         )
-        _apply_shares(db, page, reads, writes)
+        # Gate on an actual *change*, not on the fields merely being present:
+        # the editor resends both lists on every save, so a non-author with
+        # legitimate write access (a group page, or a members page they were
+        # granted write on) would otherwise be refused their own edit — the
+        # exact collaboration issue #233 opened up (issue #386). The visibility
+        # check above compares against the stored value for the same reason.
+        #
+        # Normalise both sides the way _apply_shares stores them before
+        # comparing: write implies read, and the author never gets a row of
+        # their own. Without that, a client faithfully echoing back what it was
+        # given reads as a diff and trips the 403 it was meant to avoid.
+        def _normalised(read_ids, write_ids):
+            writers = set(write_ids or [])
+            readers = (set(read_ids or []) | writers) - {page.created_by_id}
+            return readers, writers - {page.created_by_id}
+
+        if _normalised(reads, writes) != _normalised(
+            [s.user_id for s in existing], [s.user_id for s in existing if s.can_write]
+        ):
+            if not is_author:
+                raise HTTPException(403, "Only the page's author can change its sharing")
+            _apply_shares(db, page, reads, writes)
     # If no longer members-visibility, drop any stale shares.
     if page.visibility != "members":
         db.query(WikiPageShare).filter_by(page_id=page.id).delete()
