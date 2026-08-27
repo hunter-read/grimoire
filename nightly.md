@@ -541,6 +541,8 @@ Sidecars are hidden in the **File Manager** - they describe your content rather 
 
 > Sidecar export writes into your library folder, so it needs the library mounted **writable** - the default. If you have mounted it `:ro`, export reports that clearly and your metadata edits keep working; only the sidecar write is skipped. See [Read-only or writable?](#read-only-or-writable).
 
+Exported sidecars and covers are created with the container's `UMASK` applied, exactly like an uploaded file - with the default `022` that means `rw-r--r--`, readable by other users and other tools sharing the volume. Set `UMASK` on the container if your setup needs something different (Unraid users typically want `000` to get `rw-rw-rw-`).
+
 See [`docs/sidecars.md`](docs/sidecars.md) for the full field mapping per format and how export precedence pairs with the refresh modes above.
 
 ### Maps - organize by creator or collection

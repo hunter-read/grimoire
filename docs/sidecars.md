@@ -153,6 +153,28 @@ reports `read_only: true` with an actionable message and stops early instead of
 producing one identical error per book. Metadata edits keep working normally -
 only the sidecar refresh is skipped.
 
+## File permissions
+
+Sidecars and exported covers are created with the process umask applied, so they
+land at `0666 & ~umask` - `rw-r--r--` under the usual `022`, the same mode a
+plain upload into the library gets. The mode is computed once at startup in
+`backend/config.py` as `LIBRARY_FILE_MODE`, and setting `UMASK` on the container
+changes it.
+
+This is deliberate rather than incidental. `tempfile.mkstemp`, which the atomic
+write uses to stage the file, hardcodes `0600` and ignores umask - correct for
+the private scratch files it is designed for, wrong for a file that is about to
+be renamed into a shared library. Left alone it produced sidecars only the
+container's own user could read, invisible to Syncthing, to Unraid's share user,
+and to anything else on the volume (issue #387). The temp file is chmodded
+before the rename, so it is never briefly visible at the wrong mode, and covers
+are chmodded after the copy because `shutil.copyfile` preserves an existing
+destination's mode - which makes a re-export repair a file written before the
+fix.
+
+Internal scratch files - add-on IPC, the OCR subprocess, backup staging - keep
+`mkstemp`'s `0600`. They never enter the library, and private is right for them.
+
 ## Interaction with sidecar import
 
 Export and import have to agree, or a scan will fight the exporter: export
