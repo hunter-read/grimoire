@@ -37,6 +37,14 @@ import {
   visLabelKey,
 } from './wikiShared'
 
+// Compare two id lists as sets: order and duplicates carry no meaning in a share
+// list, and treating a reorder as a change would send a needless write.
+const sameIds = (a = [], b = []) => {
+  const x = new Set(a)
+  const y = new Set(b ?? [])
+  return x.size === y.size && [...x].every((id) => y.has(id))
+}
+
 /** Full create/edit form for a wiki page: metadata, markdown toolbar, live preview. */
 export default function PageEditor({
   campaign,
@@ -263,12 +271,33 @@ export default function PageEditor({
       const payload = {
         title: title.trim() || t('wiki.untitled'),
         body,
-        visibility,
-        shared_user_ids: visibility === 'members' ? sharedIds : [],
-        shared_write_user_ids: visibility === 'members' ? writeIds : [],
-        parent_id: parentId || '',
         icon: icon || '',
         icon_color: iconColor || '',
+      }
+      // Nesting travels on change only, for the same reason as classification:
+      // the server checks write access to the *destination*, so resending the
+      // parent a page already sits under would refuse an edit to a child whose
+      // parent the user cannot write (#386).
+      if (isNew || (parentId || '') !== (page.parent_id || '')) {
+        payload.parent_id = parentId || ''
+      }
+      // Classification travels only when it actually changed. Resending the
+      // stored values on an ordinary body edit is what locked non-authors out
+      // of pages they may edit — the server refuses a *change* to visibility or
+      // sharing from anyone but the author, and an unchanged resend still read
+      // as an attempt (#386). A new page has nothing to diff against, so it
+      // sends the fields outright.
+      const nextShared = visibility === 'members' ? sharedIds : []
+      const nextWrite = visibility === 'members' ? writeIds : []
+      if (isNew) {
+        payload.visibility = visibility
+        payload.shared_user_ids = nextShared
+        payload.shared_write_user_ids = nextWrite
+      } else {
+        if (visibility !== page.visibility) payload.visibility = visibility
+        if (!sameIds(nextShared, page.shared_user_ids)) payload.shared_user_ids = nextShared
+        if (!sameIds(nextWrite, page.shared_write_user_ids))
+          payload.shared_write_user_ids = nextWrite
       }
       const result = isNew
         ? await campaigns.createWikiPage(campaign.id, payload)

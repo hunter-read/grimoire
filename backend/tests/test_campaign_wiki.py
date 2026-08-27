@@ -335,12 +335,20 @@ class TestWikiVisibility:
             headers=player_headers,
         )
         assert resp.status_code == 403
+        # A share list that differs from what's stored is refused as well. (Note
+        # a *matching* list is a no-op and does save — see issue #386.)
         resp = client.patch(
             f"/api/campaigns/{cid}/wiki/{page['id']}",
-            json={"shared_user_ids": []},
+            json={"shared_user_ids": [], "shared_write_user_ids": ["someone-else"]},
             headers=player_headers,
         )
         assert resp.status_code == 403
+        assert (
+            client.get(f"/api/campaigns/{cid}/wiki/{page['id']}", headers=gm_headers).json()[
+                "visibility"
+            ]
+            == "group"
+        )
 
     def test_member_cannot_delete_a_page_they_did_not_author(
         self, client, gm_headers, player_headers, campaign_with_member
@@ -386,6 +394,125 @@ class TestWikiVisibility:
         assert client.patch(
             f"/api/campaigns/{cid}/wiki/{rw['id']}", json={"body": "yes"}, headers=player_headers
         ).status_code == 200
+
+    def test_writer_resending_unchanged_shares_may_still_save(
+        self, client, gm_headers, player_headers, player_id, campaign_with_member
+    ):
+        # The editor resends classification only on change, but an older client
+        # (or any caller) echoing back the stored lists is a no-op, not an
+        # attempt to reclassify, and must not cost them their edit (issue #386).
+        cid = campaign_with_member
+        rw = _create(
+            client, gm_headers, cid, title="Writable", visibility="members",
+            shared_write_user_ids=[player_id],
+        ).json()
+        resp = client.patch(
+            f"/api/campaigns/{cid}/wiki/{rw['id']}",
+            json={
+                "body": "player edit",
+                "visibility": "members",
+                "shared_user_ids": [player_id],
+                "shared_write_user_ids": [player_id],
+            },
+            headers=player_headers,
+        )
+        assert resp.status_code == 200
+        detail = client.get(f"/api/campaigns/{cid}/wiki/{rw['id']}", headers=gm_headers).json()
+        assert detail["body"] == "player edit"
+        # The share rows are untouched by the pass-through save.
+        assert detail["shared_write_user_ids"] == [player_id]
+
+    def test_group_page_save_carrying_empty_shares_is_allowed(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        # The issue #233 case: a player contributing to a GM-authored group
+        # page. The page has no shares, and the payload carries [] for both.
+        cid = campaign_with_member
+        page = _create(client, gm_headers, cid, title="Party KB", visibility="group").json()
+        resp = client.patch(
+            f"/api/campaigns/{cid}/wiki/{page['id']}",
+            json={
+                "body": "player contribution",
+                "visibility": "group",
+                "shared_user_ids": [],
+                "shared_write_user_ids": [],
+            },
+            headers=player_headers,
+        )
+        assert resp.status_code == 200
+
+    def test_non_author_still_cannot_actually_change_shares(
+        self, client, gm_headers, player_headers, player_id, admin_id, campaign_with_member
+    ):
+        # The no-op allowance must not become a way in: a real diff to the share
+        # lists is still the author's alone.
+        cid = campaign_with_member
+        rw = _create(
+            client, gm_headers, cid, title="Writable", visibility="members",
+            shared_write_user_ids=[player_id],
+        ).json()
+        resp = client.patch(
+            f"/api/campaigns/{cid}/wiki/{rw['id']}",
+            json={"shared_user_ids": [player_id, admin_id]},
+            headers=player_headers,
+        )
+        assert resp.status_code == 403
+        # Demoting themselves to read-only is a change too, and equally refused.
+        assert client.patch(
+            f"/api/campaigns/{cid}/wiki/{rw['id']}",
+            json={"shared_write_user_ids": []},
+            headers=player_headers,
+        ).status_code == 403
+
+    def test_author_can_still_change_shares(
+        self, client, gm_headers, player_id, admin_id, campaign_with_member
+    ):
+        cid = campaign_with_member
+        rw = _create(
+            client, gm_headers, cid, title="Writable", visibility="members",
+            shared_write_user_ids=[player_id],
+        ).json()
+        resp = client.patch(
+            f"/api/campaigns/{cid}/wiki/{rw['id']}",
+            json={"shared_user_ids": [player_id, admin_id]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        detail = client.get(f"/api/campaigns/{cid}/wiki/{rw['id']}", headers=gm_headers).json()
+        assert sorted(detail["shared_user_ids"]) == sorted([player_id, admin_id])
+
+    def test_resending_an_unchanged_unwritable_parent_is_allowed(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        # Same shape as the sharing gate: re-nesting under a parent you may not
+        # write is refused, but leaving the page where it already sits is not a
+        # re-nest and must not block an otherwise legitimate edit (issue #386).
+        cid = campaign_with_member
+        parent = _create(client, gm_headers, cid, title="GM Only", visibility="gm").json()
+        child = _create(
+            client, gm_headers, cid, title="Public Child", visibility="group",
+            parent_id=parent["id"],
+        ).json()
+        resp = client.patch(
+            f"/api/campaigns/{cid}/wiki/{child['id']}",
+            json={"body": "player edit", "parent_id": parent["id"]},
+            headers=player_headers,
+        )
+        assert resp.status_code == 200
+
+    def test_moving_under_an_unwritable_parent_is_still_refused(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        parent = _create(client, gm_headers, cid, title="GM Only", visibility="gm").json()
+        loose = _create(client, gm_headers, cid, title="Loose", visibility="group").json()
+        # An unreadable parent reports "invalid" rather than "forbidden" so the
+        # response doesn't confirm the hidden page exists.
+        assert client.patch(
+            f"/api/campaigns/{cid}/wiki/{loose['id']}",
+            json={"parent_id": parent["id"]},
+            headers=player_headers,
+        ).status_code == 400
 
     def test_share_lists_are_not_exposed_to_readers(
         self, client, gm_headers, player_headers, player_id, campaign_with_member
