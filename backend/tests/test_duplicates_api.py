@@ -561,6 +561,109 @@ class TestDismissPrunesLiveResults:
         ]
         assert mine == []
 
+    def test_dismissed_pair_drops_from_a_group_with_no_edges(
+        self, client, admin_headers, system
+    ):
+        # Groups written before edges were persisted (migration 0026) store an
+        # empty edge list. The edge-level prune could never match one, so the
+        # dismissed pair stayed on screen until the next rescan even though the
+        # dismissal itself was recorded.
+        from backend.config import SessionLocal
+
+        a, b = make_book(system_id=system.id), make_book(system_id=system.id)
+        db = SessionLocal()
+        try:
+            self._group(db, system, [a.id, b.id], [])
+        finally:
+            db.close()
+
+        resp = client.post(
+            f"{API}/dismiss",
+            headers=admin_headers,
+            json={"resource_type": "book", "member_ids": [a.id, b.id]},
+        )
+        assert resp.status_code == 200
+
+        groups = client.get(f"{API}/groups", headers=admin_headers).json()["groups"]
+        mine = [g for g in groups if {a.id, b.id} & {m["id"] for m in g["members"]}]
+        assert mine == []
+
+    def test_edgeless_group_keeps_the_members_that_were_not_rejected(
+        self, client, admin_headers, system
+    ):
+        # Only the dismissed relationship goes: a third copy is still an open
+        # question and has to stay reviewable.
+        from backend.config import SessionLocal
+
+        a, b, c = (make_book(system_id=system.id) for _ in range(3))
+        db = SessionLocal()
+        try:
+            self._group(db, system, [a.id, b.id, c.id], [])
+        finally:
+            db.close()
+
+        client.post(
+            f"{API}/dismiss",
+            headers=admin_headers,
+            json={"resource_type": "book", "member_ids": [a.id, b.id]},
+        )
+
+        groups = client.get(f"{API}/groups", headers=admin_headers).json()["groups"]
+        mine = [g for g in groups if {a.id, b.id, c.id} & {m["id"] for m in g["members"]}]
+        # Two rejected members leave fewer than two behind, so the group as a
+        # whole is no longer reviewable and goes.
+        assert mine == []
+
+    def test_edgeless_group_survives_when_two_members_still_stand(
+        self, client, admin_headers, system
+    ):
+        from backend.config import SessionLocal
+
+        a, b, c, d = (make_book(system_id=system.id) for _ in range(4))
+        db = SessionLocal()
+        try:
+            self._group(db, system, [a.id, b.id, c.id, d.id], [])
+        finally:
+            db.close()
+
+        client.post(
+            f"{API}/dismiss",
+            headers=admin_headers,
+            json={"resource_type": "book", "member_ids": [a.id, b.id]},
+        )
+
+        groups = client.get(f"{API}/groups", headers=admin_headers).json()["groups"]
+        mine = [g for g in groups if {c.id, d.id} & {m["id"] for m in g["members"]}]
+        assert len(mine) == 1
+        remaining = {m["id"] for m in mine[0]["members"]}
+        assert remaining == {c.id, d.id}
+
+    def test_dismissal_leaves_an_unrelated_edgeless_group_alone(
+        self, client, admin_headers, system
+    ):
+        # The edgeless branch rewrites member lists, so it has to be inert for
+        # groups the dismissal never mentioned.
+        from backend.config import SessionLocal
+
+        a, b = make_book(system_id=system.id), make_book(system_id=system.id)
+        x, y = make_book(system_id=system.id), make_book(system_id=system.id)
+        db = SessionLocal()
+        try:
+            self._group(db, system, [a.id, b.id], [])
+            self._group(db, system, [x.id, y.id], [])
+        finally:
+            db.close()
+
+        client.post(
+            f"{API}/dismiss",
+            headers=admin_headers,
+            json={"resource_type": "book", "member_ids": [a.id, b.id]},
+        )
+
+        groups = client.get(f"{API}/groups", headers=admin_headers).json()["groups"]
+        untouched = [g for g in groups if {x.id, y.id} <= {m["id"] for m in g["members"]}]
+        assert len(untouched) == 1
+
 
 class TestListGroups:
     """The review listing: what it returns, and that a page comes back full.
