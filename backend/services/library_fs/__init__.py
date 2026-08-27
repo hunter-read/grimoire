@@ -84,6 +84,7 @@ from .moves import (  # noqa: F401
     _restore_sidecars,
     _section_for_model,
     _thumb_file,
+    _thumb_key,
     move_paths,
     relocate_book_for_category,
     rename_path,

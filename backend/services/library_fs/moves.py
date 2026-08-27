@@ -109,6 +109,26 @@ def relocate_book_for_category(db: Session, book: Any, category: str) -> Optiona
 # Cache fixups
 # ---------------------------------------------------------------------------
 
+def _thumb_key(record: Any) -> str:
+    """The name half of a record's thumbnail filename, as its indexer wrote it.
+
+    The two thumbnailed collections key their files differently, and only the
+    owning collection knows which: a book's thumbnail is named from its
+    ``title``, while a map's is named from its filename stem with separators
+    softened to spaces (see ``serve_map_thumbnail``). ``GenericMap`` has no
+    ``title`` column at all, so reading one uniformly used to raise
+    ``AttributeError`` and turn any delete or move touching a map into a 500.
+    """
+    from ...indexer._context import _title_from_filename
+
+    # Presence of the *column*, not a truthy value: an untitled book is still
+    # keyed by its (empty) title on disk, so falling back on the filename for it
+    # would look for a thumbnail the indexer never wrote.
+    if hasattr(type(record), "title"):
+        return str(record.title or "")
+    return _title_from_filename(record.filename or "")
+
+
 def _thumb_file(section: str, title: str, filepath: str) -> Path:
     """The on-disk thumbnail for a record, keyed exactly as the scanner keys it."""
     import hashlib
@@ -129,8 +149,9 @@ def _rehome_thumbnail(record: Any, section: str, old_path: str, new_path: str) -
     """
     if not getattr(record, "has_thumbnail", False):
         return False
-    src = _thumb_file(section, record.title, old_path)
-    dst = _thumb_file(section, record.title, new_path)
+    key = _thumb_key(record)
+    src = _thumb_file(section, key, old_path)
+    dst = _thumb_file(section, key, new_path)
     if src == dst:
         return True
     try:
