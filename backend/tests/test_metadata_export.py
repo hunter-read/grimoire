@@ -19,7 +19,7 @@ from backend.metadata.export import (
     refresh_existing,
     refresh_existing_safe,
 )
-from backend.metadata.formats import sidecar_path
+from backend.metadata.formats import COVER_SUFFIX, sidecar_path
 from backend.models import AppSetting, Book
 
 
@@ -411,3 +411,108 @@ class TestExportNewBook:
         )
 
         export_new_book(db, book)  # must not raise
+
+
+class TestSidecarPermissions:
+    """Issue #387: sidecars must be readable by other users on the volume.
+
+    ``tempfile.mkstemp`` creates 0600 and ignores umask by design. Renaming that
+    file into the library handed the user a sidecar only the container's own
+    user could read, which is invisible to Syncthing, to Unraid's share user,
+    and to anything else sharing the mount.
+    """
+
+    def test_a_written_sidecar_is_not_owner_only(self, db, tmp_path):
+        book = _make_book(db, tmp_path, book_id="sidecar-perm")
+
+        export_book(db, book, ["json"])
+
+        mode = os.stat(sidecar_path(book.filepath, "json")).st_mode & 0o777
+        assert mode & 0o044, f"sidecar is not group/other readable: {oct(mode)}"
+
+    def test_the_mode_follows_the_configured_umask(self, db, tmp_path, monkeypatch):
+        """The container's UMASK governs the result, rather than a hardcoded mode."""
+        monkeypatch.setattr("backend.metadata.export.LIBRARY_FILE_MODE", 0o640)
+        book = _make_book(db, tmp_path, book_id="sidecar-perm-umask")
+
+        export_book(db, book, ["json"])
+
+        mode = os.stat(sidecar_path(book.filepath, "json")).st_mode & 0o777
+        assert mode == 0o640
+
+    def test_it_matches_what_a_plain_open_would_produce(self, db, tmp_path):
+        """Sidecars get the same permissions as an uploaded file in the same dir."""
+        book = _make_book(db, tmp_path, book_id="sidecar-perm-parity")
+        reference = tmp_path / "uploaded.pdf"
+        with open(reference, "w") as fh:
+            fh.write("x")
+
+        export_book(db, book, ["json"])
+
+        sidecar_mode = os.stat(sidecar_path(book.filepath, "json")).st_mode & 0o777
+        assert sidecar_mode == os.stat(reference).st_mode & 0o777
+
+    def test_rewriting_an_existing_sidecar_repairs_its_mode(self, db, tmp_path):
+        """A sidecar written before the fix is healed by the next export."""
+        book = _make_book(db, tmp_path, book_id="sidecar-perm-repair")
+        export_book(db, book, ["json"])
+        path = sidecar_path(book.filepath, "json")
+        os.chmod(path, 0o600)
+
+        export_book(db, book, ["json"], overwrite_foreign=True)
+
+        assert os.stat(path).st_mode & 0o044
+
+
+class TestCoverPermissions:
+    """The exported cover is a library file too, and gets the same treatment."""
+
+    @staticmethod
+    def _stub_thumbnail(monkeypatch, tmp_path):
+        """Stand in for the scanner's cached thumbnail."""
+        source = tmp_path / "cached.webp"
+        source.write_bytes(b"RIFF....WEBP")
+        monkeypatch.setattr(
+            "backend.metadata.export._thumbnail_source", lambda book: str(source)
+        )
+
+    def test_an_exported_cover_is_not_owner_only(self, db, tmp_path, monkeypatch):
+        self._stub_thumbnail(monkeypatch, tmp_path)
+        book = _make_book(db, tmp_path, book_id="sidecar-cover-perm")
+
+        result = export_book(db, book, ["json"], covers=True)
+
+        assert result.covers == 1
+        cover = os.path.splitext(book.filepath)[0] + COVER_SUFFIX
+        assert os.stat(cover).st_mode & 0o044
+
+    def test_overwriting_an_existing_cover_repairs_its_mode(
+        self, db, tmp_path, monkeypatch
+    ):
+        """copyfile keeps the destination's old mode, so it is set explicitly."""
+        self._stub_thumbnail(monkeypatch, tmp_path)
+        book = _make_book(db, tmp_path, book_id="sidecar-cover-repair")
+        cover = os.path.splitext(book.filepath)[0] + COVER_SUFFIX
+        with open(cover, "wb") as fh:
+            fh.write(b"old")
+        os.chmod(cover, 0o600)
+
+        export_book(db, book, ["json"], covers=True, overwrite_foreign=True)
+
+        assert os.stat(cover).st_mode & 0o044
+
+
+class TestUmaskHelper:
+    def test_it_reports_the_process_umask_without_changing_it(self):
+        from backend.config import _read_umask
+
+        before = os.umask(0o027)
+        os.umask(before)
+        try:
+            os.umask(0o027)
+            assert _read_umask() == 0o027
+            # Reading it must leave the process umask where it was.
+            restored = os.umask(0o022)
+            assert restored == 0o027
+        finally:
+            os.umask(before)

@@ -26,7 +26,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from ..config import THUMB_DIR
+from ..config import LIBRARY_FILE_MODE, THUMB_DIR
 from ..indexer.categories import slugify
 from ..models import Book
 from . import settings as export_settings
@@ -92,12 +92,20 @@ def _atomic_write(path: str, text: str) -> None:
     a complete file into place makes the swap atomic. The temp file must share
     the destination's directory or the rename becomes a cross-device copy and
     loses that property.
+
+    ``mkstemp`` hardcodes 0600 and deliberately ignores umask — correct for the
+    scratch files it is meant for, wrong here, because this one is renamed into
+    the user's library and keeps that mode. Left alone it produces a sidecar
+    only the container's own user can read, which is invisible to anything else
+    sharing the volume. Chmod before the rename so the file is never briefly
+    visible at the wrong mode.
     """
     directory = os.path.dirname(path) or "."
     fd, tmp = tempfile.mkstemp(dir=directory, prefix=".grimoire-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
+        os.chmod(tmp, LIBRARY_FILE_MODE)
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -136,6 +144,10 @@ def _write_cover(book: Book, result: ExportResult, *, overwrite_foreign: bool) -
         return os.path.basename(dest)
     try:
         shutil.copyfile(source, dest)
+        # copyfile truncates an existing destination in place and keeps its old
+        # mode, so re-exporting over a cover written before #387 would otherwise
+        # leave it unreadable. Setting it explicitly makes a re-export a repair.
+        os.chmod(dest, LIBRARY_FILE_MODE)
         result.covers += 1
     except OSError as exc:
         _record_failure(result, dest, exc)

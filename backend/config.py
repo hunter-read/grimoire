@@ -54,6 +54,29 @@ DISABLE_VERSION_CHECKING = (
 )
 
 
+def _read_umask() -> int:
+    """The process umask, read once at import.
+
+    ``os.umask`` is a set-and-return with no pure getter, so reading it means
+    setting it and putting it back. That is a process-global mutation and it is
+    not thread-safe, which is exactly why this runs once at import — before any
+    worker threads exist — rather than per file write.
+    """
+    current = os.umask(0o022)
+    os.umask(current)
+    return current
+
+
+UMASK = _read_umask()
+
+# Mode for files Grimoire creates *inside the library*, where other tools and
+# other users are expected to reach them (issue #387: sidecars landed 0600 and
+# locked out Syncthing and Unraid's share user). 0666 before umask matches what
+# a plain ``open()`` would produce, so these files get the same permissions as
+# an uploaded one and the container's UMASK actually governs them.
+LIBRARY_FILE_MODE = 0o666 & ~UMASK
+
+
 def _read_ocr_concurrency() -> int:
     """Parallel-OCR worker count. 0 = OCR disabled; negatives clamp to 0; bad
     values fall back to the serial default of 1."""
