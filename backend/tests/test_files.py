@@ -485,6 +485,114 @@ class TestThumbnails:
         db.close()
 
 
+class TestMapThumbnails:
+    """Maps key their thumbnails differently from books, and have no ``title``.
+
+    ``GenericMap`` carries no ``title`` column at all, so any code path that
+    reached for one turned a perfectly ordinary map delete or move into a 500.
+    The thumbnail name comes from the filename stem instead, with separators
+    softened to spaces — the same derivation ``serve_map_thumbnail`` uses to find
+    the file it serves.
+    """
+
+    def _map_thumb(self, filename: str, filepath: str) -> Path:
+        import hashlib
+
+        from backend.config import THUMB_DIR
+        from backend.indexer.categories import slugify
+
+        title = Path(filename).stem.replace("_", " ").replace("-", " ")
+        return Path(THUMB_DIR) / "maps" / (
+            f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp"
+        )
+
+    def test_thumb_key_uses_the_filename_stem_for_maps(self):
+        m = make_map(filename="Goblin_Cave-01.png", filepath="/tmp/goblin.png")
+        assert fs._thumb_key(m) == "Goblin Cave 01"
+
+    def test_thumb_key_uses_the_title_for_books(self):
+        system = make_game_system()
+        book = make_book(system.id, title="Player Handbook", filename="phb.pdf")
+        assert fs._thumb_key(book) == "Player Handbook"
+
+    def test_deleting_a_map_folder_purges_its_thumbnail(self, library_tree):
+        """The reported crash: deleting a folder of maps raised AttributeError."""
+        src = _write(f"maps/Battlemaps-{library_tree}/tavern_map.png")
+        m = make_map(
+            filename="tavern_map.png",
+            filepath=src,
+            relative_path=f"maps/Battlemaps-{library_tree}/tavern_map.png",
+            has_thumbnail=True,
+        )
+        thumb = self._map_thumb("tavern_map.png", src)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        thumb.write_bytes(b"webp")
+
+        db = SessionLocal()
+        try:
+            result = fs.delete_path(
+                db, f"maps/Battlemaps-{library_tree}", confirm_name=f"Battlemaps-{library_tree}"
+            )
+        finally:
+            db.close()
+
+        assert result["records"] == 1
+        db = SessionLocal()
+        assert db.query(GenericMap).filter(GenericMap.id == m.id).first() is None
+        db.close()
+        assert not thumb.exists(), "the map's thumbnail must go with its record"
+
+    def test_deleting_a_single_map_file_purges_its_thumbnail(self, library_tree):
+        src = _write(f"maps/Battlemaps-{library_tree}/keep_out.png")
+        make_map(
+            filename="keep_out.png",
+            filepath=src,
+            relative_path=f"maps/Battlemaps-{library_tree}/keep_out.png",
+            has_thumbnail=True,
+        )
+        thumb = self._map_thumb("keep_out.png", src)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        thumb.write_bytes(b"webp")
+
+        db = SessionLocal()
+        try:
+            fs.delete_path(db, f"maps/Battlemaps-{library_tree}/keep_out.png")
+        finally:
+            db.close()
+
+        assert not thumb.exists()
+
+    def test_moving_a_map_rehomes_its_thumbnail(self, library_tree):
+        """The same missing attribute broke moves, not just deletes."""
+        dest_rel = f"maps/Battlemaps-{library_tree}/nested"
+        os.makedirs(os.path.join(LIB, dest_rel), exist_ok=True)
+        src = _write(f"maps/Battlemaps-{library_tree}/dungeon-01.png")
+        m = make_map(
+            filename="dungeon-01.png",
+            filepath=src,
+            relative_path=f"maps/Battlemaps-{library_tree}/dungeon-01.png",
+            has_thumbnail=True,
+        )
+        old_thumb = self._map_thumb("dungeon-01.png", src)
+        old_thumb.parent.mkdir(parents=True, exist_ok=True)
+        old_thumb.write_bytes(b"webp")
+
+        db = SessionLocal()
+        fs.move_paths(db, [f"maps/Battlemaps-{library_tree}/dungeon-01.png"], dest_rel)
+        db.close()
+
+        db = SessionLocal()
+        refreshed = db.query(GenericMap).filter(GenericMap.id == m.id).first()
+        new_path, still_has = refreshed.filepath, refreshed.has_thumbnail
+        db.close()
+
+        new_thumb = self._map_thumb("dungeon-01.png", new_path)
+        assert still_has is True
+        assert new_thumb.exists(), "thumbnail must be re-homed under the new path key"
+        assert not old_thumb.exists()
+        new_thumb.unlink()
+
+
 class TestMoveAndRenameGuards:
     """The refusals and error mappings that keep a bulk move survivable."""
 

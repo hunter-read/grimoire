@@ -18,7 +18,7 @@ from ...config import logger
 from ...indexer.constants import CONTAINER_MARKERS, NSFW_MARKER
 from ...models.library import Book
 from .constants import _THUMB_SECTIONS, LibraryFSError
-from .moves import _records_under, _section_for_model, _thumb_file
+from .moves import _records_under, _section_for_model, _thumb_file, _thumb_key
 from .paths import (
     assert_writable,
     collection_of,
@@ -41,7 +41,7 @@ def _purge_derived(db: Session, model: Any, record: Any) -> None:
     """
     section = _THUMB_SECTIONS.get(_section_for_model(model))
     if section and getattr(record, "has_thumbnail", False):
-        thumb = _thumb_file(section, record.title, record.filepath)
+        thumb = _thumb_file(section, _thumb_key(record), record.filepath)
         try:
             thumb.unlink()
         except OSError as e:
