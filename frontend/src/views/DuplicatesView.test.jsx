@@ -15,6 +15,8 @@ const scanStatus = vi.fn()
 const startScan = vi.fn()
 const cancelScan = vi.fn()
 const groups = vi.fn()
+const dismissalsFn = vi.fn()
+const undismiss = vi.fn()
 
 const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
@@ -31,6 +33,8 @@ vi.mock('../api', () => ({
     startScan: (...a) => startScan(...a),
     cancelScan: (...a) => cancelScan(...a),
     groups: (...a) => groups(...a),
+    dismissals: (...a) => dismissalsFn(...a),
+    undismiss: (...a) => undismiss(...a),
     link: vi.fn(),
     dismiss: vi.fn(),
     deleteItem: vi.fn(),
@@ -49,6 +53,8 @@ describe('DuplicatesView', () => {
     groups.mockResolvedValue({ groups: [] })
     startScan.mockResolvedValue({ status: 'scan_started' })
     cancelScan.mockResolvedValue({ status: 'stop_requested' })
+    dismissalsFn.mockResolvedValue({ dismissals: [] })
+    undismiss.mockResolvedValue({ status: 'removed' })
   })
 
   it('says nothing has been scanned yet', async () => {
@@ -211,5 +217,96 @@ describe('DuplicatesView error reporting', () => {
     await userEvent.click(screen.getByText('maintenance.dupes.scan'))
 
     await waitFor(() => expect(screen.queryByText(/boom/)).not.toBeInTheDocument())
+  })
+})
+
+describe('DuplicatesView dismissed pairs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    role = 'admin'
+    scanStatus.mockResolvedValue(IDLE)
+    groups.mockResolvedValue({ groups: [] })
+    dismissalsFn.mockResolvedValue({ dismissals: [] })
+    undismiss.mockResolvedValue({ status: 'removed' })
+  })
+
+  const DISMISSAL = {
+    id: 'd1',
+    resource_type: 'book',
+    member_ids: ['a', 'b'],
+    member_names: ['core.pdf', 'core (1).pdf'],
+    note: '',
+    created_at: '2026-01-01T00:00:00',
+  }
+
+  it('does not fetch dismissals until the panel is opened', async () => {
+    render(<DuplicatesView />)
+    await waitFor(() => expect(groups).toHaveBeenCalled())
+    expect(dismissalsFn).not.toHaveBeenCalled()
+  })
+
+  it('lists what has been dismissed once opened', async () => {
+    dismissalsFn.mockResolvedValue({ dismissals: [DISMISSAL] })
+    render(<DuplicatesView />)
+
+    await userEvent.click(screen.getByText('maintenance.dupes.showDismissed'))
+
+    await waitFor(() => expect(screen.getByText('core.pdf')).toBeInTheDocument())
+    expect(screen.getByText('core (1).pdf')).toBeInTheDocument()
+  })
+
+  it('says so when nothing has been dismissed', async () => {
+    render(<DuplicatesView />)
+    await userEvent.click(screen.getByText('maintenance.dupes.showDismissed'))
+    await waitFor(() =>
+      expect(screen.getByText('maintenance.dupes.noDismissals')).toBeInTheDocument()
+    )
+  })
+
+  it('hides the panel again when toggled off', async () => {
+    dismissalsFn.mockResolvedValue({ dismissals: [DISMISSAL] })
+    render(<DuplicatesView />)
+
+    await userEvent.click(screen.getByText('maintenance.dupes.showDismissed'))
+    await waitFor(() => expect(screen.getByText('core.pdf')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('maintenance.dupes.hideDismissed'))
+    expect(screen.queryByText('core.pdf')).not.toBeInTheDocument()
+  })
+
+  it('drops a restored dismissal from the list', async () => {
+    dismissalsFn.mockResolvedValue({ dismissals: [DISMISSAL] })
+    render(<DuplicatesView />)
+
+    await userEvent.click(screen.getByText('maintenance.dupes.showDismissed'))
+    await waitFor(() => expect(screen.getByText('core.pdf')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('maintenance.dupes.undismiss'))
+
+    await waitFor(() => expect(undismiss).toHaveBeenCalledWith('d1'))
+    await waitFor(() => expect(screen.queryByText('core.pdf')).not.toBeInTheDocument())
+  })
+
+  it('keeps the row and reports the failure when restore fails', async () => {
+    dismissalsFn.mockResolvedValue({ dismissals: [DISMISSAL] })
+    undismiss.mockRejectedValue(new Error('nope'))
+    render(<DuplicatesView />)
+
+    await userEvent.click(screen.getByText('maintenance.dupes.showDismissed'))
+    await waitFor(() => expect(screen.getByText('core.pdf')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('maintenance.dupes.undismiss'))
+
+    await waitFor(() => expect(screen.getByText(/nope/)).toBeInTheDocument())
+    expect(screen.getByText('core.pdf')).toBeInTheDocument()
+  })
+
+  it('surfaces a failed dismissals load instead of showing an empty panel', async () => {
+    dismissalsFn.mockRejectedValue(new Error('kaboom'))
+    render(<DuplicatesView />)
+
+    await userEvent.click(screen.getByText('maintenance.dupes.showDismissed'))
+
+    await waitFor(() => expect(screen.getByText(/kaboom/)).toBeInTheDocument())
   })
 })

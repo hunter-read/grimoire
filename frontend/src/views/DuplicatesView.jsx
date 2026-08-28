@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { LuArrowLeft, LuSearch, LuSquare, LuTriangleAlert } from 'react-icons/lu'
+import { LuArrowLeft, LuEyeOff, LuSearch, LuSquare, LuTriangleAlert } from 'react-icons/lu'
 
 import { duplicates as dupesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
 import DuplicatePairRow from '../components/settings/DuplicatePairRow'
+import DismissedPairRow from '../components/settings/DismissedPairRow'
 import { groupsToPairs } from '../utils/duplicatePairs'
 
 // Poll fast while a scan is running, slowly when idle — the same adaptive
@@ -38,6 +39,12 @@ export default function DuplicatesView() {
   // Search accuracy, chosen per scan. 'exact' is byte-identical only: fast and
   // certain. Looser levels take longer and return matches that need judging.
   const [accuracy, setAccuracy] = useState('medium')
+  // Dismissals are hidden by default: they are the answers the user has already
+  // given, and the page is for the questions still open. Behind a toggle they
+  // stay auditable without competing with the live list.
+  const [showDismissed, setShowDismissed] = useState(false)
+  const [dismissals, setDismissals] = useState(null)
+  const [restoringId, setRestoringId] = useState(null)
 
   const loadGroups = useCallback(() => {
     // Deliberately dependency-free apart from the role gate: including `t`
@@ -95,6 +102,43 @@ export default function DuplicatesView() {
   useEffect(() => {
     loadGroups()
   }, [loadGroups])
+
+  const loadDismissals = useCallback(() => {
+    if (!isAdmin) return Promise.resolve()
+    return dupesApi
+      .dismissals()
+      .then((data) => setDismissals(data.dismissals || []))
+      .catch((e) => {
+        // Same reasoning as the group load: an empty list and a failed request
+        // are indistinguishable on screen, and "nothing dismissed" is exactly
+        // the wrong thing to tell someone looking for a dismissal they made.
+        setDismissals([])
+        setError(e.message || t('maintenance.dupes.loadFailed'))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin])
+
+  // Fetched on demand rather than alongside the groups: most visits never open
+  // the panel, and the list is only needed once it is on screen.
+  useEffect(() => {
+    if (showDismissed) loadDismissals()
+  }, [showDismissed, loadDismissals])
+
+  const restore = async (dismissal) => {
+    setRestoringId(dismissal.id)
+    try {
+      await dupesApi.undismiss(dismissal.id)
+      setDismissals((prev) => (prev || []).filter((d) => d.id !== dismissal.id))
+      // The pair does not come back to the list here. Grouping applies
+      // dismissals when it builds its edges, so what is on screen was computed
+      // with this one still in force - only a rescan can surface it again, and
+      // pretending otherwise would show a pair no action could resolve.
+    } catch (e) {
+      setError(e.message || t('maintenance.dupes.actionFailed'))
+    } finally {
+      setRestoringId(null)
+    }
+  }
 
   const startScan = async () => {
     setStarting(true)
@@ -264,6 +308,52 @@ export default function DuplicatesView() {
       {pairs.map((pair) => (
         <DuplicatePairRow key={pair.pairKey} pair={pair} onCompare={openCompare} />
       ))}
+
+      <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+        <button
+          type="button"
+          onClick={() => setShowDismissed((v) => !v)}
+          aria-expanded={showDismissed}
+          style={ghostBtn}
+        >
+          <LuEyeOff size={13} aria-hidden="true" />{' '}
+          {showDismissed
+            ? t('maintenance.dupes.hideDismissed')
+            : t('maintenance.dupes.showDismissed')}
+        </button>
+
+        {showDismissed && (
+          <div style={{ marginTop: 14 }}>
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--text-dim)',
+                marginBottom: 12,
+                lineHeight: 1.6,
+              }}
+            >
+              {t('maintenance.dupes.dismissedHint')}
+            </p>
+
+            {dismissals === null ? (
+              <Spinner size={16} />
+            ) : dismissals.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+                {t('maintenance.dupes.noDismissals')}
+              </div>
+            ) : (
+              dismissals.map((d) => (
+                <DismissedPairRow
+                  key={d.id}
+                  dismissal={d}
+                  onRestore={restore}
+                  busy={restoringId === d.id}
+                />
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

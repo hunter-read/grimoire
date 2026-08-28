@@ -221,6 +221,27 @@ def dismiss_group(
     for group in (
         db.query(DuplicateGroup).filter_by(resource_type=data.resource_type).all()
     ):
+        # A group stored before edges were persisted (migration 0026) has none,
+        # so the edge filter below can never match and the pair would sit in the
+        # list until the next rescan. The client already falls back to comparing
+        # every member against a parent (`utils/duplicatePairs`), so a member the
+        # user rejected against another present member is dropped directly here -
+        # otherwise the two disagree and the UI shows a pair nothing can prune.
+        if not (group.edges or []):
+            members = list(group.member_ids or [])
+            surviving = [
+                m
+                for m in members
+                if not any(frozenset((m, other)) in rejected for other in members)
+            ]
+            if len(surviving) == len(members):
+                continue
+            if len(surviving) < 2:
+                db.delete(group)
+                continue
+            group.member_ids = surviving
+            continue
+
         kept = [
             e
             for e in (group.edges or [])
