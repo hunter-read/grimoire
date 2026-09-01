@@ -118,9 +118,18 @@ export default function SystemDetailView() {
   // Shared-tag display labels for book tags (filter values match on internal key).
   const bookTagLabels = useTagLabels('book')
 
+  // Refetch rather than patch locally: promoting a variant changes *which*
+  // books are rows at all (the new main appears, the old one collapses into
+  // it), and the promoted copy may sit in a different category than the one it
+  // replaced - so there is no local edit that can express the result.
+  const reloadSystem = useCallback(
+    () => api.get(`/systems/${systemId}`).then(setSystem),
+    [systemId]
+  )
+
   useEffect(() => {
-    api.get(`/systems/${systemId}`).then(setSystem)
-  }, [systemId])
+    reloadSystem()
+  }, [reloadSystem])
 
   // Load book subcategory folder tags for this system.
   useEffect(() => {
@@ -187,6 +196,20 @@ export default function SystemDetailView() {
     setSearchQuery('')
     setSearchResults(null)
   }
+
+  // A variant link changed. Refetch, then follow the promotion: the newly
+  // promoted copy is the row that exists now, so the editor re-opens on it
+  // rather than on an id that has just become a hidden variant. It may sit in a
+  // different category than the book it replaced, which is exactly why this
+  // cannot be a local patch.
+  const handleVariantsChanged = useCallback(
+    (newMainId) => {
+      reloadSystem().then(() => {
+        if (newMainId) setEditingBookId(newMainId)
+      })
+    },
+    [reloadSystem]
+  )
 
   if (!system)
     return (
@@ -834,6 +857,7 @@ export default function SystemDetailView() {
               booksContainerStyle={booksContainerStyle}
               isEditor={isEditor}
               onSaveBook={saveBook}
+              onVariantsChanged={handleVariantsChanged}
               onDownload={setDownloadModal}
               bulkMode={bulkMode}
               selectedBookIds={selectedBookIds}
@@ -857,6 +881,7 @@ export default function SystemDetailView() {
                 systemGenres={system.genres || []}
                 isEditor={isEditor}
                 onSaveBook={saveBook}
+                onVariantsChanged={handleVariantsChanged}
                 bulkMode={bulkMode}
                 selectedBookIds={selectedBookIds}
                 onToggleBook={toggleBookSelect}

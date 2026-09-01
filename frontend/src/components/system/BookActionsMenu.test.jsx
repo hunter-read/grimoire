@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import BookActionsMenu from './BookActionsMenu'
 
 vi.mock('react-i18next', () => ({
@@ -7,9 +8,10 @@ vi.mock('react-i18next', () => ({
 }))
 
 const mockPost = vi.fn(() => Promise.resolve({}))
+const mockGet = vi.fn(() => Promise.resolve({}))
 const mockCampaignList = vi.fn(() => Promise.resolve([]))
 vi.mock('../../api', () => ({
-  default: { post: (...args) => mockPost(...args) },
+  default: { post: (...args) => mockPost(...args), get: (...args) => mockGet(...args) },
   mediaUrl: (path) => `http://localhost${path}`,
   // Used by AddToCampaignModal, which the "add to campaign" item opens.
   campaigns: {
@@ -359,5 +361,61 @@ describe('BookActionsMenu', () => {
       // Deleting is never one click: the dialog is the guard.
       expect(await screen.findByRole('dialog')).toBeInTheDocument()
     })
+  })
+})
+
+// VariantMenuItems (the pre-existing "switch version" rows) calls useNavigate,
+// so this group renders inside a Router; the base renderMenu above does not.
+const renderVersionMenu = (book) =>
+  render(
+    <MemoryRouter>
+      <BookActionsMenu book={makeBook(book)} onEdit={() => {}} />
+    </MemoryRouter>
+  )
+
+describe('BookActionsMenu version actions', () => {
+  beforeEach(() => {
+    mockGet.mockClear()
+    mockGet.mockResolvedValue({
+      id: 'b1',
+      variant_main_id: 'b1',
+      variants: [{ id: 'b2', kind: 'printer-friendly', label: '' }],
+    })
+  })
+
+  it('offers a plain download for a book with one version', () => {
+    renderVersionMenu({ variant_count: 0 })
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('menuitem', { name: 'bookActions.download' })).toHaveAttribute(
+      'href',
+      'http://localhost/books/b1/file'
+    )
+    expect(
+      screen.queryByRole('menuitem', { name: 'variants.downloadVersion' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('offers both switch-version and download-version for a book with two', () => {
+    renderVersionMenu({ variant_count: 1 })
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('menuitem', { name: 'variants.switchLabel' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'variants.downloadVersion' })).toBeInTheDocument()
+    // The single-version download row is replaced, not duplicated.
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.download' })).not.toBeInTheDocument()
+  })
+
+  it('lists a download link per version once expanded', async () => {
+    renderVersionMenu({ variant_count: 1 })
+    fireEvent.click(screen.getByRole('button'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'variants.downloadVersion' }))
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'variants.mainVersion' })).toHaveAttribute(
+        'href',
+        'http://localhost/books/b1/file'
+      )
+    )
+    expect(
+      screen.getByRole('menuitem', { name: 'variants.kind.printer-friendly' })
+    ).toHaveAttribute('href', 'http://localhost/books/b2/file')
   })
 })

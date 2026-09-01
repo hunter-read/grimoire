@@ -1176,3 +1176,59 @@ describe('SystemDetailView — back navigation from a nested system', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/library', { state: { restoreView: true } })
   })
 })
+
+describe('SystemDetailView variant promotion', () => {
+  beforeEach(() => {
+    bookEditorProps.mockClear()
+  })
+
+  // The case this exists for: the two copies live in different categories, so
+  // after promoting, the row the user was editing is gone from "core" and a new
+  // row exists under "starter-set". Nothing local can express that - the view
+  // has to refetch and follow the promoted id.
+  it('refetches and re-opens the editor on the newly promoted book', async () => {
+    const before = [makeBook({ id: 'b1', title: 'PHB', category: 'core', variant_count: 1 })]
+    const after = [
+      makeBook({ id: 'b2', title: 'PHB Starter', category: 'starter-set', variant_count: 1 }),
+    ]
+    api.get.mockResolvedValue(makeSystem(before))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByRole('button', { name: /more actions/i })[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit metadata/i }))
+    await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
+
+    // The promoted copy is the row that exists now.
+    api.get.mockResolvedValue(makeSystem(after))
+    const props = bookEditorProps.mock.calls.at(-1)[0]
+    props.onVariantsChanged('b2')
+
+    // The list reflects the promotion...
+    await waitFor(() => expect(screen.getByText('PHB Starter')).toBeInTheDocument())
+    expect(screen.queryByText('PHB')).not.toBeInTheDocument()
+    // ...and the editor followed it to the new main, in its new category.
+    await waitFor(() => {
+      const latest = bookEditorProps.mock.calls.at(-1)[0]
+      expect(latest.book.id).toBe('b2')
+      expect(latest.book.category).toBe('starter-set')
+    })
+  })
+
+  it('refetches without re-opening an editor for a non-promoting change', async () => {
+    const books = [makeBook({ id: 'b1', title: 'PHB', category: 'core', variant_count: 1 })]
+    api.get.mockResolvedValue(makeSystem(books))
+    renderView()
+    await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByRole('button', { name: /more actions/i })[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit metadata/i }))
+    await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
+
+    api.get.mockClear()
+    const props = bookEditorProps.mock.calls.at(-1)[0]
+    // An unlink reports no new main id.
+    props.onVariantsChanged(null)
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/systems/system-1'))
+  })
+})

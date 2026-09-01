@@ -20,6 +20,14 @@ vi.mock('../../api', () => ({
   },
   // TagPicker loads the tag catalog.
   tags: { list: () => Promise.resolve({ tags: [] }) },
+  // BookVersionsSection renders download links and mutates variants.
+  mediaUrl: (path) => `http://localhost${path}`,
+  duplicates: {
+    link: vi.fn(() => Promise.resolve({})),
+    promote: vi.fn(() => Promise.resolve({})),
+    unlink: vi.fn(() => Promise.resolve({})),
+    deleteItem: vi.fn(() => Promise.resolve({})),
+  },
 }))
 
 // AccessLevelPicker renders only for an admin; most cases here leave this as a
@@ -284,5 +292,67 @@ describe('BookEditor access picker placement', () => {
     renderEditor()
     expect(screen.queryByLabelText('access.pickerLabel')).not.toBeInTheDocument()
     expect(screen.getByText('bookEditor.save')).toBeInTheDocument()
+  })
+})
+
+describe('BookEditor versions section', () => {
+  beforeEach(() => {
+    mockRole = 'admin'
+    mockGet.mockImplementation((path) => {
+      if (path === '/books/book-1') {
+        return Promise.resolve({
+          id: 'book-1',
+          variant_main_id: 'book-1',
+          filename: 'phb.pdf',
+          file_size: 100,
+          variants: [
+            {
+              id: 'b2',
+              kind: 'printer-friendly',
+              label: '',
+              filename: 'phb-pf.pdf',
+              file_size: 50,
+            },
+          ],
+        })
+      }
+      return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+    })
+  })
+
+  it('is absent for a book with a single version', async () => {
+    renderEditor({ book: { variant_count: 0 } })
+    await waitFor(() => expect(screen.getByDisplayValue("Player's Handbook")).toBeInTheDocument())
+    expect(screen.queryByText('phb-pf.pdf')).not.toBeInTheDocument()
+  })
+
+  it('lists the other versions for a book that has them', async () => {
+    renderEditor({ book: { variant_count: 1 } })
+    expect(await screen.findByText('phb-pf.pdf')).toBeInTheDocument()
+    expect(screen.getByText('phb.pdf')).toBeInTheDocument()
+  })
+})
+
+describe('BookEditor field callbacks', () => {
+  beforeEach(() => {
+    mockRole = 'admin'
+  })
+
+  it('edits the URL list', async () => {
+    renderEditor({ book: { urls: [] } })
+    fireEvent.click(await screen.findByText('bookEditor.addUrl'))
+    const urlInputs = screen.getAllByPlaceholderText('bookEditor.urlPlaceholder')
+    fireEvent.change(urlInputs[0], { target: { value: 'https://example.com' } })
+    expect(urlInputs[0]).toHaveValue('https://example.com')
+  })
+
+  it('sends an access level change for an admin', async () => {
+    const onSave = vi.fn()
+    renderEditor({ book: { access_level: null }, onSave })
+    const picker = await screen.findByLabelText('access.pickerLabel')
+    fireEvent.change(picker, { target: { value: 'gm' } })
+    fireEvent.click(screen.getByText('bookEditor.save'))
+    await waitFor(() => expect(mockPatch).toHaveBeenCalled())
+    expect(mockPatch.mock.calls[0][1]).toMatchObject({ access_level: 'gm' })
   })
 })

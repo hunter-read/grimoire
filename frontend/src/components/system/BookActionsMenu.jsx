@@ -20,6 +20,7 @@ import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
 import AddToCampaignModal from '../AddToCampaignModal'
 import VariantMenuItems from './VariantMenuItems'
+import DownloadVariantItems from './DownloadVariantItems'
 
 const MENU_WIDTH = 220
 
@@ -260,19 +261,23 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
               </button>
             )}
 
-            <a
-              role="menuitem"
-              href={mediaUrl(`/books/${book.id}/file`)}
-              download
-              onClick={(e) => {
-                e.stopPropagation()
-                close()
-              }}
-              style={{ ...itemStyle, textDecoration: 'none' }}
-            >
-              <LuDownload size={15} aria-hidden="true" />
-              {t('bookActions.download')}
-            </a>
+            {book.variant_count > 0 ? (
+              <DownloadVariantItems book={book} itemStyle={itemStyle} onPick={close} />
+            ) : (
+              <a
+                role="menuitem"
+                href={mediaUrl(`/books/${book.id}/file`)}
+                download
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                }}
+                style={{ ...itemStyle, textDecoration: 'none' }}
+              >
+                <LuDownload size={15} aria-hidden="true" />
+                {t('bookActions.download')}
+              </a>
+            )}
 
             {hasProgress && (
               <button

@@ -6,6 +6,7 @@ import { formatSize } from '../../utils'
 import LazyImg from '../LazyImg'
 import Tag from '../Tag'
 import { publicationDate } from './bookDetails'
+import BookVersionsSection from './BookVersionsSection'
 
 /**
  * Read-only view of everything Grimoire knows about a book.
@@ -197,6 +198,8 @@ export default function BookDetailsModal({ book, onClose }) {
                 ))}
               </div>
             )}
+
+            <BookVersionsSection book={book} />
           </div>
         </div>
       </div>

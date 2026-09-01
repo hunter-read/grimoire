@@ -2302,7 +2302,17 @@
       "gridded": "Gridded",
       "gridless": "Gridless",
       "other": "Other"
-    }
+    },
+    "downloadVersion": "Download version",
+    "versionsHeading": "Versions ({{count}})",
+    "changeKind": "Change version type",
+    "makeMain": "Make main",
+    "unlink": "Unlink",
+    "deleteVersion": "Delete version",
+    "deleteConfirm": "Delete this version?",
+    "deleteFile": "Delete file",
+    "deleteEntryOnly": "Remove entry only",
+    "missing": "Missing"
   },
   "access": {
     "pickerLabel": "Who can see this",

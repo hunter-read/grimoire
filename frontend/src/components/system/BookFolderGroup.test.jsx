@@ -434,3 +434,22 @@ describe('BookFolderGroup', () => {
     expect(screen.getByTestId('rescan-button')).toBeInTheDocument()
   })
 })
+
+describe('BookFolderGroup details action', () => {
+  beforeEach(() => {
+    FavCtx.useFavorites.mockReturnValue({
+      isFavorite: () => false,
+      toggleFavorite: vi.fn(),
+    })
+  })
+
+  // Regression: this group rendered BookRow directly and never passed
+  // onDetails, so a book inside a subfolder had no "View details" action at all
+  // - and therefore no versions list - while the same book in an ungrouped
+  // category did.
+  it('offers View details for a book inside a subfolder', async () => {
+    render(<BookFolderGroup {...makeProps({ books: [makeBook({ id: 'b1' })] })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    expect(screen.getByRole('menuitem', { name: 'View details' })).toBeInTheDocument()
+  })
+})
