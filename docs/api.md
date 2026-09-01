@@ -638,7 +638,8 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/search?q=` | GET | any | FTS5 full-text search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Global search also matches maps, tokens, and audio by filename/folder/tag (audio additionally matches embedded title/artist/album). |
+| `/api/search?q=` | GET | any | FTS5 full-text search **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, and audio by filename/folder/tag (audio additionally matches embedded title/artist/album). |
+| `/api/search/fields` | GET | any | The `field:` prefixes the search box accepts, with their aliases. Powers the in-app syntax help. |
 
 **Response:**
 ```json
@@ -646,13 +647,65 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
   "query": "fireball",
   "total": 42,
   "results": [{"id": "uuid", "title": "...", "game_system": "...", "page_number": 42, "snippet": "...", "category": "core"}],
-  "maps":    [{"id": "uuid", "filename": "...", "relative_path": "...", "tags": [...]}],
-  "tokens":  [{"id": "uuid", "filename": "...", "relative_path": "...", "tags": [...]}],
-  "audio":   [{"id": "uuid", "filename": "...", "relative_path": "...", "title": "...", "tags": [...]}]
+  "book_matches": [{"id": "uuid", "title": "...", "game_system": "...", "game_system_id": "uuid", "category": "core", "authors": [...], "publisher": "...", "year": 2022, "page_count": 280, "has_thumbnail": true, "tags": [...]}],
+  "maps":    [{"id": "uuid", "filename": "...", "relative_path": "...", "has_thumbnail": true, "tags": [...]}],
+  "tokens":  [{"id": "uuid", "filename": "...", "relative_path": "...", "has_thumbnail": true, "tags": [...]}],
+  "audio":   [{"id": "uuid", "filename": "...", "relative_path": "...", "title": "...", "has_thumbnail": true, "tags": [...]}],
+  "fields":  ["title"]
 }
 ```
 
 `maps` and `tokens` are empty when `book_id` or `system_id` is scoped.
+
+`results` holds **page** hits (one entry per matching page). `book_matches` holds
+**books** matched on their own metadata — title, author, publisher, system,
+category, tags, identifiers — with no page number or snippet, so a plain title
+search answers "do I own this?" without wading through page text. It is empty
+when scoped to a single `book_id`. `fields` echoes the canonical names of the
+`field:` filters the server recognised in `q`.
+
+#### Field-scoped search
+
+A term may be prefixed with a field name to search only that field:
+
+| Field | Aliases | Matches |
+|-------|---------|---------|
+| `title` | `name` | Book titles; map/token filenames; audio track titles |
+| `author` | `authors` | Book authors |
+| `artist` | `artists` | Book artists; audio artist |
+| `publisher` | — | Book publisher |
+| `system` | `game` | Game system name or slug |
+| `category` | — | Book category (`core`, `supplement`, …) |
+| `tag` | `tags` | Tags on books, maps, tokens, and audio |
+| `year` | — | Publication year: `year:2015`, `year:>2015`, `year:<=2020`, `year:2015-2020` |
+| `isbn` | — | Book ISBN |
+| `language` | `lang` | Book language |
+| `description` | `desc` | Book description |
+| `album` | — | Audio album |
+| `filename` | `file` | Filename on disk |
+| `text` | `content`, `page` | Page content (FTS5) |
+
+Rules:
+
+* **A metadata filter suppresses content search.** `title:avatar` searches titles
+  and returns an empty `results`; `text:`/`content:` forces the page-text search
+  back on, and combines with any leftover free text.
+* **Filters are ANDed; repeated values for one field are ORed.**
+  `system:pbta category:core` narrows, `tag:forest tag:swamp` widens.
+* **Quoted phrases** (`author:"Gary Gygax"`, single or double quotes) keep spaces
+  together.
+* **Book-only fields suppress the media sections.** `author:`, `publisher:`,
+  `category:`, `year:`, `isbn:`, `language:`, `description:`, and `text:` cannot
+  describe a map, so `maps`/`tokens`/`audio` come back empty rather than
+  unfiltered.
+* **Unknown prefixes are searched literally.** A colon is ordinary punctuation in
+  a title, so `Vaesen: Nordic Horror` searches for that text rather than erroring.
+
+User input is quoted into FTS5 phrases before it reaches `MATCH`, so punctuation
+that FTS5 reserves as operator syntax (`D&D`, `Edge-of-the-Empire`, an unbalanced
+paren) is searched literally instead of returning a 500. Well-formed boolean
+operators still work — `fireball OR lightning` — while a dangling one
+(`trailing AND`) is treated as a literal term.
 
 **Variants and search:** global and system-scoped search return only variant
 parents, so one book yields one result rather than five. A consequence worth

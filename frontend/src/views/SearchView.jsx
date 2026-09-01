@@ -9,11 +9,14 @@ import {
   LuBookOpen,
   LuChevronDown,
   LuChevronRight,
+  LuInfo,
 } from 'react-icons/lu'
 import api from '../api'
 import Spinner from '../components/Spinner'
 import BookGroup from '../components/search/BookGroup'
+import BookMatchCard from '../components/search/BookMatchCard'
 import ResultCard from '../components/search/ResultCard'
+import SearchHelp from '../components/search/SearchHelp'
 import { sectionHeadStyle, controlStyle } from '../components/search/searchStyles'
 
 export default function SearchView() {
@@ -26,7 +29,10 @@ export default function SearchView() {
   const [collapsed, setCollapsed] = useState({})
   const [systemFilter, setSystemFilter] = useState('')
   const [sortBy, setSortBy] = useState('relevance')
+  const [helpOpen, setHelpOpen] = useState(false)
   const timerRef = useRef(null)
+  const inputRef = useRef(null)
+  const helpButtonRef = useRef(null)
 
   const toggleSection = (key) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
@@ -52,12 +58,21 @@ export default function SearchView() {
     if (initial && initial.length >= 2) doSearch(initial)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleInput = (e) => {
-    const v = e.target.value
+  const runQuery = (v) => {
     setQuery(v)
     setSearchParams(v ? { q: v } : {}, { replace: true })
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => doSearch(v), 350)
+  }
+
+  const handleInput = (e) => runQuery(e.target.value)
+
+  // Clicking an example in the help popover puts it in the box and runs it —
+  // the syntax is learned by seeing its results, not by being told about it.
+  const insertExample = (example) => {
+    runQuery(example)
+    setHelpOpen(false)
+    inputRef.current?.focus()
   }
 
   // Collect distinct game systems from book results for the filter dropdown
@@ -102,7 +117,14 @@ export default function SearchView() {
     return groups
   }, [results, systemFilter, sortBy])
 
+  // Title matches respect the system dropdown too (see the render below), so
+  // the count is computed from the same filtered list rather than the raw one.
+  const matchedBookCount = systemFilter
+    ? (results?.book_matches ?? []).filter((b) => b.game_system_id === systemFilter).length
+    : (results?.book_matches?.length ?? 0)
+
   const totalFiltered =
+    matchedBookCount +
     groupedBooks.reduce((s, g) => s + g.pages.length, 0) +
     (results?.maps?.length ?? 0) +
     (results?.tokens?.length ?? 0) +
@@ -129,10 +151,11 @@ export default function SearchView() {
           onChange={handleInput}
           placeholder={t('search.placeholder')}
           aria-label={t('search.ariaLabel')}
+          ref={inputRef}
           style={{
             width: '100%',
             fontSize: 16,
-            padding: '14px 20px',
+            padding: '14px 76px 14px 20px',
             borderRadius: 10,
             border: '1px solid var(--border)',
             background: 'var(--bg-card)',
@@ -142,18 +165,45 @@ export default function SearchView() {
         <div
           style={{
             position: 'absolute',
-            right: 16,
-            top: '50%',
+            right: 14,
+            top: 'calc(50% - 1px)',
             transform: 'translateY(-50%)',
-            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
           }}
         >
-          {searching ? (
-            <Spinner size={20} />
-          ) : (
-            <LuSearch size={18} style={{ color: 'var(--text-muted)' }} />
-          )}
+          <button
+            ref={helpButtonRef}
+            onClick={() => setHelpOpen((open) => !open)}
+            aria-label={t('search.help.open')}
+            aria-expanded={helpOpen}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              color: helpOpen ? 'var(--gold-dim)' : 'var(--text-muted)',
+            }}
+          >
+            <LuInfo size={18} />
+          </button>
+          <span style={{ display: 'flex', pointerEvents: 'none' }}>
+            {searching ? (
+              <Spinner size={20} />
+            ) : (
+              <LuSearch size={18} style={{ color: 'var(--text-muted)' }} />
+            )}
+          </span>
         </div>
+        {helpOpen && (
+          <SearchHelp
+            onClose={() => setHelpOpen(false)}
+            onInsert={insertExample}
+            triggerRef={helpButtonRef}
+          />
+        )}
       </div>
 
       {results &&
@@ -161,6 +211,11 @@ export default function SearchView() {
           const maps = results.maps ?? []
           const tokens = results.tokens ?? []
           const audio = results.audio ?? []
+          // Title matches respect the system dropdown like the page hits do,
+          // so filtering to one system doesn't leave foreign books pinned on top.
+          const bookMatches = systemFilter
+            ? (results.book_matches ?? []).filter((b) => b.game_system_id === systemFilter)
+            : (results.book_matches ?? [])
 
           return (
             <div>
@@ -208,24 +263,30 @@ export default function SearchView() {
                 )}
               </div>
 
-              {groupedBooks.length > 0 && (
+              {(bookMatches.length > 0 || groupedBooks.length > 0) && (
                 <div style={{ marginBottom: 24 }}>
                   <button onClick={() => toggleSection('books')} style={sectionHeadStyle}>
                     {collapsed.books ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
                     <LuBookOpen size={14} /> {t('search.books')}
                     <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {groupedBooks.length}
+                      {bookMatches.length + groupedBooks.length}
                     </span>
                   </button>
-                  {!collapsed.books &&
-                    groupedBooks.map((group) => (
-                      <BookGroup
-                        key={group.id}
-                        group={group}
-                        collapsed={collapsed}
-                        onToggle={toggleSection}
-                      />
-                    ))}
+                  {!collapsed.books && (
+                    <>
+                      {bookMatches.map((book) => (
+                        <BookMatchCard key={`match-${book.id}`} book={book} />
+                      ))}
+                      {groupedBooks.map((group) => (
+                        <BookGroup
+                          key={group.id}
+                          group={group}
+                          collapsed={collapsed}
+                          onToggle={toggleSection}
+                        />
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -246,6 +307,9 @@ export default function SearchView() {
                         title={m.filename}
                         subtitle={m.relative_path}
                         tags={m.tags}
+                        type="map"
+                        id={m.id}
+                        hasThumbnail={m.has_thumbnail}
                       />
                     ))}
                 </div>
@@ -268,6 +332,9 @@ export default function SearchView() {
                         title={tok.filename}
                         subtitle={tok.relative_path}
                         tags={tok.tags}
+                        type="token"
+                        id={tok.id}
+                        hasThumbnail={tok.has_thumbnail}
                       />
                     ))}
                 </div>
@@ -290,6 +357,9 @@ export default function SearchView() {
                         title={a.title || a.filename}
                         subtitle={a.relative_path}
                         tags={a.tags}
+                        type="audio"
+                        id={a.id}
+                        hasThumbnail={a.has_thumbnail}
                       />
                     ))}
                 </div>

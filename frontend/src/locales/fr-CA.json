@@ -251,7 +251,24 @@
     "groupedBy_other": "{{count}} pages",
     "expandBook": "Développer {{title}}",
     "collapseBook": "Réduire {{title}}",
-    "audio": "Audio"
+    "audio": "Audio",
+    "titleMatch": "Titre",
+    "help": {
+      "open": "Aide sur la syntaxe de recherche",
+      "title": "Syntaxe de recherche",
+      "intro": "Indiquez un champ avant votre recherche pour ne chercher que dans ce champ. Sans champ, Grimoire cherche à la fois dans les titres et le texte des pages.",
+      "note": "Utilisez des guillemets pour les expressions avec espaces. Une recherche par champ ignore le texte des pages ; utilisez text: pour ne chercher que le contenu.",
+      "fields": {
+        "title": "Titres de livres, noms de fichiers de cartes et jetons",
+        "author": "Auteurs du livre",
+        "system": "Nom ou identifiant du système de jeu",
+        "category": "core, supplement, adventure, …",
+        "tag": "Étiquettes sur livres, cartes, jetons, audio",
+        "publisher": "Éditeur",
+        "year": "Année de publication, ou intervalle",
+        "text": "Contenu des pages uniquement"
+      }
+    }
   },
   "favorites": {
     "title": "Favoris",

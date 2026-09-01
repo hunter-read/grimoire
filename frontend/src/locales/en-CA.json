@@ -251,7 +251,24 @@
     "groupedBy_other": "{{count}} pages",
     "expandBook": "Expand {{title}}",
     "collapseBook": "Collapse {{title}}",
-    "audio": "Audio"
+    "audio": "Audio",
+    "titleMatch": "Title",
+    "help": {
+      "open": "Search syntax help",
+      "title": "Search syntax",
+      "intro": "Type a field before your search to look in just that field. Without one, Grimoire searches titles and page text together.",
+      "note": "Use quotes for phrases with spaces. A field search skips page text; use text: to search page content on its own.",
+      "fields": {
+        "title": "Book titles, map and token filenames",
+        "author": "Book authors",
+        "system": "Game system name or slug",
+        "category": "core, supplement, adventure, …",
+        "tag": "Tags on books, maps, tokens, audio",
+        "publisher": "Publisher",
+        "year": "Publication year, or a range",
+        "text": "Page content only"
+      }
+    }
   },
   "favorites": {
     "title": "Favourites",

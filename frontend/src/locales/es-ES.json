@@ -251,7 +251,24 @@
     "groupedBy_other": "{{count}} páginas",
     "expandBook": "Expandir {{title}}",
     "collapseBook": "Contraer {{title}}",
-    "audio": "Audio"
+    "audio": "Audio",
+    "titleMatch": "Título",
+    "help": {
+      "open": "Ayuda de sintaxis de búsqueda",
+      "title": "Sintaxis de búsqueda",
+      "intro": "Escribe un campo antes de tu búsqueda para buscar solo en ese campo. Sin campo, Grimoire busca en títulos y texto de páginas a la vez.",
+      "note": "Usa comillas para frases con espacios. Una búsqueda por campo omite el texto de las páginas; usa text: para buscar solo el contenido.",
+      "fields": {
+        "title": "Títulos de libros, nombres de archivo de mapas y fichas",
+        "author": "Autores del libro",
+        "system": "Nombre o identificador del sistema de juego",
+        "category": "core, supplement, adventure, …",
+        "tag": "Etiquetas en libros, mapas, fichas, audio",
+        "publisher": "Editorial",
+        "year": "Año de publicación, o un intervalo",
+        "text": "Solo contenido de páginas"
+      }
+    }
   },
   "favorites": {
     "title": "Favoritos",

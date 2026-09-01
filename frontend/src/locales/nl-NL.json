@@ -251,7 +251,24 @@
     "groupedBy_other": "{{count}} pagina's",
     "expandBook": "{{title}} uitklappen",
     "collapseBook": "{{title}} inklappen",
-    "audio": "Audio"
+    "audio": "Audio",
+    "titleMatch": "Titel",
+    "help": {
+      "open": "Hulp bij zoeksyntaxis",
+      "title": "Zoeksyntaxis",
+      "intro": "Typ een veld vóór je zoekopdracht om alleen in dat veld te zoeken. Zonder veld doorzoekt Grimoire titels en paginatekst samen.",
+      "note": "Gebruik aanhalingstekens voor zinnen met spaties. Een veldzoekopdracht slaat paginatekst over; gebruik text: om alleen de pagina-inhoud te doorzoeken.",
+      "fields": {
+        "title": "Boektitels, bestandsnamen van kaarten en tokens",
+        "author": "Auteurs van het boek",
+        "system": "Naam of slug van het spelsysteem",
+        "category": "core, supplement, adventure, …",
+        "tag": "Tags op boeken, kaarten, tokens, audio",
+        "publisher": "Uitgever",
+        "year": "Publicatiejaar, of een bereik",
+        "text": "Alleen pagina-inhoud"
+      }
+    }
   },
   "favorites": {
     "title": "Favorieten",

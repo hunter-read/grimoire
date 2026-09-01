@@ -32,7 +32,7 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 ## Features
 
 - **Library Browser** - Organizes your collection by game system with automatic folder detection
-- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps, tokens, and audio by filename, folder, or tag
+- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds books by title, author, or publisher, and maps, tokens, and audio by filename, folder, or tag. Narrow a search to one field with `title:`, `author:`, `tag:` and friends - see [Searching your library](#searching-your-library)
 - **Page-by-Page Viewer** - PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
 - **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download. Image and PDF maps both display in-app; multi-page PDF maps open in a viewer with single-page, two-page spread, and raw-PDF modes
 - **Token Browser** - Browse and tag character tokens and portrait assets
@@ -841,6 +841,60 @@ Removal is deliberately cautious. A system is kept if it still holds any book th
 Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-populated shelf. Every system folder is registered before any book is indexed, so a container's editions all appear as soon as the folder is walked, however early the scan stops - you may be missing *books* until the next full rescan, but never whole systems. Nothing is removed by an interrupted scan either.
 
 ---
+
+## Searching your library
+
+The search box looks in two places at once: the **text inside your books**, and
+the **books, maps, tokens, and audio themselves**. Typing `Avatar` turns up the
+book *Avatar Legends Core Rulebook* at the top of the results - with its cover,
+and no page numbers, because it is the book itself that matched - followed by
+every page that happens to mention the word.
+
+### Searching one field at a time
+
+Put a field name and a colon in front of your search to look in just that field:
+
+```
+title:avatar                 books whose title contains "avatar"
+author:"Gary Gygax"          quotes keep a phrase together
+system:pbta category:core    both must match
+tag:forest tag:swamp         either tag matches
+year:2015-2020               a range; year:>2015 and year:<=2020 also work
+text:fireball                page content only
+```
+
+The full list, with the alternative spellings each one accepts:
+
+| Field | Also accepts | Searches |
+|-------|--------------|----------|
+| `title` | `name` | Book titles, map and token filenames, audio track titles |
+| `author` | `authors` | Book authors |
+| `artist` | `artists` | Book artists, audio artist |
+| `publisher` | | Publisher |
+| `system` | `game` | Game system |
+| `category` | | `core`, `supplement`, `adventure`, … |
+| `tag` | `tags` | Tags on books, maps, tokens, and audio |
+| `year` | | Publication year, or a range |
+| `isbn` | | ISBN |
+| `language` | `lang` | Language |
+| `description` | `desc` | Book description |
+| `album` | | Audio album |
+| `filename` | `file` | The name on disk |
+| `text` | `content`, `page` | Page content |
+
+Three things worth knowing:
+
+- **A field search skips page content.** `title:avatar` looks only at titles, which
+  is the whole point - it is how you check whether you own a book without wading
+  through every page that mentions it. Use `text:` when you want page content back.
+- **Fields combine.** Several different fields all have to match; the same field
+  repeated matches any of its values.
+- **Colons in titles are safe.** Searching `Vaesen: Nordic Horror` looks for that
+  text rather than treating `Vaesen:` as a field, so you never have to think about
+  the syntax unless you want it.
+
+The **(i)** button in the search box lists the fields with examples, and clicking
+an example runs it.
 
 ## Configuration
 
