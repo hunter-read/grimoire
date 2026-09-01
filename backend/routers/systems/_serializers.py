@@ -9,11 +9,18 @@ from ...models import Book, GameSystem
 from .covers import has_cover_file
 
 
-def serialize_book(book: Book, tags: list[str] | None = None) -> dict[str, Any]:
+def serialize_book(
+    book: Book, tags: list[str] | None = None, variant_count: int = 0
+) -> dict[str, Any]:
     """Serialize a Book to the API shape used by the system detail view.
 
     ``tags`` are the book's shared tags (display strings) — pass them in from a
     batch ``tag_service`` lookup so serialization stays a pure, per-row mapping.
+
+    ``variant_count`` is how many other versions collapse into this row, and
+    comes from one batched ``variants.variant_counts`` lookup for the same
+    reason. It drives the "has other versions" badge and every version-aware
+    action in the UI, so a row that omits it silently loses all of them.
     """
     return {
         "id": book.id,
@@ -50,6 +57,7 @@ def serialize_book(book: Book, tags: list[str] | None = None) -> dict[str, Any]:
         "access_level": book.access_level,
         "is_missing": bool(book.is_missing),
         "relative_path": book.relative_path,
+        "variant_count": variant_count,
     }
 
 

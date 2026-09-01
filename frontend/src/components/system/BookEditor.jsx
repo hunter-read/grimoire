@@ -14,6 +14,7 @@ import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 import { ACCESS_INHERIT } from '../../accessLevels'
 import { useAuth } from '../../context/AuthContext'
 import MetadataFetchDialog from './MetadataFetchDialog'
+import BookVersionsSection from './BookVersionsSection'
 import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
 
@@ -24,6 +25,7 @@ export default function BookEditor({
   allTags = [],
   existingCategories = [],
   systemGenres = [],
+  onVariantsChanged,
 }) {
   const { t } = useTranslation()
   // May be null outside an AuthProvider; see AccessLevelPicker.
@@ -295,6 +297,11 @@ export default function BookEditor({
           )}
         </div>
       </div>
+
+      {/* Versions live outside the form: linking, promoting, and deleting apply
+          immediately through their own endpoints rather than waiting on Save,
+          so they must not look like fields the Save button is going to commit. */}
+      <BookVersionsSection book={book} onChanged={onVariantsChanged} />
 
       {/* Buttons stay a plain row anchored bottom-left; nothing else shares it,
           so the pair never shifts as fields above them change height. */}

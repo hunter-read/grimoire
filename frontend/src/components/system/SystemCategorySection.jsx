@@ -65,6 +65,7 @@ export default function SystemCategorySection({
   bulkMode,
   selectedBookIds,
   onToggleBook,
+  onVariantsChanged,
 }) {
   const { t, i18n } = useTranslation()
   const CatIcon = CATEGORY_ICONS[cat] || LuFileText
@@ -100,6 +101,7 @@ export default function SystemCategorySection({
     bulkMode,
     selectedBookIds,
     onToggleBook,
+    onVariantsChanged,
   }
 
   // Build a nested folder tree from relative_path (supports arbitrary depth).

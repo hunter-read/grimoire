@@ -1,7 +1,6 @@
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
 import { toTitleCase } from '../../utils'
-import BookRow from './BookRow'
-import BookEditor from './BookEditor'
+import CategoryBookItem from './CategoryBookItem'
 import RescanButton from '../RescanButton'
 import FolderTagRow from '../media/FolderTagRow'
 import { countBooks, allBooks } from './folderTree'
@@ -53,6 +52,7 @@ export default function BookFolderGroup({
   bulkMode,
   selectedBookIds,
   onToggleBook,
+  onVariantsChanged,
   card,
   compact,
   list,
@@ -92,6 +92,7 @@ export default function BookFolderGroup({
     isEditor,
     onSaveBook,
     onDownload,
+    onVariantsChanged,
     bulkMode,
     selectedBookIds,
     onToggleBook,
@@ -212,38 +213,27 @@ export default function BookFolderGroup({
       {node.books.length > 0 && (
         <div style={containerStyle}>
           {node.books.map((book) => (
-            <div
+            // Same row+editor+details block as the ungrouped layouts. Sharing
+            // CategoryBookItem is what keeps a book in a subfolder from
+            // silently losing the "View details" action.
+            <CategoryBookItem
               key={book.id}
-              style={!list && editingBookId === book.id ? { gridColumn: '1 / -1' } : undefined}
-            >
-              <BookRow
-                book={book}
-                card={card}
-                compact={compact}
-                onEdit={
-                  isEditor
-                    ? () => setEditingBookId((id) => (id === book.id ? null : book.id))
-                    : null
-                }
-                editing={editingBookId === book.id}
-                bulkMode={bulkMode}
-                selected={selectedBookIds?.has(book.id)}
-                onToggle={(mods) => onToggleBook(book.id, mods)}
-              />
-              {editingBookId === book.id && (
-                <BookEditor
-                  book={book}
-                  allTags={allTags}
-                  existingCategories={existingCategories}
-                  systemGenres={systemGenres}
-                  onSave={(updated) => {
-                    onSaveBook(book.id, updated)
-                    setEditingBookId(null)
-                  }}
-                  onClose={() => setEditingBookId(null)}
-                />
-              )}
-            </div>
+              book={book}
+              card={card}
+              compact={compact}
+              list={list}
+              editingBookId={editingBookId}
+              setEditingBookId={setEditingBookId}
+              allTags={allTags}
+              existingCategories={existingCategories}
+              systemGenres={systemGenres}
+              isEditor={isEditor}
+              onSaveBook={onSaveBook}
+              bulkMode={bulkMode}
+              selectedBookIds={selectedBookIds}
+              onToggleBook={onToggleBook}
+              onVariantsChanged={onVariantsChanged}
+            />
           ))}
         </div>
       )}

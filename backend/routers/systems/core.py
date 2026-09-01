@@ -199,6 +199,10 @@ def get_system(
 
     system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
     book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
+    # One grouped query for the page, matching the /books list endpoint: without
+    # this every row reports no other versions and the whole version UI (badge,
+    # download picker, versions editor) stays hidden.
+    vcounts = variants.variant_counts(db, Book, [b.id for b in books])
     summary = serialize_system_summary(
         system,
         book_count=len(books),
@@ -207,7 +211,10 @@ def get_system(
         tags=system_tags,
         child_count=len(children),
     )
-    summary["books"] = [serialize_book(b, tags=book_tags.get(b.id, [])) for b in books]
+    summary["books"] = [
+        serialize_book(b, tags=book_tags.get(b.id, []), variant_count=vcounts.get(b.id, 0))
+        for b in books
+    ]
     summary["children"] = children
     return summary
 

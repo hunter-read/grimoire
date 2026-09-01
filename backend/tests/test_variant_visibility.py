@@ -66,6 +66,26 @@ class TestHidden:
         # The card's count must agree with the number of rows rendered.
         assert body["book_count"] == len(ids)
 
+    def test_system_detail_reports_variant_count(self, client, admin_headers, system, pair):
+        """The system detail rows must carry the badge signal too.
+
+        Regression: this endpoint hid the variant but serialized no
+        variant_count, so every book on the system page reported "no other
+        versions" — which silently disabled the badge, the download version
+        picker, and the versions editor on the one page most likely to show a
+        book that has them.
+        """
+        parent, _ = pair
+        body = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
+        row = next(b for b in body["books"] if b["id"] == parent.id)
+        assert row["variant_count"] == 1
+
+    def test_system_detail_count_is_zero_without_variants(self, client, admin_headers, system):
+        solo = make_book(system_id=system.id, title="Visibility Solo", category="core")
+        body = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
+        row = next(b for b in body["books"] if b["id"] == solo.id)
+        assert row["variant_count"] == 0
+
     def test_systems_list_count(self, client, admin_headers, system, pair):
         body = client.get("/api/systems", headers=admin_headers).json()
         systems = body["systems"] if isinstance(body, dict) else body

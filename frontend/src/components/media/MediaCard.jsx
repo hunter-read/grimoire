@@ -192,6 +192,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             <DownloadButton
               type={config.downloadType}
               id={item.id}
+              item={item}
               style={{ position: 'static', background: 'transparent', width: 28, height: 28 }}
             />
             <FavoriteButton
@@ -233,7 +234,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
     >
       {cardLink}
       {!bulkMode && (
-        <DownloadButton type={config.downloadType} id={item.id} cardHovered={hovered} />
+        <DownloadButton type={config.downloadType} id={item.id} item={item} cardHovered={hovered} />
       )}
       {!bulkMode && <FavoriteButton type={config.type} id={item.id} cardHovered={hovered} />}
       {bulkMode && (

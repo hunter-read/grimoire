@@ -17,6 +17,7 @@ import BookDetailsModal from './BookDetailsModal'
  *   existingCategories – category suggestions passed to BookEditor
  *   isEditor           – whether the current user may edit
  *   onSaveBook         – (bookId, updated) => void
+ *   onVariantsChanged  – (newMainId|null) => void, after a variant link change
  *   bulkMode           – bulk-select mode active
  *   selectedBookIds    – Set of selected book ids
  *   onToggleBook       – (bookId, mods) => void
@@ -36,6 +37,7 @@ export default function CategoryBookItem({
   bulkMode,
   selectedBookIds,
   onToggleBook,
+  onVariantsChanged,
 }) {
   const editing = editingBookId === book.id
   // Read-only metadata view, available to every user (editing is gm/admin only).
@@ -51,7 +53,7 @@ export default function CategoryBookItem({
         onDetails={() => setShowDetails(true)}
         editing={editing}
         bulkMode={bulkMode}
-        selected={selectedBookIds.has(book.id)}
+        selected={selectedBookIds?.has(book.id)}
         onToggle={(mods) => onToggleBook(book.id, mods)}
       />
       {showDetails && <BookDetailsModal book={book} onClose={() => setShowDetails(false)} />}
@@ -65,6 +67,7 @@ export default function CategoryBookItem({
             onSaveBook(book.id, updated)
             setEditingBookId(null)
           }}
+          onVariantsChanged={onVariantsChanged}
           onClose={() => setEditingBookId(null)}
         />
       )}

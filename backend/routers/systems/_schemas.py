@@ -11,6 +11,7 @@ from .._json_list_coercion import (
     coerce_publisher_list,
     coerce_str_list,
 )
+from .._variant_schemas import VariantCountMixin
 
 
 class PublisherEntry(BaseModel):
@@ -138,8 +139,12 @@ GameSystemBulkUpdate = bulk_update_model(GameSystemUpdate, "GameSystem")
 # them strictly would make response_model validation raise on legacy rows.
 
 
-class BookOut(BaseModel):
-    """One book, as built by `_serializers.serialize_book`."""
+class BookOut(VariantCountMixin, BaseModel):
+    """One book, as built by `_serializers.serialize_book`.
+
+    The variant count comes from the mixin, so this row carries the same
+    "has other versions" signal as the /books list rows do.
+    """
 
     id: str
     # `title`/`filename`/`relative_path` are NOT NULL on the model.

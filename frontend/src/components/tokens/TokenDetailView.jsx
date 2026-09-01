@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuDownload, LuInfo, LuChevronDown } from 'react-icons/lu'
+import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
@@ -15,6 +15,7 @@ import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import VariantPicker from '../VariantPicker'
+import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
@@ -187,24 +188,7 @@ export default function TokenDetailView() {
         )}
         <VariantPicker item={token} detailPath={(id) => `/tokens/${id}`} compact />
         <AddToCampaignButton resourceType="token" resourceId={tokenId} />
-        <a
-          href={mediaUrl(`/tokens/${tokenId}/file`)}
-          download
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-dim)',
-            borderRadius: 4,
-            padding: '4px 12px',
-            fontSize: 14,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            textDecoration: 'none',
-          }}
-        >
-          <LuDownload size={13} /> {!isMobilePhone && t('common.download')}
-        </a>
+        <DownloadVersionButton type="tokens" id={tokenId} item={token} compact={isMobilePhone} />
       </div>
 
       {/* Body */}

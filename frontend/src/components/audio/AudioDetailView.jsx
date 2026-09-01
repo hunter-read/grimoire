@@ -1,14 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  LuArrowLeft,
-  LuDownload,
-  LuInfo,
-  LuChevronDown,
-  LuMusic,
-  LuImagePlus,
-} from 'react-icons/lu'
+import { LuArrowLeft, LuInfo, LuChevronDown, LuMusic, LuImagePlus } from 'react-icons/lu'
 import api, { imageSources, mediaUrl } from '../../api'
 import ImagePickerModal from '../images/ImagePickerModal'
 import { useAuth } from '../../context/AuthContext'
@@ -17,6 +10,7 @@ import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import VariantPicker from '../VariantPicker'
+import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
@@ -156,24 +150,7 @@ export default function AudioDetailView() {
         )}
         <VariantPicker item={track} detailPath={(id) => `/audio/${id}`} compact />
         <AddToCampaignButton resourceType="audio" resourceId={audioId} />
-        <a
-          href={mediaUrl(`/audio/${audioId}/file`)}
-          download
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-dim)',
-            borderRadius: 4,
-            padding: '4px 12px',
-            fontSize: 14,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            textDecoration: 'none',
-          }}
-        >
-          <LuDownload size={13} /> {!isMobilePhone && t('common.download')}
-        </a>
+        <DownloadVersionButton type="audio" id={audioId} item={track} compact={isMobilePhone} />
       </div>
 
       {/* Body */}
