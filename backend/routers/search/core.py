@@ -9,6 +9,8 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Book, GameSystem
 from ...services import access_control
+from ._books import search_book_metadata
+from ._query import FIELD_ALIASES, parse_query
 from ._helpers import (
     SNIPPET_SQL,
     access_clause,
@@ -43,57 +45,69 @@ def search_library(
     user = access_control.load_user(db, current_user)
     excluded = access_control.restricted_book_ids(db, user)
     access_sql, access_params = access_clause(excluded)
-    if book_id:
-        sql = text(
-            f"""
-            SELECT book_id, page_number,
-                   {SNIPPET_SQL} as snippet,
-                   rank
-            FROM book_search
-            WHERE content MATCH :query AND book_id = :book_id
-              {access_sql}
-            ORDER BY rank
-            LIMIT :limit
-        """
-        )
-        rows = db.execute(
-            sql, {"query": q, "book_id": book_id, "limit": limit, **access_params}
-        ).fetchall()
-    elif system_id:
-        sql = text(
-            f"""
-            SELECT book_id, page_number,
-                   {SNIPPET_SQL} as snippet,
-                   rank
-            FROM book_search
-            WHERE content MATCH :query
-              AND book_id IN (
-                  SELECT id FROM books
-                  WHERE game_system_id = :system_id AND variant_parent_id IS NULL
-              )
-              {access_sql}
-            ORDER BY rank
-            LIMIT :limit
-        """
-        )
-        rows = db.execute(
-            sql, {"query": q, "system_id": system_id, "limit": limit, **access_params}
-        ).fetchall()
-    else:
-        sql = text(
-            f"""
-            SELECT book_id, page_number,
-                   {SNIPPET_SQL} as snippet,
-                   rank
-            FROM book_search
-            WHERE content MATCH :query
-              AND {VISIBLE_BOOKS_SQL}
-              {access_sql}
-            ORDER BY rank
-            LIMIT :limit
-        """
-        )
-        rows = db.execute(sql, {"query": q, "limit": limit, **access_params}).fetchall()
+
+    # Field-scoped query syntax (issue #343). ``title:avatar`` searches book
+    # titles and stops there; a bare query still searches page text, but now
+    # matches titles alongside it so "do I own this?" is answerable from the
+    # global search box.
+    parsed = parse_query(q)
+    content_q = parsed.content_query
+
+    rows = []
+    if content_q:
+        if book_id:
+            sql = text(
+                f"""
+                SELECT book_id, page_number,
+                       {SNIPPET_SQL} as snippet,
+                       rank
+                FROM book_search
+                WHERE content MATCH :query AND book_id = :book_id
+                  {access_sql}
+                ORDER BY rank
+                LIMIT :limit
+            """
+            )
+            rows = db.execute(
+                sql, {"query": content_q, "book_id": book_id, "limit": limit, **access_params}
+            ).fetchall()
+        elif system_id:
+            sql = text(
+                f"""
+                SELECT book_id, page_number,
+                       {SNIPPET_SQL} as snippet,
+                       rank
+                FROM book_search
+                WHERE content MATCH :query
+                  AND book_id IN (
+                      SELECT id FROM books
+                      WHERE game_system_id = :system_id AND variant_parent_id IS NULL
+                  )
+                  {access_sql}
+                ORDER BY rank
+                LIMIT :limit
+            """
+            )
+            rows = db.execute(
+                sql, {"query": content_q, "system_id": system_id, "limit": limit, **access_params}
+            ).fetchall()
+        else:
+            sql = text(
+                f"""
+                SELECT book_id, page_number,
+                       {SNIPPET_SQL} as snippet,
+                       rank
+                FROM book_search
+                WHERE content MATCH :query
+                  AND {VISIBLE_BOOKS_SQL}
+                  {access_sql}
+                ORDER BY rank
+                LIMIT :limit
+            """
+            )
+            rows = db.execute(
+                sql, {"query": content_q, "limit": limit, **access_params}
+            ).fetchall()
 
     enriched = []
     book_cache = {}
@@ -129,19 +143,50 @@ def search_library(
     for r in enriched:
         del r["_rank"]
 
+    # Books whose own title/metadata match, returned separately so the client can
+    # pin them above the page hits. Scoped to one book_id there is nothing to
+    # pin — the user is already inside that book — so the lookup is skipped.
+    book_matches = []
+    if not book_id:
+        book_matches = search_book_metadata(db, parsed, user, system_id=system_id)
+
     maps = []
     tokens = []
     audio = []
     if not book_id and not system_id:
-        maps = _search_maps(db, q)
-        tokens = _search_tokens(db, q)
-        audio = _search_audio(db, q)
+        maps = _search_maps(db, parsed)
+        tokens = _search_tokens(db, parsed)
+        audio = _search_audio(db, parsed)
 
     return {
         "query": q,
-        "total": len(enriched) + len(maps) + len(tokens) + len(audio),
+        # Counts every distinct thing shown. A book matching by title *and* by
+        # page text is one row in book_matches plus its page hits; both are
+        # displayed, so both are counted.
+        "total": len(enriched) + len(book_matches) + len(maps) + len(tokens) + len(audio),
         "results": enriched,
+        "book_matches": book_matches,
         "maps": maps,
         "tokens": tokens,
         "audio": audio,
+        # Echoed back so the client can show what it understood and, when a
+        # filter is active, explain why the content section is empty.
+        "fields": sorted(parsed.filters.keys()),
+    }
+
+
+def search_fields():
+    """The field prefixes the search box accepts, for the in-app help popover.
+
+    Served from the same table the parser uses, so the documented list cannot
+    drift from the implemented one.
+    """
+    canonical: dict[str, list[str]] = {}
+    for alias, field_name in FIELD_ALIASES.items():
+        canonical.setdefault(field_name, []).append(alias)
+    return {
+        "fields": [
+            {"field": name, "aliases": sorted(a for a in aliases if a != name)}
+            for name, aliases in sorted(canonical.items())
+        ]
     }

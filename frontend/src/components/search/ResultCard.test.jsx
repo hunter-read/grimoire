@@ -42,7 +42,9 @@ describe('ResultCard', () => {
 
   it('highlights on hover and restores the base background on leave', async () => {
     renderCard({ to: '/maps/5', title: 'tavern.jpg', subtitle: 'Maps' })
-    const card = screen.getByText('tavern.jpg').parentElement
+    // The card is the element carrying the hover handlers, not a fixed number
+    // of parents up — the row gained a thumbnail column in issue #343.
+    const card = screen.getByText('tavern.jpg').closest('div[style*="border-radius"]')
 
     await userEvent.hover(card)
     expect(card.style.background).toBe('var(--bg-card-hover)')

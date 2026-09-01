@@ -251,7 +251,24 @@
     "groupedBy_other": "{{count}} Seiten",
     "expandBook": "{{title}} ausklappen",
     "collapseBook": "{{title}} einklappen",
-    "audio": "Audio"
+    "audio": "Audio",
+    "titleMatch": "Titel",
+    "help": {
+      "open": "Hilfe zur Suchsyntax",
+      "title": "Suchsyntax",
+      "intro": "Gib ein Feld vor deiner Suche an, um nur in diesem Feld zu suchen. Ohne Feld durchsucht Grimoire Titel und Seitentext zusammen.",
+      "note": "Verwende Anführungszeichen für Ausdrücke mit Leerzeichen. Eine Feldsuche überspringt den Seitentext; nutze text:, um nur den Seiteninhalt zu durchsuchen.",
+      "fields": {
+        "title": "Buchtitel, Karten- und Token-Dateinamen",
+        "author": "Buchautoren",
+        "system": "Name oder Kürzel des Spielsystems",
+        "category": "core, supplement, adventure, …",
+        "tag": "Tags an Büchern, Karten, Tokens, Audio",
+        "publisher": "Verlag",
+        "year": "Erscheinungsjahr oder Zeitraum",
+        "text": "Nur Seiteninhalt"
+      }
+    }
   },
   "favorites": {
     "title": "Favoriten",

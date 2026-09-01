@@ -5,8 +5,19 @@ import { MemoryRouter } from 'react-router-dom'
 import SearchView from './SearchView'
 import api from '../api'
 
+// Result rows render thumbnails via the named `imageSources` export, so the
+// mock has to provide it alongside the default client.
 vi.mock('../api', () => ({
   default: { get: vi.fn() },
+  imageSources: {
+    thumbUrl: (type, id) =>
+      ({
+        book: `/api/books/${id}/thumbnail`,
+        map: `/api/maps/${id}/thumbnail`,
+        token: `/api/tokens/${id}/thumbnail`,
+        audio: `/api/audio/${id}/artwork`,
+      })[type] ?? null,
+  },
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -28,14 +39,33 @@ function makeBookResult(overrides = {}) {
   }
 }
 
-function makeResponse(books = [], maps = [], tokens = [], audio = []) {
+function makeResponse(books = [], maps = [], tokens = [], audio = [], bookMatches = []) {
   return {
     query: 'fireball',
-    total: books.length + maps.length + tokens.length + audio.length,
+    total: books.length + maps.length + tokens.length + audio.length + bookMatches.length,
     results: books,
+    book_matches: bookMatches,
     maps,
     tokens,
     audio,
+    fields: [],
+  }
+}
+
+function makeBookMatch(overrides = {}) {
+  return {
+    id: 'match-1',
+    title: 'Avatar Legends Core Rulebook',
+    game_system: 'PbtA',
+    game_system_id: 'sys-1',
+    category: 'core',
+    authors: ['Magpie Games'],
+    publisher: 'Magpie Games',
+    year: 2022,
+    page_count: 280,
+    has_thumbnail: false,
+    tags: [],
+    ...overrides,
   }
 }
 
@@ -370,5 +400,154 @@ describe('SearchView — URL query param persistence', () => {
       </MemoryRouter>
     )
     expect(api.get).not.toHaveBeenCalled()
+  })
+
+  // --- Field-scoped search and pinned title matches (issue #343) ---
+
+  describe('book title matches', () => {
+    it('pins a title match above the page hits', async () => {
+      api.get.mockResolvedValue(
+        makeResponse(
+          [makeBookResult({ id: 'page-book', title: 'Monster Manual' })],
+          [],
+          [],
+          [],
+          [makeBookMatch()]
+        )
+      )
+      render(
+        <MemoryRouter initialEntries={['/search?q=avatar']}>
+          <SearchView />
+        </MemoryRouter>
+      )
+      await waitFor(() =>
+        expect(screen.getByText('Avatar Legends Core Rulebook')).toBeInTheDocument()
+      )
+      // The pinned match renders before the page-hit group in document order.
+      const pinned = screen.getByText('Avatar Legends Core Rulebook')
+      const grouped = screen.getByText('Monster Manual')
+      expect(pinned.compareDocumentPosition(grouped)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+
+    it('links a title match straight to the book', async () => {
+      api.get.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
+      render(
+        <MemoryRouter initialEntries={['/search?q=avatar']}>
+          <SearchView />
+        </MemoryRouter>
+      )
+      await waitFor(() =>
+        expect(
+          screen.getByRole('link', { name: 'Avatar Legends Core Rulebook' })
+        ).toBeInTheDocument()
+      )
+      expect(
+        screen.getByRole('link', { name: 'Avatar Legends Core Rulebook' }).getAttribute('href')
+      ).toBe('/library/book/match-1')
+    })
+
+    it('shows the books section for a title match even with no page hits at all', async () => {
+      api.get.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
+      render(
+        <MemoryRouter initialEntries={['/search?q=title%3Aavatar']}>
+          <SearchView />
+        </MemoryRouter>
+      )
+      await waitFor(() =>
+        expect(screen.getByText('Avatar Legends Core Rulebook')).toBeInTheDocument()
+      )
+      expect(screen.queryByText(/no results found/i)).toBeNull()
+    })
+
+    it('counts pinned matches in the result total', async () => {
+      api.get.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
+      render(
+        <MemoryRouter initialEntries={['/search?q=avatar']}>
+          <SearchView />
+        </MemoryRouter>
+      )
+      await waitFor(() => expect(screen.getByText(/1 result/i)).toBeInTheDocument())
+    })
+
+    it('hides a pinned match that the system filter excludes', async () => {
+      api.get.mockResolvedValue(
+        makeResponse(
+          [
+            makeBookResult({ id: 'p1', game_system_id: 'sys-1', game_system: 'PbtA' }),
+            makeBookResult({ id: 'p2', game_system_id: 'sys-2', game_system: 'D&D 5e' }),
+          ],
+          [],
+          [],
+          [],
+          [makeBookMatch({ game_system_id: 'sys-2' })]
+        )
+      )
+      render(
+        <MemoryRouter initialEntries={['/search?q=avatar']}>
+          <SearchView />
+        </MemoryRouter>
+      )
+      await waitFor(() =>
+        expect(screen.getByText('Avatar Legends Core Rulebook')).toBeInTheDocument()
+      )
+      await userEvent.selectOptions(screen.getByLabelText(/game system/i), 'sys-1')
+      expect(screen.queryByText('Avatar Legends Core Rulebook')).toBeNull()
+    })
+  })
+
+  describe('search syntax help', () => {
+    it('opens the help popover from the info button', async () => {
+      renderView()
+      await userEvent.click(screen.getByRole('button', { name: /search syntax help/i }))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('runs the clicked example as a search and closes the popover', async () => {
+      api.get.mockResolvedValue(makeResponse())
+      renderView()
+      await userEvent.click(screen.getByRole('button', { name: /search syntax help/i }))
+      await userEvent.click(screen.getByText('title:avatar'))
+
+      expect(screen.getByRole('textbox').value).toBe('title:avatar')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      await waitFor(() =>
+        expect(api.get).toHaveBeenCalledWith(expect.stringContaining('title%3Aavatar'))
+      )
+    })
+
+    it('toggles closed when the info button is pressed again', async () => {
+      renderView()
+      const info = screen.getByRole('button', { name: /search syntax help/i })
+      await userEvent.click(info)
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      await userEvent.click(info)
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+
+  describe('result thumbnails', () => {
+    it('shows a map thumbnail on its result row', async () => {
+      api.get.mockResolvedValue(
+        makeResponse(
+          [],
+          [
+            {
+              id: 'm1',
+              filename: 'tavern.jpg',
+              relative_path: 'maps/tavern.jpg',
+              tags: [],
+              has_thumbnail: true,
+            },
+          ]
+        )
+      )
+      const { container } = render(
+        <MemoryRouter initialEntries={['/search?q=tavern']}>
+          <SearchView />
+        </MemoryRouter>
+      )
+      await waitFor(() => expect(screen.getByText('tavern.jpg')).toBeInTheDocument())
+      expect(container.querySelector('img')?.getAttribute('src')).toContain('/maps/m1/thumbnail')
+    })
   })
 })
