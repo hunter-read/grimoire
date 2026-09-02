@@ -5,6 +5,8 @@ folder-name category map, archive MIME table, and metadata modes — all the
 module-level constants the indexer submodules share.
 """
 import multiprocessing
+from pathlib import Path
+from typing import Optional
 
 _FITZ_TIMEOUT = 30  # seconds — files that can't be opened in 30s are unreadable
 _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
@@ -181,6 +183,21 @@ VTT_DATA_EXTS = {".uvtt", ".dd2vtt"}
 # Map-tree extensions that cannot produce a thumbnail from the file itself.
 MAP_OPAQUE_EXTS = MAP_VIDEO_EXTS | VTT_DATA_EXTS
 MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS | MAP_OPAQUE_EXTS
+
+# Browser-playable MIME types for the animated battlemap formats. Used when
+# serving the file so <video> gets a type it will actually decode rather than
+# the "image/webm" that a naive f"image/{ext}" would produce.
+MAP_VIDEO_MIME = {".webm": "video/webm", ".mp4": "video/mp4"}
+
+
+def map_video_mime(ext: str) -> Optional[str]:
+    """MIME type for an animated map extension, or None if it is not a video."""
+    return MAP_VIDEO_MIME.get(ext.lower())
+
+
+def is_vtt_data(filename: str) -> bool:
+    """True for a Universal VTT export (.uvtt/.dd2vtt) — a JSON envelope."""
+    return Path(filename).suffix.lower() in VTT_DATA_EXTS
 AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
 # Archive files shown alongside books in a category and served/bundled as opaque
 # blobs (their contents are not extracted during the scan).  Comic-book variants

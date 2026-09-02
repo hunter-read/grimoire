@@ -12,6 +12,8 @@ from .core import (
     serve_map_file,
     serve_map_page,
     serve_map_thumbnail,
+    serve_map_vtt_image,
+    get_map_vtt_data,
     update_map,
     bulk_update_maps,
     bulk_add_map_tags,
@@ -22,6 +24,7 @@ from ._schemas import (
     MapFoldersResponse,
     MapListResponse,
     StatusResponse,
+    VttDataResponse,
 )
 
 router = APIRouter(tags=["maps"])
@@ -77,6 +80,29 @@ router.add_api_route(
     methods=["GET"],
     summary="Render a map page",
     description="Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1. Accepts `?token=` for browser-embedded images.",
+)
+router.add_api_route(
+    "/maps/{map_id}/vtt/image",
+    serve_map_vtt_image,
+    methods=["GET"],
+    summary="Universal VTT map image",
+    description=(
+        "Decodes and streams the base64 battlemap image embedded in a `.uvtt`/`.dd2vtt` "
+        "file, so the browser never downloads the base64 envelope. 400 if the map is not "
+        "a Universal VTT file or carries no image."
+    ),
+)
+router.add_api_route(
+    "/maps/{map_id}/vtt/data",
+    get_map_vtt_data,
+    methods=["GET"],
+    summary="Universal VTT grid and feature data",
+    description=(
+        "Returns the grid resolution and wall/portal/light counts parsed from a "
+        "`.uvtt`/`.dd2vtt` file, with the embedded image omitted. 400 if the map is not "
+        "a Universal VTT file."
+    ),
+    response_model=VttDataResponse,
 )
 router.add_api_route(
     "/maps/{map_id}/thumbnail",

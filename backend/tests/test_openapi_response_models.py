@@ -34,6 +34,8 @@ UNTYPED_BY_DESIGN = {
     "/api/maps/{map_id}/file",
     "/api/maps/{map_id}/page/{page_num}",
     "/api/maps/{map_id}/thumbnail",
+    # Streams the battlemap image decoded out of a Universal VTT envelope.
+    "/api/maps/{map_id}/vtt/image",
     "/api/systems/{system_id}/cover",
     "/api/tokens/{token_id}/file",
     "/api/tokens/{token_id}/thumbnail",

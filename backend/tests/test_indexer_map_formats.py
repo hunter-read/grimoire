@@ -3,7 +3,8 @@
 CzePeku and similar publishers ship looping video variants (.webm/.mp4) and
 Universal VTT exports (.uvtt) alongside the still images. These are registered
 as maps so they are visible and downloadable, but are opaque to the
-thumbnailer - there is no still frame to render without a video decoder.
+thumbnailer - there is no still frame to render without a video decoder. Universal
+VTT files do get one: the battlemap is embedded in the JSON as base64.
 """
 from __future__ import annotations
 
@@ -123,7 +124,7 @@ class TestMapFormatScan:
         assert m is not None
         assert m.has_thumbnail is False
 
-    def test_uvtt_registered_without_thumbnail(self):
+    def test_uvtt_without_an_image_registers_without_thumbnail(self):
         name = f"walls_{os.path.basename(self.tmp)}.uvtt"
         (self.map_dir / name).write_text('{"format": 0.3, "image": ""}')
         self._scan()
@@ -131,6 +132,25 @@ class TestMapFormatScan:
         m = self._get_map(name)
         assert m is not None
         assert m.has_thumbnail is False
+
+    def test_uvtt_with_an_image_gets_a_thumbnail(self):
+        # Unlike a video, the battlemap is right there in the JSON as base64, so
+        # a real cover is generated with no extra decoder.
+        import base64
+        import io as _io
+        import json as _json
+
+        buf = _io.BytesIO()
+        Image.new("RGB", (200, 150), (10, 90, 40)).save(buf, "PNG")
+        name = f"tavern_{os.path.basename(self.tmp)}.uvtt"
+        (self.map_dir / name).write_text(
+            _json.dumps({"format": 0.3, "image": base64.b64encode(buf.getvalue()).decode()})
+        )
+        self._scan()
+
+        m = self._get_map(name)
+        assert m is not None
+        assert m.has_thumbnail is True
 
     def test_still_image_alongside_still_thumbnails(self):
         # The opaque formats must not regress normal image handling.

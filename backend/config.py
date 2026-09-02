@@ -159,6 +159,15 @@ PAGE_CACHE_MAX_MB = _read_page_cache_max_mb()
 # Replacing the file changes the token and therefore the URL.
 _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 
+# Original media files (a 50MB battlemap, an animated .webm) are served straight
+# off disk at their full size, and unlike rendered pages their URL is not
+# content-addressed — replacing the file on disk reuses the same URL. So they
+# get a short private TTL rather than "immutable": long enough that paging back
+# and forth through a folder does not re-download what was just fetched, short
+# enough that a replaced file shows up quickly and the browser cache is not
+# holding hundreds of megabytes of originals.
+_MEDIA_FILE_CACHE_HEADERS = {"Cache-Control": "private, max-age=300"}
+
 # Optional override for password authentication. When the env var is set,
 # it pins the value and the admin UI shows a read-only state. When unset,
 # the corresponding DB setting (password_auth_enabled) is used.

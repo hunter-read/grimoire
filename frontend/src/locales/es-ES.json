@@ -507,7 +507,15 @@
       "folderTags": "Etiquetas de carpeta",
       "mapTags": "Etiquetas del mapa",
       "editTags": "Editar",
-      "noTags": "Ninguna"
+      "noTags": "Ninguna",
+      "loading": "Cargando mapa…",
+      "loadFailed": "No se pudo cargar este mapa.",
+      "videoFailed": "No se pudo reproducir este mapa animado.",
+      "vttFailed": "No se pudo leer este archivo Universal VTT.",
+      "vttTitle": "Universal VTT",
+      "vttWalls": "Muros",
+      "vttPortals": "Puertas y portales",
+      "vttLights": "Luces"
     }
   },
   "tokens": {

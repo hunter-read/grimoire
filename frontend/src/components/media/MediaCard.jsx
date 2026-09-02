@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuCheck } from 'react-icons/lu'
+import { LuCheck, LuFileVideo } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
@@ -57,6 +57,12 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
 
   // Which item field signals an available thumbnail/artwork (audio uses artwork).
   const hasThumbnail = item[config.thumbnailFlag || 'has_thumbnail']
+
+  // Animated maps (.webm/.mp4) never get a thumbnail — extracting a frame needs
+  // a video decoder the image deliberately does not ship — so the placeholder
+  // icon says "video" rather than falling back to the generic map pin.
+  const isVideoItem = /\.(webm|mp4)$/i.test(item.filename || '')
+  const PlaceholderIcon = isVideoItem ? LuFileVideo : Icon
 
   // Track ref for the global audio player (audio gallery only). Archives in the
   // audio tree (issue #250) are opaque blobs with nothing to play.
@@ -131,7 +137,13 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
-            <Icon size={18} color="var(--text-muted)" aria-hidden="true" style={{ opacity: 0.4 }} />
+            <PlaceholderIcon
+              size={18}
+              color="var(--text-muted)"
+              aria-hidden="true"
+              data-testid={isVideoItem ? 'video-placeholder' : 'media-placeholder'}
+              style={{ opacity: 0.4 }}
+            />
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -279,7 +291,13 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
-          <Icon size={32} color="var(--text-muted)" aria-hidden="true" style={{ opacity: 0.4 }} />
+          <PlaceholderIcon
+            size={32}
+            color="var(--text-muted)"
+            aria-hidden="true"
+            data-testid={isVideoItem ? 'video-placeholder' : 'media-placeholder'}
+            style={{ opacity: 0.4 }}
+          />
         )}
         {isAudio && !item.is_missing && (
           <div

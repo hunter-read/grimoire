@@ -34,6 +34,35 @@ vi.mock('./MapPdfViewer', () => ({
     <div data-testid="pdf-viewer">{`pdf:${mapId}:${totalPages}`}</div>
   ),
 }))
+vi.mock('./MapImagePane', () => ({
+  default: ({ mapId }) => <div data-testid="image-pane">{`image:${mapId}`}</div>,
+}))
+vi.mock('./MapVideoPane', () => ({
+  default: ({ mapId }) => <div data-testid="video-pane">{`video:${mapId}`}</div>,
+}))
+vi.mock('./MapVttPane', () => ({
+  default: ({ mapId, onData }) => (
+    <div data-testid="vtt-pane">
+      {`vtt:${mapId}`}
+      <button
+        data-testid="emit-vtt"
+        onClick={() =>
+          onData({
+            grid_width: 20,
+            grid_height: 16,
+            pixels_per_grid: 100,
+            wall_count: 10,
+            object_wall_count: 2,
+            portal_count: 3,
+            light_count: 4,
+          })
+        }
+      >
+        emit
+      </button>
+    </div>
+  ),
+}))
 
 // Three maps in the same folder, sorted by filename: m1, m2, m3.
 const SIBLINGS = [
@@ -165,12 +194,12 @@ describe('MapDetailView', () => {
     expect(document.querySelector('img')).toBeNull()
   })
 
-  it('renders an <img> (not the PDF viewer) for a raster map', async () => {
+  it('renders the image pane (not the PDF viewer) for a raster map', async () => {
     mockApi('m2')
     render(<MapDetailView />)
     await waitFor(() => expect(screen.getByText('m2.png')).toBeInTheDocument())
     expect(screen.queryByTestId('pdf-viewer')).toBeNull()
-    expect(document.querySelector('img')).toBeInTheDocument()
+    expect(screen.getByTestId('image-pane')).toBeInTheDocument()
   })
 
   it('renders the archive placeholder (no viewer) for an archive map', async () => {
@@ -199,5 +228,41 @@ describe('MapDetailView', () => {
     await userEvent.click(screen.getByText('edit-Folder Tags'))
     await userEvent.click(screen.getByTestId('save-tags'))
     expect(api.patch).toHaveBeenCalledWith('/map-folders', { path: 'Dungeons', tags: ['new'] })
+  })
+
+  // Issue: viewer support for animated maps and Universal VTT files.
+  describe('format routing', () => {
+    it('mounts the image pane for a raster map', async () => {
+      mockApi('m2', { media_kind: 'image' })
+      render(<MapDetailView />)
+      await waitFor(() => expect(screen.getByTestId('image-pane')).toBeInTheDocument())
+    })
+
+    it('mounts the video pane for an animated map', async () => {
+      mockApi('m2', { media_kind: 'video', filename: 'storm.webm' })
+      render(<MapDetailView />)
+      await waitFor(() => expect(screen.getByTestId('video-pane')).toBeInTheDocument())
+      expect(screen.queryByTestId('image-pane')).toBeNull()
+    })
+
+    it('mounts the VTT pane and shows its wall/portal/light counts', async () => {
+      mockApi('m2', { media_kind: 'vtt', filename: 'tavern.uvtt' })
+      render(<MapDetailView />)
+      await waitFor(() => expect(screen.getByTestId('vtt-pane')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByTestId('emit-vtt'))
+
+      // Walls are the sum of line_of_sight and objects_line_of_sight.
+      await waitFor(() => expect(screen.getByText('12')).toBeInTheDocument())
+      expect(screen.getByText('3')).toBeInTheDocument()
+      expect(screen.getByText('4')).toBeInTheDocument()
+    })
+
+    it('prefers the PDF viewer over the image pane for a PDF map', async () => {
+      mockApi('m2', { is_pdf: true, page_count: 3 })
+      render(<MapDetailView />)
+      await waitFor(() => expect(screen.getByTestId('pdf-viewer')).toBeInTheDocument())
+      expect(screen.queryByTestId('image-pane')).toBeNull()
+    })
   })
 })

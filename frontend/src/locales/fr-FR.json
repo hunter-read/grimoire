@@ -507,7 +507,15 @@
       "folderTags": "Étiquettes du dossier",
       "mapTags": "Étiquettes de la carte",
       "editTags": "Modifier",
-      "noTags": "Aucune"
+      "noTags": "Aucune",
+      "loading": "Chargement de la carte…",
+      "loadFailed": "Cette carte n'a pas pu être chargée.",
+      "videoFailed": "Cette carte animée n'a pas pu être lue.",
+      "vttFailed": "Ce fichier Universal VTT n'a pas pu être lu.",
+      "vttTitle": "Universal VTT",
+      "vttWalls": "Murs",
+      "vttPortals": "Portes et portails",
+      "vttLights": "Lumières"
     }
   },
   "tokens": {

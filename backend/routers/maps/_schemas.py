@@ -102,6 +102,9 @@ class MapDetailResponse(VariantFamilyMixin):
     grid: Optional[MapGrid] = None
     is_pdf: bool
     page_count: Optional[int] = None
+    # Which viewer to mount: "image" (raster), "video" (.webm/.mp4),
+    # "vtt" (.uvtt/.dd2vtt), or "archive".
+    media_kind: str = "image"
 
 
 class FolderTagsOut(BaseModel):
@@ -121,3 +124,21 @@ class MapFoldersResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str
+
+
+class VttDataResponse(BaseModel):
+    """Parsed Universal VTT metadata (`GET /maps/{id}/vtt/data`).
+
+    Every field is Optional/defaulted: exporters differ in which keys they write,
+    and a file may legitimately have no lights, portals, or walls.
+    """
+
+    format: Optional[float] = None
+    pixels_per_grid: Optional[int] = None
+    grid_width: Optional[float] = None
+    grid_height: Optional[float] = None
+    wall_count: int = 0
+    object_wall_count: int = 0
+    portal_count: int = 0
+    light_count: int = 0
+    has_image: bool = False
