@@ -9,14 +9,30 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse, StreamingResponse
 
-from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
+from ...config import (
+    _MEDIA_FILE_CACHE_HEADERS,
+    _PAGE_CACHE_HEADERS,
+    THUMB_DIR,
+    get_db,
+    logger,
+)
 from ...models import GenericMap, MapFolder
 from ...services import bulk_service, tag_service, variants
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
-from ...indexer import archive_ext, archive_mime, slugify
+from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access
-from ._helpers import _is_pdf, _map_image_info, render_map_pdf_page
+from ._helpers import (
+    _VTT_MIME,
+    _is_pdf,
+    _map_image_info,
+    _map_media_type,
+    _sniff_image_mime,
+    render_map_pdf_page,
+    render_map_preview,
+    vtt_image_bytes,
+    vtt_metadata,
+)
 from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate
 
 router = APIRouter()
@@ -149,9 +165,17 @@ def serve_map_file(
     if arc_ext:
         media = archive_mime(arc_ext)
     else:
-        ext = Path(m.filepath).suffix.lower()
-        media = "application/pdf" if ext == ".pdf" else f"image/{ext[1:]}"
-    return FileResponse(m.filepath, media_type=media, filename=m.filename)
+        media = _map_media_type(m.filepath)
+    # Videos and VTT data are viewed in place, so they must not arrive with a
+    # Content-Disposition that makes the browser download them instead. Only the
+    # download-oriented formats keep the filename= attachment hint.
+    inline = media.startswith("video/") or media == _VTT_MIME
+    return FileResponse(
+        m.filepath,
+        media_type=media,
+        filename=None if inline else m.filename,
+        headers=dict(_MEDIA_FILE_CACHE_HEADERS),
+    )
 
 
 def serve_map_page(
@@ -185,9 +209,29 @@ def serve_map_page(
     if not _is_pdf(filepath):
         if page_num != 1:
             raise HTTPException(400, "Image maps have only one page")
-        ext = Path(filepath).suffix.lower().lstrip(".")
-        media_type = "image/jpeg" if ext == "jpg" else f"image/{ext}"
-        return FileResponse(filepath, media_type=media_type, headers=_PAGE_CACHE_HEADERS)
+        ext = Path(filepath).suffix.lower()
+        # Videos and VTT data have no rendered page — the viewer plays/parses the
+        # original via /file rather than asking for a raster.
+        if ext in MAP_OPAQUE_EXTS:
+            raise HTTPException(400, "This map format has no viewable pages")
+        # Serve a downscaled WebP rather than the original. A 50MB battlemap took
+        # seconds to appear when the browser had to pull the whole file; the
+        # preview is a few hundred KB and caches like a PDF page render. SVG is
+        # vector (already small, and Pillow cannot rasterise it), so it streams
+        # as-is.
+        if ext != ".svg":
+            try:
+                return StreamingResponse(
+                    io.BytesIO(render_map_preview(filepath, width)),
+                    media_type="image/webp",
+                    headers=_PAGE_CACHE_HEADERS,
+                )
+            except Exception:
+                # A format Pillow cannot decode still has a usable original.
+                logger.warning(f"Map preview render failed, serving original: {filepath}")
+        return FileResponse(
+            filepath, media_type=_map_media_type(filepath), headers=_PAGE_CACHE_HEADERS
+        )
 
     try:
         img_bytes = render_map_pdf_page(filepath, page_num, width)
@@ -198,6 +242,58 @@ def serve_map_page(
     return StreamingResponse(
         io.BytesIO(img_bytes), media_type="image/webp", headers=_PAGE_CACHE_HEADERS
     )
+
+
+def _load_accessible_map(map_id: str, current_user: CurrentUser, db: Session) -> GenericMap:
+    """Fetch a map the caller may see, 404ing on missing rows and missing files."""
+    m = db.query(GenericMap).filter_by(id=map_id).first()
+    if not m:
+        raise HTTPException(404)
+    assert_media_access(db, current_user, "map", m.id)
+    if not os.path.exists(m.filepath):
+        if not m.is_missing:
+            m.is_missing = True
+            db.commit()
+        raise HTTPException(404, "File not found on disk")
+    return m
+
+
+def serve_map_vtt_image(
+    map_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Serve the battlemap image embedded in a Universal VTT file.
+
+    The .uvtt envelope carries the picture as base64, so handing the raw file to
+    the browser would mean shipping (and decoding) a string a third larger than
+    the image. This decodes server-side and returns an ordinary image response.
+    """
+    m = _load_accessible_map(map_id, current_user, db)
+    if not is_vtt_data(m.filename):
+        raise HTTPException(400, "Not a Universal VTT map")
+    try:
+        raw = vtt_image_bytes(m.filepath)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    return StreamingResponse(
+        io.BytesIO(raw), media_type=_sniff_image_mime(raw), headers=_PAGE_CACHE_HEADERS
+    )
+
+
+def get_map_vtt_data(
+    map_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Grid, wall, portal, and light counts parsed from a Universal VTT file."""
+    m = _load_accessible_map(map_id, current_user, db)
+    if not is_vtt_data(m.filename):
+        raise HTTPException(400, "Not a Universal VTT map")
+    try:
+        return vtt_metadata(m.filepath)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
 
 
 def serve_map_thumbnail(

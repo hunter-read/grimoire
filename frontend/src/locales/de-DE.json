@@ -507,7 +507,15 @@
       "folderTags": "Ordner-Tags",
       "mapTags": "Karten-Tags",
       "editTags": "Bearbeiten",
-      "noTags": "Keine"
+      "noTags": "Keine",
+      "loading": "Karte wird geladen…",
+      "loadFailed": "Diese Karte konnte nicht geladen werden.",
+      "videoFailed": "Diese animierte Karte konnte nicht abgespielt werden.",
+      "vttFailed": "Diese Universal-VTT-Datei konnte nicht gelesen werden.",
+      "vttTitle": "Universal VTT",
+      "vttWalls": "Wände",
+      "vttPortals": "Türen & Portale",
+      "vttLights": "Lichter"
     }
   },
   "tokens": {

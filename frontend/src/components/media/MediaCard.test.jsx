@@ -133,6 +133,33 @@ describe('MediaCard — map (no audio controls)', () => {
     expect(container.querySelector('img')?.getAttribute('src')).toContain('/maps/m1/thumbnail')
   })
 
+  // Animated maps carry no thumbnail (no video decoder is shipped), so the
+  // placeholder should say "video" rather than showing the generic map pin.
+  it('uses a video placeholder icon for an animated map with no thumbnail', () => {
+    const { container } = render(
+      <MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ filename: 'storm.webm' })} />
+    )
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByTestId('video-placeholder')).toBeInTheDocument()
+  })
+
+  it('keeps the map placeholder icon for a still map with no thumbnail', () => {
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} />)
+    expect(screen.getByTestId('media-placeholder')).toBeInTheDocument()
+    expect(screen.queryByTestId('video-placeholder')).toBeNull()
+  })
+
+  it('prefers a real thumbnail over the video placeholder', () => {
+    const { container } = render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ filename: 'storm.webm', has_thumbnail: true })}
+      />
+    )
+    expect(container.querySelector('img')).toBeInTheDocument()
+    expect(screen.queryByTestId('video-placeholder')).toBeNull()
+  })
+
   it('shows the missing badge for a missing item', () => {
     render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ is_missing: true })} />)
     expect(screen.getByText(/missing/i)).toBeInTheDocument()

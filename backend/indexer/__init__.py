@@ -36,6 +36,8 @@ from .constants import (  # noqa: E402,F401
     DOC_EXTS,
     IMAGE_EXTS,
     MAP_IMAGE_EXTS,
+    MAP_OPAQUE_EXTS,
+    MAP_VIDEO_EXTS,
     MEDIA_ARCHIVE_EXTS,
     METADATA_MODES,
     NO_AUTO_CATEGORY_MARKER,
@@ -45,7 +47,10 @@ from .constants import (  # noqa: E402,F401
     PDF_EXTS,
     TEXT_DOC_EXTS,
     UNCATEGORIZED,
+    VTT_DATA_EXTS,
     _MP_CONTEXT,
+    is_vtt_data,
+    map_video_mime,
 )
 
 # --- Per-format capability table (issues #180/#200/#373) -----------------------

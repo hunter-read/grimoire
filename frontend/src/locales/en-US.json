@@ -507,7 +507,15 @@
       "folderTags": "Folder Tags",
       "mapTags": "Map Tags",
       "editTags": "Edit",
-      "noTags": "None"
+      "noTags": "None",
+      "loading": "Loading map…",
+      "loadFailed": "This map could not be loaded.",
+      "videoFailed": "This animated map could not be played.",
+      "vttFailed": "This Universal VTT file could not be read.",
+      "vttTitle": "Universal VTT",
+      "vttWalls": "Walls",
+      "vttPortals": "Doors & portals",
+      "vttLights": "Lights"
     }
   },
   "tokens": {

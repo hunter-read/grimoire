@@ -507,7 +507,15 @@
       "folderTags": "Maplabels",
       "mapTags": "Kaartlabels",
       "editTags": "Bewerken",
-      "noTags": "Geen"
+      "noTags": "Geen",
+      "loading": "Kaart laden…",
+      "loadFailed": "Deze kaart kon niet worden geladen.",
+      "videoFailed": "Deze geanimeerde kaart kon niet worden afgespeeld.",
+      "vttFailed": "Dit Universal VTT-bestand kon niet worden gelezen.",
+      "vttTitle": "Universal VTT",
+      "vttWalls": "Muren",
+      "vttPortals": "Deuren en portalen",
+      "vttLights": "Lichten"
     }
   },
   "tokens": {

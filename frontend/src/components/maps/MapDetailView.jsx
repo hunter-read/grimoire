@@ -9,6 +9,9 @@ import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from './InlineTagEditor'
 import MapPdfViewer from './MapPdfViewer'
+import MapImagePane from './MapImagePane'
+import MapVideoPane from './MapVideoPane'
+import MapVttPane from './MapVttPane'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
@@ -56,6 +59,7 @@ export default function MapDetailView() {
   const [editingMapTags, setEditingMapTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [vttData, setVttData] = useState(null)
   const imagePane = useRef(null)
   const loadedFolder = useRef(null)
 
@@ -94,11 +98,22 @@ export default function MapDetailView() {
     resetKey: mapId,
   })
 
-  // Warm the cache for neighbouring maps so prev/next feels instant.
-  const mapFileUrl = useCallback((m) => mediaUrl(`/maps/${m.id}/file`), [])
-  useImagePrefetch(siblings, siblingIdx, mapFileUrl)
+  // Warm the cache for neighbouring maps so prev/next feels instant. Prefetch
+  // the downscaled preview, not the original — pulling neighbouring 50MB files
+  // in the background competed for bandwidth with the map being viewed, which
+  // made the thing the user actually asked for slower.
+  const mapPreviewUrl = useCallback((m) => {
+    if (m.is_archive) return null
+    const ext = (m.filename || '').toLowerCase()
+    // Videos stream on demand and VTT images come from their own endpoint;
+    // neither is worth pulling ahead of time.
+    if (/\.(webm|mp4|uvtt|dd2vtt)$/.test(ext)) return null
+    return mediaUrl(`/maps/${m.id}/page/1`, { width: 2000 })
+  }, [])
+  useImagePrefetch(siblings, siblingIdx, mapPreviewUrl)
 
   useEffect(() => {
+    setVttData(null)
     api.get(`/maps/${mapId}`).then(setMap)
   }, [mapId])
 
@@ -118,6 +133,8 @@ export default function MapDetailView() {
   const currentFolderTags = map.folder_tags ?? []
   const isArchive = isArchiveMedia(map)
   const isPdf = !!map.is_pdf
+  const isVideo = map.media_kind === 'video'
+  const isVtt = map.media_kind === 'vtt'
 
   const saveMapTags = async (tags) => {
     await api.patch(`/maps/${mapId}`, { tags })
@@ -260,18 +277,24 @@ export default function MapDetailView() {
               padding: 24,
             }}
           >
-            <img
-              src={mediaUrl(`/maps/${mapId}/file`)}
-              alt={map.filename}
-              style={{
-                maxWidth: '100%',
-                maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',
-                borderRadius: 4,
-                boxShadow: '0 4px 24px var(--overlay)',
-                ...imageStyle,
-              }}
-              draggable={false}
-            />
+            {isVideo ? (
+              <MapVideoPane mapId={mapId} filename={map.filename} isMobilePhone={isMobilePhone} />
+            ) : isVtt ? (
+              <MapVttPane
+                mapId={mapId}
+                filename={map.filename}
+                isMobilePhone={isMobilePhone}
+                onData={setVttData}
+              />
+            ) : (
+              <MapImagePane
+                mapId={mapId}
+                filename={map.filename}
+                hasThumbnail={map.has_thumbnail}
+                imageStyle={imageStyle}
+                isMobilePhone={isMobilePhone}
+              />
+            )}
             {hasPrev && (
               <button
                 onClick={onPrev}
@@ -326,6 +349,45 @@ export default function MapDetailView() {
           )}
           {map.dpi != null && <MetaRow label={t('maps.detail.dpi')} value={String(map.dpi)} />}
           {map.map_type && <MetaRow label={t('maps.detail.type')} value={map.map_type} />}
+
+          {/* Universal VTT feature data — grid resolution plus the wall/portal/
+              light counts that make the file useful in a VTT. */}
+          {isVtt && vttData && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  marginBottom: 12,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                {t('maps.detail.vttTitle')}
+              </div>
+              {vttData.grid_width != null && vttData.grid_height != null && (
+                <MetaRow
+                  label={t('maps.detail.gridDimensions')}
+                  value={t('maps.detail.gridDimensionsValue', {
+                    width: vttData.grid_width,
+                    height: vttData.grid_height,
+                  })}
+                />
+              )}
+              {vttData.pixels_per_grid != null && (
+                <MetaRow
+                  label={t('maps.detail.gridCellSize')}
+                  value={t('maps.detail.gridCellSizeValue', { px: vttData.pixels_per_grid })}
+                />
+              )}
+              <MetaRow
+                label={t('maps.detail.vttWalls')}
+                value={String(vttData.wall_count + vttData.object_wall_count)}
+              />
+              <MetaRow label={t('maps.detail.vttPortals')} value={String(vttData.portal_count)} />
+              <MetaRow label={t('maps.detail.vttLights')} value={String(vttData.light_count)} />
+            </div>
+          )}
 
           {map.grid && (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>

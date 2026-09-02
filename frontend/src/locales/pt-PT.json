@@ -507,7 +507,15 @@
       "folderTags": "Etiquetas da pasta",
       "mapTags": "Etiquetas do mapa",
       "editTags": "Editar",
-      "noTags": "Nenhuma"
+      "noTags": "Nenhuma",
+      "loading": "A carregar mapa…",
+      "loadFailed": "Não foi possível carregar este mapa.",
+      "videoFailed": "Não foi possível reproduzir este mapa animado.",
+      "vttFailed": "Não foi possível ler este ficheiro Universal VTT.",
+      "vttTitle": "Universal VTT",
+      "vttWalls": "Paredes",
+      "vttPortals": "Portas e portais",
+      "vttLights": "Luzes"
     }
   },
   "tokens": {

@@ -17,6 +17,7 @@ from PIL import Image
 from .constants import (
     ARCHIVE_EXTS,
     IMAGE_EXTS,
+    VTT_DATA_EXTS,
     _ARCHIVE_MEMBER_SIZE_CAP,
     _ARCHIVE_MIME,
     _COMIC_ARCHIVE_EXTS,
@@ -98,6 +99,22 @@ def _first_image_from_archive(filepath: str, arc_ext: str) -> Optional[bytes]:
     return page[0] if page is not None else None
 
 
+def _vtt_embedded_image(filepath: str) -> Optional[bytes]:
+    """Raw bytes of the battlemap image embedded in a Universal VTT file.
+
+    Thin wrapper over the maps router's parser so the envelope is read one way
+    only. Returns None rather than raising — a malformed file just means no
+    thumbnail, exactly like an archive with no readable cover.
+    """
+    from ..routers.maps._helpers import vtt_image_bytes
+
+    try:
+        return vtt_image_bytes(filepath)
+    except (ValueError, OSError) as e:
+        logger.warning(f"Could not read Universal VTT image from {filepath}: {e}")
+        return None
+
+
 def _generate_thumbnail_task(
     filepath: str, output_path: str, size: tuple, result: list, exc: list
 ) -> None:
@@ -125,6 +142,17 @@ def _generate_thumbnail_task(
             pix = page.get_pixmap(matrix=mat, alpha=False)
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             doc.close()
+        elif ext in VTT_DATA_EXTS:
+            # A Universal VTT file carries its battlemap as base64 inside the
+            # JSON envelope, so a real cover can be produced without a decoder —
+            # unlike the video formats, which stay thumbnail-less.
+            data = _vtt_embedded_image(filepath)
+            if data is None:
+                result[0] = False
+                return
+            img = Image.open(io.BytesIO(data))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
         elif ext in IMAGE_EXTS:
             img = Image.open(filepath)
             if img.mode != "RGB":
