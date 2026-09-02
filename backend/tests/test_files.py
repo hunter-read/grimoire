@@ -1713,6 +1713,123 @@ class TestCategoryRelocation:
         assert os.path.exists(src), "a title edit must not move anything"
 
 
+class TestCategoryRelocationInContainer:
+    """Issue #395 — a container folder shifts the system one segment right.
+
+    Layout: ``books/<container>/<system>/<category>/``. The container declares
+    itself with a ``.parent-system-container`` marker and owns a GameSystem row
+    of its own whose ``parent_id`` is None — which is exactly why "does the row
+    at parts[1] have a parent?" was the wrong question to ask.
+    """
+
+    @pytest.fixture
+    def container_tree(self):
+        import shutil
+
+        stamp = str(uuid.uuid4())[:8]
+        container, system = f"Container-{stamp}", f"System-{stamp}"
+        os.makedirs(os.path.join(LIB, f"books/{container}/{system}/core"), exist_ok=True)
+        # The marker is what makes this folder a container of systems.
+        open(os.path.join(LIB, f"books/{container}/.parent-system-container"), "wb").close()
+        yield stamp, container, system
+        shutil.rmtree(os.path.join(LIB, f"books/{container}"), ignore_errors=True)
+
+    def _book(self, tree):
+        stamp, container, system = tree
+        parent = make_game_system(name=container, slug=f"container-{stamp}")
+        child = make_game_system(name=system, slug=f"system-{stamp}", parent_id=parent.id)
+        rel = f"books/{container}/{system}/core/tome.pdf"
+        src = _write(rel)
+        book = make_book(
+            child.id,
+            filename="tome.pdf",
+            filepath=src,
+            relative_path=rel,
+            category="core",
+        )
+        return parent, child, book, src
+
+    def test_relocation_stays_inside_the_system_folder(self, container_tree):
+        """The file must land under the *system*, not in the container root."""
+        _stamp, container, system = container_tree
+        _parent, _child, book, src = self._book(container_tree)
+        book_id = book.id
+
+        db = SessionLocal()
+        book = db.query(Book).filter(Book.id == book_id).first()
+        moved = fs.relocate_book_for_category(db, book, "adventure")
+        db.commit()
+        db.close()
+
+        assert moved is not None
+        landed = os.path.join(LIB, f"books/{container}/{system}/Adventures/tome.pdf")
+        assert os.path.exists(landed)
+        assert not os.path.exists(src)
+        # The bug: the book escaped its system and landed in the container root.
+        assert not os.path.exists(os.path.join(LIB, f"books/{container}/Adventures/tome.pdf"))
+
+    def test_placement_matches_what_the_scanner_would_infer(self, container_tree):
+        """A move must agree with the scanner, or the next rescan rewrites it.
+
+        Under a container the category folder is at index 3, so reading it at
+        index 2 returned the *system folder's* name as the category and pinned
+        the book to the container row.
+        """
+        from backend.indexer.categories import guess_category
+
+        _stamp, container, system = container_tree
+        _parent, child, _book, src = self._book(container_tree)
+
+        db = SessionLocal()
+        system_id, category = fs.resolve_book_placement(db, Path(src))
+        db.close()
+
+        assert category == guess_category(
+            f"books/{container}/{system}/core/tome.pdf", system_depth=3
+        )
+        assert category == "core"
+        assert system_id == child.id, "the nested system owns the book, not the container"
+
+    def test_suffix_declared_container_has_no_marker_file(self):
+        """A container declared by name suffix carries no marker on disk.
+
+        The depth then has to come from the DB — the nested system's ``parent_id``
+        — so this exercises the fallback the marker test never reaches.
+        """
+        import shutil
+
+        stamp = str(uuid.uuid4())[:8]
+        folder = f"Publisher-{stamp} (parent-system)"
+        system = f"System-{stamp}"
+        rel = f"books/{folder}/{system}/core/tome.pdf"
+        src = _write(rel)
+        try:
+            # The scanner strips the suffix, so the stored parent name lacks it.
+            parent = make_game_system(name=f"Publisher-{stamp}", slug=f"pub-{stamp}")
+            child = make_game_system(
+                name=system, slug=f"sys-{stamp}", parent_id=parent.id
+            )
+            book = make_book(
+                child.id,
+                filename="tome.pdf",
+                filepath=src,
+                relative_path=rel,
+                category="core",
+            )
+            book_id = book.id
+
+            db = SessionLocal()
+            book = db.query(Book).filter(Book.id == book_id).first()
+            moved = fs.relocate_book_for_category(db, book, "adventure")
+            db.commit()
+            db.close()
+
+            assert moved == f"books/{folder}/{system}/Adventures/tome.pdf"
+            assert not os.path.exists(os.path.join(LIB, f"books/{folder}/Adventures/tome.pdf"))
+        finally:
+            shutil.rmtree(os.path.join(LIB, "books", folder), ignore_errors=True)
+
+
 # ---------------------------------------------------------------------------
 # Read-only library
 # ---------------------------------------------------------------------------
