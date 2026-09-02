@@ -2326,6 +2326,13 @@
       "black-and-white": "Blanco y negro",
       "gridded": "Con cuadrícula",
       "gridless": "Sin cuadrícula",
+      "universal-vtt": "Universal VTT",
+      "video": "Vídeo",
+      "image": "Imagen",
+      "color-variation": "Variación de color",
+      "remix": "Remezcla",
+      "slowed": "Ralentizada",
+      "sped-up": "Acelerada",
       "other": "Otra"
     },
     "downloadVersion": "Download version",

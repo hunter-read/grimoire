@@ -2326,6 +2326,13 @@
       "black-and-white": "Zwart-wit",
       "gridded": "Met raster",
       "gridless": "Zonder raster",
+      "universal-vtt": "Universal VTT",
+      "video": "Video",
+      "image": "Afbeelding",
+      "color-variation": "Kleurvariant",
+      "remix": "Remix",
+      "slowed": "Vertraagd",
+      "sped-up": "Versneld",
       "other": "Overig"
     },
     "downloadVersion": "Download version",

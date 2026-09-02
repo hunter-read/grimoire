@@ -6,7 +6,7 @@ import { LuArrowLeft, LuArrowLeftRight, LuLayers, LuTrash2, LuX } from 'react-ic
 import { duplicates as dupesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
-import { VARIANT_KINDS } from '../constants/variantKinds'
+import { kindsFor } from '../constants/variantKinds'
 import PagePreview from '../components/duplicates/PagePreview'
 import RefCounts from '../components/duplicates/RefCounts'
 import PageFlipper from '../components/duplicates/PageFlipper'
@@ -113,6 +113,22 @@ export default function DuplicateCompareView() {
   // instead. Anything else is an ordinary link.
   const childItem = childId === left?.id ? left : right
   const childHasFamily = (childItem?.variants || []).length > 0
+
+  // Only the kinds this collection accepts: a token has no gridless cut, and an
+  // audio track cannot be form-fillable. The child's stored kind is passed so a
+  // row linked before the vocabulary was scoped keeps its value in the list
+  // rather than being silently re-filed on the next save.
+  const kindOptions = useMemo(
+    () => kindsFor(resourceType, childItem?.variant_kind || ''),
+    [resourceType, childItem?.variant_kind]
+  )
+
+  // `kind` is seeded to `other`, which every collection accepts, but the user
+  // may have picked one and then flipped which side is the parent. Snap back to
+  // a valid choice rather than submitting one the API will reject.
+  useEffect(() => {
+    if (!kindOptions.includes(kind)) setKind('other')
+  }, [kindOptions, kind])
 
   const copyMetadata = async (fields) => {
     setBusy(true)
@@ -361,7 +377,7 @@ export default function DuplicateCompareView() {
                 minWidth: 190,
               }}
             >
-              {VARIANT_KINDS.map((k) => (
+              {kindOptions.map((k) => (
                 <option key={k} value={k}>
                   {t(`variants.kind.${k}`, { defaultValue: k })}
                 </option>

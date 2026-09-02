@@ -439,3 +439,86 @@ class TestPromote:
                 variants.promote(db, Book, b.id, a.id, "not-a-kind")
         finally:
             db.close()
+
+
+class TestKindVocabulary:
+    """The kind vocabulary is scoped per collection (models/variants.py)."""
+
+    def test_kinds_for_returns_only_that_collections_kinds(self):
+        from backend.models.variants import kinds_for
+
+        assert "gridless" in kinds_for("map")
+        assert "gridless" not in kinds_for("token")
+        assert "form-fillable" in kinds_for("book")
+        assert "form-fillable" not in kinds_for("audio")
+        assert "remix" in kinds_for("audio")
+        assert "remix" not in kinds_for("map")
+        assert "color-variation" in kinds_for("token")
+        assert "color-variation" not in kinds_for("book")
+
+    def test_map_only_kinds_are_map_only(self):
+        from backend.models.variants import VARIANT_KINDS_BY_TYPE, kinds_for
+
+        for kind in ("universal-vtt", "video", "image", "gridded", "gridless"):
+            assert kind in kinds_for("map"), kind
+            for other in set(VARIANT_KINDS_BY_TYPE) - {"map"}:
+                assert kind not in kinds_for(other), (kind, other)
+
+    def test_version_and_other_are_universal(self):
+        from backend.models.variants import VARIANT_KINDS_BY_TYPE, kinds_for
+
+        for rtype in VARIANT_KINDS_BY_TYPE:
+            assert {"version", "other"} <= kinds_for(rtype), rtype
+
+    def test_printer_friendly_and_black_and_white_reach(self):
+        from backend.models.variants import kinds_for
+
+        # printer-friendly: book and map. black-and-white: those plus tokens.
+        assert "printer-friendly" in kinds_for("book")
+        assert "printer-friendly" in kinds_for("map")
+        assert "printer-friendly" not in kinds_for("token")
+        assert "printer-friendly" not in kinds_for("audio")
+        for rtype in ("book", "map", "token"):
+            assert "black-and-white" in kinds_for(rtype), rtype
+        assert "black-and-white" not in kinds_for("audio")
+
+    def test_unknown_resource_type_accepts_everything(self):
+        from backend.models.variants import VARIANT_KINDS, kinds_for
+
+        # Callers that do not know their collection keep pre-scoping behaviour.
+        assert kinds_for("") == VARIANT_KINDS
+        assert kinds_for("widget") == VARIANT_KINDS
+
+    def test_flat_set_is_the_union(self):
+        from backend.models.variants import VARIANT_KINDS, VARIANT_KINDS_BY_TYPE
+
+        union = set().union(*VARIANT_KINDS_BY_TYPE.values())
+        assert VARIANT_KINDS == union
+
+
+class TestValidateKind:
+    def test_normalises_case_and_whitespace(self):
+        assert variants.validate_kind("  GridLess ", "map") == "gridless"
+
+    def test_rejects_a_kind_from_another_collection(self):
+        with pytest.raises(VariantError) as excinfo:
+            variants.validate_kind("gridless", "audio")
+        # The message lists what *is* accepted, so the caller can fix it.
+        assert "remix" in excinfo.value.message
+        assert excinfo.value.code == "invalid"
+
+    def test_no_resource_type_accepts_any_kind(self):
+        assert variants.validate_kind("gridless") == "gridless"
+        assert variants.validate_kind("remix") == "remix"
+
+    def test_keeps_a_legacy_kind_the_row_already_has(self):
+        # A token filed as form-fillable before the vocabulary was scoped.
+        assert variants.validate_kind("form-fillable", "token", "form-fillable") == "form-fillable"
+
+    def test_legacy_exemption_does_not_extend_to_other_kinds(self):
+        with pytest.raises(VariantError):
+            variants.validate_kind("spreads", "token", "form-fillable")
+
+    def test_still_rejects_a_kind_no_collection_defines(self):
+        with pytest.raises(VariantError):
+            variants.validate_kind("bogus", "map", "bogus")

@@ -8,16 +8,57 @@ never automatic.
 import re
 from typing import Any, Optional
 
+from ...indexer.constants import IMAGE_EXTS, MAP_VIDEO_EXTS, VTT_DATA_EXTS
+from ...models.variants import kinds_for
+
 # Filename tokens that name a variant kind. Ordered most-specific first, since
 # "printer friendly single page" should read as printer-friendly rather than
 # single-page. Each entry maps a regex to a kind in models.variants.VARIANT_KINDS.
+#
+# The list is shared across collections and then filtered by what the collection
+# actually accepts (see ``suggest_kind``), rather than split into four tables:
+# the same token means the same thing wherever it appears, and a per-collection
+# copy would drift.
 _KIND_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"form[\s_-]?fillable|fillable|editable", "form-fillable"),
     (r"printer[\s_-]?friendly|print[\s_-]?ready|printable|\bprint\b", "printer-friendly"),
     (r"b\s*&\s*w|black[\s_-]?and[\s_-]?white|gr[ea]yscale|\bbw\b", "black-and-white"),
     (r"spreads?|two[\s_-]?page|facing", "spreads"),
     (r"single[\s_-]?page|one[\s_-]?page|1[\s_-]?page", "single-page"),
+    (r"universal[\s_-]?vtt|\buvtt\b|\bdd2vtt\b|\bdd2\b", "universal-vtt"),
+    (r"animated|\bloop(?:ing)?\b|\bvideo\b|\bmp4\b|\bwebm\b", "video"),
+    # Likewise no bare "slow" — "Slow March.mp3" names the piece.
+    (r"slowed(?:[\s_-]?down)?|half[\s_-]?speed|\bslower\b", "slowed"),
+    # No bare "fast": "Fast Travel Theme.mp3" is a track name, not a variant.
+    (r"sped[\s_-]?up|speed[\s_-]?up|double[\s_-]?speed|\bfaster\b", "sped-up"),
+    (r"\bremix(?:ed)?\b|\bedit\b|\brework\b", "remix"),
+    (r"colou?r[\s_-]?(?:variation|variant|swap|alt)|recolou?r(?:ed)?", "color-variation"),
 )
+
+# Extensions that settle a map pair on their own: a .dd2vtt beside a .png is a
+# universal-VTT export of it, and an .mp4 beside a .webp is the animated cut.
+# Checked only when the filenames themselves said nothing, since an explicit
+# marker in the name is the stronger signal.
+#
+# Taken from the indexer's own tables rather than restated, so a format added
+# there (a new video container, say) is classified here without a second edit.
+_EXT_KINDS: tuple[tuple[frozenset, str], ...] = (
+    (frozenset(VTT_DATA_EXTS), "universal-vtt"),
+    (frozenset(MAP_VIDEO_EXTS), "video"),
+    (frozenset(IMAGE_EXTS), "image"),
+)
+
+
+def _ext_kind(filename: str) -> Optional[str]:
+    """The kind a map file's extension implies, if any."""
+    dot = (filename or "").rfind(".")
+    if dot < 0:
+        return None
+    ext = filename[dot:].lower()
+    for exts, kind in _EXT_KINDS:
+        if ext in exts:
+            return kind
+    return None
 
 # A version marker anywhere in the name: v1, v1.0, v1.0.1, "rev 2", "2nd printing".
 # `\b` is no help here: an underscore is a word character, so "Book_v1.0.1"
@@ -38,17 +79,24 @@ def version_token(name: str) -> Optional[str]:
     return match.group(1) or match.group(2)
 
 
-def suggest_kind(record: Any, other: Any) -> tuple[str, str]:
+def suggest_kind(record: Any, other: Any, resource_type: str = "") -> tuple[str, str]:
     """Guess ``(kind, label)`` for ``record`` when paired against ``other``.
 
     Compared against the other member rather than read in isolation, because the
     kind is relational: the copy *without* "printer friendly" in its name is only
     the main edition relative to the one that has it.
+
+    ``resource_type`` keeps the guess inside what that collection accepts — an
+    audio file named "print.mp3" must not be pre-filled as printer-friendly,
+    because the form it pre-fills would then refuse to submit.
     """
+    allowed = kinds_for(resource_type)
     name = f"{record.filename} {getattr(record, 'title', '') or ''}".lower()
     other_name = f"{other.filename} {getattr(other, 'title', '') or ''}".lower()
 
     for pattern, kind in _KIND_PATTERNS:
+        if kind not in allowed:
+            continue
         mine = re.search(pattern, name) is not None
         theirs = re.search(pattern, other_name) is not None
         # Only a marker that distinguishes the two says anything useful.
@@ -60,8 +108,14 @@ def suggest_kind(record: Any, other: Any) -> tuple[str, str]:
 
     my_grid = grid_marker(record.filename)
     their_grid = grid_marker(other.filename)
-    if my_grid is not None and my_grid != their_grid:
+    if my_grid is not None and my_grid != their_grid and "gridded" in allowed:
         return ("gridded" if my_grid else "gridless"), ""
+
+    # Format markers, for maps: the pair is only telling when the two sides
+    # disagree, exactly as with the grid.
+    my_ext = _ext_kind(record.filename)
+    if my_ext in allowed and my_ext != _ext_kind(other.filename):
+        return my_ext, ""
 
     # An explicit version column beats anything parsed out of a filename.
     my_version = (getattr(record, "version", "") or "").strip()

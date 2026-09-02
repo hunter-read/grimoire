@@ -814,7 +814,19 @@ The pairs shown are the comparisons that actually matched, not every combination
 
 - **Copy metadata** - move individual fields from the copy you are discarding onto the one you are keeping, before it goes. Keeping the better *file* should not mean keeping the worse *record*: a pristine scan often arrives with nothing but a filename while the copy you are about to delete has the title, publisher, and tags you curated. Only fields that actually differ are offered, and you tick them individually rather than copying wholesale.
 
-- **Link as versions** - collapse the two into one library entry. A radio button on each copy picks the main version, and a dropdown says what the other one *is*: a version, printer friendly, form fillable, black and white, spreads, single pages, gridded, gridless, or other - plus an optional free-text label like `v1.0.1`. The variant stops appearing separately in browsing, search, and counts.
+- **Link as versions** - collapse the two into one library entry. A radio button on each copy picks the main version, and a dropdown says what the other one *is* - plus an optional free-text label like `v1.0.1`. The variant stops appearing separately in browsing, search, and counts.
+
+  The dropdown only offers the kinds that make sense for what you are reviewing, since most of them describe one kind of file: a gridless token or a form-fillable audio track is not a real distinction. Every collection offers **version** and **other**; on top of that:
+
+  | Reviewing | Also offers |
+  | --- | --- |
+  | Books | Printer friendly, form fillable, black and white, two-page spreads, single pages |
+  | Maps | Gridded, gridless, Universal VTT, video, image, printer friendly, black and white |
+  | Tokens | Colour variation, black and white |
+  | Audio | Remix, slowed, sped up |
+
+  **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers.
+
 - **Delete a copy** - asks for confirmation in a dialog, and removes the file from disk by default. That default is the opposite of elsewhere in Grimoire, deliberately: you have just decided this copy is redundant, and leaving the bytes in the library folder means the next scan proposes the same pair all over again. Untick the box to drop only the library record.
 - **Not duplicates** - dismisses that pair. It disappears from the list straight away rather than lingering until the next scan, and it stays gone: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it. Dismissals are not final, though - **Show dismissed** at the foot of the duplicates page lists everything you have rejected, with a **Restore** button on each. Restoring one lets it be proposed again by the next scan (the list on screen was built while the dismissal still applied, so it does not reappear until you rescan).
 

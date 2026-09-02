@@ -13,9 +13,12 @@ vi.mock('react-i18next', () => ({
 }))
 
 const navigate = vi.fn()
+// Mutable so a test can put the view on the maps or audio route: the kind
+// picker's options depend on which collection is being reviewed.
+let resourceType = 'book'
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigate,
-  useParams: () => ({ resourceType: 'book' }),
+  useParams: () => ({ resourceType }),
   useSearchParams: () => [new URLSearchParams('left=a&right=b')],
 }))
 
@@ -76,6 +79,7 @@ describe('DuplicateCompareView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     role = 'admin'
+    resourceType = 'book'
     compare.mockResolvedValue(payload())
     link.mockResolvedValue({ linked: ['b'] })
     promote.mockResolvedValue({ moved: 2 })
@@ -254,5 +258,94 @@ describe('DuplicateCompareView', () => {
     compare.mockRejectedValue(new Error('gone'))
     render(<DuplicateCompareView />)
     await waitFor(() => expect(screen.getByText('gone')).toBeInTheDocument())
+  })
+})
+
+describe('DuplicateCompareView kind options', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    role = 'admin'
+    resourceType = 'book'
+    compare.mockResolvedValue(payload())
+    link.mockResolvedValue({ linked: ['b'] })
+  })
+
+  const kindSelect = () => screen.getAllByRole('combobox').find((el) => el.value === 'other')
+
+  const optionsOf = (select) => [...select.options].map((o) => o.value)
+
+  it('offers only book kinds on the books route', async () => {
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+    const values = optionsOf(kindSelect())
+    expect(values).toContain('form-fillable')
+    expect(values).toContain('spreads')
+    // Not a distinction a book can carry.
+    expect(values).not.toContain('gridless')
+    expect(values).not.toContain('universal-vtt')
+    expect(values).not.toContain('remix')
+  })
+
+  it('offers the map kinds on the maps route', async () => {
+    resourceType = 'map'
+    compare.mockResolvedValue(payload({ resource_type: 'map' }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+    const values = optionsOf(kindSelect())
+    for (const kind of ['gridded', 'gridless', 'universal-vtt', 'video', 'image']) {
+      expect(values).toContain(kind)
+    }
+    expect(values).not.toContain('form-fillable')
+    expect(values).not.toContain('remix')
+  })
+
+  it('offers the audio kinds on the audio route', async () => {
+    resourceType = 'audio'
+    compare.mockResolvedValue(payload({ resource_type: 'audio' }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+    const values = optionsOf(kindSelect())
+    expect(values).toEqual(['version', 'remix', 'slowed', 'sped-up', 'other'])
+  })
+
+  it('offers the token kinds on the tokens route', async () => {
+    resourceType = 'token'
+    compare.mockResolvedValue(payload({ resource_type: 'token' }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+    expect(optionsOf(kindSelect())).toEqual([
+      'version',
+      'color-variation',
+      'black-and-white',
+      'other',
+    ])
+  })
+
+  it('keeps a legacy kind the child already carries', async () => {
+    // A token filed as form-fillable before the vocabulary was scoped: the
+    // option has to exist, or the select would show a value the row does not
+    // have.
+    resourceType = 'token'
+    compare.mockResolvedValue(
+      payload({
+        resource_type: 'token',
+        items: [item('a'), item('b', { variant_kind: 'form-fillable' })],
+      })
+    )
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+    expect(optionsOf(kindSelect())).toContain('form-fillable')
+  })
+
+  it('links with a kind the collection accepts', async () => {
+    resourceType = 'map'
+    compare.mockResolvedValue(payload({ resource_type: 'map' }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+    await userEvent.selectOptions(kindSelect(), 'universal-vtt')
+    await userEvent.click(screen.getByText(/maintenance.dupes.linkAs/))
+    await waitFor(() =>
+      expect(link).toHaveBeenCalledWith('map', 'a', [{ id: 'b', kind: 'universal-vtt', label: '' }])
+    )
   })
 })

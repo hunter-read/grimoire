@@ -259,7 +259,7 @@ def _persist(db: Session, scan_id: str, resource_type: str, groups: list, by_id:
         kinds = {}
         for record in members:
             other = next(m for m in members if m.id != record.id)
-            kind, label = scoring.suggest_kind(record, other)
+            kind, label = scoring.suggest_kind(record, other, resource_type)
             kinds[record.id] = {"kind": kind, "label": label}
         db.add(
             DuplicateGroup(

@@ -152,6 +152,50 @@ class TestMapFormatScan:
         assert m is not None
         assert m.has_thumbnail is True
 
+    def test_existing_uvtt_row_is_backfilled_on_rescan(self):
+        """A UVTT map registered before thumbnailing must not stay coverless.
+
+        Existing rows are skipped by the walk, so without an explicit backfill
+        these would never gain a thumbnail no matter how often the user rescans.
+        """
+        import base64
+        import io as _io
+        import json as _json
+
+        buf = _io.BytesIO()
+        Image.new("RGB", (240, 180), (80, 20, 120)).save(buf, "PNG")
+        name = f"backfill_{os.path.basename(self.tmp)}.uvtt"
+        (self.map_dir / name).write_text(
+            _json.dumps({"format": 0.3, "image": base64.b64encode(buf.getvalue()).decode()})
+        )
+        self._scan()
+
+        # Simulate the pre-change state: registered, but with no thumbnail.
+        db = SessionLocal()
+        try:
+            m = db.query(GenericMap).filter(GenericMap.filename == name).first()
+            assert m is not None
+            m.has_thumbnail = False
+            db.commit()
+        finally:
+            db.close()
+
+        self._scan()
+
+        m = self._get_map(name)
+        assert m is not None
+        assert m.has_thumbnail is True, "rescan should backfill the missing UVTT thumbnail"
+
+    def test_backfill_leaves_video_maps_alone(self):
+        name = f"nobackfill_{os.path.basename(self.tmp)}.webm"
+        (self.map_dir / name).write_bytes(b"\x1a\x45\xdf\xa3fake-webm")
+        self._scan()
+        self._scan()
+
+        m = self._get_map(name)
+        assert m is not None
+        assert m.has_thumbnail is False
+
     def test_still_image_alongside_still_thumbnails(self):
         # The opaque formats must not regress normal image handling.
         stem = os.path.basename(self.tmp)

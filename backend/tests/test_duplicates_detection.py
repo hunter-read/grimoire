@@ -536,3 +536,105 @@ class TestCrossSystemMatching:
         score = signals.metadata_score(a, b)
         for level in ("low", "medium"):
             assert score >= signals.thresholds_for(level)["metadata"], level
+
+
+class _Rec:
+    """The three attributes suggest_kind reads, without touching the DB."""
+
+    def __init__(self, filename, title="", version=""):
+        self.filename = filename
+        self.title = title
+        self.version = version
+
+
+class TestSuggestKindScoping:
+    """A pre-filled kind must be one the collection's form can submit.
+
+    ``suggest_kind`` runs at scan time and its answer lands in the picker, so a
+    guess outside the collection's vocabulary would seed a form that the API then
+    refuses — the user's first click on Link would fail for no visible reason.
+    """
+
+    def test_suggests_the_new_map_kinds_from_filenames(self):
+        pairs = [
+            ("Keep_universal_vtt.dd2vtt", "Keep.png", "universal-vtt"),
+            ("Keep.uvtt", "Keep.png", "universal-vtt"),
+            ("Tavern_animated.webm", "Tavern.png", "video"),
+            ("Tavern.mp4", "Tavern.png", "video"),
+            ("Tavern.png", "Tavern.mp4", "image"),
+        ]
+        for mine, theirs, expected in pairs:
+            kind, _ = duplicates.suggest_kind(_Rec(mine), _Rec(theirs), "map")
+            assert kind == expected, (mine, theirs, kind)
+
+    def test_suggests_audio_kinds(self):
+        for mine, expected in [
+            ("Theme (Remix).mp3", "remix"),
+            ("Theme slowed.mp3", "slowed"),
+            ("Theme sped up.mp3", "sped-up"),
+        ]:
+            kind, _ = duplicates.suggest_kind(_Rec(mine), _Rec("Theme.mp3"), "audio")
+            assert kind == expected, (mine, kind)
+
+    def test_a_speed_word_in_a_track_name_is_not_a_variant(self):
+        # "Fast Travel" and "Slow March" are pieces of music, not cuts of one.
+        for name in ("Fast Travel Theme.mp3", "Slow March.mp3"):
+            kind, _ = duplicates.suggest_kind(_Rec(name), _Rec("Theme.mp3"), "audio")
+            assert kind == "other", name
+
+    def test_suggests_a_token_colour_variation(self):
+        kind, _ = duplicates.suggest_kind(
+            _Rec("Goblin_color_variant.png"), _Rec("Goblin.png"), "token"
+        )
+        assert kind == "color-variation"
+
+    def test_never_suggests_another_collections_kind(self):
+        # "print" in an audio filename must not become printer-friendly, and a
+        # gridless marker on a token must not become gridless.
+        kind, _ = duplicates.suggest_kind(
+            _Rec("Theme printable.mp3"), _Rec("Theme.mp3"), "audio"
+        )
+        assert kind == "other"
+
+        kind, _ = duplicates.suggest_kind(
+            _Rec("Goblin_nogrid.png"), _Rec("Goblin.png"), "token"
+        )
+        assert kind == "other"
+
+        kind, _ = duplicates.suggest_kind(
+            _Rec("Guide spreads.pdf"), _Rec("Guide.pdf"), "map"
+        )
+        assert kind == "other"
+
+    def test_every_suggestion_is_valid_for_its_collection(self):
+        """The property that matters, over a spread of provocative names."""
+        from backend.models.variants import kinds_for
+
+        names = [
+            "Thing printable.x", "Thing fillable.x", "Thing b&w.x", "Thing spreads.x",
+            "Thing single page.x", "Thing.dd2vtt", "Thing.mp4", "Thing.png",
+            "Thing remix.x", "Thing slowed.x", "Thing sped up.x", "Thing recolored.x",
+            "Thing_nogrid.x", "Thing v2.1.x", "Thing.x",
+        ]
+        for rtype in ("book", "map", "token", "audio"):
+            allowed = kinds_for(rtype)
+            for mine in names:
+                kind, _ = duplicates.suggest_kind(_Rec(mine), _Rec("Thing.x"), rtype)
+                assert kind in allowed, (rtype, mine, kind)
+
+    def test_version_fallback_still_works_everywhere(self):
+        for rtype in ("book", "map", "token", "audio"):
+            kind, label = duplicates.suggest_kind(
+                _Rec("Thing_v2.1.x"), _Rec("Thing_v1.0.x"), rtype
+            )
+            assert (kind, label) == ("version", "v2.1"), rtype
+
+    def test_omitting_the_type_keeps_the_old_unscoped_behaviour(self):
+        kind, _ = duplicates.suggest_kind(_Rec("Guide printable.pdf"), _Rec("Guide.pdf"))
+        assert kind == "printer-friendly"
+
+    def test_a_shared_extension_says_nothing(self):
+        # Two .png maps: the extension rule must not fire, since neither side is
+        # distinguished by it.
+        kind, _ = duplicates.suggest_kind(_Rec("Keep.png"), _Rec("Keep2.png"), "map")
+        assert kind == "other"

@@ -5,7 +5,7 @@ import { LuLayers, LuTrash2 } from 'react-icons/lu'
 import api, { duplicates, mediaUrl } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { formatSize } from '../../utils'
-import { VARIANT_KINDS } from '../../constants/variantKinds'
+import { kindsFor } from '../../constants/variantKinds'
 
 /**
  * Manage the versions filed under one book, from the book itself.
@@ -180,9 +180,13 @@ export default function BookVersionsSection({ book, onChanged }) {
                   fontSize: 12,
                 }}
               >
-                {VARIANT_KINDS.map((kind) => (
+                {/* Book kinds only — this section is mounted from the book
+                    editor and details modal. `entry.kind` is passed so a
+                    version filed under an older, unscoped vocabulary still
+                    shows its own value instead of jumping to another. */}
+                {kindsFor('book', entry.kind).map((kind) => (
                   <option key={kind} value={kind}>
-                    {t(`variants.kind.${kind}`)}
+                    {t(`variants.kind.${kind}`, { defaultValue: kind })}
                   </option>
                 ))}
               </select>

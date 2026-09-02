@@ -39,7 +39,7 @@ from .library import (
 from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
 from .settings import AppSetting
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
-from .variants import VARIANT_KINDS
+from .variants import VARIANT_KINDS, VARIANT_KINDS_BY_TYPE, kinds_for
 from .users import AuthSession, Bookmark, Favorite, SavedFilter, User, UserTheme
 
 __all__ = [
@@ -65,6 +65,8 @@ __all__ = [
     "AudioFolder",
     # Variants / duplicates
     "VARIANT_KINDS",
+    "VARIANT_KINDS_BY_TYPE",
+    "kinds_for",
     "DuplicateGroup",
     "DuplicateDismissal",
     # Users
