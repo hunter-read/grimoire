@@ -14,7 +14,7 @@ import logging
 import os
 from typing import Any
 
-from ._context import _ScanContext
+from ._context import _ScanContext, _title_from_filename
 from ._subprocess import _run_with_timeout
 from .constants import _DB_TIMEOUT
 from ..metadata import export as sidecar_export
@@ -24,6 +24,64 @@ from ..models import Audio, Book, GameSystem, GenericMap, Token
 logger = logging.getLogger("grimoire.indexer")
 
 
+# Which thumbnail subdirectory each model's covers live in. Audio is absent on
+# purpose: it carries ``has_artwork``/``cover_image`` sourced from embedded tags
+# or folder artwork, not a path-keyed file this module could orphan.
+_THUMB_SECTIONS: dict[Any, str] = {GenericMap: "maps", Token: "tokens"}
+
+
+def _remove_stale_thumbnail(ctx: _ScanContext, model: Any, old: Any) -> None:
+    """Delete the thumbnail a moved map/token left behind at its old path.
+
+    Thumbnail filenames embed a hash of the *filepath*, so a move leaves the old
+    file unreferenced: the walk has already written a fresh one under the new
+    path's name, and nothing will ever serve or clean up the old one.
+
+    Named from ``_title_from_filename(old.filename)`` rather than a stored title,
+    because that is what :func:`_scan_media` used when it wrote the file — maps
+    and tokens have no ``title`` column.
+
+    Best-effort: a thumbnail that cannot be removed is wasted disk, never a
+    reason to fail the scan.
+    """
+    section = _THUMB_SECTIONS.get(model)
+    if section is None or not getattr(old, "has_thumbnail", False):
+        return
+    stale = ctx.thumb_path(section, _title_from_filename(old.filename), old.filepath)
+    try:
+        os.remove(stale)
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        logger.debug("Could not remove stale thumbnail %s: %s", stale, e)
+
+
+def _rename_thumbnail_to_title(
+    ctx: _ScanContext, rendered_title: str, kept_title: str, filepath: str
+) -> None:
+    """Rename a move's fresh cover from the rendered title to the kept one.
+
+    Thumbnails are stored as ``<slugified title>_<hash of filepath>.webp``. After
+    a move the surviving row keeps its own title — which may have been edited in
+    the UI — while the file on disk was named from the title the walk derived
+    from the filename. The serving endpoint falls back to a glob on the hash, so
+    this is a tidiness fix rather than a correctness one; doing it keeps the fast
+    exact-name path working instead of pushing every moved book onto the glob.
+
+    Best-effort by design: a failure here leaves a servable thumbnail in place,
+    so it must never interrupt the scan.
+    """
+    src = ctx.thumb_path("books", rendered_title, filepath)
+    dest = ctx.thumb_path("books", kept_title, filepath)
+    if src == dest:
+        return
+    try:
+        if os.path.isfile(src):
+            os.replace(src, dest)
+    except OSError as e:
+        logger.debug("Could not rename thumbnail %s -> %s: %s", src, dest, e)
+
+
 def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> int:
     """Re-point rows whose file moved instead of leaving them missing (issue #284).
 
@@ -31,6 +89,9 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
     ``is_missing`` and a brand-new row appears at the new path, silently dropping
     the tags, favorites, bookmarks, and read progress attached to the old row's id.
     Matching on content hash recovers the connection — same bytes, new location.
+
+    The surviving row also inherits the destination row's thumbnail state, since
+    the walk has already rendered a cover at the new path (issue #394).
 
     ``gone`` are rows whose file no longer exists; ``present`` are rows whose file
     does. A move is accepted only when exactly one gone row and exactly one
@@ -81,7 +142,13 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
 
             thumb = ctx.thumb_path("books", old.title, old.filepath) if old.has_thumbnail else None
             invalidate_book_content(old.id, old.filepath, db=session, thumb_path=thumb)
-            old.has_thumbnail = False
+        else:
+            # Maps and tokens have no page renders or search rows to drop, but
+            # their thumbnail is path-keyed just like a book's, so the file at the
+            # old path is dead weight the moment the row moves. Only books went
+            # through the invalidation above, which left one orphaned WebP per
+            # moved map or token accumulating forever (issue #394).
+            _remove_stale_thumbnail(ctx, model, old)
 
         logger.info(f"Detected move: '{old.filepath}' -> '{new.filepath}'")
         # Carry the new location onto the *old* row so its id — and everything
@@ -91,6 +158,15 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
         new_filepath, new_filename = new.filepath, new.filename
         new_relative, new_system = new.relative_path, getattr(new, "game_system_id", None)
         new_category = getattr(new, "category", None)
+        # The walk already rendered a cover for the file at its new path, onto
+        # the row about to be discarded. Thumbnail filenames are path-derived, so
+        # that render is the *live* one and the old row's was the stale file just
+        # deleted above; inheriting the flag hands the survivor the cover that
+        # actually exists. Leaving it False stranded a perfectly good WebP on
+        # disk that nothing would ever serve or clean up, and the book showed a
+        # blank cover until a full "Rescan and Re-index" (issue #394).
+        new_has_thumbnail = getattr(new, "has_thumbnail", False)
+        new_title = getattr(new, "title", None)
         session.delete(new)
         session.flush()
 
@@ -101,6 +177,12 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
         if model is Book:
             old.game_system_id = new_system
             old.category = new_category
+            old.has_thumbnail = bool(new_has_thumbnail)
+            # The cover was written as ``slugify(<new row's title>)_<hash>.webp``.
+            # A survivor whose title was customised in the UI keeps that title, so
+            # rename the file to match rather than relying on the serving glob.
+            if new_has_thumbnail and new_title and new_title != old.title:
+                _rename_thumbnail_to_title(ctx, new_title, old.title, new_filepath)
         moved += 1
 
     if moved:
