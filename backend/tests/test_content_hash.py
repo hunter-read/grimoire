@@ -11,6 +11,7 @@ Covers the three behaviours that depend on hashing library files:
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import tempfile
 import time
@@ -19,6 +20,7 @@ from unittest.mock import patch
 
 from backend.config import SessionLocal
 from backend.indexer import hashing, scan_library
+from backend.indexer.categories import slugify
 from backend.models import Book, GameSystem, Token
 
 
@@ -33,6 +35,39 @@ def _scan(lib: Path, tmp: str, db) -> dict:
     """Run a scan with thumbnail generation stubbed out (no real PDFs here)."""
     with patch("backend.indexer.generate_thumbnail", return_value=False):
         return scan_library(str(lib), tmp, db)
+
+
+def _fake_thumbnail_task(filepath, output_path, size, result, exc) -> None:
+    """Stand in for the real renderer: write a file where a cover would go."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "wb") as fh:
+        fh.write(b"WEBP-test-cover")
+    result[0] = True
+
+
+def _scan_with_thumbs(lib: Path, tmp: str, db) -> dict:
+    """Run a scan where thumbnail generation "succeeds" and leaves a file.
+
+    Patches the render worker rather than ``generate_thumbnail`` itself, so the
+    timeout wrapper still runs and the stub writes a real file on disk — these
+    tests assert on the *cover file*, not just the flag. The fixtures are not
+    valid PDFs, so the true renderer would fail on them.
+    """
+    with patch(
+        "backend.indexer.thumbnails._generate_thumbnail_task",
+        side_effect=_fake_thumbnail_task,
+    ):
+        return scan_library(str(lib), tmp, db)
+
+
+def _thumb_for(tmp: str, title: str, filepath: str, section: str = "books") -> str:
+    """The thumbnail path the indexer writes for a title at a given filepath."""
+    return os.path.join(
+        tmp,
+        "thumbnails",
+        section,
+        f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
+    )
 
 
 def _touch_future(path: Path) -> None:
@@ -296,6 +331,85 @@ class TestMoveDetection:
         finally:
             db.close()
 
+    def test_moved_book_keeps_its_thumbnail(self):
+        """Issue #394 — a move must not blank the cover the walk just rendered.
+
+        Thumbnail filenames are path-derived, so the move's destination row gets a
+        freshly rendered cover during the walk. Move detection then discards that
+        row in favour of the original id; before the fix it also reset
+        ``has_thumbnail`` to False, stranding a valid WebP on disk that nothing
+        would serve and leaving a blank cover until a full re-index.
+        """
+        tmp, lib = _mk_lib()
+        src = lib / "books" / "OldSystem" / "core"
+        src.mkdir(parents=True)
+        f = src / "tome.pdf"
+        f.write_bytes(b"%PDF-1.4 a book with a cover")
+
+        db = SessionLocal()
+        try:
+            _scan_with_thumbs(lib, tmp, db)
+            book = db.query(Book).filter_by(filepath=str(f)).first()
+            assert book.has_thumbnail is True
+            original_id = book.id
+            old_thumb = _thumb_for(tmp, "tome", str(f))
+            assert os.path.isfile(old_thumb)
+
+            dest = lib / "books" / "NewSystem" / "core"
+            dest.mkdir(parents=True)
+            moved_to = dest / "tome.pdf"
+            f.rename(moved_to)
+
+            stats = _scan_with_thumbs(lib, tmp, db)
+            assert stats.get("moved_books", 0) == 1
+
+            db.expire_all()
+            survivor = db.query(Book).filter_by(id=original_id).first()
+            assert survivor.has_thumbnail is True
+            # The cover serving the new path exists; the old path's is cleaned up.
+            assert os.path.isfile(_thumb_for(tmp, "tome", str(moved_to)))
+            assert not os.path.isfile(old_thumb)
+        finally:
+            db.close()
+
+    def test_moved_book_with_custom_title_renames_its_thumbnail(self):
+        """A survivor keeps its edited title, so the cover is renamed to match.
+
+        The walk names the destination cover from the filename-derived title. The
+        row that survives carries the user's title, so the file is renamed onto
+        the name the fast serving path looks for.
+        """
+        tmp, lib = _mk_lib()
+        src = lib / "books" / "OldSystem" / "core"
+        src.mkdir(parents=True)
+        f = src / "tome.pdf"
+        f.write_bytes(b"%PDF-1.4 a renamed book with a cover")
+
+        db = SessionLocal()
+        try:
+            _scan_with_thumbs(lib, tmp, db)
+            book = db.query(Book).filter_by(filepath=str(f)).first()
+            original_id = book.id
+            book.title = "Player Handbook"
+            db.commit()
+
+            dest = lib / "books" / "NewSystem" / "core"
+            dest.mkdir(parents=True)
+            moved_to = dest / "tome.pdf"
+            f.rename(moved_to)
+
+            _scan_with_thumbs(lib, tmp, db)
+
+            db.expire_all()
+            survivor = db.query(Book).filter_by(id=original_id).first()
+            assert survivor.title == "Player Handbook"
+            assert survivor.has_thumbnail is True
+            # Stored under the kept title, not the one derived from the filename.
+            assert os.path.isfile(_thumb_for(tmp, "Player Handbook", str(moved_to)))
+            assert not os.path.isfile(_thumb_for(tmp, "tome", str(moved_to)))
+        finally:
+            db.close()
+
     def test_moved_token_keeps_its_row(self):
         tmp, lib = _mk_lib()
         src = lib / "tokens" / "Old"
@@ -321,6 +435,48 @@ class TestMoveDetection:
             assert survivor is not None
             assert survivor.filepath == str(moved_to)
             assert survivor.is_missing is False
+        finally:
+            db.close()
+
+    def test_moved_token_removes_its_stale_thumbnail(self):
+        """Issue #394 — a move must not leave the old path's thumbnail behind.
+
+        Maps and tokens keep their row (and their ``has_thumbnail`` flag) across a
+        move, and the walk writes a fresh cover under the new path's name. The old
+        path's file is then unreachable — nothing serves it, nothing cleans it up —
+        so every move used to leak one WebP.
+        """
+        tmp, lib = _mk_lib()
+        src = lib / "tokens" / "Old"
+        src.mkdir(parents=True)
+        f = src / "goblin.png"
+        f.write_bytes(b"\x89PNG token-thumbnail-fixture")
+
+        db = SessionLocal()
+        try:
+            _scan_with_thumbs(lib, tmp, db)
+            tok = db.query(Token).filter_by(filepath=str(f)).first()
+            assert tok.has_thumbnail is True
+            original_id = tok.id
+            old_thumb = _thumb_for(tmp, "goblin", str(f), section="tokens")
+            assert os.path.isfile(old_thumb)
+
+            dest = lib / "tokens" / "New"
+            dest.mkdir(parents=True)
+            moved_to = dest / "goblin.png"
+            f.rename(moved_to)
+
+            stats = _scan_with_thumbs(lib, tmp, db)
+            assert stats.get("moved_tokens", 0) == 1
+
+            db.expire_all()
+            survivor = db.query(Token).filter_by(id=original_id).first()
+            assert survivor.has_thumbnail is True
+            # The new path's cover is there, and the old one is not left behind.
+            assert os.path.isfile(_thumb_for(tmp, "goblin", str(moved_to), section="tokens"))
+            assert not os.path.isfile(old_thumb)
+            leftovers = list((Path(tmp) / "thumbnails" / "tokens").glob("*.webp"))
+            assert len(leftovers) == 1, f"leaked thumbnails: {leftovers}"
         finally:
             db.close()
 
