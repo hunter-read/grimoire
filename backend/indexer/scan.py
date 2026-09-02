@@ -134,6 +134,10 @@ def scan_library(
         "new_tokens": 0,
         "new_audio": 0,
         "updated_books": 0,
+        # Media rows given a thumbnail after the fact — a format that became
+        # thumbnailable after the row was first registered (Universal VTT maps).
+        "updated_maps": 0,
+        "updated_tokens": 0,
         "indexed_pages": 0,
         # Books whose bytes changed under an unchanged path, and files recognised
         # as moved rather than deleted-and-re-added (issue #284).

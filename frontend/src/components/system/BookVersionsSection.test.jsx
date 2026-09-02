@@ -98,6 +98,35 @@ describe('BookVersionsSection', () => {
     )
   })
 
+  it('offers only the book kinds', async () => {
+    // Mounted from the book editor and details modal, so a map- or audio-only
+    // kind here would just be a submit the API rejects.
+    render(<BookVersionsSection book={row} />)
+    const select = await screen.findByLabelText('Change version type')
+    const values = [...select.options].map((o) => o.value)
+    expect(values).toEqual([
+      'version',
+      'printer-friendly',
+      'form-fillable',
+      'black-and-white',
+      'spreads',
+      'single-page',
+      'other',
+    ])
+  })
+
+  it('keeps a kind the book already carries but the vocabulary dropped', async () => {
+    mockGet.mockResolvedValue({
+      ...family,
+      variants: [{ ...family.variants[0], kind: 'gridless' }],
+    })
+    render(<BookVersionsSection book={row} />)
+    const select = await screen.findByLabelText('Change version type')
+    expect([...select.options].map((o) => o.value)).toContain('gridless')
+    // ...and it is what the select shows, rather than silently another kind.
+    expect(select.value).toBe('gridless')
+  })
+
   it('promotes a variant to the main version', async () => {
     render(<BookVersionsSection book={row} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Make main' }))

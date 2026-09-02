@@ -1288,11 +1288,33 @@ the matching edge from the live results — and with it the transitive path that
 would otherwise put the rejected pair back on screen.
 
 **Variants** are how #306 collapses versions. `POST /duplicates/link` points one
-record at another via `variant_parent_id`, with a `kind` from `printer-friendly`,
-`form-fillable`, `spreads`, `single-page`, `version`, `black-and-white`,
-`gridded`, `gridless`, `other`, and a free-text `label` ("v1.0.1"). Only two
-levels are allowed — a variant cannot itself have variants — which makes cycles
-impossible and keeps the version picker flat. Deleting a record that has
+record at another via `variant_parent_id`, with a `kind` and a free-text `label`
+("v1.0.1"). The accepted kinds depend on `resource_type`, because most of them
+only mean something for one collection — a gridless token or a form-fillable
+audio track is not a distinction that exists:
+
+| `resource_type` | Accepted `kind` values |
+| --- | --- |
+| *(any)* | `version`, `other` |
+| `book` | + `printer-friendly`, `form-fillable`, `spreads`, `single-page`, `black-and-white` |
+| `map` | + `printer-friendly`, `black-and-white`, `gridded`, `gridless`, `universal-vtt`, `video`, `image` |
+| `token` | + `black-and-white`, `color-variation` |
+| `audio` | + `remix`, `slowed`, `sped-up` |
+
+`universal-vtt` is a `.dd2vtt`/`.uvtt` export carrying walls and lights;
+`video` and `image` are the animated and still cuts of one map, a pair in the
+same way `gridded`/`gridless` are.
+
+A kind outside its collection's list is rejected — as a per-child `errors` entry
+on `link` (the same skip-and-continue contract as a bad id), and as a `400` on
+`promote`, whose `kind` describes the copy being demoted. The one exception is a
+record that *already* carries such a kind, from before the vocabulary was scoped
+per collection: re-saving it unchanged is allowed, so that one stuck field does
+not block every other edit to the row. It can be corrected, but not copied to a
+second record.
+
+Only two levels are allowed — a variant cannot itself have variants — which
+makes cycles impossible and keeps the version picker flat. Deleting a record that has
 variants requires `reparent_to`: either an id naming which variant inherits the
 rest, or `""` to promote them all. A variant is never left pointing at a deleted
 parent.

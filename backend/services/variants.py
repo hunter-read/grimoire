@@ -27,7 +27,7 @@ from typing import Any, Iterable, Optional, Sequence
 from sqlalchemy import func
 from sqlalchemy.orm import Query, Session
 
-from ..models.variants import VARIANT_KINDS
+from ..models.variants import VARIANT_KINDS, kinds_for
 
 
 class VariantError(Exception):
@@ -130,13 +130,29 @@ def family_for(db: Session, model: Any, record: Any) -> tuple[Any, list[Any]]:
     return parent, variants_of(db, model, parent.id)
 
 
-def validate_kind(kind: str) -> str:
-    """Normalise and check a variant kind against the closed vocabulary."""
+def validate_kind(kind: str, resource_type: str = "", current: str = "") -> str:
+    """Normalise and check a variant kind against the vocabulary for a collection.
+
+    ``resource_type`` narrows the accepted set: a map can be marked gridless, a
+    token cannot. Omitting it accepts any kind any collection defines, which is
+    what keeps callers that do not know their collection working.
+
+    ``current`` is the kind the row already carries. A row linked before the
+    vocabulary was scoped may hold a kind its collection no longer offers (a
+    token marked printer-friendly); re-saving it unchanged must not fail, or the
+    only way to touch that row would be to change the one field that is stuck.
+    Anything *else* is still refused, so the stale value can be corrected but
+    never spread.
+    """
     cleaned = (kind or "").strip().lower()
-    if cleaned not in VARIANT_KINDS:
+    allowed = kinds_for(resource_type)
+    if cleaned not in allowed:
+        if cleaned and cleaned == (current or "").strip().lower() and cleaned in VARIANT_KINDS:
+            return cleaned
         raise VariantError(
-            f"Unknown variant kind '{kind}'. Expected one of: "
-            f"{', '.join(sorted(VARIANT_KINDS))}.",
+            f"Unknown variant kind '{kind}'"
+            f"{f' for {resource_type}' if resource_type else ''}. Expected one of: "
+            f"{', '.join(sorted(allowed))}.",
             code="invalid",
         )
     return cleaned
@@ -184,12 +200,18 @@ def assert_can_parent(db: Session, model: Any, parent_id: str, child_id: str) ->
 
 
 def link(
-    db: Session, model: Any, parent_id: str, child_id: str, kind: str, label: str = ""
+    db: Session,
+    model: Any,
+    parent_id: str,
+    child_id: str,
+    kind: str,
+    label: str = "",
+    resource_type: str = "",
 ) -> Any:
     """Make ``child_id`` a variant of ``parent_id``. Does not commit."""
     parent, child = assert_can_parent(db, model, parent_id, child_id)
     child.variant_parent_id = parent.id
-    child.variant_kind = validate_kind(kind)
+    child.variant_kind = validate_kind(kind, resource_type, child.variant_kind)
     child.variant_label = (label or "").strip()[:120]
     return child
 
@@ -225,7 +247,13 @@ def unlink_children(db: Session, model: Any, parent_id: str) -> int:
 
 
 def promote(
-    db: Session, model: Any, new_parent_id: str, old_parent_id: str, kind: str, label: str = ""
+    db: Session,
+    model: Any,
+    new_parent_id: str,
+    old_parent_id: str,
+    kind: str,
+    label: str = "",
+    resource_type: str = "",
 ) -> int:
     """Make ``new_parent_id`` the main version of ``old_parent_id``'s family.
 
@@ -281,7 +309,7 @@ def promote(
         moved += 1
 
     old_parent.variant_parent_id = new_parent_id
-    old_parent.variant_kind = validate_kind(kind)
+    old_parent.variant_kind = validate_kind(kind, resource_type, old_parent.variant_kind)
     old_parent.variant_label = (label or "").strip()[:120]
     return moved + 1
 

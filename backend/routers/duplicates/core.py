@@ -56,7 +56,15 @@ def link_variants(
             continue
         seen.add(child.id)
         try:
-            variants.link(db, model, data.parent_id, child.id, child.kind, child.label)
+            variants.link(
+                db,
+                model,
+                data.parent_id,
+                child.id,
+                child.kind,
+                child.label,
+                resource_type=data.resource_type,
+            )
             linked.append(child.id)
         except VariantError as exc:
             errors.append({"id": child.id, "detail": exc.message})
@@ -85,7 +93,13 @@ def promote_variant(
     model = resolve_model(data.resource_type)
     try:
         moved = variants.promote(
-            db, model, data.new_parent_id, data.old_parent_id, data.kind, data.label
+            db,
+            model,
+            data.new_parent_id,
+            data.old_parent_id,
+            data.kind,
+            data.label,
+            resource_type=data.resource_type,
         )
     except VariantError as exc:
         db.rollback()

@@ -802,3 +802,125 @@ class TestListGroups:
             seen += [g["id"] for g in page["groups"]]
         assert seen == [g["id"] for g in whole["groups"]]
         assert len(set(seen)) == 12
+
+
+class TestKindVocabularyByType:
+    """A kind only offered for one collection is refused for the others.
+
+    The vocabulary is scoped so the picker cannot offer a gridless token or a
+    form-fillable audio track; these check the API enforces the same thing, since
+    the picker is not the only caller.
+    """
+
+    @pytest.fixture
+    def factories(self, system):
+        """`factory()` for each collection, with books given their system."""
+        return {
+            "book": lambda: make_book(system.id),
+            "map": make_map,
+            "token": make_token,
+            "audio": make_audio,
+        }
+
+    @pytest.mark.parametrize(
+        "rtype,kind",
+        [
+            ("map", "universal-vtt"),
+            ("map", "video"),
+            ("map", "image"),
+            ("map", "gridded"),
+            ("token", "color-variation"),
+            ("audio", "remix"),
+            ("audio", "slowed"),
+            ("audio", "sped-up"),
+            ("book", "form-fillable"),
+            ("book", "spreads"),
+        ],
+    )
+    def test_accepts_its_own_kinds(self, client, admin_headers, factories, rtype, kind):
+        factory = factories[rtype]
+        parent, child = factory(), factory()
+        res = _link(client, admin_headers, parent.id, child.id, kind, rtype=rtype)
+        assert res.status_code == 200
+        assert res.json()["linked"] == [child.id]
+
+    @pytest.mark.parametrize(
+        "rtype,kind",
+        [
+            # Map-only kinds, refused everywhere else.
+            ("book", "gridless"),
+            ("token", "gridded"),
+            ("audio", "universal-vtt"),
+            ("book", "video"),
+            ("token", "image"),
+            # Book-only kinds.
+            ("map", "form-fillable"),
+            ("token", "spreads"),
+            ("audio", "single-page"),
+            # Token-only.
+            ("book", "color-variation"),
+            # Audio-only.
+            ("map", "remix"),
+            ("book", "slowed"),
+            ("token", "sped-up"),
+            # printer-friendly is book/map; black-and-white is book/map/token.
+            ("audio", "printer-friendly"),
+            ("token", "printer-friendly"),
+            ("audio", "black-and-white"),
+        ],
+    )
+    def test_rejects_another_collections_kind(
+        self, client, admin_headers, factories, rtype, kind
+    ):
+        factory = factories[rtype]
+        parent, child = factory(), factory()
+        body = _link(client, admin_headers, parent.id, child.id, kind, rtype=rtype).json()
+        # A bad kind is a per-child error, not a failed request — same
+        # skip-and-continue contract as a bad id.
+        assert body["linked"] == []
+        assert kind in body["errors"][0]["detail"]
+
+    @pytest.mark.parametrize("rtype", ["book", "map", "token", "audio"])
+    def test_version_and_other_work_everywhere(self, client, admin_headers, factories, rtype):
+        factory = factories[rtype]
+        for kind in ("version", "other"):
+            parent, child = factory(), factory()
+            res = _link(client, admin_headers, parent.id, child.id, kind, rtype=rtype)
+            assert res.json()["linked"] == [child.id], (rtype, kind)
+
+    def test_promote_rejects_another_collections_kind(self, client, admin_headers):
+        # The demoted copy is described by `kind` too, so promote validates it
+        # against the same table.
+        first, second = make_map(), make_map()
+        res = _promote(client, admin_headers, first.id, second.id, kind="remix", rtype="map")
+        assert res.status_code == 400
+        assert "remix" in res.json()["detail"]
+
+    def test_legacy_kind_survives_a_resave(self, client, admin_headers):
+        """A row filed before the vocabulary was scoped can be re-saved as-is.
+
+        Otherwise the one field that is stuck would be the one blocking every
+        other edit to that row.
+        """
+        from backend.config import SessionLocal
+        from backend.models import Token
+
+        parent, child = make_token(), make_token()
+        assert _link(client, admin_headers, parent.id, child.id, "other",
+                     rtype="token").json()["linked"] == [child.id]
+
+        # Simulate the pre-scoping row: a token marked with a book-only kind.
+        db = SessionLocal()
+        db.query(Token).filter_by(id=child.id).update({"variant_kind": "form-fillable"})
+        db.commit()
+        db.close()
+
+        body = _link(client, admin_headers, parent.id, child.id, "form-fillable",
+                     rtype="token").json()
+        assert body["linked"] == [child.id]
+
+        # ...but it can only be kept, never spread to a second row.
+        other = make_token()
+        body = _link(client, admin_headers, parent.id, other.id, "form-fillable",
+                     rtype="token").json()
+        assert body["linked"] == []

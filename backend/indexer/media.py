@@ -20,13 +20,35 @@ from sqlalchemy.exc import IntegrityError
 from backend import indexer  # package namespace, for patch-sensitive calls
 from ._context import _ScanContext, _prune_dirs, _title_from_filename
 from ._subprocess import _run_with_timeout
-from .constants import AUDIO_EXTS, MAP_VIDEO_EXTS, MEDIA_ARCHIVE_EXTS, _DB_TIMEOUT
+from .constants import (
+    AUDIO_EXTS,
+    MAP_VIDEO_EXTS,
+    MEDIA_ARCHIVE_EXTS,
+    VTT_DATA_EXTS,
+    _DB_TIMEOUT,
+)
 from .hashing import file_signature, hash_file
 from .metadata import _find_folder_artwork, _read_audio_metadata
 from .thumbnails import archive_ext
 from ..models import Audio
 
 logger = logging.getLogger("grimoire.indexer")
+
+
+def _needs_thumbnail_backfill(existing: Any, ext: str, arc_ext: str) -> bool:
+    """True when a registered media row could have a thumbnail but does not.
+
+    Only Universal VTT maps can currently answer yes: they were registered as
+    opaque before the thumbnailer learned to read the battlemap embedded in the
+    JSON, so existing rows sit at has_thumbnail=0 with no way to recover. Videos
+    stay excluded (no decoder is shipped), and archives are opaque by design.
+
+    Guarded on the flag rather than on file state, so a genuinely un-thumbnailed
+    file is retried at most once per scan and a successful row is never redone.
+    """
+    if arc_ext or getattr(existing, "has_thumbnail", False):
+        return False
+    return ext in VTT_DATA_EXTS
 
 
 def _scan_media(
@@ -91,11 +113,35 @@ def _scan_media(
                 logger.error(f"DB hang: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
+            title = _title_from_filename(filename)
+
             if existing:
+                # Backfill a thumbnail for a record registered before its format
+                # was thumbnailable. A Universal VTT map scanned by an older
+                # build sits at has_thumbnail=0 even though the battlemap is
+                # embedded in the file, and the walk would otherwise skip it
+                # forever — existing rows never re-enter the insert path below.
+                # Mirrors the same backfill for books (see books.py).
+                if _needs_thumbnail_backfill(existing, ext, arc_ext):
+                    thumb_path = ctx.thumb_path(section, title, filepath)
+                    logger.debug(f"Backfilling thumbnail: {filepath}")
+                    if indexer.generate_thumbnail(
+                        filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
+                    ):
+                        existing.has_thumbnail = True
+                        try:
+                            _run_with_timeout(
+                                session.commit,
+                                _DB_TIMEOUT,
+                                f"commit {singular} thumbnail '{filepath}'",
+                            )
+                            stats[f"updated_{section}"] += 1
+                        except TimeoutError as e:
+                            logger.error(f"DB hang: {e} - rolling back '{filename}'")
+                            session.rollback()
+                    continue
                 logger.debug(f"Already registered, skipping: {filename}")
                 continue
-
-            title = _title_from_filename(filename)
 
             signature = file_signature(filepath)
             if signature is None:

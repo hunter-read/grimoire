@@ -155,8 +155,15 @@ express anyway (two levels only, no self-parenting, no cycles) are enforced in
 
 All three media tables carry the same `variant_parent_id` / `variant_kind` /
 `variant_label` columns as `books` (see above), each with an
-`ix_<table>_variant_parent` index. Maps use them for gridded/gridless pairs, and
-any collection can use them for an alternate cut of the same file.
+`ix_<table>_variant_parent` index. Every collection uses them for an alternate
+cut of the same file, but the `variant_kind` vocabulary is *scoped per
+collection* (`VARIANT_KINDS_BY_TYPE` in `backend/models/variants.py`): maps get
+gridded/gridless plus Universal VTT and video/image, tokens get colour
+variations, audio gets remix/slowed/sped-up, and books keep the print-shape
+kinds. The column itself is unconstrained, so a row written before the
+vocabulary was scoped may hold a kind its collection no longer offers; the
+service layer lets such a row keep its value but refuses to write that pairing
+to any other row.
 
 None of these tables carry foreign keys; they are linked to campaigns polymorphically via
 `campaign_resources`.
