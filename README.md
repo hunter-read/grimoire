@@ -21,9 +21,9 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 ## Features
 
 - **Library Browser** - Organizes your collection by game system with automatic folder detection
-- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds maps, tokens, and audio by filename, folder, or tag
+- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds books by title, author, or publisher, and maps, tokens, and audio by filename, folder, or tag. Narrow a search to one field with `title:`, `author:`, `tag:` and friends - see [Searching your library](#searching-your-library)
 - **Page-by-Page Viewer** - PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
-- **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download. Image and PDF maps both display in-app; multi-page PDF maps open in a viewer with single-page, two-page spread, and raw-PDF modes
+- **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download. Image, PDF, animated (`.webm`/`.mp4`), and Universal VTT (`.uvtt`/`.dd2vtt`) maps all display in-app; multi-page PDF maps open in a viewer with single-page, two-page spread, and raw-PDF modes. Large maps are shown through a downscaled preview so they appear promptly no matter how big the original is, while downloads still give you the untouched file
 - **Token Browser** - Browse and tag character tokens and portrait assets
 - **Audio Library** - Browse ambient tracks, soundscapes, music, and sound effects by directory structure with tag filtering and in-browser playback (MP3, OGG, Opus, FLAC, WAV, M4A, AAC). Reads embedded duration and title/artist/album tags, and uses folder `cover`/`folder` images or embedded album art for artwork
 - **Global Audio Player** - A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
@@ -530,6 +530,8 @@ Sidecars are hidden in the **File Manager** - they describe your content rather 
 
 > Sidecar export writes into your library folder, so it needs the library mounted **writable** - the default. If you have mounted it `:ro`, export reports that clearly and your metadata edits keep working; only the sidecar write is skipped. See [Read-only or writable?](#read-only-or-writable).
 
+Exported sidecars and covers are created with the container's `UMASK` applied, exactly like an uploaded file - with the default `022` that means `rw-r--r--`, readable by other users and other tools sharing the volume. Set `UMASK` on the container if your setup needs something different (Unraid users typically want `000` to get `rw-rw-rw-`).
+
 See [`docs/sidecars.md`](docs/sidecars.md) for the full field mapping per format and how export precedence pairs with the refresh modes above.
 
 ### Maps - organize by creator or collection
@@ -542,7 +544,7 @@ maps/
 
 The folder name is shown as a group header in the map gallery. Both image maps and PDF maps (including multi-page PDFs) are supported and viewable in-app.
 
-Animated maps (`.webm`, `.mp4`) and Universal VTT exports (`.uvtt`, `.dd2vtt`) are also registered so they stay visible and downloadable alongside the stills they belong to - publishers commonly ship a looping video and a VTT data file next to each still variant. Like archives, they are opaque: no thumbnail is generated, since there is no still frame to render without a video decoder.
+Animated maps (`.webm`, `.mp4`) and Universal VTT exports (`.uvtt`, `.dd2vtt`) sit alongside the stills they belong to - publishers commonly ship a looping video and a VTT data file next to each still variant - and both are viewable in-app. Animated maps play in the detail view on a muted loop with normal playback controls. Universal VTT files show the battlemap held inside them, and their detail panel lists the grid resolution plus the wall, door, and light counts the file carries for a virtual tabletop (see the [format reference](https://arkenforge.com/universal-vtt-files/)). Universal VTT files get a gallery thumbnail like any other map, since the image is right there in the file. Animated maps do not - pulling a frame out of a video needs a decoder Grimoire does not bundle, and adding one would roughly double the image size - so they show a video icon in the gallery instead.
 
 ### Tokens - organize by type
 
@@ -802,13 +804,29 @@ The pairs shown are the comparisons that actually matched, not every combination
 
 - **Copy metadata** - move individual fields from the copy you are discarding onto the one you are keeping, before it goes. Keeping the better _file_ should not mean keeping the worse _record_: a pristine scan often arrives with nothing but a filename while the copy you are about to delete has the title, publisher, and tags you curated. Only fields that actually differ are offered, and you tick them individually rather than copying wholesale.
 
-- **Link as versions** - collapse the two into one library entry. A radio button on each copy picks the main version, and a dropdown says what the other one _is_: a version, printer friendly, form fillable, black and white, spreads, single pages, gridded, gridless, or other - plus an optional free-text label like `v1.0.1`. The variant stops appearing separately in browsing, search, and counts.
+- **Link as versions** - collapse the two into one library entry. A radio button on each copy picks the main version, and a dropdown says what the other one _is_ - plus an optional free-text label like `v1.0.1`. The variant stops appearing separately in browsing, search, and counts.
+
+  The dropdown only offers the kinds that make sense for what you are reviewing, since most of them describe one kind of file: a gridless token or a form-fillable audio track is not a real distinction. Every collection offers **version** and **other**; on top of that:
+
+  | Reviewing | Also offers                                                                       |
+  | --------- | --------------------------------------------------------------------------------- |
+  | Books     | Printer friendly, form fillable, black and white, two-page spreads, single pages  |
+  | Maps      | Gridded, gridless, Universal VTT, video, image, printer friendly, black and white |
+  | Tokens    | Colour variation, black and white                                                 |
+  | Audio     | Remix, slowed, sped up                                                            |
+
+  **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers.
+
 - **Delete a copy** - asks for confirmation in a dialog, and removes the file from disk by default. That default is the opposite of elsewhere in Grimoire, deliberately: you have just decided this copy is redundant, and leaving the bytes in the library folder means the next scan proposes the same pair all over again. Untick the box to drop only the library record.
-- **Not duplicates** - dismisses that pair for good. It disappears from the list straight away rather than lingering until the next scan, and it never comes back: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it.
+- **Not duplicates** - dismisses that pair. It disappears from the list straight away rather than lingering until the next scan, and it stays gone: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it. Dismissals are not final, though - **Show dismissed** at the foot of the duplicates page lists everything you have rejected, with a **Restore** button on each. Restoring one lets it be proposed again by the next scan (the list on screen was built while the dismissal still applied, so it does not reappear until you rescan).
 
 **Changing your mind about the main version.** Say you file the printable cut under the form-fillable one, then meet a lined edition you consider the real original. Choosing the lined copy as the main version moves the _whole family_ across in one step - the form-fillable becomes a variant of it, and anything already filed under the form-fillable re-homes onto the new main version rather than being stranded. The page says how many versions will move before you commit.
 
-**Living with versions.** An entry that has other versions carries a badge. Books get a **Switch version** entry in the ⋮ menu, both in the library and while reading - switching in the reader keeps your page, so moving between a spreads cut and a single-page cut lands you in the same place. Maps, tokens, and audio get a dropdown on their detail page.
+**Living with versions.** An entry that has other versions carries a badge. Books get a **Switch version** entry in the ⋮ menu, both in the library and while reading - switching in the reader keeps your page, so moving between a spreads cut and a single-page cut lands you in the same place. Maps, tokens, and audio get a dropdown on their detail page. A book's **View details** panel lists every version it holds, with a download link for each.
+
+**Downloading one version.** A single download asks which version you want, rather than silently handing you the main one: the download action on a map, token, or audio card, on a detail page, or in a book's ⋮ menu opens a short menu of the versions when there is more than one to choose from. With only one version it stays a one-click download. (Bulk downloads are unchanged - see below.)
+
+**Fixing a mistake.** Everything about a family can be changed after the fact from the book's **View details** panel _or_ its metadata editor, so a mis-click during review is not permanent. Admins get, per version: a dropdown to change what kind of version it is (picked _printer friendly_ when you meant _black and white_), **Make main** to promote it to the main version, **Unlink** to pull it back out as its own library entry, and a delete button that asks whether to remove the file from disk or only drop Grimoire's record of it. Non-admins see the list and the download links, but none of the controls.
 
 Versions are only ever one level deep: a version cannot itself have versions. Deleting the main entry asks which version should replace it, or promotes them all - a version is a real file you own, so it is never left hidden behind a record that no longer exists.
 
@@ -825,6 +843,60 @@ Removal is deliberately cautious. A system is kept if it still holds any book th
 Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-populated shelf. Every system folder is registered before any book is indexed, so a container's editions all appear as soon as the folder is walked, however early the scan stops - you may be missing _books_ until the next full rescan, but never whole systems. Nothing is removed by an interrupted scan either.
 
 ---
+
+## Searching your library
+
+The search box looks in two places at once: the **text inside your books**, and
+the **books, maps, tokens, and audio themselves**. Typing `Avatar` turns up the
+book _Avatar Legends Core Rulebook_ at the top of the results - with its cover,
+and no page numbers, because it is the book itself that matched - followed by
+every page that happens to mention the word.
+
+### Searching one field at a time
+
+Put a field name and a colon in front of your search to look in just that field:
+
+```
+title:avatar                 books whose title contains "avatar"
+author:"Gary Gygax"          quotes keep a phrase together
+system:pbta category:core    both must match
+tag:forest tag:swamp         either tag matches
+year:2015-2020               a range; year:>2015 and year:<=2020 also work
+text:fireball                page content only
+```
+
+The full list, with the alternative spellings each one accepts:
+
+| Field         | Also accepts      | Searches                                                 |
+| ------------- | ----------------- | -------------------------------------------------------- |
+| `title`       | `name`            | Book titles, map and token filenames, audio track titles |
+| `author`      | `authors`         | Book authors                                             |
+| `artist`      | `artists`         | Book artists, audio artist                               |
+| `publisher`   |                   | Publisher                                                |
+| `system`      | `game`            | Game system                                              |
+| `category`    |                   | `core`, `supplement`, `adventure`, …                     |
+| `tag`         | `tags`            | Tags on books, maps, tokens, and audio                   |
+| `year`        |                   | Publication year, or a range                             |
+| `isbn`        |                   | ISBN                                                     |
+| `language`    | `lang`            | Language                                                 |
+| `description` | `desc`            | Book description                                         |
+| `album`       |                   | Audio album                                              |
+| `filename`    | `file`            | The name on disk                                         |
+| `text`        | `content`, `page` | Page content                                             |
+
+Three things worth knowing:
+
+- **A field search skips page content.** `title:avatar` looks only at titles, which
+  is the whole point - it is how you check whether you own a book without wading
+  through every page that mentions it. Use `text:` when you want page content back.
+- **Fields combine.** Several different fields all have to match; the same field
+  repeated matches any of its values.
+- **Colons in titles are safe.** Searching `Vaesen: Nordic Horror` looks for that
+  text rather than treating `Vaesen:` as a field, so you never have to think about
+  the syntax unless you want it.
+
+The **(i)** button in the search box lists the fields with examples, and clicking
+an example runs it.
 
 ## Configuration
 
