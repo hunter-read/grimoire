@@ -101,8 +101,15 @@ beforeEach(() => {
   // Each pane must echo back its own path: the destination of a cross-pane move
   // is the *other* pane's current folder, so a shared response would make the
   // move look like it targeted the source.
+  // The view anchors on the library root, but almost every case here is about
+  // acting on a *books* row, so the root listing stands in for `books/` and its
+  // rows carry books/ paths. Only the row paths are faked that way — the path
+  // browse is *called* with is untouched, so assertions about where the pane is
+  // anchored stay honest.
   filesApi.browse.mockImplementation((path) =>
-    Promise.resolve(browseResult([folder('core', path), file('bestiary.pdf', path)], path))
+    Promise.resolve(
+      browseResult([folder('core', path || 'books'), file('bestiary.pdf', path || 'books')], path)
+    )
   )
 })
 
@@ -284,7 +291,9 @@ describe('FileManagerView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'files.create' }))
 
     await waitFor(() =>
-      expect(filesApi.createFolder).toHaveBeenCalledWith('books', 'Homebrew', expect.anything())
+      // The pane is anchored on the library root, so that is where the folder
+      // lands — the button always means "here", whatever "here" happens to be.
+      expect(filesApi.createFolder).toHaveBeenCalledWith('', 'Homebrew', expect.anything())
     )
   })
 
@@ -511,13 +520,13 @@ describe('FileManagerView', () => {
     const tree = await screen.findByTestId('move-tree')
     expect(within(tree).queryByText('bestiary.pdf')).not.toBeInTheDocument()
 
-    // The picker browses from the library root, so the mock's folder is rooted
-    // there rather than under books/.
+    // The picker browses from the library root, and the mock's root listing
+    // stands in for books/ — so the folder offered there is books/core.
     await userEvent.click(within(tree).getByText('core'))
     await userEvent.click(screen.getByText('files.moveHere'))
 
     await waitFor(() =>
-      expect(filesApi.move).toHaveBeenCalledWith(['books/bestiary.pdf'], '/core', 'rename')
+      expect(filesApi.move).toHaveBeenCalledWith(['books/bestiary.pdf'], 'books/core', 'rename')
     )
   })
 
@@ -556,7 +565,7 @@ describe('FileManagerView', () => {
       },
     })
 
-    await waitFor(() => expect(filesApi.move).toHaveBeenCalledWith(['maps/tavern.png'], 'books'))
+    await waitFor(() => expect(filesApi.move).toHaveBeenCalledWith(['maps/tavern.png'], ''))
   })
 
   it('warns when only some of the selection moved', async () => {
@@ -584,9 +593,7 @@ describe('FileManagerView', () => {
     const buttons = screen.getAllByTitle('files.moveAcrossHint')
     await userEvent.click(buttons[buttons.length - 1])
 
-    await waitFor(() =>
-      expect(filesApi.move).toHaveBeenCalledWith(['books/core/bestiary.pdf'], 'books')
-    )
+    await waitFor(() => expect(filesApi.move).toHaveBeenCalledWith(['books/core/bestiary.pdf'], ''))
   })
 
   it('refreshes on demand', async () => {
@@ -669,7 +676,17 @@ describe('FileManagerView', () => {
     expect(screen.queryByTestId('kind-one-page')).not.toBeInTheDocument()
   })
 
+  // Which folders can hold category folders is the server's call — a system
+  // folder can, a container cannot, however deep the containers nest — so the
+  // view keys off the row's flag rather than re-deriving it from the path.
+  const showCategoryHost = (host) =>
+    filesApi.browse.mockImplementation((path) => {
+      const shown = path || 'books'
+      return Promise.resolve(browseResult([folder('core', shown, { category_host: host })], path))
+    })
+
   it('scaffolds category folders for a system folder', async () => {
+    showCategoryHost(true)
     filesApi.scaffold.mockResolvedValue({ path: 'books/core', created: ['Core'], existing: [] })
     render(<FileManagerView />)
     await openMenuOn('core')
@@ -681,12 +698,25 @@ describe('FileManagerView', () => {
   })
 
   it('says when the category folders already existed', async () => {
+    showCategoryHost(true)
     filesApi.scaffold.mockResolvedValue({ path: 'books/core', created: [], existing: ['Core'] })
     render(<FileManagerView />)
     await openMenuOn('core')
     await userEvent.click(await screen.findByTestId('scaffold-categories'))
 
     expect(await screen.findByRole('status')).toHaveTextContent('files.scaffoldNothingToDo')
+  })
+
+  it('hides the category scaffold on a folder that cannot hold categories', async () => {
+    // A container holds *systems*, so scaffolding "Core"/"Adventures" onto it
+    // would invent systems named after categories. The option is not offered.
+    showCategoryHost(false)
+    render(<FileManagerView />)
+    await openMenuOn('core')
+
+    // The menu is open — the scaffold entry is the only thing missing from it.
+    expect(await screen.findByTestId('container-submenu')).toBeInTheDocument()
+    expect(screen.queryByTestId('scaffold-categories')).not.toBeInTheDocument()
   })
 
   it('opens the shared metadata editor for an indexed file', async () => {
@@ -809,7 +839,7 @@ describe('FileManagerView', () => {
     await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalled())
     const [entries, destination] = uploadQueue.enqueue.mock.calls[0]
     expect(entries[0].file.name).toBe('new.pdf')
-    expect(destination).toBe('books')
+    expect(destination).toBe('')
     expect(filesApi.move).not.toHaveBeenCalled()
   })
 
@@ -867,17 +897,27 @@ describe('FileManagerView', () => {
     expect(screen.queryByTestId('upload-folder')).not.toBeInTheDocument()
   })
 
-  it('falls back to the pane folder when no destination was set', async () => {
+  it('ignores a picker event that arrived without a destination', async () => {
     render(<FileManagerView />)
     await screen.findByTestId('file-pane-primary')
 
-    // A change event that arrives without the picker having set a target must
-    // still land somewhere sensible rather than failing with "Path is empty".
+    // A change event that arrives before the picker set a target has no folder
+    // to land in. Guessing one used to mean books/, which quietly put files
+    // somewhere the user never chose — so it is dropped instead.
     fireEvent.change(screen.getByTestId('file-input'), {
       target: { files: [new File(['x'], 'stray.pdf')] },
     })
 
-    await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalled())
-    expect(uploadQueue.enqueue.mock.calls[0][1]).toBe('books')
+    await waitFor(() => expect(filesApi.browse).toHaveBeenCalled())
+    expect(uploadQueue.enqueue).not.toHaveBeenCalled()
+  })
+
+  it('starts anchored on the library root, not books/', async () => {
+    // The file manager manages maps, tokens and audio too; anchoring on books/
+    // hid them behind a "go up" the user had no reason to guess was there.
+    render(<FileManagerView />)
+    await screen.findByTestId('file-pane-primary')
+
+    await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith(''))
   })
 })

@@ -91,7 +91,10 @@ export default function FileManagerView() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
-  const primary = useLibraryPane('books')
+  // Both panes start at the library root. Anchoring the first pane on `books`
+  // hid the other collections behind a "go up" the user had no reason to guess
+  // was there — maps, tokens and audio are managed here too.
+  const primary = useLibraryPane('')
   const secondary = useLibraryPane('')
   // null when only one pane is open; otherwise the edge the second pane is
   // pinned to ('right' | 'left' | 'top' | 'bottom').
@@ -106,7 +109,9 @@ export default function FileManagerView() {
   const [movingEntries, setMovingEntries] = useState(null) // entries pending a destination
   const [editing, setEditing] = useState(null) // { type, item } for the metadata editor
   // Where a file picker will drop its files, set just before the input opens.
-  const uploadTarget = useRef('')
+  // null is "not set yet", distinct from '' — the library root, which is a real
+  // folder the user can be anchored on.
+  const uploadTarget = useRef(null)
   const fileInput = useRef(null)
   const folderInput = useRef(null)
   const [showUploads, setShowUploads] = useState(false)
@@ -327,10 +332,12 @@ export default function FileManagerView() {
   /** Queue a FileList for upload into `destination`. */
   const startUpload = useCallback(
     (fileList, destination) => {
-      // Fall back to the pane's own folder. The picker sets a target before it
-      // opens, but a drop or a stray change event can arrive without one, and
-      // "no destination" should mean "here" rather than an error.
-      destination = destination || primary.path || 'books'
+      // A stray change event that arrives before the picker set a target has no
+      // folder to land in. Dropping it is the only honest answer: the previous
+      // fallback to `primary.path || 'books'` guessed, and once the pane could
+      // be anchored on the library root that guess silently routed files into
+      // books/ — somewhere other than where the user put them.
+      if (destination == null) return
       const entries = [...fileList].map((file) => {
         // A folder pick reports each file's path within the dropped folder;
         // strip the file name to get the sub-directory to recreate.
@@ -342,7 +349,7 @@ export default function FileManagerView() {
       setShowUploads(true)
       uploads.enqueue(entries, destination)
     },
-    [uploads, primary.path]
+    [uploads]
   )
 
   /** Open the OS picker, remembering which folder the files belong in. */
@@ -401,13 +408,6 @@ export default function FileManagerView() {
         {t('files.adminOnly')}
       </div>
     )
-  }
-
-  // A system folder is a direct child of books/ — the only place category
-  // folders make sense.
-  const isSystemFolder = (path) => {
-    const parts = (path || '').split('/')
-    return parts[0] === 'books' && parts.length === 2
   }
 
   // The kinds this folder can be changed *to*. Two exclusions:
@@ -743,9 +743,11 @@ export default function FileManagerView() {
                 <LuFolderUp size={13} /> {t('files.uploadFolder')}
               </button>
 
-              {/* Only under books/, and not on books/ itself: categories are a
-                  books-tree concept and belong to a system folder. */}
-              {isSystemFolder(context.entry.path) && (
+              {/* Categories hang off a *system* folder. The server decides
+                  which folders those are — a container holds systems, so its
+                  children get the option and it does not, however deeply the
+                  containers nest. */}
+              {context.entry.category_host && (
                 <button
                   style={menuItem}
                   {...menuHover}

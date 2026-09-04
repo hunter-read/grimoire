@@ -649,6 +649,9 @@ Admins can reorganize the library from inside Grimoire - **Settings → Maintena
 → Open file manager**. It is a folder tree (think Finder or Explorer, but aware
 of Grimoire's own concepts) built for bulk reorganization:
 
+- **It opens at the library root**, showing `books`, `maps`, `tokens`, and
+  `audio` side by side. Everything in the library is managed here, so the tree
+  starts where all of it is visible rather than inside `books/`.
 - **Expand folders in place** to see a file and its destination at once, instead
   of navigating away from one to reach the other.
 - **Move** files and folders by dragging them onto any folder. Collapsed folders
@@ -708,7 +711,10 @@ of Grimoire's own concepts) built for bulk reorganization:
   in an empty folder, where there is no row to right-click.
 - **Set up a system in one step** with **Create standard category folders** -
   Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew, and
-  Starter Sets, named so the scanner classifies them correctly.
+  Starter Sets, named so the scanner classifies them correctly. Offered on system
+  folders only. A container holds *systems*, not categories, so the option does
+  not appear on one - it appears on the folders inside it, however deeply the
+  containers nest.
 - **Mark a folder NSFW or SFW**, or change its container type, without recreating
   it. The *One-page RPGs* and *System-agnostic* collections are one-of-a-kind:
   once a folder claims one, it is not offered on any other folder.
