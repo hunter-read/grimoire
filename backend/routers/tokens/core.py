@@ -5,13 +5,15 @@ from pathlib import Path
 
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
-from ...config import THUMB_DIR, get_db
+from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import Token, TokenFolder
 from ...services import bulk_service, tag_service, variants
+from ...services.content_cache import content_token
+from ...file_cache import etag_matches
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
@@ -152,6 +154,7 @@ def serve_token_file(
 
 def serve_token_thumbnail(
     token_id: str,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -159,12 +162,18 @@ def serve_token_thumbnail(
     if not t:
         raise HTTPException(404)
     assert_media_access(db, current_user, "token", t.id, is_explicit=bool(t.is_explicit))
+    # See the note on maps' thumbnail route: a token grid is denser still, so an
+    # uncached response is the dominant cost of opening the page.
+    etag = f'"{content_token(t.content_hash, t.filepath)}"'
+    if etag_matches(request, etag):
+        return Response(status_code=304, headers={"ETag": etag, **_THUMBNAIL_CACHE_HEADERS})
+    headers = {**_THUMBNAIL_CACHE_HEADERS, "ETag": etag}
     title = Path(t.filename).stem.replace("_", " ").replace("-", " ")
     slug = slugify(title)
     fhash = hashlib.md5(t.filepath.encode()).hexdigest()[:8]
     thumb_path = os.path.join(THUMB_DIR, "tokens", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
-        return FileResponse(thumb_path, media_type="image/webp")
+        return FileResponse(thumb_path, media_type="image/webp", headers=headers)
     raise HTTPException(404)
 
 

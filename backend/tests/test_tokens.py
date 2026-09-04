@@ -161,6 +161,43 @@ class TestServeTokenThumbnail:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/webp"
 
+    def test_thumbnail_is_cacheable_and_revalidates(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        """A dense token grid must not refetch every thumbnail on every visit."""
+        from backend.routers.tokens import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "tokens").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        t = make_token(filename="etag-token.png", filepath=str(tmp_path / "etag-token.png"))
+        fhash = hashlib.md5(t.filepath.encode()).hexdigest()[:8]
+        (thumb_root / "tokens" / f"{slugify('etag token')}_{fhash}.webp").write_bytes(b"webp")
+
+        first = client.get(f"/api/tokens/{t.id}/thumbnail", headers=admin_headers)
+        assert first.status_code == 200
+        cache_control = first.headers["cache-control"]
+        # Private: thumbnails are access-controlled, so a shared proxy must never
+        # serve one user's to another. Not "immutable": this URL is not
+        # content-addressed, so the browser has to revalidate (cheaply, via the
+        # ETag) or a replaced image would never appear.
+        assert "private" in cache_control
+        assert "immutable" not in cache_control
+        etag = first.headers["etag"]
+
+        again = client.get(
+            f"/api/tokens/{t.id}/thumbnail",
+            headers={**admin_headers, "If-None-Match": etag},
+        )
+        assert again.status_code == 304
+
+        stale = client.get(
+            f"/api/tokens/{t.id}/thumbnail",
+            headers={**admin_headers, "If-None-Match": '"outdated"'},
+        )
+        assert stale.status_code == 200
+
     def test_missing_thumbnail_returns_404(self, client, admin_headers, tmp_path, monkeypatch):
         from backend.routers.tokens import core
 

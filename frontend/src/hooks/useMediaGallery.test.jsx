@@ -50,7 +50,7 @@ const item = (over) => ({
 
 function setup(items, savedFilters = [], folders = []) {
   api.get.mockImplementation((url) => {
-    if (url === '/maps') return Promise.resolve({ maps: items, total: items.length })
+    if (url.split('?')[0] === '/maps') return Promise.resolve({ maps: items, total: items.length })
     if (url === '/map-folders') return Promise.resolve({ folders })
     if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: savedFilters })
     return Promise.resolve({})
@@ -272,5 +272,82 @@ describe('useMediaGallery', () => {
     expect(result.current.flatItems[0].filename).toBe('renamed.png')
     act(() => result.current.toggleSelect('a'))
     expect(result.current.selectedObjects().map((i) => i.id)).toEqual(['a'])
+  })
+
+  describe('progressive loading', () => {
+    // A single request for a library of thousands of items left the view on a
+    // spinner until the last row arrived; pages are fetched and appended so the
+    // first one paints early.
+    const pagedSetup = (total, pageSize = 500) => {
+      const all = Array.from({ length: total }, (_, i) =>
+        item({ id: `m${i}`, filename: `m${i}.png` })
+      )
+      api.get.mockImplementation((url) => {
+        const [path, qs] = url.split('?')
+        if (path === '/maps') {
+          const params = new URLSearchParams(qs)
+          const offset = Number(params.get('offset') || 0)
+          const limit = Number(params.get('limit') || pageSize)
+          return Promise.resolve({ maps: all.slice(offset, offset + limit), total })
+        }
+        if (url === '/map-folders') return Promise.resolve({ folders: [] })
+        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
+        return Promise.resolve({})
+      })
+      return all
+    }
+
+    it('requests a bounded page rather than the whole library', async () => {
+      pagedSetup(10)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
+      expect(listCalls[0][0]).toContain('limit=')
+      expect(listCalls[0][0]).toContain('offset=0')
+    })
+
+    it('accumulates every page so filtering still sees the whole library', async () => {
+      // The hook keeps paging while a full page comes back, so this needs to
+      // straddle the real page size — just over it, to prove the append path
+      // without making the suite sort thousands of rows.
+      const total = 501
+      pagedSetup(total)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.loadingMore).toBe(false))
+      const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
+      expect(listCalls.length).toBe(2)
+      expect(listCalls[1][0]).toContain('offset=500')
+      // Every row is present exactly once — an append bug would duplicate or drop.
+      expect(result.current.totalCount).toBe(total)
+      expect(new Set(result.current.flatItems.map((i) => i.id)).size).toBe(total)
+    })
+
+    it('stops paging when a short page arrives, even if total disagrees', async () => {
+      // A rescan can shrink the library mid-load; without the short-page check
+      // the loop would keep asking for pages that never come.
+      api.get.mockImplementation((url) => {
+        const path = url.split('?')[0]
+        if (path === '/maps')
+          return Promise.resolve({ maps: [item({ id: 'a', filename: 'a.png' })], total: 9999 })
+        if (url === '/map-folders') return Promise.resolve({ folders: [] })
+        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
+        return Promise.resolve({})
+      })
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.loadingMore).toBe(false), { timeout: 3000 })
+      expect(result.current.totalCount).toBe(1)
+    })
+
+    it('clears the loading flag when a page request fails', async () => {
+      api.get.mockImplementation((url) => {
+        const path = url.split('?')[0]
+        if (path === '/maps') return Promise.reject(new Error('boom'))
+        if (url === '/map-folders') return Promise.resolve({ folders: [] })
+        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
+        return Promise.resolve({})
+      })
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.loadingMore).toBe(false))
+    })
   })
 })

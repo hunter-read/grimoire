@@ -3,21 +3,25 @@ import hashlib
 import io
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import or_, true
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from ...config import (
     _MEDIA_FILE_CACHE_HEADERS,
     _PAGE_CACHE_HEADERS,
+    _THUMBNAIL_CACHE_HEADERS,
     THUMB_DIR,
     get_db,
     logger,
 )
 from ...models import GenericMap, MapFolder
 from ...services import bulk_service, tag_service, variants
+from ...services.content_cache import content_token
+from ...file_cache import etag_matches
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
@@ -43,6 +47,31 @@ def _folder_path(relative_path: str) -> str:
     return "/".join(Path(relative_path.replace("\\", "/")).parts[1:-1])
 
 
+def _folder_prefix_filter(model: Any, folder: str) -> Any:
+    """SQL clause narrowing to rows whose relative_path could sit in ``folder``.
+
+    A relative_path is ``<system>/<folder…>/<file>``, so a row in ``folder`` has
+    it somewhere after the first segment. This is a cheap superset — it also
+    admits deeper descendants and any folder whose name merely starts with the
+    same text — which is why callers keep the exact :func:`_folder_path` check.
+    The empty (root) folder has no prefix to match on, so it is not narrowed.
+
+    ``escape="!"`` keeps a literal %, _ or ! in a real folder name from acting as
+    a LIKE wildcard. A backslash is not escaped and the escape character is not
+    one: :func:`_folder_path` normalises separators, so the folder string itself
+    never contains a backslash — only the stored path does, which is why the
+    Windows-separator variant is matched separately.
+    """
+    if not folder:
+        return true()
+    escaped = folder.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    win = escaped.replace("/", "\\")
+    return or_(
+        model.relative_path.like(f"%/{escaped}/%", escape="!"),
+        model.relative_path.like(f"%\\{win}\\%", escape="!"),
+    )
+
+
 def list_maps(
     map_type: Optional[str] = None,
     folder: Optional[str] = None,
@@ -50,16 +79,21 @@ def list_maps(
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    # Applied before the folder branch below, which materialises the query with
-    # .all() and filters in Python — a variant must never reach that list
-    # (issues #304, #306).
+    # Applied before the folder branch below — a variant must never reach the
+    # list (issues #304, #306).
     q = variants.parents_only(db.query(GenericMap), GenericMap)
     if map_type:
         q = q.filter_by(map_type=map_type)
     q = q.order_by(GenericMap.filename)
     if folder is not None:
-        # Folder is derived from relative_path, not a column, so filter in
-        # Python. Paginate the filtered result.
+        # Folder is derived from relative_path rather than stored as a column, so
+        # it cannot be compared directly. Narrowing on the path prefix in SQL
+        # first means only that folder's subtree is materialised, instead of the
+        # whole table (which on a large library was the cost of opening a
+        # folder); the exact per-row check below still decides membership, since
+        # the prefix also matches deeper descendants and sibling folders sharing
+        # a name prefix.
+        q = q.filter(_folder_prefix_filter(GenericMap, folder))
         filtered = [m for m in q.all() if _folder_path(m.relative_path) == folder]
         total = len(filtered)
         maps = filtered[offset : offset + limit]
@@ -298,6 +332,7 @@ def get_map_vtt_data(
 
 def serve_map_thumbnail(
     map_id: str,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -305,12 +340,21 @@ def serve_map_thumbnail(
     if not m:
         raise HTTPException(404)
     assert_media_access(db, current_user, "map", m.id)
+    # A gallery of thousands of maps hits this route once per visible card, so an
+    # uncached response means the whole grid is re-downloaded on every visit and
+    # every scroll back. The ETag carries the content token (not the path-derived
+    # filename, which cannot tell a replaced image from the original), so a client
+    # holding a stale thumbnail still finds out — mirroring books' cover route.
+    etag = f'"{content_token(m.content_hash, m.filepath)}"'
+    if etag_matches(request, etag):
+        return Response(status_code=304, headers={"ETag": etag, **_THUMBNAIL_CACHE_HEADERS})
+    headers = {**_THUMBNAIL_CACHE_HEADERS, "ETag": etag}
     title = Path(m.filename).stem.replace("_", " ").replace("-", " ")
     slug = slugify(title)
     fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]
     thumb_path = os.path.join(THUMB_DIR, "maps", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
-        return FileResponse(thumb_path, media_type="image/webp")
+        return FileResponse(thumb_path, media_type="image/webp", headers=headers)
     raise HTTPException(404)
 
 

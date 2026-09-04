@@ -168,6 +168,16 @@ _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 # holding hundreds of megabytes of originals.
 _MEDIA_FILE_CACHE_HEADERS = {"Cache-Control": "private, max-age=300"}
 
+# Media thumbnails (map/token grid cards). Unlike rendered pages these are NOT
+# content-addressed — the URL is /maps/{id}/thumbnail and stays the same when the
+# underlying image is replaced — so they must not be "immutable", or a browser
+# would never re-check and a replaced map would show its old thumbnail forever.
+# "no-cache" still caches the bytes; it just requires a revalidation, which the
+# ETag then answers with a cheap 304. They are also access-controlled (guests see
+# only what is shared with them; tokens can be flagged explicit), so the entry is
+# "private" — a shared proxy must never hand one user's thumbnail to another.
+_THUMBNAIL_CACHE_HEADERS = {"Cache-Control": "private, no-cache"}
+
 # Optional override for password authentication. When the env var is set,
 # it pins the value and the admin UI shows a read-only state. When unset,
 # the corresponding DB setting (password_auth_enabled) is used.
