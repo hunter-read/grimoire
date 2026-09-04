@@ -29,6 +29,24 @@ class VariantEntry(BaseModel):
     mime_type: Optional[str] = None
 
 
+class VariantMain(BaseModel):
+    """The parent of an item that is itself a variant, named for the UI.
+
+    `VariantEntry` describes a family member seen from the parent; this is the
+    same relationship read from the other end, plus the size of the family it
+    heads. The duplicate compare view needs it to turn "promote its main version
+    instead" from a description of a dead end into something the user can act
+    on.
+    """
+
+    id: str
+    filename: str
+    relative_path: str
+    title: Optional[str] = None
+    # This item included, so the UI can warn how many rows a promote will move.
+    variant_count: int = 0
+
+
 class VariantCountMixin(BaseModel):
     """List-row field: how many other versions collapse into this entry.
 

@@ -13,6 +13,7 @@ import PageFlipper from '../components/duplicates/PageFlipper'
 import DiffTable from '../components/duplicates/DiffTable'
 import ConfirmDelete from '../components/duplicates/ConfirmDelete'
 import MetadataCopyPanel from '../components/duplicates/MetadataCopyPanel'
+import VariantFamilyNotice from '../components/duplicates/VariantFamilyNotice'
 
 function formatSize(bytes) {
   if (!bytes) return '—'
@@ -112,7 +113,13 @@ export default function DuplicateCompareView() {
   // edition. Plain `link` refuses that, so its whole family moves at once
   // instead. Anything else is an ordinary link.
   const childItem = childId === left?.id ? left : right
+  const parentItem = parentId === left?.id ? left : right
   const childHasFamily = (childItem?.variants || []).length > 0
+  // The other dead end: the copy being demoted is a variant of some *third*
+  // item. Both link and promote refuse it, because filing it here would stack a
+  // third level. The whole family has to move instead, which means promoting
+  // over its main version rather than over the copy in front of us.
+  const childsMain = childItem?.variant_main || null
 
   // Only the kinds this collection accepts: a token has no gridless cut, and an
   // audio track cannot be form-fillable. The child's stored kind is passed so a
@@ -162,6 +169,29 @@ export default function DuplicateCompareView() {
             label,
           })
         : dupesApi.link(resourceType, parentId, [{ id: childId, kind, label }])
+    )
+
+  // One promote against the family the child already belongs to: its main
+  // version becomes a variant of the copy being kept, and everything under it —
+  // the child included — re-homes there. This is the operation the refusal
+  // message was describing; the user just had no way to reach it.
+  const promoteOverFamily = () =>
+    act(() =>
+      dupesApi.promote(resourceType, {
+        newParentId: parentId,
+        oldParentId: childsMain.id,
+        kind,
+        label,
+      })
+    )
+
+  // Same keeper, but paired against the main version instead — the comparison
+  // the promote actually applies to, for a user who would rather look before
+  // moving a whole family.
+  const compareWithMain = () =>
+    navigate(
+      `/settings/duplicates/compare/${resourceType}` +
+        `?left=${encodeURIComponent(parentId)}&right=${encodeURIComponent(childsMain.id)}`
     )
 
   const dismissPair = () => act(() => dupesApi.dismiss(resourceType, [leftId, rightId]))
@@ -339,19 +369,29 @@ export default function DuplicateCompareView() {
           background: 'var(--bg-card)',
         }}
       >
-        <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>
-          {t('maintenance.dupes.linkExplainer', {
-            child: childItem.filename,
-            parent: (parentId === left.id ? left : right).filename,
-          })}
-          {childHasFamily && (
-            <div style={{ color: 'var(--gold)', marginTop: 6 }}>
-              {t('maintenance.dupes.promoteWarning', {
-                count: childItem.variants.length,
-              })}
-            </div>
-          )}
-        </div>
+        {childsMain ? (
+          <VariantFamilyNotice
+            main={childsMain}
+            keeper={parentItem}
+            busy={busy}
+            onPromote={promoteOverFamily}
+            onCompareMain={compareWithMain}
+          />
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>
+            {t('maintenance.dupes.linkExplainer', {
+              child: childItem.filename,
+              parent: parentItem.filename,
+            })}
+            {childHasFamily && (
+              <div style={{ color: 'var(--gold)', marginTop: 6 }}>
+                {t('maintenance.dupes.promoteWarning', {
+                  count: childItem.variants.length,
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <div
           style={{
@@ -408,7 +448,7 @@ export default function DuplicateCompareView() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || !!childsMain}
             onClick={linkPair}
             style={{
               background: 'var(--gold-dim)',
@@ -418,7 +458,7 @@ export default function DuplicateCompareView() {
               padding: '8px 18px',
               cursor: 'pointer',
               fontSize: 13,
-              opacity: busy ? 0.6 : 1,
+              opacity: busy || childsMain ? 0.6 : 1,
             }}
           >
             {busy ? <Spinner size={13} /> : <LuLayers size={13} aria-hidden="true" />}{' '}

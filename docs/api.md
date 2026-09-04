@@ -1333,6 +1333,16 @@ parent may already be a variant of the old one (the common case — promoting a
 copy you linked earlier); a new parent belonging to a *different* family is a
 409.
 
+The mirror-image 409 is an `old_parent_id` that is itself a variant: demoting it
+here would stack a third level, and the fix is to promote over the family it
+belongs to instead. So `compare` names that family. Each item carries
+`variant_main` — `null` unless the item is a variant of something else (a parent,
+or a record whose parent id no longer resolves, reports `null`), otherwise the
+`id`, `filename`, `relative_path`, `title`, and `variant_count` of its main
+version. `variant_count` includes the compared item itself, since it is one of
+the rows the promote would move. Feeding that `id` back as `old_parent_id` is
+the request the refusal was describing.
+
 **Merge whitelist:** `merge-metadata` accepts only descriptive fields. Anything
 identifying the file — `filepath`, `filename`, `relative_path`, `content_hash`,
 `file_size`, `game_system_id`, and the `variant_*` columns — is rejected with a
