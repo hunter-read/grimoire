@@ -129,6 +129,13 @@ describe('sanitizeTokens', () => {
     })
   })
 
+  it('allows a theme to restyle the variant accent', () => {
+    // `--variant` is wired through --p-variant like every other token, but was
+    // missing from the allowlist — leaving it the one accent a custom palette
+    // could not override, so a high-contrast theme inherited the built-in teal.
+    expect(sanitizeTokens({ variant: '#00504a' })).toEqual({ variant: '#00504a' })
+  })
+
   it('drops tokens that are not on the allowlist', () => {
     expect(sanitizeTokens({ 'background-image': 'url(x)', 'font-family': 'evil' })).toEqual({})
   })

@@ -38,6 +38,7 @@ def list_tokens(
     tokens = q.order_by(Token.filename).offset(offset).limit(limit).all()
     token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
     vcounts = variants.variant_counts(db, Token, [t.id for t in tokens])
+    vkinds = variants.variant_kinds(db, Token, [t.id for t in tokens])
     return {
         "total": total,
         "tokens": [
@@ -52,6 +53,7 @@ def list_tokens(
                 "is_explicit": bool(t.is_explicit),
                 "is_missing": bool(t.is_missing),
                 "variant_count": vcounts.get(t.id, 0),
+                "variant_kinds": vkinds.get(t.id, []),
                 "is_archive": bool(archive_ext(t.filename)),
             }
             for t in tokens

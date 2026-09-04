@@ -258,3 +258,96 @@ class TestStillReachable:
             assert any("printer.pdf" in n for n in arcnames)
         finally:
             db.close()
+
+
+class TestVariantKinds:
+    """What the other versions *are*, not just how many.
+
+    The gallery card names the versions ("Universal VTT", "Video") instead of
+    showing a bare count, so the kinds have to reach the list rows — and, like
+    the count, they have to do it in one query per page rather than one per row.
+    """
+
+    def test_service_groups_kinds_by_parent(self):
+        a, b = make_map(), make_map()
+        a_vtt, a_video, b_video = make_map(), make_map(), make_map()
+        db = SessionLocal()
+        try:
+            variants.link(db, GenericMap, a.id, a_vtt.id, "universal-vtt")
+            variants.link(db, GenericMap, a.id, a_video.id, "video")
+            variants.link(db, GenericMap, b.id, b_video.id, "video")
+            db.commit()
+            kinds = variants.variant_kinds(db, GenericMap, [a.id, b.id])
+        finally:
+            db.close()
+        assert kinds[a.id] == ["universal-vtt", "video"]
+        assert kinds[b.id] == ["video"]
+
+    def test_service_deduplicates_repeated_kinds(self):
+        parent = make_map()
+        # Rows are created up front: make_map opens its own session, and doing
+        # that inside an open one deadlocks the shared SQLite test DB.
+        children = [make_map() for _ in range(3)]
+        db = SessionLocal()
+        try:
+            for child in children:
+                variants.link(db, GenericMap, parent.id, child.id, "video")
+            db.commit()
+            kinds = variants.variant_kinds(db, GenericMap, [parent.id])
+        finally:
+            db.close()
+        # Three video cuts are still one kind of thing to tell the user about.
+        assert kinds[parent.id] == ["video"]
+
+    def test_service_omits_parents_with_no_kinded_variants(self):
+        """A variant linked without a kind leaves the count to speak for it."""
+        parent, child, lonely = make_map(), make_map(), make_map()
+        db = SessionLocal()
+        try:
+            # link() refuses an empty kind, so the column is set directly — this
+            # is the shape of a row linked before a kind was recorded.
+            db.query(GenericMap).filter_by(id=child.id).update(
+                {"variant_parent_id": parent.id, "variant_kind": ""}
+            )
+            db.commit()
+            kinds = variants.variant_kinds(db, GenericMap, [parent.id, lonely.id])
+        finally:
+            db.close()
+        assert parent.id not in kinds
+        assert lonely.id not in kinds
+
+    def test_service_handles_empty_input(self):
+        db = SessionLocal()
+        try:
+            assert variants.variant_kinds(db, GenericMap, []) == {}
+            assert variants.variant_kinds(db, GenericMap, [""]) == {}
+        finally:
+            db.close()
+
+    @pytest.mark.parametrize(
+        "factory,model,path,key",
+        [
+            (make_map, GenericMap, "/api/maps", "maps"),
+            (make_token, Token, "/api/tokens", "tokens"),
+            (make_audio, Audio, "/api/audio", "audio"),
+        ],
+    )
+    def test_media_lists_expose_kinds(self, client, admin_headers, factory, model, path, key):
+        parent, child = factory(), factory()
+        db = SessionLocal()
+        try:
+            # "version" is universal, so one parametrised case covers all three.
+            variants.link(db, model, parent.id, child.id, "version")
+            db.commit()
+        finally:
+            db.close()
+        body = client.get(f"{path}?limit=100000", headers=admin_headers).json()
+        row = next(i for i in body[key] if i["id"] == parent.id)
+        assert row["variant_kinds"] == ["version"]
+
+    def test_list_row_without_variants_reports_empty_kinds(self, client, admin_headers):
+        lonely = make_map()
+        body = client.get("/api/maps?limit=100000", headers=admin_headers).json()
+        row = next(i for i in body["maps"] if i["id"] == lonely.id)
+        assert row["variant_count"] == 0
+        assert row["variant_kinds"] == []

@@ -117,6 +117,7 @@ in both.
 | Destructive buttons | `danger-fill` (the plate), `on-danger` (its label) |
 | Content types | `type-book`, `type-map`, `type-token`, `type-audio`, `type-file` |
 | Over artwork | `on-media`, `on-media-border`, `scrim`, `scrim-strong` |
+| Versions | `variant` — marks an item that has other versions (the version picker, the gallery badge, the duplicate compare view) |
 | Other | `tag-bg`, `tag-border`, `mark-bg` (search highlight), `invite-bg`, `overlay`, `shadow` |
 
 Three of these are easy to get wrong:

@@ -114,6 +114,40 @@ def variant_counts(db: Session, model: Any, parent_ids: Sequence[str]) -> dict[s
     return {parent_id: count for parent_id, count in rows}
 
 
+def variant_kinds(db: Session, model: Any, parent_ids: Sequence[str]) -> dict[str, list[str]]:
+    """``{parent_id: [kind, ...]}`` for a page of list rows, in one query.
+
+    The companion to :func:`variant_counts`, and deliberately the same shape: one
+    grouped query over ``variant_parent_id`` for the whole page, hitting the same
+    index. It exists so a gallery card can say *what* the other versions are
+    ("Universal VTT", "Video") instead of only how many there are — which is the
+    distinction a user actually browses by, and which is worth nothing if it
+    costs a query per row.
+
+    Kinds are deduplicated and sorted so two variants of the same kind list once
+    and the order does not depend on insertion. Variants linked without a kind
+    contribute nothing here; the count still covers them, so the caller can fall
+    back to it.
+    """
+    ids = [pid for pid in parent_ids if pid]
+    if not ids:
+        return {}
+    rows = (
+        db.query(model.variant_parent_id, model.variant_kind)
+        .filter(model.variant_parent_id.in_(ids))
+        .filter(model.variant_kind.isnot(None))
+        .filter(model.variant_kind != "")
+        .distinct()
+        .all()
+    )
+    out: dict[str, list[str]] = {}
+    for parent_id, kind in rows:
+        out.setdefault(parent_id, []).append(kind)
+    for kinds in out.values():
+        kinds.sort()
+    return out
+
+
 def family_for(db: Session, model: Any, record: Any) -> tuple[Any, list[Any]]:
     """The (parent, variants) pair a record belongs to, from either end.
 

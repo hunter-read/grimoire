@@ -46,12 +46,15 @@ export const MEDIA_CONFIGS = {
       {
         // variant_count is a number, and the badge system treats any truthy
         // value as "show it" - so 0 hides this without a special case.
+        // `footer` rather than a thumbnail corner: this badge is informational
+        // rather than a warning, and a corner badge sat over the middle of the
+        // art, hiding the part of the map the user is scanning for (issue #405).
         flag: 'variant_count',
         labelKey: 'common.versions',
         label: 'versions',
-        color: 'rgba(79,209,197,0.9)',
-        corner: 'top-right',
-        inlineColor: 'var(--variant)',
+        // Rendered by VariantBadge, which carries its own muted styling — hence
+        // no `inlineColor` here, unlike the corner badges.
+        footer: true,
       },
       {
         flag: 'is_archive',
@@ -97,12 +100,15 @@ export const MEDIA_CONFIGS = {
       {
         // variant_count is a number, and the badge system treats any truthy
         // value as "show it" - so 0 hides this without a special case.
+        // `footer` rather than a thumbnail corner: this badge is informational
+        // rather than a warning, and a corner badge sat over the middle of the
+        // art, hiding the part of the map the user is scanning for (issue #405).
         flag: 'variant_count',
         labelKey: 'common.versions',
         label: 'versions',
-        color: 'rgba(79,209,197,0.9)',
-        corner: 'top-right',
-        inlineColor: 'var(--variant)',
+        // Rendered by VariantBadge, which carries its own muted styling — hence
+        // no `inlineColor` here, unlike the corner badges.
+        footer: true,
       },
       {
         flag: 'is_archive',
@@ -159,12 +165,15 @@ export const MEDIA_CONFIGS = {
       {
         // variant_count is a number, and the badge system treats any truthy
         // value as "show it" - so 0 hides this without a special case.
+        // `footer` rather than a thumbnail corner: this badge is informational
+        // rather than a warning, and a corner badge sat over the middle of the
+        // art, hiding the part of the map the user is scanning for (issue #405).
         flag: 'variant_count',
         labelKey: 'common.versions',
         label: 'versions',
-        color: 'rgba(79,209,197,0.9)',
-        corner: 'top-right',
-        inlineColor: 'var(--variant)',
+        // Rendered by VariantBadge, which carries its own muted styling — hence
+        // no `inlineColor` here, unlike the corner badges.
+        footer: true,
       },
       {
         flag: 'is_archive',

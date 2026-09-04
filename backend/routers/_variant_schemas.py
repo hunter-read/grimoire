@@ -6,7 +6,7 @@ rather than four times. See `services/variants.py` for the rules behind them.
 """
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class VariantEntry(BaseModel):
@@ -48,13 +48,20 @@ class VariantMain(BaseModel):
 
 
 class VariantCountMixin(BaseModel):
-    """List-row field: how many other versions collapse into this entry.
+    """List-row fields: how many other versions collapse into this entry, and
+    what they are.
 
-    0 for most items. Drives the "has other versions" badge, and is filled from
-    one grouped query per page rather than a lookup per row.
+    ``variant_count`` is 0 for most items. ``variant_kinds`` names the distinct
+    kinds among those other versions ("universal-vtt", "video", …) so a gallery
+    card can say what is behind the badge rather than only how many; it is empty
+    both for an item with no variants and for one whose variants were linked
+    without a kind, so the count stays the fallback.
+
+    Both are filled from one grouped query per page rather than a lookup per row.
     """
 
     variant_count: int = 0
+    variant_kinds: list[str] = Field(default_factory=list)
 
 
 class VariantFamilyMixin(BaseModel):

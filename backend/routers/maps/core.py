@@ -102,6 +102,7 @@ def list_maps(
         maps = q.offset(offset).limit(limit).all()
     map_tags = tag_service.display_tags_for_resources(db, "map", [m.id for m in maps])
     vcounts = variants.variant_counts(db, GenericMap, [m.id for m in maps])
+    vkinds = variants.variant_kinds(db, GenericMap, [m.id for m in maps])
     return {
         "total": total,
         "maps": [
@@ -117,6 +118,7 @@ def list_maps(
                 "is_missing": bool(m.is_missing),
                 "is_archive": bool(archive_ext(m.filename)),
                 "variant_count": vcounts.get(m.id, 0),
+                "variant_kinds": vkinds.get(m.id, []),
             }
             for m in maps
         ],

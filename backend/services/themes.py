@@ -127,6 +127,9 @@ THEME_TOKENS: tuple[str, ...] = (
     "type-token",
     "type-audio",
     "type-file",
+    # The accent marking an item that has other versions. See the note beside
+    # this entry in the frontend list.
+    "variant",
 )
 
 # Colour grammar. Deliberately narrow — hex, rgb/rgba, hsl/hsla, and a couple of

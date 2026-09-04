@@ -474,7 +474,13 @@ its page renders, and its thumbnail all work normally. Detail responses carry
 `variant_parent_id`, `variant_kind`, `variant_label`, `variant_main_id` (the
 entry that represents the family in listings), and `variants` (the full sibling
 list, so a version picker needs no second request). List rows carry
-`variant_count`. Variants are deliberately **included** in bulk downloads and the
+`variant_count`, plus `variant_kinds` on the map, token, and audio lists — the
+distinct kinds among the hidden versions, sorted and deduplicated, so a gallery
+card can name them ("Universal VTT", "Video") rather than only counting them. It
+is `[]` both for an item with no variants and for one whose variants carry no
+kind, so `variant_count` remains the fallback. Both fields come from one grouped
+query per page, not a lookup per row.
+Variants are deliberately **included** in bulk downloads and the
 OPDS catalogue — an archive or a feed should be complete — and in
 `/api/stats`'s `total_size_mb`, since those bytes really are on disk, while the
 item counts exclude them.

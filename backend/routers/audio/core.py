@@ -58,12 +58,14 @@ def list_audio(
     tracks = q.order_by(Audio.filename).offset(offset).limit(limit).all()
     audio_tags = tag_service.display_tags_for_resources(db, "audio", [a.id for a in tracks])
     vcounts = variants.variant_counts(db, Audio, [a.id for a in tracks])
+    vkinds = variants.variant_kinds(db, Audio, [a.id for a in tracks])
     return {
         "total": total,
         "audio": [
             {
                 **_serialize(a, tags=audio_tags.get(a.id, [])),
                 "variant_count": vcounts.get(a.id, 0),
+                "variant_kinds": vkinds.get(a.id, []),
             }
             for a in tracks
         ],
