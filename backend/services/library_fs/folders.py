@@ -15,10 +15,12 @@ from sqlalchemy.orm import Session
 
 from ...config import logger
 from ...indexer.categories import (
+    detect_container_kind,
     guess_category,
     is_one_page_folder,
     is_system_agnostic_folder,
     slugify,
+    strip_container_suffix,
 )
 from ...indexer.constants import (
     CONTAINER_AGNOSTIC,
@@ -244,6 +246,60 @@ def read_folder_markers(target: Path) -> dict:
     }
 
 
+def holds_system_folders(target: Path) -> bool:
+    """Whether ``target``'s immediate children are system folders.
+
+    True for ``books/`` and for any container reached from it through nothing but
+    containers. This is the half of the rule that makes nesting work: a family
+    holding a parent-system holding editions (issue #301) keeps handing "these
+    children are systems" down the chain, and the first folder that is not a
+    container ends it — its children are category folders.
+    """
+    rel = to_relative(target)
+    parts = rel.split("/")
+    if parts[0] != "books":
+        return False
+    if len(parts) == 1:
+        return True
+    root = library_root()
+    # Every folder from books/ down to and including the target must be a
+    # container, or the target is a system folder and its children are
+    # categories.
+    return all(
+        _container_kind_of(root.joinpath(*parts[: depth + 1])) != ""
+        for depth in range(1, len(parts))
+    )
+
+
+def is_category_host(target: Path) -> bool:
+    """Whether standard category folders belong directly inside ``target``.
+
+    Categories are a books-tree concept that hangs off a *system* folder, and a
+    container holds systems rather than categories — its children are the system
+    folders, so scaffolding "Core"/"Adventures" onto the container itself would
+    invent sibling systems named after categories and re-file nothing correctly.
+
+    So ``target`` hosts categories exactly when its *parent* hands down system
+    folders and ``target`` is not itself a container. That mirrors
+    ``_scan_container``, which recurses through containers and only reads
+    categories in the first folder that is not one.
+    """
+    rel = to_relative(target)
+    parts = rel.split("/")
+    # `books/<system>` at minimum: `books/` itself holds systems, not categories.
+    if len(parts) < 2 or parts[0] != "books":
+        return False
+    if not holds_system_folders(target.parent):
+        return False
+    return _container_kind_of(target) == ""
+
+
+def _container_kind_of(folder: Path) -> str:
+    """The container kind a books folder declares, by marker, suffix, or name."""
+    _, suffix_kind = strip_container_suffix(folder.name)
+    return suffix_kind or detect_container_kind(folder, folder.name)
+
+
 def scaffold_categories(path: str) -> dict:
     """Create the standard category folders inside a system folder.
 
@@ -252,9 +308,11 @@ def scaffold_categories(path: str) -> dict:
     hand is tedious and easy to get subtly wrong — "Adventures" works, "Modules"
     silently becomes a custom category — so this writes the canonical set.
 
-    Only offered under ``books/``, since categories are a books-tree concept.
-    Existing folders are left alone and reported separately, so running this on a
-    partly-organised system fills the gaps instead of failing.
+    Only offered on a folder that actually hosts categories — see
+    ``is_category_host``: under ``books/``, and not a container, whose children
+    are the system folders instead. Existing folders are left alone and reported
+    separately, so running this on a partly-organised system fills the gaps
+    instead of failing.
     """
     target = safe_join(path, must_exist=True)
     if not target.is_dir():
@@ -263,10 +321,12 @@ def scaffold_categories(path: str) -> dict:
         raise LibraryFSError(
             "Category folders only apply to the books library", code="invalid"
         )
-    # `books/` itself holds systems, not categories.
-    if to_relative(target).count("/") < 1:
+    # `books/` itself holds systems, not categories, and neither does a
+    # container — its children are the system folders that hold them.
+    if not is_category_host(target):
         raise LibraryFSError(
-            "Pick a system folder inside books/ rather than the books folder itself",
+            "Pick a system folder inside books/ — the books folder itself and "
+            "container folders hold systems, not categories",
             code="invalid",
         )
     assert_writable(target)

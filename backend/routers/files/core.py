@@ -98,6 +98,12 @@ def browse(
     limit = max(1, min(limit, MAX_ENTRIES))
     section = fs.collection_of(target)
     model = fs.COLLECTIONS.get(section) if section else None
+    # Whether a *child* of this folder could host category folders, resolved once
+    # for the whole listing rather than re-walking each row's ancestors: the
+    # chain above every child is identical, so the per-row question reduces to
+    # "and is this child itself a container?". On a folder holding thousands of
+    # entries that is the difference between one ancestor walk and thousands.
+    children_may_host = section == "books" and fs.holds_system_folders(target)
 
     entries: list[BrowseEntry] = []
     try:
@@ -145,6 +151,9 @@ def browse(
                     is_dir=True,
                     container_kind=markers["container_kind"] or None,
                     nsfw=markers["nsfw"],
+                    # A container's children are systems, so they host
+                    # categories; the container itself does not.
+                    category_host=children_may_host and not markers["container_kind"],
                     child_count=_child_count(child_path),
                     record_id=getattr(system, "id", None),
                     title=getattr(system, "name", None),

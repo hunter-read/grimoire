@@ -1443,13 +1443,18 @@ from `total` when a content file with the same stem sits beside them; an
 orphaned one is listed normally. They are moved and re-stemmed automatically by
 `/api/files/move` and `/api/files/rename`. Returns
 `{path, parent, writable, entries[], total, truncated}`. Each entry carries
-`name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`, and
-`child_count`, while files add `record_id`, `title`, `collection`,
+`name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`,
+`child_count`, and `category_host`, while files add `record_id`, `title`, `collection`,
 `has_thumbnail`, and `is_missing` when Grimoire has indexed them. A folder
 directly under `books/` that maps to a game system also carries `record_id`,
 `title`, and `collection: "system"`, so a client can offer the system editor on
-it. Note `collection` names the *library folder* (`books`, `maps`, …) for files
-but the resource type (`system`) for system folders. Marker/dotfiles
+it. `category_host` is true when standard category folders belong *inside* that
+folder - a system folder under `books/`, reached from `books/` through nothing
+but containers. It is false for `books/` itself, for every container (whose
+children are the system folders), for a category folder, and outside `books/`, so
+a client can offer the category scaffold only where it applies. Note `collection`
+names the *library folder* (`books`, `maps`, …) for files but the resource type
+(`system`) for system folders. Marker/dotfiles
 are surfaced as folder properties, never as listable entries.
 
 The listing is **one folder's immediate children only** - it does not recurse -
@@ -1574,7 +1579,10 @@ structure; it is validated against the library root like any other path.
 folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,
 `Handouts`, `Homebrew`, `Starter Sets`) inside a system folder. Each name is
 chosen to infer back to its canonical category slug, so the folders classify
-correctly on the next scan. Only valid for a folder directly under `books/`.
+correctly on the next scan. Only valid for a folder that hosts categories - the
+`category_host` folders above: under `books/`, and not a container, since a
+container holds systems rather than categories. A container's children *are* the
+system folders, so they take the scaffold however deeply the containers nest.
 Returns `{path, created, existing}`. A category is skipped when an existing
 folder already *resolves to* it, matched on the inferred category rather than the
 folder name - a system holding `Rules` will not gain a second `Core`, and one

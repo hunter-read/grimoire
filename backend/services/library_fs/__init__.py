@@ -95,6 +95,8 @@ from .folders import (  # noqa: F401
     _write_marker,
     create_folder,
     find_singleton_container,
+    holds_system_folders,
+    is_category_host,
     read_folder_markers,
     scaffold_categories,
     set_folder_markers,

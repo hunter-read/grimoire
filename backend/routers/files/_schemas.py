@@ -21,6 +21,10 @@ class BrowseEntry(BaseModel):
     # Folder-only: what the folder declares about itself on disk.
     container_kind: Optional[str] = None
     nsfw: bool = False
+    # Folder-only: whether standard category folders belong inside this one —
+    # true for a system folder under books/, false for books/ itself and for
+    # containers, whose children are the system folders.
+    category_host: bool = False
     # Capped at CHILD_COUNT_CAP; None when the folder could not be read.
     child_count: Optional[int] = None
 

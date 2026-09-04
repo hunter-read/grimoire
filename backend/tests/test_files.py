@@ -1096,6 +1096,136 @@ class TestScaffoldCategories:
         assert resp.status_code == 200
         assert "Supplements" in resp.json()["created"]
 
+    def test_refused_on_a_container(self, library_tree):
+        """A container holds systems, so categories belong one level down.
+
+        Scaffolding onto the container itself would create "Core"/"Adventures"
+        folders that the scanner then reads as *systems*, not categories.
+        """
+        import shutil
+
+        from backend.indexer.constants import PARENT_SYSTEM_MARKER
+
+        base = f"books/Family-{library_tree}"
+        os.makedirs(os.path.join(LIB, base), exist_ok=True)
+        open(os.path.join(LIB, base, PARENT_SYSTEM_MARKER), "w").close()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.scaffold_categories(base)
+            assert exc.value.code == "invalid"
+        finally:
+            shutil.rmtree(os.path.join(LIB, base), ignore_errors=True)
+
+    def test_refused_on_a_suffix_declared_container(self, library_tree):
+        """The `(publisher)` name suffix declares a container just as a marker does."""
+        import shutil
+
+        base = f"books/Paizo-{library_tree} (publisher)"
+        os.makedirs(os.path.join(LIB, base), exist_ok=True)
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.scaffold_categories(base)
+            assert exc.value.code == "invalid"
+        finally:
+            shutil.rmtree(os.path.join(LIB, base), ignore_errors=True)
+
+    def test_allowed_inside_a_container(self, library_tree):
+        """A container's child *is* the system folder, so it takes categories."""
+        import shutil
+
+        from backend.indexer.constants import PARENT_SYSTEM_MARKER
+
+        top = f"books/DnD-{library_tree}"
+        os.makedirs(os.path.join(LIB, top, "5e"), exist_ok=True)
+        open(os.path.join(LIB, top, PARENT_SYSTEM_MARKER), "w").close()
+        try:
+            result = fs.scaffold_categories(f"{top}/5e")
+            assert "Core" in result["created"]
+            assert os.path.isdir(os.path.join(LIB, top, "5e", "Core"))
+        finally:
+            shutil.rmtree(os.path.join(LIB, top), ignore_errors=True)
+
+    def test_allowed_inside_nested_containers(self, library_tree):
+        """A family holding a parent-system holding editions (issue #301)."""
+        import shutil
+
+        from backend.indexer.constants import (
+            PARENT_SYSTEM_MARKER,
+            SYSTEM_FAMILY_MARKER,
+        )
+
+        top = f"books/d20-{library_tree}"
+        mid = os.path.join(LIB, top, "Pathfinder")
+        os.makedirs(os.path.join(mid, "2e"), exist_ok=True)
+        open(os.path.join(LIB, top, SYSTEM_FAMILY_MARKER), "w").close()
+        open(os.path.join(mid, PARENT_SYSTEM_MARKER), "w").close()
+        try:
+            # The two containers are refused...
+            for container in (top, f"{top}/Pathfinder"):
+                with pytest.raises(fs.LibraryFSError):
+                    fs.scaffold_categories(container)
+            # ...and the edition folder below them is not.
+            result = fs.scaffold_categories(f"{top}/Pathfinder/2e")
+            assert "Core" in result["created"]
+        finally:
+            shutil.rmtree(os.path.join(LIB, top), ignore_errors=True)
+
+    def test_refused_below_a_plain_system_folder(self, library_tree):
+        """A category folder's own children are not another shelf of categories."""
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.scaffold_categories(f"books/System-{library_tree}/core")
+        assert exc.value.code == "invalid"
+
+
+class TestCategoryHostFlag:
+    """`category_host` on a browse row — what drives the UI's scaffold action."""
+
+    def test_system_folders_under_books_are_hosts(self, client, admin_headers, library_tree):
+        resp = client.get("/api/files/browse", headers=admin_headers, params={"path": "books"})
+        rows = {e["name"]: e for e in resp.json()["entries"]}
+        assert rows[f"System-{library_tree}"]["category_host"] is True
+
+    def test_a_container_is_not_a_host_but_its_children_are(
+        self, client, admin_headers, library_tree
+    ):
+        import shutil
+
+        from backend.indexer.constants import PARENT_SYSTEM_MARKER
+
+        top = f"books/DnD-{library_tree}"
+        os.makedirs(os.path.join(LIB, top, "5e"), exist_ok=True)
+        open(os.path.join(LIB, top, PARENT_SYSTEM_MARKER), "w").close()
+        try:
+            listing = client.get(
+                "/api/files/browse", headers=admin_headers, params={"path": "books"}
+            ).json()
+            container = next(
+                e for e in listing["entries"] if e["name"] == f"DnD-{library_tree}"
+            )
+            assert container["category_host"] is False
+
+            inside = client.get(
+                "/api/files/browse", headers=admin_headers, params={"path": top}
+            ).json()
+            child = next(e for e in inside["entries"] if e["name"] == "5e")
+            assert child["category_host"] is True
+        finally:
+            shutil.rmtree(os.path.join(LIB, top), ignore_errors=True)
+
+    def test_category_folders_are_not_hosts(self, client, admin_headers, library_tree):
+        resp = client.get(
+            "/api/files/browse",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}"},
+        )
+        rows = {e["name"]: e for e in resp.json()["entries"]}
+        assert rows["core"]["category_host"] is False
+
+    def test_other_collections_are_never_hosts(self, client, admin_headers, library_tree):
+        resp = client.get("/api/files/browse", headers=admin_headers, params={"path": "maps"})
+        rows = {e["name"]: e for e in resp.json()["entries"]}
+        assert rows[f"Battlemaps-{library_tree}"]["category_host"] is False
+
 
 class TestSystemFolderMetadata:
     """A books/<system> folder maps to the GameSystem row it represents."""
