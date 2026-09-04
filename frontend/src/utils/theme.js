@@ -93,6 +93,12 @@ export const THEME_TOKENS = [
   'type-token',
   'type-audio',
   'type-file',
+  // The accent marking an item that has other versions (the version picker, the
+  // gallery badge, the duplicate compare view). Wired through `--p-variant` like
+  // every other token, but originally left out of this list, which left it as
+  // the one accent a theme could not restyle — so a custom palette inherited the
+  // built-in teal whether or not it clashed.
+  'variant',
 ]
 
 /**

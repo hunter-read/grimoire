@@ -10,6 +10,7 @@ import NowPlayingIndicator from '../audio/NowPlayingIndicator'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import VariantBadge from './VariantBadge'
 
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
@@ -52,8 +53,12 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
     : {}
   const cardLink = !bulkMode && <CardLink to={config.detailPath(item.id)} label={item.filename} />
 
-  // Badges that apply to this item, in config order.
+  // Badges that apply to this item, in config order. `footer` badges render in
+  // the card footer next to the size (and in the list-mode metadata row) rather
+  // than over the thumbnail art.
   const activeBadges = config.badges.filter((b) => item[b.flag])
+  const cornerBadges = activeBadges.filter((b) => b.corner)
+  const footerBadges = activeBadges.filter((b) => b.footer)
 
   // Which item field signals an available thumbnail/artwork (audio uses artwork).
   const hasThumbnail = item[config.thumbnailFlag || 'has_thumbnail']
@@ -175,10 +180,13 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
                 {t(isPlayingTrack ? 'audio.nowPlaying' : 'audio.nowPlayingPaused')}
               </span>
             )}
-            {activeBadges.map((b) => (
+            {cornerBadges.map((b) => (
               <span key={b.flag} style={{ color: b.inlineColor }}>
                 {t(b.labelKey || `${config.i18n}.${b.label}`)}
               </span>
+            ))}
+            {footerBadges.map((b) => (
+              <VariantBadge key={b.flag} item={item} />
             ))}
           </div>
         </div>
@@ -314,9 +322,9 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             <AudioPlayer track={track} />
           </div>
         )}
-        {activeBadges
+        {cornerBadges
           // In bulk mode the selection checkbox occupies the top-left corner.
-          .filter((b) => b.corner && !(bulkMode && b.corner === 'top-left'))
+          .filter((b) => !(bulkMode && b.corner === 'top-left'))
           .map((b) => (
             <div
               key={b.flag}
@@ -353,9 +361,19 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             fontSize: config.thumb.kind === 'square' ? 12 : 13,
             color: 'var(--text-muted)',
             marginTop: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
           }}
         >
-          {formatSize(item.file_size)}
+          {/* Pushes the version icons to the right edge of the card, so they
+              line up down a column of cards instead of starting at a ragged
+              offset that depends on how long each file size renders. Icons are
+              fixed-width, so the row cannot overflow the way text chips could. */}
+          <span style={{ marginRight: 'auto' }}>{formatSize(item.file_size)}</span>
+          {footerBadges.map((b) => (
+            <VariantBadge key={b.flag} item={item} />
+          ))}
         </div>
       </div>
     </div>

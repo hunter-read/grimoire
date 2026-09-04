@@ -188,6 +188,63 @@ describe('MediaCard — map (no audio controls)', () => {
     expect(screen.queryByText(/archive/i)).not.toBeInTheDocument()
   })
 
+  it('shows the versions badge in the footer, not over the thumbnail', () => {
+    const { container } = render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ variant_count: 1, variant_kinds: ['universal-vtt'] })}
+      />
+    )
+    const badge = screen.getByRole('img', { name: 'Universal VTT' })
+    // The old badge was absolutely positioned inside the thumbnail box, which
+    // (with no offsets for its corner) parked it over the middle of the art.
+    expect(badge.closest('[style*="position: absolute"]')).toBeNull()
+    // It sits in the same row as the file size.
+    expect(badge.closest('div')).toHaveTextContent('1000 B')
+    expect(container.textContent).not.toMatch(/^Versions$/)
+  })
+
+  it('right-aligns the version icons in the card footer', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ variant_count: 1, variant_kinds: ['universal-vtt'] })}
+      />
+    )
+    // The size takes the leftover space, which parks the icons on the right edge
+    // so they line up down a column of cards.
+    expect(screen.getByText('1000 B')).toHaveStyle({ marginRight: 'auto' })
+  })
+
+  it('shows the versions badge in list mode', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ variant_count: 1, variant_kinds: ['video'] })}
+        list
+      />
+    )
+    expect(screen.getByRole('img', { name: 'Video' })).toBeInTheDocument()
+  })
+
+  it('shows no versions badge for an item with no other versions', () => {
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ variant_count: 0 })} />)
+    expect(screen.queryByRole('img', { name: /version/i })).toBeNull()
+  })
+
+  it('keeps the versions badge visible in bulk mode (it is not a corner badge)', () => {
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.map}
+        item={mapItem({ variant_count: 1, variant_kinds: ['universal-vtt'] })}
+        bulkMode
+        selected={false}
+        onToggle={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('img', { name: 'Universal VTT' })).toBeInTheDocument()
+  })
+
   it('shows the archive badge inline in list mode', () => {
     render(
       <MediaCard
