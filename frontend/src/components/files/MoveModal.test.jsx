@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MoveModal from './MoveModal'
 import { files as filesApi } from '../../api'
@@ -117,5 +117,18 @@ describe('MoveModal', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('already exists')
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    render(
+      <MoveModal
+        items={[{ path: 'books/x.pdf', name: 'x.pdf' }]}
+        onClose={onClose}
+        onMoved={vi.fn()}
+      />
+    )
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
   })
 })

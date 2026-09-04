@@ -67,6 +67,17 @@ export default function DeleteModal({ entry, onClose, onDeleted }) {
     }
   }, [entry.is_dir, entry.path])
 
+  // Escape closes, unless a delete is already in flight — cancelling the dialog
+  // out from under a request would leave the user with no report of what it did.
+  // A window listener rather than a handler on the panel: nothing here is
+  // autofocused, so focus may still be on the pane that opened the dialog.
+  useEffect(() => {
+    if (busy) return
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [busy, onClose])
+
   // The typed-name guard belongs to file destruction, not to the dialog. A soft
   // remove of a full folder is reversed by a rescan, so it gets a plain confirm.
   const needsName = hasContent === true && deleteFiles

@@ -9,6 +9,7 @@ import {
   LuTrash2,
   LuTriangleAlert,
   LuRefreshCw,
+  LuKeyboard,
   LuPanelRight,
   LuPanelLeft,
   LuPanelTop,
@@ -38,6 +39,7 @@ import PreviewModal from '../components/files/PreviewModal'
 import DeleteModal from '../components/files/DeleteModal'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import MoveModal from '../components/files/MoveModal'
+import ShortcutsOverlay from '../components/files/ShortcutsOverlay'
 import useScanStatus from '../hooks/useScanStatus'
 
 // Where a pinned second pane sits relative to the first. Side-by-side splits
@@ -121,6 +123,7 @@ export default function FileManagerView() {
   const [downloading, setDownloading] = useState(null)
   // { type, item } for the quick-look preview, once its record has loaded.
   const [previewing, setPreviewing] = useState(null)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const { status: scanStatus, startRescan } = useScanStatus()
 
   useEffect(() => {
@@ -305,8 +308,13 @@ export default function FileManagerView() {
    */
   const openPreview = useCallback(
     async (entry) => {
+      // `record_id` is checked alongside the type because the keyboard can reach
+      // rows the context menu hides: it only offers Preview on an indexed file,
+      // while Space lands on whatever the cursor is on. Without this an
+      // unindexed file would fetch `record(type, undefined)` and report the
+      // fetch failing rather than the honest "nothing to preview".
       const type = EDITOR_TYPES[entry.collection]
-      if (!type || type === 'system') {
+      if (!type || type === 'system' || !entry.record_id) {
         setFlash({ tone: 'warn', text: t('files.previewUnsupported') })
         return
       }
@@ -441,11 +449,17 @@ export default function FileManagerView() {
       onDropFiles={handleExternalDrop}
       onOpenContext={setContext}
       onNewFolder={setCreatingIn}
-      onPin={pinTo}
+      // The keyboard equivalents of the context menu's entries. The pane knows
+      // which row the cursor is on; what to do with it lives here, beside the
+      // state each one opens.
+      onPreview={openPreview}
+      onRename={setRenaming}
+      onDelete={setDeleting}
+      onOpenMetadata={openMetadata}
+      onShowShortcuts={() => setShowShortcuts(true)}
       // Both panes are closable once split: the user may want to keep either
       // one, and only offering it on the second forces a re-pin to get there.
       onClose={split ? () => closePane(side) : undefined}
-      canPin={!split}
       // Each pane owns its own scroll region, so one tree never drags the
       // other — or the page — along with it.
       fill
@@ -531,6 +545,16 @@ export default function FileManagerView() {
               disk. Reorganising files is exactly when the index goes stale, so
               the two belong side by side. */}
           <RescanButton compact={false} label={t('files.rescanLibrary')} />
+          {/* "?" opens this too, but a shortcut is no way to advertise
+              shortcuts. */}
+          <button
+            onClick={() => setShowShortcuts(true)}
+            style={ghostBtn}
+            title={t('files.keyboardShortcuts')}
+            data-testid="shortcuts-button"
+          >
+            <LuKeyboard size={14} /> {t('files.shortcuts')}
+          </button>
         </div>
       </div>
 
@@ -910,6 +934,8 @@ export default function FileManagerView() {
           onClose={() => setPreviewing(null)}
         />
       )}
+
+      {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
 
       {rescanning !== null && (
         <RescanModal

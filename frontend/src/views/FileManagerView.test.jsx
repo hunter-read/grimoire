@@ -920,4 +920,87 @@ describe('FileManagerView', () => {
 
     await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith(''))
   })
+
+  // Keyboard shortcuts act on the *focused* pane's cursor. Clicking a row both
+  // selects it and puts the cursor on it, which is how these tests position it.
+  async function cursorOn(name, pane = 'primary') {
+    const target = await screen.findByTestId(`file-pane-${pane}`)
+    await userEvent.click(within(target).getByTestId(`entry-${name}`))
+    return screen.getByTestId(`file-list-${pane === 'primary' ? 'primary' : 'secondary'}`)
+  }
+
+  it('previews the row under the cursor on the space bar', async () => {
+    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
+    render(<FileManagerView />)
+    const list = await cursorOn('bestiary.pdf')
+
+    fireEvent.keyDown(list, { key: ' ' })
+
+    expect(await screen.findByTestId('preview-page')).toBeInTheDocument()
+    expect(filesApi.record).toHaveBeenCalledWith('book', 'rec-1')
+  })
+
+  it('refuses to preview a file that was never indexed', async () => {
+    // The keyboard reaches rows the context menu hides: it only offers Preview
+    // on an indexed file, while Space lands on whatever the cursor is on.
+    filesApi.browse.mockResolvedValue(
+      browseResult([file('unindexed.pdf', '', { record_id: null, collection: 'book' })])
+    )
+    render(<FileManagerView />)
+    const list = await cursorOn('unindexed.pdf')
+
+    fireEvent.keyDown(list, { key: ' ' })
+
+    expect(await screen.findByRole('status')).toHaveTextContent('files.previewUnsupported')
+    expect(filesApi.record).not.toHaveBeenCalled()
+  })
+
+  it('opens the rename dialog on Enter', async () => {
+    render(<FileManagerView />)
+    const list = await cursorOn('core')
+
+    fireEvent.keyDown(list, { key: 'Enter' })
+
+    expect(await screen.findByLabelText('files.newName')).toHaveValue('core')
+  })
+
+  it('opens the delete confirmation on Delete', async () => {
+    filesApi.folderContents.mockResolvedValue({ has_content: false })
+    render(<FileManagerView />)
+    const list = await cursorOn('bestiary.pdf')
+
+    fireEvent.keyDown(list, { key: 'Delete' })
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('opens the shortcuts overlay from the keyboard and from the toolbar', async () => {
+    render(<FileManagerView />)
+    const list = await cursorOn('core')
+
+    fireEvent.keyDown(list, { key: '?' })
+    expect(await screen.findByText('files.shortcutPreview')).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByText('files.shortcutPreview')).toBeNull())
+
+    // A shortcut is no way to advertise shortcuts, so there is a button too.
+    await userEvent.click(screen.getByTestId('shortcuts-button'))
+    expect(await screen.findByText('files.shortcutPreview')).toBeInTheDocument()
+  })
+
+  it('sends keys only to the focused pane when the view is split', async () => {
+    // This is what the whole focus-scoped design buys: two panes are on screen,
+    // and Enter must rename the row in the one the user is actually in.
+    render(<FileManagerView />)
+    await pinRight()
+
+    await cursorOn('bestiary.pdf', 'primary')
+    const secondList = await cursorOn('core', 'secondary')
+
+    fireEvent.keyDown(secondList, { key: 'Enter' })
+
+    // The secondary pane's cursor row, not the primary's.
+    expect(await screen.findByLabelText('files.newName')).toHaveValue('core')
+  })
 })

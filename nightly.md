@@ -659,6 +659,14 @@ of Grimoire's own concepts) built for bulk reorganization:
   edges. Ctrl/Cmd-click to select several at once.
 - **Pin a second pane** to the right, left, above, or below when the two ends of a
   move are far apart. Either pane can be closed to go back to one.
+- **Drive it from the keyboard**, Finder-style. Click a row to place the cursor,
+  then arrow up and down the list; the right arrow expands a folder or steps into
+  it, the left arrow collapses it or steps back out to its parent. `Space`
+  previews the row, `Enter` renames it, and `Delete` opens the same removal
+  dialog as the menu. `Shift` with an arrow extends the selection and
+  Ctrl/Cmd-A selects everything in the pane. With two panes open, keys act on
+  whichever one has focus - `Tab` moves between them. Press `?` (or the
+  **Shortcuts** button) for the full list.
 - **Rename** a file or folder on disk. This is distinct from editing an item's
   display title, which only changes the name shown in Grimoire. The file
   extension is held aside and reattached on save - Grimoire infers a file's type

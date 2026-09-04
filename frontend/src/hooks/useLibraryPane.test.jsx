@@ -313,3 +313,104 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.path).toBe(''))
   })
 })
+
+describe('useLibraryPane cursor', () => {
+  const ready = async () => {
+    const hook = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(hook.result.current.loading).toBe(false))
+    return hook
+  }
+
+  it('moves the cursor and selects the row it lands on', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+    expect(result.current.cursor).toBe('books/core')
+    expect([...result.current.selected]).toEqual(['books/core'])
+  })
+
+  it('moves the cursor without touching the selection when asked', async () => {
+    // How a discontiguous selection is built: pass over rows without
+    // collapsing the selection onto each one in turn.
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+    act(() => result.current.cursorTo('books/loose.pdf', { select: false }))
+    expect(result.current.cursor).toBe('books/loose.pdf')
+    expect([...result.current.selected]).toEqual(['books/core'])
+  })
+
+  it('selects the whole range between the anchor and the cursor', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+    act(() => result.current.cursorTo('books/loose.pdf', { extend: true }))
+    expect([...result.current.selected]).toEqual(['books/core', 'books/loose.pdf'])
+  })
+
+  it('re-anchors a range on each plain move, so the next extend measures from there', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+    act(() => result.current.cursorTo('books/loose.pdf'))
+    act(() => result.current.cursorTo('books/core', { extend: true }))
+    expect([...result.current.selected]).toEqual(['books/core', 'books/loose.pdf'])
+  })
+
+  it('falls back to a plain selection when the anchor has left the tree', async () => {
+    // Selecting nothing at all would be a worse answer than selecting the row
+    // the user actually arrowed onto.
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/gone'))
+    act(() => result.current.cursorTo('books/core', { extend: true }))
+    expect([...result.current.selected]).toEqual(['books/core'])
+  })
+
+  it('drops the cursor when its row leaves the tree', async () => {
+    // Collapsing a folder hides the row under the cursor. Dropping it beats
+    // snapping to a neighbour, which moves the user somewhere they never asked
+    // to go.
+    const { result } = await ready()
+    act(() => result.current.toggleExpand('books/core'))
+    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+
+    act(() => result.current.cursorTo('books/core/phb.pdf'))
+    expect(result.current.cursor).toBe('books/core/phb.pdf')
+
+    act(() => result.current.toggleExpand('books/core'))
+    await waitFor(() => expect(result.current.cursor).toBeNull())
+  })
+
+  it('keeps the cursor across an expand that leaves its row on screen', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/loose.pdf'))
+    act(() => result.current.toggleExpand('books/core'))
+    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    expect(result.current.cursor).toBe('books/loose.pdf')
+  })
+
+  it('clears the cursor when navigating, alongside the selection', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+    act(() => result.current.navigate('books/core'))
+    await waitFor(() => expect(result.current.path).toBe('books/core'))
+    expect(result.current.cursor).toBeNull()
+    expect(result.current.selected.size).toBe(0)
+  })
+
+  it('clears the cursor along with the selection on Escape', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+    act(() => result.current.clearSelection())
+    expect(result.current.cursor).toBeNull()
+    expect(result.current.selected.size).toBe(0)
+  })
+
+  it('selects every row in the pane', async () => {
+    const { result } = await ready()
+    act(() => result.current.selectAll())
+    expect([...result.current.selected]).toEqual(['books/core', 'books/loose.pdf'])
+  })
+
+  it('ignores a move to nowhere', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo(null))
+    expect(result.current.cursor).toBeNull()
+  })
+})

@@ -55,6 +55,16 @@ export default function MoveModal({ items, onClose, onMoved }) {
     load('')
   }, [load])
 
+  // Escape closes, unless a move is already in flight. A window listener rather
+  // than a handler on the panel: nothing here is autofocused, so focus may still
+  // be on the pane that opened the dialog.
+  useEffect(() => {
+    if (busy) return
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [busy, onClose])
+
   const toggle = (path) => {
     setExpanded((prev) => {
       const next = new Set(prev)
