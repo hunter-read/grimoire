@@ -130,7 +130,7 @@ describe('MapsView', () => {
 
   function setupMaps(maps) {
     api.get.mockImplementation((url) => {
-      if (url === '/maps') return Promise.resolve(makeMapsResponse(maps))
+      if (url.split('?')[0] === '/maps') return Promise.resolve(makeMapsResponse(maps))
       if (url === '/map-folders') return Promise.resolve({ folders: [] })
       return Promise.resolve({})
     })
@@ -366,7 +366,7 @@ describe('MapsView', () => {
       // A server-side total that exceeds the delivered rows (pagination, or a
       // user who may not see everything) must never become the denominator.
       api.get.mockImplementation((url) => {
-        if (url === '/maps')
+        if (url.split('?')[0] === '/maps')
           return Promise.resolve({
             maps: [
               makeMap({ filename: 'dungeon.png', relative_path: 'maps/dungeon.png' }),

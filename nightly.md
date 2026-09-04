@@ -1042,6 +1042,16 @@ Cache entries are keyed by a hash of the source file's **contents**, so replacin
 
 The on-disk cache is trimmed oldest-first back under `PAGE_CACHE_MAX_MB` (default 2 GiB) at startup and after each library scan.
 
+### Large map &amp; token libraries
+
+The Maps and Tokens galleries are built for large collections (thousands of items, plus their variants):
+
+- **Items load progressively.** The gallery fetches items in pages and shows the first batch as soon as it arrives, instead of waiting for the whole library. Search, tag filters, and folder grouping still apply across everything once loading settles.
+- **Thumbnails are cached by the browser.** Map and token thumbnails now carry cache validators, so revisiting a gallery or scrolling back re-uses the images already downloaded rather than re-fetching every one.
+- **Folders start collapsed**, so opening a large library doesn't render thousands of cards at once - expand just the folders you need.
+
+If a gallery still feels slow with a very large collection, keeping folders collapsed and using search or tag filters to narrow the view is the fastest way to work.
+
 ---
 
 ## Backups

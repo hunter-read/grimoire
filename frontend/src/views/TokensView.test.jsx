@@ -131,7 +131,7 @@ describe('TokensView', () => {
 
   function setupTokens(tokens) {
     api.get.mockImplementation((url) => {
-      if (url === '/tokens') return Promise.resolve(makeTokensResponse(tokens))
+      if (url.split('?')[0] === '/tokens') return Promise.resolve(makeTokensResponse(tokens))
       if (url === '/token-folders') return Promise.resolve({ folders: [] })
       return Promise.resolve({})
     })

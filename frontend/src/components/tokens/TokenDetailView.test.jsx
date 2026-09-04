@@ -56,7 +56,7 @@ const detail = (id, over = {}) => ({
 // Route api.get by URL: the full token list vs a single token fetch.
 const mockApi = (currentId, over = {}) => {
   api.get.mockImplementation((url) => {
-    if (url === '/tokens') return Promise.resolve(SIBLINGS)
+    if (url.split('?')[0] === '/tokens') return Promise.resolve(SIBLINGS)
     return Promise.resolve(detail(currentId, over))
   })
 }

@@ -104,7 +104,7 @@ describe('AudioView', () => {
 
   function setupAudio(audio) {
     api.get.mockImplementation((url) => {
-      if (url === '/audio') return Promise.resolve(makeResponse(audio))
+      if (url.split('?')[0] === '/audio') return Promise.resolve(makeResponse(audio))
       if (url === '/audio-folders') return Promise.resolve({ folders: [] })
       return Promise.resolve({})
     })

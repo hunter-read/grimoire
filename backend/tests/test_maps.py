@@ -86,6 +86,51 @@ class TestListMapsByFolder:
         assert resp.json()["total"] == 0
 
 
+class TestListMapsByFolderEdgeCases:
+    """The folder filter narrows on a path prefix in SQL before checking exactly.
+
+    The prefix is a deliberate superset, so these pin the cases where it admits
+    rows the exact check must then reject — a regression here would silently show
+    maps from the wrong folder.
+    """
+
+    @pytest.fixture(scope="class")
+    def tricky(self):
+        return {
+            # Exact match.
+            "town": make_map(filename="t.png", relative_path="DnD/Town/t.png"),
+            # A descendant: its folder is "Town/Inn", not "Town".
+            "inn": make_map(filename="i.png", relative_path="DnD/Town/Inn/i.png"),
+            # Shares a name prefix with "Town" but is a different folder.
+            "township": make_map(filename="s.png", relative_path="DnD/Township/s.png"),
+            # LIKE metacharacters that must be treated literally.
+            "pct": make_map(filename="p.png", relative_path="DnD/100%_Maps/p.png"),
+            "under": make_map(filename="u.png", relative_path="DnD/a_b/u.png"),
+            "other": make_map(filename="o.png", relative_path="DnD/a1b/o.png"),
+        }
+
+    def test_descendant_folder_not_returned_for_parent(self, client, admin_headers, tricky):
+        ids = {m["id"] for m in client.get("/api/maps?folder=Town", headers=admin_headers).json()["maps"]}
+        assert ids == {tricky["town"].id}
+
+    def test_name_prefix_sibling_not_returned(self, client, admin_headers, tricky):
+        ids = {m["id"] for m in client.get("/api/maps?folder=Township", headers=admin_headers).json()["maps"]}
+        assert ids == {tricky["township"].id}
+
+    def test_nested_folder_matches_exactly(self, client, admin_headers, tricky):
+        ids = {m["id"] for m in client.get("/api/maps?folder=Town/Inn", headers=admin_headers).json()["maps"]}
+        assert ids == {tricky["inn"].id}
+
+    def test_percent_in_folder_name_is_literal(self, client, admin_headers, tricky):
+        ids = {m["id"] for m in client.get("/api/maps?folder=100%25_Maps", headers=admin_headers).json()["maps"]}
+        assert ids == {tricky["pct"].id}
+
+    def test_underscore_in_folder_name_is_literal(self, client, admin_headers, tricky):
+        """"a_b" must not match "a1b" — the underscore is a LIKE single-char wildcard."""
+        ids = {m["id"] for m in client.get("/api/maps?folder=a_b", headers=admin_headers).json()["maps"]}
+        assert ids == {tricky["under"].id}
+
+
 class TestGetMap:
     def test_get_existing_map(self, client, admin_headers, map_entry):
         resp = client.get(f"/api/maps/{map_entry.id}", headers=admin_headers)
@@ -386,3 +431,40 @@ class TestServeMapThumbnail:
     def test_unknown_map_returns_404(self, client, admin_headers):
         resp = client.get("/api/maps/nope/thumbnail", headers=admin_headers)
         assert resp.status_code == 404
+
+    def test_thumbnail_is_cacheable_and_revalidates(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        """A gallery of thousands of maps must not refetch every thumbnail per visit."""
+        from backend.routers.maps import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "maps").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        m = make_map(filename="etag-map.png", filepath=str(tmp_path / "etag-map.png"))
+        fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]
+        (thumb_root / "maps" / f"{slugify('etag map')}_{fhash}.webp").write_bytes(b"webp")
+
+        first = client.get(f"/api/maps/{m.id}/thumbnail", headers=admin_headers)
+        assert first.status_code == 200
+        cache_control = first.headers["cache-control"]
+        # Private: thumbnails are access-controlled, so a shared proxy must never
+        # serve one user's to another. Not "immutable": this URL is not
+        # content-addressed, so the browser has to revalidate (cheaply, via the
+        # ETag) or a replaced image would never appear.
+        assert "private" in cache_control
+        assert "immutable" not in cache_control
+        etag = first.headers["etag"]
+
+        again = client.get(
+            f"/api/maps/{m.id}/thumbnail",
+            headers={**admin_headers, "If-None-Match": etag},
+        )
+        assert again.status_code == 304
+
+        stale = client.get(
+            f"/api/maps/{m.id}/thumbnail",
+            headers={**admin_headers, "If-None-Match": '"outdated"'},
+        )
+        assert stale.status_code == 200
