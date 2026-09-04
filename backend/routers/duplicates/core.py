@@ -275,8 +275,21 @@ def compare_items(
 
     items = []
     for record in records:
-        _parent, siblings = variants.family_for(db, model, record)
+        parent, siblings = variants.family_for(db, model, record)
         created = getattr(record, "created_at", None)
+        # Only when the record is a variant of something else. `family_for`
+        # returns the record itself for a parent (and for a dangling link), and
+        # naming an item as its own main version would offer the user a
+        # redirect back to the page they are already on.
+        main = None
+        if parent is not record:
+            main = {
+                "id": parent.id,
+                "filename": parent.filename,
+                "relative_path": parent.relative_path,
+                "title": getattr(parent, "title", None),
+                "variant_count": len(siblings),
+            }
         items.append(
             {
                 "id": record.id,
@@ -298,6 +311,7 @@ def compare_items(
                 "variant_parent_id": record.variant_parent_id,
                 "variant_kind": record.variant_kind or "",
                 "variants": [variants.serialize_variant(v) for v in siblings],
+                "variant_main": main,
             }
         )
 

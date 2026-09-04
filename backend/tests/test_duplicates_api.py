@@ -430,6 +430,99 @@ class TestCompare:
             f"{API}/compare?resource_type=book&{many}", headers=admin_headers
         ).status_code == 400
 
+    def test_names_the_family_a_variant_already_belongs_to(
+        self, client, admin_headers, system
+    ):
+        """The compare view cannot say "promote its main version instead" and
+        then leave the user stuck, so the main version is named here."""
+        keeper = make_book(system_id=system.id)
+        main = make_book(system_id=system.id, title="Core Rulebook")
+        child = make_book(system_id=system.id)
+        sibling = make_book(system_id=system.id)
+        _link(client, admin_headers, main.id, child.id)
+        _link(client, admin_headers, main.id, sibling.id)
+
+        body = client.get(
+            f"{API}/compare?resource_type=book&ids={keeper.id}&ids={child.id}",
+            headers=admin_headers,
+        ).json()
+        items = {i["id"]: i for i in body["items"]}
+
+        # The standalone copy heads no family of its own.
+        assert items[keeper.id]["variant_main"] is None
+        got = items[child.id]["variant_main"]
+        assert got["id"] == main.id
+        assert got["title"] == "Core Rulebook"
+        assert got["filename"] == main.filename
+        # The child itself is counted: it is one of the rows a promote moves.
+        assert got["variant_count"] == 2
+
+    def test_a_parent_is_not_its_own_main_version(self, client, admin_headers, system):
+        """`family_for` hands back the record itself for a parent. Reporting
+        that as the main version would offer a redirect to the current page."""
+        main = make_book(system_id=system.id)
+        child = make_book(system_id=system.id)
+        other = make_book(system_id=system.id)
+        _link(client, admin_headers, main.id, child.id)
+
+        body = client.get(
+            f"{API}/compare?resource_type=book&ids={main.id}&ids={other.id}",
+            headers=admin_headers,
+        ).json()
+        assert body["items"][0]["variant_main"] is None
+        assert len(body["items"][0]["variants"]) == 1
+
+    def test_the_named_main_version_is_one_promote_can_accept(
+        self, client, admin_headers, system
+    ):
+        """End to end: the refusal, then the recovery the compare view offers.
+
+        Promoting over the variant is what the user tries first and what the
+        service refuses; promoting over the main version it names is the same
+        intent expressed in the one shape the two-level rule allows.
+        """
+        keeper = make_book(system_id=system.id)
+        main = make_book(system_id=system.id)
+        child = make_book(system_id=system.id)
+        _link(client, admin_headers, main.id, child.id)
+
+        refused = _promote(client, admin_headers, keeper.id, child.id)
+        assert refused.status_code == 409
+        assert "itself a variant" in refused.json()["detail"]
+
+        body = client.get(
+            f"{API}/compare?resource_type=book&ids={keeper.id}&ids={child.id}",
+            headers=admin_headers,
+        ).json()
+        named = {i["id"]: i for i in body["items"]}[child.id]["variant_main"]["id"]
+
+        accepted = _promote(client, admin_headers, keeper.id, named)
+        assert accepted.status_code == 200
+        # The whole family landed on the keeper: the old main version and the
+        # copy the user was actually looking at.
+        assert accepted.json()["moved"] == 2
+        family = client.get(
+            f"{API}/compare?resource_type=book&ids={keeper.id}&ids={child.id}",
+            headers=admin_headers,
+        ).json()
+        items = {i["id"]: i for i in family["items"]}
+        assert items[keeper.id]["variant_main"] is None
+        assert {v["id"] for v in items[keeper.id]["variants"]} == {main.id, child.id}
+        assert items[child.id]["variant_main"]["id"] == keeper.id
+
+    def test_a_dangling_parent_id_names_no_main_version(
+        self, client, admin_headers, system
+    ):
+        """A row pointing at a deleted parent stands alone rather than sending
+        the user to a compare page for an id that no longer resolves."""
+        orphan = make_book(system_id=system.id, variant_parent_id="gone", variant_kind="other")
+        other = make_book(system_id=system.id)
+        body = client.get(
+            f"{API}/compare?resource_type=book&ids={orphan.id}&ids={other.id}",
+            headers=admin_headers,
+        ).json()
+        assert body["items"][0]["variant_main"] is None
+
     def test_works_for_media(self, client, admin_headers):
         a, b = make_map(), make_map()
         body = client.get(

@@ -7,6 +7,9 @@ vi.mock('react-i18next', () => ({
     t: (k, o) => {
       if (k === 'maintenance.dupes.promoteWarning') return `${o.count} variants will move`
       if (k === 'maintenance.dupes.linkExplainer') return `${o.child} under ${o.parent}`
+      if (k === 'maintenance.dupes.alreadyVariantBody') return `main=${o.main}`
+      if (k === 'maintenance.dupes.alreadyVariantMoves')
+        return `moves=${o.count} ${o.main} ${o.keeper}`
       return k
     },
   }),
@@ -166,6 +169,103 @@ describe('DuplicateCompareView', () => {
       label: '',
     })
     expect(link).not.toHaveBeenCalled()
+  })
+
+  describe('when the demoted copy is itself a variant of a third item', () => {
+    // The dead end this covers: b is already filed under c. Both link and
+    // promote refuse it, and before this the UI could only relay the refusal
+    // without naming c or offering a way to reach it.
+    const withMain = () =>
+      payload({
+        items: [
+          item('a'),
+          item('b', {
+            variant_parent_id: 'c',
+            variant_main: {
+              id: 'c',
+              filename: 'c.pdf',
+              relative_path: 'books/c.pdf',
+              title: 'Core Rulebook',
+              variant_count: 3,
+            },
+          }),
+        ],
+      })
+
+    it('names the main version instead of leaving the user at a dead end', async () => {
+      compare.mockResolvedValue(withMain())
+      render(<DuplicateCompareView />)
+      await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+
+      expect(screen.getByText('main=Core Rulebook')).toBeInTheDocument()
+      expect(screen.getByText('moves=3 Core Rulebook a.pdf')).toBeInTheDocument()
+    })
+
+    it('promotes over the whole family rather than the copy on screen', async () => {
+      compare.mockResolvedValue(withMain())
+      render(<DuplicateCompareView />)
+      await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /maintenance.dupes.promoteOverFamily/ })
+      )
+      // c, not b: promoting over b is exactly what the service refuses.
+      expect(promote).toHaveBeenCalledWith('book', {
+        newParentId: 'a',
+        oldParentId: 'c',
+        kind: 'other',
+        label: '',
+      })
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith('/settings/duplicates'))
+    })
+
+    it('carries the chosen kind and label onto the family promote', async () => {
+      compare.mockResolvedValue(withMain())
+      render(<DuplicateCompareView />)
+      await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+
+      await userEvent.type(screen.getByRole('textbox'), 'v1.0.0')
+      await userEvent.click(
+        screen.getByRole('button', { name: /maintenance.dupes.promoteOverFamily/ })
+      )
+      expect(promote).toHaveBeenCalledWith(
+        'book',
+        expect.objectContaining({ oldParentId: 'c', label: 'v1.0.0' })
+      )
+    })
+
+    it('opens the pair the promote actually applies to', async () => {
+      compare.mockResolvedValue(withMain())
+      render(<DuplicateCompareView />)
+      await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /maintenance.dupes.compareWithMain/ })
+      )
+      // Same keeper, paired against the main version.
+      expect(navigate).toHaveBeenCalledWith('/settings/duplicates/compare/book?left=a&right=c')
+      expect(promote).not.toHaveBeenCalled()
+    })
+
+    it('disables the plain link button the API would refuse', async () => {
+      compare.mockResolvedValue(withMain())
+      render(<DuplicateCompareView />)
+      await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+
+      expect(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ })).toBeDisabled()
+    })
+
+    it('follows the swap: the notice tracks whichever copy is being demoted', async () => {
+      compare.mockResolvedValue(withMain())
+      render(<DuplicateCompareView />)
+      await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
+
+      // Now b is the keeper and a is demoted — a is standalone, so the dead end
+      // is gone and the ordinary link is available again.
+      await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.swapParent/ }))
+      expect(screen.queryByText('main=Core Rulebook')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ })).toBeEnabled()
+    })
   })
 
   it('dismisses the pair', async () => {

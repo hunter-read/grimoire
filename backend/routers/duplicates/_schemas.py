@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from .._variant_schemas import VariantEntry
+from .._variant_schemas import VariantEntry, VariantMain
 
 # The four collections that can hold duplicates of each other. A map can never
 # be a variant of a book, so every request names exactly one of these and the
@@ -130,6 +130,11 @@ class CompareItem(BaseModel):
     variant_parent_id: Optional[str] = None
     variant_kind: str = ""
     variants: list[VariantEntry] = []
+    # The family this copy already belongs to, when it is itself a variant.
+    # Named rather than left as a bare id because the compare view has to offer
+    # the user a way *out* of that dead end, and "promote its main version
+    # instead" is unactionable if the UI cannot say which item that is.
+    variant_main: Optional[VariantMain] = None
 
 
 class CompareDifference(BaseModel):
