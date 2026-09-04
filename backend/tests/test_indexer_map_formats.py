@@ -1,16 +1,21 @@
 """Tests for animated-map and VTT-data indexing in the maps tree.
 
 CzePeku and similar publishers ship looping video variants (.webm/.mp4) and
-Universal VTT exports (.uvtt) alongside the still images. These are registered
-as maps so they are visible and downloadable, but are opaque to the
-thumbnailer - there is no still frame to render without a video decoder. Universal
-VTT files do get one: the battlemap is embedded in the JSON as base64.
+Universal VTT exports (.uvtt) alongside the still images. Both are registered as
+maps so they are visible and downloadable, and both can now produce a thumbnail:
+a UVTT carries the battlemap as base64 in its JSON, and a video is decoded to a
+single frame by the bundled decode-only ffmpeg.
+
+The video files written here are *stub bytes*, not real containers, so no decoder
+can read them - that is what makes them a good test of the failure path. Real
+decoding is covered in test_indexer_video_frames.py.
 """
 from __future__ import annotations
 
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -106,7 +111,9 @@ class TestMapFormatScan:
         finally:
             db.close()
 
-    def test_webm_registered_without_thumbnail(self):
+    def test_webm_registered_even_when_undecodable(self):
+        # Stub bytes, not a real container: registration must still happen, and
+        # the unreadable frame must degrade to "no thumbnail" rather than error.
         name = f"animated_{os.path.basename(self.tmp)}.webm"
         (self.map_dir / name).write_bytes(b"\x1a\x45\xdf\xa3fake-webm")
         self._scan()
@@ -115,7 +122,7 @@ class TestMapFormatScan:
         assert m is not None, "webm should be registered as a map"
         assert m.has_thumbnail is False
 
-    def test_mp4_registered_without_thumbnail(self):
+    def test_mp4_registered_even_when_undecodable(self):
         name = f"animated_{os.path.basename(self.tmp)}.mp4"
         (self.map_dir / name).write_bytes(b"\x00\x00\x00\x18ftypmp42")
         self._scan()
@@ -186,18 +193,42 @@ class TestMapFormatScan:
         assert m is not None
         assert m.has_thumbnail is True, "rescan should backfill the missing UVTT thumbnail"
 
-    def test_backfill_leaves_video_maps_alone(self):
-        name = f"nobackfill_{os.path.basename(self.tmp)}.webm"
+    def test_video_map_is_retried_on_rescan(self):
+        """A video registered before the decoder shipped must be backfilled.
+
+        Existing libraries have .webm/.mp4 rows sitting at has_thumbnail=0 from
+        older builds; they never re-enter the insert path, so the rescan backfill
+        is the only route by which they can ever gain a cover. Here the stub
+        bytes stay undecodable, so the flag stays False — what is asserted is
+        that the attempt is *made* on every rescan.
+        """
+        name = f"backfill_{os.path.basename(self.tmp)}.webm"
         (self.map_dir / name).write_bytes(b"\x1a\x45\xdf\xa3fake-webm")
         self._scan()
-        self._scan()
+
+        with patch("backend.indexer.generate_thumbnail", return_value=False) as gen:
+            self._scan()
+        assert gen.called, "rescan should retry the thumbnail for an uncovered video map"
 
         m = self._get_map(name)
         assert m is not None
         assert m.has_thumbnail is False
 
+    def test_video_map_backfilled_once_decodable(self):
+        """The same rescan path sets the flag when a frame can be read."""
+        name = f"decodable_{os.path.basename(self.tmp)}.webm"
+        (self.map_dir / name).write_bytes(b"\x1a\x45\xdf\xa3fake-webm")
+        self._scan()
+
+        with patch("backend.indexer.generate_thumbnail", return_value=True):
+            self._scan()
+
+        m = self._get_map(name)
+        assert m is not None
+        assert m.has_thumbnail is True, "rescan should backfill a decodable video map"
+
     def test_still_image_alongside_still_thumbnails(self):
-        # The opaque formats must not regress normal image handling.
+        # Video handling must not regress normal image handling.
         stem = os.path.basename(self.tmp)
         Image.new("RGB", (60, 80)).save(self.map_dir / f"still_{stem}.png", "PNG")
         (self.map_dir / f"still_{stem}.webm").write_bytes(b"\x1a\x45\xdf\xa3fake")

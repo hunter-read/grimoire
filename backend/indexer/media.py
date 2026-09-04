@@ -38,17 +38,19 @@ logger = logging.getLogger("grimoire.indexer")
 def _needs_thumbnail_backfill(existing: Any, ext: str, arc_ext: str) -> bool:
     """True when a registered media row could have a thumbnail but does not.
 
-    Only Universal VTT maps can currently answer yes: they were registered as
-    opaque before the thumbnailer learned to read the battlemap embedded in the
-    JSON, so existing rows sit at has_thumbnail=0 with no way to recover. Videos
-    stay excluded (no decoder is shipped), and archives are opaque by design.
+    Two formats answer yes, both for the same reason: they were registered as
+    opaque before the thumbnailer could read them, so existing rows sit at
+    has_thumbnail=0 with no way to recover. Universal VTT maps carry the
+    battlemap as base64 inside the JSON; animated maps (.webm/.mp4) now get a
+    decoded frame from the bundled decode-only ffmpeg. Archives stay excluded —
+    they are opaque by design, not by a missing decoder.
 
     Guarded on the flag rather than on file state, so a genuinely un-thumbnailed
     file is retried at most once per scan and a successful row is never redone.
     """
     if arc_ext or getattr(existing, "has_thumbnail", False):
         return False
-    return ext in VTT_DATA_EXTS
+    return ext in VTT_DATA_EXTS or ext in MAP_VIDEO_EXTS
 
 
 def _scan_media(
@@ -160,11 +162,11 @@ def _scan_media(
                 content_hash=hash_file(filepath, should_stop=ctx.should_stop),
             )
 
-            # Archives and videos are opaque here: a video needs a decoder we
-            # deliberately do not ship (see MAP_VIDEO_EXTS). Universal VTT files
-            # are not — they carry the battlemap as base64 inside the JSON, so
-            # they thumbnail like any other image.
-            if not arc_ext and ext not in MAP_VIDEO_EXTS:
+            # Archives are the only opaque case left: there is no single image
+            # in a map pack to call the cover. Universal VTT files carry the
+            # battlemap as base64 inside the JSON, and animated maps decode to a
+            # frame, so both thumbnail like any other image.
+            if not arc_ext:
                 thumb_path = ctx.thumb_path(section, title, filepath)
                 logger.debug(f"Generating thumbnail: {filepath}")
                 if indexer.generate_thumbnail(

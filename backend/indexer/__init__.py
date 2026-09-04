@@ -97,9 +97,16 @@ from .thumbnails import (  # noqa: E402,F401
     _extract_7z_member,
     _first_image_from_archive,
     _generate_thumbnail_task,
+    _video_frame,
     archive_ext,
     archive_mime,
     generate_thumbnail,
+)
+
+# --- Animated-map frame extraction ---------------------------------------------
+from .video_frames import (  # noqa: E402,F401
+    ffmpeg_path,
+    video_first_frame,
 )
 
 # --- Content hashing / change detection ----------------------------------------
