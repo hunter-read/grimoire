@@ -40,9 +40,28 @@ export default function RenameModal({ entry, onClose, onRename }) {
     }
   }
 
+  // Escape closes. Handled on the panel rather than on `window` because the name
+  // field is autofocused, so focus is already inside — and a window listener
+  // would also fire for a pane keystroke that happened to bubble while this was
+  // open. `stopPropagation` keeps it from reaching the file pane behind it,
+  // which reads Escape as "clear the selection".
+  const onKeyDown = (e) => {
+    if (e.key !== 'Escape') return
+    e.stopPropagation()
+    onClose()
+  }
+
   return (
     <div style={backdrop} onClick={onClose}>
-      <form style={panel} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <form
+        style={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('files.rename')}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={onKeyDown}
+        onSubmit={submit}
+      >
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{t('files.rename')}</h3>
         <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14, lineHeight: 1.5 }}>
           {t('files.renameHint')}

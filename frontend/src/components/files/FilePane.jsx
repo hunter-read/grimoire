@@ -11,6 +11,7 @@ import {
 import Spinner from '../Spinner'
 import FileRow from './FileRow'
 import useVirtualRows from '../../hooks/useVirtualRows'
+import { indexOfPath, nextSelectable, rightTarget, leftTarget } from './treeNav'
 
 // Drag payloads are JSON so a drop can carry several paths at once (a
 // multi-select drag) plus the pane it came from, which the drop handler needs to
@@ -70,12 +71,18 @@ export default function FilePane({
   onOpenContext,
   onClose,
   onNewFolder,
+  onPreview,
+  onRename,
+  onDelete,
+  onOpenMetadata,
+  onShowShortcuts,
   compact = false,
   fill = false,
 }) {
   const { t } = useTranslation()
   const [dragOver, setDragOver] = useState(null) // entry path being hovered, or '__pane__'
   const [dragging, setDragging] = useState(false)
+  const [focused, setFocused] = useState(false)
   const springTimer = useRef(null)
   const scrollTimer = useRef(null)
 
@@ -193,8 +200,13 @@ export default function FilePane({
 
   const handleSelect = useCallback(
     (e, entry) => {
-      if (e.metaKey || e.ctrlKey) pane.toggle(entry.path)
-      else pane.selectOnly(entry.path)
+      // Ctrl/Cmd-click still toggles one row in or out, but it moves the cursor
+      // too, so a keyboard range can start from wherever the mouse left off.
+      if (e.metaKey || e.ctrlKey) {
+        pane.cursorTo(entry.path, { select: false })
+        return pane.toggle(entry.path)
+      }
+      pane.cursorTo(entry.path, { extend: e.shiftKey })
     },
     [pane]
   )
@@ -202,10 +214,183 @@ export default function FilePane({
   const handleContext = useCallback(
     (e, entry) => {
       e.preventDefault()
-      if (!pane.selected.has(entry.path)) pane.selectOnly(entry.path)
+      if (!pane.selected.has(entry.path)) pane.cursorTo(entry.path)
       onOpenContext({ x: e.clientX, y: e.clientY, entry, side })
     },
     [pane, onOpenContext, side]
+  )
+
+  // --- Keyboard navigation.
+  //
+  // The handler is bound to the list rather than to `window`, which is what
+  // makes two panes work: DOM focus already answers "which pane is active", so
+  // there is no second copy of that answer to keep in sync with pinning,
+  // closing, and the pane-adoption in `closePane`. It also keeps these keys from
+  // fighting PreviewModal, which listens on `window` for Escape and the arrows —
+  // while it is open, focus is inside it and this never runs.
+
+  const cursorIndex = indexOfPath(rows, pane.cursor)
+
+  /**
+   * Scroll a row into view.
+   *
+   * Arithmetic rather than `scrollIntoView` because the list is virtualised: the
+   * target row usually is not mounted yet, and `ROW_HEIGHT` is uniform, so its
+   * position is known without measuring. Writing `scrollTop` fires a scroll
+   * event, which feeds the virtual window on its own.
+   */
+  const scrollRowIntoView = useCallback(
+    (index) => {
+      const el = scrollRef.current
+      if (!el || index < 0) return
+      const top = index * ROW_HEIGHT
+      if (top < el.scrollTop) el.scrollTop = top
+      else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight) {
+        el.scrollTop = top + ROW_HEIGHT - el.clientHeight
+      }
+    },
+    [scrollRef]
+  )
+
+  // Keyed on the cursor rather than called from the handler, so a cursor moved
+  // by any route — key, click, or a future external jump — scrolls to itself.
+  useEffect(() => {
+    if (pane.cursor == null) return
+    scrollRowIntoView(indexOfPath(rows, pane.cursor))
+  }, [pane.cursor, rows, scrollRowIntoView])
+
+  /** Move the cursor to a row index, if it exists. */
+  const moveTo = useCallback(
+    (index, opts) => {
+      if (index < 0 || index >= rows.length) return
+      pane.cursorTo(rows[index].entry.path, opts)
+    },
+    [pane, rows]
+  )
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      // Guards, in the order they are cheapest to check. The dialog check is
+      // belt-and-braces: focus normally moves into an open modal, but a modal
+      // that does not trap focus would otherwise let these keys act on the tree
+      // behind it.
+      if (e.defaultPrevented) return
+      const el = e.target
+      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
+      if (document.querySelector('[role="dialog"]')) return
+
+      const mod = e.metaKey || e.ctrlKey
+      const row = cursorIndex >= 0 ? rows[cursorIndex] : null
+      const entry = row?.entry
+      // Arrowing with no cursor starts at the top rather than doing nothing.
+      const from = cursorIndex >= 0 ? cursorIndex : -1
+      const take = () => e.preventDefault()
+
+      switch (e.key) {
+        case 'ArrowDown': {
+          take()
+          // Cmd+Down on a folder is Finder's "open": it re-anchors the pane,
+          // the same as double-clicking the row.
+          if (mod && entry?.is_dir) return pane.navigate(entry.path)
+          const next = nextSelectable(rows, from + 1, 1)
+          return moveTo(next, { extend: e.shiftKey, select: !mod })
+        }
+        case 'ArrowUp': {
+          take()
+          // Cmd+Up is Finder's "enclosing folder" — but only from the top row,
+          // where there is nothing above to move to.
+          if (mod && from <= 0) return pane.parent !== null && pane.navigate(pane.parent)
+          const prev = nextSelectable(rows, from - 1, -1)
+          return moveTo(prev, { extend: e.shiftKey, select: !mod })
+        }
+        case 'ArrowRight': {
+          take()
+          const target = rightTarget(rows, cursorIndex)
+          if (!target) return
+          if (target.action === 'expand') return pane.toggleExpand(target.path)
+          return moveTo(target.index, { extend: e.shiftKey })
+        }
+        case 'ArrowLeft': {
+          take()
+          const target = leftTarget(rows, cursorIndex)
+          if (!target) return
+          if (target.action === 'move') return moveTo(target.index, { extend: e.shiftKey })
+          // Collapsing hides the cursor row, and a cursor pointing at a hidden
+          // row is dropped. Moving to the parent first keeps the user's place on
+          // the folder they just closed, which is where Finder leaves them.
+          pane.cursorTo(target.path)
+          return pane.toggleExpand(target.path)
+        }
+        case 'Home':
+          take()
+          return moveTo(nextSelectable(rows, 0, 1), { extend: e.shiftKey })
+        case 'End':
+          take()
+          return moveTo(nextSelectable(rows, rows.length - 1, -1), { extend: e.shiftKey })
+        case 'PageDown':
+        case 'PageUp': {
+          take()
+          const el = scrollRef.current
+          const page = Math.max(1, Math.floor((el?.clientHeight || 0) / ROW_HEIGHT) - 1)
+          const dir = e.key === 'PageDown' ? 1 : -1
+          const target = Math.min(rows.length - 1, Math.max(0, (from < 0 ? 0 : from) + page * dir))
+          return moveTo(nextSelectable(rows, target, -dir), { extend: e.shiftKey })
+        }
+        case ' ':
+          // Always swallowed, cursor or not: the default is to scroll the pane,
+          // which is exactly the surprise this shortcut must not cause.
+          take()
+          if (entry) onPreview?.(entry)
+          return
+        case 'Enter':
+        case 'F2':
+          take()
+          if (entry) onRename?.(entry)
+          return
+        case 'Delete':
+        case 'Backspace':
+          // Backspace is historically "browser back" — never let it through.
+          take()
+          if (entry) onDelete?.(entry)
+          return
+        case 'Escape':
+          // Only meaningful when something is active; otherwise let it bubble to
+          // whatever else may want it.
+          if (!pane.selected.size && pane.cursor == null) return
+          take()
+          return pane.clearSelection()
+        case '?':
+          take()
+          return onShowShortcuts?.()
+        case 'a':
+        case 'A':
+          if (!mod) return
+          // Without this the browser selects the page text, burying the row
+          // highlight under it.
+          take()
+          return pane.selectAll()
+        case 'i':
+        case 'I':
+          if (!mod) return
+          take()
+          if (entry) onOpenMetadata?.(entry)
+          return
+        default:
+          return
+      }
+    },
+    [
+      rows,
+      cursorIndex,
+      pane,
+      moveTo,
+      scrollRef,
+      onPreview,
+      onRename,
+      onDelete,
+      onOpenMetadata,
+      onShowShortcuts,
+    ]
   )
 
   /** Auto-scroll the list when a drag nears its top or bottom edge. */
@@ -337,12 +522,26 @@ export default function FilePane({
       <div
         ref={scrollRef}
         data-testid={`file-list-${side}`}
+        // Focusable so the tree can be driven by keyboard at all, and so Tab
+        // moves between the two panes without any code of our own.
+        tabIndex={0}
+        role="listbox"
+        aria-label={t('files.libraryTree')}
+        aria-activedescendant={pane.cursor ? rowDomId(side, pane.cursor) : undefined}
+        onKeyDown={handleKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onScroll={onScroll}
         onDragOver={handleListDragOver}
         onDragLeave={() => clearInterval(scrollTimer.current)}
         style={{
           flex: 1,
           overflowY: 'auto',
+          // Which pane has the keys is otherwise invisible, and with two panes
+          // open that is the difference between renaming the right file and the
+          // wrong one. Drawn inside the edge so it does not shift the layout.
+          outline: focused ? '2px solid var(--gold)' : 'none',
+          outlineOffset: -2,
           // When the pane fills a sized parent, the list takes whatever is left
           // and scrolls inside it — independently of the other pane and of the
           // page, which never scrolls. `minHeight: 0` is required for that in a
@@ -429,10 +628,12 @@ export default function FilePane({
           return (
             <FileRow
               key={row.entry.path}
+              id={rowDomId(side, row.entry.path)}
               entry={row.entry}
               depth={row.depth}
               isOpen={row.isOpen}
               isSelected={pane.selected.has(row.entry.path)}
+              isCursor={pane.cursor === row.entry.path}
               isDropTarget={dragOver === row.entry.path}
               height={ROW_HEIGHT}
               onToggleExpand={pane.toggleExpand}
@@ -472,6 +673,13 @@ export default function FilePane({
       </div>
     </div>
   )
+}
+
+// `aria-activedescendant` needs a real element id, and a path is not one — it
+// carries slashes, spaces and whatever else a filename holds. Scoped by side so
+// the two panes never mint the same id for the same file.
+function rowDomId(side, path) {
+  return `filerow-${side}-${encodeURIComponent(path)}`
 }
 
 // Unlike the breadcrumbs beside it, this one *does* something to the library

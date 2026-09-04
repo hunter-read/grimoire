@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NewFolderModal from './NewFolderModal'
 
@@ -76,5 +76,19 @@ describe('NewFolderModal', () => {
     await userEvent.click(screen.getByText('common.cancel'))
     expect(onClose).toHaveBeenCalled()
     expect(onCreate).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    render(<NewFolderModal parent="books" onClose={onClose} onCreate={vi.fn()} />)
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('is a labelled dialog', () => {
+    // The file pane goes quiet while any [role="dialog"] is open, so this
+    // attribute is what stops a keystroke here from also arrowing the tree.
+    render(<NewFolderModal parent="books" onClose={vi.fn()} onCreate={vi.fn()} />)
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true')
   })
 })

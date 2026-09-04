@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { files as filesApi } from '../api'
+import { rangeBetween } from '../components/files/treeNav'
 
 /**
  * State for one pane of the library file manager (issue #302).
@@ -26,6 +27,13 @@ export function useLibraryPane(initialPath = '') {
   const [folders, setFolders] = useState({})
   const [expanded, setExpanded] = useState(() => new Set())
   const [selected, setSelected] = useState(() => new Set())
+  // The keyboard cursor: the row arrow keys act on. Held as a *path* rather than
+  // a row index because every expand, collapse, refresh and sibling delete
+  // renumbers the rows — the same reason `selected` is keyed by path.
+  const [cursor, setCursor] = useState(null)
+  // Where a shift-range measures from. A ref, not state: it only ever changes
+  // alongside a selection change that already re-renders.
+  const anchor = useRef(null)
   // Guards against two loads racing for the same folder (an expand arriving
   // while a refresh is already in flight).
   const inFlight = useRef(new Set())
@@ -80,6 +88,8 @@ export function useLibraryPane(initialPath = '') {
     // both refer to places that are no longer on screen.
     setExpanded(new Set())
     setSelected(new Set())
+    setCursor(null)
+    anchor.current = null
   }, [])
 
   /**
@@ -177,7 +187,11 @@ export function useLibraryPane(initialPath = '') {
   }, [])
 
   const selectOnly = useCallback((entryPath) => setSelected(new Set([entryPath])), [])
-  const clearSelection = useCallback(() => setSelected(new Set()), [])
+  const clearSelection = useCallback(() => {
+    setSelected(new Set())
+    setCursor(null)
+    anchor.current = null
+  }, [])
 
   const root = folders[path]
 
@@ -248,6 +262,45 @@ export function useLibraryPane(initialPath = '') {
     setSelected(new Set(rows.filter((r) => r.entry).map((r) => r.entry.path)))
   }, [rows])
 
+  /**
+   * Move the keyboard cursor to `path`, and by default select it.
+   *
+   * Three behaviours in one call, because they are the three things an arrow key
+   * can mean:
+   *
+   *  * plain arrow — move and replace the selection, re-anchoring a future range
+   *    here (the Finder default, and what a click does too);
+   *  * `extend` — keep the anchor and select everything between it and here;
+   *  * `select: false` — move the cursor alone, leaving the selection untouched,
+   *    which is how a discontiguous selection gets built.
+   */
+  const cursorTo = useCallback(
+    (entryPath, { extend = false, select = true } = {}) => {
+      if (entryPath == null) return
+      setCursor(entryPath)
+      if (extend && anchor.current) {
+        const range = rangeBetween(rows, anchor.current, entryPath)
+        // An anchor that has scrolled out of the loaded tree yields nothing;
+        // falling back to a plain selection beats selecting nothing at all.
+        setSelected(new Set(range.length ? range : [entryPath]))
+        return
+      }
+      if (!select) return
+      setSelected(new Set([entryPath]))
+      anchor.current = entryPath
+    },
+    [rows]
+  )
+
+  // A cursor whose row has left the tree — its parent was collapsed, the file
+  // was moved away, the pane was refreshed — points at nothing. Dropping it is
+  // better than snapping to a neighbour, which moves the user somewhere they did
+  // not ask to go. Collapsing with ArrowLeft sidesteps this by moving the cursor
+  // to the parent *before* it closes.
+  useEffect(() => {
+    if (cursor && !rows.some((r) => r.entry?.path === cursor)) setCursor(null)
+  }, [rows, cursor])
+
   return {
     path,
     rows,
@@ -271,6 +324,8 @@ export function useLibraryPane(initialPath = '') {
     selectOnly,
     clearSelection,
     selectAll,
+    cursor,
+    cursorTo,
     // `writable` for an arbitrary folder, so a drop target deep in the tree can
     // be validated without assuming the root's permissions.
     isWritable: (folderPath) => folders[folderPath]?.writable ?? root?.writable ?? false,

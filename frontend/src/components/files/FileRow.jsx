@@ -25,10 +25,12 @@ function formatSize(bytes) {
  * callbacks so the comparison is cheap and actually holds.
  */
 function FileRow({
+  id,
   entry,
   depth,
   isOpen,
   isSelected,
+  isCursor,
   isDropTarget,
   height,
   onToggleExpand,
@@ -44,6 +46,9 @@ function FileRow({
 
   return (
     <div
+      id={id}
+      role="option"
+      aria-selected={!!isSelected}
       draggable
       onDragStart={(e) => onDragStart(e, entry)}
       onDragOver={(e) => onDragOverRow(e, entry, isOpen)}
@@ -67,7 +72,15 @@ function FileRow({
         cursor: 'grab',
         userSelect: 'none',
         background: isDropTarget || isSelected ? 'var(--bg-card-hover)' : 'transparent',
-        outline: isDropTarget ? '1px dashed var(--gold)' : 'none',
+        // Three states share one outline slot. A drop target wins while a drag
+        // is live; otherwise the cursor is drawn solid, so a row that is the
+        // cursor but *not* selected — the result of Cmd+arrow — is still
+        // visibly where the next keystroke will land.
+        outline: isDropTarget
+          ? '1px dashed var(--gold)'
+          : isCursor
+            ? '1px solid var(--gold)'
+            : 'none',
         outlineOffset: -1,
         borderBottom: '1px solid var(--border-light)',
       }}

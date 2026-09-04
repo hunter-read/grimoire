@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RenameModal from './RenameModal'
 
@@ -88,5 +88,21 @@ describe('RenameModal', () => {
     await userEvent.click(screen.getByText('common.cancel'))
     expect(onClose).toHaveBeenCalled()
     expect(onRename).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape', () => {
+    // Every other dialog in the app closes this way; this one used to need the
+    // mouse, which is jarring the moment the file manager is keyboard-driven.
+    const onClose = vi.fn()
+    render(<RenameModal entry={entry} onClose={onClose} onRename={vi.fn()} />)
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('is a labelled dialog', () => {
+    // The file pane goes quiet while any [role="dialog"] is open, so this
+    // attribute is what stops a keystroke here from also arrowing the tree.
+    render(<RenameModal entry={entry} onClose={vi.fn()} onRename={vi.fn()} />)
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true')
   })
 })

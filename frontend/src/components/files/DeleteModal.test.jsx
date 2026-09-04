@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DeleteModal from './DeleteModal'
 import { files as filesApi } from '../../api'
@@ -192,5 +192,13 @@ describe('DeleteModal', () => {
 
     expect(onClose).toHaveBeenCalled()
     expect(filesApi.deleteEntry).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape', () => {
+    filesApi.folderContents.mockResolvedValue({ has_content: false })
+    const onClose = vi.fn()
+    render(<DeleteModal entry={file} onClose={onClose} onDeleted={vi.fn()} />)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
   })
 })
