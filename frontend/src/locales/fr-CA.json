@@ -1098,10 +1098,19 @@
       },
       "accuracyHint": {
         "exact": "Uniquement les fichiers identiques octet par octet. Le plus rapide, sans faux positifs.",
-        "high": "Fichiers identiques et titres très proches. Peu de faux positifs.",
-        "medium": "Fichiers identiques, titres similaires et texte commun. Le choix habituel.",
+        "high": "Fichiers identiques et titres très proches. Peu de faux positifs, le choix habituel.",
+        "medium": "Fichiers identiques, titres similaires et texte commun. Recherche plus large.",
         "low": "La recherche la plus large. La plus lente, avec des résultats à examiner."
-      }
+      },
+      "collections": "Collections",
+      "collection": {
+        "book": "Livres",
+        "map": "Cartes",
+        "token": "Jetons",
+        "audio": "Audio"
+      },
+      "collectionsAllHint": "Rien de coché : toutes les collections sont analysées.",
+      "collectionsSomeHint": "Analyse de {{count}} collections sur 4."
     }
   },
   "logs": {

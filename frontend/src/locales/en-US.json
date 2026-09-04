@@ -1098,10 +1098,19 @@
       },
       "accuracyHint": {
         "exact": "Byte-identical files only. Fastest, and never a false positive.",
-        "high": "Identical files plus very close titles. Few false positives.",
-        "medium": "Identical files plus similar titles and overlapping text. The usual choice.",
+        "high": "Identical files plus very close titles. Few false positives, and the usual choice.",
+        "medium": "Identical files plus similar titles and overlapping text. Casts a wider net.",
         "low": "Casts the widest net. Slowest, and expect matches that need judging."
-      }
+      },
+      "collections": "Collections",
+      "collection": {
+        "book": "Books",
+        "map": "Maps",
+        "token": "Tokens",
+        "audio": "Audio"
+      },
+      "collectionsAllHint": "Nothing ticked: every collection is scanned.",
+      "collectionsSomeHint": "Scanning {{count}} of 4 collections."
     }
   },
   "logs": {

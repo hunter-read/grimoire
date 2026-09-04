@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import api from '../api'
+import variantLabel, { variantFilename } from '../utils/variantLabel'
 
 // The API path segment differs from the download segment for audio only, but
 // every caller already knows its download type, so that is what is passed in.
@@ -61,14 +62,11 @@ export default function useVariantOptions(type, id, item) {
       ]
     : []
 
-  const label = useCallback(
-    (option) => {
-      if (option.isMain) return t('variants.mainVersion')
-      if (option.label) return option.label
-      return t(`variants.kind.${option.kind}`, { defaultValue: option.kind })
-    },
-    [t]
-  )
+  const label = useCallback((option) => variantLabel(option, t), [t])
+  // The filename as a second line, when the name above is not already it. See
+  // `variantFilename`: a menu row that says "Gridded" does not say which file
+  // the click downloads.
+  const filename = useCallback((option) => variantFilename(option, t), [t])
 
-  return { options, loading, load, label }
+  return { options, loading, load, label, filename }
 }

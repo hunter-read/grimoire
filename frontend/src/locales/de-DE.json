@@ -1098,10 +1098,19 @@
       },
       "accuracyHint": {
         "exact": "Nur bytegleiche Dateien. Am schnellsten und ohne Fehltreffer.",
-        "high": "Identische Dateien und sehr ähnliche Titel. Wenige Fehltreffer.",
-        "medium": "Identische Dateien, ähnliche Titel und übereinstimmender Text. Die übliche Wahl.",
+        "high": "Identische Dateien und sehr ähnliche Titel. Wenige Fehltreffer, die übliche Wahl.",
+        "medium": "Identische Dateien, ähnliche Titel und übereinstimmender Text. Sucht breiter.",
         "low": "Weitester Suchbereich. Am langsamsten, mit Treffern, die geprüft werden müssen."
-      }
+      },
+      "collections": "Sammlungen",
+      "collection": {
+        "book": "Bücher",
+        "map": "Karten",
+        "token": "Marker",
+        "audio": "Audio"
+      },
+      "collectionsAllHint": "Nichts ausgewählt: Es werden alle Sammlungen durchsucht.",
+      "collectionsSomeHint": "{{count}} von 4 Sammlungen werden durchsucht."
     }
   },
   "logs": {
