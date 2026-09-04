@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from backend.routers.library import core as library_core
-from backend.tests.conftest import make_game_system, make_book
+from backend.tests.conftest import make_game_system, make_book, make_map, make_token, make_audio
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +40,28 @@ class TestLibraryStats:
         assert "indexed_books" in body
         assert "total_pages" in body
         assert "total_size_mb" in body
+        assert "library_size_mb" in body
+
+    def test_total_size_counts_books_only(self, client, admin_headers):
+        before = client.get("/api/stats", headers=admin_headers).json()
+        sys = make_game_system()
+        make_book(system_id=sys.id, file_size=2 * 1048576)
+        make_map(file_size=4 * 1048576)
+        after = client.get("/api/stats", headers=admin_headers).json()
+        # The book's bytes land in total_size_mb; the map's do not.
+        assert after["total_size_mb"] == pytest.approx(before["total_size_mb"] + 2.0, abs=0.05)
+
+    def test_library_size_includes_all_media(self, client, admin_headers):
+        before = client.get("/api/stats", headers=admin_headers).json()
+        sys = make_game_system()
+        make_book(system_id=sys.id, file_size=1 * 1048576)
+        make_map(file_size=2 * 1048576)
+        make_token(file_size=4 * 1048576)
+        make_audio(file_size=8 * 1048576)
+        after = client.get("/api/stats", headers=admin_headers).json()
+        assert after["library_size_mb"] == pytest.approx(before["library_size_mb"] + 15.0, abs=0.05)
+        # Books-only stays behind the whole-library figure once other media exist.
+        assert after["library_size_mb"] > after["total_size_mb"]
 
     def test_stats_omits_build_info(self, client, admin_headers):
         # Build details are intentionally kept off the API-key-gated /stats
@@ -59,6 +81,7 @@ class TestLibraryStats:
         assert body["indexed_books"] >= 0
         assert body["total_pages"] >= 0
         assert body["total_size_mb"] >= 0
+        assert body["library_size_mb"] >= 0
 
     def test_stats_reflects_created_data(self, client, admin_headers):
         # Record baseline

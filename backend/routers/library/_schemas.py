@@ -66,7 +66,9 @@ class StatsResponse(BaseModel):
     audio: int
     indexed_books: int
     total_pages: int
+    # Books only; ``library_size_mb`` covers maps, tokens and audio too.
     total_size_mb: float
+    library_size_mb: float
 
 
 class AboutResponse(BaseModel):

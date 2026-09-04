@@ -147,7 +147,8 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
   "audio": 250,
   "indexed_books": 320,
   "total_pages": 45000,
-  "total_size_mb": 18240.5
+  "total_size_mb": 18240.5,
+  "library_size_mb": 41890.2
 }
 ```
 
@@ -179,7 +180,7 @@ revoke it there at any time).
  - field: tokens
           label: Tokens
           format: number
- - field: total_size_mb
+ - field: library_size_mb
           label: Size
           format: float
           scale: 0.001
@@ -199,7 +200,8 @@ is rate limited.
 | `audio` | Total audio tracks | `number` |
 | `indexed_books` | Books with a searchable full-text index | `number` |
 | `total_pages` | Sum of all book page counts | `number` |
-| `total_size_mb` | Total library size in MB | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
+| `total_size_mb` | Size of the books in MB (PDFs and other book formats only) | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
+| `library_size_mb` | Size of the whole library in MB - books plus maps, tokens, and audio | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
 
 **Scan-status response:**
 ```json
@@ -482,8 +484,8 @@ kind, so `variant_count` remains the fallback. Both fields come from one grouped
 query per page, not a lookup per row.
 Variants are deliberately **included** in bulk downloads and the
 OPDS catalogue — an archive or a feed should be complete — and in
-`/api/stats`'s `total_size_mb`, since those bytes really are on disk, while the
-item counts exclude them.
+`/api/stats`'s `total_size_mb` and `library_size_mb`, since those bytes really
+are on disk, while the item counts exclude them.
 
 ### Maps
 

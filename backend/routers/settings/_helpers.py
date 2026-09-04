@@ -37,6 +37,7 @@ _DEFAULTS = {
     "show_stat_tokens": "false",
     "show_stat_audio": "false",
     "show_stat_size": "true",
+    "show_stat_library_size": "false",
     "password_auth_enabled": "true",
     # Whether GMs/admins may create guest invite codes for their campaigns.
     "guest_access_enabled": "false",
@@ -125,6 +126,7 @@ def _to_typed(raw: dict) -> dict:
         "show_stat_tokens": raw["show_stat_tokens"] == "true",
         "show_stat_audio": raw["show_stat_audio"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
+        "show_stat_library_size": raw["show_stat_library_size"] == "true",
         "password_auth_enabled": password_auth_effective(raw),
         "password_auth_env_locked": ALLOW_PASSWORD_AUTHENTICATION_ENV is not None,
         "guest_access_enabled": guest_access_effective(raw),

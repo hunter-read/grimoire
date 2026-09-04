@@ -27,7 +27,8 @@
     "pages": "Seiten",
     "maps": "Karten",
     "tokens": "Tokens",
-    "size": "Größe",
+    "booksSize": "Größe (Bücher)",
+    "librarySize": "Größe (Bibliothek)",
     "version": "Version",
     "audio": "Audio"
   },

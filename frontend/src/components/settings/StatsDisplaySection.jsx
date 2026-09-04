@@ -17,7 +17,8 @@ export default function StatsDisplaySection() {
     { key: 'show_stat_maps', label: t('stats.maps') },
     { key: 'show_stat_tokens', label: t('stats.tokens') },
     { key: 'show_stat_audio', label: t('stats.audio') },
-    { key: 'show_stat_size', label: t('stats.size') },
+    { key: 'show_stat_size', label: t('stats.booksSize') },
+    { key: 'show_stat_library_size', label: t('stats.librarySize') },
   ]
 
   useEffect(() => {

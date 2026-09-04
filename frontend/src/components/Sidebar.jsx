@@ -82,7 +82,16 @@ export default function Sidebar({
     show_stat_tokens = false,
     show_stat_audio = false,
     show_stat_size = true,
+    show_stat_library_size = false,
   } = uiSettings
+
+  // Stats come back in MB; roll over to GB once the number stops reading well.
+  const formatSize = (raw) => {
+    const mb = raw || 0
+    return mb >= 1024
+      ? t('common.sizeGB', { size: (mb / 1024).toFixed(2) })
+      : t('common.sizeMB', { size: mb })
+  }
 
   const [showAbout, setShowAbout] = useState(false)
   const latestVersion = useLatestRelease()
@@ -114,7 +123,8 @@ export default function Sidebar({
     show_stat_maps ||
     show_stat_tokens ||
     show_stat_audio ||
-    show_stat_size
+    show_stat_size ||
+    show_stat_library_size
 
   const navItem = (to, icon, label, { end = true } = {}) => (
     <NavLink
@@ -284,13 +294,21 @@ export default function Sidebar({
             </div>
           )}
           {show_stat_size && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: show_stat_library_size ? 4 : 0,
+              }}
+            >
+              <span>{t('stats.booksSize')}</span>
+              <span style={{ color: 'var(--text-dim)' }}>{formatSize(stats.total_size_mb)}</span>
+            </div>
+          )}
+          {show_stat_library_size && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>{t('stats.size')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>
-                {stats.total_size_mb >= 1024
-                  ? t('common.sizeGB', { size: (stats.total_size_mb / 1024).toFixed(2) })
-                  : t('common.sizeMB', { size: stats.total_size_mb })}
-              </span>
+              <span>{t('stats.librarySize')}</span>
+              <span style={{ color: 'var(--text-dim)' }}>{formatSize(stats.library_size_mb)}</span>
             </div>
           )}
         </div>
