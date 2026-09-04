@@ -70,11 +70,48 @@ describe('DuplicatesView', () => {
     await waitFor(() => expect(screen.getByText('maintenance.dupes.noResults')).toBeInTheDocument())
   })
 
-  it('starts a scan at the default accuracy', async () => {
+  it('starts a scan at the default accuracy, across every collection', async () => {
     render(<DuplicatesView />)
     await waitFor(() => expect(scanStatus).toHaveBeenCalled())
     await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.scan/ }))
-    expect(startScan).toHaveBeenCalledWith([], 'medium')
+    // 'high' rather than 'medium': the default catches a renamed copy without
+    // returning matches that all need judging. Empty types means all four.
+    expect(startScan).toHaveBeenCalledWith([], 'high')
+  })
+
+  it('limits the scan to the ticked collections', async () => {
+    render(<DuplicatesView />)
+    await waitFor(() => expect(scanStatus).toHaveBeenCalled())
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'maintenance.dupes.collection.map' })
+    )
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'maintenance.dupes.collection.token' })
+    )
+    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.scan/ }))
+    expect(startScan).toHaveBeenCalledWith(['map', 'token'], 'high')
+  })
+
+  it('unticking a collection puts it back in the scan', async () => {
+    render(<DuplicatesView />)
+    await waitFor(() => expect(scanStatus).toHaveBeenCalled())
+    const books = screen.getByRole('checkbox', { name: 'maintenance.dupes.collection.book' })
+    await userEvent.click(books)
+    await userEvent.click(books)
+    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.scan/ }))
+    // Back to empty, which the API reads as "every collection" - not a scan of
+    // nothing, which would silently find no duplicates at all.
+    expect(startScan).toHaveBeenCalledWith([], 'high')
+  })
+
+  it('locks the collection checkboxes while a scan runs', async () => {
+    scanStatus.mockResolvedValue({ running: true, phase: 'hashing', scanned: 1, total: 2 })
+    render(<DuplicatesView />)
+    await waitFor(() =>
+      expect(
+        screen.getByRole('checkbox', { name: 'maintenance.dupes.collection.book' })
+      ).toBeDisabled()
+    )
   })
 
   it('scans at the chosen accuracy', async () => {

@@ -1098,10 +1098,19 @@
       },
       "accuracyHint": {
         "exact": "Alleen byte-identieke bestanden. Het snelst, en nooit een valse match.",
-        "high": "Identieke bestanden en zeer vergelijkbare titels. Weinig valse matches.",
-        "medium": "Identieke bestanden, vergelijkbare titels en overlappende tekst. De gebruikelijke keuze.",
+        "high": "Identieke bestanden en zeer vergelijkbare titels. Weinig valse matches, de gebruikelijke keuze.",
+        "medium": "Identieke bestanden, vergelijkbare titels en overlappende tekst. Zoekt breder.",
         "low": "Het breedste net. Het traagst, met resultaten die beoordeeld moeten worden."
-      }
+      },
+      "collections": "Collecties",
+      "collection": {
+        "book": "Boeken",
+        "map": "Kaarten",
+        "token": "Tokens",
+        "audio": "Audio"
+      },
+      "collectionsAllHint": "Niets aangevinkt: alle collecties worden gescand.",
+      "collectionsSomeHint": "{{count}} van de 4 collecties worden gescand."
     }
   },
   "logs": {

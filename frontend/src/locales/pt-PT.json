@@ -1098,10 +1098,19 @@
       },
       "accuracyHint": {
         "exact": "Apenas ficheiros idênticos byte a byte. O mais rápido e sem falsos positivos.",
-        "high": "Ficheiros idênticos e títulos muito parecidos. Poucos falsos positivos.",
-        "medium": "Ficheiros idênticos, títulos semelhantes e texto coincidente. A opção habitual.",
+        "high": "Ficheiros idênticos e títulos muito parecidos. Poucos falsos positivos, a opção habitual.",
+        "medium": "Ficheiros idênticos, títulos semelhantes e texto coincidente. Pesquisa mais amplamente.",
         "low": "A pesquisa mais abrangente. A mais lenta, com resultados que precisam de ser avaliados."
-      }
+      },
+      "collections": "Coleções",
+      "collection": {
+        "book": "Livros",
+        "map": "Mapas",
+        "token": "Fichas",
+        "audio": "Áudio"
+      },
+      "collectionsAllHint": "Nada selecionado: todas as coleções são analisadas.",
+      "collectionsSomeHint": "A analisar {{count}} de 4 coleções."
     }
   },
   "logs": {

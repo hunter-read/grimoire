@@ -24,7 +24,7 @@ export default function DownloadVersionButton({ type, id, item, compact }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
-  const { options, label } = useVariantOptions(type, id, item)
+  const { options, label, filename } = useVariantOptions(type, id, item)
 
   const hasVersions = (item?.variants || []).length > 0
 
@@ -88,6 +88,7 @@ export default function DownloadVersionButton({ type, id, item, compact }) {
             marginTop: 4,
             zIndex: 2000,
             minWidth: 200,
+            maxWidth: 360,
             padding: '4px 0',
             borderRadius: 8,
             background: 'var(--bg-panel)',
@@ -108,10 +109,22 @@ export default function DownloadVersionButton({ type, id, item, compact }) {
                 fontSize: 13,
                 color: 'var(--text)',
                 textDecoration: 'none',
-                whiteSpace: 'nowrap',
               }}
             >
               {label(option)}
+              {filename(option) && (
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 11,
+                    color: 'var(--text-muted)',
+                    marginTop: 1,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {filename(option)}
+                </span>
+              )}
             </a>
           ))}
         </div>

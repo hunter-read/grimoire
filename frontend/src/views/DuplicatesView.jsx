@@ -9,11 +9,18 @@ import Spinner from '../components/Spinner'
 import DuplicatePairRow from '../components/settings/DuplicatePairRow'
 import DismissedPairRow from '../components/settings/DismissedPairRow'
 import { groupsToPairs } from '../utils/duplicatePairs'
+import useIsMobile from '../hooks/useIsMobile'
 
 // Poll fast while a scan is running, slowly when idle — the same adaptive
 // cadence useScanStatus uses for the library scan.
 const POLL_ACTIVE = 1000
 const POLL_IDLE = 30000
+
+// The four collections detection can compare, in the order the rest of the app
+// lists them. A map is never a duplicate of a book, so the scan runs each of
+// these separately and skipping one is pure time saved.
+const RESOURCE_TYPES = ['book', 'map', 'token', 'audio']
+const ACCURACY_LEVELS = ['exact', 'high', 'medium', 'low']
 
 /**
  * Full-page duplicate detection, outside the settings tabs.
@@ -29,6 +36,7 @@ export default function DuplicatesView() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const isMobile = useIsMobile()
   const [status, setStatus] = useState({ running: false })
   const [groups, setGroups] = useState(null)
   const [error, setError] = useState(null)
@@ -38,7 +46,12 @@ export default function DuplicatesView() {
   const [starting, setStarting] = useState(false)
   // Search accuracy, chosen per scan. 'exact' is byte-identical only: fast and
   // certain. Looser levels take longer and return matches that need judging.
-  const [accuracy, setAccuracy] = useState('medium')
+  // 'high' is the default: it catches the renamed-copy case that 'exact' misses
+  // while still keeping false positives rare enough to review quickly.
+  const [accuracy, setAccuracy] = useState('high')
+  // Which collections to scan. Empty means all four - the API already treats an
+  // empty list that way, so no translation is needed when nothing is ticked.
+  const [resourceTypes, setResourceTypes] = useState([])
   // Dismissals are hidden by default: they are the answers the user has already
   // given, and the page is for the questions still open. Behind a toggle they
   // stay auditable without competing with the live list.
@@ -140,13 +153,18 @@ export default function DuplicatesView() {
     }
   }
 
+  const toggleResourceType = (type) =>
+    setResourceTypes((prev) =>
+      prev.includes(type) ? prev.filter((r) => r !== type) : [...prev, type]
+    )
+
   const startScan = async () => {
     setStarting(true)
     setError(null)
     // A new run supersedes the last one's failure.
     scanErrorRef.current = null
     try {
-      await dupesApi.startScan([], accuracy)
+      await dupesApi.startScan(resourceTypes, accuracy)
       setStatus((s) => ({ ...s, running: true, phase: 'hashing' }))
     } catch (e) {
       setError(e.message || t('maintenance.dupes.scanFailed'))
@@ -203,91 +221,165 @@ export default function DuplicatesView() {
         {t('maintenance.dupes.description')}
       </p>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-        <button
-          type="button"
-          onClick={startScan}
-          disabled={status.running || starting}
-          style={{
-            background: 'var(--gold-dim)',
-            color: 'var(--bg-deep)',
-            border: 'none',
-            borderRadius: 6,
-            padding: '8px 18px',
-            cursor: status.running ? 'default' : 'pointer',
-            fontSize: 14,
-            opacity: status.running || starting ? 0.6 : 1,
-          }}
-        >
-          {status.running || starting ? <Spinner size={13} /> : <LuSearch size={13} />}{' '}
-          {status.running ? t('maintenance.dupes.scanning') : t('maintenance.dupes.scan')}
-        </button>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          {t('maintenance.dupes.accuracy')}
-          <select
-            value={accuracy}
-            onChange={(e) => setAccuracy(e.target.value)}
-            disabled={status.running || starting}
-            style={{
-              background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              borderRadius: 6,
-              padding: '7px 10px',
-              fontSize: 13,
-            }}
-          >
-            {['exact', 'high', 'medium', 'low'].map((level) => (
-              <option key={level} value={level}>
-                {t(`maintenance.dupes.accuracyLevel.${level}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {status.running && (
-          <button
-            type="button"
-            onClick={() => dupesApi.cancelScan().catch(() => {})}
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              borderRadius: 6,
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: 14,
-            }}
-          >
-            <LuSquare size={12} aria-hidden="true" /> {t('maintenance.dupes.cancel')}
-          </button>
-        )}
-      </div>
-
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
-        {t(`maintenance.dupes.accuracyHint.${accuracy}`)}
-      </div>
-
-      {status.running && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 6 }}>
-            {status.resource_type ? `${status.resource_type} · ` : ''}
-            {status.phase}
-            {progress !== null ? ` · ${progress}%` : ''}
+      {/* One panel rather than a button, a loose label, a hint line and a
+          bordered fieldset stacked down the page: the accuracy and the
+          collections are two settings for the same action, and the button that
+          consumes them belongs with them rather than floating above. */}
+      <section
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: 16,
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={rowStyle(isMobile)}>
+            <label htmlFor="dupes-accuracy" style={labelStyle(isMobile)}>
+              {t('maintenance.dupes.accuracy')}
+            </label>
+            <div>
+              <select
+                id="dupes-accuracy"
+                value={accuracy}
+                onChange={(e) => setAccuracy(e.target.value)}
+                disabled={status.running || starting}
+                style={{
+                  background: 'var(--bg-deep)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  padding: '7px 10px',
+                  fontSize: 13,
+                }}
+              >
+                {ACCURACY_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {t(`maintenance.dupes.accuracyLevel.${level}`)}
+                  </option>
+                ))}
+              </select>
+              {/* Directly under the control it describes, so the hint reads as
+                  part of the choice instead of a stray line of page text. */}
+              <div style={hintStyle}>{t(`maintenance.dupes.accuracyHint.${accuracy}`)}</div>
+            </div>
           </div>
-          <div style={{ height: 4, background: 'var(--border)', borderRadius: 2 }}>
-            <div
-              style={{
-                height: '100%',
-                width: `${progress ?? 100}%`,
-                background: 'var(--gold)',
-                borderRadius: 2,
-                transition: 'width 0.4s ease',
-              }}
-            />
+
+          <div style={rowStyle(isMobile)}>
+            <span id="dupes-collections" style={labelStyle(isMobile)}>
+              {t('maintenance.dupes.collections')}
+            </span>
+            <div>
+              <div
+                role="group"
+                aria-labelledby="dupes-collections"
+                style={{ display: 'flex', flexWrap: 'wrap', gap: 14, paddingTop: 6 }}
+              >
+                {RESOURCE_TYPES.map((type) => (
+                  <label
+                    key={type}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={resourceTypes.includes(type)}
+                      onChange={() => toggleResourceType(type)}
+                      disabled={status.running || starting}
+                    />
+                    {t(`maintenance.dupes.collection.${type}`)}
+                  </label>
+                ))}
+              </div>
+              <div style={hintStyle}>
+                {resourceTypes.length === 0
+                  ? t('maintenance.dupes.collectionsAllHint')
+                  : t('maintenance.dupes.collectionsSomeHint', { count: resourceTypes.length })}
+              </div>
+            </div>
           </div>
         </div>
-      )}
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginTop: 16,
+            paddingTop: 14,
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={startScan}
+            disabled={status.running || starting}
+            style={{
+              background: 'var(--gold-dim)',
+              color: 'var(--bg-deep)',
+              border: 'none',
+              borderRadius: 6,
+              padding: '8px 18px',
+              cursor: status.running ? 'default' : 'pointer',
+              fontSize: 14,
+              opacity: status.running || starting ? 0.6 : 1,
+            }}
+          >
+            {status.running || starting ? <Spinner size={13} /> : <LuSearch size={13} />}{' '}
+            {status.running ? t('maintenance.dupes.scanning') : t('maintenance.dupes.scan')}
+          </button>
+
+          {status.running && (
+            <button
+              type="button"
+              onClick={() => dupesApi.cancelScan().catch(() => {})}
+              style={{
+                background: 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                borderRadius: 6,
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: 14,
+              }}
+            >
+              <LuSquare size={12} aria-hidden="true" /> {t('maintenance.dupes.cancel')}
+            </button>
+          )}
+
+          {/* Progress sits on the same row as the button that started it, and
+              takes the remaining width rather than pushing the results down. */}
+          {status.running && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-dim)',
+                  marginBottom: 5,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {status.resource_type ? `${status.resource_type} · ` : ''}
+                {status.phase}
+                {progress !== null ? ` · ${progress}%` : ''}
+              </div>
+              <div style={{ height: 4, background: 'var(--border)', borderRadius: 2 }}>
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${progress ?? 100}%`,
+                    background: 'var(--gold)',
+                    borderRadius: 2,
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
       {error && (
         <div style={{ fontSize: 14, color: 'var(--danger)', marginBottom: 12 }}>
@@ -356,6 +448,29 @@ export default function DuplicatesView() {
       </div>
     </div>
   )
+}
+
+// The two option rows share a label column so the controls line up. On a phone
+// that gutter is most of the width, so the label stacks above its control
+// instead.
+const rowStyle = (isMobile) => ({
+  display: 'grid',
+  gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 120px) minmax(0, 1fr)',
+  gap: isMobile ? 4 : 12,
+  alignItems: 'start',
+})
+
+const labelStyle = (isMobile) => ({
+  fontSize: 13,
+  color: 'var(--text-dim)',
+  paddingTop: isMobile ? 0 : 8,
+})
+
+const hintStyle = {
+  fontSize: 12,
+  color: 'var(--text-muted)',
+  marginTop: 6,
+  lineHeight: 1.5,
 }
 
 const ghostBtn = {
