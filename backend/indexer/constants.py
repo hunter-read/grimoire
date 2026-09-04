@@ -172,15 +172,18 @@ TEXT_DOC_EXTS = {".txt", ".md", ".rtf"}
 # PyMuPDF exactly like PDFs (issue #373); the text formats are decoded instead.
 DOC_EXTS = {".pdf", ".epub", ".djvu"} | TEXT_DOC_EXTS
 # Animated battlemaps (issue: CzePeku and similar publishers ship looping video
-# variants alongside the stills). Registered and served like any other map, but
-# opaque to the thumbnailer — there is no still frame to render without pulling
-# in a video decoder, so they carry no thumbnail for now.
+# variants alongside the stills). Registered and served like any other map, and
+# thumbnailed from a decoded frame — the image bundles a purpose-built
+# decode-only ffmpeg (~4.7 MB) for exactly this; see indexer/video_frames.py.
 MAP_VIDEO_EXTS = {".webm", ".mp4"}
 # Universal VTT exports: a JSON envelope carrying the map image as base64 plus
 # wall/portal/light data. Registered so the file is visible and downloadable in
 # the gallery; its contents are not parsed during the scan.
 VTT_DATA_EXTS = {".uvtt", ".dd2vtt"}
-# Map-tree extensions that cannot produce a thumbnail from the file itself.
+# Map-tree extensions with no *still raster to measure or serve as a page*: the
+# video viewer plays the original and the VTT viewer parses it client-side.
+# Note this is no longer about thumbnails — both formats now produce one — so do
+# not reuse it as a "cannot be thumbnailed" test.
 MAP_OPAQUE_EXTS = MAP_VIDEO_EXTS | VTT_DATA_EXTS
 MAP_IMAGE_EXTS = IMAGE_EXTS | PDF_EXTS | MAP_OPAQUE_EXTS
 

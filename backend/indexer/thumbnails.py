@@ -2,7 +2,7 @@
 
 Covers comic-book archive cover images (CBZ/CBR/CB7/CBT) and the timeout-guarded
 thumbnail worker used during a scan for fitz-backed documents (PDF/EPUB/DjVu),
-plain images, and comic covers.
+plain images, comic covers, and animated battlemaps (.webm/.mp4).
 """
 import io
 import os
@@ -17,6 +17,7 @@ from PIL import Image
 from .constants import (
     ARCHIVE_EXTS,
     IMAGE_EXTS,
+    MAP_VIDEO_EXTS,
     VTT_DATA_EXTS,
     _ARCHIVE_MEMBER_SIZE_CAP,
     _ARCHIVE_MIME,
@@ -115,6 +116,17 @@ def _vtt_embedded_image(filepath: str) -> Optional[bytes]:
         return None
 
 
+def _video_frame(filepath: str) -> Optional[bytes]:
+    """Raw PNG bytes of one frame from an animated battlemap, or None.
+
+    Thin wrapper over the video_frames module so the thumbnail worker treats a
+    missing decoder or an unreadable clip exactly like an archive with no cover.
+    """
+    from .video_frames import video_first_frame
+
+    return video_first_frame(filepath)
+
+
 def _generate_thumbnail_task(
     filepath: str, output_path: str, size: tuple, result: list, exc: list
 ) -> None:
@@ -144,9 +156,19 @@ def _generate_thumbnail_task(
             doc.close()
         elif ext in VTT_DATA_EXTS:
             # A Universal VTT file carries its battlemap as base64 inside the
-            # JSON envelope, so a real cover can be produced without a decoder —
-            # unlike the video formats, which stay thumbnail-less.
+            # JSON envelope, so a real cover can be produced without decoding
+            # anything.
             data = _vtt_embedded_image(filepath)
+            if data is None:
+                result[0] = False
+                return
+            img = Image.open(io.BytesIO(data))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+        elif ext in MAP_VIDEO_EXTS:
+            # Animated battlemaps decode to a single frame via the bundled
+            # decode-only ffmpeg; from there they are an ordinary still image.
+            data = _video_frame(filepath)
             if data is None:
                 result[0] = False
                 return

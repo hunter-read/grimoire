@@ -27,7 +27,65 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
     && rm -rf /install/lib/python3.12/site-packages/pymupdf/mupdf-devel \
     && find /install -name '__pycache__' -type d -prune -exec rm -rf {} +
 
-# Stage 3: Runtime base shared by both variants (no build toolchain)
+# Stage 3: Build a decode-only ffmpeg for animated-map thumbnails
+#
+# Animated battlemaps (.webm/.mp4) need exactly one decoded frame, which Pillow
+# then resizes like any other thumbnail. Every off-the-shelf way to get a decoder
+# is wildly out of proportion to that: imageio-ffmpeg bundles a 76 MB static
+# binary, `apt-get install ffmpeg` pulls 430 MB across 202 packages, and PyAV
+# lands at 115 MB. Almost all of it is *encoders* (x265 alone is 18 MB) plus a
+# codec/X11 dependency chain this image spends real effort elsewhere avoiding.
+#
+# Configuring ffmpeg down to the decoders a battlemap can plausibly use gives a
+# ~4.7 MB binary that links only libc/libm/libz — all already in the runtime —
+# so it adds no packages and no shared libraries at all.
+#
+# --enable-zlib is not optional despite nothing here compressing video: the PNG
+# *encoder* needs it, and without it the build silently produces a binary that
+# demuxes and decodes correctly, then dies with "Unknown encoder 'png'".
+FROM debian:bookworm-slim AS ffmpeg-builder
+
+ARG FFMPEG_VERSION=7.0.2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    yasm \
+    nasm \
+    pkg-config \
+    curl \
+    ca-certificates \
+    xz-utils \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /ffmpeg
+RUN curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+    | tar xJ --strip-components=1
+
+# vp8/vp9 cover .webm, h264/hevc cover .mp4, av1 is the emerging third; mjpeg and
+# rawvideo are cheap insurance for oddly-muxed exports. matroska and mov are the
+# only two containers those ship in.
+RUN ./configure \
+        --disable-everything \
+        --disable-autodetect \
+        --disable-doc \
+        --disable-network \
+        --disable-debug \
+        --disable-programs \
+        --enable-ffmpeg \
+        --enable-zlib \
+        --enable-swscale \
+        --enable-decoder=vp8,vp9,h264,hevc,av1,mjpeg,rawvideo \
+        --enable-demuxer=matroska,mov \
+        --enable-parser=vp8,vp9,h264,hevc,av1,mjpeg \
+        --enable-muxer=image2,image2pipe \
+        --enable-encoder=png,mjpeg \
+        --enable-protocol=file,pipe \
+        --enable-filter=scale,null \
+    && make -j"$(nproc)" \
+    && strip ffmpeg
+
+# Stage 4: Runtime base shared by both variants (no build toolchain)
 FROM python:3.12-slim AS runtime-base
 
 WORKDIR /app
@@ -37,6 +95,11 @@ WORKDIR /app
 
 # Bring in the pre-built Python packages from the builder stage.
 COPY --from=backend-builder /install /usr/local
+
+# The decode-only ffmpeg used for animated-map thumbnails. Path matches
+# FFMPEG_BINARY in backend/indexer/video_frames.py; that module degrades to "no
+# thumbnail" if it is ever absent, so this stays a single self-contained file.
+COPY --from=ffmpeg-builder /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 
 COPY backend/ ./backend/
 COPY alembic.ini ./alembic.ini
@@ -58,7 +121,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 ENV WORKERS=2
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
 
-# Stage 4a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only
+# Stage 5a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only
 # PDFs stay excluded from full-text search, exactly as before OCR was added. Built
 # with `--target slim` and published under the `-slim` tag family.
 FROM runtime-base AS slim
@@ -99,7 +162,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends unar \
     && chmod +x /usr/bin/dpkg-architecture \
     && rm -rf /var/lib/apt/lists/*
 
-# Stage 4b: Default variant — bundles Tesseract + English language data so image-only
+# Stage 5b: Default variant — bundles Tesseract + English language data so image-only
 # PDFs are OCR'd into the full-text index out of the box. Extra languages can be added
 # at runtime by mounting tessdata and setting OCR_LANGUAGES (see README); no rebuild
 # required. This is the last stage, so a plain `docker build` (no --target) yields it.
