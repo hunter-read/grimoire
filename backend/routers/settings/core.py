@@ -89,6 +89,7 @@ def update_settings(
         "show_stat_tokens",
         "show_stat_audio",
         "show_stat_size",
+        "show_stat_library_size",
     ):
         val = getattr(data, key)
         if val is not None:
@@ -217,6 +218,7 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "show_stat_tokens": raw["show_stat_tokens"] == "true",
         "show_stat_audio": raw["show_stat_audio"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
+        "show_stat_library_size": raw["show_stat_library_size"] == "true",
         "campaign_uploads_disabled": raw["campaign_uploads_disabled"] == "true",
         "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
         "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),

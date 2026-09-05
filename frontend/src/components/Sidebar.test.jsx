@@ -32,6 +32,7 @@ const baseStats = {
   maps: 8,
   tokens: 30,
   total_size_mb: 512,
+  library_size_mb: 2048,
 }
 
 const baseAbout = {
@@ -200,6 +201,35 @@ describe('Sidebar stats footer', () => {
   it('shows pages stat by default', () => {
     renderSidebar()
     expect(screen.getByText('Pages')).toBeInTheDocument()
+  })
+
+  it('labels the books-only size stat and shows its value', () => {
+    renderSidebar({ uiSettings: { show_stat_size: true } })
+    expect(screen.getByText('Books Size')).toBeInTheDocument()
+    expect(screen.getByText('512 MB')).toBeInTheDocument()
+  })
+
+  it('hides the library size stat by default', () => {
+    renderSidebar()
+    expect(screen.queryByText('Library Size')).toBeNull()
+  })
+
+  it('shows the library size stat, in GB, when enabled', () => {
+    renderSidebar({ uiSettings: { show_stat_library_size: true } })
+    expect(screen.getByText('Library Size')).toBeInTheDocument()
+    expect(screen.getByText('2.00 GB')).toBeInTheDocument()
+  })
+
+  it('renders the stats footer when library size is the only stat enabled', () => {
+    renderSidebar({
+      uiSettings: {
+        show_stat_systems: false,
+        show_stat_pages: false,
+        show_stat_size: false,
+        show_stat_library_size: true,
+      },
+    })
+    expect(screen.getByText('Library Size')).toBeInTheDocument()
   })
 
   it('version does not appear in the stats footer section', () => {

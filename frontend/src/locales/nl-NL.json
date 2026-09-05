@@ -27,7 +27,8 @@
     "pages": "Pagina's",
     "maps": "Kaarten",
     "tokens": "Tokens",
-    "size": "Grootte",
+    "booksSize": "Grootte (boeken)",
+    "librarySize": "Grootte (bibliotheek)",
     "version": "Versie",
     "audio": "Audio"
   },

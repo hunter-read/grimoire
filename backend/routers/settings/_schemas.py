@@ -25,6 +25,7 @@ class SettingsPatch(BaseModel):
     show_stat_tokens: Optional[bool] = None
     show_stat_audio: Optional[bool] = None
     show_stat_size: Optional[bool] = None
+    show_stat_library_size: Optional[bool] = None
     campaign_uploads_disabled: Optional[bool] = None
     campaign_upload_max_file_mb: Optional[int] = None
     campaign_upload_max_total_mb: Optional[int] = None
@@ -86,6 +87,7 @@ class SettingsResponse(BaseModel):
     show_stat_tokens: bool
     show_stat_audio: bool
     show_stat_size: bool
+    show_stat_library_size: bool
     password_auth_enabled: bool
     password_auth_env_locked: bool
     guest_access_enabled: bool
@@ -154,6 +156,7 @@ class UISettingsResponse(BaseModel):
     show_stat_tokens: bool
     show_stat_audio: bool
     show_stat_size: bool
+    show_stat_library_size: bool
     campaign_uploads_disabled: bool
     campaign_upload_max_file_mb: int
     campaign_upload_max_total_mb: int

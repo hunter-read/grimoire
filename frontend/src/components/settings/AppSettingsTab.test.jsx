@@ -23,6 +23,7 @@ const defaultSettings = {
   show_stat_maps: false,
   show_stat_tokens: false,
   show_stat_size: true,
+  show_stat_library_size: false,
   stats_api_key: '',
 }
 
@@ -37,7 +38,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('AppSettingsTab — StatsDisplaySection', () => {
-  it('renders all six stat toggle labels', async () => {
+  it('renders every stat toggle label', async () => {
     render(<AppSettingsTab />)
     await waitFor(() => {
       expect(screen.getByLabelText('Systems')).toBeInTheDocument()
@@ -46,7 +47,8 @@ describe('AppSettingsTab — StatsDisplaySection', () => {
     expect(screen.getByLabelText('Pages')).toBeInTheDocument()
     expect(screen.getByLabelText('Maps')).toBeInTheDocument()
     expect(screen.getByLabelText('Tokens')).toBeInTheDocument()
-    expect(screen.getByLabelText('Size')).toBeInTheDocument()
+    expect(screen.getByLabelText('Books Size')).toBeInTheDocument()
+    expect(screen.getByLabelText('Library Size')).toBeInTheDocument()
   })
 
   it('does not render a Version toggle', async () => {

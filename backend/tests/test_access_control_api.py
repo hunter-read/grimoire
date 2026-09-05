@@ -560,6 +560,18 @@ class TestIndirectLeaks:
         # An admin still sees the whole library.
         assert client.get("/api/stats", headers=admin_headers).json()["books"] == before
 
+    def test_sizes_exclude_restricted_books(self, client, admin_headers, player_headers):
+        """Bytes leak existence the same way counts do — both size stats scope."""
+        book = make_book(make_game_system().id, file_size=8 * 1048576)
+        before = client.get("/api/stats", headers=player_headers).json()
+        _set_level(book.id, "gm")
+        after = client.get("/api/stats", headers=player_headers).json()
+        assert after["total_size_mb"] == pytest.approx(before["total_size_mb"] - 8.0, abs=0.05)
+        assert after["library_size_mb"] == pytest.approx(before["library_size_mb"] - 8.0, abs=0.05)
+        # An admin still sees the whole library.
+        admin = client.get("/api/stats", headers=admin_headers).json()
+        assert admin["library_size_mb"] == pytest.approx(before["library_size_mb"], abs=0.05)
+
     def test_metadata_sources_404_for_restricted_book(self, client, gm_headers):
         """The metadata routes are gm/admin, but GM is who admin-only excludes."""
         book = make_book(make_game_system().id)

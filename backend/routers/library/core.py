@@ -89,6 +89,11 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
     return {"status": "stop_requested"}
 
 
+def _book_bytes(db: Session, scope) -> int:
+    """Total bytes of the books the caller may see, variants included."""
+    return scope(db.query(func.sum(Book.file_size))).scalar() or 0
+
+
 @public_router.get(
     "/stats",
     summary="Library statistics",
@@ -140,8 +145,20 @@ def get_stats(
             db.query(func.sum(Book.page_count)).filter(variants.parent_filter(Book))
         ).scalar()
         or 0,
-        "total_size_mb": round(
-            (_books(db.query(func.sum(Book.file_size))).scalar() or 0) / 1048576, 1
+        # ``total_size_mb`` is books only; ``library_size_mb`` adds maps, tokens
+        # and audio for the whole-library figure (issue #408). Both keep the
+        # book portion access-scoped so a restricted book's bytes stay hidden.
+        "total_size_mb": round(_book_bytes(db, _books) / 1048576, 1),
+        "library_size_mb": round(
+            (
+                _book_bytes(db, _books)
+                + sum(
+                    db.query(func.sum(model.file_size)).scalar() or 0
+                    for model in (GenericMap, Token, Audio)
+                )
+            )
+            / 1048576,
+            1,
         ),
     }
 
