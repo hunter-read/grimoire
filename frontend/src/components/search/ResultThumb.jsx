@@ -1,4 +1,4 @@
-import { LuBookOpen, LuMap, LuMusic, LuUser } from 'react-icons/lu'
+import { LuBookOpen, LuMap, LuMusic, LuBox, LuUser } from 'react-icons/lu'
 import LazyImg from '../LazyImg'
 import { imageSources } from '../../api'
 
@@ -10,6 +10,7 @@ const FALLBACK_ICONS = {
   map: LuMap,
   token: LuUser,
   audio: LuMusic,
+  model: LuBox,
 }
 
 /**

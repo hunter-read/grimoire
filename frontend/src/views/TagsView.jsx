@@ -22,7 +22,7 @@ const CATS_COLLAPSED_KEY = 'tagsCategoryCollapsed'
 
 // Category order for the grouped tag list: Shared always on top, then the
 // resource types in their canonical order.
-const CATEGORY_ORDER = ['shared', 'system', 'book', 'map', 'token', 'audio']
+const CATEGORY_ORDER = ['shared', 'system', 'book', 'map', 'token', 'audio', 'model']
 
 /**
  * Tags management + tagged-items browser (issue #235).

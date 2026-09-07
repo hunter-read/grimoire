@@ -19,7 +19,7 @@ from ._subprocess import _run_with_timeout
 from .constants import _DB_TIMEOUT
 from ..metadata import export as sidecar_export
 from ..metadata import settings as sidecar_settings
-from ..models import Audio, Book, GameSystem, GenericMap, Token
+from ..models import Audio, Book, GameSystem, GenericMap, Model3D, Token
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -27,7 +27,11 @@ logger = logging.getLogger("grimoire.indexer")
 # Which thumbnail subdirectory each model's covers live in. Audio is absent on
 # purpose: it carries ``has_artwork``/``cover_image`` sourced from embedded tags
 # or folder artwork, not a path-keyed file this module could orphan.
-_THUMB_SECTIONS: dict[Any, str] = {GenericMap: "maps", Token: "tokens"}
+_THUMB_SECTIONS: dict[Any, str] = {
+    GenericMap: "maps",
+    Token: "tokens",
+    Model3D: "models",
+}
 
 
 def _remove_stale_thumbnail(ctx: _ScanContext, model: Any, old: Any) -> None:
@@ -308,6 +312,7 @@ def _reconcile_missing(
     scan_maps: bool,
     scan_tokens: bool,
     scan_audio: bool,
+    scan_models: bool = True,
 ) -> None:
     """Mark / unmark ``is_missing`` for every record after the walk.
 
@@ -330,13 +335,14 @@ def _reconcile_missing(
     def _gone(filepath: str) -> bool:
         return not os.path.exists(filepath) or ignore.is_ignored(filepath, is_dir=False)
 
-    counts = {"books": 0, "maps": 0, "tokens": 0, "audio": 0}
-    moved = {"books": 0, "maps": 0, "tokens": 0, "audio": 0}
+    counts = {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "models": 0}
+    moved = {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "models": 0}
     collections = (
         ("books", Book, scan_books, "book"),
         ("maps", GenericMap, scan_maps, "map"),
         ("tokens", Token, scan_tokens, "token"),
         ("audio", Audio, scan_audio, "audio"),
+        ("models", Model3D, scan_models, "model"),
     )
     # Pass 1 — re-point moved files. This runs to completion first, and commits as
     # it goes, so the missing-flag pass below sees a settled set of rows: a moved

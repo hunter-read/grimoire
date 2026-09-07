@@ -25,7 +25,7 @@ from typing import Any, Callable, Optional, Sequence
 from sqlalchemy.orm import Session
 
 from ...config import SessionLocal, _valkey
-from ...models import Audio, Book, GenericMap, Token
+from ...models.collections import models_by_singular
 from ...models.duplicates import DuplicateGroup
 from . import dismissals, scoring, signals
 from .grid import is_grid_pair
@@ -43,12 +43,7 @@ except ImportError:  # redis not installed - _valkey is always None
 _DUP_KEY = "grimoire:duplicate_scan_status"
 _DUP_STOP = "grimoire:duplicate_scan_stop"
 
-RESOURCE_MODELS: dict[str, Any] = {
-    "book": Book,
-    "map": GenericMap,
-    "token": Token,
-    "audio": Audio,
-}
+RESOURCE_MODELS: dict[str, Any] = models_by_singular()
 
 DEFAULT_STATUS: dict = {
     "running": False,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
+import { LuBookOpen, LuMap, LuUser, LuBox, LuMusic, LuFile } from 'react-icons/lu'
 import api, { campaigns } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImg from '../LazyImg'
@@ -114,6 +114,7 @@ export default function EmbedCard({ spec, campaignId }) {
     book: { Icon: LuBookOpen, color: 'var(--type-book)', to: `/library/book/${id}` },
     map: { Icon: LuMap, color: 'var(--type-map)', to: `/maps/${id}` },
     token: { Icon: LuUser, color: 'var(--type-token)', to: `/tokens/${id}` },
+    model: { Icon: LuBox, color: 'var(--type-model)', to: `/models/${id}` },
   }[type]
   if (!meta) return null
   const { Icon, color } = meta

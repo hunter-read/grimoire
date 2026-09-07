@@ -5,55 +5,18 @@ creating a cycle back through the package ``__init__``.
 """
 from typing import Any
 
-from ...models.library import Book
-from ...models.media import Audio, GenericMap, Token
+from ...models.collections import models_by_section, thumb_sections
 
 
-# The four indexed collections, and the model that owns each one. Keyed by the
+# The indexed collections, and the model that owns each one. Keyed by the
 # top-level library folder so a caller can go from a path straight to its model.
-COLLECTIONS: dict[str, Any] = {
-    "books": Book,
-    "maps": GenericMap,
-    "tokens": Token,
-    "audio": Audio,
-}
+COLLECTIONS: dict[str, Any] = models_by_section()
 
-# Thumbnails live under DATA_PATH/thumbnails/<section>/ for these collections
-# only; tokens and audio have no rendered thumbnail on disk.
-_THUMB_SECTIONS = {"books": "books", "maps": "maps"}
-
-# Upload chunk size. Large enough that syscall overhead is irrelevant on a
-# multi-hundred-MB book, small enough that memory stays flat per request.
-_UPLOAD_CHUNK = 1 << 20
-
-# Thumbnails live under DATA_PATH/thumbnails/<section>/ for these collections
-# only; tokens and audio have no rendered thumbnail on disk.
-_THUMB_SECTIONS = {"books": "books", "maps": "maps"}
-
-# Upload chunk size. Large enough that syscall overhead is irrelevant on a
-# multi-hundred-MB book, small enough that memory stays flat per request.
-_UPLOAD_CHUNK = 1 << 20
-
-# The category folders `scaffold_categories` creates for a system, in the order
-# they should appear. Plural, human-readable spellings deliberately — each one
-# is verified to infer back to its canonical category slug (``Adventures`` →
-# ``adventure``), so a user gets folders that both read well in a file browser
-# and classify correctly on the next scan.
-SCAFFOLD_CATEGORY_FOLDERS = (
-    "Core",
-    "Supplements",
-    "Adventures",
-    "Character Sheets",
-    "Maps",
-    "Handouts",
-    "Homebrew",
-    "Starter Sets",
-)
-
-
-# Thumbnails live under DATA_PATH/thumbnails/<section>/ for these collections
-# only; tokens and audio have no rendered thumbnail on disk.
-_THUMB_SECTIONS = {"books": "books", "maps": "maps"}
+# Where each collection's rendered thumbnails live under DATA_PATH/thumbnails/.
+# Derived from the registry rather than listed here: a collection that renders a
+# thumbnail but is missing from this map strands the file on delete and shows a
+# broken image after a move, with nothing to catch it.
+_THUMB_SECTIONS = thumb_sections()
 
 # Upload chunk size. Large enough that syscall overhead is irrelevant on a
 # multi-hundred-MB book, small enough that memory stays flat per request.

@@ -100,9 +100,9 @@ class _ScanContext:
     on_progress: Optional[Callable[..., None]]
     should_stop: Optional[Callable[[], bool]]
     stats: dict
-    totals: dict  # {"books": int, "maps": int, "tokens": int, "audio": int}
+    totals: dict  # {"books": int, "maps": int, "tokens": int, "audio": int, "models": int}
     scanned: dict = field(
-        default_factory=lambda: {"books": 0, "maps": 0, "tokens": 0, "audio": 0}
+        default_factory=lambda: {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "models": 0}
     )
     # Ids of rows inserted by this scan. Move detection only accepts one of these
     # as a destination — a pre-existing row is a file that did not move, even when
@@ -127,14 +127,27 @@ class _ScanContext:
                 self.totals["tokens"],
                 self.scanned["audio"],
                 self.totals["audio"],
+                self.scanned["models"],
+                self.totals["models"],
             )
 
     def thumb_path(self, section: str, title: str, filepath: str) -> str:
-        return os.path.join(
-            self.thumb_dir,
-            section,
-            f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
-        )
+        return thumb_path_for(self.thumb_dir, section, title, filepath)
+
+
+def thumb_path_for(thumb_dir: str, section: str, title: str, filepath: str) -> str:
+    """Where a thumbnail for ``filepath`` lives on disk.
+
+    The one spelling of the rule. The name embeds a slug of the title and a hash
+    of the path, and the serving routes rebuild it the same way — so a second
+    implementation anywhere would write files nothing can find. Callers outside
+    a scan (the deferred thumbnail queue) use this directly.
+    """
+    return os.path.join(
+        thumb_dir,
+        section,
+        f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
+    )
 
 
 def _title_from_filename(filename: str) -> str:

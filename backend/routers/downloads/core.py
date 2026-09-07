@@ -16,6 +16,7 @@ from ._helpers import (
     _files_for_map_folder,
     _files_for_system,
     _files_for_system_category,
+    _files_for_model_folder,
     _files_for_token_folder,
 )
 
@@ -25,7 +26,7 @@ def download_archive(
         ...,
         description=(
             "Scope: system | system_category | book_folder | map_folder | "
-            "token_folder | audio_folder | library_folder"
+            "token_folder | audio_folder | model_folder | library_folder"
         ),
     ),
     fmt: str = Query("zip", description="Archive format: zip | tar | tar.gz | tar.bz2"),
@@ -36,7 +37,7 @@ def download_archive(
     folder: Optional[str] = Query(
         None,
         description=(
-            "Folder path (book_folder / map_folder / token_folder / audio_folder / "
+            "Folder path (book_folder / map_folder / token_folder / audio_folder / model_folder / "
             "library_folder — the latter is library-root-relative)"
         ),
     ),
@@ -76,6 +77,11 @@ def download_archive(
         if not folder:
             raise HTTPException(400, "folder is required for type=token_folder")
         files, base = _files_for_token_folder(db, folder, see_explicit)
+
+    elif type == "model_folder":
+        if not folder:
+            raise HTTPException(400, "folder is required for type=model_folder")
+        files, base = _files_for_model_folder(db, folder, see_explicit)
 
     elif type == "audio_folder":
         if not folder:

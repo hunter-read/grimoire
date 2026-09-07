@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-from ...models import Audio, Book, GameSystem, GenericMap, Token, User
+from ...models import Model3D, Audio, Book, GameSystem, GenericMap, Token, User
 from ...services import access_control
 
 
@@ -311,6 +311,27 @@ def _files_for_audio_folder(db, folder: str) -> tuple[list, str]:
 _MAX_FOLDER_FILES = 5000
 _MAX_FOLDER_BYTES = 50 * 1024 * 1024 * 1024
 
+
+
+def _files_for_model_folder(db, folder: str, see_explicit: bool) -> tuple[list, str]:
+    prefix = folder.strip("/") + "/"
+    q = db.query(Model3D)
+    if not see_explicit:
+        q = q.filter(Model3D.is_explicit != True)
+
+    def _arcname(m: Model3D) -> str:
+        rp = m.relative_path.replace("\\", "/")
+        rel = rp.split("/", 1)[1] if "/" in rp else rp
+        raw = rel[len(prefix):] if rel.startswith(prefix) else (rel or m.filename)
+        return _safe_arcname(raw)
+
+    files = [
+        (safe, _arcname(m))
+        for m in q.all()
+        if m.relative_path.replace("\\", "/").lstrip("/").lower().startswith("models/" + prefix.lower())
+        and (safe := _safe_filepath(m.filepath))
+    ]
+    return files, f"models_{_safe_name(folder)}"
 
 def _files_for_library_folder(folder: str) -> tuple[list, str]:
     """Every real file under an arbitrary library folder, as it sits on disk.

@@ -12,6 +12,7 @@ from ...services import access_control
 from ._books import search_book_metadata
 from ._query import FIELD_ALIASES, parse_query
 from ._helpers import (
+    _search_models,
     SNIPPET_SQL,
     access_clause,
     VISIBLE_BOOKS_SQL,
@@ -153,22 +154,26 @@ def search_library(
     maps = []
     tokens = []
     audio = []
+    models = []
     if not book_id and not system_id:
         maps = _search_maps(db, parsed)
         tokens = _search_tokens(db, parsed)
         audio = _search_audio(db, parsed)
+        models = _search_models(db, parsed)
 
     return {
         "query": q,
         # Counts every distinct thing shown. A book matching by title *and* by
         # page text is one row in book_matches plus its page hits; both are
         # displayed, so both are counted.
-        "total": len(enriched) + len(book_matches) + len(maps) + len(tokens) + len(audio),
+        "total": len(enriched) + len(book_matches) + len(maps) + len(tokens) + len(audio)
+        + len(models),
         "results": enriched,
         "book_matches": book_matches,
         "maps": maps,
         "tokens": tokens,
         "audio": audio,
+        "models": models,
         # Echoed back so the client can show what it understood and, when a
         # filter is active, explain why the content section is empty.
         "fields": sorted(parsed.filters.keys()),

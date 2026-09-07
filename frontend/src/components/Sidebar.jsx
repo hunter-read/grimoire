@@ -5,6 +5,7 @@ import {
   LuLibrary,
   LuMap,
   LuMusic,
+  LuBox,
   LuSearch,
   LuSettings,
   LuLogOut,
@@ -73,6 +74,7 @@ export default function Sidebar({
   const hide_maps = uiSettings.hide_maps
   const hide_tokens = uiSettings.hide_tokens
   const hide_audio = uiSettings.hide_audio
+  const hide_models = uiSettings.hide_models
   const hide_campaigns = uiSettings.hide_campaigns
   const {
     show_stat_systems = true,
@@ -81,6 +83,7 @@ export default function Sidebar({
     show_stat_maps = false,
     show_stat_tokens = false,
     show_stat_audio = false,
+    show_stat_models = false,
     show_stat_size = true,
     show_stat_library_size = false,
   } = uiSettings
@@ -123,6 +126,7 @@ export default function Sidebar({
     show_stat_maps ||
     show_stat_tokens ||
     show_stat_audio ||
+    show_stat_models ||
     show_stat_size ||
     show_stat_library_size
 
@@ -204,6 +208,7 @@ export default function Sidebar({
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
         {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
         {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
+        {!isGuest && !hide_models && navItem('/models', <LuBox size={16} />, t('nav.models'))}
 
         {!isGuest && (
           <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
@@ -291,6 +296,12 @@ export default function Sidebar({
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span>{t('stats.audio')}</span>
               <span style={{ color: 'var(--text-dim)' }}>{stats.audio}</span>
+            </div>
+          )}
+          {show_stat_models && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span>{t('stats.models')}</span>
+              <span style={{ color: 'var(--text-dim)' }}>{stats.models}</span>
             </div>
           )}
           {show_stat_size && (

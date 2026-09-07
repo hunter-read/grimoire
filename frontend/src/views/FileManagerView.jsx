@@ -64,6 +64,7 @@ const EDITOR_TYPES = {
   maps: 'map',
   tokens: 'token',
   audio: 'audio',
+  models: 'model',
   // Folders that resolve to a GameSystem report this directly.
   system: 'system',
 }

@@ -201,7 +201,7 @@ is rate limited.
 | `indexed_books` | Books with a searchable full-text index | `number` |
 | `total_pages` | Sum of all book page counts | `number` |
 | `total_size_mb` | Size of the books in MB (PDFs and other book formats only) | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
-| `library_size_mb` | Size of the whole library in MB - books plus maps, tokens, and audio | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
+| `library_size_mb` | Size of the whole library in MB - books plus maps, tokens, audio, and 3D models | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
 
 **Scan-status response:**
 ```json
@@ -238,7 +238,7 @@ is rate limited.
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `scope` | `null` | Restrict the rescan to a subtree relative to the library root. Must begin with `books/`, `maps/`, `tokens/`, or `audio/`. Omit to rescan the whole library. Paths that escape the library root return `400`. |
+| `scope` | `null` | Restrict the rescan to a subtree relative to the library root. Must begin with `books/`, `maps/`, `tokens/`, `audio/`, or `models/`. Omit to rescan the whole library. Paths that escape the library root return `400`. |
 | `metadata_mode` | `"new"` | `"new"` adds new files and flags missing ones (existing records untouched). `"missing"` additionally fills **empty** book fields from sidecar metadata (`<stem>.opf` / `metadata.opf`), leaving fields you've already set in place. `"replace"` overwrites fields wherever the sidecar provides a value (destructive to UI-edited metadata). |
 
 Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a scan is already in progress (scoped and global rescans share the same single-worker lock).
@@ -251,7 +251,7 @@ Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is c
 
 ### Bulk operations
 
-Every bulk-editable collection (`books`, `systems`, `maps`, `tokens`, `audio`)
+Every bulk-editable collection (`books`, `systems`, `maps`, `tokens`, `audio`, `models`)
 exposes the same pair of endpoints, and the three media folder collections
 (`map-folders`, `token-folders`, `audio-folders`) expose a bulk folder-tag route.
 All require the gm/admin role.
@@ -559,7 +559,44 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/audio-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
 | `/api/audio-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
 
-**Access control on media by-id routes:** As with books, the library-browse list routes (`GET /api/maps`, `/api/tokens`, `/api/audio` and their `*-folders`) are blocked for guests, but the by-id routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/artwork`) are reachable by any authenticated user and enforce access themselves. A guest may only read a map/token/audio item **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); otherwise the route returns 403. An explicit token returns 403 for a non-guest who has `allow_explicit` disabled, on the file/thumbnail routes as well as `GET /api/tokens/:id`. An item deliberately shared into a guest's campaign is served regardless of its explicit flag.
+### 3D Models
+
+Printable miniatures and terrain. Behaves like maps/tokens, with two 3D-specific
+fields. Supported formats: `.stl` (binary and ASCII), `.obj`, `.ply`, `.3mf`,
+`.glb`, `.gltf`, and the sliced resin formats `.lys`, `.ctb`, `.cbddlp`,
+`.pwmx`, `.photon`. Only `.stl` produces a server-rendered thumbnail; the rest
+are stored and served without one.
+
+`is_supported` is **tri-state**: `true` presupported, `false` unsupported, `null`
+when the scan could not tell from the filename or folder. List rows flatten it
+into the two booleans `is_presupported`/`is_unsupported` (both `false` when
+unknown) so a UI badge cannot misreport an unclassified model.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/models` | GET | any | Paginated model list (collection key `models`). Query: `limit`, `offset`. Items include `triangle_count`, `is_presupported`, `is_unsupported`, `is_archive` |
+| `/api/models/:id` | GET | any | Model detail incl. `folder_path`, `folder_tags`, `is_supported`, `viewer_loader`, `viewer_available`, `viewer_oversized` |
+| `/api/models/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit`, `is_supported` |
+| `/api/models/:id/file` | GET | any | Download the mesh file (served with the format's MIME type), or the archive |
+| `/api/models/:id/thumbnail` | GET | any | WebP thumbnail. 404 for a format with no server-side renderer |
+| `/api/models/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, is_explicit?, is_supported?}]}` |
+| `/api/models/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
+| `/api/model-folders` | GET | any | List folder tag assignments |
+| `/api/model-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
+| `/api/model-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
+
+`viewer_loader` names the client-side loader for the format (`stl`, `gltf`,
+`3mf`, `ply`) and is `""` when none applies. `viewer_available` is `false` both
+for those formats and for a mesh over 256 MiB, which is large enough that
+loading it unprompted could exhaust the tab.
+
+`viewer_oversized` tells the two cases apart. When it is `true` the format is
+supported and only the size cap held it back, so the client offers to load it
+anyway behind a warning that it may be slow or unresponsive; when it is `false`
+alongside a `false` `viewer_available`, no loader exists for the format and a
+download is the only option.
+
+**Access control on media by-id routes:** As with books, the library-browse list routes (`GET /api/maps`, `/api/tokens`, `/api/audio`, `/api/models` and their `*-folders`) are blocked for guests, but the by-id routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/artwork`) are reachable by any authenticated user and enforce access themselves. A guest may only read a map/token/audio/model item **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); otherwise the route returns 403. An explicit token returns 403 for a non-guest who has `allow_explicit` disabled, on the file/thumbnail routes as well as `GET /api/tokens/:id`. An item deliberately shared into a guest's campaign is served regardless of its explicit flag.
 
 ### Favorites
 
@@ -569,12 +606,12 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/favorites` | POST | any | Add a favorite (idempotent). Body: `{item_type, item_id}` |
 | `/api/favorites/:type/:id` | DELETE | any | Remove a favorite (silent 204 if not found) |
 
-Item types: `book`, `map`, `token`, `audio`, `system`, `tag` (a `tag` favorite's
+Item types: `book`, `map`, `token`, `audio`, `model`, `system`, `tag` (a `tag` favorite's
 `item_id` is the tag's internal key; it enriches to `{internal, display, count}`).
 
 ### Tags
 
-Application-wide tags shared across systems, books, maps, tokens, and audio. Each
+Application-wide tags shared across systems, books, maps, tokens, audio, and 3D models. Each
 tag has a lowercased **internal** key (used for matching/dedup) and an editable
 **display** value (the casing first entered). The internal key normally stays put,
 but a rename that changes the display's normalized form re-keys it (a typo fix like
@@ -599,11 +636,11 @@ stored category (direct usage) with every resource type it appears on via folder
 so a tag on a book plus a map folder resolves to `shared` even though folder tags never
 rewrite the stored row. Migrated tag displays default to Title Case; users favorite
 tags via the favorites endpoints (`item_type: "tag"`). Resource types: `system`,
-`book`, `map`, `token`, `audio`.
+`book`, `map`, `token`, `audio`, `model`.
 
 Book subcategory folders are tagged via `PATCH /api/systems/:id/book-folders` (path
 `{system_id}/{category}/{subfolder…}`) and surface on the tags page under **Books**,
-alongside the `tags.json`-style folder tags on maps/tokens/audio.
+alongside the `tags.json`-style folder tags on maps/tokens/audio/models.
 
 **Folder tags** (the JSON `tags` lists on `*_folders`/`book_folders`) store tag
 **internal keys**; their display casing comes from the tag catalog (folder read
@@ -626,7 +663,7 @@ preset default clears the flag on any sibling in the same scope.
 | `/api/saved-filters/:id` | PATCH | any | Rename, replace `state`, and/or set as the scope default. Body `{name?, state?, is_default?}` |
 | `/api/saved-filters/:id` | DELETE | any | Delete one of the user's saved filters |
 
-Scopes: `systems`, `books`, `maps`, `tokens`, `audio`. `state` is an opaque
+Scopes: `systems`, `books`, `maps`, `tokens`, `audio`, `models`. `state` is an opaque
 sort/filter object the client interprets (e.g. `{sort, order, filters}`).
 
 ### Bookmarks
@@ -646,7 +683,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/search?q=` | GET | any | FTS5 full-text search **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, and audio by filename/folder/tag (audio additionally matches embedded title/artist/album). |
+| `/api/search?q=` | GET | any | FTS5 full-text search **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
 | `/api/search/fields` | GET | any | The `field:` prefixes the search box accepts, with their aliases. Powers the in-app syntax help. |
 
 **Response:**
@@ -684,7 +721,7 @@ A term may be prefixed with a field name to search only that field:
 | `publisher` | — | Book publisher |
 | `system` | `game` | Game system name or slug |
 | `category` | — | Book category (`core`, `supplement`, …) |
-| `tag` | `tags` | Tags on books, maps, tokens, and audio |
+| `tag` | `tags` | Tags on books, maps, tokens, audio, and 3D models |
 | `year` | — | Publication year: `year:2015`, `year:>2015`, `year:<=2020`, `year:2015-2020` |
 | `isbn` | — | Book ISBN |
 | `language` | `lang` | Book language |
@@ -834,7 +871,7 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/images` | POST | owner | Upload an image (multipart `file`, image types only) to embed in a wiki note; links it as a `file` resource with `is_image: true`. Optional multipart fields: `category_id` (file it under an existing resource category) or `new_category_name` (create a category and file it there). |
 | `/api/campaigns/:id/files/:file_id` | GET | per visibility | Download a campaign file (honours the linking resource's visibility); for an image this also serves it inline/as its thumbnail |
 
-Resource types: `book`, `map`, `token`, `audio`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload - those render inline with a thumbnail instead of as a download card).
+Resource types: `book`, `map`, `token`, `audio`, `model`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload - those render inline with a thumbnail instead of as a download card).
 
 Resource **visibility** is one of: `public` (every accepted member), `private` (the owner plus the users in `shared_user_ids`), or `gm` (owner only). The character-sheet upload endpoints also accept a URL alternative via the member PATCH: `PATCH /api/campaigns/:id/members/:user_id` with `{character_sheet_url}` (`""` clears it; setting a URL clears any uploaded sheet, and uploading a sheet clears the URL).
 
@@ -1233,7 +1270,7 @@ about them (issues #304, #306).
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/duplicates/scan-status` | GET | Progress of the detection scan |
-| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = all four) |
+| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = every collection) |
 | `/api/duplicates/cancel-scan` | POST | Stop a running scan |
 | `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset`. `total` counts the open groups walked to fill the page, not the whole table - a short page means the end |
 | `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids` |

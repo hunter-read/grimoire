@@ -17,18 +17,13 @@ from typing import Any, Iterable, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from ...models import Audio, Book, GenericMap, Token
+from ...models.collections import models_by_singular
 from ...models.duplicates import DuplicateDismissal
 from .grouping import group_key
 
 logger = logging.getLogger("grimoire.duplicates")
 
-_MODELS: dict[str, Any] = {
-    "book": Book,
-    "map": GenericMap,
-    "token": Token,
-    "audio": Audio,
-}
+_MODELS: dict[str, Any] = models_by_singular()
 
 
 def dismissed_pairs(db: Session, resource_type: str) -> set:

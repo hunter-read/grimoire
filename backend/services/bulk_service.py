@@ -19,17 +19,15 @@ from typing import Any, Callable, Iterable, Optional
 
 from sqlalchemy.orm import Session
 
-from ..models import Audio, Book, GameSystem, GenericMap, Token
+from ..models.collections import models_by_singular
+from ..models import GameSystem
 from . import tag_service
 
 # resource_type → ORM model. Mirrors ``models.RESOURCE_TYPES``; the bulk routers
 # pass their own type so an unknown one is a programming error, not user input.
 _MODELS: dict[str, type] = {
-    "book": Book,
     "system": GameSystem,
-    "map": GenericMap,
-    "token": Token,
-    "audio": Audio,
+    **models_by_singular(),
 }
 
 # Cap on how many items one bulk request may carry. Large enough for "select

@@ -1,4 +1,4 @@
-import { LuMap, LuUser, LuMusic } from 'react-icons/lu'
+import { LuMap, LuUser, LuMusic, LuBox } from 'react-icons/lu'
 
 /**
  * Per-entity configuration for the shared media gallery components (MediaCard,
@@ -193,6 +193,81 @@ export const MEDIA_CONFIGS = {
       },
     ],
     titleFontSize: 14,
+    listIcon: { width: 40, height: 40 },
+  },
+  model: {
+    type: 'model',
+    collection: 'models',
+    i18n: 'models',
+    countKey: 'modelCount',
+    emptyFilterKey: 'noModelsFilter',
+    emptyKey: 'noModels',
+    icon: LuBox,
+    listUrl: '/models',
+    foldersUrl: '/model-folders',
+    itemUrl: (id) => `/models/${id}`,
+    // Only .stl is rendered server-side (see indexer/stl_render.py); every other
+    // model format falls back to the placeholder, exactly like an archive.
+    thumbnailUrl: (id) => `/models/${id}/thumbnail`,
+    detailPath: (id) => `/models/${id}`,
+    downloadType: 'models',
+    archiveType: 'model_folder',
+    sessionKey: 'grimoire:models:collapsed',
+    sortOptions: ['name', 'size'],
+    gridMin: { comfortable: '160px', compact: '110px' },
+    gridGap: 14,
+    thumb: { kind: 'square' },
+    badges: [
+      {
+        // variant_count is a number, and the badge system treats any truthy
+        // value as "show it" - so 0 hides this without a special case.
+        // `footer` rather than a thumbnail corner: this badge is informational
+        // rather than a warning, and a corner badge sat over the middle of the
+        // art, hiding the part of the map the user is scanning for (issue #405).
+        flag: 'variant_count',
+        labelKey: 'common.versions',
+        label: 'versions',
+        // Rendered by VariantBadge, which carries its own muted styling — hence
+        // no `inlineColor` here, unlike the corner badges.
+        footer: true,
+      },
+      {
+        // Presupported vs unsupported is the distinction a 3D-print library is
+        // actually organised around, so both states get a badge. They come from
+        // the backend as two booleans rather than one tri-state field, so a
+        // model whose support state is unknown shows neither badge instead of
+        // being silently claimed as one or the other.
+        flag: 'is_presupported',
+        label: 'presupported',
+        color: 'rgba(56,142,96,0.9)',
+        corner: 'top-right',
+        inlineColor: 'var(--success)',
+      },
+      {
+        flag: 'is_unsupported',
+        label: 'unsupported',
+        color: 'rgba(120,110,150,0.9)',
+        corner: 'top-right',
+        inlineColor: '#a99fd0',
+      },
+      {
+        flag: 'is_archive',
+        // Absolute i18n key — the archive label is shared, not per-collection.
+        labelKey: 'common.archive',
+        label: 'archive',
+        color: 'rgba(90,110,160,0.9)',
+        corner: 'top-left',
+        inlineColor: '#8fa3cc',
+      },
+      {
+        flag: 'is_missing',
+        label: 'missing',
+        color: 'rgba(200,134,10,0.9)',
+        corner: 'bottom-left',
+        inlineColor: 'var(--warning)',
+      },
+    ],
+    titleFontSize: 13,
     listIcon: { width: 40, height: 40 },
   },
 }

@@ -37,6 +37,7 @@ export default function LibrarySection() {
     { type: 'map', label: t('userSettings.library.viewModeMaps') },
     { type: 'token', label: t('userSettings.library.viewModeTokens') },
     { type: 'audio', label: t('userSettings.library.viewModeAudio') },
+    { type: 'model', label: t('userSettings.library.viewModeModels') },
   ]
 
   const flash = () => {

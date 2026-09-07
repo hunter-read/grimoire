@@ -11,6 +11,7 @@ const DETAIL_PATH = {
   maps: 'maps',
   tokens: 'tokens',
   audio: 'audio',
+  models: 'models',
 }
 
 /**

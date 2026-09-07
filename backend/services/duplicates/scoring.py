@@ -33,6 +33,14 @@ _KIND_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"sped[\s_-]?up|speed[\s_-]?up|double[\s_-]?speed|\bfaster\b", "sped-up"),
     (r"\bremix(?:ed)?\b|\bedit\b|\brework\b", "remix"),
     (r"colou?r[\s_-]?(?:variation|variant|swap|alt)|recolou?r(?:ed)?", "color-variation"),
+    # 3D models. "unsupported" is tested first and deliberately: it *contains*
+    # "supported", so a presupported-first order labels every unsupported mesh
+    # as its opposite — and the two are the whole point of the distinction.
+    (r"un[\s_-]?supported|\bunsup\b|no[\s_-]?supports?", "unsupported"),
+    (r"pre[\s_-]?supported|\bpresup\b|\bsupported\b|with[\s_-]supports?", "presupported"),
+    # A mini cut into printable parts, versus the same mini as one piece.
+    (r"(?:^|[\s_-])split(?:$|[\s._-])|multi[\s_-]?part|\bparts\b", "split"),
+    (r"(?:^|[\s_-])merged(?:$|[\s._-])|one[\s_-]?piece|single[\s_-]?piece", "merged"),
 )
 
 # Extensions that settle a map pair on their own: a .dd2vtt beside a .png is a

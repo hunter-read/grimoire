@@ -88,6 +88,18 @@ class TaggedAudioItem(BaseModel):
     file_size: Optional[int] = None
 
 
+class TaggedModelItem(BaseModel):
+    item_type: Literal["model"]
+    item_id: str
+    filename: str
+    has_thumbnail: Optional[bool] = None
+    file_size: Optional[int] = None
+    triangle_count: Optional[int] = None
+    # Derived from the tri-state is_supported column — see Model3DOut.
+    is_presupported: bool = False
+    is_unsupported: bool = False
+
+
 class TaggedSystemItem(BaseModel):
     item_type: Literal["system"]
     item_id: str
@@ -109,6 +121,7 @@ TaggedItem = Annotated[
         TaggedMapItem,
         TaggedTokenItem,
         TaggedAudioItem,
+        TaggedModelItem,
         TaggedSystemItem,
     ],
     Field(discriminator="item_type"),

@@ -56,6 +56,18 @@ class FavoriteTokenItem(BaseModel):
     tags: list[str]
 
 
+class FavoriteModelItem(BaseModel):
+    item_type: Literal["model"]
+    item_id: str
+    filename: str
+    has_thumbnail: Optional[bool] = None
+    file_size: Optional[int] = None
+    triangle_count: Optional[int] = None
+    is_presupported: bool = False
+    is_unsupported: bool = False
+    tags: list[str]
+
+
 class FavoriteAudioItem(BaseModel):
     item_type: Literal["audio"]
     item_id: str
@@ -103,6 +115,7 @@ FavoriteItem = Annotated[
         FavoriteMapItem,
         FavoriteTokenItem,
         FavoriteAudioItem,
+        FavoriteModelItem,
         FavoriteSystemItem,
         FavoriteTagItem,
     ],

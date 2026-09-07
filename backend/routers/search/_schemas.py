@@ -56,6 +56,14 @@ class SearchTokenHit(BaseModel):
     tags: list[str]
 
 
+class SearchModelHit(BaseModel):
+    id: str
+    filename: str
+    relative_path: str
+    has_thumbnail: bool = False
+    tags: list[str]
+
+
 class SearchAudioHit(BaseModel):
     id: str
     filename: str
@@ -91,5 +99,6 @@ class SearchResponse(BaseModel):
     maps: list[SearchMapHit]
     tokens: list[SearchTokenHit]
     audio: list[SearchAudioHit]
+    models: list[SearchModelHit] = []
     # Canonical names of the `field:` filters recognised in `query`.
     fields: list[str] = []

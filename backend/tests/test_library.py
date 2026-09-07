@@ -5,7 +5,14 @@ import httpx
 import pytest
 
 from backend.routers.library import core as library_core
-from backend.tests.conftest import make_game_system, make_book, make_map, make_token, make_audio
+from backend.tests.conftest import (
+    make_game_system,
+    make_book,
+    make_map,
+    make_token,
+    make_audio,
+    make_model3d,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +44,11 @@ class TestLibraryStats:
         assert "books" in body
         assert "maps" in body
         assert "tokens" in body
+        assert "audio" in body
+        # Every collection must be declared on StatsResponse: the schema is a
+        # strict allowlist, so a count the handler computes but the model omits
+        # is silently dropped before it reaches the sidebar.
+        assert "models" in body
         assert "indexed_books" in body
         assert "total_pages" in body
         assert "total_size_mb" in body
@@ -58,8 +70,9 @@ class TestLibraryStats:
         make_map(file_size=2 * 1048576)
         make_token(file_size=4 * 1048576)
         make_audio(file_size=8 * 1048576)
+        make_model3d(file_size=16 * 1048576)
         after = client.get("/api/stats", headers=admin_headers).json()
-        assert after["library_size_mb"] == pytest.approx(before["library_size_mb"] + 15.0, abs=0.05)
+        assert after["library_size_mb"] == pytest.approx(before["library_size_mb"] + 31.0, abs=0.05)
         # Books-only stays behind the whole-library figure once other media exist.
         assert after["library_size_mb"] > after["total_size_mb"]
 
@@ -197,11 +210,20 @@ class TestScanStatus:
             "scanned_maps",
             "total_tokens",
             "scanned_tokens",
+            "total_audio",
+            "scanned_audio",
+            # ScanStatusResponse is a strict allowlist, so a counter the scan
+            # tracks but the schema omits is dropped before the progress panel
+            # ever sees it — which is how the models count went missing.
+            "total_models",
+            "scanned_models",
             "indexed",
             "to_index",
             "new_books",
             "new_maps",
             "new_tokens",
+            "new_audio",
+            "new_models",
         ):
             assert field in body, f"missing field: {field}"
 

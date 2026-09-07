@@ -25,6 +25,7 @@ from .constants import (
     _THUMBNAIL_TIMEOUT,
 )
 from .formats import FITZ_EXTS, open_document
+from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -175,6 +176,17 @@ def _generate_thumbnail_task(
             img = Image.open(io.BytesIO(data))
             if img.mode != "RGB":
                 img = img.convert("RGB")
+        elif ext in MODEL_THUMBNAIL_EXTS:
+            # A 3D mesh has no decoder to borrow, but STL is a bare triangle
+            # list, so it is rasterised in-process to a plain RGB buffer — no
+            # GPU, no new dependency. See indexer/stl_render.py.
+            from .stl_render import render_stl
+
+            raw = render_stl(filepath, size[0], size[0])
+            if raw is None:
+                result[0] = False
+                return
+            img = Image.frombytes("RGB", (size[0], size[0]), raw)
         elif ext in IMAGE_EXTS:
             img = Image.open(filepath)
             if img.mode != "RGB":
@@ -196,13 +208,19 @@ def generate_thumbnail(
     output_path: str,
     size: tuple = (300, 400),
     should_stop: Optional[Callable[[], bool]] = None,
+    timeout: Optional[float] = None,
 ) -> bool:
     """Generate a thumbnail from a document's first page, an image, or a comic cover.
 
     Runs in a daemon thread with a timeout so a corrupt or pathologically large
     file cannot hang the scan indefinitely.  If `should_stop` is provided the
     wait is also interrupted when it returns True.
+
+    ``timeout`` overrides the default budget. The deferred thumbnail queue passes
+    a longer one: a heavy mesh is rasterised in Python and legitimately needs
+    more than the scan-time budget, but only once the fast phases are done.
     """
+    budget = _THUMBNAIL_TIMEOUT if timeout is None else timeout
     result = [None]
     exc = [None]
     t = threading.Thread(
@@ -213,14 +231,14 @@ def generate_thumbnail(
     t.start()
     poll_interval = 0.5
     elapsed = 0.0
-    while t.is_alive() and elapsed < _THUMBNAIL_TIMEOUT:
+    while t.is_alive() and elapsed < budget:
         t.join(poll_interval)
         elapsed += poll_interval
         if should_stop and should_stop():
             logger.warning(f"Thumbnail generation aborted by stop request for {filepath}")
             return False
     if t.is_alive():
-        logger.error(f"Thumbnail generation timed out after {_THUMBNAIL_TIMEOUT}s for {filepath}")
+        logger.error(f"Thumbnail generation timed out after {budget}s for {filepath}")
         return False
     if exc[0] is not None:
         logger.error(f"Thumbnail generation failed for {filepath}: {exc[0]}")

@@ -27,16 +27,29 @@ export default function RescanSection() {
     scanned_tokens,
     total_audio,
     scanned_audio,
+    total_models,
+    scanned_models,
     total_ocr,
+    total_thumbs,
+    thumbs_done,
+    thumbs_current,
     ocr_done,
     ocr_current,
   } = status
 
-  const totalScan = total_books + total_maps + total_tokens + total_audio
-  const scannedScan = scanned_books + scanned_maps + scanned_tokens + scanned_audio
+  // Coalesced because a status payload from a backend that predates a
+  // collection omits its counters entirely, and a single undefined would turn
+  // the whole sum into NaN — blanking the progress bar rather than just that
+  // one row.
+  const n = (v) => v || 0
+  const totalScan =
+    n(total_books) + n(total_maps) + n(total_tokens) + n(total_audio) + n(total_models)
+  const scannedScan =
+    n(scanned_books) + n(scanned_maps) + n(scanned_tokens) + n(scanned_audio) + n(scanned_models)
   const scanPct = totalScan > 0 ? Math.round((scannedScan / totalScan) * 100) : null
   const indexPct = to_index > 0 ? Math.round((indexed / to_index) * 100) : 0
   const ocrPct = total_ocr > 0 ? Math.round((ocr_done / total_ocr) * 100) : 0
+  const thumbsPct = total_thumbs > 0 ? Math.round((thumbs_done / total_thumbs) * 100) : 0
 
   const phaseLabel =
     phase === 'scanning'
@@ -47,7 +60,12 @@ export default function RescanSection() {
         ? t('maintenance.rescan.indexing', { indexed, total: to_index })
         : phase === 'ocr'
           ? t('maintenance.rescan.ocr', { done: ocr_done, total: total_ocr })
-          : t('maintenance.rescan.scanning')
+          : phase === 'thumbnails'
+            ? t('maintenance.rescan.thumbnails', {
+                done: thumbs_done,
+                total: total_thumbs,
+              })
+            : t('maintenance.rescan.scanning')
 
   return (
     <div>
@@ -105,7 +123,7 @@ export default function RescanSection() {
 
       {/* Progress bar — scanning phase */}
       {running && phase === 'scanning' && (
-        <div style={{ marginTop: 12, maxWidth: 360 }}>
+        <div style={{ marginTop: 12 }}>
           <div
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
@@ -170,6 +188,12 @@ export default function RescanSection() {
                   total: total_audio,
                 })}
               </span>
+              <span>
+                {t('maintenance.rescan.modelsProgress', {
+                  scanned: scanned_models,
+                  total: total_models,
+                })}
+              </span>
             </div>
           )}
           <style>{`
@@ -183,7 +207,7 @@ export default function RescanSection() {
 
       {/* Progress bar — PDF indexing phase */}
       {running && phase === 'indexing' && to_index > 0 && (
-        <div style={{ marginTop: 12, maxWidth: 360 }}>
+        <div style={{ marginTop: 12 }}>
           <div
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
@@ -205,7 +229,7 @@ export default function RescanSection() {
 
       {/* Progress bar — deferred OCR phase */}
       {running && phase === 'ocr' && total_ocr > 0 && (
-        <div style={{ marginTop: 12, maxWidth: 360 }}>
+        <div style={{ marginTop: 12 }}>
           <div
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
@@ -239,6 +263,47 @@ export default function RescanSection() {
               title={ocr_current}
             >
               {t('maintenance.rescan.ocrCurrent', { name: ocr_current })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Progress bar — deferred model-thumbnail phase */}
+      {running && phase === 'thumbnails' && total_thumbs > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div
+            style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
+          >
+            <div
+              style={{
+                height: '100%',
+                borderRadius: 2,
+                background: 'var(--gold)',
+                width: `${thumbsPct}%`,
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
+          <div style={{ marginTop: 5, fontSize: 12, color: 'var(--text-muted)' }}>
+            {t('maintenance.rescan.thumbsProgress', {
+              pct: thumbsPct,
+              done: thumbs_done,
+              total: total_thumbs,
+            })}
+          </div>
+          {thumbs_current && (
+            <div
+              style={{
+                marginTop: 3,
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={thumbs_current}
+            >
+              {t('maintenance.rescan.ocrCurrent', { name: thumbs_current })}
             </div>
           )}
         </div>
@@ -284,6 +349,9 @@ export default function RescanSection() {
               {lastResult.new_audio > 0 && (
                 <span>{t('maintenance.rescan.audio', { count: lastResult.new_audio })}</span>
               )}
+              {lastResult.new_models > 0 && (
+                <span>{t('maintenance.rescan.models', { count: lastResult.new_models })}</span>
+              )}
               {lastResult.indexed > 0 && (
                 <span>{t('maintenance.rescan.indexed', { count: lastResult.indexed })}</span>
               )}
@@ -294,6 +362,7 @@ export default function RescanSection() {
                 lastResult.new_maps +
                 lastResult.new_tokens +
                 (lastResult.new_audio || 0) +
+                (lastResult.new_models || 0) +
                 lastResult.indexed +
                 (lastResult.updated_books || 0) ===
                 0 && <span>{t('maintenance.rescan.noNewFiles')}</span>}

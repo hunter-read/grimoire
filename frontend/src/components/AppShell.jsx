@@ -16,6 +16,8 @@ import MapDetailView from './maps/MapDetailView'
 import TokensView from '../views/TokensView'
 import TokenDetailView from './tokens/TokenDetailView'
 import AudioView from '../views/AudioView'
+import ModelsView from '../views/ModelsView'
+import ModelDetailView from './models/ModelDetailView'
 import AudioDetailView from './audio/AudioDetailView'
 import SearchView from '../views/SearchView'
 import SettingsView from '../views/SettingsView'
@@ -42,6 +44,7 @@ export default function AppShell() {
     hide_maps: false,
     hide_tokens: false,
     hide_audio: false,
+    hide_models: false,
     hide_campaigns: false,
     // Assumed read-only until the server says otherwise, so the destructive
     // file actions cannot flash into a menu during the first render and be
@@ -159,6 +162,7 @@ export default function AppShell() {
               <Route path="/maps/:mapId" element={<MapDetailView />} />
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
               <Route path="/audio/:audioId" element={<AudioDetailView />} />
+              <Route path="/models/:modelId" element={<ModelDetailView />} />
               <Route path="*" element={<Navigate to="/campaigns" replace />} />
             </Routes>
           ) : (
@@ -173,6 +177,8 @@ export default function AppShell() {
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
               <Route path="/audio" element={<AudioView />} />
               <Route path="/audio/:audioId" element={<AudioDetailView />} />
+              <Route path="/models" element={<ModelsView />} />
+              <Route path="/models/:modelId" element={<ModelDetailView />} />
               <Route path="/search" element={<SearchView />} />
               <Route path="/favorites" element={<FavoritesView />} />
               <Route path="/tags" element={<TagsView />} />

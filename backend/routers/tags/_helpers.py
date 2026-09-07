@@ -1,7 +1,7 @@
 """Enrichment helpers for the tags API: turn (type, id) refs into display items."""
 from sqlalchemy.orm import Session
 
-from ...models import Audio, Book, GameSystem, GenericMap, Token, User
+from ...models import Audio, Book, GameSystem, GenericMap, Model3D, Token, User
 from ..systems._helpers import resolve_cover_book_id
 
 
@@ -23,12 +23,14 @@ def enrich_tagged_items(
     map_ids = [r["resource_id"] for r in refs if r["resource_type"] == "map"]
     token_ids = [r["resource_id"] for r in refs if r["resource_type"] == "token"]
     audio_ids = [r["resource_id"] for r in refs if r["resource_type"] == "audio"]
+    model_ids = [r["resource_id"] for r in refs if r["resource_type"] == "model"]
     system_ids = [r["resource_id"] for r in refs if r["resource_type"] == "system"]
 
     books = {b.id: b for b in db.query(Book).filter(Book.id.in_(book_ids))}
     maps = {m.id: m for m in db.query(GenericMap).filter(GenericMap.id.in_(map_ids))}
     tokens = {t.id: t for t in db.query(Token).filter(Token.id.in_(token_ids))}
     audio = {a.id: a for a in db.query(Audio).filter(Audio.id.in_(audio_ids))}
+    models = {m.id: m for m in db.query(Model3D).filter(Model3D.id.in_(model_ids))}
     systems = {s.id: s for s in db.query(GameSystem).filter(GameSystem.id.in_(system_ids))}
 
     items: list[dict] = []
@@ -85,6 +87,22 @@ def enrich_tagged_items(
                     "duration": a.duration or 0.0,
                     "has_artwork": bool(a.has_artwork),
                     "file_size": a.file_size,
+                }
+            )
+        elif rtype == "model" and rid in models:
+            m = models[rid]
+            if m.is_explicit and not see_explicit:
+                continue
+            items.append(
+                {
+                    "item_type": "model",
+                    "item_id": m.id,
+                    "filename": m.filename,
+                    "has_thumbnail": m.has_thumbnail,
+                    "file_size": m.file_size,
+                    "triangle_count": m.triangle_count,
+                    "is_presupported": m.is_supported is True,
+                    "is_unsupported": m.is_supported is False,
                 }
             )
         elif rtype == "system" and rid in systems:

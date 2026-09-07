@@ -36,16 +36,23 @@ class ScanStatusResponse(BaseModel):
     scanned_tokens: Optional[int] = None
     total_audio: Optional[int] = None
     scanned_audio: Optional[int] = None
+    total_models: Optional[int] = None
+    scanned_models: Optional[int] = None
     new_books: Optional[int] = None
     new_maps: Optional[int] = None
     new_tokens: Optional[int] = None
     new_audio: Optional[int] = None
+    new_models: Optional[int] = None
     updated_books: Optional[int] = None
     indexed: Optional[int] = None
     to_index: Optional[int] = None
     # Deferred-OCR queue progress (phase "ocr").
     total_ocr: Optional[int] = None
     ocr_done: Optional[int] = None
+    # Deferred model-thumbnail queue (phase "thumbnails").
+    total_thumbs: Optional[int] = None
+    thumbs_done: Optional[int] = None
+    thumbs_current: Optional[str] = None
     # Filename currently being OCR'd; None unless a book is in flight.
     ocr_current: Optional[str] = None
 
@@ -64,9 +71,10 @@ class StatsResponse(BaseModel):
     maps: int
     tokens: int
     audio: int
+    models: int
     indexed_books: int
     total_pages: int
-    # Books only; ``library_size_mb`` covers maps, tokens and audio too.
+    # Books only; ``library_size_mb`` covers maps, tokens, audio and models too.
     total_size_mb: float
     library_size_mb: float
 

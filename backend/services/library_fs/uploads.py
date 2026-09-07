@@ -12,7 +12,9 @@ from typing import Any, Optional
 
 from ...config import logger
 from ...indexer.thumbnails import archive_ext
+from ...indexer.models3d import MODEL_EXTS
 from ...indexer.constants import (
+    MEDIA_ARCHIVE_EXTS,
     ARCHIVE_EXTS,
     AUDIO_EXTS,
     DOC_EXTS,
@@ -43,6 +45,8 @@ def allowed_upload_exts(destination: Path) -> set[str]:
         return IMAGE_EXTS | ARCHIVE_EXTS
     if section == "audio":
         return AUDIO_EXTS
+    if section == "models":
+        return MODEL_EXTS | MEDIA_ARCHIVE_EXTS
     return set()
 
 
@@ -72,7 +76,7 @@ def validate_upload_name(filename: str, destination: Path) -> str:
     allowed = allowed_upload_exts(destination)
     if not allowed:
         raise LibraryFSError(
-            "Files can only be uploaded into books, maps, tokens, or audio",
+            "Files can only be uploaded into books, maps, tokens, audio, or models",
             code="invalid",
         )
     ext = _upload_ext(name)

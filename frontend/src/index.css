@@ -76,6 +76,7 @@
   --p-type-map: #60a5fa;
   --p-type-token: #34d399;
   --p-type-audio: #f0a868;
+  --p-type-model: #c084fc;
   --p-type-file: #e0b341;
   /* Variant grouping badge (issues #304, #306): an entry that collapses
      several versions of one thing. Deliberately outside the --p-type-*
@@ -136,6 +137,7 @@
   --p-type-map: #1667b8;
   --p-type-token: #0f7a52;
   --p-type-audio: #9a5410;
+  --p-type-model: #6b21a8;
   --p-type-file: #8a6510;
   /* Variant grouping badge (issues #304, #306): an entry that collapses
      several versions of one thing. Deliberately outside the --p-type-*
@@ -208,6 +210,7 @@
   --p-type-map: #6ba3c7;
   --p-type-token: #63ab88;
   --p-type-audio: #d8a15c;
+  --p-type-model: #b18ae0;
   --p-type-file: #c3ccd4;
   /* Variant grouping badge (issues #304, #306): an entry that collapses
      several versions of one thing. Deliberately outside the --p-type-*
@@ -264,6 +267,7 @@
   --p-type-map: #1f5878;
   --p-type-token: #1f6b4d;
   --p-type-audio: #8a4b06;
+  --p-type-model: #5b1d92;
   --p-type-file: #4a5661;
   /* Variant grouping badge (issues #304, #306): an entry that collapses
      several versions of one thing. Deliberately outside the --p-type-*
@@ -320,6 +324,7 @@
   --type-map: var(--p-type-map);
   --type-token: var(--p-type-token);
   --type-audio: var(--p-type-audio);
+  --type-model: var(--p-type-model);
   --type-file: var(--p-type-file);
   --variant: var(--p-variant);
 }
