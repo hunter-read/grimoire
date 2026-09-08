@@ -38,8 +38,14 @@ def start_scan(
             status_code=409,
             detail="A library scan is already running; retry after it completes.",
         )
+    # A scan whose process died still reads as running, and refusing on that
+    # would leave the user with no way to start another one - the same stuck
+    # state /cancel-scan recovers from. A genuinely live scan is still refused.
     if duplicates.get_status().get("running"):
-        return {"status": "already_running"}
+        if not duplicates.is_stale():
+            return {"status": "already_running"}
+        duplicates.force_clear()
+        logger.warning("Discarded a stuck duplicate scan before starting a new one.")
 
     types = list(data.resource_types) if data and data.resource_types else None
     accuracy = data.accuracy if data else "medium"
@@ -51,8 +57,23 @@ def start_scan(
 def cancel_scan(
     _: CurrentUser = Depends(require_admin),
 ):
-    if not duplicates.get_status().get("running"):
+    """Stop a running scan, or clear one that is no longer running at all.
+
+    Asking a live scan to stop only sets a flag for its thread to notice, which
+    is right: the thread has partial results to discard on the way out. But a
+    scan whose process was killed leaves that flag pointing at nothing, and the
+    status stays ``running`` forever - Stop appears dead and every later scan is
+    refused as already running (issue #304). So a status whose heartbeat has
+    gone stale is cleared here directly, which is the only path that can
+    recover it from the UI.
+    """
+    status = duplicates.get_status()
+    if not status.get("running"):
         return {"status": "not_running"}
+    if duplicates.is_stale(status):
+        duplicates.force_clear()
+        logger.warning("Cleared a stuck duplicate scan (no progress since %s).", status.get("heartbeat"))
+        return {"status": "cleared_stale"}
     duplicates.request_stop()
     return {"status": "stop_requested"}
 

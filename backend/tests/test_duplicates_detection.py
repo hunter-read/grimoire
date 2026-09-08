@@ -1,4 +1,6 @@
 """Duplicate detection: the signals, the grouping, and the dismissal memory."""
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from backend.config import SessionLocal
@@ -682,3 +684,163 @@ class TestSuggestKindScoping:
         # distinguished by it.
         kind, _ = duplicates.suggest_kind(_Rec("Keep.png"), _Rec("Keep2.png"), "map")
         assert kind == "other"
+
+
+class TestStuckScanRecovery:
+    """Recovering a scan whose process died mid-run (the issue #304 report).
+
+    Status lives in a per-process dict (or a Valkey key with a 24h TTL), and only
+    the thread running the scan ever clears it. Kill that process and the status
+    stays ``running`` forever: Stop sets a flag nothing reads, and every later
+    scan is refused. These cover the way out.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_status(self, monkeypatch):
+        from backend.routers.library import _helpers as lib
+        from backend.services.duplicates import job
+
+        # The library-scan status is process-global and outlives whichever test
+        # last set it; /scan refuses with 409 while one is running, which has
+        # nothing to do with what these tests are about.
+        monkeypatch.setattr(lib, "_get_status", lambda: {"running": False})
+
+        job.set_status({**job.DEFAULT_STATUS})
+        job.clear_stop()
+        yield
+        job.set_status({**job.DEFAULT_STATUS})
+        job.clear_stop()
+
+    def _stick(self, *, heartbeat):
+        """Plant the exact status the reporter saw: running, books, 0%."""
+        from backend.services.duplicates import job
+
+        job.set_status(
+            {
+                "running": True,
+                "phase": "metadata",
+                "resource_type": "book",
+                "scanned": 0,
+                "total": 0,
+            }
+        )
+        # Written past set_status, which always stamps a *fresh* heartbeat -
+        # the point here is to age it, which no caller of set_status can do.
+        job._status["heartbeat"] = heartbeat
+
+    def test_a_live_scan_is_asked_to_stop_not_cleared(self, client, admin_headers):
+        from backend.services.duplicates import job
+
+        self._stick(heartbeat=job._now())
+        resp = client.post(f"{API}/cancel-scan", headers=admin_headers).json()
+        # Still running: a live scan has partial results to discard on its way
+        # out, which only the scan itself can do.
+        assert resp["status"] == "stop_requested"
+        assert job.get_status()["running"] is True
+        assert job.is_stop_requested()
+
+    def test_cancel_clears_a_scan_whose_heartbeat_died(self, client, admin_headers):
+        from backend.services.duplicates import job
+
+        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        self._stick(heartbeat=stale.isoformat())
+
+        resp = client.post(f"{API}/cancel-scan", headers=admin_headers).json()
+        assert resp["status"] == "cleared_stale"
+        assert job.get_status()["running"] is False
+
+    def test_a_status_predating_heartbeats_is_stale(self, client, admin_headers):
+        """A status carried over from an older version has no heartbeat at all.
+
+        It can only have survived a restart, so it is never a live scan.
+        """
+        from backend.services.duplicates import job
+
+        self._stick(heartbeat=None)
+        assert job.is_stale() is True
+        assert (
+            client.post(f"{API}/cancel-scan", headers=admin_headers).json()["status"]
+            == "cleared_stale"
+        )
+
+    def test_a_stuck_scan_does_not_block_the_next_one(self, client, admin_headers, monkeypatch):
+        from backend.routers.duplicates import detection
+        from backend.services.duplicates import job
+
+        # The real job is stubbed out: this is about the endpoint agreeing to
+        # start one, and letting an actual scan run would leave shared status
+        # behind for whatever test runs next.
+        started: list = []
+        monkeypatch.setattr(
+            detection.duplicates, "run_detection_sync", lambda *a, **k: started.append(a)
+        )
+
+        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        self._stick(heartbeat=stale.isoformat())
+
+        resp = client.post(f"{API}/scan", headers=admin_headers, json={})
+        assert resp.json()["status"] == "scan_started"
+        assert started, "the stale status must not have stopped the scan being queued"
+
+    def test_a_live_scan_still_blocks_the_next_one(self, client, admin_headers):
+        from backend.services.duplicates import job
+
+        self._stick(heartbeat=job._now())
+        resp = client.post(f"{API}/scan", headers=admin_headers, json={})
+        assert resp.json()["status"] == "already_running"
+
+    def test_progress_refreshes_the_heartbeat(self):
+        """A slow-but-alive scan must never look stale."""
+        from backend.services.duplicates import job
+
+        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        self._stick(heartbeat=stale.isoformat())
+        assert job.is_stale() is True
+
+        # One progress report is enough to prove it is alive.
+        job.set_status({"scanned": 5, "total": 100})
+        assert job.is_stale() is False
+
+    def test_an_idle_status_is_never_stale(self):
+        from backend.services.duplicates import job
+
+        assert job.is_stale() is False
+
+    def _startup_reset(self):
+        """Mirrors the reset at the top of backend.main.lifespan."""
+        from backend.services.duplicates import job
+
+        if job.is_stale():
+            job.force_clear()
+
+    def test_startup_clears_a_scan_left_running(self):
+        """The lifespan reset: what makes a restart actually fix this.
+
+        The heartbeat of a scan whose process died stops advancing, and a
+        restart takes long enough that it is well past the staleness cutoff by
+        the time the new process looks at it.
+        """
+        from backend.services.duplicates import job
+
+        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        self._stick(heartbeat=stale.isoformat())
+
+        self._startup_reset()
+
+        assert job.get_status()["running"] is False
+        assert job.get_status()["phase"] is None
+
+    def test_startup_leaves_another_workers_live_scan_alone(self):
+        """With Valkey the status is shared, so this must not be a blind reset.
+
+        A worker starting while another is mid-scan would otherwise wipe a scan
+        that is genuinely running.
+        """
+        from backend.services.duplicates import job
+
+        self._stick(heartbeat=job._now())
+
+        self._startup_reset()
+
+        assert job.get_status()["running"] is True
+        assert job.get_status()["phase"] == "metadata"

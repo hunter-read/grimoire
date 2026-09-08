@@ -1099,6 +1099,7 @@
       "linkAs": "Vincular como versión",
       "merge": "Copiar metadatos",
       "scanFailed": "No se pudo iniciar el análisis.",
+      "cancelFailed": "No se pudo detener el análisis.",
       "loadFailed": "No se pudieron cargar los grupos de duplicados.",
       "actionFailed": "No se pudo completar la acción.",
       "reason": "Motivo",

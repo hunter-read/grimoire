@@ -43,7 +43,13 @@ export default function DuplicatesView() {
   // The last error reported by the scan status, so a successful group load
   // can clear a stale load failure without discarding a real scan failure.
   const scanErrorRef = useRef(null)
+  // Set when Stop clears a scan the backend judged dead. Without Valkey the
+  // status is per-process, so the very next poll may land on the *other* worker
+  // - whose own dict still says running - and put the spinner straight back.
+  // Held until a scan is deliberately started again, so the page stays usable.
+  const clearedRef = useRef(false)
   const [starting, setStarting] = useState(false)
+  const [stopping, setStopping] = useState(false)
   // Search accuracy, chosen per scan. 'exact' is byte-identical only: fast and
   // certain. Looser levels take longer and return matches that need judging.
   // 'high' is the default: it catches the renamed-copy case that 'exact' misses
@@ -90,6 +96,10 @@ export default function DuplicatesView() {
         .scanStatus()
         .then((next) => {
           if (cancelled) return
+          // A worker that never ran the scan still reports it as running from
+          // its own copy of the status. Once Stop has cleared it, that claim is
+          // known to be stale and must not resurrect the spinner.
+          if (next.running && clearedRef.current) return
           // The job records a crash in its status and returns normally, so
           // without this a scan that died mid-run is indistinguishable from one
           // that genuinely found nothing. Recorded before the reload below,
@@ -161,8 +171,10 @@ export default function DuplicatesView() {
   const startScan = async () => {
     setStarting(true)
     setError(null)
-    // A new run supersedes the last one's failure.
+    // A new run supersedes the last one's failure, and its progress is real
+    // again - so stop suppressing the status poll's running flag.
     scanErrorRef.current = null
+    clearedRef.current = false
     try {
       await dupesApi.startScan(resourceTypes, accuracy)
       setStatus((s) => ({ ...s, running: true, phase: 'hashing' }))
@@ -170,6 +182,27 @@ export default function DuplicatesView() {
       setError(e.message || t('maintenance.dupes.scanFailed'))
     } finally {
       setStarting(false)
+    }
+  }
+
+  // Stop used to discard its result entirely, which made the two ways it can
+  // legitimately not stop the scan look identical to a broken button: the
+  // request failing, and the scan already being gone. Both are reported now,
+  // and a cleared-out stuck scan updates the status immediately rather than
+  // waiting for the next poll.
+  const cancelScan = async () => {
+    setStopping(true)
+    try {
+      const result = await dupesApi.cancelScan()
+      if (result?.status === 'cleared_stale' || result?.status === 'not_running') {
+        clearedRef.current = true
+        setStatus((s) => ({ ...s, running: false, phase: null }))
+        loadGroups()
+      }
+    } catch (e) {
+      setError(e.message || t('maintenance.dupes.cancelFailed'))
+    } finally {
+      setStopping(false)
     }
   }
 
@@ -332,14 +365,16 @@ export default function DuplicatesView() {
           {status.running && (
             <button
               type="button"
-              onClick={() => dupesApi.cancelScan().catch(() => {})}
+              onClick={cancelScan}
+              disabled={stopping}
               style={{
                 background: 'var(--bg-deep)',
                 border: '1px solid var(--border)',
                 color: 'var(--text)',
                 borderRadius: 6,
                 padding: '8px 16px',
-                cursor: 'pointer',
+                cursor: stopping ? 'default' : 'pointer',
+                opacity: stopping ? 0.6 : 1,
                 fontSize: 14,
               }}
             >
