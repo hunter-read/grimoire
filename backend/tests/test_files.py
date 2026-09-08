@@ -2001,6 +2001,175 @@ class TestCategoryRelocationInContainer:
             shutil.rmtree(os.path.join(LIB, "books", folder), ignore_errors=True)
 
 
+class TestNestedContainerPlacement:
+    """A system two containers deep (issue #413).
+
+    ``_system_depth_for`` used to test only the folder at ``parts[1]`` and stop,
+    so a family holding a parent-system holding editions — the layout
+    ``_scan_container`` recurses through with ``depth + 1`` — resolved to depth 3
+    when the category folder actually sits at index 4. Renaming or moving
+    anything beneath it then read the *system* folder as the category and pinned
+    every book to the inner container.
+    """
+
+    @pytest.fixture
+    def nested_tree(self):
+        """books/<family>/<parent-system>/<system>/Handouts/<title>/x.pdf."""
+        import shutil
+
+        stamp = str(uuid.uuid4())[:8]
+        family, parent, system = f"Family-{stamp}", f"Parent-{stamp}", f"5 DE-{stamp}"
+        title = "Spielkartenset - Vor- und Nachteile"
+        base = f"books/{family}/{parent}/{system}/Handouts/{title}"
+        os.makedirs(os.path.join(LIB, base), exist_ok=True)
+        # Two nested containers, each declared by its own marker.
+        open(os.path.join(LIB, f"books/{family}/.system-family-container"), "wb").close()
+        open(
+            os.path.join(LIB, f"books/{family}/{parent}/.parent-system-container"), "wb"
+        ).close()
+        yield stamp, family, parent, system, title
+        shutil.rmtree(os.path.join(LIB, f"books/{family}"), ignore_errors=True)
+
+    def _rows(self, tree):
+        stamp, family, parent, system, title = tree
+        family_row = make_game_system(name=family, slug=f"family-{stamp}")
+        parent_row = make_game_system(
+            name=parent, slug=f"parent-{stamp}", parent_id=family_row.id
+        )
+        system_row = make_game_system(
+            name=system, slug=f"system-{stamp}", parent_id=parent_row.id
+        )
+        rel = f"books/{family}/{parent}/{system}/Handouts/{title}/karten.pdf"
+        src = _write(rel)
+        book = make_book(
+            system_row.id,
+            filename="karten.pdf",
+            filepath=src,
+            relative_path=rel,
+            category="handout",
+        )
+        return parent_row, system_row, book, src
+
+    def test_depth_counts_every_container_above_the_system(self, nested_tree):
+        """Two containers put the category folder at index 4, not 3."""
+        _stamp, family, parent, system, title = nested_tree
+        db = SessionLocal()
+        depth = fs.placement._system_depth_for(
+            db, f"books/{family}/{parent}/{system}/Handouts/{title}/karten.pdf".split("/")
+        )
+        db.close()
+        assert depth == 4
+
+    def test_placement_matches_what_the_scanner_would_infer(self, nested_tree):
+        """The scanner walks this tree with ``system_depth=2 + depth`` = 4."""
+        from backend.indexer.categories import guess_category
+
+        _stamp, family, parent, system, title = nested_tree
+        _parent_row, system_row, _book, src = self._rows(nested_tree)
+
+        db = SessionLocal()
+        system_id, category = fs.resolve_book_placement(db, Path(src))
+        db.close()
+
+        rel = f"books/{family}/{parent}/{system}/Handouts/{title}/karten.pdf"
+        assert category == guess_category(rel, system_depth=4)
+        assert category == "handout"
+        assert system_id == system_row.id, "the innermost system owns the book"
+
+    def test_folder_rename_keeps_system_and_category(self, nested_tree):
+        """The reported bug: a folder rename silently reclassified the rows.
+
+        ``relative_path`` was updated correctly and the response read as success,
+        while ``game_system`` became the inner container and ``category`` the
+        slug of the system folder's own name.
+        """
+        _stamp, family, parent, system, title = nested_tree
+        _parent_row, system_row, book, _src = self._rows(nested_tree)
+        book_id = book.id
+
+        db = SessionLocal()
+        result = fs.rename_path(
+            db,
+            f"books/{family}/{parent}/{system}/Handouts/{title}",
+            "Spielkartenset Vor- & Nachteile",
+        )
+        db.close()
+
+        assert result["records"] == 1
+        db = SessionLocal()
+        row = db.query(Book).filter(Book.id == book_id).first()
+        assert row.relative_path == (
+            f"books/{family}/{parent}/{system}/Handouts/"
+            "Spielkartenset Vor- & Nachteile/karten.pdf"
+        )
+        assert row.category == "handout", "the rename must not rewrite the category"
+        assert row.game_system_id == system_row.id, "must not fall back to the container"
+        db.close()
+
+    def test_container_known_only_to_the_db_is_still_a_container(self):
+        """Neither marker nor suffix on disk — the parent link is all there is.
+
+        A container declared by suffix and later renamed leaves nothing on disk
+        to read, so the depth has to come from the nested system's ``parent_id``.
+        This is the fallback branch the marker and suffix cases never reach.
+        """
+        import shutil
+
+        stamp = str(uuid.uuid4())[:8]
+        container, system = f"Plain-{stamp}", f"Edition-{stamp}"
+        rel = f"books/{container}/{system}/core/tome.pdf"
+        src = _write(rel)
+        try:
+            parent = make_game_system(name=container, slug=f"plain-{stamp}")
+            child = make_game_system(
+                name=system, slug=f"edition-{stamp}", parent_id=parent.id
+            )
+            db = SessionLocal()
+            system_id, category = fs.resolve_book_placement(db, Path(src))
+            db.close()
+            assert category == "core", "the category folder sits one level deeper"
+            assert system_id == child.id, "the nested system owns the book"
+        finally:
+            shutil.rmtree(os.path.join(LIB, "books", container), ignore_errors=True)
+
+    def test_unregistered_nested_system_falls_back_to_the_container(self, nested_tree):
+        """A folder with no row of its own must not orphan the book.
+
+        The system is matched by name, and a folder the scanner has not reached
+        yet has none. Rather than leaving ``game_system_id`` unset, the nearest
+        registered ancestor keeps the book on a shelf.
+        """
+        _stamp, family, parent, _system, _title = nested_tree
+        family_row = make_game_system(name=family, slug=f"fam-only-{_stamp}")
+        rel = f"books/{family}/{parent}/Unregistered-{_stamp}/core/tome.pdf"
+        src = _write(rel)
+        db = SessionLocal()
+        system_id, _category = fs.resolve_book_placement(db, Path(src))
+        db.close()
+        assert system_id == family_row.id
+
+    def test_move_keeps_system_and_category(self, nested_tree):
+        """``/api/files/move`` re-infers from the destination too (issue #413)."""
+        _stamp, family, parent, system, title = nested_tree
+        _parent_row, system_row, book, _src = self._rows(nested_tree)
+        book_id = book.id
+        # Move the file up out of its per-title folder, into the category folder.
+        dest = f"books/{family}/{parent}/{system}/Handouts"
+
+        db = SessionLocal()
+        result = fs.move_paths(
+            db, [f"{dest}/{title}/karten.pdf"], dest
+        )
+        db.close()
+
+        assert result.count == 1
+        db = SessionLocal()
+        row = db.query(Book).filter(Book.id == book_id).first()
+        assert row.category == "handout"
+        assert row.game_system_id == system_row.id
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # Read-only library
 # ---------------------------------------------------------------------------
