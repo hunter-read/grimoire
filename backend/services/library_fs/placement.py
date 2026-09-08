@@ -42,42 +42,67 @@ def _system_folder_name(raw_name: str) -> str:
 
 
 def _system_depth_for(db: Session, parts: list[str]) -> int:
-    """How many path segments precede the category folder: 2, or 3 under a container.
+    """How many path segments precede the category folder.
 
     ``parts`` is the library-relative path split on "/", starting with ``books``.
 
-    The folder at ``parts[1]`` is a *container* rather than a system when it is
-    marked as one on disk — the same test the scanner applies (issue #395). The
-    DB cannot answer this on its own: a container has its own ``GameSystem`` row
-    whose ``parent_id`` is None, so asking whether the row at ``parts[1]`` has a
-    parent says "no" for the container itself and yields depth 2, which is how a
-    re-categorised book escaped its system folder and landed in the container
-    root.
+    2 for the plain ``books/<system>/<category>/`` layout, and one more for every
+    *container* stacked above the system: a family holding a parent-system
+    holding editions puts the category folder at index 4 (issues #261/#262/#301).
+    This mirrors ``_scan_container``, which recurses through containers with
+    ``depth + 1`` and only reads categories in the first folder that is not one —
+    so the walk has to continue past ``parts[1]`` rather than stopping there.
+    Testing only that first folder capped the answer at 3, which is how a rename
+    or move under two containers read the *system* folder as the category and
+    reattached the book to the inner container (issue #413).
 
-    The marker file is authoritative; the DB is a fallback for a container
-    declared by a name suffix (``(parent-system)``), where the folder carries no
-    marker but the nested system row does record a parent.
+    A container declares itself by marker file or by name suffix; the DB is a
+    fallback for the suffix form on rows written before the folder was read.
     """
-    if len(parts) < 3:
-        return 2
-    container_dir = library_root() / parts[0] / parts[1]
-    if detect_container_kind(container_dir, parts[1]):
-        return 3
-    # A suffix-declared container leaves no marker on disk. Its child systems do
-    # carry ``parent_id``, so look the *nested* folder up directly — but only
-    # believe it when that parent is the folder at ``parts[1]``. In a standard
-    # layout ``parts[2]`` is the *category* folder, and a system elsewhere in the
-    # library that happens to share its name ("Core") must not be mistaken for a
-    # nested system here.
+    depth = 1
+    # Walk down from books/ while each folder is a container. The first one that
+    # is not is the system folder, and its children are the categories — so the
+    # category folder sits at the index just past it.
+    while depth + 1 < len(parts) and _is_container(db, parts, depth):
+        depth += 1
+    return max(depth + 1, 2)
+
+
+def _is_container(db: Session, parts: list[str], depth: int) -> bool:
+    """Whether the folder at ``parts[depth]`` holds systems rather than categories."""
+    folder = library_root().joinpath(*parts[: depth + 1])
+    # A name suffix (``(parent-system)``) is as authoritative as a marker file,
+    # and unlike the marker it needs no disk read.
+    _, suffix_kind = strip_container_suffix(parts[depth])
+    if suffix_kind or detect_container_kind(folder, parts[depth]):
+        return True
+    # A suffix-declared container that has since been renamed leaves nothing on
+    # disk. Its child systems do carry ``parent_id``, so look the *nested* folder
+    # up — but only believe it when that parent is this folder. In a standard
+    # layout the next segment is the *category* folder, and a system elsewhere in
+    # the library that happens to share its name ("Core") must not be mistaken
+    # for a nested system here.
+    if depth + 1 >= len(parts):
+        return False
     nested = (
-        db.query(GameSystem).filter(GameSystem.name == _system_folder_name(parts[2])).first()
+        db.query(GameSystem)
+        .filter(GameSystem.name == _system_folder_name(parts[depth + 1]))
+        .first()
     )
     parent_id = getattr(nested, "parent_id", None) if nested is not None else None
-    if parent_id:
-        parent = db.query(GameSystem).filter(GameSystem.id == parent_id).first()
-        if parent is not None and parent.name == _system_folder_name(parts[1]):
-            return 3
-    return 2
+    if not parent_id:
+        return False
+    parent = db.query(GameSystem).filter(GameSystem.id == parent_id).first()
+    return parent is not None and parent.name == _system_folder_name(parts[depth])
+
+
+def _match_system(db: Session, folder_name: str) -> Optional[GameSystem]:
+    """The system row a books folder maps to, matched by name then slug."""
+    name = _system_folder_name(folder_name)
+    return (
+        db.query(GameSystem).filter(GameSystem.name == name).first()
+        or db.query(GameSystem).filter(GameSystem.slug == slugify(name)).first()
+    )
 
 
 def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str], str]:
@@ -100,28 +125,21 @@ def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str],
         return None, UNCATEGORIZED
 
     system_folder = parts[1]
-    system_name = _system_folder_name(system_folder)
-    system = (
-        db.query(GameSystem).filter(GameSystem.name == system_name).first()
-        or db.query(GameSystem).filter(GameSystem.slug == slugify(system_name)).first()
-    )
 
-    # A system nested one level inside a container folder shifts every
-    # subsequent segment right by one; the scanner expresses that as
-    # `system_depth`. Shared with ``_system_root_for`` so both agree on where the
-    # category folder starts — asking whether the row at ``parts[1]`` has a
-    # parent got this wrong for a marker-declared container, whose own row has
-    # no parent (issue #395).
+    # Every container above the system shifts the subsequent segments right by
+    # one; the scanner expresses that as `system_depth`. Shared with
+    # ``_system_root_for`` so both agree on where the category folder starts —
+    # asking whether the row at ``parts[1]`` has a parent got this wrong for a
+    # marker-declared container, whose own row has no parent (issue #395).
     depth = _system_depth_for(db, parts)
-    if depth == 3:
-        # The real system folder is the second segment inside the container.
-        nested_name = _system_folder_name(parts[2])
-        nested = (
-            db.query(GameSystem).filter(GameSystem.name == nested_name).first()
-            or db.query(GameSystem).filter(GameSystem.slug == slugify(nested_name)).first()
-        )
-        if nested is not None:
-            system = nested
+    # The system folder is the last segment before the category folder, so it
+    # walks right with the depth: `parts[1]` unnested, `parts[2]` inside one
+    # container, `parts[3]` inside two (issue #413).
+    system = _match_system(db, parts[depth - 1])
+    if system is None and depth > 2:
+        # An unregistered nested folder should still land on the container row
+        # rather than orphaning the book, as it did before containers nested.
+        system = _match_system(db, system_folder)
 
     if is_special_collection_folder(system_folder):
         return (system.id if system else None), agnostic_category(rel)
