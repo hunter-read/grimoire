@@ -180,6 +180,39 @@ class TestModelScan:
         assert row is not None
         assert not row.has_thumbnail
 
+    def test_failed_inline_render_is_deferred_to_the_queue(self, monkeypatch):
+        """A mesh the scan could not rasterise goes on the queue, not into limbo.
+
+        Regression: the inline render runs against the scan's 30s budget, which
+        is sized for a fast machine. When it was missed, has_thumbnail stayed
+        False and thumbnail_pending stayed False — a combination no code path
+        revisits, so the model never grew a preview on any later rescan either.
+        """
+        from backend.indexer import media
+
+        name = f"slow_{os.path.basename(self.tmp)}.stl"
+        _write_stl(self.dir / name)
+        # Stand in for the timeout: generate_thumbnail returns False for a mesh
+        # that ran out of budget, exactly as it does here.
+        monkeypatch.setattr(media.indexer, "generate_thumbnail", lambda *a, **k: False)
+        self._scan()
+        row = self._get(name)
+        assert row is not None
+        assert not row.has_thumbnail
+        assert row.thumbnail_pending is True
+
+    def test_failed_non_mesh_thumbnail_is_not_queued(self, monkeypatch):
+        """Only meshes get the deferral: the queue renders STLs and nothing else."""
+        from backend.indexer import media
+
+        name = f"opaque_{os.path.basename(self.tmp)}.3mf"
+        (self.dir / name).write_bytes(b"PK\x03\x04not really a 3mf")
+        monkeypatch.setattr(media.indexer, "generate_thumbnail", lambda *a, **k: False)
+        self._scan()
+        row = self._get(name)
+        assert row is not None
+        assert not row.thumbnail_pending
+
     def test_support_flag_from_folder(self):
         stamp = os.path.basename(self.tmp)
         (self.dir / "Presupported").mkdir()

@@ -5,6 +5,7 @@ magnitude, so a heavy model is flagged during the scan and rendered afterwards �
 the visual counterpart of the deferred-OCR queue, and deferred for the same
 reason: none of that work belongs between the user and a finished library walk.
 """
+import inspect
 import os
 import struct
 
@@ -12,6 +13,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend.indexer.media import _enrich_model
+from backend.indexer import stl_render
 from backend.indexer.stl_render import INLINE_TRIANGLE_BUDGET, MAX_TRIANGLES
 from backend.models import Model3D
 from backend.routers.library import _helpers
@@ -208,8 +210,27 @@ class TestQueueTimeout:
         # The whole point of deferring: work refused inline gets a real chance.
         assert _helpers.MODEL_THUMBNAIL_TIMEOUT > _THUMBNAIL_TIMEOUT
 
-    def test_budget_is_one_minute(self):
-        assert _helpers.MODEL_THUMBNAIL_TIMEOUT == 60
+    def test_budget_covers_the_largest_allowed_mesh(self):
+        """The timeout must clear the worst case the caps actually permit.
+
+        Asserted as a relationship rather than a literal: pinning the number
+        only restated the constant, so raising MAX_TRIANGLES could leave the
+        budget too small without any test objecting — and the symptom of that is
+        a silently missing preview.
+
+        ~350k triangles/sec measured on the streaming path of a fast desktop.
+
+        The 4x is a hardware ratio, not a safety fudge: Grimoire's usual home is
+        a NAS or mini-PC, and this rasteriser is single-threaded pure Python, so
+        a host several times slower per core is the ordinary case rather than
+        the pathological one. The budget has to clear the worst allowed mesh
+        *there*, because the failure is silent — no preview, no error, and the
+        pending flag cleared so it is never retried.
+        """
+        measured_rate = 350_000
+        slow_host_factor = 4
+        worst_case = stl_render.MAX_TRIANGLES / measured_rate
+        assert _helpers.MODEL_THUMBNAIL_TIMEOUT >= worst_case * slow_host_factor
 
 
 class TestScanStatus:
@@ -223,29 +244,45 @@ class TestScanStatus:
 class TestStartupRecovery:
     """A restart mid-drain must not strand the queue.
 
-    The flag lives in the database precisely so an interrupted run resumes, and
-    background_ocr is the pass that picks it back up at boot.
+    The flag lives in the database precisely so an interrupted run resumes. The
+    pass that picks it back up at boot is the startup scan itself — main.py runs
+    run_rescan_sync in a thread — rather than a separate recovery worker, so
+    what matters is that a rescan always reaches the drain.
     """
 
-    def test_background_pass_drains_pending_models(self, tmp_path, monkeypatch):
+    def test_startup_scan_drains_pending_models(self, monkeypatch):
         _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
         calls = []
+        monkeypatch.setattr(_helpers, "scan_library", lambda *a, **k: {})
         monkeypatch.setattr(_helpers, "run_model_thumbnail_queue", lambda: calls.append("thumbs"))
         monkeypatch.setattr(_helpers, "run_ocr_queue", lambda: calls.append("ocr"))
-        monkeypatch.setattr(_helpers.time, "sleep", lambda _: None)
-        monkeypatch.setattr(_helpers, "_get_status", lambda: {"running": False, "phase": None})
-        _helpers.background_ocr()
+        _helpers.run_rescan_sync()
         # Thumbnails first: bounded and quick, where OCR of a scanned library
         # can run for hours.
         assert calls == ["thumbs", "ocr"]
 
-    def test_background_pass_defers_to_a_running_scan(self, monkeypatch):
+    def test_rescan_defers_to_a_run_already_in_progress(self, monkeypatch):
         called = []
         monkeypatch.setattr(_helpers, "run_model_thumbnail_queue", lambda: called.append(1))
-        monkeypatch.setattr(_helpers.time, "sleep", lambda _: None)
-        monkeypatch.setattr(_helpers, "_get_status", lambda: {"running": True, "phase": "scanning"})
-        _helpers.background_ocr()
+        monkeypatch.setattr(
+            _helpers, "_get_status", lambda: {"running": True, "phase": "scanning"}
+        )
+        _helpers.run_rescan_sync()
         assert called == []
+
+    def test_startup_wires_the_scan_that_drains(self):
+        """main.py must call the worker the drain actually lives in.
+
+        Pins the wiring itself: the queue was previously drained only by
+        functions main.py did not call, which is invisible to any test that
+        invokes those functions directly.
+        """
+        import backend.main as main
+
+        assert hasattr(main, "run_rescan_sync")
+        src = inspect.getsource(main)
+        assert "run_rescan_sync()" in src
 
 
 class TestThumbnailOneModel:
@@ -258,3 +295,40 @@ class TestThumbnailOneModel:
         _helpers.clear_stop()
         m = make_model3d(thumbnail_pending=False)
         assert _helpers._thumbnail_one_model(m.id) == "skipped"
+
+
+class TestModelThumbnailRequeue:
+    """Existing rows must be able to recover a missing preview.
+
+    A model registered while the renderer refused it sits at has_thumbnail=0 and
+    thumbnail_pending=0 — a state no code path revisits, so without this the
+    library would stay preview-less through every future rescan.
+    """
+
+    def _row(self, has_thumb=False, pending=False):
+        class R:
+            has_thumbnail = has_thumb
+            thumbnail_pending = pending
+
+        return R()
+
+    def test_stale_model_is_requeued(self):
+        from backend.indexer.media import _needs_model_thumbnail_requeue
+
+        assert _needs_model_thumbnail_requeue(self._row(), ".stl") is True
+
+    def test_model_with_a_preview_is_left_alone(self):
+        from backend.indexer.media import _needs_model_thumbnail_requeue
+
+        assert _needs_model_thumbnail_requeue(self._row(has_thumb=True), ".stl") is False
+
+    def test_already_pending_is_not_requeued(self):
+        """It is already on the queue; re-flagging would just churn."""
+        from backend.indexer.media import _needs_model_thumbnail_requeue
+
+        assert _needs_model_thumbnail_requeue(self._row(pending=True), ".stl") is False
+
+    def test_non_model_extension_is_ignored(self):
+        from backend.indexer.media import _needs_model_thumbnail_requeue
+
+        assert _needs_model_thumbnail_requeue(self._row(), ".png") is False

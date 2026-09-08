@@ -206,6 +206,81 @@ class TestTriangleCount:
         assert triangle_count(str(path)) == 0
 
 
+class TestStreamingRender:
+    """The streaming path exists so a heavy mesh is never materialised.
+
+    Correctness is pinned by rendering the same file both ways and requiring
+    identical bytes: the streaming code duplicates the projection maths, and a
+    drift between the two would otherwise show up only as a subtly wrong preview.
+    """
+
+    def test_matches_the_buffered_path_exactly(self, tmp_path, monkeypatch):
+        path = _write_binary(str(tmp_path / "c.stl"), _cube())
+        monkeypatch.setattr(stl_render, "_STREAM_THRESHOLD", 10**9)
+        buffered = render_stl(path, 64, 64)
+        monkeypatch.setattr(stl_render, "_STREAM_THRESHOLD", 1)
+        streamed = render_stl(path, 64, 64)
+        assert streamed == buffered
+        assert streamed is not None
+
+    def test_streams_without_building_a_triangle_list(self, tmp_path, monkeypatch):
+        """read_stl must not be called on the streaming path — it is the thing
+        whose memory cost the streaming path exists to avoid."""
+        path = _write_binary(str(tmp_path / "c.stl"), _cube())
+        monkeypatch.setattr(stl_render, "_STREAM_THRESHOLD", 1)
+        called = []
+        monkeypatch.setattr(
+            stl_render, "read_stl", lambda *a, **k: called.append(1) or None
+        )
+        assert render_stl(path, 32, 32) is not None
+        assert called == []
+
+    def test_over_cap_is_refused_on_the_streaming_path(self, tmp_path, monkeypatch):
+        path = _write_binary(str(tmp_path / "c.stl"), _cube())
+        monkeypatch.setattr(stl_render, "_STREAM_THRESHOLD", 1)
+        monkeypatch.setattr(stl_render, "MAX_TRIANGLES", 2)
+        assert render_stl(path, 32, 32) is None
+
+    def test_truncated_file_does_not_raise(self, tmp_path, monkeypatch):
+        """A header claiming more triangles than the file holds stops cleanly."""
+        path = tmp_path / "trunc.stl"
+        path.write_bytes(b"\0" * 80 + struct.pack("<I", 500) + b"\0" * (50 * 3))
+        monkeypatch.setattr(stl_render, "_STREAM_THRESHOLD", 1)
+        assert render_stl(str(path), 32, 32) is None
+
+
+class TestOrientation:
+    """STL for printing is Z-up, so +Z must render as "up" on screen."""
+
+    def _tall_z(self):
+        """A spike along +Z on a wide base — unambiguous about which way is up."""
+        return [
+            ((-4.0, -4.0, 0.0), (4.0, -4.0, 0.0), (0.0, 0.0, 20.0)),
+            ((4.0, -4.0, 0.0), (4.0, 4.0, 0.0), (0.0, 0.0, 20.0)),
+            ((4.0, 4.0, 0.0), (-4.0, 4.0, 0.0), (0.0, 0.0, 20.0)),
+            ((-4.0, 4.0, 0.0), (-4.0, -4.0, 0.0), (0.0, 0.0, 20.0)),
+            ((-4.0, -4.0, 0.0), (-4.0, 4.0, 0.0), (4.0, 4.0, 0.0)),
+        ]
+
+    def test_z_axis_renders_taller_than_wide(self, tmp_path):
+        """A mesh 20 tall and 8 wide in Z-up must not come out lying down.
+
+        Treating Y as up rotated every print-oriented model onto its side, which
+        is what made real minis render tipped over.
+        """
+        path = _write_binary(str(tmp_path / "spike.stl"), self._tall_z())
+        buf = render_stl(path, 120, 120)
+        assert buf is not None
+        painted = [
+            (i // 120, i % 120)
+            for i in range(120 * 120)
+            if buf[i * 3 : i * 3 + 3] != BACKGROUND
+        ]
+        rows = [r for r, _ in painted]
+        cols = [c for _, c in painted]
+        assert max(rows) - min(rows) > max(cols) - min(cols)
+
+
 class TestRenderStl:
     def test_returns_packed_rgb_buffer(self, tmp_path):
         path = _write_binary(str(tmp_path / "c.stl"), _cube())
@@ -248,6 +323,44 @@ class TestRenderStl:
             64,
         )
         assert zeros == wrong
+
+    def test_visible_faces_are_lit_above_ambient(self, tmp_path):
+        """Regression: the light pointed away from the camera.
+
+        _LIGHT lives in view space, where a surface facing the viewer has a
+        negative z normal. It was written with a positive z, so every
+        front-facing surface fell to exactly the ambient floor and only oblique
+        geometry caught any light — a solid mini rendered as a dark silhouette
+        threaded with bright support struts, which reads as a wireframe.
+
+        Asserted as "most of the painted area is brighter than ambient" rather
+        than on any one pixel, so it pins the property that broke without
+        pinning the exact palette.
+        """
+        path = _write_binary(str(tmp_path / "c.stl"), _cube())
+        buf = render_stl(path, 64, 64)
+        ambient = bytes(min(255, int(c * stl_render._AMBIENT)) for c in stl_render._BASE_COLOR)
+        painted = [
+            buf[i : i + 3] for i in range(0, len(buf), 3) if buf[i : i + 3] != BACKGROUND
+        ]
+        assert painted
+        brighter = [px for px in painted if px > ambient]
+        assert len(brighter) > len(painted) * 0.9
+
+    def test_shading_follows_the_view_not_the_model(self, tmp_path):
+        """A mesh rotated in its own coordinates shades by where it faces on screen.
+
+        The normal is taken from the projected points, so two meshes that project
+        to the same silhouette shade the same. Taking it from the model-space
+        triangle instead made the lighting depend on the mesh's authored
+        orientation, which is what produced flat, unreadable tiles.
+        """
+        buf = render_stl(_write_binary(str(tmp_path / "a.stl"), _cube()), 64, 64)
+        # The same cube written with its facets in a different winding-preserving
+        # vertex rotation: identical geometry, identical projection.
+        rolled = [(b, c, a) for (a, b, c) in _cube()]
+        other = render_stl(_write_binary(str(tmp_path / "b.stl"), rolled), 64, 64)
+        assert buf == other
 
     def test_faces_are_shaded_differently(self, tmp_path):
         """Distinct colours across the visible faces — the 3D read at card size."""

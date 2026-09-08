@@ -30,6 +30,7 @@ from .constants import (
 )
 from .hashing import file_signature, hash_file
 from .metadata import _find_folder_artwork, _read_audio_metadata
+from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 from .thumbnails import archive_ext
 from ..models import Audio
 
@@ -52,6 +53,26 @@ def _needs_thumbnail_backfill(existing: Any, ext: str, arc_ext: str) -> bool:
     if arc_ext or getattr(existing, "has_thumbnail", False):
         return False
     return ext in VTT_DATA_EXTS or ext in MAP_VIDEO_EXTS
+
+
+def _needs_model_thumbnail_requeue(existing: Any, ext: str) -> bool:
+    """True when a registered model has no preview and nothing pending to make one.
+
+    Separate from ``_needs_thumbnail_backfill`` because the remedy differs: a map
+    is rasterised inline, while a mesh belongs on the deferred queue. Re-flagging
+    is all that is needed — the queue does the work once the walk is done.
+
+    This is what lets an existing library recover. Models registered while the
+    renderer refused them (a triangle count over the old cap, or a scan whose
+    queue never ran) sit at has_thumbnail=0 *and* thumbnail_pending=0, which no
+    code path revisits, so they would stay preview-less through every future
+    rescan.
+    """
+    if ext not in MODEL_THUMBNAIL_EXTS:
+        return False
+    if getattr(existing, "has_thumbnail", False):
+        return False
+    return not getattr(existing, "thumbnail_pending", False)
 
 
 def _scan_media(
@@ -132,6 +153,22 @@ def _scan_media(
                 # embedded in the file, and the walk would otherwise skip it
                 # forever — existing rows never re-enter the insert path below.
                 # Mirrors the same backfill for books (see books.py).
+                # A mesh with no preview goes back on the deferred queue rather
+                # than being rasterised here: it is the expensive case, and the
+                # queue already exists to keep it out of the walk.
+                if _needs_model_thumbnail_requeue(existing, ext):
+                    existing.thumbnail_pending = True
+                    try:
+                        _run_with_timeout(
+                            session.commit,
+                            _DB_TIMEOUT,
+                            f"commit {singular} requeue '{filepath}'",
+                        )
+                        logger.debug(f"Requeued model preview: {filepath}")
+                    except TimeoutError as e:
+                        logger.error(f"DB hang: {e} - rolling back '{filename}'")
+                        session.rollback()
+                    continue
                 if _needs_thumbnail_backfill(existing, ext, arc_ext):
                     thumb_path = ctx.thumb_path(section, title, filepath)
                     logger.debug(f"Backfilling thumbnail: {filepath}")
@@ -184,6 +221,17 @@ def _scan_media(
                     filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
                 ):
                     record.has_thumbnail = True
+                elif ext in MODEL_THUMBNAIL_EXTS:
+                    # A mesh judged small enough to rasterise inline still runs
+                    # against the scan's 30s budget, and that budget is sized for
+                    # this machine, not the slowest NAS Grimoire runs on. When it
+                    # is missed there is nothing else to try — an unflagged model
+                    # with no thumbnail is revisited by no code path — so hand it
+                    # to the deferred queue, which has minutes rather than
+                    # seconds. A mesh that is genuinely unreadable fails there
+                    # too, once, and has its flag cleared for good.
+                    logger.debug(f"Inline mesh render failed, deferring: {filepath}")
+                    record.thumbnail_pending = True
 
             session.add(record)
             logger.debug(f"DB: committing new {singular} '{filename}'")

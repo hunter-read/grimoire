@@ -608,13 +608,23 @@ itself, with no GPU and no extra dependencies, so a model grid looks like a mode
 grid rather than a wall of identical icons. Other formats show a placeholder, the
 same as an animated map or an archive.
 
-Rendering happens in software, so its cost tracks the triangle count - fractions
-of a second for a miniature, but tens of seconds for a photogrammetry scan. Large
-meshes are therefore **queued rather than rendered during the scan**, exactly as
-scanned PDFs are queued for text recognition: the library walk finishes at full
-speed, and the previews are drawn afterwards in a **Rendering model previews**
-phase you can watch in Maintenance. Each queued model gets up to a minute; a stop
-or a restart leaves the rest queued and they resume next time.
+Rendering happens in software, so its cost tracks the triangle count - a couple
+of seconds for a typical miniature, longer for a photogrammetry scan. The mesh is
+streamed rather than loaded into memory, so even a 14-million-triangle figure
+renders in a flat few dozen megabytes; models up to 20 million triangles get a
+preview. Only the heaviest meshes are **queued rather than rendered during the
+scan**, exactly as scanned PDFs are queued for text recognition: the library walk
+finishes at full speed, and those previews are drawn afterwards in a **Rendering
+model previews** phase you can watch in Maintenance. Each queued model gets up to
+five minutes - generous on purpose, since the renderer is single-threaded and a
+NAS or mini-PC takes several times longer than a desktop for the same mesh. A
+model that runs out of time during the scan itself is handed to the same queue
+rather than left without a preview, and a stop or a restart leaves the rest
+queued so they resume next time.
+
+Previews are drawn in the model's print orientation - Z up, the way it sits on
+the build plate - so a miniature stands on its base rather than lying on its
+side.
 
 **Viewing a model.** Opening one renders it in an interactive 3D viewer - drag to
 orbit, scroll to zoom, with a wireframe toggle and a reset-view button. `.stl`,
