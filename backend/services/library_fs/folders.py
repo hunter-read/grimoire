@@ -337,12 +337,22 @@ def scaffold_categories(path: str) -> dict:
     # adding a "Core" folder beside them would split one category across two
     # shelves and leave the user tidying up after the button that was supposed
     # to tidy for them.
+    #
+    # `guess_category` reads the category folder at a fixed index, so it has to
+    # be told how deep this system sits. `books/<system>` is the depth-2 default,
+    # but a system inside one or more containers pushes the category folder down
+    # by a level per container (issue #412) — read at the default depth, every
+    # candidate would resolve to the same container name and only the first would
+    # ever be created.
+    rel_target = to_relative(target)
+    system_depth = len(rel_target.split("/"))
+
     covered: dict[str, str] = {}
     try:
         for child in target.iterdir():
             if not child.is_dir() or child.name.startswith("."):
                 continue
-            category = guess_category(f"{to_relative(child)}/x.pdf")
+            category = guess_category(f"{to_relative(child)}/x.pdf", system_depth=system_depth)
             covered.setdefault(category, child.name)
     except OSError as e:
         logger.warning("Could not read %s while scaffolding: %s", target, e)
@@ -350,7 +360,7 @@ def scaffold_categories(path: str) -> dict:
     created: list[str] = []
     existing: list[str] = []
     for name in SCAFFOLD_CATEGORY_FOLDERS:
-        category = guess_category(f"{to_relative(target)}/{name}/x.pdf")
+        category = guess_category(f"{rel_target}/{name}/x.pdf", system_depth=system_depth)
         held_by = covered.get(category)
         if held_by is not None:
             existing.append(held_by)
@@ -373,5 +383,5 @@ def scaffold_categories(path: str) -> dict:
                 ) from e
             logger.warning("Could not create category folder %s: %s", child, e)
 
-    return {"path": to_relative(target), "created": created, "existing": existing}
+    return {"path": rel_target, "created": created, "existing": existing}
 
