@@ -43,8 +43,8 @@ describe('resourceKey', () => {
 })
 
 describe('PICKER_TYPES', () => {
-  it('is book/map/token/audio with no "all"', () => {
-    expect(PICKER_TYPES).toEqual(['book', 'map', 'token', 'audio'])
+  it('is every linkable collection with no "all"', () => {
+    expect(PICKER_TYPES).toEqual(['book', 'map', 'token', 'audio', 'model'])
   })
 })
 

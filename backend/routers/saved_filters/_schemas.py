@@ -4,7 +4,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, field_validator
 
 # Browsable content areas a saved filter can belong to.
-VALID_SCOPES = {"systems", "books", "maps", "tokens", "audio"}
+VALID_SCOPES = {"systems", "books", "maps", "tokens", "audio", "models"}
 
 
 class SavedFilterCreate(BaseModel):

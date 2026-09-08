@@ -9,6 +9,8 @@ from ...models import (
     AudioFolder,
     GenericMap,
     MapFolder,
+    Model3D,
+    Model3DFolder,
     ResourceTag,
     Tag,
     Token,
@@ -337,6 +339,23 @@ def _search_audio(db, parsed: ParsedQuery) -> list:
             # Either embedded/folder artwork or a UI-set cover gives the row a
             # thumbnail; the artwork endpoint serves whichever is present.
             "has_thumbnail": bool(a.has_artwork or a.cover_image),
+            "tags": tags,
+        },
+    )
+
+
+def _search_models(db, parsed: ParsedQuery) -> list:
+    return _search_media(
+        db,
+        parsed,
+        Model3D,
+        Model3DFolder,
+        "model",
+        serialize=lambda m, tags: {
+            "id": m.id,
+            "filename": m.filename,
+            "relative_path": m.relative_path,
+            "has_thumbnail": bool(m.has_thumbnail),
             "tags": tags,
         },
     )

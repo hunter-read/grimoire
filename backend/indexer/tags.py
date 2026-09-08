@@ -12,6 +12,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from ..models import (
+    Model3D,
+    Model3DFolder,
     Audio,
     AudioFolder,
     GameSystem,
@@ -111,11 +113,17 @@ def _apply_tags_from_library(
     _section_models = {
         "maps": (MapFolder, GenericMap),
         "tokens": (TokenFolder, Token),
+        "models": (Model3DFolder, Model3D),
         "audio": (AudioFolder, Audio),
     }
     # Section name → shared-tag resource_type (issue #235).
-    _section_resource = {"maps": "map", "tokens": "token", "audio": "audio"}
-    for section in ("maps", "tokens", "audio"):
+    _section_resource = {
+        "maps": "map",
+        "tokens": "token",
+        "audio": "audio",
+        "models": "model",
+    }
+    for section in ("maps", "tokens", "audio", "models"):
         section_dir = resolve_collection_dir(library, section)
         if not section_dir.exists():
             continue

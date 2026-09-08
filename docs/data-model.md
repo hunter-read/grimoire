@@ -12,7 +12,7 @@ The backend runs on SQLite. All primary keys are 36-char UUID strings (`_uuid()`
 ## Entity-Relationship Diagram
 
 The diagram groups tables by their model file. Solid lines are foreign keys; the crow's-foot
-end marks the "many" side. Media tables (`generic_maps`, `tokens`, `audio`) and the
+end marks the "many" side. Media tables (`generic_maps`, `tokens`, `audio`, `models_3d`) and the
 `*_folders` tag tables have no foreign keys - their `variant_parent_id` self-link is a soft
 reference, not a declared FK (see below) - and they are linked to campaigns only indirectly,
 through `campaign_resources` (a polymorphic `resource_type` + `resource_id`, not a real FK),
@@ -81,7 +81,7 @@ keys (`campaigns.parent_campaign_id`, `wiki_pages.parent_id`, `genres.parent_id`
 polymorphic soft links from `campaign_resources`/`favorites`/`resource_tags`/
 `user_access_grants`, which are *not* declared foreign keys.
 
-`variant_parent_id` on `books`/`generic_maps`/`tokens`/`audio` (issues #304, #306) is a
+`variant_parent_id` on `books`/`generic_maps`/`tokens`/`audio`/`models_3d` (issues #304, #306) is a
 self-referential **soft** link, deliberately not declared as a `ForeignKey`. SQLite cannot
 add a real one without a `batch_alter_table` rebuild of a heavily-indexed table, and with
 `PRAGMA foreign_keys=ON` it would make deleting a game system fail — `GameSystem.books`
@@ -159,7 +159,8 @@ All three media tables carry the same `variant_parent_id` / `variant_kind` /
 cut of the same file, but the `variant_kind` vocabulary is *scoped per
 collection* (`VARIANT_KINDS_BY_TYPE` in `backend/models/variants.py`): maps get
 gridded/gridless plus Universal VTT and video/image, tokens get colour
-variations, audio gets remix/slowed/sped-up, and books keep the print-shape
+variations, audio gets remix/slowed/sped-up, models get presupported/unsupported and
+split/merged, and books keep the print-shape
 kinds. The column itself is unconstrained, so a row written before the
 vocabulary was scoped may hold a kind its collection no longer offers; the
 service layer lets such a row keep its value but refuses to write that pairing
@@ -172,6 +173,8 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | --- | --- | --- |
 | `generic_maps` | A map image not tied to a system. | `filepath` unique. `content_hash`/`file_mtime` as on `books`. |
 | `tokens` | A token image for use on maps. | `filepath` unique. `is_explicit` gates by user preference. `content_hash`/`file_mtime` as on `books`. |
+| `models_3d` | A 3D printable model (miniature, terrain). | `filepath` unique. `is_explicit` gates by user preference. `content_hash`/`file_mtime` as on `books`. `triangle_count` is read from the binary STL header (0 when unknown). `thumbnail_pending` marks a mesh too heavy to rasterise during the scan; the deferred thumbnail queue renders it afterwards (mirrors `books.ocr_pending`). `is_supported` is **tri-state**: true presupported, false unsupported, NULL when the scan could not tell — defaulting it to false would assert something about every model in a library that does not use the naming convention. |
+| `model_3d_folders` | Tags applied to a model folder path. | `path` unique. Mirrors `map_folders`/`token_folders`/`audio_folders`. |
 | `audio` | An audio track. | `filepath` unique. Embedded metadata (`title`, `artist`, `duration`, …) populated by the indexer. `content_hash`/`file_mtime` as on `books`. `cover_image` is a bare filename under `DATA_PATH/audio_covers/` for a cover set through the UI, which takes precedence over folder art and embedded tags; `has_artwork` is true when any of the three is available. |
 | `map_folders`, `token_folders`, `audio_folders` | Folder tags for a media folder path. `tags` is a JSON list of tag **internal keys**; display casing comes from the `tags` catalog. `tags.json` applies additively (adds keys, never removes/overwrites) since the library is read-only. | `path` unique. |
 
@@ -181,8 +184,8 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | --- | --- | --- |
 | `users` | An authenticated account. | `username` unique; `email`, `opds_token`, `calendar_token`, `oidc_subject` unique + indexed. `calendar_token` authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from `opds_token` and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. |
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
-| `favorites` | Per-user favorite across books/maps/tokens. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
-| `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
+| `favorites` | Per-user favorite across books/maps/tokens/audio/models. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
+| `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio/models. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
 | `user_access_grants` | An override letting one user reach restricted content (issue #258). | FK `user_id` (indexed). `scope_type` ∈ system/book with `scope_id` (indexed) naming the target; `level` is the ceiling the grant raises the user to *within that scope*. `scope_id` is deliberately **not** a foreign key - it addresses two different tables depending on `scope_type`, which no single FK can express - so a deleted book or system leaves a harmless orphan that can never match. Only GMs may hold grants, enforced on both the write path and every read. **Unique** `(user_id, scope_type, scope_id)`. |
 | `user_themes` | A colour theme installed by one user, for that user only. | FK `user_id` (indexed). `tokens` JSON holds the `{name: colour}` map, re-validated against the token allowlist on read as well as write. `mode` ∈ light/dark is the primary colour mode; `variants` JSON holds `{colour_mode: {token: colour}}` so one theme can pair a light and a dark palette (a row predating it is read as single-mode, using `tokens`). `app_mode` ∈ grimoire/codex is which app mode the theme was built for (a preference, not a restriction). `source_id`/`source_url`/`source_version` record a downloaded theme's provenance and are null for one written in the app. **Unique** `(user_id, theme_id)`. |
 | `auth_sessions` | One login session - the unit of revocation behind refresh tokens (issue #157). | FK `user_id` (indexed). `refresh_token_hash` is a SHA-256 of the refresh token, unique + indexed (the token itself is never stored). `previous_token_hash` keeps the immediately-replaced hash so a replay of a rotated token is detectable, and is cleared on revoke. `origin` ∈ password/guest/oidc. `user_agent` truncated to 255 chars. `revoked_at` null while live; `expires_at` is the idle deadline, extended on each rotation. Index `ix_auth_sessions_user_revoked` on `(user_id, revoked_at)`. Rows are deleted by `session_purger` once expired or revoked more than 7 days ago. |

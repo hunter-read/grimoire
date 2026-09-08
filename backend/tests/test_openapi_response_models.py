@@ -36,6 +36,9 @@ UNTYPED_BY_DESIGN = {
     "/api/maps/{map_id}/thumbnail",
     # Streams the battlemap image decoded out of a Universal VTT envelope.
     "/api/maps/{map_id}/vtt/image",
+    # Streams the mesh file itself; also the source the 3D viewer loads.
+    "/api/models/{model_id}/file",
+    "/api/models/{model_id}/thumbnail",
     "/api/systems/{system_id}/cover",
     "/api/tokens/{token_id}/file",
     "/api/tokens/{token_id}/thumbnail",

@@ -363,6 +363,7 @@ const BULK_PATHS = {
   map: '/maps',
   token: '/tokens',
   audio: '/audio',
+  model: '/models',
 }
 
 // Setting an image from one Grimoire already holds (issue #286). Banner, system
@@ -394,6 +395,7 @@ export const imageSources = {
       map: `/maps/${id}/thumbnail`,
       token: `/tokens/${id}/thumbnail`,
       audio: `/audio/${id}/artwork`,
+      model: `/models/${id}/thumbnail`,
     }
     return paths[resourceType] ? mediaUrl(paths[resourceType]) : null
   },
@@ -535,6 +537,7 @@ const BULK_FOLDER_PATHS = {
   map: '/map-folders',
   token: '/token-folders',
   audio: '/audio-folders',
+  model: '/model-folders',
 }
 
 /**

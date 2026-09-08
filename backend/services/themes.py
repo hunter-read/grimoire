@@ -126,6 +126,7 @@ THEME_TOKENS: tuple[str, ...] = (
     "type-map",
     "type-token",
     "type-audio",
+    "type-model",
     "type-file",
     # The accent marking an item that has other versions. See the note beside
     # this entry in the frontend list.

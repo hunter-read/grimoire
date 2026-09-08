@@ -340,8 +340,11 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
 
     head, _, rest = cleaned.partition("/")
     section = head.lower()
-    if section not in ("books", "maps", "tokens", "audio"):
-        raise ValueError(f"scope must start with books/, maps/, tokens/, or audio/: {scope_path!r}")
+    if section not in ("books", "maps", "tokens", "audio", "models"):
+        raise ValueError(
+            "scope must start with books/, maps/, tokens/, audio/, or models/: "
+            f"{scope_path!r}"
+        )
 
     # Build the target without resolving symlinks so the walked paths match the
     # filepaths stored by an unscoped scan (which uses library_path verbatim).

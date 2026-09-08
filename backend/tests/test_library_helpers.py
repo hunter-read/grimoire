@@ -6,7 +6,6 @@ route) so the scan/stop/status orchestration is actually exercised.
 from unittest.mock import MagicMock, patch
 
 from backend.routers.library import _helpers
-from backend.tests.conftest import make_book, make_game_system
 
 
 class TestScanStatusState:
@@ -140,40 +139,70 @@ class TestRunRescanSync:
         assert _helpers._get_status()["running"] is False
 
 
-class TestBackgroundIndexer:
-    def test_background_indexer_no_books_exits_cleanly(self):
-        # No unindexed PDF books in the test DB → early exit after the sleep.
-        with patch.object(_helpers.time, "sleep", return_value=None):
-            _helpers.background_indexer()
-        # Did not flip the global status into an indexing run.
-        assert _helpers._get_status()["phase"] in (None, "scanning", "indexing")
+class TestRescanDrainsTheModelQueue:
+    """The thumbnail queue must be drained by the worker that actually runs.
 
-    def test_background_indexer_processes_unindexed_book(self):
-        # An unindexed PDF whose file is missing on disk → index_book_text raises,
-        # which is caught and the book is flagged index_failed. This exercises the
-        # indexer loop + error branch.
+    Regression, and the reason large models silently never got a preview: the
+    drain lived in ``background_indexer``, which nothing called — main.py starts
+    ``run_rescan_sync`` and so does the rescan endpoint. A model flagged
+    thumbnail_pending during the walk was therefore picked up by nothing at all,
+    and the scan still reported success, so there was no error to go looking for.
+    """
+
+    def test_rescan_drains_the_thumbnail_queue(self):
         _helpers._set_status({**_helpers._DEFAULT_STATUS})
         _helpers.clear_stop()
-        sys = make_game_system()
-        book = make_book(
-            system_id=sys.id,
-            filepath="/tmp/no-such-indexable.pdf",
-            mime_type="application/pdf",
-            indexed=False,
-        )
-        with patch.object(_helpers.time, "sleep", return_value=None):
-            _helpers.background_indexer()
-        from backend.config import SessionLocal
-        from backend.models import Book
+        with (
+            patch.object(_helpers, "scan_library", return_value={}),
+            patch.object(_helpers, "run_model_thumbnail_queue", return_value=0) as thumbs,
+            patch.object(_helpers, "run_ocr_queue", return_value=0),
+        ):
+            _helpers.run_rescan_sync()
+        thumbs.assert_called_once()
 
-        db = SessionLocal()
-        try:
-            refreshed = db.query(Book).filter_by(id=book.id).first()
-            # Either indexed or flagged failed — in both cases it was processed.
-            assert refreshed.indexed or refreshed.index_failed
-        finally:
-            db.close()
+    def test_thumbnails_are_drained_before_ocr(self):
+        """Previews are bounded and quick; OCR can run for hours.
+
+        A user watching a rescan should get their model previews without waiting
+        out a scanned library's text recognition.
+        """
+        order = []
         _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _helpers.clear_stop()
+        with (
+            patch.object(_helpers, "scan_library", return_value={}),
+            patch.object(
+                _helpers, "run_model_thumbnail_queue", side_effect=lambda: order.append("thumbs")
+            ),
+            patch.object(_helpers, "run_ocr_queue", side_effect=lambda: order.append("ocr")),
+        ):
+            _helpers.run_rescan_sync()
+        assert order == ["thumbs", "ocr"]
+
+    def test_a_models_only_library_still_drains(self):
+        """No books to index must not skip the drain — that was the original bug."""
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _helpers.clear_stop()
+        with (
+            patch.object(_helpers, "scan_library", return_value={}),
+            patch.object(_helpers, "run_model_thumbnail_queue", return_value=0) as thumbs,
+            patch.object(_helpers, "run_ocr_queue", return_value=0),
+        ):
+            _helpers.run_rescan_sync()
+        thumbs.assert_called_once()
+
+    def test_a_stop_request_skips_the_drain(self):
+        """A stop leaves the flags set so the next run picks the models back up."""
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _helpers.clear_stop()
+        with (
+            patch.object(_helpers, "scan_library", return_value={}),
+            patch.object(_helpers, "is_stop_requested", return_value=True),
+            patch.object(_helpers, "run_model_thumbnail_queue", return_value=0) as thumbs,
+            patch.object(_helpers, "run_ocr_queue", return_value=0),
+        ):
+            _helpers.run_rescan_sync()
+        thumbs.assert_not_called()
 
 
 class TestValkeyBranches:

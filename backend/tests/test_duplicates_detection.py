@@ -588,6 +588,50 @@ class TestSuggestKindScoping:
         )
         assert kind == "color-variation"
 
+    def test_suggests_model_support_kinds(self):
+        for mine, theirs, expected in [
+            ("Goblin_presupported.stl", "Goblin_unsupported.stl", "presupported"),
+            ("Goblin_unsupported.stl", "Goblin_presupported.stl", "unsupported"),
+            ("Goblin pre-supported.stl", "Goblin.stl", "presupported"),
+            ("Goblin no supports.stl", "Goblin.stl", "unsupported"),
+        ]:
+            kind, _ = duplicates.suggest_kind(_Rec(mine), _Rec(theirs), "model")
+            assert kind == expected, (mine, theirs, kind)
+
+    def test_unsupported_is_not_read_as_presupported(self):
+        # "unsupported" contains "supported", so pattern order is what keeps a
+        # mesh with no supports from being advertised as one that has them —
+        # the exact mistake that would send someone's print to the bin.
+        kind, _ = duplicates.suggest_kind(
+            _Rec("Dragon_unsupported.stl"), _Rec("Dragon.stl"), "model"
+        )
+        assert kind == "unsupported"
+
+    def test_suggests_model_split_and_merged(self):
+        for mine, theirs, expected in [
+            ("Dragon_split.stl", "Dragon_merged.stl", "split"),
+            ("Dragon_merged.stl", "Dragon_split.stl", "merged"),
+            ("Dragon multipart.stl", "Dragon.stl", "split"),
+            ("Dragon one-piece.stl", "Dragon.stl", "merged"),
+        ]:
+            kind, _ = duplicates.suggest_kind(_Rec(mine), _Rec(theirs), "model")
+            assert kind == expected, (mine, theirs, kind)
+
+    def test_model_kinds_do_not_leak_into_other_collections(self):
+        # A book named "..._split.pdf" is not a split miniature. Asserted as
+        # "never a model kind" rather than "always other", because a collection
+        # may legitimately reach its own conclusion from the pair (a .png beside
+        # a .mp4 is the still cut, whatever the filenames say).
+        model_kinds = {"presupported", "unsupported", "split", "merged"}
+        for rtype, mine, theirs in (
+            ("audio", "Theme_unsupported.mp3", "Theme.mp3"),
+            ("book", "Rules_split.pdf", "Rules.pdf"),
+            ("map", "Keep_presupported.png", "Keep.png"),
+            ("token", "Goblin_merged.png", "Goblin.png"),
+        ):
+            kind, _ = duplicates.suggest_kind(_Rec(mine), _Rec(theirs), rtype)
+            assert kind not in model_kinds, (rtype, mine, kind)
+
     def test_never_suggests_another_collections_kind(self):
         # "print" in an audio filename must not become printer-friendly, and a
         # gridless marker on a token must not become gridless.

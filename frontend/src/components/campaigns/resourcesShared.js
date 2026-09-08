@@ -1,17 +1,18 @@
-import { LuBookOpen, LuMap, LuUser, LuMusic, LuFile } from 'react-icons/lu'
+import { LuBookOpen, LuMap, LuUser, LuMusic, LuBox, LuFile } from 'react-icons/lu'
 
 export const TYPE_ICONS = {
   book: { Icon: LuBookOpen, color: 'var(--type-book)' },
   map: { Icon: LuMap, color: 'var(--type-map)' },
   token: { Icon: LuUser, color: 'var(--type-token)' },
   audio: { Icon: LuMusic, color: 'var(--type-audio)' },
+  model: { Icon: LuBox, color: 'var(--type-model)' },
   file: { Icon: LuFile, color: 'var(--type-file)' },
 }
 
 // Type tabs offered by the resource picker, in display order. No "all" tab —
 // one type at a time keeps the folder tree readable; "file" resources are
 // campaign uploads, not library items, so they aren't pickable here.
-export const PICKER_TYPES = ['book', 'map', 'token', 'audio']
+export const PICKER_TYPES = ['book', 'map', 'token', 'audio', 'model']
 
 /** Stable key for a resource across every picker/panel. */
 export function resourceKey(r) {
@@ -94,6 +95,7 @@ export const RESOURCE_NAV = {
   map: (id) => `/maps/${id}`,
   token: (id) => `/tokens/${id}`,
   audio: (id) => `/audio/${id}`,
+  model: (id) => `/models/${id}`,
 }
 
 // Visibility selector order: public, then private, then GM-only.

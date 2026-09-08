@@ -4,18 +4,15 @@ from typing import Any, Iterable, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from ...models import Audio, Book, GameSystem, GenericMap, Token
+from ...models import GameSystem
+from ...models.collections import COLLECTIONS, models_by_singular
 from ...services.variants import VariantError
 
 # Request ``resource_type`` → model. Taking the model from this table is what
 # structurally prevents cross-collection links: there is no code path that hands
-# two different models to the same link call.
-MODELS: dict[str, Any] = {
-    "book": Book,
-    "map": GenericMap,
-    "token": Token,
-    "audio": Audio,
-}
+# two different models to the same link call. Derived from the collection
+# registry so a new collection cannot be linkable here but missing elsewhere.
+MODELS: dict[str, Any] = models_by_singular()
 
 # VariantError codes → HTTP status, mirroring routers/files/core.py.
 _STATUS = {
@@ -31,53 +28,15 @@ _STATUS = {
 # columns themselves. Copying any of those would either corrupt the row's link
 # to its file or bypass the guards in services/variants.py. `game_system_id` is
 # excluded too — a book's system comes from where it sits on disk, and rewriting
-# it here would contradict the next rescan.
+# it here would contradict the next rescan. The exclusions are asserted in
+# tests/test_collection_registry.py.
 MERGEABLE_FIELDS: dict[str, frozenset] = {
-    "book": frozenset(
-        {
-            "title",
-            "description",
-            "authors",
-            "artists",
-            "publisher",
-            "publisher_url",
-            "urls",
-            "genres",
-            "isbn",
-            "version",
-            "language",
-            "license",
-            "year",
-            "month",
-            "day",
-            "category",
-            "is_explicit",
-            "tags",
-        }
-    ),
-    "map": frozenset({"description", "map_type", "grid_size", "tags"}),
-    "token": frozenset({"description", "is_explicit", "tags"}),
-    "audio": frozenset({"description", "title", "artist", "album", "tags"}),
+    key: spec.mergeable_fields for key, spec in COLLECTIONS.items()
 }
 
 # Fields shown side by side in the compare view, per collection.
 COMPARE_FIELDS: dict[str, tuple] = {
-    "book": (
-        "title",
-        "category",
-        "page_count",
-        "file_size",
-        "mime_type",
-        "publisher",
-        "version",
-        "language",
-        "year",
-        "isbn",
-        "content_hash",
-    ),
-    "map": ("map_type", "grid_size", "file_size", "description"),
-    "token": ("file_size", "description", "is_explicit"),
-    "audio": ("title", "artist", "album", "duration", "file_size"),
+    key: spec.compare_fields for key, spec in COLLECTIONS.items()
 }
 
 

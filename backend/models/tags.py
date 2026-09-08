@@ -6,13 +6,14 @@ key used for matching/deduplication and a human-facing ``display`` value (the
 casing the user first entered, editable on the tags page). :class:`ResourceTag`
 is the polymorphic join between a tag and a tagged resource.
 """
+from .collections import SINGULARS
 from sqlalchemy import Column, DateTime, ForeignKey, Index, String, UniqueConstraint
 
 from .base import Base, _utcnow, _uuid
 
 # Resource kinds a tag can be attached to. Kept in sync with the tag service and
 # the /api/tags router; mirrors the favorites VALID_TYPES set.
-RESOURCE_TYPES = frozenset({"system", "book", "map", "token", "audio"})
+RESOURCE_TYPES = frozenset({"system", *SINGULARS})
 
 # A tag belongs to exactly one category: the resource type it was created in, or
 # ``shared`` once it is used across more than one type (see tag_service).

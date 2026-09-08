@@ -5,6 +5,7 @@ import {
   LuSearch,
   LuMap,
   LuMusic,
+  LuBox,
   LuUser,
   LuBookOpen,
   LuChevronDown,
@@ -211,6 +212,7 @@ export default function SearchView() {
           const maps = results.maps ?? []
           const tokens = results.tokens ?? []
           const audio = results.audio ?? []
+          const models = results.models ?? []
           // Title matches respect the system dropdown like the page hits do,
           // so filtering to one system doesn't leave foreign books pinned on top.
           const bookMatches = systemFilter
@@ -290,79 +292,38 @@ export default function SearchView() {
                 </div>
               )}
 
-              {maps.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('maps')} style={sectionHeadStyle}>
-                    {collapsed.maps ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
-                    <LuMap size={14} /> {t('search.maps')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {maps.length}
-                    </span>
-                  </button>
-                  {!collapsed.maps &&
-                    maps.map((m) => (
-                      <ResultCard
-                        key={m.id}
-                        to={`/maps/${m.id}`}
-                        title={m.filename}
-                        subtitle={m.relative_path}
-                        tags={m.tags}
-                        type="map"
-                        id={m.id}
-                        hasThumbnail={m.has_thumbnail}
-                      />
-                    ))}
-                </div>
-              )}
-
-              {tokens.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('tokens')} style={sectionHeadStyle}>
-                    {collapsed.tokens ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
-                    <LuUser size={14} /> {t('search.tokens')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {tokens.length}
-                    </span>
-                  </button>
-                  {!collapsed.tokens &&
-                    tokens.map((tok) => (
-                      <ResultCard
-                        key={tok.id}
-                        to={`/tokens/${tok.id}`}
-                        title={tok.filename}
-                        subtitle={tok.relative_path}
-                        tags={tok.tags}
-                        type="token"
-                        id={tok.id}
-                        hasThumbnail={tok.has_thumbnail}
-                      />
-                    ))}
-                </div>
-              )}
-
-              {audio.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('audio')} style={sectionHeadStyle}>
-                    {collapsed.audio ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
-                    <LuMusic size={14} /> {t('search.audio')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {audio.length}
-                    </span>
-                  </button>
-                  {!collapsed.audio &&
-                    audio.map((a) => (
-                      <ResultCard
-                        key={a.id}
-                        to={`/audio/${a.id}`}
-                        title={a.title || a.filename}
-                        subtitle={a.relative_path}
-                        tags={a.tags}
-                        type="audio"
-                        id={a.id}
-                        hasThumbnail={a.has_thumbnail}
-                      />
-                    ))}
-                </div>
+              {[
+                { key: 'maps', items: maps, Icon: LuMap, type: 'map', path: 'maps' },
+                { key: 'tokens', items: tokens, Icon: LuUser, type: 'token', path: 'tokens' },
+                { key: 'audio', items: audio, Icon: LuMusic, type: 'audio', path: 'audio' },
+                { key: 'models', items: models, Icon: LuBox, type: 'model', path: 'models' },
+              ].map(({ key, items, Icon, type, path }) =>
+                items.length > 0 ? (
+                  <div key={key} style={{ marginBottom: 24 }}>
+                    <button onClick={() => toggleSection(key)} style={sectionHeadStyle}>
+                      {collapsed[key] ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                      <Icon size={14} /> {t(`search.${key}`)}
+                      <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                        {items.length}
+                      </span>
+                    </button>
+                    {!collapsed[key] &&
+                      items.map((item) => (
+                        <ResultCard
+                          key={item.id}
+                          to={`/${path}/${item.id}`}
+                          // Audio carries an embedded track title; the rest are
+                          // named by their filename.
+                          title={item.title || item.filename}
+                          subtitle={item.relative_path}
+                          tags={item.tags}
+                          type={type}
+                          id={item.id}
+                          hasThumbnail={item.has_thumbnail}
+                        />
+                      ))}
+                  </div>
+                ) : null
               )}
 
               {totalFiltered === 0 && (

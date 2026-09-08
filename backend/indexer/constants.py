@@ -201,6 +201,10 @@ def map_video_mime(ext: str) -> Optional[str]:
 def is_vtt_data(filename: str) -> bool:
     """True for a Universal VTT export (.uvtt/.dd2vtt) — a JSON envelope."""
     return Path(filename).suffix.lower() in VTT_DATA_EXTS
+# 3D printable models are declared in indexer/models3d.py — a per-format
+# capability table (viewable / thumbnailable / which loader), not just an
+# extension set, so it lives beside the code that reads those files.
+
 AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
 # Archive files shown alongside books in a category and served/bundled as opaque
 # blobs (their contents are not extracted during the scan).  Comic-book variants

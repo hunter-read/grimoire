@@ -21,6 +21,12 @@ function renderWith(items) {
 }
 
 const aMap = { item_type: 'map', item_id: 'm1', filename: 'Dungeon.png', has_thumbnail: false }
+const aModel = {
+  item_type: 'model',
+  item_id: 'md1',
+  filename: 'goblin.stl',
+  has_thumbnail: false,
+}
 const aBook = {
   item_type: 'book',
   item_id: 'b1',
@@ -47,6 +53,12 @@ describe('FavoritesView', () => {
     expect(screen.getByText('Books (1)')).toBeInTheDocument()
     expect(screen.getByText('Dungeon.png')).toBeInTheDocument()
     expect(screen.getByText('Core Rules')).toBeInTheDocument()
+  })
+
+  it('renders a models section', () => {
+    renderWith([aModel])
+    expect(screen.getByText('Models (1)')).toBeInTheDocument()
+    expect(screen.getByText('goblin.stl')).toBeInTheDocument()
   })
 
   it('collapses a section when its header is clicked and persists the state', () => {

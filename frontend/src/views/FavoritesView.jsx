@@ -6,6 +6,7 @@ import BookFavorite from '../components/favorites/BookFavorite'
 import MapFavorite from '../components/favorites/MapFavorite'
 import TokenFavorite from '../components/favorites/TokenFavorite'
 import AudioFavorite from '../components/favorites/AudioFavorite'
+import ModelFavorite from '../components/favorites/ModelFavorite'
 import SystemFavorite from '../components/favorites/SystemFavorite'
 import Tag from '../components/Tag'
 
@@ -18,6 +19,7 @@ export default function FavoritesView() {
   const maps = items.filter((i) => i.item_type === 'map')
   const tokens = items.filter((i) => i.item_type === 'token')
   const audio = items.filter((i) => i.item_type === 'audio')
+  const models = items.filter((i) => i.item_type === 'model')
   const tags = items.filter((i) => i.item_type === 'tag')
 
   if (items.length === 0) {
@@ -112,6 +114,15 @@ export default function FavoritesView() {
           title={t('favorites.audio', { count: audio.length })}
           items={audio}
           renderItem={(item, grid) => <AudioFavorite key={item.item_id} item={item} grid={grid} />}
+        />
+      )}
+
+      {models.length > 0 && (
+        <FavoritesSection
+          type="models"
+          title={t('favorites.models', { count: models.length })}
+          items={models}
+          renderItem={(item, grid) => <ModelFavorite key={item.item_id} item={item} grid={grid} />}
         />
       )}
     </div>

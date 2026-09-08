@@ -1,10 +1,10 @@
 """Background indexer and rescan helpers for the library."""
 import json
-import time
+import os
 
 from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey
-from ...models import Book
+from ...models import Book, Model3D
 from ...indexer import scan_library, index_book_text, ocr_book, reindex_single_book
 from ...indexer.formats import INDEXABLE_MIMES
 from ..books import _invalidate_book_cache
@@ -33,10 +33,13 @@ _DEFAULT_STATUS: dict = {
     "scanned_tokens": 0,
     "total_audio": 0,
     "scanned_audio": 0,
+    "total_models": 0,
+    "scanned_models": 0,
     "new_books": 0,
     "new_maps": 0,
     "new_tokens": 0,
     "new_audio": 0,
+    "new_models": 0,
     "updated_books": 0,
     # Books whose contents changed under an unchanged path (re-indexed in place),
     # and files recognised as moved rather than deleted-and-re-added (issue #284).
@@ -49,6 +52,11 @@ _DEFAULT_STATUS: dict = {
     "total_ocr": 0,
     "ocr_done": 0,
     "ocr_current": None,
+    # Deferred model-thumbnail queue progress (phase "thumbnails"). Same shape as
+    # the OCR counters above: queued / finished / filename in flight.
+    "total_thumbs": 0,
+    "thumbs_done": 0,
+    "thumbs_current": None,
 }
 
 # In-process fallback when Valkey is unavailable (single-worker or no cache)
@@ -108,67 +116,6 @@ def _set_status(updates: dict) -> None:
         except _VALKEY_ERRORS as e:
             logger.warning("Valkey set(status) failed, using in-process status: %s", e)
     _scan_status.update(updates)
-
-
-def background_indexer():
-    time.sleep(2)
-    db = SessionLocal()
-    try:
-        unindexed = (
-            db.query(Book)
-            .filter(
-                Book.indexed.is_(False),
-                Book.index_failed.is_(False),
-                # Every indexable format, not just PDF — an EPUB filtered out
-                # here is what left them permanently unsearchable (issue #373).
-                Book.mime_type.in_(INDEXABLE_MIMES),
-            )
-            .all()
-        )
-        if not unindexed:
-            logger.debug("Background indexer: no unindexed books found, exiting.")
-            return
-        logger.info(f"Making {len(unindexed)} book(s) searchable…")
-        if not _get_status()["running"]:
-            _set_status(
-                {
-                    "running": True,
-                    "phase": "indexing",
-                    "to_index": len(unindexed),
-                    "indexed": 0,
-                }
-            )
-        indexed_count = 0
-        for book in unindexed:
-            if is_stop_requested():
-                logger.info("Stopping - leaving the rest for next time.")
-                break
-            logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
-            try:
-                result = index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
-                if result:
-                    indexed_count += 1
-                    logger.debug(f"Index end: '{book.filename}' - success")
-                else:
-                    logger.debug(f"Index end: '{book.filename}' - skipped or no text extracted")
-            except Exception as e:
-                logger.error(f"Couldn't read text from '{book.title or book.filename}': {e}")
-                book.index_error = str(e)[:500]
-                book.index_failed = True
-                db.commit()
-            _set_status({"indexed": _get_status()["indexed"] + 1})
-        logger.info(f"Finished - {indexed_count} of {len(unindexed)} book(s) are now searchable.")
-    finally:
-        db.close()
-        if _get_status()["phase"] == "indexing":
-            _set_status({"running": False, "phase": None})
-    # Drain any books the fast phase queued for OCR (or left over from before).
-    if not is_stop_requested():
-        try:
-            run_ocr_queue()
-        finally:
-            if _get_status()["phase"] == "ocr":
-                _set_status({"running": False, "phase": None})
 
 
 def _ocr_one_book(book_id: str) -> str:
@@ -242,6 +189,10 @@ def run_ocr_queue() -> int:
         db.close()
 
     if not pending_ids:
+        # Logged rather than returning in silence. An empty queue and a queue
+        # that is never called look identical from the outside, and telling them
+        # apart is the whole diagnosis when a model has no preview.
+        logger.debug("Model preview queue: nothing pending.")
         return 0
 
     _set_status(
@@ -275,23 +226,147 @@ def run_ocr_queue() -> int:
     return completed
 
 
-def background_ocr():
-    """Startup recovery: resume any books left ocr_pending by a prior run."""
-    time.sleep(2)
-    if _get_status()["running"]:
-        return
+# Per-model budget for the deferred thumbnail queue. Far longer than the
+# scan-time budget because this runs after the fast phases, on files already
+# known to be heavy.
+#
+# 300s. Streaming made the renderer fast enough to raise MAX_TRIANGLES to 20M,
+# and a mesh that size measures ~57s on a fast desktop — so 180s looked like
+# three times the worst case. It is not, because the multiplier that matters is
+# not safety margin against the mesh, it is the speed ratio against the *host*.
+# Grimoire's typical home is a NAS or a mini-PC, frequently 3-5x slower per core
+# than a development machine, and this rasteriser is single-threaded pure Python
+# with no SIMD to fall back on. At 4x slower the largest allowed mesh needs
+# ~230s and a real 716 MB / 14M-triangle mini needs ~160s, both of which 180s
+# cuts off part-way.
+#
+# The symptom is the silent one — no preview, no error, and the flag cleared so
+# it is never retried — which is exactly what makes an over-tight budget worse
+# than a slow scan. This is a guard against a pathological file, not a
+# performance target: nothing waits on it, it runs after the fast phases are
+# done, and a healthy mesh never comes close to it. Buying headroom for slow
+# hardware costs nothing on fast hardware.
+MODEL_THUMBNAIL_TIMEOUT = 300
+
+
+def _thumbnail_one_model(model_id: str) -> str:
+    """Render one queued model. Returns "done" / "skipped" / "error".
+
+    Mirrors ``_ocr_one_book``: each model gets a fresh session, and an unexpected
+    exception is contained here rather than allowed to stall the drain. A failure
+    clears the pending flag so one unreadable mesh is not retried on every scan
+    forever.
+    """
+    db = SessionLocal()
     try:
-        run_ocr_queue()
+        model = db.query(Model3D).filter_by(id=model_id).first()
+        if not model or not model.thumbnail_pending:
+            return "skipped"
+        _set_status({"thumbs_current": model.filename})
+
+        from ...indexer import generate_thumbnail
+        from ...indexer._context import _title_from_filename, thumb_path_for
+
+        # Built by the same helper the scanner uses, not re-derived here: the
+        # filename encodes a slug and a path hash, and a second spelling of that
+        # rule would write files the serving route cannot find.
+        thumb_path = thumb_path_for(
+            os.path.join(DATA_PATH, "thumbnails"),
+            "models",
+            _title_from_filename(model.filename),
+            model.filepath,
+        )
+        ok = generate_thumbnail(
+            model.filepath,
+            thumb_path,
+            size=(300, 300),
+            should_stop=is_stop_requested,
+            timeout=MODEL_THUMBNAIL_TIMEOUT,
+        )
+        # A stop leaves the flag set so the next run picks the model back up;
+        # a genuine failure clears it so we do not retry it forever.
+        if is_stop_requested() and not ok:
+            return "skipped"
+        model.has_thumbnail = bool(ok)
+        model.thumbnail_pending = False
+        db.commit()
+        return "done" if ok else "error"
+    except Exception as e:  # noqa: BLE001 - one bad mesh must not stall the drain
+        logger.error(f"Thumbnail queue: failed on model {model_id}: {e}")
+        try:
+            model = db.query(Model3D).filter_by(id=model_id).first()
+            if model:
+                model.thumbnail_pending = False
+                db.commit()
+        except Exception:
+            db.rollback()
+        return "error"
     finally:
-        if _get_status()["phase"] == "ocr":
-            _set_status({"running": False, "phase": None})
+        db.close()
+
+
+def run_model_thumbnail_queue() -> int:
+    """Render the meshes the scan was too busy to rasterise (thumbnail_pending=1).
+
+    The visual counterpart of the deferred-OCR queue, and deferred for the same
+    reason: the work is CPU-bound, per-file cost varies by orders of magnitude,
+    and none of it should sit between the user and a finished library walk.
+
+    Resumable: a stop leaves the flag set, so the next scan — or the startup
+    recovery pass — picks up exactly the models that never got their turn.
+    """
+    db = SessionLocal()
+    try:
+        pending_ids = [
+            m.id
+            for m in db.query(Model3D)
+            .filter_by(thumbnail_pending=True)
+            # Lightest first: a queue interrupted half way should have produced
+            # as many thumbnails as it could, not one giant scan.
+            .order_by(Model3D.triangle_count.asc())
+            .all()
+        ]
+    finally:
+        db.close()
+
+    if not pending_ids:
+        # Logged rather than returning in silence. An empty queue and a queue
+        # that is never called look identical from the outside, and telling them
+        # apart is the whole diagnosis when a model has no preview.
+        logger.debug("Model preview queue: nothing pending.")
+        return 0
+
+    _set_status(
+        {
+            "running": True,
+            "phase": "thumbnails",
+            "total_thumbs": len(pending_ids),
+            "thumbs_done": 0,
+        }
+    )
+    logger.info(f"Rendering previews for {len(pending_ids)} large model(s).")
+    completed = 0
+    try:
+        for model_id in pending_ids:
+            if is_stop_requested():
+                logger.info("Stopping - leaving the rest for next time.")
+                break
+            if _thumbnail_one_model(model_id) == "done":
+                completed += 1
+            _set_status({"thumbs_done": _get_status()["thumbs_done"] + 1})
+        logger.info(
+            f"Finished rendering {completed} of {len(pending_ids)} large model preview(s)."
+        )
+    finally:
+        _set_status({"thumbs_current": None})
+    return completed
 
 
 def trigger_ocr_queue():
     """Drain the OCR queue now (on-demand, e.g. after a per-book re-OCR request).
 
-    Unlike background_ocr this has no startup delay. It no-ops if a scan/OCR run
-    is already in progress — the newly-queued book is picked up by that run (or
+    Unlike the startup scan this has no delay of its own. It no-ops if a
+    scan/OCR run is already in progress — the newly-queued book is picked up by that run (or
     the next one), since the queue lives in the DB. Clears the running/phase flags
     on completion when this call owns the OCR phase.
     """
@@ -374,7 +449,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             # --- Phase 1: file scan ---
             logger.info("Scanning your library for new and changed files…")
 
-            def on_progress(sb, tb, sm, tm, st, tt, sa, ta):
+            def on_progress(sb, tb, sm, tm, st, tt, sa, ta, smo=0, tmo=0):
                 _set_status(
                     {
                         "scanned_books": sb,
@@ -385,11 +460,13 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                         "total_tokens": tt,
                         "scanned_audio": sa,
                         "total_audio": ta,
+                        "scanned_models": smo,
+                        "total_models": tmo,
                     }
                 )
                 logger.debug(
                     f"File scan progress: books={sb}/{tb}, maps={sm}/{tm}, "
-                    f"tokens={st}/{tt}, audio={sa}/{ta}"
+                    f"tokens={st}/{tt}, audio={sa}/{ta}, models={smo}/{tmo}"
                 )
 
             stats = scan_library(
@@ -402,6 +479,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 + stats.get("new_maps", 0)
                 + stats.get("new_tokens", 0)
                 + stats.get("new_audio", 0)
+                + stats.get("new_models", 0)
             )
             _errors = stats.get("errors", 0)
             _msg = (
@@ -417,6 +495,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 f"File scan end: new_books={stats.get('new_books', 0)}, "
                 f"new_maps={stats.get('new_maps', 0)}, new_tokens={stats.get('new_tokens', 0)}, "
                 f"new_audio={stats.get('new_audio', 0)}, "
+                f"new_models={stats.get('new_models', 0)}, "
                 f"updated_books={stats.get('updated_books', 0)}, "
                 f"errors={_errors}"
             )
@@ -426,11 +505,12 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                     "new_maps": stats.get("new_maps", 0),
                     "new_tokens": stats.get("new_tokens", 0),
                     "new_audio": stats.get("new_audio", 0),
+                    "new_models": stats.get("new_models", 0),
                     "updated_books": stats.get("updated_books", 0),
                     "replaced_books": stats.get("replaced_books", 0),
                     "moved_files": sum(
                         stats.get(f"moved_{k}", 0)
-                        for k in ("books", "maps", "tokens", "audio")
+                        for k in ("books", "maps", "tokens", "audio", "models")
                     ),
                 }
             )
@@ -476,7 +556,26 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         finally:
             db.close()
 
-        # --- Phase 3: deferred OCR of scanned/image-only PDFs ---
+        # --- Phase 3: deferred model previews ---
+        # The meshes the walk flagged rather than rasterised. This runs here, in
+        # run_rescan_sync, because this is the only worker startup and the
+        # rescan endpoint actually call: draining the queue anywhere else means
+        # a model flagged thumbnail_pending is never picked up by anything, and
+        # the failure is silent — the scan reports success, and the model simply
+        # never grows a preview.
+        #
+        # Before OCR, not after: thumbnails are bounded per file and finish in
+        # minutes, while OCR of a scanned library can run for hours, and a user
+        # watching a rescan should get their model previews without waiting it
+        # out.
+        if not is_stop_requested():
+            try:
+                run_model_thumbnail_queue()
+            finally:
+                if _get_status()["phase"] == "thumbnails":
+                    _set_status({"running": True, "phase": None})
+
+        # --- Phase 4: deferred OCR of scanned/image-only PDFs ---
         # Runs after the fast phases so text-layer books and other media are
         # already searchable; scanned books grind here without blocking them.
         if not is_stop_requested():

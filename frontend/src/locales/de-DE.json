@@ -19,7 +19,8 @@
     "more": "Mehr",
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen",
-    "audio": "Audio"
+    "audio": "Audio",
+    "models": "Models"
   },
   "stats": {
     "systems": "Systeme",
@@ -30,7 +31,8 @@
     "booksSize": "Größe (Bücher)",
     "librarySize": "Größe (Bibliothek)",
     "version": "Version",
-    "audio": "Audio"
+    "audio": "Audio",
+    "models": "Models"
   },
   "about": {
     "title": "Über Grimoire",
@@ -253,6 +255,7 @@
     "expandBook": "{{title}} ausklappen",
     "collapseBook": "{{title}} einklappen",
     "audio": "Audio",
+    "models": "Models",
     "titleMatch": "Titel",
     "help": {
       "open": "Hilfe zur Suchsyntax",
@@ -282,7 +285,8 @@
     "tokens": "Tokens ({{count}})",
     "onlyFavorites": "Nur Favoriten",
     "noFavoritesInView": "Hier gibt es noch keine Favoriten. Klicke auf das Herz-Symbol bei einem beliebigen Element, um es zu speichern.",
-    "audio": "Audio ({{count}})"
+    "audio": "Audio ({{count}})",
+    "models": "Models ({{count}})"
   },
   "tags": {
     "title": "Tags",
@@ -325,6 +329,7 @@
     "category_map": "Karte",
     "category_token": "Marke",
     "category_audio": "Audio",
+    "category_model": "Model",
     "category_shared": "Geteilt"
   },
   "files": {
@@ -583,6 +588,61 @@
       "noTags": "Keine"
     }
   },
+  "models": {
+    "title": "Models",
+    "subtitle_one": "{{count}} model in your collection",
+    "subtitle_other": "{{count}} models in your collection",
+    "subtitleFiltered_one": "Displaying {{count}} of {{total}} models in your collection",
+    "subtitleFiltered_other": "Displaying {{count}} of {{total}} models in your collection",
+    "filterPlaceholder": "Filter models…",
+    "filterAriaLabel": "Filter models",
+    "bulkTag": "Tag models",
+    "cancelBulk": "Cancel",
+    "bulkHint": "Select models to tag them together.",
+    "tagsPlaceholder": "Tags, comma separated",
+    "addTags": "Add tags",
+    "applying": "Applying…",
+    "noModelsFilter": "No models match your filter.",
+    "noModels": "No models found. Add models to /library/models/ and rescan.",
+    "modelCount_one": "{{count}} model",
+    "modelCount_other": "{{count}} models",
+    "expandFolder": "Expand folder",
+    "collapseFolder": "Collapse folder",
+    "downloadAllInFolder": "Download all models in {{folder}}",
+    "downloadInSubfolder": "Download models in this subfolder",
+    "editTags": "Edit tags",
+    "editTagsFull": "Edit tags",
+    "download": "Download",
+    "missing": "Missing",
+    "explicit": "Explicit",
+    "presupported": "Presupported",
+    "unsupported": "Unsupported",
+    "triangles": "{{count}} triangles",
+    "supportUnknown": "Unknown",
+    "viewerLoading": "Loading model…",
+    "viewerError": "This model could not be displayed.",
+    "viewerUnavailable": "No preview for this format.",
+    "viewerTooLarge": "This model is larger than the viewer's limit.",
+    "viewerOversizedWarning": "Loading it may be slow, and on a device with limited memory the tab may become unresponsive.",
+    "viewerLoadAnyway": "Load anyway",
+    "wireframe": "Wireframe",
+    "resetView": "Reset view",
+    "detail": {
+      "title": "Model Details",
+      "back": "Back to models",
+      "details": "Details",
+      "location": "Location",
+      "fileSize": "File Size",
+      "triangles": "Triangles",
+      "supports": "Supports",
+      "cycleSupports": "Click to change: presupported / unsupported / unknown",
+      "explicitContent": "Explicit content",
+      "folderTags": "Folder Tags",
+      "modelTags": "Model Tags",
+      "editTags": "Edit",
+      "noTags": "None"
+    }
+  },
   "settings": {
     "title": "Einstellungen",
     "tabs": {
@@ -749,6 +809,7 @@
       "viewModeMaps": "Karten",
       "viewModeTokens": "Tokens",
       "viewModeAudio": "Audio",
+      "viewModeModels": "Models",
       "recentLimit": "Zuletzt geöffnete Bücher",
       "recentLimitHint": "Wie viele zuletzt geöffnete Bücher gemerkt werden (0–{{max}}). Auf 0 setzen, um den Bereich auszublenden."
     },
@@ -787,7 +848,8 @@
       "hideMaps": "Karten ausblenden",
       "hideTokens": "Tokens ausblenden",
       "hideCampaigns": "Kampagnen ausblenden",
-      "hideAudio": "Audio ausblenden"
+      "hideAudio": "Audio ausblenden",
+      "hideModels": "Hide Models"
     },
     "sidebarStats": {
       "title": "Seitenleisten-Statistiken",
@@ -900,7 +962,9 @@
       "scanningPercent": "Scannen… {{pct}}%",
       "indexing": "PDFs indizieren… {{indexed}} / {{total}}",
       "ocr": "OCR… {{done}} / {{total}}",
+      "thumbnails": "Rendering model previews ({{done}}/{{total}})…",
       "ocrProgress": "{{pct}}% - {{done}} von {{total}} gescannten Büchern per OCR erfasst",
+      "thumbsProgress": "{{pct}}% — {{done}} of {{total}} model(s)",
       "ocrCurrent": "Aktuell: {{name}}",
       "stop": "Stoppen",
       "stopping": "Wird gestoppt…",
@@ -921,9 +985,11 @@
       "mapsProgress": "{{scanned}}/{{total}} Karten",
       "tokensProgress": "{{scanned}}/{{total}} Tokens",
       "audioProgress": "{{scanned}}/{{total}} Audio",
+      "modelsProgress": "{{scanned}}/{{total}} models",
       "indexProgress": "{{pct}}% - {{indexed}} von {{total}} PDFs indiziert",
       "updated_one": "{{count}} updated",
-      "updated_other": "{{count}} updated"
+      "updated_other": "{{count}} updated",
+      "models": "{{count}} new model(s)"
     },
     "scheduledRescan": {
       "title": "Geplanter Rescan",
@@ -1467,7 +1533,8 @@
     "uploading": "Wird hochgeladen…",
     "emptyCategory": "Ressourcen hierher ziehen",
     "deleteFileConfirm": "Diese Datei entfernen? Sie wird aus der Kampagne gelöscht.",
-    "audio": "Audio"
+    "audio": "Audio",
+    "models": "Models"
   },
   "download": {
     "title": "Archiv herunterladen",
@@ -1719,6 +1786,7 @@
     "embed_map": "Karte",
     "embed_token": "Token",
     "embed_audio": "Audio",
+    "embed_model": "Model",
     "embedBookPage": "{{title}} - S. {{page}}",
     "parentLabel": "Übergeordnete Seite",
     "noParent": "Oberste Ebene",

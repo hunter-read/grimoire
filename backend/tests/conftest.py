@@ -23,6 +23,7 @@ from backend.models import (  # noqa: E402
     GameSystem,
     Book,
     GenericMap,
+    Model3D,
     Token,
     Audio,
     Campaign,
@@ -265,6 +266,25 @@ def make_token(**kwargs) -> Token:
     db.close()
     _sync_tags("token", t.id, tags)
     return t
+
+
+def make_model3d(**kwargs) -> Model3D:
+    uid = str(uuid.uuid4())[:8]
+    defaults = dict(
+        filename=f"model-{uid}.stl",
+        filepath=f"/tmp/model-{uid}.stl",
+        relative_path=f"models/model-{uid}.stl",
+    )
+    defaults.update(kwargs)
+    tags = defaults.pop("tags", None)
+    db = SessionLocal()
+    m = Model3D(**defaults)
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    db.close()
+    _sync_tags("model", m.id, tags)
+    return m
 
 
 def make_audio(**kwargs) -> Audio:

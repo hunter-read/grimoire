@@ -32,22 +32,22 @@ A Docker-based web application for managing your tabletop RPG PDF collection. Br
 ## Features
 
 - **Library Browser** - Organizes your collection by game system with automatic folder detection
-- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds books by title, author, or publisher, and maps, tokens, and audio by filename, folder, or tag. Narrow a search to one field with `title:`, `author:`, `tag:` and friends - see [Searching your library](#searching-your-library)
+- **Full-Text Search** - Every page of every PDF is indexed with SQLite FTS5 for instant search; also finds books by title, author, or publisher, and maps, tokens, audio, and 3D models by filename, folder, or tag. Narrow a search to one field with `title:`, `author:`, `tag:` and friends - see [Searching your library](#searching-your-library)
 - **Page-by-Page Viewer** - PDFs rendered as images for fast mobile viewing with pinch-to-zoom, swipe navigation, and spread mode
 - **Map Gallery** - Browse battlemaps by directory structure with tag filtering, grid metadata, and full-res download. Image, PDF, animated (`.webm`/`.mp4`), and Universal VTT (`.uvtt`/`.dd2vtt`) maps all display in-app; multi-page PDF maps open in a viewer with single-page, two-page spread, and raw-PDF modes. Large maps are shown through a downscaled preview so they appear promptly no matter how big the original is, while downloads still give you the untouched file
 - **Token Browser** - Browse and tag character tokens and portrait assets
 - **Audio Library** - Browse ambient tracks, soundscapes, music, and sound effects by directory structure with tag filtering and in-browser playback (MP3, OGG, Opus, FLAC, WAV, M4A, AAC). Reads embedded duration and title/artist/album tags, and uses folder `cover`/`folder` images or embedded album art for artwork
 - **Global Audio Player** - A persistent pop-out player that keeps playing while you navigate. Build a local queue by playing a whole folder, queueing tracks one at a time ("Play Next"), having a GM play a campaign resource group, or playing all the audio embedded in a wiki note. Expand it to see and reorder upcoming tracks, with a repeat-current-track toggle
 - **Bookmarks** - Per-user page and text-selection bookmarks with inline highlights
-- **Favorites** - Save systems, books, maps, tokens, and audio for quick access
-- **Shared Tags** - One tag catalog across systems, books, maps, tokens, and audio. Tags match on a lowercased internal key with an editable display name, so "Draw Steel" and "draw steel" are the same tag. A dedicated Tags page lists every tag with usage counts, lets you rename/merge/delete, and browses all items carrying a tag; clicking a tag anywhere jumps there. Filter dropdowns show only tags used on the current page, and campaign resources can be bulk-added by tag
-- **View Modes** - Toggle the systems, books, maps, tokens, and audio grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
+- **Favorites** - Save systems, books, maps, tokens, audio, and 3D models for quick access
+- **Shared Tags** - One tag catalog across systems, books, maps, tokens, audio, and 3D models. Tags match on a lowercased internal key with an editable display name, so "Draw Steel" and "draw steel" are the same tag. A dedicated Tags page lists every tag with usage counts, lets you rename/merge/delete, and browses all items carrying a tag; clicking a tag anywhere jumps there. Filter dropdowns show only tags used on the current page, and campaign resources can be bulk-added by tag
+- **View Modes** - Toggle the systems, books, maps, tokens, audio, and model grids between card, compact, and list layouts; each content type remembers its own default (configurable in Account Settings) while the in-page toggle is a per-tab override. Cards and list rows include quick download and favorite buttons.
 - **Metadata Editor** - Rich metadata for systems (multiple genres, dice/materials, system family, parent system + edition, license, year, and multiple generic + character-builder links) and books (authors, artists, genres, ISBN, version, language, a per-book license override, a variable-precision publication date, and multiple links). Genres, system families, parent systems, licenses, and dice/materials are drawn from curated lists you manage in **Settings → Metadata** (each section collapsible; defaults plus your own custom values). A *parent system* groups related systems (e.g. D&D 5e and AD&D under "Dungeons & Dragons"), and an *edition* string combines with it for display ("Cyberpunk" + "Red" → "Cyberpunk Red")
 - **Community Add-ons** - Install metadata scrapers contributed by the community to fill in game system and book details from external sources (TTRPG Wiki for systems, DriveThruRPG for books). Open a system or book, hit **Fetch metadata**, pick a match, and review a field-by-field diff before anything is written - values you have already set are never pre-selected. Definitions live in the separate [community-add-ons](https://github.com/grimoire-codex/community-add-ons) repo, so a source that changes can be fixed without waiting for a Grimoire release. Manage and update them in **Settings → Add-ons**, where each add-on shows a "by <author>" credit for whoever wrote it; see [`docs/addons.md`](docs/addons.md)
 - **Themes & Light Mode** - Choose light, dark, or system (which follows your OS) in **Settings → Account → Appearance**. Beyond the built-in palettes you can install colour themes: browse the community catalogue, or paste a theme's JSON to install it directly. Themes are **per user** - one is installed into your own account and changes nothing for anyone else, so no admin approval is involved. A theme can pair a light and a dark palette, so it shows as one entry and **System** switches between them with your OS. The catalogue ships **High Contrast**, which does exactly that with every text-on-background pairing at WCAG AAA; it raises luminance contrast only and does not address colourblindness. See [`docs/themes.md`](docs/themes.md)
 - **Wiki Note Templates** - Start a campaign wiki page from a template instead of a blank note. Browse a community catalogue as a folder tree (Generic, Draw Steel, Dungeons & Dragons 5e, …) and download copies into your campaign, write your own, or upload a Markdown file or template `.zip`. Templates belong to the campaign, so you can edit a downloaded one freely; any template exports as a ready-to-contribute folder that uploads straight back in. Downloading can be turned off with `DISABLE_EXTERNAL_ADD_ON_INSTALL` while authoring and upload keep working; see [`docs/wiki-templates.md`](docs/wiki-templates.md)
 - **Sort & Filter** - Sort systems by name, book count, total page count, or year, and books by title, page count, or year. A shared filter modal covers genre, system family, parent system, edition, dice/materials, tags, favourites, and explicit content. Named filter presets are saved to your account (server-side, so they follow you across devices), and one preset per view can be set as the default you land on. The default applies every time you arrive at a view fresh - from anywhere else in the app, or on a reload. The one exception is the in-app back button: if you change the filters, open an item, and come back, you land on what you were looking at rather than having the default reapplied over it. Sort, filters, saved presets, multi-select, and the view switcher share a single toolbar row that stays pinned to the top of the page as you scroll, so bulk-selecting entries near the bottom of a long library no longer means scrolling back up
-- **Bulk Actions** - Multi-select books, maps, tokens, and audio (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. An "apply to all" button opens a checklist of fields to copy from the item you are on to the whole selection - tick Category and every selected book moves at once - and books and systems can pull metadata from an installed add-on without leaving the carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
+- **Bulk Actions** - Multi-select books, maps, tokens, audio, and 3D models (click, shift-click for a range, ⌘/Ctrl-click to toggle) then bulk tag, add to a campaign, or edit metadata via a carousel. An "apply to all" button opens a checklist of fields to copy from the item you are on to the whole selection - tick Category and every selected book moves at once - and books and systems can pull metadata from an installed add-on without leaving the carousel. A single book can be added to a campaign without multi-select from its actions menu (**⋮**)
 - **Duplicate Detection & Versions** - Find files that are copies of one another, then decide what happens to them. An admin-triggered scan on its own full page (**Settings → Maintenance → Open duplicate detection**) matches byte-identical files, near-identical titles, overlapping page text (so a book scanned twice is caught even though its bytes differ), and gridded/gridless map pairs, labelling each group with why it was flagged and how confident it is. Nothing is ever deleted automatically. Results are reviewed two copies at a time, side by side, so one odd file in a cluster of five can be separated out on its own: per pair you can collapse them into one entry and say what kind of variant the other copy is, copy metadata from the better record onto the one you are keeping, delete a copy, or mark the pair as "not duplicates" - which sticks across every future scan
 - **Campaigns** - Track GM-run and personal campaigns; a markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import & export, character art and sheets, linked resources, and scheduling
 - **Book Restrictions** - Keep the adventure module your players are inside out of their hands. Restrict a single book, a whole system, or an entire category to *GMs and admins* or *admins only*, set by admins in the book/system editors, in bulk edit, or in **Settings → Application**. Restricted content is hidden outright - from the library, search, downloads, favourites, and OPDS - rather than shown behind a padlock, since the title and cover are the spoiler. Settings cascade book → system → category, so one free player's guide can stay visible inside an otherwise restricted line, and individual GMs can be granted access to just their own campaign's material. See [Restricting books](#restricting-books)
@@ -90,10 +90,16 @@ library/
 ├── tokens/
 │   └── Monsters/
 │       └── goblin.png
-└── audio/
-    └── Ambient/
-        ├── cover.jpg
-        └── tavern-night.mp3
+├── audio/
+│   └── Ambient/
+│       ├── cover.jpg
+│       └── tavern-night.mp3
+└── models/
+    └── Goblins/
+        ├── Presupported/
+        │   └── goblin-archer.stl
+        └── Unsupported/
+            └── goblin-archer.stl
 ```
 
 See [Library Structure](#library-structure) for the full layout and category rules.
@@ -274,7 +280,7 @@ Ordinary archives are treated as opaque downloads - Grimoire does not extract or
 
 Comic-book archives (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are the exception: they open in the reader and page through the images inside them, and they get a cover thumbnail from the first page. Pages are ordered by filename, which is the convention comic archives are built on (`page01.jpg`, `page02.jpg`, ...); macOS resource-fork entries and hidden files are skipped. Only the page you are looking at is decompressed, so a large collection doesn't have to be unpacked to read one issue.
 
-Archives are also recognized under `maps/`, `tokens/`, and `audio/`, where they appear in the gallery next to your images and tracks marked with an **Archive** badge. Map packs and art collections are often distributed zipped alongside supplementary files (PSDs, STLs, source files), so bundling them keeps the extras with the maps they belong to without cluttering the gallery. Opening one offers a download instead of a preview - there is no thumbnail, no image viewer, and no audio player, since the contents are never extracted. The comic-book extensions (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are books-only and are skipped in these collections.
+Archives are also recognized under `maps/`, `tokens/`, `audio/`, and `models/`, where they appear in the gallery next to your images and tracks marked with an **Archive** badge. Map packs and art collections are often distributed zipped alongside supplementary files (PSDs, STLs, source files), so bundling them keeps the extras with the maps they belong to without cluttering the gallery. Opening one offers a download instead of a preview - there is no thumbnail, no image viewer, and no audio player, since the contents are never extracted. The comic-book extensions (`.cbz`, `.cbr`, `.cb7`, `.cbt`) are books-only and are skipped in these collections.
 
 #### Special collections (system-agnostic & one-page)
 
@@ -576,11 +582,74 @@ audio/
 
 The folder name is shown as a group header in the audio library. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`. Duration and embedded title/artist/album tags are read on scan. For artwork, Grimoire uses a `cover.*` or `folder.*` image in the track's folder if present, otherwise falls back to embedded album art.
 
+### 3D Models - organize by creature, set, or creator
+
+```
+models/
+└── Goblins/
+    ├── Presupported/
+    │   └── goblin-archer.stl
+    └── Unsupported/
+        └── goblin-archer.stl
+```
+
+The folder name is shown as a group header in the model library. Printable
+miniatures and terrain live here and behave like any other collection - search,
+filter, tag, favorite, bulk-edit, add to a campaign, and group as versions.
+
+**Formats.** `.stl` (binary and ASCII), `.obj`, `.ply`, `.3mf`, `.glb`, `.gltf`,
+and the sliced resin formats `.lys`, `.ctb`, `.cbddlp`, `.pwmx`, `.photon`.
+Everything listed is indexed, searchable, and downloadable. Sliced files are a
+stack of per-layer images built for one specific printer rather than geometry,
+so they are stored and served but never previewed.
+
+**Thumbnails.** `.stl` files get a rendered preview: Grimoire rasterises the mesh
+itself, with no GPU and no extra dependencies, so a model grid looks like a model
+grid rather than a wall of identical icons. Other formats show a placeholder, the
+same as an animated map or an archive.
+
+Rendering happens in software, so its cost tracks the triangle count - a couple
+of seconds for a typical miniature, longer for a photogrammetry scan. The mesh is
+streamed rather than loaded into memory, so even a 14-million-triangle figure
+renders in a flat few dozen megabytes; models up to 20 million triangles get a
+preview. Only the heaviest meshes are **queued rather than rendered during the
+scan**, exactly as scanned PDFs are queued for text recognition: the library walk
+finishes at full speed, and those previews are drawn afterwards in a **Rendering
+model previews** phase you can watch in Maintenance. Each queued model gets up to
+five minutes - generous on purpose, since the renderer is single-threaded and a
+NAS or mini-PC takes several times longer than a desktop for the same mesh. A
+model that runs out of time during the scan itself is handed to the same queue
+rather than left without a preview, and a stop or a restart leaves the rest
+queued so they resume next time.
+
+Previews are drawn in the model's print orientation - Z up, the way it sits on
+the build plate - so a miniature stands on its base rather than lying on its
+side.
+
+**Viewing a model.** Opening one renders it in an interactive 3D viewer - drag to
+orbit, scroll to zoom, with a wireframe toggle and a reset-view button. `.stl`,
+`.3mf`, `.glb`, and `.ply` are displayed; sliced files and the multi-file formats
+(`.obj`, non-binary `.gltf`) offer a download instead. A mesh over 256 MB is not
+loaded automatically, since that is past what a browser tab renders comfortably -
+Grimoire warns you that it may be slow or unresponsive and lets you load it
+anyway if you want it, or download it instead. The viewer is loaded on demand, so
+it costs nothing until you open a model.
+
+**Presupported vs unsupported.** Resin miniatures usually ship twice - once with
+printing supports attached and once without. Grimoire reads this from the file
+name or the folder above it (`Presupported/`, `goblin_unsupported.stl`,
+`no supports/`, `_sup`, `_unsup`, and similar spellings) and badges each model
+accordingly. A model it cannot classify is left unmarked rather than guessed at,
+and you can always set it yourself from the model's detail page - the
+**Supports** row there cycles presupported → unsupported → unknown. Pair the two
+copies with the **presupported** / **unsupported** version kinds to collapse them
+into one entry - see [Duplicates and versions](#duplicates-and-versions).
+
 ---
 
 ## Tagging with tags.json
 
-Drop a `tags.json` file into any `maps/`, `tokens/`, or `audio/` folder (or subfolder) to automatically apply tags when the library is scanned. You can also place one inside a game system folder under `books/` to tag the system itself.
+Drop a `tags.json` file into any `maps/`, `tokens/`, `audio/`, or `models/` folder (or subfolder) to automatically apply tags when the library is scanned. You can also place one inside a game system folder under `books/` to tag the system itself.
 
 `tags.json` is a plain JSON object. Keys are paths resolved relative to the folder the file lives in:
 
@@ -637,7 +706,7 @@ ignore/                 # skip an entire folder
 !keep-this.pdf          # re-include a file an earlier rule excluded
 ```
 
-The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth, anchoring with `/`), and rules apply to every collection: `books/`, `maps/`, `tokens/`, and `audio/`. Changes take effect on the next scan. Adding a rule that matches an already-indexed file hides it (marked missing) on the next rescan; remove the rule and rescan to bring it back.
+The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth, anchoring with `/`), and rules apply to every collection: `books/`, `maps/`, `tokens/`, `audio/`, and `models/`. Changes take effect on the next scan. Adding a rule that matches an already-indexed file hides it (marked missing) on the next rescan; remove the rule and rescan to bring it back.
 
 ---
 
@@ -650,7 +719,7 @@ Admins can reorganize the library from inside Grimoire - **Settings → Maintena
 of Grimoire's own concepts) built for bulk reorganization:
 
 - **It opens at the library root**, showing `books`, `maps`, `tokens`, and
-  `audio` side by side. Everything in the library is managed here, so the tree
+  `audio`, and `models` side by side. Everything in the library is managed here, so the tree
   starts where all of it is visible rather than inside `books/`.
 - **Expand folders in place** to see a file and its destination at once, instead
   of navigating away from one to reach the other.
@@ -807,7 +876,7 @@ Libraries accumulate copies: the same book bought in a bundle and standalone, `B
 
 **Search accuracy** picks how hard to look, from **Exact** to **Low**. Exact compares file contents only: it is the fastest option and never reports a false positive, but it misses a book scanned twice. The looser levels progressively widen the net to similar titles and overlapping text, take longer, and return matches you will need to judge. **High** is the default and the usual choice - it catches the renamed copy that Exact walks past, while keeping false positives rare enough to review quickly. Drop to **Medium** or **Low** when you are hunting for something the default did not find.
 
-**Collections** limits the scan to the collections you tick - books, maps, tokens, or audio. A map is never a duplicate of a book, so each collection is scanned separately anyway and skipping the ones you are not sorting out is time saved outright. Leave everything unticked to scan all four, which is what a scan does by default.
+**Collections** limits the scan to the collections you tick - books, maps, tokens, audio, or 3D models. A map is never a duplicate of a book, so each collection is scanned separately anyway and skipping the ones you are not sorting out is time saved outright. Leave everything unticked to scan them all, which is what a scan does by default.
 
 Files in *different game systems* are treated with suspicion: a shared title there is discounted rather than trusted, and ignored entirely when either file is under 10 pages. `Character Sheet.pdf` exists once per system and those are not copies of each other. Files with no system set - most maps and tokens - are unaffected, and byte-identical files still match wherever they are filed, because the same bytes are the same file.
 
@@ -840,8 +909,9 @@ The pairs shown are the comparisons that actually matched, not every combination
   | Maps | Gridded, gridless, Universal VTT, video, image, printer friendly, black and white |
   | Tokens | Colour variation, black and white |
   | Audio | Remix, slowed, sped up |
+  | 3D Models | Presupported, unsupported, split, merged |
 
-  **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers.
+  **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. **Presupported**/**unsupported** is the same idea for a resin miniature, and **split**/**merged** covers a mini cut into printable parts versus the same mini as one piece. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers.
 
 - **Delete a copy** - asks for confirmation in a dialog, and removes the file from disk by default. That default is the opposite of elsewhere in Grimoire, deliberately: you have just decided this copy is redundant, and leaving the bytes in the library folder means the next scan proposes the same pair all over again. Untick the box to drop only the library record.
 - **Not duplicates** - dismisses that pair. It disappears from the list straight away rather than lingering until the next scan, and it stays gone: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it. Dismissals are not final, though - **Show dismissed** at the foot of the duplicates page lists everything you have rejected, with a **Restore** button on each. Restoring one lets it be proposed again by the next scan (the list on screen was built while the dismissal still applied, so it does not reappear until you rescan).
@@ -850,11 +920,11 @@ The pairs shown are the comparisons that actually matched, not every combination
 
 **When the copy you are demoting is already filed under something else.** Versions are only ever one level deep, so a copy that is already a variant of a third book cannot be filed under a fourth as well. Rather than just refusing, the page names the group that copy belongs to and offers two ways forward: **Move that group here** promotes in one step - the other group's main version, and everything under it including the copy on screen, moves under the copy you are keeping - or **Compare with the main version first** reopens the comparison against that main version, so you can look at the two files that the move actually concerns before committing to it.
 
-**Living with versions.** An entry that has other versions carries a badge. Books get a **Switch version** entry in the ⋮ menu, both in the library and while reading - switching in the reader keeps your page, so moving between a spreads cut and a single-page cut lands you in the same place. Maps, tokens, and audio get a dropdown on their detail page. A book's **View details** panel lists every version it holds, with a download link for each.
+**Living with versions.** An entry that has other versions carries a badge. Books get a **Switch version** entry in the ⋮ menu, both in the library and while reading - switching in the reader keeps your page, so moving between a spreads cut and a single-page cut lands you in the same place. Maps, tokens, audio, and models get a dropdown on their detail page. A book's **View details** panel lists every version it holds, with a download link for each.
 
 **How a version is named in those pickers.** Each one reads as its kind and its label together - *Gridded · v1.2* - since two gridded cuts of one map often differ by nothing but the label you typed, and a bare *v1.2* does not say what kind of file it is. *Version* and *Other* are the exceptions: they describe nothing, so a version marked with either shows its label alone, or its filename when it has no label. Its filename sits underneath in smaller, dimmer text, so you can always see which file a choice points at - shown once, never doubled up with a label that repeats it.
 
-**Downloading one version.** A single download asks which version you want, rather than silently handing you the main one: the download action on a map, token, or audio card, on a detail page, or in a book's ⋮ menu opens a short menu of the versions when there is more than one to choose from. With only one version it stays a one-click download. (Bulk downloads are unchanged - see below.)
+**Downloading one version.** A single download asks which version you want, rather than silently handing you the main one: the download action on a map, token, audio, or model card, on a detail page, or in a book's ⋮ menu opens a short menu of the versions when there is more than one to choose from. With only one version it stays a one-click download. (Bulk downloads are unchanged - see below.)
 
 **Fixing a mistake.** Everything about a family can be changed after the fact from the book's **View details** panel *or* its metadata editor, so a mis-click during review is not permanent. Admins get, per version: a dropdown to change what kind of version it is (picked *printer friendly* when you meant *black and white*), **Make main** to promote it to the main version, **Unlink** to pull it back out as its own library entry, and a delete button that asks whether to remove the file from disk or only drop Grimoire's record of it. Non-admins see the list and the download links, but none of the controls.
 
@@ -877,7 +947,7 @@ Cancelling a scan (or restarting the server mid-scan) no longer leaves a partly-
 ## Searching your library
 
 The search box looks in two places at once: the **text inside your books**, and
-the **books, maps, tokens, and audio themselves**. Typing `Avatar` turns up the
+the **books, maps, tokens, audio, and models themselves**. Typing `Avatar` turns up the
 book *Avatar Legends Core Rulebook* at the top of the results - with its cover,
 and no page numbers, because it is the book itself that matched - followed by
 every page that happens to mention the word.
@@ -899,7 +969,7 @@ The full list, with the alternative spellings each one accepts:
 
 | Field | Also accepts | Searches |
 |-------|--------------|----------|
-| `title` | `name` | Book titles, map and token filenames, audio track titles |
+| `title` | `name` | Book titles, map/token/model filenames, audio track titles |
 | `author` | `authors` | Book authors |
 | `artist` | `artists` | Book artists, audio artist |
 | `publisher` | | Publisher |

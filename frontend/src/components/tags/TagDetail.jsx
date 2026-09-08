@@ -5,6 +5,7 @@ import BookFavorite from '../favorites/BookFavorite'
 import MapFavorite from '../favorites/MapFavorite'
 import TokenFavorite from '../favorites/TokenFavorite'
 import AudioFavorite from '../favorites/AudioFavorite'
+import ModelFavorite from '../favorites/ModelFavorite'
 import SystemFavorite from '../favorites/SystemFavorite'
 
 const CARD_FOR_TYPE = {
@@ -13,9 +14,10 @@ const CARD_FOR_TYPE = {
   map: MapFavorite,
   token: TokenFavorite,
   audio: AudioFavorite,
+  model: ModelFavorite,
 }
 
-const TYPE_ORDER = ['system', 'book', 'map', 'token', 'audio']
+const TYPE_ORDER = ['system', 'book', 'map', 'token', 'audio', 'model']
 
 /**
  * Detail pane for a selected tag: header (favorite/rename/delete), then a

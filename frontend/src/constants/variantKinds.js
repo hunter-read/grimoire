@@ -42,6 +42,7 @@ export const VARIANT_KINDS_BY_TYPE = {
   ],
   token: ['version', 'color-variation', 'black-and-white', 'other'],
   audio: ['version', 'remix', 'slowed', 'sped-up', 'other'],
+  model: ['version', 'presupported', 'unsupported', 'split', 'merged', 'other'],
 }
 
 /**
@@ -56,7 +57,7 @@ export const VARIANT_KINDS_BY_TYPE = {
  */
 export const VARIANT_KINDS = [
   ...new Set(
-    ['book', 'map', 'token', 'audio']
+    ['book', 'map', 'token', 'audio', 'model']
       .flatMap((type) => VARIANT_KINDS_BY_TYPE[type])
       .filter((kind) => kind !== 'other')
   ),

@@ -42,6 +42,7 @@ from .routers import (
     duplicates as duplicates_router,
     maintenance as maintenance_router,
     maps as maps_router,
+    models as models_router,
     oidc as oidc_router,
     opds as opds_router,
     saved_filters as saved_filters_router,
@@ -84,6 +85,13 @@ _TAGS = [
         "description": "Book catalog - browse, read, download, and edit book metadata.",
     },
     {"name": "maps", "description": "Map gallery - browse, tag, and download battle maps."},
+    {
+        "name": "models",
+        "description": (
+            "3D model library - browse, tag, and download printable miniatures "
+            "and terrain."
+        ),
+    },
     {"name": "audio", "description": "Audio library - browse, tag, stream, and download tracks."},
     {"name": "search", "description": "Full-text search across all indexed book pages."},
     {
@@ -290,6 +298,7 @@ api.include_router(lookups_router.router)
 api.include_router(maps_router.router)
 api.include_router(tokens_router.router)
 api.include_router(audio_router.router)
+api.include_router(models_router.router)
 api.include_router(library_router.router)
 api.include_router(search_router.router)
 api.include_router(campaigns_router.router)

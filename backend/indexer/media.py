@@ -12,8 +12,9 @@ Patch-safety: ``generate_thumbnail`` is stubbed by tests via
 """
 import logging
 import os
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 
 from sqlalchemy.exc import IntegrityError
 
@@ -29,6 +30,7 @@ from .constants import (
 )
 from .hashing import file_signature, hash_file
 from .metadata import _find_folder_artwork, _read_audio_metadata
+from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 from .thumbnails import archive_ext
 from ..models import Audio
 
@@ -53,6 +55,26 @@ def _needs_thumbnail_backfill(existing: Any, ext: str, arc_ext: str) -> bool:
     return ext in VTT_DATA_EXTS or ext in MAP_VIDEO_EXTS
 
 
+def _needs_model_thumbnail_requeue(existing: Any, ext: str) -> bool:
+    """True when a registered model has no preview and nothing pending to make one.
+
+    Separate from ``_needs_thumbnail_backfill`` because the remedy differs: a map
+    is rasterised inline, while a mesh belongs on the deferred queue. Re-flagging
+    is all that is needed — the queue does the work once the walk is done.
+
+    This is what lets an existing library recover. Models registered while the
+    renderer refused them (a triangle count over the old cap, or a scan whose
+    queue never ran) sit at has_thumbnail=0 *and* thumbnail_pending=0, which no
+    code path revisits, so they would stay preview-less through every future
+    rescan.
+    """
+    if ext not in MODEL_THUMBNAIL_EXTS:
+        return False
+    if getattr(existing, "has_thumbnail", False):
+        return False
+    return not getattr(existing, "thumbnail_pending", False)
+
+
 def _scan_media(
     ctx: _ScanContext,
     walk_dir: Path,
@@ -60,12 +82,19 @@ def _scan_media(
     exts: set,
     model: Any,
     thumb_size: tuple,
+    enrich: Optional[Callable[[Any, str], None]] = None,
 ) -> None:
     """Shared walk for maps and tokens (image files → thumbnailed records).
 
     Archives (zip/rar/7z/tar) are registered too (issue #250) — map packs and art
     collections are often distributed zipped alongside supplementary files. They
     are opaque: no thumbnail is generated, since there is no image to render.
+
+    ``enrich`` is called with a freshly built record and its path before the
+    insert, for collections carrying columns the shared walk knows nothing about
+    (a 3D model's triangle count and presupported flag). It is deliberately a
+    hook rather than a fourth branch here: audio has its own walk only because
+    its metadata read is heavyweight, and reading an STL header is not.
 
     Returns early if a stop is requested mid-walk.
     """
@@ -124,6 +153,22 @@ def _scan_media(
                 # embedded in the file, and the walk would otherwise skip it
                 # forever — existing rows never re-enter the insert path below.
                 # Mirrors the same backfill for books (see books.py).
+                # A mesh with no preview goes back on the deferred queue rather
+                # than being rasterised here: it is the expensive case, and the
+                # queue already exists to keep it out of the walk.
+                if _needs_model_thumbnail_requeue(existing, ext):
+                    existing.thumbnail_pending = True
+                    try:
+                        _run_with_timeout(
+                            session.commit,
+                            _DB_TIMEOUT,
+                            f"commit {singular} requeue '{filepath}'",
+                        )
+                        logger.debug(f"Requeued model preview: {filepath}")
+                    except TimeoutError as e:
+                        logger.error(f"DB hang: {e} - rolling back '{filename}'")
+                        session.rollback()
+                    continue
                 if _needs_thumbnail_backfill(existing, ext, arc_ext):
                     thumb_path = ctx.thumb_path(section, title, filepath)
                     logger.debug(f"Backfilling thumbnail: {filepath}")
@@ -162,17 +207,31 @@ def _scan_media(
                 content_hash=hash_file(filepath, should_stop=ctx.should_stop),
             )
 
+            if enrich is not None:
+                enrich(record, filepath)
+
             # Archives are the only opaque case left: there is no single image
             # in a map pack to call the cover. Universal VTT files carry the
             # battlemap as base64 inside the JSON, and animated maps decode to a
             # frame, so both thumbnail like any other image.
-            if not arc_ext:
+            if not arc_ext and not getattr(record, "thumbnail_pending", False):
                 thumb_path = ctx.thumb_path(section, title, filepath)
                 logger.debug(f"Generating thumbnail: {filepath}")
                 if indexer.generate_thumbnail(
                     filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
                 ):
                     record.has_thumbnail = True
+                elif ext in MODEL_THUMBNAIL_EXTS:
+                    # A mesh judged small enough to rasterise inline still runs
+                    # against the scan's 30s budget, and that budget is sized for
+                    # this machine, not the slowest NAS Grimoire runs on. When it
+                    # is missed there is nothing else to try — an unflagged model
+                    # with no thumbnail is revisited by no code path — so hand it
+                    # to the deferred queue, which has minutes rather than
+                    # seconds. A mesh that is genuinely unreadable fails there
+                    # too, once, and has its flag cleared for good.
+                    logger.debug(f"Inline mesh render failed, deferring: {filepath}")
+                    record.thumbnail_pending = True
 
             session.add(record)
             logger.debug(f"DB: committing new {singular} '{filename}'")
@@ -283,3 +342,60 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             except IntegrityError:
                 session.rollback()
                 logger.debug(f"Audio already exists, skipping: {filepath}")
+
+
+# Presupported/unsupported detection. Checked against the filename *and* the
+# folder path above it, because the near-universal convention on model sites is
+# folder-level — ``Goblins/Presupported/goblin_a.stl`` — rather than per file.
+#
+# Order matters and is not incidental: "unsupported" contains "supported", so a
+# naive supported-first check labels every unsupported file as presupported.
+# _UNSUPPORTED is always tried first, and the supported pattern deliberately
+# does not match a bare "supported" preceded by "un".
+_UNSUPPORTED_RE = re.compile(
+    r"(?:^|[\W_])(?:un[\s_-]?supported|unsup|no[\s_-]?supports?|raw)(?:$|[\W_])",
+    re.I,
+)
+_PRESUPPORTED_RE = re.compile(
+    r"(?:^|[\W_])(?:pre[\s_-]?supported|presup|supported|supports?|sup)(?:$|[\W_])",
+    re.I,
+)
+
+
+def _detect_support(relative_path: str) -> Optional[bool]:
+    """True presupported, False unsupported, None when the name says nothing.
+
+    Deliberately tri-state rather than defaulting to False: a library that does
+    not use the convention would otherwise have every model asserting it ships
+    without supports, which is a claim the scan cannot make.
+    """
+    text = relative_path.replace("\\", "/")
+    if _UNSUPPORTED_RE.search(text):
+        return False
+    if _PRESUPPORTED_RE.search(text):
+        return True
+    return None
+
+
+def _enrich_model(record: Any, filepath: str) -> None:
+    """Fill the 3D-specific columns on a freshly built model row.
+
+    All three reads are cheap by construction: the triangle count comes from the
+    binary STL's 84-byte header rather than a parse, the support flag is a regex
+    over the path we already have, and the deferral decision follows from the
+    count.
+
+    A mesh past ``INLINE_TRIANGLE_BUDGET`` is flagged rather than rendered here.
+    Rasterising happens in Python, so a 4M-triangle scan costs tens of seconds —
+    time the library walk should not spend. The deferred thumbnail queue picks it
+    up once the fast phases are done, exactly as image-only PDFs are handed to
+    the deferred-OCR queue.
+    """
+    from .stl_render import INLINE_TRIANGLE_BUDGET, MAX_TRIANGLES, triangle_count
+
+    count = triangle_count(filepath)
+    record.triangle_count = count
+    record.is_supported = _detect_support(record.relative_path or filepath)
+    # 0 means "not a binary STL" (an ASCII mesh, or a format with no parser), so
+    # it says nothing about weight and must not be read as "small".
+    record.thumbnail_pending = INLINE_TRIANGLE_BUDGET < count <= MAX_TRIANGLES

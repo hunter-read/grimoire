@@ -14,6 +14,7 @@ class SettingsPatch(BaseModel):
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
     hide_audio: Optional[bool] = None
+    hide_models: Optional[bool] = None
     hide_campaigns: Optional[bool] = None
     # {category_slug: "gm"|"admin"} restricting whole categories app-wide
     # (issue #258). Validated in the handler against the unrestrictable list.
@@ -24,6 +25,7 @@ class SettingsPatch(BaseModel):
     show_stat_maps: Optional[bool] = None
     show_stat_tokens: Optional[bool] = None
     show_stat_audio: Optional[bool] = None
+    show_stat_models: Optional[bool] = None
     show_stat_size: Optional[bool] = None
     show_stat_library_size: Optional[bool] = None
     campaign_uploads_disabled: Optional[bool] = None
@@ -78,6 +80,7 @@ class SettingsResponse(BaseModel):
     hide_maps: bool
     hide_tokens: bool
     hide_audio: bool
+    hide_models: bool
     hide_campaigns: bool
     restricted_categories: dict
     show_stat_systems: bool
@@ -86,6 +89,7 @@ class SettingsResponse(BaseModel):
     show_stat_maps: bool
     show_stat_tokens: bool
     show_stat_audio: bool
+    show_stat_models: bool
     show_stat_size: bool
     show_stat_library_size: bool
     password_auth_enabled: bool
@@ -148,6 +152,7 @@ class UISettingsResponse(BaseModel):
     hide_maps: bool
     hide_tokens: bool
     hide_audio: bool
+    hide_models: bool
     hide_campaigns: bool
     show_stat_systems: bool
     show_stat_books: bool
@@ -155,6 +160,7 @@ class UISettingsResponse(BaseModel):
     show_stat_maps: bool
     show_stat_tokens: bool
     show_stat_audio: bool
+    show_stat_models: bool
     show_stat_size: bool
     show_stat_library_size: bool
     campaign_uploads_disabled: bool

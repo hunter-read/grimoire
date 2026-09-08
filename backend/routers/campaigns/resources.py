@@ -146,7 +146,7 @@ def add_resource(
 ):
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
-    if data.resource_type not in ("book", "map", "token", "audio", "file"):
+    if data.resource_type not in ("book", "map", "token", "audio", "model", "file"):
         raise HTTPException(400, "Invalid resource_type")
 
     existing = (
@@ -205,7 +205,7 @@ def bulk_add_resources(
     order = len(existing_keys)
     created = []
     for item in data.resources:
-        if item.resource_type not in ("book", "map", "token", "audio", "file"):
+        if item.resource_type not in ("book", "map", "token", "audio", "model", "file"):
             continue
         key = (item.resource_type, item.resource_id)
         if key in existing_keys:

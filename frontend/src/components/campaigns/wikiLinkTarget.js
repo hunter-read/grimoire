@@ -20,7 +20,7 @@
 
 const ID_SUFFIX_RE = /:id-([0-9A-Za-z_-]+)$/
 
-export const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'file:', 'image:']
+export const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'model:', 'file:', 'image:']
 
 export function isEmbed(target) {
   const lower = (target || '').trim().toLowerCase()

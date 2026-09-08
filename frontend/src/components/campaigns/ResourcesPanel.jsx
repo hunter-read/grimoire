@@ -34,6 +34,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
     map: t('resources.maps'),
     token: t('resources.tokens'),
     audio: t('resources.audio'),
+    model: t('resources.models'),
     file: t('resources.files'),
   }
 

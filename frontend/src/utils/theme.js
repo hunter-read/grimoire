@@ -92,6 +92,7 @@ export const THEME_TOKENS = [
   'type-map',
   'type-token',
   'type-audio',
+  'type-model',
   'type-file',
   // The accent marking an item that has other versions (the version picker, the
   // gallery badge, the duplicate compare view). Wired through `--p-variant` like

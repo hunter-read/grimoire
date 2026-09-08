@@ -3,7 +3,8 @@ import os
 import threading
 
 from ...config import logger
-from ...models import Audio, Book, Campaign, GameSystem, GenericMap, Token
+from ...models.collections import iter_specs
+from ...models import Book, Campaign, GameSystem
 from ...services.library_fs.references import purge_references
 
 _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
@@ -112,7 +113,8 @@ def _do_cleanup(db) -> dict:
     Commits after each deleted record so the write lock is released between
     rows and doesn't block concurrent scanner sessions.
     """
-    removed = {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "systems": 0}
+    removed = {spec.section: 0 for spec in iter_specs()}
+    removed["systems"] = 0
 
     books = db.query(Book).all()
     logger.debug(f"Cleanup: checking {len(books)} book(s)")
@@ -131,47 +133,33 @@ def _do_cleanup(db) -> dict:
 
     removed["systems"] += _prune_orphaned_systems(db)
 
-    maps = db.query(GenericMap).all()
-    logger.debug(f"Cleanup: checking {len(maps)} map(s)")
-    for m in maps:
-        logger.debug(f"Cleanup: checking map '{m.filename}' ({m.filepath})")
-        if not _path_exists(m.filepath):
-            logger.info(f"Cleanup: removing missing map '{m.filename}' ({m.filepath})")
-            purge_references(db, GenericMap, m.id)
-            db.delete(m)
-            db.commit()
-            logger.debug(f"Cleanup: committed removal of map id={m.id}")
-            removed["maps"] += 1
-        else:
-            logger.debug(f"Cleanup: map '{m.filename}' present - skipping")
-
-    tokens = db.query(Token).all()
-    logger.debug(f"Cleanup: checking {len(tokens)} token(s)")
-    for t in tokens:
-        logger.debug(f"Cleanup: checking token '{t.filename}' ({t.filepath})")
-        if not _path_exists(t.filepath):
-            logger.info(f"Cleanup: removing missing token '{t.filename}' ({t.filepath})")
-            purge_references(db, Token, t.id)
-            db.delete(t)
-            db.commit()
-            logger.debug(f"Cleanup: committed removal of token id={t.id}")
-            removed["tokens"] += 1
-        else:
-            logger.debug(f"Cleanup: token '{t.filename}' present - skipping")
-
-    audio = db.query(Audio).all()
-    logger.debug(f"Cleanup: checking {len(audio)} audio track(s)")
-    for a in audio:
-        logger.debug(f"Cleanup: checking audio '{a.filename}' ({a.filepath})")
-        if not _path_exists(a.filepath):
-            logger.info(f"Cleanup: removing missing audio '{a.filename}' ({a.filepath})")
-            purge_references(db, Audio, a.id)
-            db.delete(a)
-            db.commit()
-            logger.debug(f"Cleanup: committed removal of audio id={a.id}")
-            removed["audio"] += 1
-        else:
-            logger.debug(f"Cleanup: audio '{a.filename}' present - skipping")
+    # Maps, tokens, audio and models differ only in their model class, so they
+    # run through one loop driven by the collection registry rather than four
+    # copies of it — which is also what keeps a newly added collection from
+    # being silently skipped here.
+    for spec in iter_specs():
+        if spec.singular == "book":
+            continue
+        rows = db.query(spec.model).all()
+        logger.debug(f"Cleanup: checking {len(rows)} {spec.singular}(s)")
+        for row in rows:
+            logger.debug(
+                f"Cleanup: checking {spec.singular} '{row.filename}' ({row.filepath})"
+            )
+            if not _path_exists(row.filepath):
+                logger.info(
+                    f"Cleanup: removing missing {spec.singular} "
+                    f"'{row.filename}' ({row.filepath})"
+                )
+                purge_references(db, spec.model, row.id)
+                db.delete(row)
+                db.commit()
+                logger.debug(f"Cleanup: committed removal of {spec.singular} id={row.id}")
+                removed[spec.section] += 1
+            else:
+                logger.debug(
+                    f"Cleanup: {spec.singular} '{row.filename}' present - skipping"
+                )
 
     return removed
 

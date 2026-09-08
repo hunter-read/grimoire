@@ -13,20 +13,15 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ..models.collections import MEDIA_SINGULARS, iter_specs
 from ..models import (
     RESOURCE_TYPES,
     SHARED_CATEGORY,
-    Audio,
-    AudioFolder,
     Book,
     BookFolder,
     GameSystem,
-    GenericMap,
-    MapFolder,
     ResourceTag,
     Tag,
-    Token,
-    TokenFolder,
 )
 
 # Media folders carry their own JSON ``tags`` (folder tagging is separate from
@@ -35,9 +30,9 @@ from ..models import (
 # follow-up). A folder's ``path`` is collection-relative (e.g. "Swamps") and an
 # item lives under it when its ``relative_path`` contains ``/<path>/``.
 _FOLDER_SOURCES = [
-    (MapFolder, GenericMap, "map"),
-    (TokenFolder, Token, "token"),
-    (AudioFolder, Audio, "audio"),
+    (spec.folder_model, spec.model, spec.singular)
+    for spec in iter_specs()
+    if spec.singular in MEDIA_SINGULARS
 ]
 
 # Book subcategory folders (issue #235 follow-up) use a different addressing

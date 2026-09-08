@@ -5,6 +5,7 @@ import {
   LuLibrary,
   LuMap,
   LuMusic,
+  LuBox,
   LuSearch,
   LuSettings,
   LuLogOut,
@@ -22,13 +23,14 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
   const isGuest = user?.role === 'guest'
-  const { hide_maps, hide_tokens, hide_audio, hide_campaigns } = uiSettings
+  const { hide_maps, hide_tokens, hide_audio, hide_models, hide_campaigns } = uiSettings
   const moreRoutes = [
     '/settings',
     '/tags',
     ...(!hide_maps ? ['/maps'] : []),
     ...(!hide_tokens ? ['/tokens'] : []),
     ...(!hide_audio ? ['/audio'] : []),
+    ...(!hide_models ? ['/models'] : []),
   ]
   const moreActive = moreRoutes.some((r) => location.pathname.startsWith(r))
 
@@ -104,6 +106,14 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
                 to="/audio"
                 Icon={LuMusic}
                 label={t('nav.audio')}
+                onClick={() => setMoreOpen(false)}
+              />
+            )}
+            {!hide_models && (
+              <MoreItem
+                to="/models"
+                Icon={LuBox}
+                label={t('nav.models')}
                 onClick={() => setMoreOpen(false)}
               />
             )}

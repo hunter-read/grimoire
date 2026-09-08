@@ -1,9 +1,12 @@
 data/
 library/books/*
 library/maps/*
+library/tokens/*
+library/models/*
 !library/books/.gitkeep
 !library/maps/.gitkeep
 !library/tokens/.gitkeep
+!library/models/.gitkeep
 __pycache__/
 *.pyc
 .env

@@ -36,7 +36,16 @@ from .library import (
     ParentSystem,
     SystemFamily,
 )
-from .media import Audio, AudioFolder, GenericMap, MapFolder, Token, TokenFolder
+from .media import (
+    Audio,
+    AudioFolder,
+    GenericMap,
+    MapFolder,
+    Model3D,
+    Model3DFolder,
+    Token,
+    TokenFolder,
+)
 from .settings import AppSetting
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
 from .variants import VARIANT_KINDS, VARIANT_KINDS_BY_TYPE, kinds_for
@@ -59,6 +68,8 @@ __all__ = [
     # Media
     "GenericMap",
     "MapFolder",
+    "Model3D",
+    "Model3DFolder",
     "Token",
     "TokenFolder",
     "Audio",

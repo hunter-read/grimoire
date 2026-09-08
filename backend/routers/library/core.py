@@ -15,7 +15,7 @@ from ...config import (
     DISABLE_VERSION_CHECKING,
     get_db,
 )
-from ...models import GameSystem, Book, GenericMap, Token, Audio
+from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ...security import AUTH_RATE_LIMIT, limiter
@@ -137,6 +137,7 @@ def get_stats(
         "books": _books(variants.parents_only(db.query(Book), Book)).count(),
         "maps": variants.parents_only(db.query(GenericMap), GenericMap).count(),
         "tokens": variants.parents_only(db.query(Token), Token).count(),
+        "models": variants.parents_only(db.query(Model3D), Model3D).count(),
         "audio": variants.parents_only(db.query(Audio), Audio).count(),
         "indexed_books": _books(
             variants.parents_only(db.query(Book).filter_by(indexed=True), Book)
@@ -145,8 +146,8 @@ def get_stats(
             db.query(func.sum(Book.page_count)).filter(variants.parent_filter(Book))
         ).scalar()
         or 0,
-        # ``total_size_mb`` is books only; ``library_size_mb`` adds maps, tokens
-        # and audio for the whole-library figure (issue #408). Both keep the
+        # ``total_size_mb`` is books only; ``library_size_mb`` adds every other
+        # collection for the whole-library figure (issue #408). Both keep the
         # book portion access-scoped so a restricted book's bytes stay hidden.
         "total_size_mb": round(_book_bytes(db, _books) / 1048576, 1),
         "library_size_mb": round(
@@ -154,7 +155,7 @@ def get_stats(
                 _book_bytes(db, _books)
                 + sum(
                     db.query(func.sum(model.file_size)).scalar() or 0
-                    for model in (GenericMap, Token, Audio)
+                    for model in (GenericMap, Token, Audio, Model3D)
                 )
             )
             / 1048576,

@@ -22,6 +22,7 @@ from typing import Any, Sequence
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from ...models.collections import iter_specs
 from ...models import Book, CampaignResource, Favorite, ResourceTag
 from ...models.users import Bookmark
 from .moves import _section_for_model
@@ -34,10 +35,7 @@ from .moves import _section_for_model
 _ID_CHUNK = 400
 
 _ITEM_TYPES: dict[str, str] = {
-    "books": "book",
-    "maps": "map",
-    "tokens": "token",
-    "audio": "audio",
+    spec.section: spec.singular for spec in iter_specs()
 }
 
 

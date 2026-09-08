@@ -23,6 +23,9 @@ const CONFIG = {
   audio: {
     fields: ['tags'],
   },
+  model: {
+    fields: ['tags', 'is_explicit'],
+  },
   book: {
     // Metadata add-ons serve books and systems; the carousel offers the same
     // "Fetch metadata" step the single-item editors do (issue #260).

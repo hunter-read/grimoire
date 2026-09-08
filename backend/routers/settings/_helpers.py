@@ -25,6 +25,7 @@ _DEFAULTS = {
     "hide_maps": "false",
     "hide_tokens": "false",
     "hide_audio": "false",
+    "hide_models": "false",
     "hide_campaigns": "false",
     # Category → access-level map restricting whole categories app-wide (issue
     # #258), as a JSON object. "{}" means nothing is restricted by category.
@@ -36,6 +37,7 @@ _DEFAULTS = {
     "show_stat_maps": "false",
     "show_stat_tokens": "false",
     "show_stat_audio": "false",
+    "show_stat_models": "false",
     "show_stat_size": "true",
     "show_stat_library_size": "false",
     "password_auth_enabled": "true",
@@ -117,6 +119,7 @@ def _to_typed(raw: dict) -> dict:
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
         "hide_audio": raw["hide_audio"] == "true",
+        "hide_models": raw["hide_models"] == "true",
         "hide_campaigns": raw["hide_campaigns"] == "true",
         "restricted_categories": _restricted_categories_to_typed(raw),
         "show_stat_systems": raw["show_stat_systems"] == "true",
@@ -125,6 +128,7 @@ def _to_typed(raw: dict) -> dict:
         "show_stat_maps": raw["show_stat_maps"] == "true",
         "show_stat_tokens": raw["show_stat_tokens"] == "true",
         "show_stat_audio": raw["show_stat_audio"] == "true",
+        "show_stat_models": raw["show_stat_models"] == "true",
         "show_stat_size": raw["show_stat_size"] == "true",
         "show_stat_library_size": raw["show_stat_library_size"] == "true",
         "password_auth_enabled": password_auth_effective(raw),

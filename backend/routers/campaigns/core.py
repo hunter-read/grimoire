@@ -187,7 +187,7 @@ def create_campaign(
         seen = set()
         order = 0
         for r in data.resources:
-            if r.resource_type not in ("book", "map", "token", "audio", "file"):
+            if r.resource_type not in ("book", "map", "token", "audio", "model", "file"):
                 continue
             key = (r.resource_type, r.resource_id)
             if key in seen:

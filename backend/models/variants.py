@@ -54,6 +54,18 @@ VARIANT_KINDS_BY_TYPE: dict[str, frozenset] = {
     },
     "token": _UNIVERSAL | {"black-and-white", "color-variation"},
     "audio": _UNIVERSAL | {"remix", "slowed", "sped-up"},
+    # presupported/unsupported are a pair for the same reason gridded/gridless
+    # are: a resin print ships either with support structures already attached
+    # or without, and each file has to be able to say which one it is.
+    # split/merged is the other axis — a mini cut into printable parts versus
+    # the same mini as one piece.
+    "model": _UNIVERSAL
+    | {
+        "presupported",
+        "unsupported",
+        "split",
+        "merged",
+    },
 }
 
 # Every kind any collection accepts. Used where a resource type is not in hand —

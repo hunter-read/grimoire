@@ -25,7 +25,7 @@ from typing import Callable, Optional
 from sqlalchemy.orm import Session
 
 from ..library_ignore import IgnoreMatcher
-from ..models import GenericMap, Token
+from ..models import GenericMap, Model3D, Token
 from ._context import (  # noqa: F401  (re-exported: patched as backend.indexer.scan.<name>)
     _ScanContext,
     _count_eligible_files,
@@ -60,6 +60,7 @@ from .categories import (  # noqa: F401  (re-exported for patch compatibility)
     strip_container_suffix,
     strip_sort_prefix,
 )
+from .models3d import MODEL_EXTS
 from .constants import (
     ARCHIVE_EXTS,
     AUDIO_EXTS,
@@ -75,7 +76,7 @@ from .hashing import (  # noqa: F401  (re-exported: patched as backend.indexer.s
     hash_file,
     signature_matches,
 )
-from .media import _scan_audio, _scan_media  # noqa: F401
+from .media import _enrich_model, _scan_audio, _scan_media  # noqa: F401
 from .metadata import resolve_collection_dir, resolve_scope
 from .reconcile import (  # noqa: F401  (re-exported for patch compatibility)
     _detect_moves,
@@ -107,7 +108,8 @@ def scan_library(
     """Scan the library directory and register all files in the database.
 
     on_progress(scanned_books, total_books, scanned_maps, total_maps, scanned_tokens,
-    total_tokens, scanned_audio, total_audio) is called after each file is processed if provided.
+    total_tokens, scanned_audio, total_audio, scanned_models, total_models) is called
+    after each file is processed if provided.
 
     should_stop() is an optional callable that returns True when the scan should abort early.
 
@@ -124,6 +126,7 @@ def scan_library(
     maps_dir = resolve_collection_dir(library, "maps")
     tokens_dir = resolve_collection_dir(library, "tokens")
     audio_dir = resolve_collection_dir(library, "audio")
+    models_dir = resolve_collection_dir(library, "models")
     thumb_dir = Path(data_path) / "thumbnails"
     stats = {
         "new_systems": 0,
@@ -133,11 +136,13 @@ def scan_library(
         "new_maps": 0,
         "new_tokens": 0,
         "new_audio": 0,
+        "new_models": 0,
         "updated_books": 0,
         # Media rows given a thumbnail after the fact — a format that became
         # thumbnailable after the row was first registered (Universal VTT maps).
         "updated_maps": 0,
         "updated_tokens": 0,
+        "updated_models": 0,
         "indexed_pages": 0,
         # Books whose bytes changed under an unchanged path, and files recognised
         # as moved rather than deleted-and-re-added (issue #284).
@@ -164,12 +169,14 @@ def scan_library(
     scan_maps = scope_section in (None, "maps")
     scan_tokens = scope_section in (None, "tokens")
     scan_audio = scope_section in (None, "audio")
+    scan_models = scope_section in (None, "models")
 
     # For a scoped books scan, walk only the scope dir; otherwise iterate every system.
     books_walk_dir = scope_dir if scope_section == "books" else books_dir
     maps_walk_dir = scope_dir if scope_section == "maps" else maps_dir
     tokens_walk_dir = scope_dir if scope_section == "tokens" else tokens_dir
     audio_walk_dir = scope_dir if scope_section == "audio" else audio_dir
+    models_walk_dir = scope_dir if scope_section == "models" else models_dir
 
     totals = {
         "books": (
@@ -195,6 +202,11 @@ def scan_library(
         "audio": (
             _count_eligible_files(audio_walk_dir, AUDIO_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
             if scan_audio and audio_walk_dir.exists()
+            else 0
+        ),
+        "models": (
+            _count_eligible_files(models_walk_dir, MODEL_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
+            if scan_models and models_walk_dir.exists()
             else 0
         ),
     }
@@ -236,6 +248,21 @@ def scan_library(
         if ctx.stop_requested():
             return stats
 
+    if scan_models and models_walk_dir.exists():
+        # Square thumbnails: a miniature is rendered into a fixed box rather
+        # than cropped from a source image, so there is no aspect to preserve.
+        _scan_media(
+            ctx,
+            models_walk_dir,
+            "models",
+            MODEL_EXTS,
+            Model3D,
+            (300, 300),
+            enrich=_enrich_model,
+        )
+        if ctx.stop_requested():
+            return stats
+
     _apply_tags_from_library(library_path, session, scope_dir=scope_dir)
 
     # --- Write sidecars for the books this scan added ---
@@ -253,7 +280,7 @@ def scan_library(
     if ctx.stop_requested():
         return stats
 
-    _reconcile_missing(ctx, scan_books, scan_maps, scan_tokens, scan_audio)
+    _reconcile_missing(ctx, scan_books, scan_maps, scan_tokens, scan_audio, scan_models)
 
     # --- Drop systems whose folder is gone or now ignored ---
     # Only meaningful after a full walk of books/: that walk is what populates

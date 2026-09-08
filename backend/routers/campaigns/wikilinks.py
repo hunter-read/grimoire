@@ -37,7 +37,7 @@ from typing import NamedTuple
 LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
 
 # Reserved prefixes for Grimoire content embeds — not page-title links.
-EMBED_PREFIXES = ("book:", "map:", "token:", "audio:", "file:", "image:")
+EMBED_PREFIXES = ("book:", "map:", "token:", "audio:", "model:", "file:", "image:")
 
 # A ":id-<page_id>" suffix. Page ids are uuid4 hex-with-dashes, but we accept any
 # non-empty run of id-safe characters so a hand-typed or imported id still parses
