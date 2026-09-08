@@ -1140,8 +1140,13 @@ class TestScaffoldCategories:
         open(os.path.join(LIB, top, PARENT_SYSTEM_MARKER), "w").close()
         try:
             result = fs.scaffold_categories(f"{top}/5e")
-            assert "Core" in result["created"]
-            assert os.path.isdir(os.path.join(LIB, top, "5e", "Core"))
+            # The whole set, not just the first name: reading the category at the
+            # top-level depth would resolve every candidate to the container and
+            # create only one folder (issue #412).
+            assert result["created"] == list(fs.SCAFFOLD_CATEGORY_FOLDERS)
+            assert result["existing"] == []
+            for name in fs.SCAFFOLD_CATEGORY_FOLDERS:
+                assert os.path.isdir(os.path.join(LIB, top, "5e", name))
         finally:
             shutil.rmtree(os.path.join(LIB, top), ignore_errors=True)
 
@@ -1166,7 +1171,43 @@ class TestScaffoldCategories:
                     fs.scaffold_categories(container)
             # ...and the edition folder below them is not.
             result = fs.scaffold_categories(f"{top}/Pathfinder/2e")
-            assert "Core" in result["created"]
+            assert result["created"] == list(fs.SCAFFOLD_CATEGORY_FOLDERS)
+            assert result["existing"] == []
+            for name in fs.SCAFFOLD_CATEGORY_FOLDERS:
+                assert os.path.isdir(os.path.join(LIB, top, "Pathfinder", "2e", name))
+        finally:
+            shutil.rmtree(os.path.join(LIB, top), ignore_errors=True)
+
+    def test_nested_system_reports_existing_categories_by_their_own_names(self, library_tree):
+        """A partly-organised nested system fills gaps and names what it skipped.
+
+        The `covered` pre-pass reads child folders at the same depth, so before
+        issue #412 it too collapsed every child onto one category — reporting the
+        categories a nested system already had under whichever child was read
+        first, and refusing to create the rest.
+        """
+        import shutil
+
+        from backend.indexer.constants import PARENT_SYSTEM_MARKER
+
+        top = f"books/Partial-{library_tree}"
+        system = os.path.join(LIB, top, "3e")
+        # "Rulebooks" and "Modules" infer back to `core` and `adventures`, so the
+        # canonical names for those two must be reported as already covered.
+        os.makedirs(os.path.join(system, "Rulebooks"), exist_ok=True)
+        os.makedirs(os.path.join(system, "Modules"), exist_ok=True)
+        open(os.path.join(LIB, top, PARENT_SYSTEM_MARKER), "w").close()
+        try:
+            result = fs.scaffold_categories(f"{top}/3e")
+            assert sorted(result["existing"]) == ["Modules", "Rulebooks"]
+            assert "Core" not in result["created"]
+            assert "Adventures" not in result["created"]
+            assert result["created"] == [
+                n
+                for n in fs.SCAFFOLD_CATEGORY_FOLDERS
+                if n not in ("Core", "Adventures")
+            ]
+            assert not os.path.isdir(os.path.join(system, "Core"))
         finally:
             shutil.rmtree(os.path.join(LIB, top), ignore_errors=True)
 
