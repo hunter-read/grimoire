@@ -1099,6 +1099,7 @@
       "linkAs": "Als Version verknüpfen",
       "merge": "Metadaten kopieren",
       "scanFailed": "Die Suche konnte nicht gestartet werden.",
+      "cancelFailed": "Die Suche konnte nicht gestoppt werden.",
       "loadFailed": "Duplikatgruppen konnten nicht geladen werden.",
       "actionFailed": "Die Aktion konnte nicht abgeschlossen werden.",
       "reason": "Grund",

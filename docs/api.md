@@ -1269,9 +1269,9 @@ about them (issues #304, #306).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/duplicates/scan-status` | GET | Progress of the detection scan |
-| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = every collection) |
-| `/api/duplicates/cancel-scan` | POST | Stop a running scan |
+| `/api/duplicates/scan-status` | GET | Progress of the detection scan. `heartbeat` is the last time the running scan touched its status - it stops advancing when the process behind the scan dies |
+| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = every collection), `accuracy`. `{status: "already_running"}` if one is genuinely in progress; a scan left stuck by a killed process is discarded rather than blocking this |
+| `/api/duplicates/cancel-scan` | POST | Stop a running scan. `{status: "stop_requested"}` for a live one, `"cleared_stale"` when it cleared a scan that was no longer really running, `"not_running"` when there was nothing to stop |
 | `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset`. `total` counts the open groups walked to fill the page, not the whole table - a short page means the end |
 | `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids` |
 | `/api/duplicates/link` | POST | File items under a parent as its variants |
@@ -1286,6 +1286,17 @@ about them (issues #304, #306).
 **Nothing is ever deleted automatically.** Detection only surfaces candidates;
 every deletion, link, and metadata copy is one explicit request about one group
 the user looked at. There is no setting that changes this.
+
+**Recovering a stuck scan.** Scan status lives in Valkey when configured and in
+a per-process dict otherwise, and only the thread running a scan clears its own
+`running` flag. A process killed mid-scan therefore left the status running
+forever: `/cancel-scan` only sets a flag for a thread that no longer exists, and
+`/scan` refused as `already_running`. The status now carries a `heartbeat` that
+every progress update refreshes; a running status whose heartbeat has not moved
+for five minutes is treated as abandoned, so `/cancel-scan` clears it outright
+(`cleared_stale`) and `/scan` discards it instead of refusing. Startup clears it
+too, in every worker. A *live* scan is still only ever asked to stop, since it
+has partial results to discard on the way out.
 
 **Detection** is an explicitly triggered scan, never part of the normal rescan,
 and it refuses to start (409) while a library scan is running. Three signals,

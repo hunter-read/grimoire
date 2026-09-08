@@ -1099,6 +1099,7 @@
       "linkAs": "Link as version",
       "merge": "Copy metadata",
       "scanFailed": "The scan could not be started.",
+      "cancelFailed": "The scan could not be stopped.",
       "loadFailed": "Could not load duplicate groups.",
       "actionFailed": "That action could not be completed.",
       "reason": "Reason",

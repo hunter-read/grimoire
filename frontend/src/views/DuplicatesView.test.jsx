@@ -347,3 +347,69 @@ describe('DuplicatesView dismissed pairs', () => {
     await waitFor(() => expect(screen.getByText(/kaboom/)).toBeInTheDocument())
   })
 })
+
+describe('DuplicatesView stopping a scan', () => {
+  // A scan whose process died still reports running, so Stop is the only way
+  // out of the page. It used to discard its result entirely, which made a
+  // failed request and a successfully-cleared scan both look like a dead
+  // button (issue #304).
+  const RUNNING = {
+    running: true,
+    phase: 'metadata',
+    resource_type: 'book',
+    total: 0,
+    scanned: 0,
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    role = 'admin'
+    scanStatus.mockResolvedValue(RUNNING)
+    groups.mockResolvedValue({ groups: [] })
+    startScan.mockResolvedValue({ status: 'scan_started' })
+    cancelScan.mockResolvedValue({ status: 'stop_requested' })
+    dismissalsFn.mockResolvedValue({ dismissals: [] })
+    undismiss.mockResolvedValue({ status: 'removed' })
+  })
+
+  it('reports a Stop request that failed rather than looking inert', async () => {
+    cancelScan.mockRejectedValue(new Error('server said no'))
+    render(<DuplicatesView />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /dupes.cancel/ }))
+
+    await waitFor(() => expect(screen.getByText(/server said no/)).toBeInTheDocument())
+  })
+
+  it('clears the running state at once when a stuck scan is swept away', async () => {
+    // The backend found no live scan behind the status and cleared it. Waiting
+    // for the next poll would leave the spinner up for another second on a page
+    // the user already believes is broken.
+    cancelScan.mockResolvedValue({ status: 'cleared_stale' })
+    render(<DuplicatesView />)
+
+    const stop = await screen.findByRole('button', { name: /dupes.cancel/ })
+    await userEvent.click(stop)
+
+    // Cleared from the cancel response alone. The status poll is still
+    // insisting the scan runs (scanStatus is never switched to IDLE here), so
+    // only the response can have taken the spinner down - the poll would not
+    // notice until the backend and this worker agree, which is exactly the
+    // wait that made the button feel dead.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /dupes.cancel/ })).not.toBeInTheDocument()
+    )
+  })
+
+  it('keeps showing progress while a live scan winds itself down', async () => {
+    // stop_requested means the scan is still running and discarding its partial
+    // results. Hiding the progress then would claim it had already finished.
+    cancelScan.mockResolvedValue({ status: 'stop_requested' })
+    render(<DuplicatesView />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /dupes.cancel/ }))
+
+    await waitFor(() => expect(cancelScan).toHaveBeenCalled())
+    expect(screen.getByRole('button', { name: /dupes.cancel/ })).toBeInTheDocument()
+  })
+})

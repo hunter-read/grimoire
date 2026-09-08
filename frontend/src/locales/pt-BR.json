@@ -1099,6 +1099,7 @@
       "linkAs": "Ligar como versão",
       "merge": "Copiar metadados",
       "scanFailed": "Não foi possível iniciar a análise.",
+      "cancelFailed": "Não foi possível parar a análise.",
       "loadFailed": "Não foi possível carregar os grupos de duplicados.",
       "actionFailed": "Não foi possível concluir a ação.",
       "reason": "Motivo",

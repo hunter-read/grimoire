@@ -1099,6 +1099,7 @@
       "linkAs": "Koppelen als versie",
       "merge": "Metadata kopiëren",
       "scanFailed": "De scan kon niet worden gestart.",
+      "cancelFailed": "De scan kon niet worden gestopt.",
       "loadFailed": "Kon duplicaatgroepen niet laden.",
       "actionFailed": "Deze actie kon niet worden voltooid.",
       "reason": "Reden",

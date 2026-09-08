@@ -56,8 +56,17 @@ DEFAULT_STATUS: dict = {
     "scan_id": None,
     "started_at": None,
     "finished_at": None,
+    # Last time the running scan touched its status. Refreshed by every
+    # set_status call, which the comparison loops make continuously, so a
+    # timestamp that stops advancing means the thread behind it is gone.
+    "heartbeat": None,
     "error": None,
 }
+
+# How long a running scan's heartbeat may go unrefreshed before Stop treats it
+# as dead and clears the status outright. Comfortably longer than the gap
+# between progress reports, so a slow pass is never mistaken for a dead one.
+STALE_AFTER_SECONDS = 300
 
 _status: dict = dict(DEFAULT_STATUS)
 _stop_requested: bool = False
@@ -113,8 +122,16 @@ def get_status() -> dict:
     return dict(_status)
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def set_status(updates: dict) -> None:
     global _status
+    # Stamped on every write rather than only on the progress ones, so the
+    # heartbeat covers the slow phases too — those report rarely, but they do
+    # report, and a scan that is alive anywhere is alive.
+    updates = {**updates, "heartbeat": _now()}
     if _valkey:
         try:
             current = get_status()
@@ -126,8 +143,39 @@ def set_status(updates: dict) -> None:
     _status.update(updates)
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def is_stale(status: Optional[dict] = None) -> bool:
+    """Whether a status claiming to run has actually been abandoned.
+
+    True when the heartbeat stopped advancing — the process running the scan was
+    killed, so nothing will ever clear the flag on its own. A status with no
+    heartbeat at all is stale too: it was written by a version that predates the
+    field, which means it survived a restart and cannot be live.
+    """
+    current = get_status() if status is None else status
+    if not current.get("running"):
+        return False
+    beat = current.get("heartbeat")
+    if not beat:
+        return True
+    try:
+        last = datetime.fromisoformat(beat)
+    except (TypeError, ValueError):
+        return True
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - last).total_seconds() > STALE_AFTER_SECONDS
+
+
+def force_clear() -> dict:
+    """Drop a stuck scan's status so the UI unblocks and a new scan can start.
+
+    Only ever the right thing for a scan nothing is running any more: a live one
+    must be asked to stop via ``request_stop`` so it can discard its partial
+    results, which this cannot do on its behalf.
+    """
+    clear_stop()
+    set_status({**DEFAULT_STATUS, "finished_at": _now()})
+    return get_status()
 
 
 def _candidates(db: Session, model: Any) -> list:
@@ -287,8 +335,12 @@ def run_detection_sync(
     it through ``BackgroundTasks``.
     """
     if get_status().get("running"):
-        logger.info("A duplicate scan is already running - ignoring this request.")
-        return get_status()
+        # Stale means the previous run's process is gone, so nothing is actually
+        # competing with this one and refusing would strand the caller.
+        if not is_stale():
+            logger.info("A duplicate scan is already running - ignoring this request.")
+            return get_status()
+        logger.warning("Previous duplicate scan left stuck; starting a new one anyway.")
 
     wanted = [t for t in (resource_types or RESOURCE_MODELS.keys()) if t in RESOURCE_MODELS]
     if not wanted:

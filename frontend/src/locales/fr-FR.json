@@ -1099,6 +1099,7 @@
       "linkAs": "Lier comme version",
       "merge": "Copier les métadonnées",
       "scanFailed": "L'analyse n'a pas pu démarrer.",
+      "cancelFailed": "L'analyse n'a pas pu être arrêtée.",
       "loadFailed": "Impossible de charger les groupes de doublons.",
       "actionFailed": "Cette action n'a pas pu être effectuée.",
       "reason": "Raison",

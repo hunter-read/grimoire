@@ -123,6 +123,25 @@ _TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Clear duplicate-scan state left over from a previous run. A scan only ever
+    # clears its own "running" flag from the finally block of the thread running
+    # it, so a process that was killed mid-scan leaves the status stuck at
+    # running forever: Stop just sets a flag for a thread that no longer exists,
+    # and every later scan is refused as "already running" (issue #304).
+    #
+    # Before the file lock, not inside do_scan(): the lock-losing worker returns
+    # early, and it is just as able to serve /duplicates/scan-status as the one
+    # that holds it. Without Valkey the status is per-process, so each worker has
+    # its own copy to reset; with Valkey they share one key and this is idempotent.
+    # Only a *stale* one is cleared, never a live scan. With Valkey the status is
+    # shared across workers, so an unconditional reset here would let a worker
+    # starting late wipe a scan another worker is still running.
+    from .services.duplicates import job as _dup_job
+
+    if _dup_job.is_stale():
+        logger.warning("Clearing a duplicate scan left running by a previous process.")
+        _dup_job.force_clear()
+
     # Only one worker should run the startup scan; others skip via file lock.
     lock_path = os.path.join(DATA_PATH, ".scan.lock")
     lock_file = open(lock_path, "w")

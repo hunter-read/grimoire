@@ -175,6 +175,9 @@ class ScanStatus(BaseModel):
     scan_id: Optional[str] = None
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
+    # Last time the running scan touched its status; how the client and
+    # /cancel-scan tell a slow scan from an abandoned one.
+    heartbeat: Optional[str] = None
     error: Optional[str] = None
 
 

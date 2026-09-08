@@ -19,7 +19,9 @@ from .job import (
     RESOURCE_MODELS,
     clear_stop,
     detect_edges,
+    force_clear,
     get_status,
+    is_stale,
     is_stop_requested,
     request_stop,
     run_detection_sync,
@@ -43,6 +45,8 @@ __all__ = [
     "request_stop",
     "clear_stop",
     "is_stop_requested",
+    "is_stale",
+    "force_clear",
     # dismissals
     "dismiss",
     "undismiss",
