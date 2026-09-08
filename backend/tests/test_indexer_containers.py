@@ -12,6 +12,7 @@ right rather than categories. Two flavours:
 Containers are declared by marker file, by a ``(parent-system)``/``(one-page)``
 folder-name suffix, or (for one-page) by a reserved folder slug.
 """
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -991,3 +992,82 @@ class TestAgnosticContainer:
         _scan(lib, tmp)
 
         assert _system("tiny-games--honey-heist") is not None
+
+
+class TestVanishedContainerPruning:
+    """A container folder that is deleted must not leave its row behind.
+
+    ``_prune_vanished_systems`` anchors "is this row mine to delete?" on the
+    absolute paths of the books a system owns. A container owns none — its
+    children hold the books — so it could never satisfy that test and was
+    skipped as another library's row on every rescan. Deleting the folder
+    pruned the children and stranded the container: an empty shelf pinned in
+    the special-collections strip that no rescan could clear.
+    """
+
+    def test_deleted_container_is_pruned(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Fantasy Shelf (publisher)", "Dragonbane", "core"))
+        _scan(lib, tmp)
+        assert _system("fantasy-shelf") is not None
+
+        shutil.rmtree(lib / "books" / "Fantasy Shelf (publisher)")
+        _scan(lib, tmp)
+
+        assert _system("fantasy-shelf") is None, "container survived its folder"
+        assert _system("fantasy-shelf--dragonbane") is None
+
+    def test_container_with_content_survives(self):
+        """The prune stays conservative: a shelf still holding books is kept."""
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Kept Shelf (publisher)", "Dragonbane", "core"))
+        _scan(lib, tmp)
+        _scan(lib, tmp)
+
+        assert _system("kept-shelf") is not None
+        assert _system("kept-shelf--dragonbane") is not None
+
+
+class TestContainerKindChange:
+    """Re-typing a shelf must clear the special-collection flag it used to carry.
+
+    ``is_one_page``/``is_system_agnostic`` were set-only, so changing a folder's
+    container kind updated ``container_kind`` while the stale flag kept the row
+    in the special strip — the shelf claimed to be a collection it no longer was.
+    """
+
+    def test_one_page_flag_clears_when_kind_changes(self):
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Retyped (one-page)", "Retyped Tiny"))
+        _scan(lib, tmp)
+        assert _system("retyped").is_one_page is True
+
+        (lib / "books" / "Retyped (one-page)").rename(lib / "books" / "Retyped (publisher)")
+        _scan(lib, tmp)
+
+        system = _system("retyped")
+        assert system.container_kind == "publisher"
+        assert not system.is_one_page, "stale flag kept it in the special strip"
+
+    def test_agnostic_flag_clears_when_marker_removed(self):
+        tmp, lib = _mk_lib()
+        root = _books_dir(lib, "Was Agnostic")
+        marker = root / ".system-agnostic-container"
+        marker.write_text("")
+        _touch_pdf(_books_dir(lib, "Was Agnostic", "handouts"))
+        _scan(lib, tmp)
+        assert _system("was-agnostic").is_system_agnostic is True
+
+        marker.unlink()
+        _scan(lib, tmp)
+
+        assert not _system("was-agnostic").is_system_agnostic
+
+    def test_one_page_flag_is_kept_while_the_kind_stands(self):
+        """Clearing is driven by the folder, so an unchanged shelf keeps its flag."""
+        tmp, lib = _mk_lib()
+        _touch_pdf(_books_dir(lib, "Still One Page (one-page)", "Still Tiny"))
+        _scan(lib, tmp)
+        _scan(lib, tmp)
+
+        assert _system("still-one-page").is_one_page is True
