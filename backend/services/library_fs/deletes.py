@@ -16,7 +16,9 @@ from sqlalchemy.orm import Session
 
 from ...config import logger
 from ...indexer.constants import CONTAINER_MARKERS, NSFW_MARKER
-from ...models.library import Book
+from ...models.campaigns import Campaign
+from ...models.library import Book, GameSystem
+from . import folders
 from .constants import _THUMB_SECTIONS, LibraryFSError
 from .moves import _records_under, _section_for_model, _thumb_file, _thumb_key
 from .paths import (
@@ -295,6 +297,45 @@ def delete_empty_folder(path: str) -> dict:
     return {"path": to_relative(target)}
 
 
+def _unindex_system_row(db: Session, target: Path) -> int:
+    """Drop the ``GameSystem`` a books folder represents, once nothing is left in it.
+
+    ``_records_under`` only knows about path-keyed *file* rows, so unindexing a
+    system folder forgot its books and left the system itself behind — including
+    container/special-collection rows, which own no books at all and so lost
+    nothing. "Delete this folder from the database" visibly did nothing to the
+    shelf the user was trying to remove, which is the reported bug.
+
+    Conservative in the same spirit as the scanner's prune: the row goes only
+    when it has no books and no child systems left, and never when the user has
+    adapted it (a rename, description, or cover means the row is worth keeping
+    even with an empty shelf). Anything still holding content is left alone, so
+    this can only ever remove a shelf that is already empty.
+    """
+    system = folders.system_for_folder(db, target)
+    if system is None:
+        return 0
+    if db.query(Book).filter_by(game_system_id=system.id).count():
+        return 0
+    if db.query(GameSystem).filter_by(parent_id=system.id).count():
+        return 0
+    if system.name_is_custom or system.description or system.cover_image:
+        logger.info(
+            "Unindex: keeping system '%s' - it carries user metadata", system.name
+        )
+        return 0
+    # ``campaigns.system_id`` is a real foreign key with no ``ondelete``, so a
+    # campaign still pointing here would either block the delete or strand a
+    # dangling reference. A system a campaign is played in is in use regardless
+    # of how empty its shelf looks.
+    if db.query(Campaign).filter_by(system_id=system.id).count():
+        logger.info("Unindex: keeping system '%s' - a campaign references it", system.name)
+        return 0
+    db.delete(system)
+    logger.info("Unindex: removed system '%s'", system.name)
+    return 1
+
+
 def unindex_path(db: Session, path: str) -> dict:
     """Forget a file or folder's indexed rows, leaving the files untouched.
 
@@ -327,6 +368,7 @@ def unindex_path(db: Session, path: str) -> dict:
 
     affected = _records_under(db, target)
     records = _delete_records(db, affected)
+    records += _unindex_system_row(db, target)
     db.commit()
     logger.info("Library unindex: %s (%d record(s))", to_relative(target), records)
     return {"path": to_relative(target), "records": records, "files": 0}

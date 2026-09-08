@@ -253,6 +253,31 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
         if filepath and os.path.abspath(filepath).startswith(root):
             in_this_library.add(system_id)
 
+    # A *container* owns no books of its own — its children do — so the book-path
+    # anchor above can never place one in this library, and it was skipped as
+    # "some other library's row" on every rescan. Deleting a container folder
+    # therefore pruned its children and stranded the container itself: an empty
+    # shelf in the special-collections strip that no rescan, and no amount of
+    # deleting the folder from the file manager, could clear (the reported case).
+    #
+    # A row this scan actually walked to is self-evidently this library's, which
+    # covers the container that still exists. The container whose folder has just
+    # vanished is caught by the parent chain below instead: its children were in
+    # this library, so it is too.
+    in_this_library |= ctx.seen_system_ids & {s.id for s in systems}
+    # Ownership flows *up*: a container belongs to this library when any of its
+    # descendants does. Walk child→parent so a chain deeper than one level
+    # resolves in full, and so a container is still claimed on the very scan
+    # that prunes its children (nothing is deleted until the loop below).
+    by_id = {s.id: s for s in systems}
+    pending = [s for s in systems if s.id in in_this_library]
+    while pending:
+        node = pending.pop()
+        parent = by_id.get(node.parent_id) if node.parent_id else None
+        if parent is not None and parent.id not in in_this_library:
+            in_this_library.add(parent.id)
+            pending.append(parent)
+
     # Books are the only collection tied to a system — maps, tokens, and audio
     # are deliberately system-agnostic — so one distinct query covers ownership.
     #
@@ -269,7 +294,6 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
     # A container whose children survive must survive too, or the children are
     # orphaned. Parentage is one level in practice but resolved transitively.
     keep_parents: set = set()
-    by_id = {s.id: s for s in systems}
     for system in systems:
         if system.id in owning or system.id in ctx.seen_system_ids:
             node = system

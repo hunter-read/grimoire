@@ -245,10 +245,15 @@ def _register_system(
     else:
         if folder.is_nsfw and not system.is_explicit:
             system.is_explicit = True
-        if is_agnostic and not system.is_system_agnostic:
-            system.is_system_agnostic = True
-        if is_one_page and not system.is_one_page:
-            system.is_one_page = True
+        # Both flags track the folder in *both* directions. They used to be
+        # set-only, so re-typing a shelf — ``Fantasy (one-page)`` renamed to
+        # ``Fantasy (publisher)`` — updated ``container_kind`` while leaving the
+        # old flag set, and the row stayed pinned in the special-collections
+        # strip claiming to be a collection it no longer was.
+        if bool(system.is_system_agnostic) != is_agnostic:
+            system.is_system_agnostic = is_agnostic
+        if bool(system.is_one_page) != is_one_page:
+            system.is_one_page = is_one_page
         if (system.container_kind or "") != folder.container_kind:
             system.container_kind = folder.container_kind
         if parent is not None and system.parent_id != parent.id:

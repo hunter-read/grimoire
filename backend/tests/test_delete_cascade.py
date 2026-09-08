@@ -19,6 +19,7 @@ from backend.models import (
     CampaignResource,
     CampaignResourceShare,
     Favorite,
+    GameSystem,
     GenericMap,
     ResourceTag,
     Token,
@@ -267,6 +268,96 @@ class TestUnindexPath:
         try:
             result = unindex_path(db, "books/System/ghost.pdf")
             assert result["records"] == 1
+        finally:
+            db.close()
+
+    def test_forgets_the_system_row_for_an_emptied_system_folder(
+        self, monkeypatch, tmp_path
+    ):
+        """Unindexing a system folder must take the ``GameSystem`` with it.
+
+        ``_records_under`` only sees path-keyed *file* rows, so this used to
+        forget the books and leave the system standing — and for a container,
+        which owns no books at all, it did nothing whatsoever. "Delete this
+        folder from the database" visibly failed to remove the shelf.
+        """
+        library = tmp_path / "lib"
+        folder = library / "books" / "Doomed" / "core"
+        folder.mkdir(parents=True)
+        path = folder / "a.pdf"
+        path.write_bytes(b"%PDF-1.4 stub")
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        system = make_game_system(name="Doomed", slug="doomed")
+        make_book(system_id=system.id, filepath=str(path))
+
+        db = SessionLocal()
+        try:
+            result = unindex_path(db, "books/Doomed")
+            # One book plus the system row itself.
+            assert result["records"] == 2
+            assert db.query(GameSystem).filter_by(id=system.id).first() is None
+            assert path.exists()
+        finally:
+            db.close()
+
+    def test_keeps_a_system_row_that_still_holds_books(self, monkeypatch, tmp_path):
+        """Only the folder's own books are forgotten, so a shelf with more stays."""
+        library = tmp_path / "lib"
+        folder = library / "books" / "Partial" / "core"
+        folder.mkdir(parents=True)
+        path = folder / "a.pdf"
+        path.write_bytes(b"%PDF-1.4 stub")
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        system = make_game_system(name="Partial", slug="partial")
+        make_book(system_id=system.id, filepath=str(path))
+        # A second book elsewhere under the same system.
+        make_book(system_id=system.id, filepath=str(library / "books/Partial/extra/b.pdf"))
+
+        db = SessionLocal()
+        try:
+            unindex_path(db, "books/Partial/core")
+            assert db.query(GameSystem).filter_by(id=system.id).first() is not None
+        finally:
+            db.close()
+
+    def test_keeps_a_system_row_a_campaign_references(self, monkeypatch, tmp_path, admin_id):
+        """``campaigns.system_id`` is a real FK, so a referenced shelf is in use."""
+        library = tmp_path / "lib"
+        folder = library / "books" / "Played" / "core"
+        folder.mkdir(parents=True)
+        path = folder / "a.pdf"
+        path.write_bytes(b"%PDF-1.4 stub")
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        system = make_game_system(name="Played", slug="played")
+        make_book(system_id=system.id, filepath=str(path))
+        make_campaign(owner_id=admin_id, system_id=system.id)
+
+        db = SessionLocal()
+        try:
+            unindex_path(db, "books/Played")
+            assert db.query(GameSystem).filter_by(id=system.id).first() is not None
+        finally:
+            db.close()
+
+    def test_keeps_a_system_row_the_user_has_adapted(self, monkeypatch, tmp_path):
+        """A renamed or described shelf is worth keeping even when emptied."""
+        library = tmp_path / "lib"
+        folder = library / "books" / "Loved" / "core"
+        folder.mkdir(parents=True)
+        path = folder / "a.pdf"
+        path.write_bytes(b"%PDF-1.4 stub")
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
+
+        system = make_game_system(name="Loved", slug="loved", description="My shelf")
+        make_book(system_id=system.id, filepath=str(path))
+
+        db = SessionLocal()
+        try:
+            unindex_path(db, "books/Loved")
+            assert db.query(GameSystem).filter_by(id=system.id).first() is not None
         finally:
             db.close()
 
