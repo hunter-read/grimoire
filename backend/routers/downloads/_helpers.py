@@ -10,7 +10,8 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 from ...models import Model3D, Audio, Book, GameSystem, GenericMap, Token, User
-from ...services import access_control
+from ...models.collections import COLLECTIONS
+from ...services import access_control, tag_service
 
 
 _FORMATS = {
@@ -381,3 +382,138 @@ def _files_for_library_folder(folder: str) -> tuple[list, str]:
                 )
 
     return files, _safe_name(target.name or "library")
+
+
+# The tag browser groups a tag's items by resource type, so its archives do too:
+# one top-level folder per type. Tags span collections — the same tag can sit on
+# a book, a map and a token — and a flat archive would let a map and a token
+# that share a filename overwrite each other. Systems are deliberately absent:
+# a tagged *system* is a whole shelf rather than a file, and pulling it in would
+# turn a four-item tag into a multi-gigabyte download. Its own page already has
+# a download button (issue #401).
+_TAG_ARCHIVE_TYPES = ("book", "map", "token", "audio", "model")
+
+
+def _tag_items_by_type(
+    db, refs: list[dict], see_explicit: bool, user=None
+) -> dict[str, list]:
+    """Resolve ``[{resource_type, resource_id}]`` refs to rows, keyed by type.
+
+    The tags router enriches refs for *display* and filters only on explicit
+    content; an archive additionally has to honour per-book access grants, so
+    the rows are re-fetched here and run through the same guards every other
+    builder uses rather than trusting the display list (issue #258).
+
+    Collecting ids into a set per type also de-duplicates: an item that is both
+    tagged directly and sitting in a tagged folder is archived once.
+    """
+    by_type: dict[str, list] = {}
+    for rtype in _TAG_ARCHIVE_TYPES:
+        ids = {r["resource_id"] for r in refs if r["resource_type"] == rtype}
+        if not ids:
+            continue
+        spec = COLLECTIONS.get(rtype)
+        if spec is None:
+            continue
+        model = spec.model
+        q = db.query(model).filter(model.id.in_(ids))
+        # Not every collection carries an explicit flag (maps and audio do not).
+        if not see_explicit and hasattr(model, "is_explicit"):
+            q = q.filter(model.is_explicit != True)  # noqa: E712
+        if model is Book:
+            q = _visible(db, q, user)
+        rows = q.all()
+        if rows:
+            by_type[rtype] = rows
+    return by_type
+
+
+def _tag_refs(db, key: str, resource_type: Optional[str] = None) -> list[dict]:
+    """Every ref a tag covers: directly tagged items plus tagged folders' contents.
+
+    Matches what the tag browser renders for that scope, so the archive holds
+    exactly what the user is looking at.
+    """
+    refs = list(tag_service.resources_for_tag(db, key, resource_type=resource_type))
+    for group in tag_service.folders_for_tag(db, key, resource_type=resource_type):
+        refs.extend(group["items"])
+    return refs
+
+
+def _flat_files(rows: list) -> list:
+    """``(filepath, arcname)`` pairs keeping only each file's own name.
+
+    A tag is a flat, curated selection, so preserving the library hierarchy
+    would bury a handful of files under folders the user did not ask for.
+    """
+    return [
+        (safe, _safe_arcname(row.filename))
+        for row in rows
+        if (safe := _safe_filepath(row.filepath))
+    ]
+
+
+def _files_for_tag(db, internal: str, see_explicit: bool, user=None) -> tuple[list, str]:
+    """Everything carrying a tag, across every type — the browser's top level."""
+    key = tag_service.normalize_internal(internal)
+    refs = _tag_refs(db, key)
+    if not refs:
+        raise HTTPException(404, "Tag not found")
+
+    by_type = _tag_items_by_type(db, refs, see_explicit, user)
+    files = []
+    for rtype, rows in by_type.items():
+        section = COLLECTIONS[rtype].section
+        for row in rows:
+            safe = _safe_filepath(row.filepath)
+            if safe:
+                files.append((safe, _safe_arcname(f"{section}/{row.filename}")))
+    return files, _safe_name(key)
+
+
+def _files_for_tag_type(
+    db, internal: str, resource_type: str, see_explicit: bool, user=None
+) -> tuple[list, str]:
+    """One resource type's slice of a tag — the browser's type section.
+
+    Includes the folder groups nested under that section, since that is what
+    the section actually renders.
+    """
+    if resource_type not in _TAG_ARCHIVE_TYPES:
+        raise HTTPException(
+            400,
+            "resource_type must be one of: " + ", ".join(sorted(_TAG_ARCHIVE_TYPES)),
+        )
+    key = tag_service.normalize_internal(internal)
+    refs = _tag_refs(db, key, resource_type)
+    if not refs:
+        raise HTTPException(404, "Tag not found")
+
+    by_type = _tag_items_by_type(db, refs, see_explicit, user)
+    # A single-type archive is already that type, so it needs no type folder.
+    files = _flat_files(by_type.get(resource_type, []))
+    return files, f"{_safe_name(key)}_{_safe_name(resource_type)}"
+
+
+def _files_for_tag_folder(
+    db, internal: str, resource_type: str, folder: str, see_explicit: bool, user=None
+) -> tuple[list, str]:
+    """One tagged folder's contents, as the browser's folder group shows it.
+
+    ``folder`` is the group's ``path`` exactly as the tag items endpoint
+    returned it, so the caller never has to know that book folders are addressed
+    differently (``{system_id}/{category}/…``) from media folders.
+    """
+    key = tag_service.normalize_internal(internal)
+    groups = [
+        g
+        for g in tag_service.folders_for_tag(db, key, resource_type=resource_type)
+        if g["path"] == folder
+    ]
+    if not groups:
+        raise HTTPException(404, "Tagged folder not found")
+
+    refs = [item for g in groups for item in g["items"]]
+    by_type = _tag_items_by_type(db, refs, see_explicit, user)
+    files = _flat_files(by_type.get(resource_type, []))
+    return files, f"{_safe_name(key)}_{_safe_name(folder)}"

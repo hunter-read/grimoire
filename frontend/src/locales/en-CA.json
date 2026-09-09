@@ -330,7 +330,14 @@
     "category_token": "Token",
     "category_audio": "Audio",
     "category_model": "Model",
-    "category_shared": "Shared"
+    "category_shared": "Shared",
+    "download": "Download",
+    "downloadAll": "Download everything tagged {{tag}}",
+    "downloadType": "Download all {{type}} tagged {{tag}}",
+    "downloadFolder": "Download {{folder}}",
+    "archiveAll": "Everything tagged “{{tag}}”",
+    "archiveType": "{{type}} tagged “{{tag}}”",
+    "archiveFolder": "{{folder}} (tagged “{{tag}}”)"
   },
   "files": {
     "title": "Library file manager",

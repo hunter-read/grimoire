@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { LuPencil, LuTrash2, LuCheck, LuX, LuHeart } from 'react-icons/lu'
+import { LuPencil, LuTrash2, LuCheck, LuX, LuHeart, LuDownload } from 'react-icons/lu'
 import TagTypeSection from './TagTypeSection'
+import { canDownloadTagType } from './tagDownload'
 import BookFavorite from '../favorites/BookFavorite'
 import MapFavorite from '../favorites/MapFavorite'
 import TokenFavorite from '../favorites/TokenFavorite'
@@ -38,11 +39,17 @@ export default function TagDetail({
   favorited,
   onToggleFavorite,
   byType,
+  onDownload,
 }) {
   const { t } = useTranslation()
   const directCount = detail.items.length
   const folderCount = (detail.folders || []).reduce((n, g) => n + g.items.length, 0)
   const total = directCount + folderCount
+  // Only offer the whole-tag download when the tag actually covers something
+  // archivable: a tag used only on game systems has no files of its own.
+  const hasDownloadable =
+    detail.items.some((i) => canDownloadTagType(i.item_type)) ||
+    (detail.folders || []).some((g) => canDownloadTagType(g.resource_type) && g.items.length > 0)
 
   return (
     <>
@@ -136,8 +143,26 @@ export default function TagDetail({
             <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>
               {t('tags.count', { count: total })}
             </span>
+            {onDownload && hasDownloadable && (
+              <button
+                onClick={() =>
+                  onDownload({
+                    title: t('tags.archiveAll', { tag: detail.display }),
+                    params: { type: 'tag', tag: detail.internal },
+                  })
+                }
+                title={t('tags.downloadAll', { tag: detail.display })}
+                aria-label={t('tags.downloadAll', { tag: detail.display })}
+                style={{ ...iconBtn, marginLeft: 'auto' }}
+              >
+                <LuDownload size={14} />
+              </button>
+            )}
             {isEditor && (
               <>
+                {/* Whichever control comes first claims marginLeft:auto to push
+                    the group right — the download button when it is shown, this
+                    one otherwise. Claiming it twice would split the pair. */}
                 <button
                   onClick={() => {
                     setRenameValue(detail.display)
@@ -145,7 +170,9 @@ export default function TagDetail({
                   }}
                   title={t('tags.rename')}
                   aria-label={t('tags.rename')}
-                  style={{ ...iconBtn, marginLeft: 'auto' }}
+                  style={
+                    onDownload && hasDownloadable ? iconBtn : { ...iconBtn, marginLeft: 'auto' }
+                  }
                 >
                   <LuPencil size={14} />
                 </button>
@@ -184,6 +211,8 @@ export default function TagDetail({
               items={items}
               folders={folders}
               renderItem={(item, grid) => <Card key={item.item_id} item={item} grid={grid} />}
+              tag={detail.internal}
+              onDownload={onDownload}
             />
           )
         })

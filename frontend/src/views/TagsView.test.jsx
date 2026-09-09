@@ -241,4 +241,48 @@ describe('TagsView', () => {
       expect(document.querySelector('.tags-layout')).toBeInTheDocument()
     })
   })
+
+  // Download buttons at the tag / type / folder levels (issue #401), wired to
+  // the shared archive modal the media galleries use.
+  describe('archive downloads', () => {
+    it('opens the format modal for the whole tag', async () => {
+      renderView('/tags?tag=forest')
+      await screen.findByLabelText('Download everything tagged Forest')
+
+      await userEvent.click(screen.getByLabelText('Download everything tagged Forest'))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByText('Everything tagged \u201cForest\u201d')).toBeInTheDocument()
+    })
+
+    it('offers a per-type download for each section', async () => {
+      renderView('/tags?tag=forest')
+      await screen.findByLabelText('Download everything tagged Forest')
+
+      expect(screen.getByTitle('Download all Maps tagged forest')).toBeInTheDocument()
+      expect(screen.getByTitle('Download all Books tagged forest')).toBeInTheDocument()
+    })
+
+    it('offers a download on a tagged folder group', async () => {
+      mockItems.mockResolvedValue({
+        internal: 'forest',
+        display: 'Forest',
+        items: [],
+        folders: [{ resource_type: 'map', path: 'woods', items: [{ item_id: 'mf1' }] }],
+      })
+      renderView('/tags?tag=forest')
+
+      expect(await screen.findByTitle('Download Woods')).toBeInTheDocument()
+    })
+
+    it('closes the modal without navigating away', async () => {
+      renderView('/tags?tag=forest')
+      await screen.findByLabelText('Download everything tagged Forest')
+
+      await userEvent.click(screen.getByLabelText('Download everything tagged Forest'))
+      await userEvent.click(screen.getByText('Cancel'))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      // The detail pane is still showing the same tag.
+      expect(screen.getByRole('heading', { name: 'Forest' })).toBeInTheDocument()
+    })
+  })
 })

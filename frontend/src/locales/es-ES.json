@@ -330,7 +330,14 @@
     "category_token": "Ficha",
     "category_audio": "Audio",
     "category_model": "Model",
-    "category_shared": "Compartida"
+    "category_shared": "Compartida",
+    "download": "Descargar",
+    "downloadAll": "Descargar todo lo etiquetado como {{tag}}",
+    "downloadType": "Descargar todos los {{type}} etiquetados como {{tag}}",
+    "downloadFolder": "Descargar {{folder}}",
+    "archiveAll": "Todo lo etiquetado como «{{tag}}»",
+    "archiveType": "{{type}} etiquetados como «{{tag}}»",
+    "archiveFolder": "{{folder}} (etiqueta «{{tag}}»)"
   },
   "files": {
     "title": "Gestor de archivos",

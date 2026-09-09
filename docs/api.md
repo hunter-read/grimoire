@@ -1674,7 +1674,30 @@ parameters depend on the scope:
 | `map_folder` | `folder` | Every map under a maps subfolder |
 | `token_folder` | `folder` | Every token under a tokens subfolder |
 | `audio_folder` | `folder` | Every track under an audio subfolder |
+| `model_folder` | `folder` | Every model under a models subfolder |
+| `tag` | `tag` | Everything carrying a tag, foldered by resource type |
+| `tag_type` | `tag`, `resource_type` | One resource type's slice of a tag |
+| `tag_folder` | `tag`, `resource_type`, `folder` | One tagged folder's contents |
 | `library_folder` *(admin)* | `folder` | Any library folder **as it sits on disk** |
+
+The three `tag` scopes mirror the tag browser's own levels, so a user can take a
+whole tag, one of its type sections, or one tagged folder without first finding
+where those files live on disk (issue #401). `tag` is the tag's *internal* key
+and `folder` is the folder group's `path` exactly as `/api/tags/{internal}/items`
+returned it — the caller never has to know that book folders are addressed
+(`{system_id}/{category}/…`) differently from media folders. All three include
+items reached through a tagged folder as well as directly tagged ones, and an
+item reachable both ways appears once.
+
+Only `tag` groups its contents into a folder per resource type: a tag spans
+collections, so a map and a token sharing a filename would otherwise overwrite
+each other. The single-type scopes are already one type and stay flat.
+
+Tagged **game systems are excluded** from all three. A tagged system is a whole
+shelf rather than a file, and expanding it would turn a four-item tag into a
+multi-gigabyte download; `type=system` remains the way to archive one. For the
+same reason `tag_type` rejects `resource_type=system` with a 400, and the tag
+browser shows no download button on a systems section.
 
 Every scope except `library_folder` is built from indexed records, so each is
 filtered by what the caller may see: explicit content is dropped for users with

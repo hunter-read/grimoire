@@ -330,7 +330,14 @@
     "category_token": "Token",
     "category_audio": "Audio",
     "category_model": "Model",
-    "category_shared": "Gedeeld"
+    "category_shared": "Gedeeld",
+    "download": "Downloaden",
+    "downloadAll": "Alles met tag {{tag}} downloaden",
+    "downloadType": "Alle {{type}} met tag {{tag}} downloaden",
+    "downloadFolder": "{{folder}} downloaden",
+    "archiveAll": "Alles met tag “{{tag}}”",
+    "archiveType": "{{type}} met tag “{{tag}}”",
+    "archiveFolder": "{{folder}} (tag “{{tag}}”)"
   },
   "files": {
     "title": "Bibliotheek-bestandsbeheer",

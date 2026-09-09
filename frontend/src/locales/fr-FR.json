@@ -330,7 +330,14 @@
     "category_token": "Pion",
     "category_audio": "Audio",
     "category_model": "Model",
-    "category_shared": "Partagée"
+    "category_shared": "Partagée",
+    "download": "Télécharger",
+    "downloadAll": "Télécharger tout ce qui porte l’étiquette {{tag}}",
+    "downloadType": "Télécharger tous les {{type}} avec l’étiquette {{tag}}",
+    "downloadFolder": "Télécharger {{folder}}",
+    "archiveAll": "Tout ce qui porte l’étiquette « {{tag}} »",
+    "archiveType": "{{type}} avec l’étiquette « {{tag}} »",
+    "archiveFolder": "{{folder}} (étiquette « {{tag}} »)"
   },
   "files": {
     "title": "Gestionnaire de fichiers",
