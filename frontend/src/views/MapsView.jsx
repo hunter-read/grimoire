@@ -39,6 +39,8 @@ export default function MapsView() {
         subtitle={gallerySubtitle(t, 'maps', {
           count: gallery.filteredCount,
           total: gallery.totalCount,
+          loading: gallery.loadingMore,
+          available: gallery.totalAvailable,
         })}
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}

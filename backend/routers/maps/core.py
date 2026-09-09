@@ -87,7 +87,12 @@ def list_maps(
     q = variants.parents_only(db.query(GenericMap), GenericMap)
     if map_type:
         q = q.filter_by(map_type=map_type)
-    q = q.order_by(GenericMap.filename)
+    # Ordered by path, not filename: the gallery groups by folder and sorts the
+    # folders by name, so ordering the query this way makes the first page the
+    # first folders as they will actually be displayed. Paging by filename
+    # instead scattered each page across the whole tree, and every later page
+    # then inserted rows *above* what the user was already looking at.
+    q = q.order_by(GenericMap.relative_path)
     if folder is not None:
         # Folder is derived from relative_path rather than stored as a column, so
         # it cannot be compared directly. Narrowing on the path prefix in SQL

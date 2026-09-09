@@ -17,6 +17,25 @@ def _set_explicit_pref(username, allow):
     db.close()
 
 
+class TestListTokensOrdering:
+    """Paged by path so each page is a contiguous run of folders in the order
+    the gallery displays them — see the matching maps tests."""
+
+    def test_orders_by_path(self, client, admin_headers):
+        # Filenames sort opposite to their folders, so the two orderings differ.
+        make_token(filename="z.png", relative_path="DnD/Aaa/z.png")
+        make_token(filename="a.png", relative_path="DnD/Zzz/a.png")
+        resp = client.get("/api/tokens", headers=admin_headers)
+        assert resp.status_code == 200
+        paths = [
+            t["relative_path"]
+            for t in resp.json()["tokens"]
+            if t["relative_path"].startswith("DnD/")
+        ]
+        assert paths == sorted(paths)
+        assert paths[0].startswith("DnD/Aaa/")
+
+
 class TestListTokens:
     def test_returns_list(self, client, admin_headers):
         make_token()

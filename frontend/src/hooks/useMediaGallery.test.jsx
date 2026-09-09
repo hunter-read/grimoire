@@ -338,6 +338,68 @@ describe('useMediaGallery', () => {
       expect(result.current.totalCount).toBe(1)
     })
 
+    it('fetches the pages after the first concurrently', async () => {
+      // Sequentially, a 10k library paid twenty round-trips end to end and the
+      // grid filled in unevenly over seconds. Once the first page reports the
+      // total, every remaining offset is known and they go out together.
+      const total = 2001
+      let inFlight = 0
+      let peak = 0
+      const all = Array.from({ length: total }, (_, i) =>
+        item({ id: `m${i}`, filename: `m${i}.png` })
+      )
+      api.get.mockImplementation((url) => {
+        const [path, qs] = url.split('?')
+        if (path === '/maps') {
+          const params = new URLSearchParams(qs)
+          const offset = Number(params.get('offset') || 0)
+          inFlight += 1
+          peak = Math.max(peak, inFlight)
+          return new Promise((resolve) =>
+            setTimeout(() => {
+              inFlight -= 1
+              resolve({ maps: all.slice(offset, offset + 500), total })
+            }, 5)
+          )
+        }
+        if (url === '/map-folders') return Promise.resolve({ folders: [] })
+        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
+        return Promise.resolve({})
+      })
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.loadingMore).toBe(false), { timeout: 3000 })
+      // The first page is alone (its total is what schedules the rest); the four
+      // remaining pages overlap.
+      expect(peak).toBeGreaterThan(1)
+      expect(result.current.totalCount).toBe(total)
+      expect(new Set(result.current.flatItems.map((i) => i.id)).size).toBe(total)
+    })
+
+    it('exposes the server total while pages are still arriving', async () => {
+      // What lets the header show the collection's real size instead of a count
+      // that climbs a page at a time.
+      pagedSetup(1200)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      expect(result.current.totalAvailable).toBe(1200)
+      await waitFor(() => expect(result.current.loadingMore).toBe(false))
+      expect(result.current.loadedCount).toBe(1200)
+    })
+
+    it('reuses decorated rows across appends instead of re-deriving them', async () => {
+      // Re-decorating the whole accumulated set on every page made the streaming
+      // load quadratic. Already-seen items keep their object identity, so the
+      // cache must hand back the very same decorated entry.
+      pagedSetup(1001)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      const firstItem = result.current.flatItems[0]
+      await waitFor(() => expect(result.current.loadingMore).toBe(false))
+      // Same underlying object after two more pages appended.
+      expect(result.current.flatItems[0]).toBe(firstItem)
+      expect(result.current.totalCount).toBe(1001)
+    })
+
     it('clears the loading flag when a page request fails', async () => {
       api.get.mockImplementation((url) => {
         const path = url.split('?')[0]

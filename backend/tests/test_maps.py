@@ -49,6 +49,47 @@ class TestListMaps:
         assert len(resp.json()["maps"]) <= 1
 
 
+class TestListMapsOrdering:
+    """The gallery groups by folder, so a page must be a contiguous run of
+    folders in display order — not a filename-ordered scatter across the whole
+    tree, which made every later page insert rows above what the user was
+    already looking at."""
+
+    @pytest.fixture(scope="class")
+    def scattered(self):
+        # Filenames deliberately sort in the opposite order to their folders, so
+        # ordering by filename and by path give visibly different pages.
+        return [
+            make_map(filename="z.png", relative_path="DnD/Alleys/z.png"),
+            make_map(filename="a.png", relative_path="DnD/Zones/a.png"),
+            make_map(filename="y.png", relative_path="DnD/Alleys/y.png"),
+            make_map(filename="b.png", relative_path="DnD/Zones/b.png"),
+        ]
+
+    def _paths(self, client, headers, query=""):
+        resp = client.get(f"/api/maps{query}", headers=headers)
+        assert resp.status_code == 200
+        return [m["relative_path"] for m in resp.json()["maps"]]
+
+    def test_orders_by_path(self, client, admin_headers, scattered):
+        paths = [p for p in self._paths(client, admin_headers) if p.startswith("DnD/")]
+        assert paths == sorted(paths)
+
+    def test_first_page_holds_one_folder_not_a_scatter(self, client, admin_headers, scattered):
+        # The point of the path ordering: the first two rows of this set are both
+        # Alleys, so the Zones rows arriving later append below rather than
+        # interleaving into a folder already on screen.
+        paths = [p for p in self._paths(client, admin_headers) if p.startswith("DnD/")]
+        assert paths[:2] == ["DnD/Alleys/y.png", "DnD/Alleys/z.png"]
+
+    def test_pages_do_not_overlap_or_drop_rows(self, client, admin_headers, scattered):
+        first = self._paths(client, admin_headers, "?limit=2&offset=0")
+        second = self._paths(client, admin_headers, "?limit=2&offset=2")
+        assert len(set(first) & set(second)) == 0
+        combined = self._paths(client, admin_headers, "?limit=4&offset=0")
+        assert first + second == combined
+
+
 class TestListMapsByFolder:
     @pytest.fixture(scope="class")
     def folder_maps(self):

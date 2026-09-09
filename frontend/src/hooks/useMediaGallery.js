@@ -14,6 +14,11 @@ import { splitSpecial, isSpecialFilter } from '../components/library/specialFilt
 // arrives in one request, small enough that the first paint is quick on a big one.
 const PAGE_SIZE = 500
 
+// How many pages are in flight at once while the rest of the library streams
+// in. Enough to keep the connection pool busy on a 10k library without firing
+// every remaining page at the server in one burst.
+const PAGE_CONCURRENCY = 4
+
 // Stable empty array: a fresh `[]` per render would invalidate every useMemo
 // that depends on `items` before the first page lands.
 const EMPTY_ITEMS = []
@@ -91,21 +96,48 @@ export default function useMediaGallery(config) {
     // folder grouping still see the whole library once loading settles.
     let cancelled = false
 
-    const loadPage = async (offset) => {
+    const fetchPage = async (offset) => {
       const page = await api.get(`${listUrl}?limit=${PAGE_SIZE}&offset=${offset}`)
+      return { page, rows: page[collection] || [] }
+    }
+
+    const loadAll = async () => {
+      // The first page is fetched and committed on its own so the grid paints
+      // as soon as anything is available.
+      const { page: first, rows: firstRows } = await fetchPage(0)
       if (cancelled) return
-      const rows = page[collection] || []
-      setData((prev) =>
-        prev && offset > 0
-          ? { ...page, [collection]: [...prev[collection], ...rows] }
-          : { ...page, [collection]: rows }
-      )
-      setLoadedCount((prev) => (offset > 0 ? prev + rows.length : rows.length))
-      // `total` is the server's count before pagination; stop when a short page
-      // arrives too, so a mid-load change on the server cannot spin forever.
-      const seen = offset + rows.length
-      if (rows.length === PAGE_SIZE && seen < page.total) await loadPage(seen)
-      else if (!cancelled) setLoadingMore(false)
+      setData({ ...first, [collection]: firstRows })
+      setLoadedCount(firstRows.length)
+
+      // `total` is the server's count before pagination, so once the first page
+      // is in, the remaining offsets are all known. Fetching them sequentially
+      // meant a 10k library paid twenty round-trips end to end, each one
+      // re-rendering (and re-deriving) the whole accumulated set — so the list
+      // filled in visibly, unevenly, over several seconds. They go out together
+      // instead, in bounded batches so the browser's connection limit does the
+      // queueing rather than a burst of twenty parallel requests, and each batch
+      // lands in a single state update.
+      if (firstRows.length < PAGE_SIZE || firstRows.length >= first.total) {
+        if (!cancelled) setLoadingMore(false)
+        return
+      }
+
+      const offsets = []
+      for (let off = firstRows.length; off < first.total; off += PAGE_SIZE) offsets.push(off)
+
+      for (let i = 0; i < offsets.length; i += PAGE_CONCURRENCY) {
+        const batch = offsets.slice(i, i + PAGE_CONCURRENCY)
+        const results = await Promise.all(batch.map((off) => fetchPage(off)))
+        if (cancelled) return
+        const rows = results.flatMap((r) => r.rows)
+        if (!rows.length) break
+        setData((prev) => ({
+          ...prev,
+          [collection]: [...(prev ? prev[collection] : []), ...rows],
+        }))
+        setLoadedCount((prev) => prev + rows.length)
+      }
+      if (!cancelled) setLoadingMore(false)
     }
 
     api.get(foldersUrl).then((foldersData) => {
@@ -116,7 +148,7 @@ export default function useMediaGallery(config) {
     })
 
     setLoadingMore(true)
-    loadPage(0).catch(() => {
+    loadAll().catch(() => {
       if (!cancelled) setLoadingMore(false)
     })
 
@@ -250,27 +282,48 @@ export default function useMediaGallery(config) {
   // reads, and the per-item values that never change with the filters (lowercased
   // search haystack, effective tags, folder segments) are computed once here and
   // reused by filtering, grouping, and the tag list.
-  const decorated = useMemo(
-    () =>
-      items.map((item) => {
-        const effective = getEffectiveTags(item, folderTags)
-        const topFolder = getTopFolder(item)
-        const subPath = getSubPath(item)
-        return {
-          item,
-          topFolder,
-          subPath,
-          effective,
-          effectiveLower: effective.map((t) => t.toLowerCase()),
-          // NUL-joined: the separator must be something a search term can never
-          // contain, or a query could match across two adjacent fields.
-          haystack: [item.filename || '', topFolder, subPath, ...effective]
-            .join('\0')
-            .toLowerCase(),
-        }
-      }),
-    [items, folderTags]
-  )
+  // Decorating an item is pure in (item, folderTags), and appending a page
+  // leaves every already-decorated item's object identity untouched. Caching on
+  // that identity turns the streaming load from quadratic — each of ~20 pages
+  // re-deriving the whole accumulated set — into one pass per item for the whole
+  // load. The cache is dropped whenever folderTags changes, since that feeds
+  // every entry.
+  const decorateCache = useRef(new Map())
+  const decorateCacheKey = useRef(folderTags)
+  if (decorateCacheKey.current !== folderTags) {
+    decorateCacheKey.current = folderTags
+    decorateCache.current = new Map()
+  }
+
+  const decorated = useMemo(() => {
+    const cache = decorateCache.current
+    const next = items.map((item) => {
+      const hit = cache.get(item)
+      if (hit) return hit
+      const effective = getEffectiveTags(item, folderTags)
+      const topFolder = getTopFolder(item)
+      const subPath = getSubPath(item)
+      const entry = {
+        item,
+        topFolder,
+        subPath,
+        effective,
+        effectiveLower: effective.map((t) => t.toLowerCase()),
+        // NUL-joined: the separator must be something a search term can never
+        // contain, or a query could match across two adjacent fields.
+        haystack: [item.filename || '', topFolder, subPath, ...effective].join('\0').toLowerCase(),
+      }
+      cache.set(item, entry)
+      return entry
+    })
+    // Items dropped from the list (a bulk edit replacing objects, a removal)
+    // would otherwise keep their cache entries alive for the view's lifetime.
+    if (cache.size > items.length) {
+      const live = new Set(items)
+      for (const key of cache.keys()) if (!live.has(key)) cache.delete(key)
+    }
+    return next
+  }, [items, folderTags])
 
   const allTags = useMemo(
     () => (data ? [...new Set(decorated.flatMap((d) => d.effectiveLower))].sort() : []),

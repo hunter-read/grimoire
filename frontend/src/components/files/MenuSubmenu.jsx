@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { LuChevronRight } from 'react-icons/lu'
 
 /**
@@ -15,6 +15,32 @@ import { LuChevronRight } from 'react-icons/lu'
 export default function MenuSubmenu({ label, icon, children, itemStyle, hoverProps, testId }) {
   const [open, setOpen] = useState(false)
   const closeTimer = useRef(null)
+  const panelRef = useRef(null)
+  // Offsets applied to the panel's default position (right of the row, aligned
+  // to its top) to keep it inside the window — see the layout effect below.
+  const [shift, setShift] = useState({ up: 0, flip: false })
+
+  // The parent menu is already clamped to the viewport, but a panel opening off
+  // its bottom-right corner can still overflow: the container-kind list is
+  // seven rows tall and its row sits low in the menu. Measure once open and
+  // pull it up (and to the left of the row) by however much it overhangs.
+  useLayoutEffect(() => {
+    if (!open) {
+      setShift({ up: 0, flip: false })
+      return
+    }
+    const el = panelRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    // `r` is the box as currently positioned, so the overhang is measured
+    // against the live layout and subtracting it lands the panel on the edge.
+    const overflowY = r.bottom - (window.innerHeight - 8)
+    const overflowX = r.right - (window.innerWidth - 8)
+    setShift({
+      up: overflowY > 0 ? Math.min(overflowY, r.top - 8) : 0,
+      flip: overflowX > 0,
+    })
+  }, [open])
 
   const cancelClose = () => clearTimeout(closeTimer.current)
   // Leaving the row briefly crosses dead space on the way to the panel; closing
@@ -59,13 +85,15 @@ export default function MenuSubmenu({ label, icon, children, itemStyle, hoverPro
         <div
           role="menu"
           data-testid={testId ? `${testId}-panel` : undefined}
+          ref={panelRef}
           onMouseEnter={cancelClose}
           onMouseLeave={scheduleClose}
           style={{
             position: 'absolute',
-            top: -4,
-            left: '100%',
-            marginLeft: 2,
+            top: -4 - shift.up,
+            // Flipped to the row's left edge when opening rightwards would run
+            // off the window (a menu already clamped to the right edge).
+            ...(shift.flip ? { right: '100%', marginRight: 2 } : { left: '100%', marginLeft: 2 }),
             minWidth: 200,
             background: 'var(--bg-panel)',
             border: '1px solid var(--border)',

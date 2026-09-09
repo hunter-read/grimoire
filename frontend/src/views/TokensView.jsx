@@ -38,6 +38,8 @@ export default function TokensView() {
         subtitle={gallerySubtitle(t, 'tokens', {
           count: gallery.filteredCount,
           total: gallery.totalCount,
+          loading: gallery.loadingMore,
+          available: gallery.totalAvailable,
         })}
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}
