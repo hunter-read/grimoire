@@ -197,6 +197,11 @@ def browse(
         path="" if target == root else fs.to_relative(target),
         parent=parent,
         writable=os.access(target, os.W_OK | os.X_OK),
+        # Asked about the browsed folder itself, so the UI can offer the
+        # scaffold action from a pane already anchored inside a system folder —
+        # where there is no row for it to hang off. Only meaningful in the books
+        # tree; `is_category_host` returns False everywhere else.
+        category_host=fs.is_category_host(target),
         entries=entries,
         total=total,
         truncated=total > len(entries),

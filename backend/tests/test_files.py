@@ -1389,6 +1389,43 @@ class TestCategoryHostFlag:
         rows = {e["name"]: e for e in resp.json()["entries"]}
         assert rows[f"Battlemaps-{library_tree}"]["category_host"] is False
 
+    def test_the_browsed_folder_reports_its_own_hosting(
+        self, client, admin_headers, library_tree
+    ):
+        """The same flag about the folder itself, not its children.
+
+        The UI offers the scaffold action from a pane's empty space — which is
+        all there is once you have navigated *into* a system folder, and all
+        there is at all when that folder is empty. Answering only for child rows
+        left it unreachable exactly there.
+        """
+        resp = client.get(
+            "/api/files/browse",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}"},
+        )
+        assert resp.json()["category_host"] is True
+
+    def test_books_itself_does_not_host_categories(self, client, admin_headers):
+        resp = client.get("/api/files/browse", headers=admin_headers, params={"path": "books"})
+        # books/ holds systems; scaffolding here would invent systems named
+        # after categories.
+        assert resp.json()["category_host"] is False
+
+    def test_the_library_root_does_not_host_categories(self, client, admin_headers):
+        resp = client.get("/api/files/browse", headers=admin_headers, params={"path": ""})
+        assert resp.json()["category_host"] is False
+
+    def test_a_category_folder_does_not_host_categories(
+        self, client, admin_headers, library_tree
+    ):
+        resp = client.get(
+            "/api/files/browse",
+            headers=admin_headers,
+            params={"path": f"books/System-{library_tree}/core"},
+        )
+        assert resp.json()["category_host"] is False
+
 
 class TestSystemFolderMetadata:
     """A books/<system> folder maps to the GameSystem row it represents."""

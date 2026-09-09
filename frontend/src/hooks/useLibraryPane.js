@@ -52,6 +52,7 @@ export function useLibraryPane(initialPath = '') {
         [target]: {
           entries: res.entries || [],
           writable: res.writable,
+          categoryHost: !!res.category_host,
           parent: res.parent ?? null,
           total: res.total ?? (res.entries || []).length,
           truncated: !!res.truncated,
@@ -66,6 +67,7 @@ export function useLibraryPane(initialPath = '') {
         [target]: {
           entries: [],
           writable: false,
+          categoryHost: false,
           parent: prev[target]?.parent ?? null,
           loading: false,
           error: e.message || 'Could not read that folder',
@@ -306,6 +308,10 @@ export function useLibraryPane(initialPath = '') {
     rows,
     entries: root?.entries || [],
     writable: root?.writable ?? false,
+    // Whether the standard category folders belong directly inside the folder
+    // this pane is anchored on — what decides if its background menu offers to
+    // scaffold them.
+    categoryHost: root?.categoryHost ?? false,
     parent: root?.parent ?? null,
     loading: root?.loading ?? true,
     error: root?.error ?? null,
