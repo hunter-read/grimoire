@@ -6,6 +6,7 @@ import { formatSize } from '../../utils'
 import FavoriteButton from '../FavoriteButton'
 import DownloadButton from '../DownloadButton'
 import AudioPlayer from '../audio/AudioPlayer'
+import AddToSoundboardButton from '../audio/AddToSoundboardButton'
 import NowPlayingIndicator from '../audio/NowPlayingIndicator'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
@@ -208,7 +209,12 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
                 <NowPlayingIndicator playing={isPlayingTrack} size={14} />
               </span>
             )}
-            {isAudio && !item.is_missing && <AudioPlayer track={track} showPlayNext size={30} />}
+            {isAudio && !item.is_missing && (
+              <>
+                <AudioPlayer track={track} showPlayNext size={30} />
+                <AddToSoundboardButton track={track} size={30} />
+              </>
+            )}
             <DownloadButton
               type={config.downloadType}
               id={item.id}

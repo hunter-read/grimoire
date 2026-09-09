@@ -2138,6 +2138,26 @@
     "playGroup": "Audio abspielen",
     "playAll": "Alle abspielen"
   },
+  "soundboard": {
+    "title": "Soundboard",
+    "open": "Soundboard öffnen",
+    "close": "Soundboard schließen",
+    "empty": "Noch keine Sounds. Füge Audio zum Soundboard hinzu, um dein Board aufzubauen.",
+    "untitled": "Unbenannter Sound",
+    "add": "Zum Soundboard hinzufügen",
+    "added": "Auf dem Soundboard",
+    "addSelected": "Zum Soundboard hinzufügen",
+    "edit": "Board konfigurieren",
+    "doneEditing": "Konfiguration beenden",
+    "editHint": "Rastergröße einstellen, Pads zum Anordnen ziehen oder mit dem × entfernen.",
+    "clear": "Board leeren",
+    "remove": "{{name}} vom Soundboard entfernen",
+    "stopAll": "Alle Sounds stoppen",
+    "columns": "Spalten",
+    "rows": "Zeilen",
+    "loopOn": "Schleife {{name}}: an",
+    "loopOff": "Schleife {{name}}: aus"
+  },
   "metadata": {
     "noGenres": "No genres selected",
     "addGenreFromList": "Add genre from list…",

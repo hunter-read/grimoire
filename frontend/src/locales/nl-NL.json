@@ -2138,6 +2138,26 @@
     "playGroup": "Audio afspelen",
     "playAll": "Alles afspelen"
   },
+  "soundboard": {
+    "title": "Soundboard",
+    "open": "Soundboard openen",
+    "close": "Soundboard sluiten",
+    "empty": "Nog geen geluiden. Voeg audio toe aan het soundboard om het op te bouwen.",
+    "untitled": "Naamloos geluid",
+    "add": "Aan soundboard toevoegen",
+    "added": "Op het soundboard",
+    "addSelected": "Aan soundboard toevoegen",
+    "edit": "Board configureren",
+    "doneEditing": "Klaar met configureren",
+    "editHint": "Stel de rastergrootte in, sleep de pads om ze te herschikken, of gebruik de × om er een te verwijderen.",
+    "clear": "Board leegmaken",
+    "remove": "{{name}} van het soundboard verwijderen",
+    "stopAll": "Alle geluiden stoppen",
+    "columns": "Kolommen",
+    "rows": "Rijen",
+    "loopOn": "Herhaling {{name}}: aan",
+    "loopOff": "Herhaling {{name}}: uit"
+  },
   "metadata": {
     "noGenres": "No genres selected",
     "addGenreFromList": "Add genre from list…",

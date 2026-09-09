@@ -1,6 +1,7 @@
 import { useAuth } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
 import { AudioPlayerProvider } from './context/AudioPlayerContext'
+import { SoundboardProvider } from './context/SoundboardContext'
 import { ThemeProvider } from './context/ThemeContext'
 import SetupView from './views/SetupView'
 import LoginView from './views/LoginView'
@@ -17,7 +18,9 @@ export default function App() {
     <ThemeProvider>
       <FavoritesProvider>
         <AudioPlayerProvider>
-          <AppShell />
+          <SoundboardProvider>
+            <AppShell />
+          </SoundboardProvider>
         </AudioPlayerProvider>
       </FavoritesProvider>
     </ThemeProvider>

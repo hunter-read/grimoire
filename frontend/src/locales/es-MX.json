@@ -2138,6 +2138,26 @@
     "playGroup": "Reproducir audio",
     "playAll": "Reproducir todo"
   },
+  "soundboard": {
+    "title": "Tablero de sonidos",
+    "open": "Abrir el tablero de sonidos",
+    "close": "Cerrar el tablero de sonidos",
+    "empty": "Aún no hay sonidos. Añade audio al tablero para componerlo.",
+    "untitled": "Sonido sin título",
+    "add": "Añadir al tablero de sonidos",
+    "added": "En el tablero de sonidos",
+    "addSelected": "Añadir al tablero de sonidos",
+    "edit": "Configurar el tablero",
+    "doneEditing": "Terminar de configurar",
+    "editHint": "Ajusta el tamaño de la cuadrícula, arrastra los pads para reorganizarlos, o usa la × para quitar uno.",
+    "clear": "Vaciar el tablero",
+    "remove": "Quitar {{name}} del tablero de sonidos",
+    "stopAll": "Detener todos los sonidos",
+    "columns": "Columnas",
+    "rows": "Filas",
+    "loopOn": "Bucle de {{name}}: activado",
+    "loopOff": "Bucle de {{name}}: desactivado"
+  },
   "metadata": {
     "noGenres": "No genres selected",
     "addGenreFromList": "Add genre from list…",

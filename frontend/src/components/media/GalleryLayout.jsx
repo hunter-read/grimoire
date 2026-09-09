@@ -15,7 +15,8 @@ import useTagLabels, { titleCaseTag } from '../../hooks/useTagLabels'
  * header, toolbar, tag-filter bar, folder list, empty state, and bulk action
  * bar from the `gallery` state produced by useMediaGallery. View-specific modals
  * (download, add-to-campaign, bulk edit) stay in the view, wired via the
- * onDownload / onAddToCampaign / onBulkEdit callbacks.
+ * onDownload / onAddToCampaign / onBulkEdit callbacks. onAddToSoundboard is
+ * audio-only and simply omitted by the other galleries.
  */
 export default function GalleryLayout({
   config,
@@ -26,6 +27,7 @@ export default function GalleryLayout({
   onDownload,
   onAddToCampaign,
   onBulkEdit,
+  onAddToSoundboard,
 }) {
   const { t } = useTranslation()
   const { i18n, icon: Icon, emptyKey, emptyFilterKey } = config
@@ -225,6 +227,7 @@ export default function GalleryLayout({
           onApplyTags={gallery.applyBulkTags}
           onAddToCampaign={onAddToCampaign}
           onBulkEdit={onBulkEdit}
+          onAddToSoundboard={onAddToSoundboard}
           onDone={gallery.bulk.exit}
         />
       )}

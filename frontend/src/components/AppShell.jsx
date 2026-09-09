@@ -4,7 +4,10 @@ import useScrollRestoration from '../hooks/useScrollRestoration'
 import { useAuth } from '../context/AuthContext'
 import { UISettingsProvider } from '../context/UISettingsContext'
 import { useAudioPlayer } from '../context/AudioPlayerContext'
+import { useSoundboard } from '../context/SoundboardContext'
 import GlobalAudioPlayer, { PLAYER_HEIGHT } from './audio/GlobalAudioPlayer'
+import SoundboardPanel from './audio/SoundboardPanel'
+import SoundboardLauncher from './audio/SoundboardLauncher'
 import api, { settings as settingsApi } from '../api'
 import Sidebar from './Sidebar'
 import MobileSidebar from './MobileSidebar'
@@ -78,6 +81,9 @@ export default function AppShell() {
   const mainRef = useScrollRestoration()
   const { queue } = useAudioPlayer()
   const playerActive = queue.length > 0
+  const { open: soundboardOpen } = useSoundboard()
+  // Keep the floating soundboard clear of the mobile nav bar and the player bar.
+  const overlayOffset = (isMobile ? 64 : 0) + (playerActive ? PLAYER_HEIGHT : 0)
 
   const refreshUiSettings = () =>
     settingsApi
@@ -208,6 +214,12 @@ export default function AppShell() {
         {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
 
         <GlobalAudioPlayer isMobile={isMobile} sidebarWidth={sidebarCollapsed ? 64 : 220} />
+
+        {soundboardOpen ? (
+          <SoundboardPanel bottomOffset={overlayOffset} />
+        ) : (
+          <SoundboardLauncher bottomOffset={overlayOffset} />
+        )}
       </div>
     </UISettingsProvider>
   )

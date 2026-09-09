@@ -2138,6 +2138,26 @@
     "playGroup": "Reproduzir áudio",
     "playAll": "Reproduzir tudo"
   },
+  "soundboard": {
+    "title": "Painel de sons",
+    "open": "Abrir o painel de sons",
+    "close": "Fechar o painel de sons",
+    "empty": "Ainda não há sons. Adicione áudio ao painel para o compor.",
+    "untitled": "Som sem título",
+    "add": "Adicionar ao painel de sons",
+    "added": "No painel de sons",
+    "addSelected": "Adicionar ao painel de sons",
+    "edit": "Configurar o painel",
+    "doneEditing": "Concluir a configuração",
+    "editHint": "Defina o tamanho da grelha, arraste os pads para reorganizar, ou use o × para remover um.",
+    "clear": "Limpar o painel",
+    "remove": "Remover {{name}} do painel de sons",
+    "stopAll": "Parar todos os sons",
+    "columns": "Colunas",
+    "rows": "Linhas",
+    "loopOn": "Repetição de {{name}}: ligada",
+    "loopOff": "Repetição de {{name}}: desligada"
+  },
   "metadata": {
     "noGenres": "No genres selected",
     "addGenreFromList": "Add genre from list…",

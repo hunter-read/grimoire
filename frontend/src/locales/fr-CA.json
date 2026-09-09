@@ -2138,6 +2138,26 @@
     "playGroup": "Lire l'audio",
     "playAll": "Tout lire"
   },
+  "soundboard": {
+    "title": "Table de sons",
+    "open": "Ouvrir la table de sons",
+    "close": "Fermer la table de sons",
+    "empty": "Aucun son pour l'instant. Ajoutez de l'audio à la table de sons pour la composer.",
+    "untitled": "Son sans titre",
+    "add": "Ajouter à la table de sons",
+    "added": "Sur la table de sons",
+    "addSelected": "Ajouter à la table de sons",
+    "edit": "Configurer la table",
+    "doneEditing": "Terminer la configuration",
+    "editHint": "Définissez la taille de la grille, faites glisser les pads pour les réorganiser, ou utilisez le × pour en supprimer un.",
+    "clear": "Vider la table",
+    "remove": "Retirer {{name}} de la table de sons",
+    "stopAll": "Arrêter tous les sons",
+    "columns": "Colonnes",
+    "rows": "Lignes",
+    "loopOn": "Boucle {{name}} : activée",
+    "loopOff": "Boucle {{name}} : désactivée"
+  },
   "metadata": {
     "noGenres": "No genres selected",
     "addGenreFromList": "Add genre from list…",

@@ -5,6 +5,7 @@ import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import AddToCampaignModal from '../components/AddToCampaignModal'
 import BulkEditModal from '../components/BulkEditModal'
 import { useAuth } from '../context/AuthContext'
+import { useSoundboard } from '../context/SoundboardContext'
 import useMediaGallery from '../hooks/useMediaGallery'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
 import GalleryLayout from '../components/media/GalleryLayout'
@@ -16,6 +17,7 @@ export default function AudioView() {
   const isPlayer = user?.role === 'player'
   const config = MEDIA_CONFIGS.audio
   const gallery = useMediaGallery(config)
+  const { addPads } = useSoundboard()
 
   const [downloadModal, setDownloadModal] = useState(null)
   const [showAddToCampaign, setShowAddToCampaign] = useState(false)
@@ -42,6 +44,14 @@ export default function AudioView() {
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}
         onBulkEdit={() => setShowBulkEdit(true)}
+        onAddToSoundboard={() => {
+          // Adding many at once is the same gesture as any other bulk action:
+          // select, click, done — the board opens showing the new pads.
+          addPads(
+            gallery.selectedObjects().map((a) => ({ id: a.id, title: a.title || a.filename }))
+          )
+          gallery.bulk.exit()
+        }}
       />
 
       {downloadModal && (
