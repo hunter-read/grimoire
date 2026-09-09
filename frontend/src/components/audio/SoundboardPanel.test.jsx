@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import SoundboardPanel from './SoundboardPanel'
 import { SoundboardProvider, useSoundboard } from '../../context/SoundboardContext'
+import api from '../../api'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -11,7 +12,14 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('../../api', () => ({
-  default: { get: vi.fn(() => Promise.resolve({})) },
+  default: {
+    // `get` serves both the pad-title hydration and the saved-set list
+    // (useAudioSets), so it answers with a shape that satisfies either.
+    get: vi.fn(() => Promise.resolve({ sets: [] })),
+    post: vi.fn(() => Promise.resolve({ id: 'new' })),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
   mediaUrl: (path) => `http://test${path}`,
 }))
 
@@ -262,7 +270,16 @@ describe('SoundboardPanel', () => {
   it('has one control for configuring, not two', async () => {
     await setup([{ id: 'a', title: 'Thunder' }])
     const handle = screen.getByTestId('soundboard-handle')
-    // Stop-all, configure, close — the grid-size button is folded into edit.
+    // Save, stop-all, configure, close — the grid-size button is folded into
+    // edit rather than sitting beside it.
+    expect(within(handle).getAllByRole('button')).toHaveLength(4)
+    expect(within(handle).queryByRole('button', { name: 'soundboard.columns' })).toBeNull()
+  })
+
+  it('offers no save control on an empty board', async () => {
+    await setup([])
+    const handle = screen.getByTestId('soundboard-handle')
+    expect(within(handle).queryByRole('button', { name: 'audioSets.saveBoard' })).toBeNull()
     expect(within(handle).getAllByRole('button')).toHaveLength(3)
   })
 
@@ -331,5 +348,31 @@ describe('SoundboardPanel', () => {
     await setup([{ id: 'a', title: '' }])
     const grid = screen.getByTestId('soundboard-panel')
     expect(within(grid).getAllByRole('button', { name: 'soundboard.untitled' }).length).toBe(1)
+  })
+})
+
+describe('SoundboardPanel — saving the board', () => {
+  it('saves the pads, their loop flags, and the grid size', async () => {
+    const user = await setup([
+      { id: 'a', title: 'Thunder' },
+      { id: 'b', title: 'Door' },
+    ])
+    await user.click(screen.getByRole('button', { name: 'soundboard.loopOff:Thunder' }))
+
+    await user.click(screen.getByRole('button', { name: 'audioSets.saveBoard' }))
+    await user.type(screen.getByLabelText('audioSets.nameLabel'), 'Tavern')
+    await user.click(screen.getByRole('button', { name: 'common.save' }))
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/audio-sets', {
+        kind: 'soundboard',
+        name: 'Tavern',
+        entries: [
+          { audio_id: 'a', loop: true },
+          { audio_id: 'b', loop: false },
+        ],
+        layout: { cols: 4, rows: 4 },
+      })
+    )
   })
 })

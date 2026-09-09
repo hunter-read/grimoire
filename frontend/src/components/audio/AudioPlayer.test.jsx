@@ -8,6 +8,7 @@ const playNext = vi.fn()
 const togglePlay = vi.fn()
 let isCurrentReturn = false
 let isPlayingReturn = false
+let inQueueReturn = false
 let currentTimeReturn = 0
 let durationReturn = 0
 
@@ -18,6 +19,7 @@ vi.mock('../../context/AudioPlayerContext', () => ({
     togglePlay,
     isCurrent: () => isCurrentReturn,
     isPlayingId: () => isPlayingReturn,
+    inQueue: () => inQueueReturn,
     currentTime: currentTimeReturn,
     duration: durationReturn,
   }),
@@ -28,6 +30,7 @@ describe('AudioPlayer (controller)', () => {
     vi.clearAllMocks()
     isCurrentReturn = false
     isPlayingReturn = false
+    inQueueReturn = false
     currentTimeReturn = 0
     durationReturn = 0
   })
@@ -55,6 +58,27 @@ describe('AudioPlayer (controller)', () => {
     render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} showPlayNext />)
     await userEvent.click(screen.getByRole('button', { name: /play next/i }))
     expect(playNext).toHaveBeenCalledWith({ id: 'a1', title: 'Tavern' })
+  })
+
+  it('shows a queued state and does not queue the same track twice', async () => {
+    inQueueReturn = true
+    render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} showPlayNext />)
+
+    // Mirrors AddToSoundboardButton: the control stays put and flips to a
+    // checked state rather than disappearing.
+    const queued = screen.getByRole('button', { name: /in the queue/i })
+    expect(queued).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /play next/i })).toBeNull()
+
+    await userEvent.click(queued)
+    expect(playNext).not.toHaveBeenCalled()
+  })
+
+  it('leaves Play Next active for a track that is not queued', () => {
+    inQueueReturn = false
+    render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} showPlayNext />)
+    const btn = screen.getByRole('button', { name: /play next/i })
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('renders nothing without a valid track', () => {

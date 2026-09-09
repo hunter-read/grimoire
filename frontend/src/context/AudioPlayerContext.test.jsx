@@ -112,6 +112,27 @@ describe('AudioPlayerContext', () => {
     expect(result.current.currentTrack).toBe(null)
   })
 
+  it('inQueue reports membership anywhere in the queue, not just the current track', () => {
+    const { result } = renderHook(() => useAudioPlayer(), { wrapper })
+    expect(result.current.inQueue('a')).toBe(false)
+
+    act(() => result.current.playQueue(tracks('a', 'b', 'c')))
+    // 'c' is queued but not current — the Play Next control still counts it.
+    expect(result.current.inQueue('a')).toBe(true)
+    expect(result.current.inQueue('c')).toBe(true)
+    expect(result.current.inQueue('zzz')).toBe(false)
+  })
+
+  it('inQueue follows tracks added and removed', () => {
+    const { result } = renderHook(() => useAudioPlayer(), { wrapper })
+    act(() => result.current.playQueue(tracks('a')))
+    act(() => result.current.playNext({ id: 'b', title: 'B' }))
+    expect(result.current.inQueue('b')).toBe(true)
+
+    act(() => result.current.removeAt(result.current.queue.findIndex((t) => t.id === 'b')))
+    expect(result.current.inQueue('b')).toBe(false)
+  })
+
   it('isCurrent / isPlayingId reflect the active track', () => {
     const { result } = renderHook(() => useAudioPlayer(), { wrapper })
     act(() => result.current.playQueue(tracks('a', 'b')))

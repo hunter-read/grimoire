@@ -4,8 +4,9 @@ import GalleryLayout from './GalleryLayout'
 import { MEDIA_CONFIGS } from './mediaConfig'
 
 // The toolbar has its own coverage; stub it so this test focuses on layout.
+// It renders `leading` so the headerActions pass-through stays covered.
 vi.mock('./GalleryToolbar', () => ({
-  default: () => <div data-testid="toolbar" />,
+  default: ({ leading }) => <div data-testid="toolbar">{leading}</div>,
 }))
 vi.mock('./MediaFolderGroup', () => ({
   default: ({ folder }) => <div data-testid="folder-group">{folder}</div>,
@@ -80,6 +81,19 @@ describe('GalleryLayout', () => {
     expect(screen.getByTestId('toolbar')).toBeInTheDocument()
     expect(screen.getByTestId('folder-group')).toHaveTextContent('Dungeons')
     expect(screen.queryByTestId('bulk-bar')).not.toBeInTheDocument()
+  })
+
+  it('passes headerActions to the toolbar as its leading control', () => {
+    render(
+      <GalleryLayout {...baseProps({ headerActions: <button type="button">Saved sets</button> })} />
+    )
+    const toolbar = screen.getByTestId('toolbar')
+    expect(within(toolbar).getByRole('button', { name: 'Saved sets' })).toBeInTheDocument()
+  })
+
+  it('renders no leading control when headerActions is omitted', () => {
+    render(<GalleryLayout {...baseProps()} />)
+    expect(screen.queryByRole('button', { name: 'Saved sets' })).toBeNull()
   })
 
   it('renders a flat card grid (no folder groups) when grouping is off', () => {

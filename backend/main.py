@@ -28,6 +28,7 @@ from .config import (
 from .routers import (
     addons as addons_router,
     audio as audio_router,
+    audio_sets as audio_sets_router,
     auth as auth_router,
     backups as backups_router,
     bookmarks as bookmarks_router,
@@ -323,6 +324,7 @@ api.include_router(search_router.router)
 api.include_router(campaigns_router.router)
 api.include_router(favorites_router.router)
 api.include_router(tags_router.router)
+api.include_router(audio_sets_router.router)
 api.include_router(saved_filters_router.router)
 api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)

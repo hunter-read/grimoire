@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LuBookmark } from 'react-icons/lu'
 import Spinner from '../components/Spinner'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import AddToCampaignModal from '../components/AddToCampaignModal'
@@ -10,6 +11,7 @@ import useMediaGallery from '../hooks/useMediaGallery'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
 import GalleryLayout from '../components/media/GalleryLayout'
 import gallerySubtitle from '../components/media/gallerySubtitle'
+import AudioSetsModal from '../components/audio/AudioSetsModal'
 
 export default function AudioView() {
   const { t } = useTranslation()
@@ -22,6 +24,7 @@ export default function AudioView() {
   const [downloadModal, setDownloadModal] = useState(null)
   const [showAddToCampaign, setShowAddToCampaign] = useState(false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
+  const [showSavedSets, setShowSavedSets] = useState(false)
 
   if (!gallery.data)
     return (
@@ -44,6 +47,33 @@ export default function AudioView() {
         onDownload={setDownloadModal}
         onAddToCampaign={() => setShowAddToCampaign(true)}
         onBulkEdit={() => setShowBulkEdit(true)}
+        headerActions={
+          <button
+            type="button"
+            onClick={() => setShowSavedSets(true)}
+            style={{
+              // Takes the slack at the head of the toolbar row so it lines up
+              // flush with the search box above rather than leaving a gap.
+              flex: 1,
+              minWidth: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              color: 'var(--text-dim)',
+              fontSize: 13,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+            }}
+          >
+            <LuBookmark size={14} />
+            {t('audioSets.title')}
+          </button>
+        }
         onAddToSoundboard={() => {
           // Adding many at once is the same gesture as any other bulk action:
           // select, click, done — the board opens showing the new pads.
@@ -53,6 +83,8 @@ export default function AudioView() {
           gallery.bulk.exit()
         }}
       />
+
+      {showSavedSets && <AudioSetsModal onClose={() => setShowSavedSets(false)} />}
 
       {downloadModal && (
         <DownloadArchiveModal

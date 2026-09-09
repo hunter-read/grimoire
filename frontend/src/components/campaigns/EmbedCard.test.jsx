@@ -19,6 +19,7 @@ vi.mock('../../context/AudioPlayerContext', () => ({
     togglePlay: vi.fn(),
     isCurrent: () => false,
     isPlayingId: () => false,
+    inQueue: () => false,
   }),
 }))
 

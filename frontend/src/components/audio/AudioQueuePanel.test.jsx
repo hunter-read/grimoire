@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AudioQueuePanel from './AudioQueuePanel'
+import api from '../../api'
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({
+  // The panel's save control loads the user's saved sets (useAudioSets).
+  default: {
+    get: vi.fn(() => Promise.resolve({ sets: [] })),
+    post: vi.fn(() => Promise.resolve({ id: 'new' })),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  mediaUrl: (p) => `http://localhost${p}`,
+}))
 
 const jumpTo = vi.fn()
 const removeAt = vi.fn()
@@ -127,5 +137,48 @@ describe('AudioQueuePanel — now playing indicator', () => {
     rerender(<AudioQueuePanel />)
     expect(screen.getByRole('img', { name: 'Current track, paused' })).toBeInTheDocument()
     expect(container.querySelectorAll('.grimoire-eq-bar')).toHaveLength(0)
+  })
+})
+
+describe('AudioQueuePanel — saving the queue', () => {
+  const saveLabel = 'Save playlist'
+
+  it('offers no save control on an empty queue', () => {
+    queue = []
+    render(<AudioQueuePanel />)
+    expect(screen.queryByRole('button', { name: saveLabel })).toBeNull()
+  })
+
+  it('saves the queue in order under the given name', async () => {
+    queue = [
+      { id: 'a', title: 'First' },
+      { id: 'b', title: 'Second' },
+    ]
+    const user = userEvent.setup()
+    render(<AudioQueuePanel />)
+
+    await user.click(screen.getByRole('button', { name: saveLabel }))
+    await user.type(screen.getByLabelText('Name'), 'Storm')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/audio-sets', {
+        kind: 'playlist',
+        name: 'Storm',
+        entries: [{ audio_id: 'a' }, { audio_id: 'b' }],
+      })
+    )
+  })
+
+  it('closes the save dialog on cancel without saving', async () => {
+    queue = [{ id: 'a', title: 'First' }]
+    const user = userEvent.setup()
+    render(<AudioQueuePanel />)
+
+    await user.click(screen.getByRole('button', { name: saveLabel }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Name')).toBeNull()
+    expect(api.post).not.toHaveBeenCalled()
   })
 })

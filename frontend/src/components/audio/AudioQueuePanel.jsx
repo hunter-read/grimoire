@@ -1,23 +1,31 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuMusic, LuGripVertical } from 'react-icons/lu'
+import { LuX, LuMusic, LuGripVertical, LuSave } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import useAudioSets from '../../hooks/useAudioSets'
 import LazyImg from '../LazyImg'
 import NowPlayingIndicator from './NowPlayingIndicator'
+import SaveAudioSetModal from './SaveAudioSetModal'
 
 /**
  * The expandable "upcoming tracks" list shown above the global player bar.
  * The currently-playing track is highlighted; clicking a row jumps to it, each
  * row can be removed, and rows can be dragged by their handle to reorder the
  * queue (without interrupting playback).
+ *
+ * The header's save button names the queue and keeps it server-side (issue
+ * #422), so a scene built here can be reloaded next session from any device.
+ * The live queue itself stays in sessionStorage — saving is explicit.
  */
 export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
   const { t } = useTranslation()
   const { queue, currentIndex, isPlaying, jumpTo, removeAt, moveTrack } = useAudioPlayer()
+  const { sets, save } = useAudioSets()
 
   const dragFrom = useRef(null)
   const [dragOver, setDragOver] = useState(null)
+  const [saving, setSaving] = useState(false)
 
   const onDrop = (to) => {
     const from = dragFrom.current
@@ -53,9 +61,33 @@ export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
           position: 'sticky',
           top: 0,
           background: 'var(--bg-panel)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
         }}
       >
-        {t('audio.player.queue')} ({queue.length})
+        <span style={{ flex: 1 }}>
+          {t('audio.player.queue')} ({queue.length})
+        </span>
+        {queue.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSaving(true)}
+            aria-label={t('audioSets.savePlaylist')}
+            title={t('audioSets.savePlaylist')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              padding: 2,
+            }}
+          >
+            <LuSave size={14} />
+          </button>
+        )}
       </div>
 
       {queue.length === 0 ? (
@@ -193,6 +225,22 @@ export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
             </div>
           )
         })
+      )}
+
+      {saving && (
+        <SaveAudioSetModal
+          kind="playlist"
+          count={queue.length}
+          existing={sets.filter((s) => s.kind === 'playlist').map((s) => s.name)}
+          onSave={(name) =>
+            save(
+              'playlist',
+              name,
+              queue.map((tr) => ({ audio_id: tr.id }))
+            )
+          }
+          onClose={() => setSaving(false)}
+        />
       )}
     </div>
   )

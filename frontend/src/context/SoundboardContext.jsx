@@ -235,6 +235,34 @@ export function SoundboardProvider({ children }) {
     setPads([])
   }, [setPads, stopAll])
 
+  /**
+   * Swap the whole board for a new set of pads, keeping each pad's loop flag.
+   *
+   * Loading a saved board (issue #422) is a wholesale replace, not an add, and
+   * it cannot be expressed as clearPads() + addPads(): both read the same
+   * committed `pads`, so addPads would treat every track shared with the
+   * outgoing board as a duplicate and silently drop it. Replacing in one step
+   * also means the board never renders empty in between.
+   */
+  const replacePads = useCallback(
+    (tracks) => {
+      const list = (Array.isArray(tracks) ? tracks : [tracks]).filter((t) => t && t.id)
+      stopAll()
+      elements.current.clear()
+      const seen = new Set()
+      const next = []
+      list.forEach((t) => {
+        if (seen.has(t.id)) return
+        seen.add(t.id)
+        next.push({ id: t.id, title: t.title || '', loop: !!t.loop })
+      })
+      setPads(next)
+      setOpen(true)
+      return next.length
+    },
+    [setPads, stopAll]
+  )
+
   const updateLayout = useCallback(
     (next) => setLayout((prev) => clampLayout({ ...prev, ...next })),
     [setLayout]
@@ -299,6 +327,7 @@ export function SoundboardProvider({ children }) {
     movePad,
     setPadLoop,
     clearPads,
+    replacePads,
     trigger,
     toggle,
     stop,
@@ -336,6 +365,7 @@ const NOOP_BOARD = {
   movePad: NOOP,
   setPadLoop: NOOP,
   clearPads: NOOP,
+  replacePads: () => 0,
   trigger: NOOP,
   toggle: NOOP,
   stop: NOOP,
