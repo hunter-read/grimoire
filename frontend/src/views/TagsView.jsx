@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import Spinner from '../components/Spinner'
+import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import TagDetail from '../components/tags/TagDetail'
 import TagListButton from '../components/tags/TagListButton'
 
@@ -51,6 +52,9 @@ export default function TagsView() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
+  // { title, params } for the archive modal, or null — same shape the media
+  // galleries use, so the shared modal is reused as-is (issue #401).
+  const [downloadModal, setDownloadModal] = useState(null)
   // Per-category collapse state for the left list, persisted in user prefs.
   const [collapsedCats, setCollapsedCats] = useState(
     () =>
@@ -477,12 +481,21 @@ export default function TagsView() {
                     toggleTagFavorite({ internal: detail.internal, is_favorite: false })
                   }
                   byType={byType}
+                  onDownload={setDownloadModal}
                 />
               )}
             </div>
           </div>
         )}
       </div>
+
+      {downloadModal && (
+        <DownloadArchiveModal
+          title={downloadModal.title}
+          params={downloadModal.params}
+          onClose={() => setDownloadModal(null)}
+        />
+      )}
     </div>
   )
 }

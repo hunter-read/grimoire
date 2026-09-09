@@ -67,3 +67,78 @@ describe('TagFolderGroup', () => {
     expect(screen.queryByTestId('item')).not.toBeInTheDocument()
   })
 })
+
+describe('TagFolderGroup download (issue #401)', () => {
+  it('requests an archive scoped to this folder', async () => {
+    const onDownload = vi.fn()
+    render(
+      <TagFolderGroup
+        resourceType="map"
+        path="deep/woods"
+        items={[{ item_id: 'mf1' }]}
+        containerStyle={containerStyle}
+        renderItem={renderItem}
+        tag="spooky"
+        onDownload={onDownload}
+      />
+    )
+    await userEvent.click(screen.getByTitle('Download Deep / Woods'))
+    expect(onDownload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: {
+          type: 'tag_folder',
+          tag: 'spooky',
+          resource_type: 'map',
+          folder: 'deep/woods',
+        },
+      })
+    )
+  })
+
+  it('does not toggle the folder when the download button is clicked', async () => {
+    const onDownload = vi.fn()
+    render(
+      <TagFolderGroup
+        resourceType="map"
+        path="woods"
+        items={[{ item_id: 'mf1' }]}
+        containerStyle={containerStyle}
+        renderItem={renderItem}
+        tag="spooky"
+        onDownload={onDownload}
+      />
+    )
+    await userEvent.click(screen.getByTitle('Download Woods'))
+    // The items stay visible: downloading is not a collapse.
+    expect(screen.getByTestId('item')).toBeInTheDocument()
+  })
+
+  it('offers no download for an empty folder', () => {
+    render(
+      <TagFolderGroup
+        resourceType="map"
+        path="woods"
+        items={[]}
+        containerStyle={containerStyle}
+        renderItem={renderItem}
+        tag="spooky"
+        onDownload={vi.fn()}
+      />
+    )
+    expect(screen.queryByTitle('Download Woods')).not.toBeInTheDocument()
+  })
+
+  it('offers no download without a handler', () => {
+    render(
+      <TagFolderGroup
+        resourceType="map"
+        path="woods"
+        items={[{ item_id: 'mf1' }]}
+        containerStyle={containerStyle}
+        renderItem={renderItem}
+        tag="spooky"
+      />
+    )
+    expect(screen.queryByTitle('Download Woods')).not.toBeInTheDocument()
+  })
+})

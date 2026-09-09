@@ -330,7 +330,14 @@
     "category_token": "Marke",
     "category_audio": "Audio",
     "category_model": "Model",
-    "category_shared": "Geteilt"
+    "category_shared": "Geteilt",
+    "download": "Herunterladen",
+    "downloadAll": "Alles mit dem Tag {{tag}} herunterladen",
+    "downloadType": "Alle {{type}} mit dem Tag {{tag}} herunterladen",
+    "downloadFolder": "{{folder}} herunterladen",
+    "archiveAll": "Alles mit dem Tag „{{tag}}“",
+    "archiveType": "{{type}} mit dem Tag „{{tag}}“",
+    "archiveFolder": "{{folder}} (Tag „{{tag}}“)"
   },
   "files": {
     "title": "Bibliotheks-Dateimanager",

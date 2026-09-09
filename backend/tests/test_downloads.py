@@ -1153,3 +1153,289 @@ class TestLibraryFolderArchive:
                 params={"type": "library_folder", "folder": "books/DnD/core"},
             )
         assert resp.status_code == 413
+
+
+# ---------------------------------------------------------------------------
+# type=tag / tag_type / tag_folder — the tag browser's three levels (issue #401)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def tagged_set():
+    """A tag spanning several collections, plus a tagged map folder.
+
+    Mirrors what the tag browser shows: directly tagged items of mixed types,
+    and a folder group whose contents are pulled in whether or not each item
+    carries the tag itself.
+    """
+    from backend.config import SessionLocal
+    from backend.models import MapFolder
+    from backend.services import tag_service
+    from backend.tests.conftest import make_audio
+
+    uid = uuid.uuid4().hex[:6]
+    tag = f"Fireball {uid}"
+
+    system = make_game_system(name=f"TagSys-{uid}")
+    bpath = _real_file(f"tagged_book_{uid}.pdf", b"%PDF-tagged")
+    book = make_book(
+        system_id=system.id,
+        title=f"Tagged Book {uid}",
+        filename=os.path.basename(bpath),
+        filepath=bpath,
+        relative_path=f"books/core/{os.path.basename(bpath)}",
+        category="core",
+    )
+    mpath = _real_file(f"tagged_map_{uid}.png", b"\x89PNG-tagged")
+    mp = make_map(
+        filename=os.path.basename(mpath),
+        filepath=mpath,
+        relative_path=f"maps/spells/{os.path.basename(mpath)}",
+    )
+    apath = _real_file(f"tagged_audio_{uid}.mp3", b"ID3-tagged")
+    audio = make_audio(
+        filename=os.path.basename(apath),
+        filepath=apath,
+        relative_path=f"audio/spells/{os.path.basename(apath)}",
+    )
+    # In the tagged folder but not itself tagged — it must still be archived.
+    fpath = _real_file(f"folder_only_{uid}.png", b"\x89PNG-folder")
+    folder_map = make_map(
+        filename=os.path.basename(fpath),
+        filepath=fpath,
+        relative_path=f"maps/spellbook_{uid}/{os.path.basename(fpath)}",
+    )
+
+    db = SessionLocal()
+    try:
+        for rtype, rid in (
+            ("book", book.id),
+            ("map", mp.id),
+            ("audio", audio.id),
+            ("system", system.id),  # a tagged system: skipped by design
+        ):
+            tag_service.add_resource_tags(db, rtype, rid, [tag])
+        db.add(MapFolder(path=f"spellbook_{uid}", tags=[tag]))
+        db.commit()
+    finally:
+        db.close()
+
+    return {
+        "tag": tag_service.normalize_internal(tag),
+        "uid": uid,
+        "system": system,
+        "book": book,
+        "map": mp,
+        "audio": audio,
+        "folder_map": folder_map,
+        "folder_path": f"spellbook_{uid}",
+    }
+
+
+class TestTagArchive:
+    def test_groups_every_type_under_its_own_folder(self, client, admin_headers, tagged_set):
+        """One top-level folder per resource type, as the browser groups them."""
+        names = _zip_names(
+            _get_archive(client, admin_headers, {"type": "tag", "tag": tagged_set["tag"]})
+        )
+        assert f"books/{tagged_set['book'].filename}" in names
+        assert f"maps/{tagged_set['map'].filename}" in names
+        assert f"audio/{tagged_set['audio'].filename}" in names
+
+    def test_includes_items_from_a_tagged_folder(self, client, admin_headers, tagged_set):
+        """A folder tag pulls in its contents, tagged individually or not."""
+        names = _zip_names(
+            _get_archive(client, admin_headers, {"type": "tag", "tag": tagged_set["tag"]})
+        )
+        assert f"maps/{tagged_set['folder_map'].filename}" in names
+
+    def test_tagged_system_is_not_expanded(self, client, admin_headers, tagged_set):
+        """A tagged system is a shelf, not a file; its books stay out (issue #401).
+
+        The system here holds the tagged book, so the archive must contain that
+        one book because it is tagged — not because the system is.
+        """
+        from backend.config import SessionLocal
+
+        uid = tagged_set["uid"]
+        extra = _real_file(f"untagged_in_system_{uid}.pdf", b"%PDF-untagged")
+        make_book(
+            system_id=tagged_set["system"].id,
+            title=f"Untagged {uid}",
+            filename=os.path.basename(extra),
+            filepath=extra,
+            relative_path=f"books/core/{os.path.basename(extra)}",
+            category="core",
+        )
+        db = SessionLocal()
+        db.close()
+
+        names = _zip_names(
+            _get_archive(client, admin_headers, {"type": "tag", "tag": tagged_set["tag"]})
+        )
+        assert not any(os.path.basename(extra) in n for n in names)
+
+    def test_unknown_tag_returns_404(self, client, admin_headers):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "tag", "tag": "no-such-tag-anywhere"},
+        )
+        assert resp.status_code == 404
+
+    def test_missing_tag_returns_400(self, client, admin_headers):
+        resp = client.get(
+            "/api/downloads/archive", headers=admin_headers, params={"type": "tag"}
+        )
+        assert resp.status_code == 400
+
+    def test_player_can_download_a_tag(self, client, player_headers, tagged_set):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=player_headers,
+            params={"type": "tag", "tag": tagged_set["tag"]},
+        )
+        assert resp.status_code == 200
+
+
+class TestTagTypeArchive:
+    def test_contains_only_the_requested_type(self, client, admin_headers, tagged_set):
+        names = _zip_names(
+            _get_archive(
+                client,
+                admin_headers,
+                {"type": "tag_type", "tag": tagged_set["tag"], "resource_type": "map"},
+            )
+        )
+        assert tagged_set["map"].filename in names
+        assert tagged_set["book"].filename not in names
+
+    def test_single_type_archive_is_not_nested(self, client, admin_headers, tagged_set):
+        """The archive is already that type, so it needs no per-type folder."""
+        names = _zip_names(
+            _get_archive(
+                client,
+                admin_headers,
+                {"type": "tag_type", "tag": tagged_set["tag"], "resource_type": "book"},
+            )
+        )
+        assert names == {tagged_set["book"].filename}
+
+    def test_missing_resource_type_returns_400(self, client, admin_headers, tagged_set):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={"type": "tag_type", "tag": tagged_set["tag"]},
+        )
+        assert resp.status_code == 400
+
+    def test_system_is_not_a_downloadable_tag_type(self, client, admin_headers, tagged_set):
+        """`system` is deliberately absent from the tag archive types."""
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={
+                "type": "tag_type",
+                "tag": tagged_set["tag"],
+                "resource_type": "system",
+            },
+        )
+        assert resp.status_code == 400
+
+
+class TestTagFolderArchive:
+    def test_contains_the_folders_items(self, client, admin_headers, tagged_set):
+        names = _zip_names(
+            _get_archive(
+                client,
+                admin_headers,
+                {
+                    "type": "tag_folder",
+                    "tag": tagged_set["tag"],
+                    "resource_type": "map",
+                    "folder": tagged_set["folder_path"],
+                },
+            )
+        )
+        assert names == {tagged_set["folder_map"].filename}
+
+    def test_unknown_folder_returns_404(self, client, admin_headers, tagged_set):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={
+                "type": "tag_folder",
+                "tag": tagged_set["tag"],
+                "resource_type": "map",
+                "folder": "not-a-tagged-folder",
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_missing_folder_returns_400(self, client, admin_headers, tagged_set):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=admin_headers,
+            params={
+                "type": "tag_folder",
+                "tag": tagged_set["tag"],
+                "resource_type": "map",
+            },
+        )
+        assert resp.status_code == 400
+
+
+class TestTagArchiveAccessControl:
+    """A tag archive must not become a way around per-book access levels.
+
+    The tags *browser* enriches items for display without consulting access
+    grants, so the archive builders deliberately re-resolve the rows and run
+    them through ``visible_books`` rather than trusting that list (issue #258).
+    """
+
+    def test_restricted_book_is_excluded_for_a_player(self, client, player_headers):
+        from backend.config import SessionLocal
+        from backend.models import Book
+        from backend.services import tag_service
+
+        uid = uuid.uuid4().hex[:6]
+        tag = f"Restricted {uid}"
+        system = make_game_system(name=f"AclSys-{uid}")
+        open_path = _real_file(f"acl_open_{uid}.pdf", b"%PDF-open")
+        open_book = make_book(
+            system_id=system.id,
+            title=f"Open {uid}",
+            filename=os.path.basename(open_path),
+            filepath=open_path,
+            relative_path=f"books/core/{os.path.basename(open_path)}",
+            category="core",
+        )
+        secret_path = _real_file(f"acl_secret_{uid}.pdf", b"%PDF-secret")
+        secret_book = make_book(
+            system_id=system.id,
+            title=f"Secret {uid}",
+            filename=os.path.basename(secret_path),
+            filepath=secret_path,
+            relative_path=f"books/core/{os.path.basename(secret_path)}",
+            category="core",
+        )
+
+        db = SessionLocal()
+        try:
+            db.query(Book).filter(Book.id == secret_book.id).update(
+                {"access_level": "admin"}
+            )
+            for rid in (open_book.id, secret_book.id):
+                tag_service.add_resource_tags(db, "book", rid, [tag])
+            db.commit()
+        finally:
+            db.close()
+
+        key = tag_service.normalize_internal(tag)
+        names = _zip_names(
+            _get_archive(client, player_headers, {"type": "tag", "tag": key})
+        )
+        assert f"books/{open_book.filename}" in names
+        assert secret_book.filename not in " ".join(names), (
+            "an admin-only book must not ride out inside a tag archive"
+        )

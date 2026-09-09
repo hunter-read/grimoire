@@ -17,6 +17,9 @@ from ._helpers import (
     _files_for_system,
     _files_for_system_category,
     _files_for_model_folder,
+    _files_for_tag,
+    _files_for_tag_folder,
+    _files_for_tag_type,
     _files_for_token_folder,
 )
 
@@ -26,7 +29,8 @@ def download_archive(
         ...,
         description=(
             "Scope: system | system_category | book_folder | map_folder | "
-            "token_folder | audio_folder | model_folder | library_folder"
+            "token_folder | audio_folder | model_folder | library_folder | "
+            "tag | tag_type | tag_folder"
         ),
     ),
     fmt: str = Query("zip", description="Archive format: zip | tar | tar.gz | tar.bz2"),
@@ -34,6 +38,16 @@ def download_archive(
         None, description="System ID (system / system_category / book_folder)"
     ),
     category: Optional[str] = Query(None, description="Book category slug (system_category)"),
+    tag: Optional[str] = Query(
+        None, description="Tag internal key (tag / tag_type / tag_folder)"
+    ),
+    resource_type: Optional[str] = Query(
+        None,
+        description=(
+            "Resource type to scope a tag archive to: book | map | token | audio | "
+            "model (tag_type / tag_folder)"
+        ),
+    ),
     folder: Optional[str] = Query(
         None,
         description=(
@@ -87,6 +101,32 @@ def download_archive(
         if not folder:
             raise HTTPException(400, "folder is required for type=audio_folder")
         files, base = _files_for_audio_folder(db, folder)
+
+    elif type == "tag":
+        # The whole tag, every type at once — the tag browser's top level.
+        if not tag:
+            raise HTTPException(400, "tag is required for type=tag")
+        files, base = _files_for_tag(db, tag, see_explicit, user)
+
+    elif type == "tag_type":
+        # One type's section within a tag.
+        if not tag:
+            raise HTTPException(400, "tag is required for type=tag_type")
+        if not resource_type:
+            raise HTTPException(400, "resource_type is required for type=tag_type")
+        files, base = _files_for_tag_type(db, tag, resource_type, see_explicit, user)
+
+    elif type == "tag_folder":
+        # One tagged folder's group inside a type section.
+        if not tag:
+            raise HTTPException(400, "tag is required for type=tag_folder")
+        if not resource_type:
+            raise HTTPException(400, "resource_type is required for type=tag_folder")
+        if not folder:
+            raise HTTPException(400, "folder is required for type=tag_folder")
+        files, base = _files_for_tag_folder(
+            db, tag, resource_type, folder, see_explicit, user
+        )
 
     elif type == "library_folder":
         # The file manager's scope: an arbitrary folder taken as it sits on
