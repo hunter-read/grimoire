@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { AudioPlayerProvider, useAudioPlayer } from '../../context/AudioPlayerContext'
 import GlobalAudioPlayer from './GlobalAudioPlayer'
 
-vi.mock('../../api', () => ({ mediaUrl: (path) => `http://localhost${path}` }))
+vi.mock('../../api', () => ({
+  // The queue panel's save control loads the user's saved sets (useAudioSets).
+  default: { get: vi.fn(() => Promise.resolve({ sets: [] })) },
+  mediaUrl: (path) => `http://localhost${path}`,
+}))
 
 // jsdom doesn't implement media playback; stub it so play()/pause() are no-ops.
 beforeEach(() => {

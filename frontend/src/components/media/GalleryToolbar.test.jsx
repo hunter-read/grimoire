@@ -19,9 +19,29 @@ const makeGallery = (over = {}) => ({
 })
 
 const renderToolbar = (props = {}) =>
-  render(<GalleryToolbar config={MEDIA_CONFIGS.map} gallery={makeGallery(props.gallery)} />)
+  render(
+    <GalleryToolbar
+      config={MEDIA_CONFIGS.map}
+      gallery={makeGallery(props.gallery)}
+      leading={props.leading}
+    />
+  )
 
 describe('GalleryToolbar', () => {
+  it('renders a leading control ahead of the grouping switch', () => {
+    renderToolbar({ leading: <button type="button">Saved sets</button> })
+    const first = screen.getByRole('button', { name: 'Saved sets' })
+    // It must come first in the row so it takes the slack on the left.
+    expect(first.parentElement.firstElementChild).toBe(first)
+    // …and the grouping switch follows it in that same row.
+    expect(first.parentElement).toContainElement(screen.getByRole('switch'))
+  })
+
+  it('renders no leading slot when none is given', () => {
+    renderToolbar()
+    expect(screen.queryByRole('button', { name: 'Saved sets' })).toBeNull()
+  })
+
   it('renders the group-by-folder switch', () => {
     renderToolbar()
     expect(screen.getByRole('switch')).toBeInTheDocument()

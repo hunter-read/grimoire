@@ -202,6 +202,10 @@ export function AudioPlayerProvider({ children }) {
 
   const toggleExpanded = useCallback(() => setExpanded((e) => !e), [])
 
+  // Whether a track is anywhere in the queue — what the "Play next" control
+  // uses to show an already-queued state, mirroring the soundboard's pad check.
+  const inQueue = useCallback((id) => queue.some((t) => t.id === id), [queue])
+
   const isCurrent = useCallback((id) => currentTrack?.id === id, [currentTrack])
   const isPlayingId = useCallback(
     (id) => isPlaying && currentTrack?.id === id,
@@ -281,6 +285,7 @@ export function AudioPlayerProvider({ children }) {
     // selectors
     isCurrent,
     isPlayingId,
+    inQueue,
   }
 
   return <AudioPlayerContext.Provider value={value}>{children}</AudioPlayerContext.Provider>
@@ -326,4 +331,5 @@ const NOOP_PLAYER = {
   toggleExpanded: NOOP,
   isCurrent: () => false,
   isPlayingId: () => false,
+  inQueue: () => false,
 }

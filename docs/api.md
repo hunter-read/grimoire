@@ -728,6 +728,51 @@ preset default clears the flag on any sibling in the same scope.
 Scopes: `systems`, `books`, `maps`, `tokens`, `audio`, `models`. `state` is an opaque
 sort/filter object the client interprets (e.g. `{sort, order, filters}`).
 
+### Saved audio sets
+
+Per-user named playlists and soundboards. The live player queue and the live
+soundboard stay in browser storage; a saved set is an explicit copy kept
+server-side, so it follows the user across devices.
+
+Both kinds share one collection, discriminated by `kind` (`playlist` |
+`soundboard`). `entries` is the ordered list of tracks/pads; `layout` is the
+soundboard grid and is `null` for a playlist. `(user, kind, name)` is unique, so
+re-saving a name updates that set rather than adding a second one, while a
+playlist and a soundboard may share a name.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/audio-sets` | GET | any | List the user's saved sets. Optional query `kind` limits to one kind. Returns `{sets: [{id, kind, name, count, layout, updated_at}]}` - names and sizes only, not entries |
+| `/api/audio-sets` | POST | any | Save a set. Body `{kind, name, entries: [{audio_id, loop?}], layout?: {cols, rows}}`. Re-saving an existing `(kind, name)` overwrites its entries and layout. |
+| `/api/audio-sets/:id` | GET | any | Load one set, resolved against the current library |
+| `/api/audio-sets/:id` | PATCH | any | Rename a set and/or replace its contents. Body `{name?, entries?, layout?}`. A name already used by another set of the same kind returns `409`. |
+| `/api/audio-sets/:id` | DELETE | any | Delete one of the user's saved sets |
+
+Entries store audio ids only. `GET /api/audio-sets/:id` pairs each id with the
+track's **current** metadata, so a title edited in the library shows through on
+every set referencing it:
+
+```json
+{
+  "id": "…", "kind": "soundboard", "name": "Tavern",
+  "entries": [
+    {"audio_id": "…", "loop": true, "title": "Hearth", "artist": "", "has_artwork": false}
+  ],
+  "missing": 1,
+  "layout": {"cols": 3, "rows": 5},
+  "updated_at": "2026-09-09T00:00:00"
+}
+```
+
+An entry whose track has left the library - or is no longer shared with a guest -
+is omitted from `entries` and counted in `missing`, so a stale set degrades to
+what is still playable instead of failing the load. The listing's `count` is of
+*saved* entries, so it can exceed the number that resolve.
+
+Limits: `name` must be non-blank (max 120 chars), a set holds at most 500
+entries, and `layout` is bounded by the soundboard grid (`cols` 1-8, `rows`
+1-15). A `layout` sent with a playlist is dropped.
+
 ### Bookmarks
 
 Bookmarks are per-user - users cannot see or modify each other's bookmarks.

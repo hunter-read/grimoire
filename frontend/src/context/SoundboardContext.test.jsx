@@ -333,6 +333,77 @@ describe('SoundboardContext', () => {
     expect(screen.getByRole('button')).toHaveTextContent('pads:0')
   })
 
+  describe('replacePads', () => {
+    it('swaps the whole board and keeps each pad’s loop flag', () => {
+      renderBoard()
+      act(() => board.addPads([{ id: 'a', title: 'A' }]))
+
+      let count
+      act(() => {
+        count = board.replacePads([
+          { id: 'x', title: 'X', loop: true },
+          { id: 'y', title: 'Y' },
+        ])
+      })
+
+      expect(count).toBe(2)
+      expect(screen.getByTestId('count')).toHaveTextContent('2')
+      expect(screen.queryByTestId('pad-a')).toBeNull()
+      expect(screen.getByTestId('pad-x')).toHaveTextContent('loop')
+      expect(screen.getByTestId('pad-y')).not.toHaveTextContent('loop')
+      expect(screen.getByTestId('open')).toHaveTextContent('true')
+    })
+
+    it('keeps pads the outgoing board also had', () => {
+      // Regression: clearPads() + addPads() in one handler both read the same
+      // committed pad list, so a track on both boards looked like a duplicate
+      // and was dropped. A replace must carry it through.
+      renderBoard()
+      act(() =>
+        board.addPads([
+          { id: 'shared', title: 'Shared' },
+          { id: 'old', title: 'Old' },
+        ])
+      )
+      act(() => {
+        board.replacePads([
+          { id: 'shared', title: 'Shared' },
+          { id: 'new', title: 'New' },
+        ])
+      })
+      expect(screen.getByTestId('count')).toHaveTextContent('2')
+      expect(screen.getByTestId('pad-shared')).toBeInTheDocument()
+      expect(screen.getByTestId('pad-new')).toBeInTheDocument()
+      expect(screen.queryByTestId('pad-old')).toBeNull()
+    })
+
+    it('drops entries with no id and de-dupes within the incoming list', () => {
+      renderBoard()
+      act(() => {
+        board.replacePads([{ id: 'a', title: 'A' }, null, {}, { id: 'a', title: 'dupe' }])
+      })
+      expect(screen.getByTestId('count')).toHaveTextContent('1')
+      expect(screen.getByTestId('pad-a')).toHaveTextContent('A')
+    })
+
+    it('accepts a single pad and empties the board for an empty list', () => {
+      renderBoard()
+      act(() => board.replacePads({ id: 'solo', title: 'Solo' }))
+      expect(screen.getByTestId('count')).toHaveTextContent('1')
+      act(() => board.replacePads([]))
+      expect(screen.getByTestId('count')).toHaveTextContent('0')
+    })
+
+    it('stops any sound the outgoing board was playing', () => {
+      renderBoard()
+      act(() => board.addPads([{ id: 'a', title: 'A' }]))
+      act(() => board.trigger({ id: 'a' }))
+      const el = FakeAudio.instances.at(-1)
+      act(() => board.replacePads([{ id: 'b', title: 'B' }]))
+      expect(el.paused).toBe(true)
+    })
+  })
+
   it('clampLayout normalises arbitrary input', () => {
     expect(clampLayout({ cols: 5, rows: 5 })).toEqual({ cols: 5, rows: 5 })
     expect(clampLayout({ cols: 1, rows: 15 })).toEqual({ cols: 1, rows: 15 })

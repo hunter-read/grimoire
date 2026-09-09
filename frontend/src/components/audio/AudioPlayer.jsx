@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { LuPlay, LuPause, LuListPlus } from 'react-icons/lu'
+import { LuPlay, LuPause, LuListPlus, LuListCheck } from 'react-icons/lu'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 
 /**
@@ -8,14 +8,27 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext'
  * single app-wide player; the optional "Play Next" button queues it after the
  * current track without interrupting playback.
  *
+ * A track already in the queue shows a checked icon and the button becomes a
+ * no-op rather than disappearing, so the control doesn't shift position on
+ * click and queueing the same track twice isn't possible by accident. This
+ * mirrors AddToSoundboardButton, so both destinations read the same way.
+ *
  * This replaces the old self-contained <audio> element — there is now exactly
  * one audio element app-wide (see GlobalAudioPlayer), so playback survives
  * navigation and multiple controls stay in sync.
  */
 export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) {
   const { t } = useTranslation()
-  const { playQueue, playNext, togglePlay, isCurrent, isPlayingId, currentTime, duration } =
-    useAudioPlayer()
+  const {
+    playQueue,
+    playNext,
+    togglePlay,
+    isCurrent,
+    isPlayingId,
+    inQueue,
+    currentTime,
+    duration,
+  } = useAudioPlayer()
 
   if (!track || !track.id) return null
 
@@ -37,9 +50,12 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) 
     }
   }
 
+  const queued = inQueue(track.id)
+  const queueLabel = queued ? t('audio.player.queued') : t('audio.player.playNext')
+
   const onPlayNext = (e) => {
     e.stopPropagation()
-    playNext(track)
+    if (!queued) playNext(track)
   }
 
   return (
@@ -92,8 +108,9 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) 
         <button
           type="button"
           onClick={onPlayNext}
-          aria-label={t('audio.player.playNext')}
-          title={t('audio.player.playNext')}
+          aria-label={queueLabel}
+          title={queueLabel}
+          aria-pressed={queued}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -103,12 +120,12 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) 
             borderRadius: '50%',
             border: '1px solid var(--border)',
             background: 'var(--bg-card)',
-            color: 'var(--text-dim)',
-            cursor: 'pointer',
+            color: queued ? 'var(--gold)' : 'var(--text-dim)',
+            cursor: queued ? 'default' : 'pointer',
             flexShrink: 0,
           }}
         >
-          <LuListPlus size={15} />
+          {queued ? <LuListCheck size={15} /> : <LuListPlus size={15} />}
         </button>
       )}
     </>

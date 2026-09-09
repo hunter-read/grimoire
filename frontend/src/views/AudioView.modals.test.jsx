@@ -5,11 +5,12 @@ import AudioView from './AudioView'
 
 // Drive the three modal branches by mocking GalleryLayout to expose its callbacks.
 vi.mock('../components/media/GalleryLayout', () => ({
-  default: ({ onDownload, onAddToCampaign, onBulkEdit }) => (
+  default: ({ onDownload, onAddToCampaign, onBulkEdit, headerActions }) => (
     <div>
       <button onClick={() => onDownload({ title: 'T', params: {} })}>fire-download</button>
       <button onClick={onAddToCampaign}>fire-campaign</button>
       <button onClick={onBulkEdit}>fire-bulk</button>
+      {headerActions}
     </div>
   ),
 }))
@@ -55,6 +56,14 @@ vi.mock('../components/BulkEditModal', () => ({
   ),
 }))
 
+vi.mock('../components/audio/AudioSetsModal', () => ({
+  default: ({ onClose }) => (
+    <div data-testid="sets-modal">
+      <button onClick={onClose}>close-sets</button>
+    </div>
+  ),
+}))
+
 beforeEach(() => vi.clearAllMocks())
 
 describe('AudioView modals', () => {
@@ -88,6 +97,15 @@ describe('AudioView modals', () => {
     // be corrected without re-picking every track.
     expect(screen.queryByTestId('bulk-modal')).not.toBeInTheDocument()
     expect(bulkExit).not.toHaveBeenCalled()
+  })
+
+  it('opens and closes the saved-sets modal from the header', async () => {
+    render(<AudioView />)
+    expect(screen.queryByTestId('sets-modal')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Saved sets/ }))
+    expect(screen.getByTestId('sets-modal')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('close-sets'))
+    expect(screen.queryByTestId('sets-modal')).not.toBeInTheDocument()
   })
 
   // onSelectItem is removed; navigation to the track detail page is now handled

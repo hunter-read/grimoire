@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuGripVertical, LuX, LuSettings2, LuRepeat, LuCircleStop, LuTrash2 } from 'react-icons/lu'
+import {
+  LuGripVertical,
+  LuX,
+  LuSettings2,
+  LuRepeat,
+  LuCircleStop,
+  LuTrash2,
+  LuSave,
+} from 'react-icons/lu'
 import {
   useSoundboard,
   MIN_COLS,
@@ -8,6 +16,8 @@ import {
   MIN_ROWS,
   MAX_ROWS,
 } from '../../context/SoundboardContext'
+import useAudioSets from '../../hooks/useAudioSets'
+import SaveAudioSetModal from './SaveAudioSetModal'
 
 const PANEL_MARGIN = 16
 const PAD_MIN = 64
@@ -47,6 +57,11 @@ function clampToViewport(pos, size) {
  * controls, drag-to-rearrange, and per-pad remove — so configuring it is one
  * mode to enter and leave rather than two overlapping ones, and no destructive
  * control sits on a pad you are tapping mid-session.
+ *
+ * The title bar's save button names the board and keeps it server-side (issue
+ * #422), so it can be reloaded next session from any device. The live board
+ * stays in localStorage — saving is explicit, and an existing board is
+ * untouched by this.
  */
 export default function SoundboardPanel({ bottomOffset = 0 }) {
   const { t } = useTranslation()
@@ -68,11 +83,14 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
     isPadPlaying,
   } = useSoundboard()
 
+  const { sets, save } = useAudioSets()
+
   const panelRef = useRef(null)
   const dragRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
   const [overIndex, setOverIndex] = useState(null)
+  const [savingSet, setSavingSet] = useState(false)
 
   // Pointer-driven move of the whole panel. Pointer events (not mouse) so a
   // touch drag works the same, with capture so the drag survives the pointer
@@ -184,6 +202,17 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
         <span style={{ fontSize: 12, fontWeight: 500, flex: 1, minWidth: 0 }}>
           {t('soundboard.title')}
         </span>
+        {pads.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSavingSet(true)}
+            aria-label={t('audioSets.saveBoard')}
+            title={t('audioSets.saveBoard')}
+            style={iconBtn()}
+          >
+            <LuSave size={15} />
+          </button>
+        )}
         <button
           type="button"
           onClick={stopAll}
@@ -416,6 +445,23 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
             )
           })}
         </div>
+      )}
+
+      {savingSet && (
+        <SaveAudioSetModal
+          kind="soundboard"
+          count={pads.length}
+          existing={sets.filter((s) => s.kind === 'soundboard').map((s) => s.name)}
+          onSave={(name) =>
+            save(
+              'soundboard',
+              name,
+              pads.map((p) => ({ audio_id: p.id, loop: !!p.loop })),
+              layout
+            )
+          }
+          onClose={() => setSavingSet(false)}
+        />
       )}
     </div>
   )
