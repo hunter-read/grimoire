@@ -14,7 +14,7 @@ export const DEFAULT_VIEW_MODES = {
   map: 'compact',
   token: 'compact',
   audio: 'list',
-  model: 'compact',
+  model: 'card',
 }
 
 const sessionKey = (type) => `grimoire:view-mode:${type}`
