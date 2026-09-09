@@ -11,6 +11,47 @@ const renderSub = (props = {}) =>
   )
 
 describe('MenuSubmenu', () => {
+  it('pulls its panel up when it would open past the bottom of the window', () => {
+    // The parent menu is clamped to the viewport, but a seven-row panel opening
+    // off its bottom corner can still overhang.
+    window.innerHeight = 600
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 500,
+      bottom: 700, // 108px past the 592 limit (600 - 8 margin)
+      left: 200,
+      right: 400,
+      width: 200,
+      height: 200,
+      x: 200,
+      y: 500,
+      toJSON: () => {},
+    })
+    renderSub()
+    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement)
+    // -4 default, minus the 108px overhang.
+    expect(screen.getByTestId('sub-panel')).toHaveStyle({ top: '-112px' })
+    vi.restoreAllMocks()
+  })
+
+  it('flips its panel to the left when it would run off the right edge', () => {
+    window.innerWidth = 500
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 100,
+      bottom: 300,
+      left: 400,
+      right: 600, // past the 492 limit
+      width: 200,
+      height: 200,
+      x: 400,
+      y: 100,
+      toJSON: () => {},
+    })
+    renderSub()
+    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement)
+    expect(screen.getByTestId('sub-panel')).toHaveStyle({ right: '100%' })
+    vi.restoreAllMocks()
+  })
+
   it('keeps its panel closed until asked', () => {
     renderSub()
     expect(screen.queryByTestId('sub-panel')).not.toBeInTheDocument()

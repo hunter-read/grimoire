@@ -30,6 +30,7 @@ import FilePane from '../components/files/FilePane'
 import NewFolderModal from '../components/files/NewFolderModal'
 import RenameModal from '../components/files/RenameModal'
 import MenuSubmenu from '../components/files/MenuSubmenu'
+import ContextMenu from '../components/files/ContextMenu'
 import UploadPanel from '../components/files/UploadPanel'
 import useUploadQueue from '../hooks/useUploadQueue'
 import BulkEditModal from '../components/BulkEditModal'
@@ -648,19 +649,10 @@ export default function FileManagerView() {
       </p>
 
       {context && (
-        <div
-          style={{
-            position: 'fixed',
-            top: Math.min(context.y, window.innerHeight - 320),
-            left: Math.min(context.x, window.innerWidth - 240),
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: 4,
-            zIndex: 900,
-            minWidth: 220,
-            boxShadow: '0 8px 24px var(--overlay)',
-          }}
+        <ContextMenu
+          key={`${context.x},${context.y}`}
+          x={context.x}
+          y={context.y}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Only indexed *files* can be previewed — a system folder has a
@@ -890,7 +882,7 @@ export default function FileManagerView() {
           >
             <LuTrash2 size={13} /> {t('files.delete')}
           </button>
-        </div>
+        </ContextMenu>
       )}
 
       {creatingIn !== null && (

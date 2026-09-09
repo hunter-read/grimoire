@@ -35,7 +35,9 @@ def list_tokens(
     if not can_see_explicit:
         q = q.filter(Token.is_explicit != True)
     total = q.count()
-    tokens = q.order_by(Token.filename).offset(offset).limit(limit).all()
+    # By path rather than filename, so a page is a contiguous run of folders in
+    # display order and later pages append below the fold — see list_maps.
+    tokens = q.order_by(Token.relative_path).offset(offset).limit(limit).all()
     token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
     vcounts = variants.variant_counts(db, Token, [t.id for t in tokens])
     vkinds = variants.variant_kinds(db, Token, [t.id for t in tokens])
