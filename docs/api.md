@@ -513,15 +513,77 @@ category, not to move a file. The same applies to a name collision at the
 destination (the file lands under a suffixed name), a book outside `books/`, and
 a book whose file is missing.
 
-| `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size` |
+| `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
+| `/api/maps/:id/export.uvtt` | GET | any | Export a raster map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). 400 for PDF, video, archive, and existing `.uvtt` maps, and for a map already **variant-linked** to a Universal VTT file |
+| `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image |
+| `/api/maps/:id/vtt/data` | GET | any | Grid resolution plus wall/portal/light counts parsed from a `.uvtt`/`.dd2vtt` map, image omitted. 400 if the map is not Universal VTT |
 | `/api/maps/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/maps/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, map_type?, grid_size?}]}` |
 | `/api/maps/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/map-folders` | GET | any | List folder tag assignments |
 | `/api/map-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
 | `/api/map-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
+
+#### Map grid and Universal VTT export
+
+`GET /api/maps/:id` reports a `grid` object - `{width, height, cell_px?, source}` -
+holding the grid Grimoire will use for the map. `source` says where it came from,
+in precedence order:
+
+| `source` | Meaning |
+|----------|---------|
+| `manual` | Set by hand through the PATCH endpoint; overrides everything below |
+| `filename` | Parsed from a `(30x40)` style name on the file or a parent folder |
+| `dpi` | Derived from image DPI, one inch to a cell |
+| `computed` | Estimated by fitting common cell sizes against the pixel dimensions |
+
+Detection is a guess, and a wrong one is baked into every export, so the grid can
+be corrected: PATCH `grid_width`, `grid_height`, and optionally `grid_px`. All
+three are floats stored to 2 decimal places, because maps commonly bleed a
+partial cell past the nominal grid (a `33x24` map with a quarter-cell margin is
+really `33.25x24.25`). Sending `0` for a field clears the override and hands the
+map back to automatic detection.
+
+A grid that does not look right for the image is **saved anyway** and reported
+rather than rejected - unusual maps are real, and only the user can say which
+case applies. When the two axes disagree about the implied cell size, the PATCH
+response carries an advisory `grid_warning`:
+
+```json
+{
+  "status": "ok",
+  "grid_warning": {
+    "code": "aspect_mismatch",
+    "cell_x": 200.87,
+    "cell_y": 140.0,
+    "divergence": 30.3,
+    "suggested_width": 33.0,
+    "suggested_height": 16.73
+  }
+}
+```
+
+`GET /api/maps/:id/export.uvtt` builds a Universal VTT file from that resolved
+grid: `format` 0.3, a zero `map_origin`, `map_size` in cells, `pixels_per_grid`,
+and the image as base64 **WebP** (which is what real exporters emit, and a
+fraction of PNG's size). Walls, portals and lights are empty - authoring those is
+separate work. When no grid can be resolved at all, the export falls back to
+140px per cell. Exports are cached on disk and keyed on the file's mtime and the
+resolved grid, so editing the grid produces a fresh file.
+
+The response is served as `application/octet-stream` with an `attachment`
+filename ending in `.uvtt`, not as `application/json` - the body is JSON by
+format, but it is a file to save rather than an API payload, and a JSON content
+type makes browsers offer it as `.json`.
+
+A map that is already **variant-linked** to a Universal VTT file returns 400.
+That file carries real walls, doors and lights; an export would carry none, so
+offering it would be a downgrade presented as an upgrade. The check is on the
+variant link, not on filenames - the duplicate manager lets a user link two
+files whatever they are named - and matches either a `universal-vtt` variant
+kind or a sibling with a `.uvtt`/`.dd2vtt` extension.
 
 ### Tokens
 

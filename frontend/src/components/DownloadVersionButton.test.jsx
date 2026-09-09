@@ -88,4 +88,57 @@ describe('DownloadVersionButton', () => {
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
   })
+
+  describe('extra download entries', () => {
+    const uvtt = [
+      {
+        key: 'uvtt',
+        label: 'Download as Universal VTT',
+        sublabel: 'map.uvtt',
+        href: 'http://localhost/api/maps/m1/export.uvtt',
+      },
+    ]
+
+    it('opens a menu even when the item has no other versions', async () => {
+      render(
+        <DownloadVersionButton
+          type="maps"
+          id="m1"
+          item={{ id: 'm1', variants: [] }}
+          extraItems={uvtt}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /Download/ }))
+      expect(screen.getByRole('menuitem', { name: /Download as Universal VTT/ })).toHaveAttribute(
+        'href',
+        'http://localhost/api/maps/m1/export.uvtt'
+      )
+    })
+
+    it('lists the extra entry alongside the versions', async () => {
+      render(
+        <DownloadVersionButton
+          type="maps"
+          id="m1"
+          item={{ id: 'm1', variants: [{ id: 'm2', variant_kind: 'night' }] }}
+          extraItems={uvtt}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /Download/ }))
+      await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(1))
+      expect(screen.getByRole('menuitem', { name: /Universal VTT/ })).toBeInTheDocument()
+    })
+
+    it('stays a plain link when no extras are given', () => {
+      render(
+        <DownloadVersionButton
+          type="maps"
+          id="m1"
+          item={{ id: 'm1', variants: [] }}
+          extraItems={[]}
+        />
+      )
+      expect(screen.getByRole('link', { name: /Download/ })).toBeInTheDocument()
+    })
+  })
 })

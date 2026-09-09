@@ -539,6 +539,14 @@
       "gridSourceFilename": "Extraído del nombre del archivo",
       "gridSourceDpi": "Derivado de los PPP",
       "gridSourceComputed": "Estimado a partir de la resolución",
+      "gridSourceManual": "Definido manualmente",
+      "gridWidth": "Ancho (casillas)",
+      "gridHeight": "Alto (casillas)",
+      "gridUnknown": "No se detectó ninguna cuadrícula",
+      "gridReset": "Restablecer",
+      "gridSaveAnyway": "Guardar de todos modos",
+      "gridWarning": "Estas dimensiones implican casillas de {{cellX}} × {{cellY}} px, que no son cuadradas.",
+      "gridWarningHint": "Si no es intencionado, la imagen sugiere {{width}} × {{height}} casillas.",
       "folderTags": "Etiquetas de carpeta",
       "mapTags": "Etiquetas del mapa",
       "editTags": "Editar",
@@ -550,7 +558,9 @@
       "vttTitle": "Universal VTT",
       "vttWalls": "Muros",
       "vttPortals": "Puertas y portales",
-      "vttLights": "Luces"
+      "vttLights": "Luces",
+      "downloadUvtt": "Descargar como Universal VTT",
+      "downloadUvttHint": "Imagen y cuadrícula en un archivo .uvtt"
     }
   },
   "tokens": {

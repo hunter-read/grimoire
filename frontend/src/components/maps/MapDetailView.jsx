@@ -12,6 +12,7 @@ import MapPdfViewer from './MapPdfViewer'
 import MapImagePane from './MapImagePane'
 import MapVideoPane from './MapVideoPane'
 import MapVttPane from './MapVttPane'
+import MapGridEditor from './MapGridEditor'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
@@ -59,6 +60,7 @@ export default function MapDetailView() {
   const [editingMapTags, setEditingMapTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [editingGrid, setEditingGrid] = useState(false)
   const [vttData, setVttData] = useState(null)
   const imagePane = useRef(null)
   const loadedFolder = useRef(null)
@@ -152,7 +154,35 @@ export default function MapDetailView() {
     filename: t('maps.detail.gridSourceFilename'),
     dpi: t('maps.detail.gridSourceDpi'),
     computed: t('maps.detail.gridSourceComputed'),
+    manual: t('maps.detail.gridSourceManual'),
   }
+
+  // Re-fetch after a grid edit rather than patching state locally: the detail
+  // payload's `grid` is derived server-side from the override, so the response
+  // is the only place the resolved grid actually exists.
+  const reloadMap = async () => {
+    setMap(await api.get(`/maps/${mapId}`))
+    setEditingGrid(false)
+  }
+
+  // Only raster maps can be exported: a PDF, video or archive has no single
+  // image to embed, and a .uvtt is already in the target format.
+  const isRasterMap = !isPdf && !isVideo && !isVtt && !isArchive
+
+  // A map already linked to a real Universal VTT file has nothing to gain from
+  // an export: the linked file carries walls, doors and lights, and ours would
+  // carry none of them. The link is what matters, not the filename — the
+  // duplicate manager lets anyone pair two files whatever they are called — so
+  // this reads the variant family rather than guessing from names. `kind` is
+  // the signal when the link was categorised; a link made without a kind falls
+  // back to the sibling's extension.
+  const hasLinkedVtt = (map.variants || []).some(
+    (v) => v.kind === 'universal-vtt' || /\.(uvtt|dd2vtt)$/i.test(v.filename || '')
+  )
+
+  // The grid editor stays available either way: correcting the grid is worth
+  // doing for its own sake, not only to feed an export.
+  const canExportUvtt = isRasterMap && !hasLinkedVtt
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -239,7 +269,24 @@ export default function MapDetailView() {
         )}
         <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} compact />
         <AddToCampaignButton resourceType="map" resourceId={mapId} />
-        <DownloadVersionButton type="maps" id={mapId} item={map} compact={isMobilePhone} />
+        <DownloadVersionButton
+          type="maps"
+          id={mapId}
+          item={map}
+          compact={isMobilePhone}
+          extraItems={
+            canExportUvtt
+              ? [
+                  {
+                    key: 'uvtt',
+                    label: t('maps.detail.downloadUvtt'),
+                    sublabel: t('maps.detail.downloadUvttHint'),
+                    href: mediaUrl(`/maps/${mapId}/export.uvtt`),
+                  },
+                ]
+              : []
+          }
+        />
       </div>
 
       {/* Body */}
@@ -389,35 +436,77 @@ export default function MapDetailView() {
             </div>
           )}
 
-          {map.grid && (
+          {/* Grid — editable so a wrong detection can be corrected before the
+              map is exported to .uvtt (issue #125). Shown for any raster map,
+              including one where nothing could be detected. */}
+          {(map.grid || isRasterMap) && (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
               <div
                 style={{
-                  fontSize: 12,
-                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
                   marginBottom: 12,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
                 }}
               >
-                {t('maps.detail.grid')}
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  {t('maps.detail.grid')}
+                </div>
+                {!editingGrid && isRasterMap && (
+                  <button
+                    type="button"
+                    data-testid="open-grid-editor"
+                    onClick={() => setEditingGrid(true)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      fontSize: 12,
+                      color: 'var(--accent, var(--text-dim))',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {t('maps.detail.editTags')}
+                  </button>
+                )}
               </div>
-              <MetaRow
-                label={t('maps.detail.gridDimensions')}
-                value={t('maps.detail.gridDimensionsValue', {
-                  width: map.grid.width,
-                  height: map.grid.height,
-                })}
-              />
-              {map.grid.cell_px != null && (
-                <MetaRow
-                  label={t('maps.detail.gridCellSize')}
-                  value={t('maps.detail.gridCellSizeValue', { px: map.grid.cell_px })}
+              {editingGrid ? (
+                <MapGridEditor
+                  map={map}
+                  onSaved={reloadMap}
+                  onCancel={() => setEditingGrid(false)}
                 />
+              ) : map.grid ? (
+                <>
+                  <MetaRow
+                    label={t('maps.detail.gridDimensions')}
+                    value={t('maps.detail.gridDimensionsValue', {
+                      width: map.grid.width,
+                      height: map.grid.height,
+                    })}
+                  />
+                  {map.grid.cell_px != null && (
+                    <MetaRow
+                      label={t('maps.detail.gridCellSize')}
+                      value={t('maps.detail.gridCellSizeValue', { px: map.grid.cell_px })}
+                    />
+                  )}
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    {gridSourceLabel[map.grid.source] ?? map.grid.source}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {t('maps.detail.gridUnknown')}
+                </div>
               )}
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                {gridSourceLabel[map.grid.source] ?? map.grid.source}
-              </div>
             </div>
           )}
 

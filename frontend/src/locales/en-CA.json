@@ -539,6 +539,14 @@
       "gridSourceFilename": "Parsed from filename",
       "gridSourceDpi": "Derived from DPI",
       "gridSourceComputed": "Estimated from resolution",
+      "gridSourceManual": "Set manually",
+      "gridWidth": "Width (cells)",
+      "gridHeight": "Height (cells)",
+      "gridUnknown": "No grid detected",
+      "gridReset": "Reset",
+      "gridSaveAnyway": "Save anyway",
+      "gridWarning": "These dimensions imply cells of {{cellX}} × {{cellY}} px, which are not square.",
+      "gridWarningHint": "If that is not intended, the image suggests {{width}} × {{height}} cells.",
       "folderTags": "Folder Tags",
       "mapTags": "Map Tags",
       "editTags": "Edit",
@@ -550,7 +558,9 @@
       "vttTitle": "Universal VTT",
       "vttWalls": "Walls",
       "vttPortals": "Doors & portals",
-      "vttLights": "Lights"
+      "vttLights": "Lights",
+      "downloadUvtt": "Download as Universal VTT",
+      "downloadUvttHint": "Image and grid as a .uvtt file"
     }
   },
   "tokens": {

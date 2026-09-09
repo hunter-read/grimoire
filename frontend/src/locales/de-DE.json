@@ -539,6 +539,14 @@
       "gridSourceFilename": "Aus Dateiname ermittelt",
       "gridSourceDpi": "Aus DPI abgeleitet",
       "gridSourceComputed": "Aus Auflösung geschätzt",
+      "gridSourceManual": "Manuell festgelegt",
+      "gridWidth": "Breite (Felder)",
+      "gridHeight": "Höhe (Felder)",
+      "gridUnknown": "Kein Raster erkannt",
+      "gridReset": "Zurücksetzen",
+      "gridSaveAnyway": "Trotzdem speichern",
+      "gridWarning": "Diese Maße ergeben Felder von {{cellX}} × {{cellY}} px, die nicht quadratisch sind.",
+      "gridWarningHint": "Falls das nicht beabsichtigt ist, legt das Bild {{width}} × {{height}} Felder nahe.",
       "folderTags": "Ordner-Tags",
       "mapTags": "Karten-Tags",
       "editTags": "Bearbeiten",
@@ -550,7 +558,9 @@
       "vttTitle": "Universal VTT",
       "vttWalls": "Wände",
       "vttPortals": "Türen & Portale",
-      "vttLights": "Lichter"
+      "vttLights": "Lichter",
+      "downloadUvtt": "Als Universal VTT herunterladen",
+      "downloadUvttHint": "Bild und Raster als .uvtt-Datei"
     }
   },
   "tokens": {
