@@ -138,6 +138,74 @@ def _thumb_file(section: str, title: str, filepath: str) -> Path:
     )
 
 
+def _slug_of(thumb: Path) -> str:
+    """The name half of an existing thumbnail filename, ready to re-compose.
+
+    ``{slug}_{hash}.webp`` splits at the *last* underscore, since a slug may
+    contain none but the hash never does. ``slugify`` is idempotent, so feeding
+    the result back through :func:`_thumb_file` reproduces the same name against
+    a different path — which is what lets a re-home carry an index-time slug
+    across a move untouched.
+    """
+    return thumb.stem.rsplit("_", 1)[0]
+
+
+def _thumb_glob(section: str, filepath: str) -> list[Path]:
+    """Every cached thumbnail written for ``filepath``, whatever title named it.
+
+    Only the path hash actually identifies a record's file; the slug half is a
+    snapshot of the title *at index time*. Editing a book's title does not
+    rename the cached file (nothing needs it to — the cover route already falls
+    back to this same glob), so from then on the title-derived name points at a
+    file that never existed. Callers that must find the real file — a move that
+    would otherwise drop the cover, a delete that would otherwise strand it —
+    resolve through here.
+
+    Returns matches sorted, so a stale thumbnail left beside a current one gives
+    the same answer on every call instead of depending on directory order.
+    """
+    import hashlib
+
+    fhash = hashlib.md5(filepath.encode()).hexdigest()[:8]
+    return sorted((Path(THUMB_DIR) / section).glob(f"*_{fhash}.webp"))
+
+
+def _thumb_files_for(
+    record: Any, section: str, filepath: str, *, every: bool = False
+) -> list[Path]:
+    """The thumbnails belonging to ``record`` at ``filepath``, best first.
+
+    The exact title-derived name when it is on disk, otherwise whatever the path
+    hash turns up. Only ``Book`` carries a ``title`` column, so it is the only
+    collection whose key can drift: the others are named from the filename stem,
+    which travels with the file and can never go stale. Globbing for them would
+    scan a directory of thousands of files to confirm what the composed name
+    already says, so they skip it.
+
+    ``every`` returns all hash matches instead of stopping at the first hit, for
+    the one caller that must not leave a straggler: a delete, where a stale
+    thumbnail beside the current one becomes unreachable the moment the row is
+    gone. A move wants the single best file — re-homing two names onto one
+    destination would just delete one of them by overwrite.
+
+    Always returns at least one path, so a caller can report the name it looked
+    for when nothing is on disk.
+    """
+    exact = _thumb_file(section, _thumb_key(record), filepath)
+    drifts = hasattr(type(record), "title")
+    if not drifts:
+        return [exact]
+    if every:
+        found = _thumb_glob(section, filepath)
+        # The composed name may be absent from the glob only when it is absent
+        # from disk, in which case there is nothing to unlink but the caller
+        # still wants a name for its warning.
+        return found or [exact]
+    if exact.is_file():
+        return [exact]
+    return _thumb_glob(section, filepath) or [exact]
+
+
 def _rehome_thumbnail(record: Any, section: str, old_path: str, new_path: str) -> bool:
     """Move a record's cached thumbnail to its new path-derived name.
 
@@ -146,12 +214,24 @@ def _rehome_thumbnail(record: Any, section: str, old_path: str, new_path: str) -
     re-render of every moved item — a bulk reorganisation would otherwise
     re-render the whole library. Returns True when the record still has a
     thumbnail afterwards.
+
+    The source is resolved by path hash rather than composed from the current
+    title (issue #421). A book whose title was edited after indexing still has
+    its cover on disk under the *old* slug, so composing the name would name a
+    file that never existed and drop a cover that was there all along — the
+    exact re-render this function exists to avoid, hitting hardest on a library
+    reorganised after a metadata pass.
+
+    The destination keeps the name the source actually had, so the file stays
+    reachable by the cover route's identical fallback.
     """
     if not getattr(record, "has_thumbnail", False):
         return False
-    key = _thumb_key(record)
-    src = _thumb_file(section, key, old_path)
-    dst = _thumb_file(section, key, new_path)
+    src = _thumb_files_for(record, section, old_path)[0]
+    # Renamed to match its source, not to the current title: re-homing moves a
+    # file, it does not re-key one. A book still carrying an index-time slug
+    # keeps it here and is found by the same glob next time.
+    dst = _thumb_file(section, _slug_of(src), new_path)
     if src == dst:
         return True
     try:

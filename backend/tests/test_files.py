@@ -465,6 +465,128 @@ class TestThumbnails:
         assert os.path.exists(new_thumb), "thumbnail must be re-homed under the new key"
         assert not os.path.exists(old_thumb)
 
+    def test_a_title_edited_after_indexing_keeps_its_cover(self, library_tree):
+        """Issue #421: the cached file is named from the title *at index time*.
+
+        Editing a book's title does not rename it — the cover route falls back to
+        the path hash — so re-homing must resolve the source the same way. Keying
+        off the current title names a file that never existed and drops a cover
+        that was on disk the whole time.
+        """
+        import hashlib
+
+        from backend.config import THUMB_DIR
+
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/phb.pdf")
+        # Indexed as "phb" (from the filename), then retitled in the editor.
+        book = make_book(
+            system.id, title=f"Retitled Handbook {library_tree}", filepath=src,
+            filename="phb.pdf",
+            relative_path=f"books/System-{library_tree}/core/phb.pdf",
+            has_thumbnail=True,
+        )
+        old_thumb = os.path.join(
+            THUMB_DIR, "books", f"phb_{hashlib.md5(src.encode()).hexdigest()[:8]}.webp",
+        )
+        os.makedirs(os.path.dirname(old_thumb), exist_ok=True)
+        with open(old_thumb, "wb") as f:
+            f.write(b"webp")
+
+        db = SessionLocal()
+        fs.move_paths(
+            db, [f"books/System-{library_tree}/core/phb.pdf"],
+            f"books/System-{library_tree}/adventures",
+        )
+        db.close()
+
+        db = SessionLocal()
+        refreshed = db.query(Book).filter(Book.id == book.id).first()
+        new_path, still_has = refreshed.filepath, refreshed.has_thumbnail
+        db.close()
+        # Re-homed under the slug it actually had, which is what the cover
+        # route's glob finds — not under a slug of the edited title.
+        new_thumb = os.path.join(
+            THUMB_DIR, "books", f"phb_{hashlib.md5(new_path.encode()).hexdigest()[:8]}.webp",
+        )
+        assert still_has is True, "a retitled book must not lose its cover on a move"
+        assert os.path.exists(new_thumb)
+        assert not os.path.exists(old_thumb)
+        os.unlink(new_thumb)
+
+    def test_a_retitled_book_keeps_its_cover_across_a_rename(self, library_tree):
+        """The reported reproduction (issue #421): rename, not move. Both land in
+        ``_fix_caches``, but rename is the path four-of-sixteen files hit."""
+        import hashlib
+
+        from backend.config import THUMB_DIR
+
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/xanathar.pdf")
+        book = make_book(
+            system.id, title=f"Retitled Guide {library_tree}", filepath=src,
+            filename="xanathar.pdf",
+            relative_path=f"books/System-{library_tree}/core/xanathar.pdf",
+            has_thumbnail=True,
+        )
+        old_thumb = os.path.join(
+            THUMB_DIR, "books", f"xanathar_{hashlib.md5(src.encode()).hexdigest()[:8]}.webp",
+        )
+        os.makedirs(os.path.dirname(old_thumb), exist_ok=True)
+        with open(old_thumb, "wb") as f:
+            f.write(b"webp")
+
+        db = SessionLocal()
+        fs.rename_path(
+            db, f"books/System-{library_tree}/core/xanathar.pdf", "xge.pdf",
+        )
+        db.close()
+
+        db = SessionLocal()
+        refreshed = db.query(Book).filter(Book.id == book.id).first()
+        new_path, still_has = refreshed.filepath, refreshed.has_thumbnail
+        db.close()
+        new_thumb = os.path.join(
+            THUMB_DIR, "books",
+            f"xanathar_{hashlib.md5(new_path.encode()).hexdigest()[:8]}.webp",
+        )
+        assert still_has is True, "has_thumbnail must survive a rename after a retitle"
+        assert os.path.exists(new_thumb)
+        assert not os.path.exists(old_thumb)
+        os.unlink(new_thumb)
+
+    def test_a_retitled_book_strands_no_thumbnail_on_delete(self, library_tree):
+        """Issue #421, the delete half: the composed name misses the real file
+        and the resulting ENOENT is indistinguishable from an already-deleted
+        one, so the cover would be left under DATA_PATH with its row gone and
+        nothing able to find it again."""
+        import hashlib
+
+        from backend.config import THUMB_DIR
+
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/dmg.pdf")
+        make_book(
+            system.id, title=f"Retitled Masters Guide {library_tree}", filepath=src,
+            filename="dmg.pdf",
+            relative_path=f"books/System-{library_tree}/core/dmg.pdf",
+            has_thumbnail=True,
+        )
+        thumb = os.path.join(
+            THUMB_DIR, "books", f"dmg_{hashlib.md5(src.encode()).hexdigest()[:8]}.webp",
+        )
+        os.makedirs(os.path.dirname(thumb), exist_ok=True)
+        with open(thumb, "wb") as f:
+            f.write(b"webp")
+
+        db = SessionLocal()
+        try:
+            fs.delete_path(db, f"books/System-{library_tree}/core/dmg.pdf")
+        finally:
+            db.close()
+
+        assert not os.path.exists(thumb), "the stale-slug thumbnail must not be stranded"
+
     def test_missing_thumbnail_clears_flag(self, library_tree):
         """A thumbnail that cannot be moved degrades to a re-render, not a broken image."""
         system = make_game_system(name=f"System-{library_tree}")
