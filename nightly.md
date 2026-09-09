@@ -798,6 +798,16 @@ of Grimoire's own concepts) built for bulk reorganization:
   folders only. A container holds *systems*, not categories, so the option does
   not appear on one - it appears on the folders inside it, however deeply the
   containers nest.
+- **Right-click the empty space** in a pane for a menu about the folder you are
+  *looking at*, rather than about any row in it: upload files or a folder, create
+  a folder, and - inside a system folder - create the standard category folders.
+  Those actions used to need a row to right-click, which put them out of reach
+  once you had navigated into the folder you meant, and out of reach entirely in
+  an empty one.
+- **On a phone or tablet, press and hold** instead of right-clicking. Touch has
+  no second mouse button, so a held finger opens the same menus - on a row, or on
+  a pane's empty space. Sliding your finger cancels the hold, so scrolling the
+  tree still scrolls it.
 - **Mark a folder NSFW or SFW**, or change its container type, without recreating
   it. The *One-page RPGs* and *System-agnostic* collections are one-of-a-kind:
   once a folder claims one, it is not offered on any other folder.

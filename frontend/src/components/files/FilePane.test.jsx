@@ -282,6 +282,113 @@ describe('FilePane', () => {
     )
   })
 
+  it('opens a row menu on a long press, for touch devices with no right button', () => {
+    vi.useFakeTimers()
+    try {
+      const { onOpenContext } = renderPane(makePane())
+      fireEvent.touchStart(screen.getByTestId('entry-core'), {
+        touches: [{ clientX: 44, clientY: 88 }],
+      })
+      act(() => vi.advanceTimersByTime(600))
+      expect(onOpenContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entry: expect.objectContaining({ name: 'core' }),
+          x: 44,
+          y: 88,
+        })
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  describe('the pane background menu', () => {
+    it('opens on a right-click in the empty space, targeting the pane folder', () => {
+      const pane = makePane({ categoryHost: true })
+      const { onOpenContext } = renderPane(pane)
+      fireEvent.contextMenu(screen.getByTestId('file-list-primary'), { clientX: 5, clientY: 6 })
+      expect(onOpenContext).toHaveBeenCalledWith({
+        x: 5,
+        y: 6,
+        entry: null,
+        folder: 'books/System',
+        writable: true,
+        categoryHost: true,
+        side: 'primary',
+      })
+      // A menu about the folder, not about whatever was selected in it.
+      expect(pane.clearSelection).toHaveBeenCalled()
+    })
+
+    it('leaves a right-click on a row to that row', () => {
+      const { onOpenContext } = renderPane(makePane())
+      fireEvent.contextMenu(screen.getByTestId('entry-core'))
+      // One call, and it is the row's — the same event bubbling to the list
+      // must not open a second, background menu on top of it.
+      expect(onOpenContext).toHaveBeenCalledTimes(1)
+      expect(onOpenContext.mock.calls[0][0].entry).toBeTruthy()
+    })
+
+    it('opens on a long press in the empty space', () => {
+      vi.useFakeTimers()
+      try {
+        const { onOpenContext } = renderPane(makePane())
+        fireEvent.touchStart(screen.getByTestId('file-list-primary'), {
+          touches: [{ clientX: 12, clientY: 14 }],
+        })
+        act(() => vi.advanceTimersByTime(600))
+        expect(onOpenContext).toHaveBeenCalledWith(
+          expect.objectContaining({ entry: null, folder: 'books/System', x: 12, y: 14 })
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not also fire for a long press that started on a row', () => {
+      vi.useFakeTimers()
+      try {
+        const { onOpenContext } = renderPane(makePane())
+        fireEvent.touchStart(screen.getByTestId('entry-core'), {
+          touches: [{ clientX: 3, clientY: 4 }],
+        })
+        act(() => vi.advanceTimersByTime(600))
+        // The row's press bubbles to the list, which must disarm rather than
+        // arm a competing background menu.
+        expect(onOpenContext).toHaveBeenCalledTimes(1)
+        expect(onOpenContext.mock.calls[0][0].entry).toBeTruthy()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('opens from the empty-folder message, which fills a pane with no rows', () => {
+      // The case the menu exists for: an empty folder has no row to right-click
+      // and its message covers the whole pane, so a check for "the container
+      // itself" would never match and the menu would be unreachable.
+      const { onOpenContext } = renderPane(makePane({ rows: [] }))
+      fireEvent.contextMenu(screen.getByText('files.emptyFolder'), { clientX: 7, clientY: 8 })
+      expect(onOpenContext).toHaveBeenCalledWith(
+        expect.objectContaining({ entry: null, folder: 'books/System' })
+      )
+    })
+
+    it('opens from a click on a row\u2019s own label, not just its edge', () => {
+      // `closest` walks up from whatever was hit — the filename span here —
+      // so the row still wins over the background.
+      const { onOpenContext } = renderPane(makePane())
+      fireEvent.contextMenu(screen.getByText('bestiary.pdf'))
+      expect(onOpenContext).toHaveBeenCalledTimes(1)
+      expect(onOpenContext.mock.calls[0][0].entry).toBeTruthy()
+    })
+
+    it('reports a read-only pane, so the menu can say why it is empty', () => {
+      const { onOpenContext } = renderPane(makePane({ writable: false }))
+      fireEvent.contextMenu(screen.getByTestId('file-list-primary'))
+      expect(onOpenContext.mock.calls[0][0]).toMatchObject({ entry: null, writable: false })
+    })
+  })
+
   it('shows badges for container kind, NSFW, and indexed state', () => {
     renderPane(
       makePane({

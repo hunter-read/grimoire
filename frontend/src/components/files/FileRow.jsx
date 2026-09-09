@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuChevronDown } from 'react-icons/lu'
 import Chip from './Chip'
 import EntryIcon from './EntryIcon'
+import useLongPress from '../../hooks/useLongPress'
 
 function formatSize(bytes) {
   if (bytes == null) return ''
@@ -43,10 +44,15 @@ function FileRow({
   onDropRow,
 }) {
   const { t } = useTranslation()
+  // Touch has no right mouse button, so a held finger stands in for one — every
+  // action on a row lives behind this menu and was otherwise unreachable on a
+  // phone or tablet.
+  const longPress = useLongPress((e) => onContext(e, entry))
 
   return (
     <div
       id={id}
+      {...longPress}
       role="option"
       aria-selected={!!isSelected}
       draggable
@@ -71,6 +77,11 @@ function FileRow({
         fontSize: 13,
         cursor: 'grab',
         userSelect: 'none',
+        // Suppress the browser's own long-press behaviours — the iOS callout
+        // menu and the Android text selection — which would otherwise appear on
+        // top of ours partway through the hold.
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
         background: isDropTarget || isSelected ? 'var(--bg-card-hover)' : 'transparent',
         // Three states share one outline slot. A drop target wins while a drag
         // is live; otherwise the cursor is drawn solid, so a row that is the
@@ -85,6 +96,10 @@ function FileRow({
         borderBottom: '1px solid var(--border-light)',
       }}
       title={entry.path}
+      // Marks this subtree as "a row" for the pane's background-menu check,
+      // which has to tell a click on a row from a click on the space around
+      // one.
+      data-file-row=""
       data-testid={`entry-${entry.name}`}
     >
       {/* Twisty. Folders get a real toggle; files get a spacer so names stay

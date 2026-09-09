@@ -12,6 +12,7 @@ import Spinner from '../Spinner'
 import FileRow from './FileRow'
 import useVirtualRows from '../../hooks/useVirtualRows'
 import { indexOfPath, nextSelectable, rightTarget, leftTarget } from './treeNav'
+import useLongPress from '../../hooks/useLongPress'
 
 // Drag payloads are JSON so a drop can carry several paths at once (a
 // multi-select drag) plus the pane it came from, which the drop handler needs to
@@ -219,6 +220,59 @@ export default function FilePane({
     },
     [pane, onOpenContext, side]
   )
+
+  /**
+   * The menu for the pane's *own* folder, opened by clicking the empty space
+   * below the rows rather than any one of them.
+   *
+   * Uploading into the folder you are looking at, or scaffolding categories
+   * into it, previously required right-clicking that folder in a listing — so
+   * they were unreachable once you had navigated *into* it, and completely
+   * unreachable in an empty folder, which has no rows to click at all.
+   *
+   * `entry: null` is what marks it as the background menu; the view reads
+   * `folder` for the path to act on.
+   */
+  const handlePaneContext = useCallback(
+    (e) => {
+      e.preventDefault()
+      pane.clearSelection()
+      onOpenContext({
+        x: e.clientX,
+        y: e.clientY,
+        entry: null,
+        folder: pane.path,
+        writable: pane.writable,
+        categoryHost: pane.categoryHost,
+        side,
+      })
+    },
+    [pane, onOpenContext, side]
+  )
+
+  const paneLongPress = useLongPress(handlePaneContext)
+
+  // Both menus are wired on this one element — a row's handlers bubble up to
+  // it — so each entry point has to ask whether the gesture landed on the
+  // background or on a row, and let the row's own handler have it if so.
+  //
+  // Asked as "not inside a row" rather than "is the container itself": the
+  // background of this list is not one element. It is the container, the
+  // virtual spacers standing in for off-screen rows, the placeholder lines
+  // under an expanded folder, and — in an empty folder, which is exactly where
+  // this menu matters most — a message filling the whole pane. All of those are
+  // background; only a row is not.
+  const onBackground = (e) => !e.target?.closest?.('[data-file-row]')
+
+  const paneBackgroundProps = {
+    onContextMenu: (e) => onBackground(e) && handlePaneContext(e),
+    onTouchStart: (e) =>
+      onBackground(e) ? paneLongPress.onTouchStart(e) : paneLongPress.onTouchEnd(),
+    onTouchMove: paneLongPress.onTouchMove,
+    onTouchEnd: paneLongPress.onTouchEnd,
+    onTouchCancel: paneLongPress.onTouchCancel,
+    onClickCapture: paneLongPress.onClickCapture,
+  }
 
   // --- Keyboard navigation.
   //
@@ -532,6 +586,7 @@ export default function FilePane({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onScroll={onScroll}
+        {...paneBackgroundProps}
         onDragOver={handleListDragOver}
         onDragLeave={() => clearInterval(scrollTimer.current)}
         style={{

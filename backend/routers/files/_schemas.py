@@ -33,6 +33,12 @@ class BrowseResponse(BaseModel):
     path: str
     parent: Optional[str] = None
     writable: bool
+    # Whether standard category folders belong directly inside the folder being
+    # browsed — the same question `BrowseEntry.category_host` answers about a
+    # child row, asked about the folder itself. The UI needs both: the scaffold
+    # action is offered on a system folder's row *and* on the empty space of a
+    # pane already anchored inside it, which has no row to click.
+    category_host: bool = False
     entries: list[BrowseEntry]
     # How many entries the folder really holds, and whether `entries` is a
     # prefix of them — so the UI can say "showing 2000 of 48,213" rather than

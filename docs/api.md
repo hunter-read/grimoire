@@ -1615,7 +1615,7 @@ rows) are re-homed or invalidated so no item silently loses its cover.
 from `total` when a content file with the same stem sits beside them; an
 orphaned one is listed normally. They are moved and re-stemmed automatically by
 `/api/files/move` and `/api/files/rename`. Returns
-`{path, parent, writable, entries[], total, truncated}`. Each entry carries
+`{path, parent, writable, category_host, entries[], total, truncated}`. Each entry carries
 `name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`,
 `child_count`, and `category_host`, while files add `record_id`, `title`, `collection`,
 `has_thumbnail`, and `is_missing` when Grimoire has indexed them. A folder
@@ -1625,7 +1625,11 @@ it. `category_host` is true when standard category folders belong *inside* that
 folder - a system folder under `books/`, reached from `books/` through nothing
 but containers. It is false for `books/` itself, for every container (whose
 children are the system folders), for a category folder, and outside `books/`, so
-a client can offer the category scaffold only where it applies. Note `collection`
+a client can offer the category scaffold only where it applies. The top-level
+`category_host` answers the same question about the folder *being browsed* rather
+than about its children, so a client anchored inside a system folder - where
+there is no row to hang the action off, and none at all when the folder is empty
+- can still offer the scaffold. Note `collection`
 names the *library folder* (`books`, `maps`, …) for files but the resource type
 (`system`) for system folders. Marker/dotfiles
 are surfaced as folder properties, never as listable entries.

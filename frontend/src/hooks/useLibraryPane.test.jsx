@@ -37,6 +37,20 @@ beforeEach(() => {
 })
 
 describe('useLibraryPane', () => {
+  it('reports whether the anchored folder hosts category folders', async () => {
+    filesApi.browse.mockResolvedValue(listing('books/System', [], { category_host: true }))
+    const { result } = renderHook(() => useLibraryPane('books/System'))
+    await waitFor(() => expect(result.current.categoryHost).toBe(true))
+  })
+
+  it('defaults categoryHost to false where the server says nothing', async () => {
+    const { result } = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Absent rather than false in the response — an old server, or a folder
+    // outside the books tree — must not offer the scaffold action.
+    expect(result.current.categoryHost).toBe(false)
+  })
+
   it('loads the initial path into rows', async () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
