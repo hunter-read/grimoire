@@ -1,6 +1,6 @@
 """Pydantic schemas for the maps API."""
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
@@ -12,11 +12,26 @@ class MapUpdate(BaseModel):
     tags: Optional[list[str]] = None
     map_type: Optional[str] = None
     grid_size: Optional[str] = None
+    # Manual grid override (issue #125). Fractional to allow the partial-cell
+    # bleed common on printed maps; stored at 2dp. Sending 0 clears the
+    # override and restores automatic detection.
+    grid_width: Optional[float] = Field(default=None, ge=0, le=1000)
+    grid_height: Optional[float] = Field(default=None, ge=0, le=1000)
+    grid_px: Optional[float] = Field(default=None, ge=0, le=2000)
 
     @field_validator("tags", mode="before")
     @classmethod
     def dedupe_tags(cls, v):
         return tag_service.dedupe_tags(v) if v is not None else v
+
+    @field_validator("grid_width", "grid_height", "grid_px")
+    @classmethod
+    def round_grid(cls, v):
+        # 0 is the documented "clear the override" signal, normalised to None so
+        # it stores as NULL rather than a zero that would read as a real grid.
+        if v is None:
+            return None
+        return round(v, 2) or None
 
 
 # Batch form of MapUpdate: {"items": [{"id": ..., ...MapUpdate fields}]}.
@@ -67,11 +82,15 @@ class MapGrid(BaseModel):
 
     `cell_px` is only present on the DPI/computed branches — the filename branch
     omits it, and PDF maps have it stripped — so it is Optional.
+
+    Floats rather than ints: a manual override may carry a fractional cell count
+    for a map that bleeds part of a cell past its grid (issue #125). Inferred
+    grids still come back whole.
     """
 
-    width: int
-    height: int
-    cell_px: Optional[int] = None
+    width: float
+    height: float
+    cell_px: Optional[float] = None
     source: str
 
 
@@ -92,6 +111,11 @@ class MapDetailResponse(VariantFamilyMixin):
     tags: list[str]
     map_type: Optional[str] = None
     grid_size: Optional[str] = None
+    # The stored override, echoed back so the editor can tell a corrected grid
+    # from an inferred one. None on all three means detection is in charge.
+    grid_width: Optional[float] = None
+    grid_height: Optional[float] = None
+    grid_px: Optional[float] = None
     file_size: Optional[int] = None
     has_thumbnail: Optional[bool] = None
     is_missing: bool
@@ -123,7 +147,16 @@ class MapFoldersResponse(BaseModel):
 
 
 class StatusResponse(BaseModel):
+    """Write-endpoint acknowledgement.
+
+    `grid_warning` rides along when a saved grid override looks implausible for
+    the map's pixel dimensions. The write still succeeded — some maps really do
+    have odd grids — so this is advisory, for the UI to surface as a
+    confirmable notice rather than an error.
+    """
+
     status: str
+    grid_warning: Optional[dict] = None
 
 
 class VttDataResponse(BaseModel):

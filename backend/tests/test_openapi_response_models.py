@@ -31,6 +31,10 @@ UNTYPED_BY_DESIGN = {
     "/api/campaigns/{campaign_id}/wiki/export",
     "/api/campaigns/{campaign_id}/wiki/templates/{template_id}/export",
     "/api/downloads/archive",
+    # Returns a .uvtt file as an attachment. The body is JSON by format, but it
+    # is a download rather than an API object -- clients save it, they do not
+    # parse it -- and its shape is the Universal VTT spec's, not ours.
+    "/api/maps/{map_id}/export.uvtt",
     "/api/maps/{map_id}/file",
     "/api/maps/{map_id}/page/{page_num}",
     "/api/maps/{map_id}/thumbnail",

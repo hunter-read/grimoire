@@ -40,8 +40,18 @@ class TestParseGridDims:
 
 class TestEstimateGrid:
     def test_finds_clean_multiple(self):
-        # 700x1400 is a clean multiple of the smallest candidate cell (50px).
-        assert _estimate_grid(700, 1400) == (14, 28, 50)
+        # 150x150 is the rare unambiguous case: 50px is the only candidate it
+        # divides by while still clearing the 2-cell minimum. Most dimensions
+        # divide by several candidates at once, which is what makes the
+        # tie-break below the load-bearing rule.
+        assert _estimate_grid(150, 150) == (3, 3, 50)
+
+    def test_prefers_larger_cell_on_a_tie(self):
+        # 4620x6440 is a real 33x46 battlemap at 140px/cell. It also divides
+        # cleanly by 70, which scores an identical zero error -- and the old
+        # ascending walk took that branch and reported 66x92 @70, doubling both
+        # dimensions. The larger cell has to win.
+        assert _estimate_grid(4620, 6440) == (33, 46, 140)
 
     def test_none_when_no_cell_fits(self):
         # Dimensions that don't align near any candidate cell size or fall below
@@ -80,6 +90,35 @@ class TestMapImageInfo:
         _png(f, 700, 1400)  # no dpi, no filename dims → estimated
         info = _map_image_info(str(f), "DnD/Maps/plain.png")
         assert info["grid"]["source"] == "computed"
+
+    def test_override_beats_every_inference(self, tmp_path):
+        # The filename says 12x15 and the raster would estimate its own grid;
+        # a stored override outranks both, because it exists to correct them.
+        f = tmp_path / "cave.png"
+        _png(f, 700, 1400)
+        info = _map_image_info(str(f), "DnD/Maps/cave (12x15).png", (10.0, 20.0, 70.0))
+        assert info["grid"] == {
+            "width": 10.0,
+            "height": 20.0,
+            "source": "manual",
+            "cell_px": 70.0,
+        }
+
+    def test_override_derives_cell_px_when_not_given(self, tmp_path):
+        # A fractional override for a map that bleeds part of a cell: cell size
+        # is derived from the raster rather than left unknown.
+        f = tmp_path / "bleed.png"
+        _png(f, 700, 1400)
+        info = _map_image_info(str(f), "DnD/Maps/bleed.png", (10.5, 21.0, None))
+        assert info["grid"]["source"] == "manual"
+        assert info["grid"]["cell_px"] == 66.67
+
+    def test_partial_override_is_ignored(self, tmp_path):
+        # Width without height is not a usable grid, so inference still runs.
+        f = tmp_path / "half.png"
+        _png(f, 700, 1400)
+        info = _map_image_info(str(f), "DnD/Maps/half (12x15).png", (10.0, None, None))
+        assert info["grid"]["source"] == "filename"
 
     def test_unreadable_file_returns_nulls(self, tmp_path):
         info = _map_image_info(str(tmp_path / "missing.png"), "DnD/Maps/missing.png")

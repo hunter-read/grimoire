@@ -539,6 +539,14 @@
       "gridSourceFilename": "Extraído do nome do arquivo",
       "gridSourceDpi": "Derivado do DPI",
       "gridSourceComputed": "Estimado a partir da resolução",
+      "gridSourceManual": "Definido manualmente",
+      "gridWidth": "Largura (células)",
+      "gridHeight": "Altura (células)",
+      "gridUnknown": "Nenhuma grade detectada",
+      "gridReset": "Redefinir",
+      "gridSaveAnyway": "Salvar mesmo assim",
+      "gridWarning": "Estas dimensões implicam células de {{cellX}} × {{cellY}} px, que não são quadradas.",
+      "gridWarningHint": "Se não for intencional, a imagem sugere {{width}} × {{height}} células.",
       "folderTags": "Tags da pasta",
       "mapTags": "Tags do mapa",
       "editTags": "Editar",
@@ -550,7 +558,9 @@
       "vttTitle": "Universal VTT",
       "vttWalls": "Paredes",
       "vttPortals": "Portas e portais",
-      "vttLights": "Luzes"
+      "vttLights": "Luzes",
+      "downloadUvtt": "Baixar como Universal VTT",
+      "downloadUvttHint": "Imagem e grade em um arquivo .uvtt"
     }
   },
   "tokens": {

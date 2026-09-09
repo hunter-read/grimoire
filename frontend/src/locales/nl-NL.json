@@ -539,6 +539,14 @@
       "gridSourceFilename": "Uit bestandsnaam afgeleid",
       "gridSourceDpi": "Afgeleid van DPI",
       "gridSourceComputed": "Geschat op basis van resolutie",
+      "gridSourceManual": "Handmatig ingesteld",
+      "gridWidth": "Breedte (vakjes)",
+      "gridHeight": "Hoogte (vakjes)",
+      "gridUnknown": "Geen raster gedetecteerd",
+      "gridReset": "Herstellen",
+      "gridSaveAnyway": "Toch opslaan",
+      "gridWarning": "Deze afmetingen impliceren vakjes van {{cellX}} × {{cellY}} px, die niet vierkant zijn.",
+      "gridWarningHint": "Als dat niet de bedoeling is, suggereert de afbeelding {{width}} × {{height}} vakjes.",
       "folderTags": "Maplabels",
       "mapTags": "Kaartlabels",
       "editTags": "Bewerken",
@@ -550,7 +558,9 @@
       "vttTitle": "Universal VTT",
       "vttWalls": "Muren",
       "vttPortals": "Deuren en portalen",
-      "vttLights": "Lichten"
+      "vttLights": "Lichten",
+      "downloadUvtt": "Downloaden als Universal VTT",
+      "downloadUvttHint": "Afbeelding en raster als .uvtt-bestand"
     }
   },
   "tokens": {

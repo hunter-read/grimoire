@@ -182,7 +182,9 @@ class TestUpdateMap:
             headers=gm_headers,
         )
         assert resp.status_code == 200
-        assert resp.json() == {"status": "ok"}
+        # Not an exact-dict compare: the response also carries an advisory
+        # `grid_warning` for the grid override (issue #125), null here.
+        assert resp.json()["status"] == "ok"
 
     def test_tags_keep_display_casing_on_map_update(self, client, gm_headers):
         # Shared tags preserve the entered casing (display value); matching is

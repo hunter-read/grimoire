@@ -539,6 +539,14 @@
       "gridSourceFilename": "Extrait du nom de fichier",
       "gridSourceDpi": "Calculé à partir des PPP",
       "gridSourceComputed": "Estimé à partir de la résolution",
+      "gridSourceManual": "Défini manuellement",
+      "gridWidth": "Largeur (cases)",
+      "gridHeight": "Hauteur (cases)",
+      "gridUnknown": "Aucune grille détectée",
+      "gridReset": "Réinitialiser",
+      "gridSaveAnyway": "Enregistrer quand même",
+      "gridWarning": "Ces dimensions impliquent des cases de {{cellX}} × {{cellY}} px, qui ne sont pas carrées.",
+      "gridWarningHint": "Si ce n'est pas voulu, l'image suggère {{width}} × {{height}} cases.",
       "folderTags": "Étiquettes du dossier",
       "mapTags": "Étiquettes de la carte",
       "editTags": "Modifier",
@@ -550,7 +558,9 @@
       "vttTitle": "Universal VTT",
       "vttWalls": "Murs",
       "vttPortals": "Portes et portails",
-      "vttLights": "Lumières"
+      "vttLights": "Lumières",
+      "downloadUvtt": "Télécharger en Universal VTT",
+      "downloadUvttHint": "Image et grille dans un fichier .uvtt"
     }
   },
   "tokens": {

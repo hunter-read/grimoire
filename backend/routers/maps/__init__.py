@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from ...auth import require_not_guest
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
+    export_map_uvtt,
     list_maps,
     list_map_folders,
     update_map_folder,
@@ -90,6 +91,19 @@ router.add_api_route(
         "Decodes and streams the base64 battlemap image embedded in a `.uvtt`/`.dd2vtt` "
         "file, so the browser never downloads the base64 envelope. 400 if the map is not "
         "a Universal VTT file or carries no image."
+    ),
+)
+router.add_api_route(
+    "/maps/{map_id}/export.uvtt",
+    export_map_uvtt,
+    methods=["GET"],
+    summary="Export a map as Universal VTT",
+    description=(
+        "Builds a Universal VTT (`.uvtt`) file for a raster map: the image as "
+        "base64 WebP plus the grid resolution, with empty walls/portals/lights. "
+        "The grid is the manual override when one is set, else the detected "
+        "grid, else a 140px default. 400 for PDF, video, archive, or existing "
+        "Universal VTT maps."
     ),
 )
 router.add_api_route(

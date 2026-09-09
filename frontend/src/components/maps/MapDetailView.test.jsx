@@ -19,6 +19,18 @@ vi.mock('react-router-dom', () => ({
 }))
 
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+vi.mock('./MapGridEditor', () => ({
+  default: ({ onSaved }) => (
+    <button onClick={onSaved} data-testid="grid-saved">
+      grid-editor
+    </button>
+  ),
+}))
+vi.mock('../DownloadVersionButton', () => ({
+  default: ({ extraItems = [] }) => (
+    <div data-testid="download-extras">{extraItems.map((e) => e.href).join(',')}</div>
+  ),
+}))
 vi.mock('./InlineTagEditor', () => ({
   default: ({ onSave }) => (
     <button onClick={() => onSave(['new'])} data-testid="save-tags">
@@ -263,6 +275,77 @@ describe('MapDetailView', () => {
       render(<MapDetailView />)
       await waitFor(() => expect(screen.getByTestId('pdf-viewer')).toBeInTheDocument())
       expect(screen.queryByTestId('image-pane')).toBeNull()
+    })
+  })
+
+  describe('grid editing', () => {
+    it('opens the editor and reloads the map after a save', async () => {
+      mockApi('m2', { grid: { width: 10, height: 14, cell_px: 140, source: 'computed' } })
+      render(<MapDetailView />)
+      await screen.findByTestId('image-pane')
+
+      await userEvent.click(screen.getByTestId('open-grid-editor'))
+      const before = api.get.mock.calls.length
+      await userEvent.click(screen.getByTestId('grid-saved'))
+      // The resolved grid only exists server-side, so a save re-fetches rather
+      // than patching local state.
+      await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(before))
+    })
+
+    it('offers the editor for a map with no detected grid', async () => {
+      mockApi('m2', { grid: null })
+      render(<MapDetailView />)
+      await screen.findByTestId('image-pane')
+      expect(screen.getByTestId('open-grid-editor')).toBeInTheDocument()
+    })
+
+    it('offers no grid editing or UVTT export for a PDF map', async () => {
+      mockApi('m2', { is_pdf: true, page_count: 3, grid: null })
+      render(<MapDetailView />)
+      await screen.findByTestId('pdf-viewer')
+      expect(screen.queryByTestId('open-grid-editor')).toBeNull()
+      expect(screen.queryByText(/export.uvtt/)).toBeNull()
+    })
+
+    it('offers no UVTT export when a linked Universal VTT already exists', async () => {
+      // Linked through the duplicate manager, so the filename says nothing —
+      // the `kind` on the variant link is what marks it.
+      mockApi('m2', {
+        grid: { width: 10, height: 14, cell_px: 140, source: 'computed' },
+        variants: [{ id: 'v1', kind: 'universal-vtt', filename: 'anything-at-all.dat' }],
+      })
+      render(<MapDetailView />)
+      await screen.findByTestId('image-pane')
+      expect(screen.getByTestId('download-extras')).toHaveTextContent('')
+      // The grid is still editable — correcting it is worth doing regardless.
+      expect(screen.getByTestId('open-grid-editor')).toBeInTheDocument()
+    })
+
+    it('detects an uncategorised link by its extension', async () => {
+      mockApi('m2', {
+        grid: { width: 10, height: 14, cell_px: 140, source: 'computed' },
+        variants: [{ id: 'v1', kind: '', filename: 'tavern.dd2vtt' }],
+      })
+      render(<MapDetailView />)
+      await screen.findByTestId('image-pane')
+      expect(screen.getByTestId('download-extras')).toHaveTextContent('')
+    })
+
+    it('still offers the export for an unrelated variant', async () => {
+      mockApi('m2', {
+        grid: { width: 10, height: 14, cell_px: 140, source: 'computed' },
+        variants: [{ id: 'v1', kind: 'gridless', filename: 'b-gridless.png' }],
+      })
+      render(<MapDetailView />)
+      await screen.findByTestId('image-pane')
+      expect(screen.getByTestId('download-extras')).toHaveTextContent('/maps/m2/export.uvtt')
+    })
+
+    it('offers the UVTT export for a raster map', async () => {
+      mockApi('m2', { grid: { width: 10, height: 14, cell_px: 140, source: 'computed' } })
+      render(<MapDetailView />)
+      await screen.findByTestId('image-pane')
+      expect(screen.getByTestId('download-extras')).toHaveTextContent('/maps/m2/export.uvtt')
     })
   })
 })

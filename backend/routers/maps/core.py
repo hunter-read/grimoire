@@ -1,6 +1,7 @@
 """Map CRUD, file-serving, and folder-tagging endpoints."""
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -14,6 +15,7 @@ from ...config import (
     _MEDIA_FILE_CACHE_HEADERS,
     _PAGE_CACHE_HEADERS,
     _THUMBNAIL_CACHE_HEADERS,
+    PAGE_CACHE_DIR,
     THUMB_DIR,
     get_db,
     logger,
@@ -38,6 +40,7 @@ from ._helpers import (
     vtt_metadata,
 )
 from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate
+from .uvtt import build_uvtt, check_grid_plausible, resolve_grid
 
 router = APIRouter()
 
@@ -156,7 +159,9 @@ def get_map(
     if not m:
         raise HTTPException(404)
     assert_media_access(db, current_user, "map", m.id)
-    img_info = _map_image_info(m.filepath, m.relative_path)
+    img_info = _map_image_info(
+        m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px)
+    )
     folder_path = _folder_path(m.relative_path)
     folder = db.query(MapFolder).filter_by(path=folder_path).first()
     variant_parent, siblings = variants.family_for(db, GenericMap, m)
@@ -170,6 +175,9 @@ def get_map(
         "tags": tag_service.display_tags_for_resource(db, "map", m.id),
         "map_type": m.map_type,
         "grid_size": m.grid_size,
+        "grid_width": m.grid_width,
+        "grid_height": m.grid_height,
+        "grid_px": m.grid_px,
         "file_size": m.file_size,
         "has_thumbnail": m.has_thumbnail,
         "is_missing": bool(m.is_missing),
@@ -317,6 +325,83 @@ def serve_map_vtt_image(
     )
 
 
+def export_map_uvtt(
+    map_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Export a raster map as a Universal VTT file (issue #125).
+
+    Carries the image and the grid; walls, portals and lights are empty, since
+    authoring those is the future work under #123. The grid is the user's manual
+    override when set, otherwise the detected one, otherwise a default.
+
+    The result is cached on disk: re-encoding a 5700x7700 battlemap to WebP and
+    base64 is real work, and a download that gets retried should not pay it
+    twice. Keyed on mtime, so replacing the file on disk invalidates the export.
+    """
+    m = _load_accessible_map(map_id, current_user, db)
+    if not os.path.exists(m.filepath):
+        raise HTTPException(404, "File not found on disk")
+    # Raster only. A PDF, video, archive or an existing .uvtt has nothing to
+    # export here — the last one is already in the target format.
+    opaque = Path(m.filepath).suffix.lower() in MAP_OPAQUE_EXTS
+    if _is_pdf(m.filepath) or archive_ext(m.filename) or opaque:
+        raise HTTPException(400, "Only image maps can be exported to Universal VTT")
+
+    # A map already linked to a real Universal VTT file has nothing to gain from
+    # this export: the linked file carries walls, doors and lights, and ours
+    # would carry none of them. What makes them a pair is the variant link, not
+    # the filename -- the duplicate manager lets a user link two files whatever
+    # they are called -- so check the family. `variant_kind` is the signal when
+    # the link was categorised; a link made without one falls back to the
+    # sibling's extension.
+    _, siblings = variants.family_for(db, GenericMap, m)
+    if any(
+        s.id != m.id and (s.variant_kind == "universal-vtt" or is_vtt_data(s.filename))
+        for s in siblings
+    ):
+        raise HTTPException(400, "This map is already linked to a Universal VTT file")
+
+    info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
+    if not info.get("pixel_width"):
+        raise HTTPException(400, "Map image could not be read")
+    grid = resolve_grid(m, info)
+
+    try:
+        mtime = int(os.path.getmtime(m.filepath))
+    except OSError:
+        mtime = 0
+    # Hash the DB-sourced filepath plus the grid, never user input, so no
+    # tainted data reaches the filesystem path.
+    key = f"{m.filepath}:{mtime}:{grid['width']}x{grid['height']}@{grid['px']}"
+    cache_path = os.path.join(
+        PAGE_CACHE_DIR, f"uvtt_{hashlib.sha1(key.encode()).hexdigest()[:16]}.uvtt"
+    )
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            payload = f.read()
+    else:
+        payload = json.dumps(build_uvtt(m.filepath, grid)).encode("utf-8")
+        try:
+            with open(cache_path, "wb") as f:
+                f.write(payload)
+        except OSError as e:  # a full or read-only cache must not fail the export
+            logger.warning(f"Could not cache UVTT export: {e}")
+
+    # Slugify the stem only, then append the extension: slugify strips the dot,
+    # so slugifying the whole filename would yield "the-villageuvtt" -- no
+    # extension at all, which the browser then saves as a .json.
+    name = f"{slugify(Path(m.filename).stem) or 'map'}.uvtt"
+    return Response(
+        content=payload,
+        # Not application/json: this is a file to save, not an API payload, and
+        # a JSON content type makes the browser offer it as .json.
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
 def get_map_vtt_data(
     map_id: str,
     current_user: CurrentUser = Depends(get_current_user),
@@ -369,9 +454,26 @@ def update_map(
     m = db.query(GenericMap).filter_by(id=map_id).first()
     if not m:
         raise HTTPException(404)
-    bulk_service.apply_updates(db, "map", m, data.model_dump(exclude_none=True))
+    payload = data.model_dump(exclude_none=True)
+    # A grid field sent explicitly as 0 means "drop the override and go back to
+    # detection". The validator normalises that 0 to None, which exclude_none
+    # would then swallow, so the clear is re-applied from the raw request fields.
+    sent = data.model_fields_set
+    for field in ("grid_width", "grid_height", "grid_px"):
+        if field in sent and getattr(data, field) is None:
+            payload[field] = None
+    bulk_service.apply_updates(db, "map", m, payload)
     db.commit()
-    return {"status": "ok"}
+
+    # Advisory only: an implausible grid is still saved, because some maps
+    # genuinely have one. The UI surfaces this as a confirmable notice.
+    warning = None
+    if m.grid_width and m.grid_height:
+        info = _map_image_info(m.filepath, m.relative_path)
+        warning = check_grid_plausible(
+            info.get("pixel_width"), info.get("pixel_height"), m.grid_width, m.grid_height
+        )
+    return {"status": "ok", "grid_warning": warning}
 
 
 def bulk_update_maps(

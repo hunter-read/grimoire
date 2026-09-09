@@ -113,13 +113,23 @@ def _parse_grid_dims(text: str) -> Optional[tuple[int, int]]:
 def _estimate_grid(
     px_w: int, px_h: int, dpi: Optional[float] = None
 ) -> Optional[tuple[int, int, int]]:
-    """Return (grid_w, grid_h, cell_px) for the best-fitting common cell size."""
+    """Return (grid_w, grid_h, cell_px) for the best-fitting common cell size.
+
+    Candidates are walked **largest first**, and a tie keeps the first (largest)
+    winner. That ordering is the whole point: cell sizes are multiples of one
+    another, so a map that divides cleanly by 140 also divides cleanly by 70 and
+    scores an identical zero error. Ascending order therefore resolved every
+    140px battlemap to 70px and doubled both grid dimensions -- a 27x39 map read
+    as 54x78. The larger cell is the right call on a tie, because a map that is
+    genuinely 70px/cell is far rarer than one that is 140px and merely happens
+    to also be even.
+    """
     candidates = [50, 70, 100, 140, 150, 200, 250, 300]
     if dpi and int(dpi) not in candidates:
         candidates.append(int(dpi))
     best: Optional[tuple[int, int, int]] = None
     best_err = 0.06
-    for cell in sorted(candidates):
+    for cell in sorted(candidates, reverse=True):
         wc = px_w / cell
         hc = px_h / cell
         err = (abs(wc - round(wc)) + abs(hc - round(hc))) / 2
@@ -129,7 +139,16 @@ def _estimate_grid(
     return best
 
 
-def _map_image_info(filepath: str, relative_path: str) -> dict:
+def _map_image_info(
+    filepath: str, relative_path: str, override: Optional[tuple] = None
+) -> dict:
+    """Measure a map file and infer its grid.
+
+    ``override`` is ``(grid_width, grid_height, grid_px)`` from the DB row when
+    the user has corrected the grid by hand (issue #125). Any of the three may
+    be None; width and height together are what make an override real, and they
+    win over every inference below.
+    """
     ext = Path(filepath).suffix.lower()
     info: dict = {
         "pixel_width": None,
@@ -182,6 +201,22 @@ def _map_image_info(filepath: str, relative_path: str) -> dict:
             return info
 
     pw, ph = info["pixel_width"], info["pixel_height"]
+
+    # 0. A manual override outranks every inference — it exists precisely
+    #    because the inference got it wrong.
+    ow, oh, opx = override if override else (None, None, None)
+    if ow and oh:
+        info["grid"] = {"width": ow, "height": oh, "source": "manual"}
+        if opx:
+            info["grid"]["cell_px"] = opx
+        elif pw:
+            info["grid"]["cell_px"] = round(pw / ow, 2)
+        if info["is_pdf"]:
+            info["pixel_width"] = None
+            info["pixel_height"] = None
+            info["dpi"] = None
+            info["grid"].pop("cell_px", None)
+        return info
 
     # 1. Parse grid dimensions from filename and folder names
     for part in reversed(Path(relative_path).parts):

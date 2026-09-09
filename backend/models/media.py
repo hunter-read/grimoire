@@ -16,6 +16,14 @@ class GenericMap(Base):
     description = Column(Text, default="")
     map_type = Column(String(100), default="")
     grid_size = Column(String(50), default="")
+    # Manual grid override (issue #125). NULL means "no override" — the detail
+    # endpoint falls back to the detection in maps/_helpers.py. Stored as floats
+    # rounded to 2dp because maps routinely bleed a partial cell past the grid
+    # (a 33x24 map printed with a quarter-cell margin is really 33.5x24.5), and
+    # UVTT's map_size is numeric, not integral. grid_px is pixels per cell.
+    grid_width = Column(Float, nullable=True)
+    grid_height = Column(Float, nullable=True)
+    grid_px = Column(Float, nullable=True)
     file_size = Column(Integer, default=0)
     # Content identity — see the note on Book.content_hash. ``file_mtime`` +
     # ``file_size`` gate the re-hash so unchanged rescans read no file content;

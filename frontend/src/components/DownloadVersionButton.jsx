@@ -19,14 +19,18 @@ import useVariantOptions from './useVariantOptions'
  * @param {string} type API path segment: 'maps' | 'tokens' | 'audio' | 'books'
  * @param {object} item the detail payload (carries `variants`)
  * @param {boolean} compact hide the text label, leaving the icon (mobile)
+ * @param {Array} extraItems additional download entries appended to the menu,
+ *   as `{ key, label, href, sublabel }`. A map passes its `.uvtt` export here
+ *   (issue #125). Supplying any forces the menu form even for a single-version
+ *   item, since there is now more than one thing to download.
  */
-export default function DownloadVersionButton({ type, id, item, compact }) {
+export default function DownloadVersionButton({ type, id, item, compact, extraItems = [] }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
   const { options, label, filename } = useVariantOptions(type, id, item)
 
-  const hasVersions = (item?.variants || []).length > 0
+  const hasVersions = (item?.variants || []).length > 0 || extraItems.length > 0
 
   useEffect(() => {
     if (!open) return
@@ -123,6 +127,40 @@ export default function DownloadVersionButton({ type, id, item, compact }) {
                   }}
                 >
                   {filename(option)}
+                </span>
+              )}
+            </a>
+          ))}
+          {extraItems.length > 0 && options.length > 0 && (
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+          )}
+          {extraItems.map((extra) => (
+            <a
+              key={extra.key}
+              role="menuitem"
+              href={extra.href}
+              download
+              onClick={() => setOpen(false)}
+              style={{
+                display: 'block',
+                padding: '6px 12px',
+                fontSize: 13,
+                color: 'var(--text)',
+                textDecoration: 'none',
+              }}
+            >
+              {extra.label}
+              {extra.sublabel && (
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 11,
+                    color: 'var(--text-muted)',
+                    marginTop: 1,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {extra.sublabel}
                 </span>
               )}
             </a>
