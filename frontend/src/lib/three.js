@@ -22,6 +22,13 @@ const LOADERS = {
   gltf: () => import('three/examples/jsm/loaders/GLTFLoader.js').then((m) => m.GLTFLoader),
 }
 
+// Formats authored for printing put the build-plate normal on +Z, while
+// three.js is Y-up — so an STL loaded as-is renders lying on its back. The
+// server-side thumbnailer already makes this correction (see the Z-up mapping
+// in indexer/stl_render.py), and the viewer has to agree with the thumbnail
+// sitting next to it. glTF is Y-up by spec and needs no rotation.
+const Z_UP_LOADERS = new Set(['stl', 'ply', '3mf'])
+
 export function isLoaderSupported(kind) {
   return Object.prototype.hasOwnProperty.call(LOADERS, kind)
 }
@@ -104,23 +111,44 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
     )
   })
 
+  // Stand the mesh upright before measuring it: the bounding box of a Z-up
+  // model is not the bounding box of the rotated one, so the rotation has to
+  // happen first or the framing below is fitted to the wrong shape.
+  if (Z_UP_LOADERS.has(kind)) object.rotation.x = -Math.PI / 2
+
   scene.add(object)
 
   // Frame the mesh: models arrive at wildly different scales and origins, so the
   // camera is fitted to the bounding sphere rather than placed at a fixed spot.
+  // updateMatrixWorld first — Box3 reads world matrices, and the rotation set
+  // above is not baked into them until the next render.
+  object.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(object)
-  const sphere = box.getBoundingSphere(new THREE.Sphere())
-  const center = sphere.center
-  const radius = sphere.radius || 1
-  object.position.sub(center)
+  const center = box.getCenter(new THREE.Vector3())
+  const radius = box.getBoundingSphere(new THREE.Sphere()).radius || 1
+
+  // Centre horizontally, but rest the model *on* the ground plane rather than
+  // through it: a mini centred on the origin floats with its feet below y=0,
+  // which reads as wrong the moment there is a grid to compare it against.
+  // The box centre (not the bounding sphere's) is what lines up with the base
+  // being grounded, so x/z and y are measured off the same box.
+  object.position.set(-center.x, -box.min.y, -center.z)
+
+  // Everything below orbits `pivot` — the middle of the standing model — so the
+  // camera frames the mesh rather than aiming at its feet.
+  const pivot = new THREE.Vector3(0, (box.max.y - box.min.y) / 2, 0)
 
   const distance = (radius * 1.6) / Math.sin((camera.fov * Math.PI) / 360)
-  const home = new THREE.Vector3(distance * 0.55, distance * 0.45, distance * 0.75)
+  // Offset from the pivot rather than from the origin, so the model sits in the
+  // middle of the frame now that its base — not its centre — is at y=0.
+  const home = new THREE.Vector3(distance * 0.55, distance * 0.45, distance * 0.75).add(pivot)
   camera.position.copy(home)
   camera.near = Math.max(radius / 1000, 0.01)
-  camera.far = distance * 10
+  // The camera orbits at `distance` from the pivot, so far has to clear that
+  // plus the pivot's own height above the origin.
+  camera.far = distance * 10 + pivot.y
   camera.updateProjectionMatrix()
-  controls.target.set(0, 0, 0)
+  controls.target.copy(pivot)
   controls.update()
 
   let triangles = 0
@@ -152,7 +180,7 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
     triangles: Math.round(triangles),
     resetView() {
       camera.position.copy(home)
-      controls.target.set(0, 0, 0)
+      controls.target.copy(pivot)
       controls.update()
     },
     setWireframe(on) {
