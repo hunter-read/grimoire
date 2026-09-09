@@ -20,7 +20,7 @@ from ...models.campaigns import Campaign
 from ...models.library import Book, GameSystem
 from . import folders
 from .constants import _THUMB_SECTIONS, LibraryFSError
-from .moves import _records_under, _section_for_model, _thumb_file, _thumb_key
+from .moves import _records_under, _section_for_model, _thumb_files_for
 from .paths import (
     assert_writable,
     collection_of,
@@ -43,12 +43,19 @@ def _purge_derived(db: Session, model: Any, record: Any) -> None:
     """
     section = _THUMB_SECTIONS.get(_section_for_model(model))
     if section and getattr(record, "has_thumbnail", False):
-        thumb = _thumb_file(section, _thumb_key(record), record.filepath)
-        try:
-            thumb.unlink()
-        except OSError as e:
-            if getattr(e, "errno", None) != 2:  # ENOENT - already gone
-                logger.warning("Could not delete thumbnail %s: %s", thumb, e)
+        # Every thumbnail matching the path hash, not just the one the current
+        # title composes (issue #421). A book whose title was edited after
+        # indexing still has its cover under the old slug, and the composed name
+        # would miss it — silently, since the ENOENT that follows is the same
+        # errno as an already-deleted file. The row is about to go, so anything
+        # left behind is unreachable for good: exactly the stranding this
+        # function exists to prevent.
+        for thumb in _thumb_files_for(record, section, record.filepath, every=True):
+            try:
+                thumb.unlink()
+            except OSError as e:
+                if getattr(e, "errno", None) != 2:  # ENOENT - already gone
+                    logger.warning("Could not delete thumbnail %s: %s", thumb, e)
 
     if model is Book:
         from ..content_cache import invalidate_book_content
