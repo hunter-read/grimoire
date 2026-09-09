@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuTag, LuLibrary, LuPencil } from 'react-icons/lu'
+import { LuTag, LuLibrary, LuPencil, LuGrid2X2Plus } from 'react-icons/lu'
 
 /**
  * Sticky bottom action bar shown while a library view is in bulk-select mode.
@@ -14,6 +14,7 @@ export default function BulkActionBar({
   onApplyTags,
   onAddToCampaign,
   onBulkEdit,
+  onAddToSoundboard,
   onDone,
   applying = false,
 }) {
@@ -107,6 +108,16 @@ export default function BulkActionBar({
             >
               <LuLibrary size={13} />
               {t('bulk.addToCampaign')}
+            </button>
+          )}
+          {onAddToSoundboard && (
+            <button
+              onClick={onAddToSoundboard}
+              disabled={disabled}
+              style={{ ...toolBtn, opacity: disabled ? 0.5 : 1 }}
+            >
+              <LuGrid2X2Plus size={13} />
+              {t('soundboard.addSelected')}
             </button>
           )}
           {onBulkEdit && (

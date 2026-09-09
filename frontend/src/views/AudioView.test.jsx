@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import AudioView from './AudioView'
+import { SoundboardProvider, useSoundboard } from '../context/SoundboardContext'
 import api from '../api'
 
 vi.mock('../api', () => ({
@@ -89,6 +90,25 @@ function renderView() {
   )
 }
 
+// A probe published alongside the view, so a test can read the board the view
+// wrote to without reaching into the context module.
+let board
+function BoardProbe() {
+  board = useSoundboard()
+  return null
+}
+
+function renderViewWithSoundboard() {
+  return render(
+    <MemoryRouter>
+      <SoundboardProvider>
+        <AudioView />
+        <BoardProbe />
+      </SoundboardProvider>
+    </MemoryRouter>
+  )
+}
+
 // Favorites is now a checkbox inside the Filters modal (no toolbar button).
 async function toggleFavoritesFilter() {
   await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
@@ -128,6 +148,26 @@ describe('AudioView', () => {
     await waitFor(() => expect(screen.getByText('battle.mp3')).toBeInTheDocument())
     // Both the per-track card play button and the folder "Play" button render.
     expect(screen.getAllByRole('button', { name: /play/i }).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('adds every selected track to the soundboard in one go', async () => {
+    localStorage.clear()
+    setupAudio([
+      makeTrack({ id: 'a1', filename: 'thunder.mp3', relative_path: 'audio/thunder.mp3' }),
+      makeTrack({ id: 'a2', filename: 'door.mp3', relative_path: 'audio/door.mp3' }),
+    ])
+    renderViewWithSoundboard()
+    await waitFor(() => expect(screen.getByText('thunder.mp3')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: /multi-select|select/i }))
+    await userEvent.click(screen.getByText('thunder.mp3'))
+    await userEvent.click(screen.getByText('door.mp3'))
+
+    await userEvent.click(screen.getByRole('button', { name: /add to soundboard/i }))
+
+    await waitFor(() => expect(board.pads.map((p) => p.id)).toEqual(['a1', 'a2']))
+    // The bulk action finishes by leaving select mode, like the other actions.
+    expect(screen.queryByRole('button', { name: /add to soundboard/i })).toBeNull()
   })
 
   it('favorites filter hides non-favorite tracks', async () => {

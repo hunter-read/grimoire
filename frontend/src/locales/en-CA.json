@@ -2138,6 +2138,26 @@
     "playGroup": "Play audio",
     "playAll": "Play all"
   },
+  "soundboard": {
+    "title": "Soundboard",
+    "open": "Open soundboard",
+    "close": "Close soundboard",
+    "empty": "No sounds yet. Add audio to the soundboard to build your board.",
+    "untitled": "Untitled sound",
+    "add": "Add to soundboard",
+    "added": "On the soundboard",
+    "addSelected": "Add to Soundboard",
+    "edit": "Configure board",
+    "doneEditing": "Done configuring",
+    "editHint": "Set the grid size, drag pads to rearrange, or use the × to remove one.",
+    "clear": "Clear board",
+    "remove": "Remove {{name}} from the soundboard",
+    "stopAll": "Stop all sounds",
+    "columns": "Columns",
+    "rows": "Rows",
+    "loopOn": "Loop {{name}}: on",
+    "loopOff": "Loop {{name}}: off"
+  },
   "metadata": {
     "noGenres": "No genres selected",
     "addGenreFromList": "Add genre from list…",

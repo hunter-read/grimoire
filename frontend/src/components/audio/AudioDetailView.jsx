@@ -14,6 +14,7 @@ import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
+import AddToSoundboardButton from './AddToSoundboardButton'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import { isArchiveMedia } from '../../constants'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -235,6 +236,10 @@ export default function AudioDetailView() {
                 }}
                 showPlayNext
                 size={56}
+              />
+              <AddToSoundboardButton
+                track={{ id: audioId, title: track.title || track.filename }}
+                size={36}
               />
             </div>
           </div>
