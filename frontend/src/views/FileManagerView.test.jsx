@@ -266,99 +266,82 @@ describe('FileManagerView', () => {
     })
   }
 
-  // The background menu: a right-click on a pane's empty space rather than on
-  // any row, which acts on the folder the pane is showing.
-  async function openPaneMenu(pane = 'primary') {
-    const list = await screen.findByTestId(`file-list-${pane}`)
-    fireEvent.contextMenu(list, { clientX: 20, clientY: 20 })
-  }
-
-  describe('the pane background menu', () => {
+  // Actions on the folder a pane is *showing* live in its toolbar, since the
+  // right-click menu can only ever act on a row.
+  describe('the pane toolbar', () => {
     it('uploads files into the folder the pane is showing', async () => {
       render(<FileManagerView />)
-      await openPaneMenu()
-      await userEvent.click(await screen.findByTestId('pane-upload-files'))
-      const file = new File(['x'], 'a.pdf', { type: 'application/pdf' })
-      fireEvent.change(screen.getByTestId('file-input'), { target: { files: [file] } })
+      await userEvent.click(await screen.findByTestId('upload-primary'))
+      await userEvent.click(await screen.findByTestId('upload-files-primary'))
+      const f = new File(['x'], 'a.pdf', { type: 'application/pdf' })
+      fireEvent.change(screen.getByTestId('file-input'), { target: { files: [f] } })
 
-      // The root listing is what the pane is anchored on, so that is where the
-      // upload lands — no row was clicked to say otherwise.
+      // The pane is anchored on the library root, so that is where it lands.
       await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), ''))
     })
 
     it('uploads a folder into the folder the pane is showing', async () => {
       render(<FileManagerView />)
-      await openPaneMenu()
-      await userEvent.click(await screen.findByTestId('pane-upload-folder'))
-      const file = new File(['x'], 'a.pdf', { type: 'application/pdf' })
-      fireEvent.change(screen.getByTestId('folder-input'), { target: { files: [file] } })
+      await userEvent.click(await screen.findByTestId('upload-primary'))
+      await userEvent.click(await screen.findByTestId('upload-folder-primary'))
+      const f = new File(['x'], 'a.pdf', { type: 'application/pdf' })
+      fireEvent.change(screen.getByTestId('folder-input'), { target: { files: [f] } })
       await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), ''))
     })
 
-    it('creates a folder inside the folder the pane is showing', async () => {
-      filesApi.createFolder.mockResolvedValue({ path: 'New' })
+    it('keeps the two upload choices behind one button', async () => {
       render(<FileManagerView />)
-      await openPaneMenu()
-      await userEvent.click(await screen.findByTestId('pane-new-folder'))
-      await userEvent.type(screen.getByLabelText('files.folderName'), 'Adventures')
-      await userEvent.click(screen.getByText('files.create'))
-      await waitFor(() =>
-        expect(filesApi.createFolder).toHaveBeenCalledWith('', 'Adventures', expect.anything())
-      )
+      await screen.findByTestId('file-pane-primary')
+      // Closed, the toolbar spends one button's width on the verb rather than
+      // two on its variants.
+      expect(screen.queryByTestId('upload-files-primary')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByTestId('upload-primary'))
+      expect(await screen.findByTestId('upload-files-primary')).toBeInTheDocument()
+      expect(screen.getByTestId('upload-folder-primary')).toBeInTheDocument()
     })
 
     it('scaffolds categories when the pane sits inside a system folder', async () => {
-      // The bug this closes: navigating *into* a system folder left no row to
-      // right-click, so the scaffold action became unreachable exactly where it
-      // is most wanted.
+      // The gap this closes: navigating *into* a system folder leaves no row to
+      // right-click, so the action was unreachable exactly where it is wanted.
       filesApi.browse.mockImplementation((path) =>
         Promise.resolve(browseResult([], path, { category_host: true }))
       )
       filesApi.scaffold.mockResolvedValue({ path: '', created: ['Core'], existing: [] })
       render(<FileManagerView />)
-      await openPaneMenu()
-      await userEvent.click(await screen.findByTestId('pane-scaffold-categories'))
+      await userEvent.click(await screen.findByTestId('scaffold-primary'))
       await waitFor(() => expect(filesApi.scaffold).toHaveBeenCalledWith(''))
     })
 
-    it('hides the scaffold where categories do not belong', async () => {
-      // The default listing is the library root, which holds systems rather
-      // than categories.
+    it('hides the categories button where categories do not belong', async () => {
       render(<FileManagerView />)
-      await openPaneMenu()
-      await screen.findByTestId('pane-upload-files')
-      expect(screen.queryByTestId('pane-scaffold-categories')).not.toBeInTheDocument()
+      // The default listing is the library root, which holds systems.
+      await screen.findByTestId('file-pane-primary')
+      expect(screen.queryByTestId('scaffold-primary')).not.toBeInTheDocument()
     })
 
-    it('names the folder it will act on', async () => {
-      render(<FileManagerView />)
-      // The heading reports where the *pane* is anchored, so navigate into a
-      // folder first — at the root it would only ever say "library root".
-      const pane = await screen.findByTestId('file-pane-primary')
-      fireEvent.doubleClick(within(pane).getByTestId('entry-core'))
-      await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
-
-      await openPaneMenu()
-      expect(await screen.findByTestId('pane-menu-folder')).toHaveTextContent('books/core')
-    })
-
-    it('offers nothing but an explanation on a read-only mount', async () => {
+    it('hides every write action on a read-only mount', async () => {
       filesApi.browse.mockImplementation((path) =>
-        Promise.resolve(browseResult([], path, { writable: false }))
+        Promise.resolve(browseResult([], path, { writable: false, category_host: true }))
       )
       render(<FileManagerView />)
-      await openPaneMenu()
-      // Every entry here writes to disk, so all of them would fail.
-      expect(await screen.findByTestId('pane-menu-readonly')).toBeInTheDocument()
-      expect(screen.queryByTestId('pane-upload-files')).not.toBeInTheDocument()
-      expect(screen.queryByTestId('pane-new-folder')).not.toBeInTheDocument()
+      await screen.findByTestId('file-pane-primary')
+      // The API would refuse all three, so none is offered.
+      expect(screen.queryByTestId('upload-primary')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('scaffold-primary')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
     })
 
-    it('opens the row menu, not this one, for a right-click on a row', async () => {
+    it('gives each pane its own buttons, targeting its own folder', async () => {
       render(<FileManagerView />)
-      await openMenuOn('core')
-      expect(await screen.findByTestId('rename-entry')).toBeInTheDocument()
-      expect(screen.queryByTestId('pane-menu-folder')).not.toBeInTheDocument()
+      await pinRight()
+      await userEvent.click(await screen.findByTestId('upload-secondary'))
+      await userEvent.click(await screen.findByTestId('upload-files-secondary'))
+      const f = new File(['x'], 'a.pdf', { type: 'application/pdf' })
+      fireEvent.change(screen.getByTestId('file-input'), { target: { files: [f] } })
+      // The second pane is pinned to books/core, not the root the first shows.
+      await waitFor(() =>
+        expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), 'books/core')
+      )
     })
   })
 

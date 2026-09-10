@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilePane, { DRAG_MIME, edgeScrollStep } from './FilePane'
@@ -302,90 +302,116 @@ describe('FilePane', () => {
     }
   })
 
-  describe('the pane background menu', () => {
-    it('opens on a right-click in the empty space, targeting the pane folder', () => {
-      const pane = makePane({ categoryHost: true })
-      const { onOpenContext } = renderPane(pane)
-      fireEvent.contextMenu(screen.getByTestId('file-list-primary'), { clientX: 5, clientY: 6 })
-      expect(onOpenContext).toHaveBeenCalledWith({
-        x: 5,
-        y: 6,
-        entry: null,
-        folder: 'books/System',
-        writable: true,
-        categoryHost: true,
-        side: 'primary',
+  describe('on a touch device', () => {
+    const realMatchMedia = globalThis.matchMedia
+
+    // `(pointer: coarse)` is what separates a finger from a mouse; the suite's
+    // global stub answers false, so a touch device has to be asked for.
+    const asTouch = () => {
+      globalThis.matchMedia = (media) => ({
+        matches: media.includes('coarse'),
+        media,
+        addEventListener: () => {},
+        removeEventListener: () => {},
       })
-      // A menu about the folder, not about whatever was selected in it.
-      expect(pane.clearSelection).toHaveBeenCalled()
+    }
+
+    afterEach(() => {
+      globalThis.matchMedia = realMatchMedia
     })
 
-    it('leaves a right-click on a row to that row', () => {
-      const { onOpenContext } = renderPane(makePane())
-      fireEvent.contextMenu(screen.getByTestId('entry-core'))
-      // One call, and it is the row's — the same event bubbling to the list
-      // must not open a second, background menu on top of it.
-      expect(onOpenContext).toHaveBeenCalledTimes(1)
-      expect(onOpenContext.mock.calls[0][0].entry).toBeTruthy()
+    it('gives up the native drag so the hold can open the menu', () => {
+      // The bug: with `draggable` set, a touch browser starts its own
+      // press-and-hold drag partway through the hold, and the menu never opens.
+      asTouch()
+      renderPane(makePane())
+      const row = screen.getByTestId('entry-core')
+      expect(row).not.toHaveAttribute('draggable', 'true')
+      // Vertical scrolling stays native, so the tree still scrolls.
+      expect(row).toHaveStyle({ touchAction: 'pan-y' })
     })
 
-    it('opens on a long press in the empty space', () => {
+    it('opens the row menu on a long press', () => {
+      asTouch()
       vi.useFakeTimers()
       try {
         const { onOpenContext } = renderPane(makePane())
-        fireEvent.touchStart(screen.getByTestId('file-list-primary'), {
-          touches: [{ clientX: 12, clientY: 14 }],
+        fireEvent.touchStart(screen.getByTestId('entry-core'), {
+          touches: [{ clientX: 30, clientY: 40 }],
         })
         act(() => vi.advanceTimersByTime(600))
         expect(onOpenContext).toHaveBeenCalledWith(
-          expect.objectContaining({ entry: null, folder: 'books/System', x: 12, y: 14 })
+          expect.objectContaining({ entry: expect.objectContaining({ name: 'core' }) })
         )
       } finally {
         vi.useRealTimers()
       }
     })
 
-    it('does not also fire for a long press that started on a row', () => {
-      vi.useFakeTimers()
-      try {
-        const { onOpenContext } = renderPane(makePane())
-        fireEvent.touchStart(screen.getByTestId('entry-core'), {
-          touches: [{ clientX: 3, clientY: 4 }],
-        })
-        act(() => vi.advanceTimersByTime(600))
-        // The row's press bubbles to the list, which must disarm rather than
-        // arm a competing background menu.
-        expect(onOpenContext).toHaveBeenCalledTimes(1)
-        expect(onOpenContext.mock.calls[0][0].entry).toBeTruthy()
-      } finally {
-        vi.useRealTimers()
-      }
+    it('keeps the drag on a mouse, where it is the primary gesture', () => {
+      renderPane(makePane())
+      const row = screen.getByTestId('entry-core')
+      expect(row).toHaveAttribute('draggable', 'true')
+    })
+  })
+
+  describe('the toolbar actions on the pane\u2019s own folder', () => {
+    it('offers both upload choices behind one button', async () => {
+      const { onPickFiles } = renderPane(makePane(), { onPickFiles: vi.fn() })
+      // Closed, the toolbar spends one button on the verb rather than two on
+      // its variants.
+      expect(screen.queryByTestId('upload-files-primary')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByTestId('upload-primary'))
+      await userEvent.click(screen.getByTestId('upload-folder-primary'))
+      expect(onPickFiles).toHaveBeenCalledWith('books/System', 'folder')
     })
 
-    it('opens from the empty-folder message, which fills a pane with no rows', () => {
-      // The case the menu exists for: an empty folder has no row to right-click
-      // and its message covers the whole pane, so a check for "the container
-      // itself" would never match and the menu would be unreachable.
-      const { onOpenContext } = renderPane(makePane({ rows: [] }))
-      fireEvent.contextMenu(screen.getByText('files.emptyFolder'), { clientX: 7, clientY: 8 })
-      expect(onOpenContext).toHaveBeenCalledWith(
-        expect.objectContaining({ entry: null, folder: 'books/System' })
-      )
+    it('uploads files into the folder the pane is showing', async () => {
+      const { onPickFiles } = renderPane(makePane(), { onPickFiles: vi.fn() })
+      await userEvent.click(screen.getByTestId('upload-primary'))
+      await userEvent.click(screen.getByTestId('upload-files-primary'))
+      expect(onPickFiles).toHaveBeenCalledWith('books/System', 'files')
     })
 
-    it('opens from a click on a row\u2019s own label, not just its edge', () => {
-      // `closest` walks up from whatever was hit — the filename span here —
-      // so the row still wins over the background.
-      const { onOpenContext } = renderPane(makePane())
-      fireEvent.contextMenu(screen.getByText('bestiary.pdf'))
-      expect(onOpenContext).toHaveBeenCalledTimes(1)
-      expect(onOpenContext.mock.calls[0][0].entry).toBeTruthy()
+    it('closes the upload menu once a choice is made', async () => {
+      renderPane(makePane(), { onPickFiles: vi.fn() })
+      await userEvent.click(screen.getByTestId('upload-primary'))
+      await userEvent.click(screen.getByTestId('upload-files-primary'))
+      expect(screen.queryByTestId('upload-files-primary')).not.toBeInTheDocument()
     })
 
-    it('reports a read-only pane, so the menu can say why it is empty', () => {
-      const { onOpenContext } = renderPane(makePane({ writable: false }))
-      fireEvent.contextMenu(screen.getByTestId('file-list-primary'))
-      expect(onOpenContext.mock.calls[0][0]).toMatchObject({ entry: null, writable: false })
+    it('closes the upload menu on a click elsewhere', async () => {
+      renderPane(makePane(), { onPickFiles: vi.fn() })
+      await userEvent.click(screen.getByTestId('upload-primary'))
+      expect(screen.getByTestId('upload-files-primary')).toBeInTheDocument()
+      await userEvent.click(document.body)
+      expect(screen.queryByTestId('upload-files-primary')).not.toBeInTheDocument()
+    })
+
+    it('scaffolds categories only inside a system folder', async () => {
+      const { onScaffold } = renderPane(makePane({ categoryHost: true }), {
+        onScaffold: vi.fn(),
+      })
+      await userEvent.click(screen.getByTestId('scaffold-primary'))
+      expect(onScaffold).toHaveBeenCalledWith('books/System')
+    })
+
+    it('hides the categories button where categories do not belong', () => {
+      // A container holds systems, and so does books/ itself.
+      renderPane(makePane({ categoryHost: false }), { onScaffold: vi.fn() })
+      expect(screen.queryByTestId('scaffold-primary')).not.toBeInTheDocument()
+    })
+
+    it('hides every write action on a read-only mount', () => {
+      renderPane(makePane({ writable: false, categoryHost: true }), {
+        onNewFolder: vi.fn(),
+        onPickFiles: vi.fn(),
+        onScaffold: vi.fn(),
+      })
+      expect(screen.queryByTestId('upload-primary')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('scaffold-primary')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
     })
   })
 

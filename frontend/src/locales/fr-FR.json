@@ -418,6 +418,8 @@
     "scaffoldFailed": "Could not create the category folders",
     "extensionFixed": "L'extension du fichier ne peut pas être modifiée ici",
     "metadataUnsupported": "Cet élément n'a pas de métadonnées modifiables",
+    "upload": "Téléverser",
+    "categories": "Catégories",
     "uploadFiles": "Téléverser des fichiers…",
     "uploadFolder": "Téléverser un dossier…",
     "downloadFolder": "Télécharger le dossier…",

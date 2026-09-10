@@ -1628,8 +1628,8 @@ children are the system folders), for a category folder, and outside `books/`, s
 a client can offer the category scaffold only where it applies. The top-level
 `category_host` answers the same question about the folder *being browsed* rather
 than about its children, so a client anchored inside a system folder - where
-there is no row to hang the action off, and none at all when the folder is empty
-- can still offer the scaffold. Note `collection`
+there is no row to hang the action off - can still offer the scaffold. Note
+`collection`
 names the *library folder* (`books`, `maps`, …) for files but the resource type
 (`system`) for system folders. Marker/dotfiles
 are surfaced as folder properties, never as listable entries.

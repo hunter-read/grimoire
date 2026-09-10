@@ -418,6 +418,8 @@
     "scaffoldFailed": "Could not create the category folders",
     "extensionFixed": "De bestandsextensie kan hier niet worden gewijzigd",
     "metadataUnsupported": "Dat item heeft geen bewerkbare metadata",
+    "upload": "Uploaden",
+    "categories": "Categorieën",
     "uploadFiles": "Bestanden uploaden…",
     "uploadFolder": "Map uploaden…",
     "downloadFolder": "Map downloaden…",

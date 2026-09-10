@@ -451,6 +451,10 @@ export default function FileManagerView() {
       onDropFiles={handleExternalDrop}
       onOpenContext={setContext}
       onNewFolder={setCreatingIn}
+      // Upload and category scaffolding act on the folder the pane is showing,
+      // so they live in its toolbar rather than in the row menu.
+      onPickFiles={pickFiles}
+      onScaffold={scaffold}
       // The keyboard equivalents of the context menu's entries. The pane knows
       // which row the cursor is on; what to do with it lives here, beside the
       // state each one opens.
@@ -648,84 +652,7 @@ export default function FileManagerView() {
         {t('files.dragHint')}
       </p>
 
-      {/* Two menus, one component. `entry` is the row that was clicked; a null
-          `entry` means the click landed on a pane's empty space, and the menu
-          acts on the folder that pane is showing instead. */}
-      {context && !context.entry && (
-        <ContextMenu
-          key={`${context.x},${context.y}`}
-          x={context.x}
-          y={context.y}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={menuHeading} data-testid="pane-menu-folder">
-            {context.folder || t('files.libraryRoot')}
-          </div>
-
-          {context.writable ? (
-            <>
-              <button
-                style={menuItem}
-                {...menuHover}
-                data-testid="pane-new-folder"
-                onClick={() => {
-                  setCreatingIn(context.folder)
-                  setContext(null)
-                }}
-              >
-                <LuFolderPlus size={13} /> {t('files.newFolderHere')}
-              </button>
-              <button
-                style={menuItem}
-                {...menuHover}
-                data-testid="pane-upload-files"
-                onClick={() => {
-                  pickFiles(context.folder, 'files')
-                  setContext(null)
-                }}
-              >
-                <LuUpload size={13} /> {t('files.uploadFiles')}
-              </button>
-              <button
-                style={menuItem}
-                {...menuHover}
-                data-testid="pane-upload-folder"
-                onClick={() => {
-                  pickFiles(context.folder, 'folder')
-                  setContext(null)
-                }}
-              >
-                <LuFolderUp size={13} /> {t('files.uploadFolder')}
-              </button>
-
-              {/* Only inside a system folder — the same rule the row menu
-                  follows, asked of the folder the pane is anchored on. */}
-              {context.categoryHost && (
-                <button
-                  style={menuItem}
-                  {...menuHover}
-                  data-testid="pane-scaffold-categories"
-                  onClick={() => {
-                    scaffold(context.folder)
-                    setContext(null)
-                  }}
-                >
-                  <LuLayoutGrid size={13} /> {t('files.scaffoldCategories')}
-                </button>
-              )}
-            </>
-          ) : (
-            // Every action this menu offers writes to disk, so on a read-only
-            // mount it would be entirely empty. Saying why beats a menu that
-            // opens onto nothing.
-            <div style={menuHeading} data-testid="pane-menu-readonly">
-              {t('files.readOnlyHint')}
-            </div>
-          )}
-        </ContextMenu>
-      )}
-
-      {context && context.entry && (
+      {context && (
         <ContextMenu
           key={`${context.x},${context.y}`}
           x={context.x}
@@ -1057,19 +984,6 @@ const menuItem = {
   fontSize: 13,
   cursor: 'pointer',
   textAlign: 'left',
-}
-
-// A non-clickable line at the top of the pane menu naming the folder it acts
-// on. The row menu never needs one — you just clicked the thing it applies to —
-// but the background menu's target is the folder the pane is *showing*, which is
-// otherwise only visible in the breadcrumb above it.
-const menuHeading = {
-  padding: '6px 10px',
-  fontSize: 11,
-  color: 'var(--text-muted)',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
 }
 
 // Hover feedback for context-menu rows. Applied as handlers rather than CSS

@@ -7,12 +7,15 @@ import {
   LuLock,
   LuX,
   LuFolderPlus,
+  LuUpload,
+  LuFolderUp,
+  LuLayoutGrid,
 } from 'react-icons/lu'
 import Spinner from '../Spinner'
 import FileRow from './FileRow'
 import useVirtualRows from '../../hooks/useVirtualRows'
 import { indexOfPath, nextSelectable, rightTarget, leftTarget } from './treeNav'
-import useLongPress from '../../hooks/useLongPress'
+import ToolbarMenuButton from './ToolbarMenuButton'
 
 // Drag payloads are JSON so a drop can carry several paths at once (a
 // multi-select drag) plus the pane it came from, which the drop handler needs to
@@ -72,6 +75,8 @@ export default function FilePane({
   onOpenContext,
   onClose,
   onNewFolder,
+  onPickFiles,
+  onScaffold,
   onPreview,
   onRename,
   onDelete,
@@ -220,59 +225,6 @@ export default function FilePane({
     },
     [pane, onOpenContext, side]
   )
-
-  /**
-   * The menu for the pane's *own* folder, opened by clicking the empty space
-   * below the rows rather than any one of them.
-   *
-   * Uploading into the folder you are looking at, or scaffolding categories
-   * into it, previously required right-clicking that folder in a listing — so
-   * they were unreachable once you had navigated *into* it, and completely
-   * unreachable in an empty folder, which has no rows to click at all.
-   *
-   * `entry: null` is what marks it as the background menu; the view reads
-   * `folder` for the path to act on.
-   */
-  const handlePaneContext = useCallback(
-    (e) => {
-      e.preventDefault()
-      pane.clearSelection()
-      onOpenContext({
-        x: e.clientX,
-        y: e.clientY,
-        entry: null,
-        folder: pane.path,
-        writable: pane.writable,
-        categoryHost: pane.categoryHost,
-        side,
-      })
-    },
-    [pane, onOpenContext, side]
-  )
-
-  const paneLongPress = useLongPress(handlePaneContext)
-
-  // Both menus are wired on this one element — a row's handlers bubble up to
-  // it — so each entry point has to ask whether the gesture landed on the
-  // background or on a row, and let the row's own handler have it if so.
-  //
-  // Asked as "not inside a row" rather than "is the container itself": the
-  // background of this list is not one element. It is the container, the
-  // virtual spacers standing in for off-screen rows, the placeholder lines
-  // under an expanded folder, and — in an empty folder, which is exactly where
-  // this menu matters most — a message filling the whole pane. All of those are
-  // background; only a row is not.
-  const onBackground = (e) => !e.target?.closest?.('[data-file-row]')
-
-  const paneBackgroundProps = {
-    onContextMenu: (e) => onBackground(e) && handlePaneContext(e),
-    onTouchStart: (e) =>
-      onBackground(e) ? paneLongPress.onTouchStart(e) : paneLongPress.onTouchEnd(),
-    onTouchMove: paneLongPress.onTouchMove,
-    onTouchEnd: paneLongPress.onTouchEnd,
-    onTouchCancel: paneLongPress.onTouchCancel,
-    onClickCapture: paneLongPress.onClickCapture,
-  }
 
   // --- Keyboard navigation.
   //
@@ -543,6 +495,11 @@ export default function FilePane({
               impossible in an empty folder. Styled as a real button rather than
               a breadcrumb, since it acts on the library instead of navigating.
               Hidden on a read-only mount, where the API would refuse it. */}
+          {/* Actions on the folder the pane is *showing*. The right-click menu
+              acts on a row, so none of these were reachable once you had
+              navigated into the folder you meant — and in an empty folder there
+              is no row to click at all. Hidden on a read-only mount, where the
+              API would refuse them. */}
           {onNewFolder && pane.writable && (
             <button
               onClick={() => onNewFolder(pane.path)}
@@ -551,6 +508,46 @@ export default function FilePane({
               data-testid={`new-folder-${side}`}
             >
               <LuFolderPlus size={12} /> {t('files.newFolder')}
+            </button>
+          )}
+          {/* One button rather than two: uploading files and uploading a folder
+              are one verb with a variant, and two buttons would cost twice the
+              toolbar width to say so. */}
+          {onPickFiles && pane.writable && (
+            <ToolbarMenuButton
+              label={t('files.upload')}
+              icon={<LuUpload size={12} />}
+              style={actionBtnStyle}
+              testId={`upload-${side}`}
+            >
+              <button
+                style={menuItemStyle}
+                {...menuHoverProps}
+                data-testid={`upload-files-${side}`}
+                onClick={() => onPickFiles(pane.path, 'files')}
+              >
+                <LuUpload size={13} /> {t('files.uploadFiles')}
+              </button>
+              <button
+                style={menuItemStyle}
+                {...menuHoverProps}
+                data-testid={`upload-folder-${side}`}
+                onClick={() => onPickFiles(pane.path, 'folder')}
+              >
+                <LuFolderUp size={13} /> {t('files.uploadFolder')}
+              </button>
+            </ToolbarMenuButton>
+          )}
+          {/* Only inside a system folder — a container holds systems rather than
+              categories, and so does books/ itself. */}
+          {onScaffold && pane.writable && pane.categoryHost && (
+            <button
+              onClick={() => onScaffold(pane.path)}
+              style={actionBtnStyle}
+              title={t('files.scaffoldCategories')}
+              data-testid={`scaffold-${side}`}
+            >
+              <LuLayoutGrid size={12} /> {t('files.categories')}
             </button>
           )}
           {pane.parent !== null && (
@@ -586,7 +583,6 @@ export default function FilePane({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onScroll={onScroll}
-        {...paneBackgroundProps}
         onDragOver={handleListDragOver}
         onDragLeave={() => clearInterval(scrollTimer.current)}
         style={{
@@ -752,6 +748,37 @@ const actionBtnStyle = {
   fontSize: 12,
   fontWeight: 500,
   cursor: 'pointer',
+}
+
+// The dropdown's rows. Kept here rather than imported from FileManagerView so
+// the pane stays self-contained — it is the only other place with a menu, and a
+// shared style module for two small objects would be more indirection than it
+// saves.
+const menuItemStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  width: '100%',
+  padding: '7px 10px',
+  borderRadius: 5,
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text)',
+  fontSize: 13,
+  cursor: 'pointer',
+  textAlign: 'left',
+  whiteSpace: 'nowrap',
+}
+
+// Hover feedback applied as handlers rather than CSS, matching how the rest of
+// this view is styled.
+const menuHoverProps = {
+  onMouseEnter: (e) => {
+    e.currentTarget.style.background = 'var(--bg-card-hover)'
+  },
+  onMouseLeave: (e) => {
+    e.currentTarget.style.background = 'transparent'
+  },
 }
 
 function crumbStyle(active) {

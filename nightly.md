@@ -770,8 +770,10 @@ of Grimoire's own concepts) built for bulk reorganization:
   makes you type its name** first. The name is shown ready to copy, since the
   point is to make you look at *which* folder you are about to lose, not to test
   your typing. Removing from the library needs no typed name: a rescan undoes it.
-- **Upload files and folders** by dragging them in from your desktop, or via
-  right-click → **Upload files… / Upload a folder…**. A panel tracks each file's
+- **Upload files and folders** by dragging them in from your desktop, via the
+  **Upload** button beside *Up* (which offers both files and a whole folder, and
+  targets the folder you are currently viewing), or via right-click →
+  **Upload files… / Upload a folder…** on any folder. A panel tracks each file's
   progress, names any that fail and why, and lets you retry them individually or
   all at once - a failure part-way through a large import never costs you the
   files that already succeeded.
@@ -797,17 +799,15 @@ of Grimoire's own concepts) built for bulk reorganization:
   Starter Sets, named so the scanner classifies them correctly. Offered on system
   folders only. A container holds *systems*, not categories, so the option does
   not appear on one - it appears on the folders inside it, however deeply the
-  containers nest.
-- **Right-click the empty space** in a pane for a menu about the folder you are
-  *looking at*, rather than about any row in it: upload files or a folder, create
-  a folder, and - inside a system folder - create the standard category folders.
-  Those actions used to need a row to right-click, which put them out of reach
-  once you had navigated into the folder you meant, and out of reach entirely in
-  an empty one.
-- **On a phone or tablet, press and hold** instead of right-clicking. Touch has
-  no second mouse button, so a held finger opens the same menus - on a row, or on
-  a pane's empty space. Sliding your finger cancels the hold, so scrolling the
-  tree still scrolls it.
+  containers nest. Reachable both from right-click on a system folder and from
+  the **Categories** button beside *New folder*, which acts on the folder you are
+  currently viewing - handy once you have navigated into the system, where there
+  is no row to right-click.
+- **On a phone or tablet, press and hold** a row instead of right-clicking it.
+  Touch has no second mouse button, so a held finger opens the same menu.
+  Sliding your finger cancels the hold, so scrolling the tree still scrolls it.
+  Dragging rows to move them is a mouse gesture and is off on touch - the menu's
+  **Move to…** does the same job.
 - **Mark a folder NSFW or SFW**, or change its container type, without recreating
   it. The *One-page RPGs* and *System-agnostic* collections are one-of-a-kind:
   once a folder claims one, it is not offered on any other folder.

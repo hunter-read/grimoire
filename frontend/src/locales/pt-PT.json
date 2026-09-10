@@ -418,6 +418,8 @@
     "scaffoldFailed": "Could not create the category folders",
     "extensionFixed": "A extensão do arquivo não pode ser alterada aqui",
     "metadataUnsupported": "Esse item não tem metadados editáveis",
+    "upload": "Carregar",
+    "categories": "Categorias",
     "uploadFiles": "Enviar arquivos…",
     "uploadFolder": "Enviar uma pasta…",
     "downloadFolder": "Transferir pasta…",

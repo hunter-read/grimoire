@@ -418,6 +418,8 @@
     "scaffoldFailed": "Could not create the category folders",
     "extensionFixed": "Die Dateiendung kann hier nicht geändert werden",
     "metadataUnsupported": "Dieses Element hat keine bearbeitbaren Metadaten",
+    "upload": "Hochladen",
+    "categories": "Kategorien",
     "uploadFiles": "Dateien hochladen…",
     "uploadFolder": "Ordner hochladen…",
     "downloadFolder": "Ordner herunterladen…",
