@@ -16,6 +16,7 @@ import LibraryView from '../views/LibraryView'
 import SystemDetailView from '../views/SystemDetailView'
 import MapsView from '../views/MapsView'
 import MapDetailView from './maps/MapDetailView'
+import VttEditorView from './maps/vtt/VttEditorView'
 import TokensView from '../views/TokensView'
 import TokenDetailView from './tokens/TokenDetailView'
 import AudioView from '../views/AudioView'
@@ -77,7 +78,12 @@ export default function AppShell() {
   // panels have no bounded height and grow together on one page scrollbar
   // instead of scrolling independently.
   const isFullHeight =
-    isReader || location.pathname === '/settings/files' || location.pathname === '/tags'
+    isReader ||
+    location.pathname === '/settings/files' ||
+    location.pathname === '/tags' ||
+    // The VTT editor sizes its own canvas to the space left over, so it must
+    // claim the full height rather than scroll inside `main`.
+    location.pathname.endsWith('/vtt-editor')
   const mainRef = useScrollRestoration()
   const { queue } = useAudioPlayer()
   const playerActive = queue.length > 0
@@ -179,6 +185,10 @@ export default function AppShell() {
               <Route path="/library/book/:bookId" element={<BookReader />} />
               <Route path="/maps" element={<MapsView />} />
               <Route path="/maps/:mapId" element={<MapDetailView />} />
+              {/* Full-page: the Universal VTT editor needs the whole width for
+                  a zoomable canvas plus its tool and property panels, and the
+                  detail pane already competes with a sidebar and nav arrows. */}
+              <Route path="/maps/:mapId/vtt-editor" element={<VttEditorView />} />
               <Route path="/tokens" element={<TokensView />} />
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
               <Route path="/audio" element={<AudioView />} />

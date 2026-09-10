@@ -563,6 +563,102 @@
       "vttLights": "Lights",
       "downloadUvtt": "Download as Universal VTT",
       "downloadUvttHint": "Image and grid as a .uvtt file"
+    },
+    "vtt": {
+      "title": "VTT Editor",
+      "edit": "Edit VTT",
+      "editHint": "Draw walls, doors and lights for the Universal VTT export",
+      "export": "Export",
+      "exportHint": "Download a .uvtt file with the image, grid and everything authored here",
+      "loadFailed": "This map could not be opened in the editor.",
+      "saveFailed": "Save failed",
+      "unsaved": "Unsaved changes",
+      "unsavedConfirm": "You have unsaved changes. Leave the editor anyway?",
+      "recalibrateConfirm": "Changing the grid moves everything already drawn. Continue?",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit to window",
+      "toggleGrid": "Toggle grid overlay",
+      "undo": "Undo",
+      "redo": "Redo",
+      "deleteSelected": "Delete",
+      "calibrate": {
+        "byCount": "By size",
+        "cellsAcross": "Cells across",
+        "cellsDown": "Cells down",
+        "byPicks": "By picking points",
+        "instructions": "Click two grid intersections, say how many cells apart they are, then apply.",
+        "spanX": "Cells apart ↔",
+        "spanY": "Cells apart ↕",
+        "apply": "Apply ({{count}} picked)",
+        "clearPicks": "Clear points",
+        "cellPx": "Cell size (px)",
+        "offsetX": "Offset X",
+        "offsetY": "Offset Y",
+        "result": "Grid: {{width}} × {{height}} cells",
+        "confirm": "Confirm grid"
+      },
+      "tools": {
+        "title": "Tools",
+        "select": "Select",
+        "wall": "Wall",
+        "object": "Object wall",
+        "portal": "Door or window",
+        "light": "Light"
+      },
+      "snap": {
+        "title": "Snap",
+        "grid": "Grid",
+        "half": "Half",
+        "free": "Free"
+      },
+      "layers": {
+        "title": "Layers",
+        "walls": "Walls",
+        "objects": "Object walls",
+        "portals": "Doors & windows",
+        "lights": "Lights"
+      },
+      "grid": {
+        "title": "Grid",
+        "dimensions": "{{width}} × {{height}} cells",
+        "cellSize": "{{px}} px per cell",
+        "recalibrate": "Recalibrate grid"
+      },
+      "selection": {
+        "title": "Selection",
+        "none": "Nothing selected. Use the select tool to pick a wall, door or light.",
+        "wall": "Wall run with {{count}} points",
+        "wallHint": "Universal VTT walls carry no other properties — no thickness, type or height."
+      },
+      "portal": {
+        "kind": "Type",
+        "door": "Door",
+        "window": "Window",
+        "doorHint": "Blocks sight until opened in the VTT.",
+        "windowHint": "Can be seen through but not passed.",
+        "freestanding": "Freestanding",
+        "freestandingHint": "Not set into a wall — an archway or a standing screen."
+      },
+      "light": {
+        "x": "X",
+        "y": "Y",
+        "range": "Range",
+        "rangeHint": "In grid squares, not pixels or feet.",
+        "intensity": "Intensity",
+        "intensityHint": "{{value}} — each VTT reads this differently, so the preview is approximate.",
+        "color": "Colour",
+        "opacity": "Opacity",
+        "shadows": "Casts shadows"
+      },
+      "environment": {
+        "title": "Environment",
+        "baked": "Lighting is baked into the image",
+        "bakedHint": "Set this when the map artwork already has its lighting painted in.",
+        "bakedWarning": "This map is marked as already lit, so a VTT may ignore or dampen the {{count}} light(s) placed here.",
+        "ambient": "Ambient light",
+        "ambientStrength": "Strength"
+      }
     }
   },
   "tokens": {

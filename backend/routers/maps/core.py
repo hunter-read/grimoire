@@ -39,8 +39,9 @@ from ._helpers import (
     vtt_image_bytes,
     vtt_metadata,
 )
-from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate
+from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate, VttAuthoringUpdate
 from .uvtt import build_uvtt, check_grid_plausible, resolve_grid
+from .vtt_authoring import VttDataError, doc_counts, normalize_vtt_data
 
 router = APIRouter()
 
@@ -337,9 +338,14 @@ def export_map_uvtt(
 ):
     """Export a raster map as a Universal VTT file (issue #125).
 
-    Carries the image and the grid; walls, portals and lights are empty, since
-    authoring those is the future work under #123. The grid is the user's manual
-    override when set, otherwise the detected one, otherwise a default.
+    Carries the image, the grid, and whatever walls, doors and lights the GM
+    authored in the editor (issues #126/#127) -- empty arrays when nothing has
+    been. The grid is the user's manual override when set, otherwise the
+    detected one, otherwise a default.
+
+    The file is assembled here and returned as a download. Nothing is written
+    into the library: the source image is never modified and no sidecar .uvtt
+    appears beside it.
 
     The result is cached on disk: re-encoding a 5700x7700 battlemap to WebP and
     base64 is real work, and a download that gets retried should not pay it
@@ -379,7 +385,13 @@ def export_map_uvtt(
         mtime = 0
     # Hash the DB-sourced filepath plus the grid, never user input, so no
     # tainted data reaches the filesystem path.
-    key = f"{m.filepath}:{mtime}:{grid['width']}x{grid['height']}@{grid['px']}"
+    # The authored geometry is part of the identity of the export: editing a
+    # wall must not serve the previously cached file. Hashed as its canonical
+    # JSON so the key stays a fixed length whatever the map holds.
+    doc_key = hashlib.sha1(
+        json.dumps(m.vtt_data or {}, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    key = f"{m.filepath}:{mtime}:{grid['width']}x{grid['height']}@{grid['px']}:{doc_key}"
     cache_path = os.path.join(
         PAGE_CACHE_DIR, f"uvtt_{hashlib.sha1(key.encode()).hexdigest()[:16]}.uvtt"
     )
@@ -387,7 +399,7 @@ def export_map_uvtt(
         with open(cache_path, "rb") as f:
             payload = f.read()
     else:
-        payload = json.dumps(build_uvtt(m.filepath, grid)).encode("utf-8")
+        payload = json.dumps(build_uvtt(m.filepath, grid, m.vtt_data)).encode("utf-8")
         try:
             with open(cache_path, "wb") as f:
                 f.write(payload)
@@ -405,6 +417,66 @@ def export_map_uvtt(
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
+
+
+def get_map_authoring(
+    map_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The authored walls/portals/lights for a map, for the editor to load.
+
+    Returns the resolved grid alongside the geometry so the editor can draw its
+    overlay without a second request, and reports the pixels_per_grid the
+    geometry was *authored* at. When that disagrees with the map's current grid,
+    the stored coordinates no longer line up with the image -- the editor warns
+    rather than silently redrawing walls in the wrong place.
+    """
+    m = _load_accessible_map(map_id, current_user, db)
+    info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
+    grid = resolve_grid(m, info)
+    doc = m.vtt_data or None
+    return {
+        "map_id": m.id,
+        "filename": m.filename,
+        "pixel_width": info.get("pixel_width"),
+        "pixel_height": info.get("pixel_height"),
+        "grid": {
+            "width": grid["width"],
+            "height": grid["height"],
+            "cell_px": grid["px"],
+            "source": grid["source"],
+        },
+        "data": doc,
+        **doc_counts(doc),
+    }
+
+
+def update_map_authoring(
+    map_id: str,
+    payload: VttAuthoringUpdate,
+    _: CurrentUser = Depends(require_gm_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Replace a map's authored Universal VTT geometry.
+
+    A whole-document PUT rather than per-feature routes: the editor holds the
+    entire drawing in memory and one atomic replace is what "save" means there.
+
+    Nothing is written to the library -- this only updates the map row. The
+    .uvtt itself is built on demand by the export endpoint, so the user's own
+    files are never modified and no sidecar appears beside them.
+    """
+    m = db.query(GenericMap).filter_by(id=map_id).first()
+    if not m:
+        raise HTTPException(404)
+    try:
+        doc = normalize_vtt_data(payload.data.model_dump() if payload.data else None)
+    except VttDataError as e:
+        raise HTTPException(400, str(e)) from None
+    m.vtt_data = doc
+    db.commit()
+    return {"status": "ok", **doc_counts(doc)}
 
 
 def get_map_vtt_data(

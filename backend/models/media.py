@@ -24,6 +24,16 @@ class GenericMap(Base):
     grid_width = Column(Float, nullable=True)
     grid_height = Column(Float, nullable=True)
     grid_px = Column(Float, nullable=True)
+    # Authored Universal VTT geometry — walls, portals, lights, environment —
+    # drawn in the in-app editor (issues #126/#127). NULL means nothing has been
+    # authored. Held here rather than in a sidecar file because the library is
+    # routinely mounted read-only and authoring must never write beside the
+    # user's maps; the export endpoint builds a .uvtt from this on demand.
+    # Geometry is in grid units (as UVTT itself uses) and carries the
+    # pixels_per_grid it was authored at, since everything is scale-relative and
+    # replacing the source image would otherwise invalidate it undetectably.
+    # See backend/routers/maps/vtt_authoring.py for the document shape.
+    vtt_data = Column(JSON, nullable=True)
     file_size = Column(Integer, default=0)
     # Content identity — see the note on Book.content_hash. ``file_mtime`` +
     # ``file_size`` gate the re-hash so unchanged rescans read no file content;

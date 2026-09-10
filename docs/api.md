@@ -519,6 +519,8 @@ a book whose file is missing.
 | `/api/maps/:id/export.uvtt` | GET | any | Export a raster map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). 400 for PDF, video, archive, and existing `.uvtt` maps, and for a map already **variant-linked** to a Universal VTT file |
 | `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image |
 | `/api/maps/:id/vtt/data` | GET | any | Grid resolution plus wall/portal/light counts parsed from a `.uvtt`/`.dd2vtt` map, image omitted. 400 if the map is not Universal VTT |
+| `/api/maps/:id/vtt/authoring` | GET | any | Walls, portals, lights and environment authored in the in-app editor, plus the resolved grid to draw them on. `data` is `null` when nothing has been authored |
+| `/api/maps/:id/vtt/authoring` | PUT | gm/admin | Replace the authored geometry in one atomic write. Body: `{data: {...}}`; `{"data": null}` clears it |
 | `/api/maps/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/maps/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, map_type?, grid_size?}]}` |
 | `/api/maps/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
@@ -568,10 +570,15 @@ response carries an advisory `grid_warning`:
 `GET /api/maps/:id/export.uvtt` builds a Universal VTT file from that resolved
 grid: `format` 0.3, a zero `map_origin`, `map_size` in cells, `pixels_per_grid`,
 and the image as base64 **WebP** (which is what real exporters emit, and a
-fraction of PNG's size). Walls, portals and lights are empty - authoring those is
-separate work. When no grid can be resolved at all, the export falls back to
-140px per cell. Exports are cached on disk and keyed on the file's mtime and the
-resolved grid, so editing the grid produces a fresh file.
+fraction of PNG's size), together with whatever walls, portals and lights have
+been authored for the map (empty arrays when nothing has). When no grid can be
+resolved at all, the export falls back to 140px per cell. Exports are cached on
+disk and keyed on the file's mtime, the resolved grid, and the authored
+geometry, so editing either produces a fresh file.
+
+The file is assembled on demand and returned as a download. Nothing is written
+into the library: the source image is never modified and no sidecar `.uvtt`
+appears beside it.
 
 The response is served as `application/octet-stream` with an `attachment`
 filename ending in `.uvtt`, not as `application/json` - the body is JSON by
@@ -584,6 +591,66 @@ offering it would be a downgrade presented as an upgrade. The check is on the
 variant link, not on filenames - the duplicate manager lets a user link two
 files whatever they are named - and matches either a `universal-vtt` variant
 kind or a sibling with a `.uvtt`/`.dd2vtt` extension.
+
+#### Universal VTT authoring
+
+`GET`/`PUT /api/maps/:id/vtt/authoring` back the in-app editor, which lets a GM
+draw vision-blocking walls, place doors and windows, and position lights on a
+raster map. The whole document is read and replaced at once - that is what
+"save" means in the editor, and it keeps the write atomic.
+
+Geometry is stored in **grid units**, the same unit the file format uses, so
+export is a copy rather than a conversion and a later grid correction does not
+silently move every wall. The document carries the `pixels_per_grid` it was
+authored against for the same reason: everything is scale-relative, so replacing
+the source image with a differently-sized copy would otherwise invalidate the
+geometry with no way to detect it.
+
+```json
+{
+  "data": {
+    "pixels_per_grid": 140,
+    "grid_offset": {"x": 0, "y": 0},
+    "line_of_sight": [[{"x": 0, "y": 0}, {"x": 10, "y": 0}]],
+    "objects_line_of_sight": [],
+    "portals": [
+      {"bounds": [{"x": 4, "y": 0}, {"x": 5, "y": 0}], "closed": true, "freestanding": false}
+    ],
+    "lights": [
+      {"position": {"x": 3, "y": 3}, "range": 4, "intensity": 1,
+       "color": "ffeccd8b", "shadows": true}
+    ],
+    "environment": {"baked_lighting": false, "ambient_light": "00000000"}
+  }
+}
+```
+
+Field notes, since these are where UVTT tooling conventionally goes wrong:
+
+- `line_of_sight` is an array of **polylines**, not flat segments. Each entry is
+  one wall run; a closed room repeats its first point at the end.
+- `objects_line_of_sight` is kept separate from walls rather than merged.
+  Importers treat it differently - Roll20 turns it into transparent barriers
+  rather than solid walls - so furniture and pillars are their own layer.
+- A portal's `bounds` (the two endpoints of the door line) is the load-bearing
+  field. `position` and `rotation` are **derived from it on export**, because
+  several importers ignore one or the other and derived values cannot contradict
+  the bounds. `closed: true` is a door, `closed: false` a window.
+- `color` and `ambient_light` are 8-digit **ARGB** hex with no leading `#`, alpha
+  first (`ffeccd8b`). 6-digit RGB input is accepted and treated as opaque;
+  anything else is rejected rather than silently defaulted.
+- A light's `range` is in **grid squares**, not pixels or feet. `intensity` has
+  no scale agreed between VTTs, so it is stored and exported verbatim - an
+  in-app preview can never match a target VTT exactly.
+- `environment.baked_lighting: true` means the lighting is already painted into
+  the image, and importers may then ignore or dampen authored lights.
+
+Deliberately absent, because the format cannot carry them: wall thickness or
+type, blocks-movement-but-not-sight, one-way or directional walls, secret or
+locked doors, wall height, light animation, falloff curves, and the dim/bright
+radius split (importers derive that themselves). A malformed document is
+rejected with a 400 naming the offending field; a document with no content at
+all is stored as `null`.
 
 ### Tokens
 

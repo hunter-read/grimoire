@@ -175,3 +175,107 @@ class VttDataResponse(BaseModel):
     portal_count: int = 0
     light_count: int = 0
     has_image: bool = False
+
+
+# --- Universal VTT authoring (issues #126/#127) --------------------------------
+# The editor's document, mirrored as Pydantic so the OpenAPI schema describes it
+# and obviously-wrong payloads are rejected at the edge. The *semantic* rules --
+# colour channel order, coordinate limits, closed-polyline conventions -- live in
+# `vtt_authoring.normalize_vtt_data`, which is the single gate a stored document
+# passes through; duplicating them here would leave two definitions to drift.
+
+
+class VttPoint(BaseModel):
+    """A point in **grid units** (not pixels), as the UVTT format itself uses."""
+
+    x: float
+    y: float
+
+
+class VttPortalIn(BaseModel):
+    """A door or window.
+
+    `bounds` is the pair of endpoints defining the door line, and is the field
+    that matters: `position` and `rotation` are derived from it on export
+    because several importers ignore one or the other.
+
+    `closed` is the door/window discriminator — True is a door, False a window.
+    """
+
+    bounds: list[VttPoint]
+    closed: bool = True
+    freestanding: bool = False
+
+
+class VttLightIn(BaseModel):
+    """A light source. `range` is in grid squares; `color` is ARGB hex.
+
+    `intensity` has no scale agreed between VTTs, so it is carried through
+    verbatim rather than normalised to any one of them.
+    """
+
+    position: VttPoint
+    range: float = 0
+    intensity: float = 1
+    color: Optional[str] = None
+    shadows: bool = True
+
+
+class VttEnvironmentIn(BaseModel):
+    """`baked_lighting` means the image already has its lighting painted in."""
+
+    baked_lighting: bool = False
+    ambient_light: Optional[str] = None
+
+
+class VttDocumentIn(BaseModel):
+    """A whole authored document: the editor's drawing, in grid units.
+
+    `pixels_per_grid` records the grid the geometry was drawn against. It is
+    stored because everything here is scale-relative — replacing the source
+    image with a different size would otherwise invalidate every wall silently.
+    """
+
+    pixels_per_grid: float = 0
+    grid_offset: Optional[VttPoint] = None
+    line_of_sight: list[list[VttPoint]] = Field(default_factory=list)
+    objects_line_of_sight: list[list[VttPoint]] = Field(default_factory=list)
+    portals: list[VttPortalIn] = Field(default_factory=list)
+    lights: list[VttLightIn] = Field(default_factory=list)
+    environment: Optional[VttEnvironmentIn] = None
+
+
+class VttAuthoringUpdate(BaseModel):
+    """`PUT /maps/{id}/vtt/authoring` — replaces the whole document.
+
+    `data: null` clears everything authored on the map.
+    """
+
+    data: Optional[VttDocumentIn] = None
+
+
+class VttFeatureCounts(BaseModel):
+    wall_count: int = 0
+    object_wall_count: int = 0
+    portal_count: int = 0
+    light_count: int = 0
+
+
+class VttAuthoringResponse(VttFeatureCounts):
+    """`GET /maps/{id}/vtt/authoring` — the document plus the grid to draw it on.
+
+    `data` is None when nothing has been authored. Pixel dimensions are
+    Optional for the same reason as on `MapDetailResponse`: a file that could
+    not be measured reports None rather than failing the request.
+    """
+
+    map_id: str
+    filename: str
+    pixel_width: Optional[int] = None
+    pixel_height: Optional[int] = None
+    grid: MapGrid
+    data: Optional[dict] = None
+
+
+class VttAuthoringSaveResponse(VttFeatureCounts):
+    status: str

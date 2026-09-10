@@ -14,6 +14,8 @@ from typing import Any, Optional
 
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
+from .vtt_authoring import export_features
+
 # The ``format`` value every real exporter writes.
 UVTT_FORMAT = 0.3
 
@@ -154,12 +156,17 @@ def encode_map_image(filepath: str, quality: int = WEBP_QUALITY) -> str:
     return base64.b64encode(raw).decode("ascii")
 
 
-def build_uvtt(filepath: str, grid: dict) -> dict:
+def build_uvtt(filepath: str, grid: dict, vtt_doc: Optional[dict] = None) -> dict:
     """Assemble the Universal VTT envelope for a raster map.
 
-    Walls, portals and lights are empty: this export carries the image and the
-    grid, and authoring those features is the future work tracked under #123.
+    ``vtt_doc`` is the map's authored geometry (issues #126/#127) when the GM
+    has drawn walls, doors or lights in the editor; None or an empty document
+    exports the same image-and-grid file as before, with empty feature arrays.
+
+    Nothing is read from or written next to the source image: the file this
+    returns is assembled in memory and handed to the user as a download.
     """
+    features = export_features(vtt_doc)
     return {
         "format": UVTT_FORMAT,
         "resolution": {
@@ -167,10 +174,10 @@ def build_uvtt(filepath: str, grid: dict) -> dict:
             "map_size": {"x": grid["width"], "y": grid["height"]},
             "pixels_per_grid": grid["px"],
         },
-        "line_of_sight": [],
-        "objects_line_of_sight": [],
-        "portals": [],
-        "environment": {"baked_lighting": False, "ambient_light": "00000000"},
-        "lights": [],
+        "line_of_sight": features["line_of_sight"],
+        "objects_line_of_sight": features["objects_line_of_sight"],
+        "portals": features["portals"],
+        "environment": features["environment"],
+        "lights": features["lights"],
         "image": encode_map_image(filepath),
     }
