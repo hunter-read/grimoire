@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Player character frame">
+  <!--
+    PC — a double ring with four cardinal diamonds.
+
+    The editor reads a frame's crop from the frame itself: it flood-fills inward
+    from the centre and uses whatever the fill encloses. So the only geometric
+    requirements are that the interior be *closed* (no gap the fill can escape
+    through) and that everything stay inside the viewBox. A frame is free to be
+    any shape it likes — see hexagon.svg, which no circular mask could serve.
+
+    Convention: a 512 viewBox with explicit width/height. The explicit dimensions
+    are not optional — Firefox and Safari report a dimensionless SVG as
+    zero-sized and cannot draw it to a canvas at all.
+
+    Presentation attributes rather than a <style> block, so the file stays
+    trivially recolourable by hand and sidesteps any CSP style-src question.
+  -->
+  <g fill="none" stroke="#c9a227">
+    <circle cx="256" cy="256" r="232" stroke-width="16"/>
+    <circle cx="256" cy="256" r="212" stroke-width="4" opacity="0.6"/>
+  </g>
+  <!--
+    Four diamonds straddling the outer ring. At the 40px a picker tile gets these
+    survive as evenly spaced dots — the accent that separates PC from a plain
+    ring without making it heavier.
+  -->
+  <g fill="#c9a227">
+    <path d="M256 6 L274 24 L256 42 L238 24 Z"/>
+    <path d="M488 238 L506 256 L488 274 L470 256 Z"/>
+    <path d="M256 470 L274 488 L256 506 L238 488 Z"/>
+    <path d="M24 238 L42 256 L24 274 L6 256 Z"/>
+  </g>
+</svg>

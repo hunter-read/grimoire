@@ -592,9 +592,18 @@ Grimoire works the grid out on its own, from a `(30x40)` in the filename, the im
 
 ```
 tokens/
-└── Category/
-    └── token-file.png
+├── Category/
+│   └── token-file.png
+└── Fantasy Frames/          # a token-editor frame folder
+    ├── .frames-container    # the marker that declares it one
+    └── my-ring.svg
 ```
+
+A folder holding a `.frames-container` marker file offers its images as frames in the
+[token editor](#token-editor) - the same convention `books/` uses for
+`.parent-system-container` and friends, so the folder keeps whatever name reads best.
+Frames are ordinary library files and are still indexed as tokens; the marker adds a use
+for them rather than hiding them.
 
 ### Audio - organize by category or creator
 
@@ -712,6 +721,8 @@ case-insensitively, so `"dungeon"` and `"Dungeon"` are the same tag.
 Add a `.grimoireignore` file to keep files on disk but out of Grimoire. It uses the same syntax as `.gitignore` / `.dockerignore`, so anything matched by a rule is skipped during scanning and never appears in the UI - useful when a book ships extra print variants (black-and-white single pages, zine-sized layouts) you want kept next to the book but hidden.
 
 Place it at your **library root** to apply everywhere, or in any subfolder to add rules for just that subtree. Rules are cumulative and nested, like git.
+
+Folders whose name starts with a dot are skipped automatically and need no rule.
 
 ```
 library/
@@ -1457,6 +1468,55 @@ Audio covers are worth calling out: a track's artwork previously came only from 
 image sitting next to it in your library or from the file's own embedded tags, neither of
 which you could change from inside Grimoire. A cover you set here takes precedence over
 both, and removing it hands control back to them.
+
+## Token editor
+
+Turn any picture into a VTT-ready token without leaving Grimoire. Open it from the
+**Token editor** button on the tokens page, from a token's own page, or - the quickest
+route - from a character's portrait in a campaign's member list.
+
+Load art by uploading a file, pasting from the clipboard, dropping it on the page, or
+browsing what Grimoire already holds. Then position it: drag to move, scroll to zoom,
+`Shift`+scroll to rotate, and the arrow keys to nudge a pixel at a time. On a touchscreen,
+drag with one finger and pinch or twist with two. Double-click (or press `R`) to start over.
+
+You choose a frame, the output size (140, 256, 512, or 1024 pixels), and an optional
+background colour behind transparent art. The frame decides the token's shape - pick the
+hexagon and the art is cropped to a hexagon. With no frame selected you choose the shape
+yourself: a circle, a square, or the full square image. The finished token is a PNG with real
+transparency.
+
+**Two ways out.** **Download** saves the PNG to your device, ready to drop into Roll20,
+Foundry, or anything else. **Set as character art** makes it the portrait for a character in
+one of your campaigns - and because setting your own character's art has always been
+something a player can do, players can make their own tokens, not just GMs.
+
+Nothing is written to your library and no new token is added to it: the image is composed in
+your browser and only leaves by one of those two doors. That means the editor works fine on
+a read-only library, and never disturbs a scan.
+
+**Frames.** Six ship with Grimoire. Three are plain shapes - a circle, a square, and a
+hexagon - which take any colour you pick, and three are themed role markers (player
+character, non-player character, opponent) that keep their own colour, since that colour is
+part of telling them apart at a glance. You can add your own as well. Put an empty file named `.frames-container` in any folder
+under `tokens/`, and every PNG, WebP, or SVG beside it becomes a frame. The folder keeps a
+normal name - `Fantasy Frames`, `Scifi Frames` - and the picker groups frames under it, so
+a system's frames can sit beside that system's tokens.
+
+Frame images are still indexed as ordinary tokens and appear in your token gallery. That is
+deliberate: a frame *is* a token image, just one you would normally composite rather than
+place on a map. Add a [`.grimoireignore`](#ignoring-files-with-grimoireignore) rule if you
+would rather they stayed out of the gallery.
+
+The editor reads a frame's crop **from the frame itself** - it fills inward from the centre
+and keeps whatever the frame encloses - so a frame can be any shape, and the art follows its
+real outline rather than a circle. The one requirement is that the outline be **closed**: a
+border with a gap in it lets the fill escape, and the editor falls back to a plain circular
+crop. (That is why the bundled non-player-character frame bridges its decorative notch with a
+small bar.) Frames should be square overall, with a transparent middle, and for SVGs you must
+set explicit `width` and `height` attributes alongside the `viewBox` - Firefox and Safari
+cannot draw one without them. The bundled frames use a `0 0 512 512` viewBox and are worth
+copying as a starting point.
 
 ## Campaigns
 

@@ -1496,7 +1496,9 @@
     "downloadCurrent": "Huidige downloaden",
     "replace": "Vervangen",
     "saveCopy": "Kopie opslaan",
-    "sheetEditError": "Kan dit blad niet openen of opslaan. Mogelijk is het geen geldige PDF."
+    "sheetEditError": "Kan dit blad niet openen of opslaan. Mogelijk is het geen geldige PDF.",
+    "setArt": "Personagebeeld instellen",
+    "createToken": "Token maken…"
   },
   "sessions": {
     "title": "Sessienotities",
@@ -2642,5 +2644,55 @@
       "levelLabel": "Niveau",
       "deletedScope": "(verwijderd)"
     }
+  },
+  "tokenEditor": {
+    "title": "Token-editor",
+    "forCharacter": "voor {{name}}",
+    "canvasLabel": "Tokenvoorbeeld — sleep om te verplaatsen, scroll om te zoomen, pijltoetsen om bij te stellen",
+    "shape": "Vorm",
+    "mask": {
+      "circle": "Cirkel",
+      "square": "Vierkant",
+      "none": "Volledig"
+    },
+    "size": "Uitvoergrootte",
+    "sizeOption": "{{size}} × {{size}} px",
+    "zoom": "Zoom",
+    "rotation": "Rotatie",
+    "rotateLeft": "Naar links draaien",
+    "rotateRight": "Naar rechts draaien",
+    "flip": "Spiegelen en herstellen",
+    "flipHorizontal": "Horizontaal spiegelen",
+    "flipVertical": "Verticaal spiegelen",
+    "reset": "Positie herstellen",
+    "background": "Achtergrond",
+    "bgTransparent": "Transparant",
+    "frame": "Rand",
+    "noFrame": "Geen rand",
+    "framePc": "Spelerpersonage",
+    "frameNpc": "Niet-spelerpersonage",
+    "frameOpponent": "Tegenstander",
+    "libraryFrames": "Randen uit de bibliotheek",
+    "customFramesHint": "Voeg eigen randen toe door PNG-, WebP- of SVG-afbeeldingen in een map met de naam .frames in je tokenbibliotheek te zetten.",
+    "source": {
+      "upload": "Uploaden",
+      "library": "Bibliotheek"
+    },
+    "dropHint": "Sleep hier een afbeelding, plak vanaf het klembord of kies een bestand.",
+    "chooseFile": "Bestand kiezen",
+    "changeImage": "Afbeelding wijzigen",
+    "download": "Downloaden",
+    "setAsArt": "Instellen als personagebeeld",
+    "setAsArtHint": "Kies van welk personage dit token het portret wordt.",
+    "noCharacters": "Je hebt nog geen personages om een afbeelding voor in te stellen.",
+    "campaignsFailed": "Campagnes konden niet worden geladen.",
+    "loadFailed": "Die afbeelding kon niet worden geladen.",
+    "saveFailed": "Het token kon niet worden opgeslagen.",
+    "lowResWarning": "Deze afbeelding is {{width}}×{{height}}, kleiner dan de uitvoer van {{size}} px — het token kan wazig ogen.",
+    "defaultName": "token",
+    "frameColor": "Randkleur",
+    "shape_circle": "Cirkel",
+    "shape_square": "Vierkant",
+    "shape_hexagon": "Zeshoek"
   }
 }

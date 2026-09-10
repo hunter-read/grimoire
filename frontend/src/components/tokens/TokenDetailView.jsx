@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
+import { LuArrowLeft, LuInfo, LuChevronDown, LuWand } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
@@ -184,6 +184,33 @@ export default function TokenDetailView() {
                 transition: 'transform 0.2s',
               }}
             />
+          </button>
+        )}
+        {/* The discovery entry: you are looking at a piece of art and want it
+            framed. Archives have no image to work from, so it is hidden there. */}
+        {!token.is_archive && (
+          <button
+            type="button"
+            onClick={() => navigate(`/tokens/${tokenId}/editor`)}
+            title={t('tokenEditor.title')}
+            aria-label={t('tokenEditor.title')}
+            style={{
+              // Matches AddToCampaignButton and its neighbours in this toolbar
+              // rather than inventing a third button shape for one control.
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+              borderRadius: 4,
+              padding: '4px 10px',
+              fontSize: 14,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              cursor: 'pointer',
+            }}
+          >
+            <LuWand size={13} aria-hidden="true" />
+            {!isMobilePhone && t('tokenEditor.title')}
           </button>
         )}
         <VariantPicker item={token} detailPath={(id) => `/tokens/${id}`} compact />

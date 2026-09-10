@@ -3,6 +3,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import MemberRow from './MemberRow'
 import InvitePanel from './InvitePanel'
 
+// MemberRow's avatar navigates to the token editor, so it needs a router.
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+}))
+
 vi.mock('../../api', () => ({
   campaigns: {
     eligibleMembers: vi.fn(),

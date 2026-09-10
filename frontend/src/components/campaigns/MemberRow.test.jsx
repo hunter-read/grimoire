@@ -15,6 +15,11 @@ vi.mock('../../api', () => ({
   },
 }))
 
+// MemberArtButton navigates to the token editor, so the row needs a router.
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+}))
+
 // The nested editor/picker/dialog components make their own API calls — stub
 // them so these tests stay focused on MemberRow's own wiring.
 vi.mock('./PdfSheetEditor', () => ({

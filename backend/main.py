@@ -52,6 +52,7 @@ from .routers import (
     systems as systems_router,
     tags as tags_router,
     themes as themes_router,
+    token_frames as token_frames_router,
     tokens as tokens_router,
     users as users_router,
 )
@@ -317,6 +318,7 @@ api.include_router(books_router.router)
 api.include_router(lookups_router.router)
 api.include_router(maps_router.router)
 api.include_router(tokens_router.router)
+api.include_router(token_frames_router.router)
 api.include_router(audio_router.router)
 api.include_router(models_router.router)
 api.include_router(library_router.router)

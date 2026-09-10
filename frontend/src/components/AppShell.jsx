@@ -19,6 +19,7 @@ import MapDetailView from './maps/MapDetailView'
 import VttEditorView from './maps/vtt/VttEditorView'
 import TokensView from '../views/TokensView'
 import TokenDetailView from './tokens/TokenDetailView'
+import TokenEditorView from './tokens/editor/TokenEditorView'
 import AudioView from '../views/AudioView'
 import ModelsView from '../views/ModelsView'
 import ModelDetailView from './models/ModelDetailView'
@@ -190,6 +191,14 @@ export default function AppShell() {
                   detail pane already competes with a sidebar and nav arrows. */}
               <Route path="/maps/:mapId/vtt-editor" element={<VttEditorView />} />
               <Route path="/tokens" element={<TokensView />} />
+              {/* Full-page for the same reason as the VTT editor: the canvas,
+                  the control column, and the frame gallery need to sit side by
+                  side. Declared before the :tokenId route for readability —
+                  React Router already ranks the static segment higher.
+                  Registered only in this block, so guests (whose routes are the
+                  branch above) cannot reach the editor at all. */}
+              <Route path="/tokens/editor" element={<TokenEditorView />} />
+              <Route path="/tokens/:tokenId/editor" element={<TokenEditorView />} />
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
               <Route path="/audio" element={<AudioView />} />
               <Route path="/audio/:audioId" element={<AudioDetailView />} />

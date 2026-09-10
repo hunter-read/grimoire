@@ -1496,7 +1496,9 @@
     "downloadCurrent": "Download current",
     "replace": "Replace",
     "saveCopy": "Save copy",
-    "sheetEditError": "Could not open or save this sheet. It may not be a valid PDF."
+    "sheetEditError": "Could not open or save this sheet. It may not be a valid PDF.",
+    "setArt": "Set character art",
+    "createToken": "Create a token…"
   },
   "sessions": {
     "title": "Session Notes",
@@ -2642,5 +2644,55 @@
       "levelLabel": "Level",
       "deletedScope": "(deleted)"
     }
+  },
+  "tokenEditor": {
+    "title": "Token editor",
+    "forCharacter": "for {{name}}",
+    "canvasLabel": "Token preview — drag to move, scroll to zoom, arrow keys to nudge",
+    "shape": "Shape",
+    "mask": {
+      "circle": "Circle",
+      "square": "Square",
+      "none": "Full"
+    },
+    "size": "Output size",
+    "sizeOption": "{{size}} × {{size}} px",
+    "zoom": "Zoom",
+    "rotation": "Rotation",
+    "rotateLeft": "Rotate left",
+    "rotateRight": "Rotate right",
+    "flip": "Flip and reset",
+    "flipHorizontal": "Flip horizontally",
+    "flipVertical": "Flip vertically",
+    "reset": "Reset position",
+    "background": "Background",
+    "bgTransparent": "Transparent",
+    "frame": "Frame",
+    "noFrame": "No frame",
+    "framePc": "Player character",
+    "frameNpc": "Non-player character",
+    "frameOpponent": "Opponent",
+    "libraryFrames": "Library frames",
+    "customFramesHint": "Add your own frames by putting PNG, WebP, or SVG images in a folder named .frames inside your tokens library.",
+    "source": {
+      "upload": "Upload",
+      "library": "Library"
+    },
+    "dropHint": "Drop an image here, paste from the clipboard, or choose a file.",
+    "chooseFile": "Choose a file",
+    "changeImage": "Change image",
+    "download": "Download",
+    "setAsArt": "Set as character art",
+    "setAsArtHint": "Choose which character this token becomes the portrait for.",
+    "noCharacters": "You have no characters to set art for yet.",
+    "campaignsFailed": "Campaigns could not be loaded.",
+    "loadFailed": "That image could not be loaded.",
+    "saveFailed": "The token could not be saved.",
+    "lowResWarning": "This image is {{width}}×{{height}}, smaller than the {{size}}px output — the token may look soft.",
+    "defaultName": "token",
+    "frameColor": "Frame colour",
+    "shape_circle": "Circle",
+    "shape_square": "Square",
+    "shape_hexagon": "Hexagon"
   }
 }
