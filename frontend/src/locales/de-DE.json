@@ -1496,7 +1496,9 @@
     "downloadCurrent": "Aktuellen herunterladen",
     "replace": "Ersetzen",
     "saveCopy": "Kopie speichern",
-    "sheetEditError": "Dieses Blatt konnte nicht geöffnet oder gespeichert werden. Möglicherweise ist es keine gültige PDF-Datei."
+    "sheetEditError": "Dieses Blatt konnte nicht geöffnet oder gespeichert werden. Möglicherweise ist es keine gültige PDF-Datei.",
+    "setArt": "Charakterbild festlegen",
+    "createToken": "Token erstellen …"
   },
   "sessions": {
     "title": "Sitzungsnotizen",
@@ -2642,5 +2644,55 @@
       "levelLabel": "Stufe",
       "deletedScope": "(gelöscht)"
     }
+  },
+  "tokenEditor": {
+    "title": "Token-Editor",
+    "forCharacter": "für {{name}}",
+    "canvasLabel": "Token-Vorschau – zum Verschieben ziehen, zum Zoomen scrollen, mit den Pfeiltasten feinjustieren",
+    "shape": "Form",
+    "mask": {
+      "circle": "Kreis",
+      "square": "Quadrat",
+      "none": "Voll"
+    },
+    "size": "Ausgabegröße",
+    "sizeOption": "{{size}} × {{size}} px",
+    "zoom": "Zoom",
+    "rotation": "Drehung",
+    "rotateLeft": "Nach links drehen",
+    "rotateRight": "Nach rechts drehen",
+    "flip": "Spiegeln und zurücksetzen",
+    "flipHorizontal": "Horizontal spiegeln",
+    "flipVertical": "Vertikal spiegeln",
+    "reset": "Position zurücksetzen",
+    "background": "Hintergrund",
+    "bgTransparent": "Transparent",
+    "frame": "Rahmen",
+    "noFrame": "Kein Rahmen",
+    "framePc": "Spielercharakter",
+    "frameNpc": "Nichtspielercharakter",
+    "frameOpponent": "Gegner",
+    "libraryFrames": "Bibliotheksrahmen",
+    "customFramesHint": "Eigene Rahmen hinzufügen: Lege PNG-, WebP- oder SVG-Bilder in einen Ordner namens .frames in deiner Token-Bibliothek.",
+    "source": {
+      "upload": "Hochladen",
+      "library": "Bibliothek"
+    },
+    "dropHint": "Bild hierher ziehen, aus der Zwischenablage einfügen oder eine Datei wählen.",
+    "chooseFile": "Datei wählen",
+    "changeImage": "Bild wechseln",
+    "download": "Herunterladen",
+    "setAsArt": "Als Charakterbild festlegen",
+    "setAsArtHint": "Wähle, für welchen Charakter dieses Token das Porträt wird.",
+    "noCharacters": "Du hast noch keine Charaktere, für die du ein Bild festlegen kannst.",
+    "campaignsFailed": "Kampagnen konnten nicht geladen werden.",
+    "loadFailed": "Dieses Bild konnte nicht geladen werden.",
+    "saveFailed": "Das Token konnte nicht gespeichert werden.",
+    "lowResWarning": "Dieses Bild ist {{width}}×{{height}} und damit kleiner als die Ausgabe von {{size}} px – das Token wirkt möglicherweise unscharf.",
+    "defaultName": "token",
+    "frameColor": "Rahmenfarbe",
+    "shape_circle": "Kreis",
+    "shape_square": "Quadrat",
+    "shape_hexagon": "Sechseck"
   }
 }

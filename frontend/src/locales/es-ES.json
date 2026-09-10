@@ -1496,7 +1496,9 @@
     "downloadCurrent": "Descargar actual",
     "replace": "Reemplazar",
     "saveCopy": "Guardar copia",
-    "sheetEditError": "No se pudo abrir o guardar esta hoja. Puede que no sea un PDF válido."
+    "sheetEditError": "No se pudo abrir o guardar esta hoja. Puede que no sea un PDF válido.",
+    "setArt": "Definir retrato",
+    "createToken": "Crear una ficha…"
   },
   "sessions": {
     "title": "Notas de sesión",
@@ -2642,5 +2644,55 @@
       "levelLabel": "Nivel",
       "deletedScope": "(eliminado)"
     }
+  },
+  "tokenEditor": {
+    "title": "Editor de fichas",
+    "forCharacter": "para {{name}}",
+    "canvasLabel": "Vista previa de la ficha: arrastra para mover, desplaza para ampliar, usa las flechas para ajustar",
+    "shape": "Forma",
+    "mask": {
+      "circle": "Círculo",
+      "square": "Cuadrado",
+      "none": "Completa"
+    },
+    "size": "Tamaño de salida",
+    "sizeOption": "{{size}} × {{size}} px",
+    "zoom": "Zoom",
+    "rotation": "Rotación",
+    "rotateLeft": "Girar a la izquierda",
+    "rotateRight": "Girar a la derecha",
+    "flip": "Voltear y restablecer",
+    "flipHorizontal": "Voltear horizontalmente",
+    "flipVertical": "Voltear verticalmente",
+    "reset": "Restablecer posición",
+    "background": "Fondo",
+    "bgTransparent": "Transparente",
+    "frame": "Marco",
+    "noFrame": "Sin marco",
+    "framePc": "Personaje jugador",
+    "frameNpc": "Personaje no jugador",
+    "frameOpponent": "Adversario",
+    "libraryFrames": "Marcos de la biblioteca",
+    "customFramesHint": "Añade tus propios marcos colocando imágenes PNG, WebP o SVG en una carpeta llamada .frames dentro de tu biblioteca de fichas.",
+    "source": {
+      "upload": "Subir",
+      "library": "Biblioteca"
+    },
+    "dropHint": "Suelta una imagen aquí, pégala desde el portapapeles o elige un archivo.",
+    "chooseFile": "Elegir archivo",
+    "changeImage": "Cambiar imagen",
+    "download": "Descargar",
+    "setAsArt": "Usar como retrato",
+    "setAsArtHint": "Elige de qué personaje será el retrato esta ficha.",
+    "noCharacters": "Todavía no tienes personajes a los que asignar un retrato.",
+    "campaignsFailed": "No se pudieron cargar las campañas.",
+    "loadFailed": "No se pudo cargar esa imagen.",
+    "saveFailed": "No se pudo guardar la ficha.",
+    "lowResWarning": "Esta imagen es de {{width}}×{{height}}, menor que la salida de {{size}} px: la ficha puede verse borrosa.",
+    "defaultName": "ficha",
+    "frameColor": "Color del marco",
+    "shape_circle": "Círculo",
+    "shape_square": "Cuadrado",
+    "shape_hexagon": "Hexágono"
   }
 }

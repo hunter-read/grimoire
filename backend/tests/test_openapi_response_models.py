@@ -44,6 +44,8 @@ UNTYPED_BY_DESIGN = {
     "/api/models/{model_id}/file",
     "/api/models/{model_id}/thumbnail",
     "/api/systems/{system_id}/cover",
+    # Serves the frame image itself (PNG/WebP/SVG), not JSON.
+    "/api/token-frames/{frame_id}/file",
     "/api/tokens/{token_id}/file",
     "/api/tokens/{token_id}/thumbnail",
     "/{full_path}",

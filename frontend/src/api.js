@@ -161,7 +161,11 @@ export const campaigns = {
   uploadMemberArt: (id, memberId, file) =>
     api.upload(`/campaigns/${id}/members/${memberId}/art`, file),
   deleteMemberArt: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/art`),
-  memberArtUrl: (id, memberId) => mediaUrl(`/campaigns/${id}/members/${memberId}/art`),
+  // `v` cache-busts the 5-minute upload cache after a re-upload (or a token made
+  // in the editor) so the fresh art is fetched rather than the stale copy the
+  // browser is still holding — same reason as `bannerUrl` above.
+  memberArtUrl: (id, memberId, v) =>
+    mediaUrl(`/campaigns/${id}/members/${memberId}/art`, v ? { v } : {}),
   uploadMemberSheet: (id, memberId, file) =>
     api.upload(`/campaigns/${id}/members/${memberId}/sheet`, file),
   deleteMemberSheet: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/sheet`),
@@ -399,6 +403,18 @@ export const imageSources = {
     }
     return paths[resourceType] ? mediaUrl(paths[resourceType]) : null
   },
+}
+
+/**
+ * Token frames — overlay art for the in-app token editor.
+ *
+ * Only *user* frames come from the API. The built-in three are bundled with the
+ * frontend and resolved client-side (see components/tokens/editor/frames.js), so
+ * the editor still has frames when the library is empty or unreadable.
+ */
+export const tokenFrames = {
+  list: () => api.get('/token-frames'),
+  fileUrl: (frameId) => mediaUrl(`/token-frames/${encodeURIComponent(frameId)}/file`),
 }
 
 export const files = {

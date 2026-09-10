@@ -1496,7 +1496,9 @@
     "downloadCurrent": "Télécharger l’actuelle",
     "replace": "Remplacer",
     "saveCopy": "Enregistrer une copie",
-    "sheetEditError": "Impossible d’ouvrir ou d’enregistrer cette fiche. Ce n’est peut-être pas un PDF valide."
+    "sheetEditError": "Impossible d’ouvrir ou d’enregistrer cette fiche. Ce n’est peut-être pas un PDF valide.",
+    "setArt": "Définir le portrait",
+    "createToken": "Créer un pion…"
   },
   "sessions": {
     "title": "Notes de session",
@@ -2642,5 +2644,55 @@
       "levelLabel": "Niveau",
       "deletedScope": "(supprimé)"
     }
+  },
+  "tokenEditor": {
+    "title": "Éditeur de pions",
+    "forCharacter": "pour {{name}}",
+    "canvasLabel": "Aperçu du pion : faites glisser pour déplacer, faites défiler pour zoomer, ajustez avec les flèches",
+    "shape": "Forme",
+    "mask": {
+      "circle": "Cercle",
+      "square": "Carré",
+      "none": "Entier"
+    },
+    "size": "Taille de sortie",
+    "sizeOption": "{{size}} × {{size}} px",
+    "zoom": "Zoom",
+    "rotation": "Rotation",
+    "rotateLeft": "Pivoter à gauche",
+    "rotateRight": "Pivoter à droite",
+    "flip": "Retourner et réinitialiser",
+    "flipHorizontal": "Retourner horizontalement",
+    "flipVertical": "Retourner verticalement",
+    "reset": "Réinitialiser la position",
+    "background": "Arrière-plan",
+    "bgTransparent": "Transparent",
+    "frame": "Cadre",
+    "noFrame": "Aucun cadre",
+    "framePc": "Personnage joueur",
+    "frameNpc": "Personnage non joueur",
+    "frameOpponent": "Adversaire",
+    "libraryFrames": "Cadres de la bibliothèque",
+    "customFramesHint": "Ajoutez vos propres cadres en plaçant des images PNG, WebP ou SVG dans un dossier nommé .frames de votre bibliothèque de pions.",
+    "source": {
+      "upload": "Téléverser",
+      "library": "Bibliothèque"
+    },
+    "dropHint": "Déposez une image ici, collez depuis le presse-papiers ou choisissez un fichier.",
+    "chooseFile": "Choisir un fichier",
+    "changeImage": "Changer d'image",
+    "download": "Télécharger",
+    "setAsArt": "Définir comme portrait",
+    "setAsArtHint": "Choisissez le personnage dont ce pion deviendra le portrait.",
+    "noCharacters": "Vous n'avez pas encore de personnage à qui attribuer un portrait.",
+    "campaignsFailed": "Impossible de charger les campagnes.",
+    "loadFailed": "Impossible de charger cette image.",
+    "saveFailed": "Impossible d'enregistrer le pion.",
+    "lowResWarning": "Cette image fait {{width}}×{{height}}, moins que la sortie de {{size}} px : le pion risque de manquer de netteté.",
+    "defaultName": "pion",
+    "frameColor": "Couleur du cadre",
+    "shape_circle": "Cercle",
+    "shape_square": "Carré",
+    "shape_hexagon": "Hexagone"
   }
 }

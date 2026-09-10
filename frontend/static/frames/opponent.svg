@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Opponent frame">
+  <!--
+    Opponent — an octagon with spiked corners, deliberately not round.
+
+    This is the trick that makes the default set work in a grid. At 40px a viewer
+    cannot count eight sides, but absolutely registers "angular" versus "round" —
+    an instant, pre-attentive distinction that survives greyscale and colour
+    blindness, which a colour difference alone does not. The themed three are
+    double-ring (PC) / thin ring (NPC) / angular (Opponent): three orthogonal
+    *shape* signals, with colour only confirming.
+
+    The octagon can be the crop boundary itself now that the editor masks to a
+    frame's own interior, so the art follows these eight sides rather than being
+    cut to a circle that ignores them.
+
+    See pc.svg for the shared authoring convention.
+  -->
+  <polygon
+    points="481.4,349.4 349.4,481.4 162.6,481.4 30.6,349.4 30.6,162.6 162.6,30.6 349.4,30.6 481.4,162.6"
+    fill="none"
+    stroke="#7d2b2b"
+    stroke-width="18"
+    stroke-linejoin="miter"
+  />
+  <!-- Short spikes on alternating vertices, reinforcing "angular" at small sizes. -->
+  <g fill="#7d2b2b">
+    <path d="M480.9 327.5 L501.8 357.8 L465.6 364.5 Z"/>
+    <path d="M184.5 480.9 L154.2 501.8 L147.5 465.6 Z"/>
+    <path d="M31.1 184.5 L10.2 154.2 L46.4 147.5 Z"/>
+    <path d="M327.5 31.1 L357.8 10.2 L364.5 46.4 Z"/>
+  </g>
+</svg>

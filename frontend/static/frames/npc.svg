@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Non-player character frame">
+  <!--
+    NPC — a thin single ring, notched at the top, quieter than PC by design.
+
+    The distinction that has to survive downscaling to 40px is thickness and
+    count, not colour: one thin line against PC's two plus diamonds. A
+    colour-only difference would vanish in greyscale and for colour-blind users.
+
+    The ring is an arc rather than a circle: it sweeps the long way round
+    (large-arc flag 1) from one side of a 22-degree gap to the other, so the
+    notch is real rather than painted over. The bar spans exactly the chord of
+    that gap — and it has to, because the editor's flood fill would otherwise
+    escape through the opening and find no enclosed interior to crop to.
+
+    See pc.svg for the shared authoring convention.
+  -->
+  <path
+    d="M 301.4 22.4 A 238 238 0 1 1 210.6 22.4"
+    fill="none"
+    stroke="#8a7a52"
+    stroke-width="12"
+    stroke-linecap="round"
+  />
+  <rect x="210.6" y="12" width="90.8" height="12" rx="6" fill="#8a7a52"/>
+</svg>

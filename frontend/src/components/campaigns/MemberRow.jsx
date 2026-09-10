@@ -6,7 +6,6 @@ import {
   LuX,
   LuUser,
   LuPencil,
-  LuImagePlus,
   LuFileText,
   LuUpload,
   LuDownload,
@@ -20,6 +19,7 @@ import SheetTemplatePicker from './SheetTemplatePicker'
 import ReplaceSheetDialog from './ReplaceSheetDialog'
 import { STATUS_COLORS, sheetActionBtn, smallBtn } from './memberStyles'
 import LazyImg from '../LazyImg'
+import MemberArtButton from './MemberArtButton'
 
 // Lazy so pdf.js (a large dependency) is only fetched when a sheet is edited.
 const PdfSheetEditor = lazy(() => import('./PdfSheetEditor'))
@@ -40,7 +40,7 @@ export default function MemberRow({
   const isMemberOwner = member.is_owner === true
   const [editingChar, setEditingChar] = useState(false)
   const [charValue, setCharValue] = useState(member.character_name ?? '')
-  const artInputRef = useRef(null)
+  const [artVersion, setArtVersion] = useState(0)
   const sheetInputRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [linkingSheet, setLinkingSheet] = useState(false)
@@ -60,13 +60,13 @@ export default function MemberRow({
     setEditingChar(false)
   }
 
-  const handleArtFile = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
+  const uploadArt = async (file) => {
     setBusy(true)
     try {
       await campaigns.uploadMemberArt(campaignId, member.id, file)
+      // Bumping the version re-requests the art past the 5-minute upload cache,
+      // so a replaced portrait appears at once instead of when the cache lapses.
+      setArtVersion(Date.now())
       onMediaChanged?.()
     } catch (err) {
       alert(err.message)
@@ -139,52 +139,16 @@ export default function MemberRow({
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <button
-        type="button"
-        onClick={canEditMedia ? () => artInputRef.current?.click() : undefined}
-        title={canEditMedia ? t('members.uploadArt') : undefined}
-        aria-label={canEditMedia ? t('members.uploadArt') : undefined}
-        disabled={busy}
-        style={{
-          position: 'relative',
-          width: 34,
-          height: 34,
-          borderRadius: '50%',
-          overflow: 'hidden',
-          padding: 0,
-          background: 'var(--bg-deep)',
-          border: `1px solid ${isMemberOwner ? 'var(--gold-dim)' : 'var(--border)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          fontSize: 13,
-          fontWeight: 600,
-          color: isMemberOwner ? 'var(--gold)' : 'var(--text-dim)',
-          cursor: canEditMedia ? 'pointer' : 'default',
-        }}
-      >
-        {member.has_art && member.id ? (
-          <LazyImg
-            src={campaigns.memberArtUrl(campaignId, member.id)}
-            alt={member.character_name || displayLabel}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : canEditMedia ? (
-          <LuImagePlus size={16} aria-hidden="true" />
-        ) : (
-          (displayLabel?.[0]?.toUpperCase() ?? '?')
-        )}
-        {canEditMedia && (
-          <input
-            ref={artInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            onChange={handleArtFile}
-            style={{ display: 'none' }}
-          />
-        )}
-      </button>
+      <MemberArtButton
+        member={member}
+        campaignId={campaignId}
+        canEdit={canEditMedia}
+        isMemberOwner={isMemberOwner}
+        displayLabel={displayLabel}
+        busy={busy}
+        onUpload={uploadArt}
+        artVersion={artVersion}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Character name — primary */}
         {isMemberOwner ? (

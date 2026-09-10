@@ -666,6 +666,36 @@ all is stored as `null`.
 | `/api/token-folders` | GET | any | List folder tag assignments |
 | `/api/token-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
 | `/api/token-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
+| `/api/token-frames` | GET | any (not guest) | List user-supplied token-editor frames |
+| `/api/token-frames/:id/file` | GET | any (not guest) | Serve one frame image |
+
+#### Token frames
+
+The token editor composites a frame over a user's art. Three defaults ship with
+the frontend as static assets and never touch this API; these two endpoints serve
+only the frames an operator has added.
+
+A frame is any `.png`, `.webp`, or `.svg` file in a folder holding a
+`.frames-container` marker file — the same convention `books/` uses for its
+container markers, so a frame folder keeps an ordinary name like
+`tokens/Fantasy Frames`. Frames are ordinary library files: the scanner indexes
+them as tokens like anything else, and the marker only declares that they are
+also offered as overlay art.
+
+The `id` is the base64url-encoded library-relative path. A raw path would need
+`%2F` escaping that proxies routinely normalise back to `/` before the router
+matches; the base64url alphabet contains no such character. It is unsigned
+because it grants nothing on its own - every request revalidates it, requiring
+that it decode, resolve inside the library root, sit in a folder that holds the
+marker and is reached through non-hidden folders, and carry an allowed extension.
+Any failure is a uniform 404, since a distinct 403 would confirm that a path
+exists.
+
+Listings are cached in-process for 60 seconds; files are served with the shared
+upload cache policy (mtime+size ETag, revalidated), so replacing a frame in place
+invalidates it. Frame responses also carry a restrictive `Content-Security-Policy`
+of their own: an `<img>`-loaded SVG cannot execute script, and this keeps the file
+inert even if it is navigated to directly.
 
 ### Audio
 
