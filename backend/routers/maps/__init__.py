@@ -5,6 +5,8 @@ from ...auth import require_not_guest
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     export_map_uvtt,
+    get_map_authoring,
+    update_map_authoring,
     list_maps,
     list_map_folders,
     update_map_folder,
@@ -21,6 +23,8 @@ from .core import (
 )
 from ._schemas import (
     FolderTagsOut,
+    VttAuthoringResponse,
+    VttAuthoringSaveResponse,
     MapDetailResponse,
     MapFoldersResponse,
     MapListResponse,
@@ -100,9 +104,11 @@ router.add_api_route(
     summary="Export a map as Universal VTT",
     description=(
         "Builds a Universal VTT (`.uvtt`) file for a raster map: the image as "
-        "base64 WebP plus the grid resolution, with empty walls/portals/lights. "
+        "base64 WebP, the grid resolution, and any walls/portals/lights authored "
+        "in the in-app editor (empty arrays when nothing has been authored). "
         "The grid is the manual override when one is set, else the detected "
-        "grid, else a 140px default. 400 for PDF, video, archive, or existing "
+        "grid, else a 140px default. The file is assembled on demand and never "
+        "written into the library. 400 for PDF, video, archive, or existing "
         "Universal VTT maps."
     ),
 )
@@ -117,6 +123,35 @@ router.add_api_route(
         "a Universal VTT file."
     ),
     response_model=VttDataResponse,
+)
+# Universal VTT authoring (issues #126/#127). Reading is open to anyone who can
+# see the map -- the editor is also how you inspect what a map carries -- while
+# writing is GM/admin like every other map edit.
+router.add_api_route(
+    "/maps/{map_id}/vtt/authoring",
+    get_map_authoring,
+    methods=["GET"],
+    summary="Get authored Universal VTT geometry",
+    description=(
+        "Returns the walls, portals, lights and environment authored for a map "
+        "in the in-app editor, along with the resolved grid to draw them on. "
+        "`data` is null when nothing has been authored."
+    ),
+    response_model=VttAuthoringResponse,
+)
+router.add_api_route(
+    "/maps/{map_id}/vtt/authoring",
+    update_map_authoring,
+    methods=["PUT"],
+    summary="Replace authored Universal VTT geometry",
+    description=(
+        "Replaces a map's authored walls/portals/lights in one atomic write. "
+        "Body: {data: {...}} — send `{\"data\": null}` to clear everything. "
+        "Coordinates are in grid units. Nothing is written to the library: the "
+        "`.uvtt` is built on demand by the export endpoint. GM or admin role "
+        "required."
+    ),
+    response_model=VttAuthoringSaveResponse,
 )
 router.add_api_route(
     "/maps/{map_id}/thumbnail",

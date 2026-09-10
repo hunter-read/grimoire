@@ -563,6 +563,102 @@
       "vttLights": "Lichter",
       "downloadUvtt": "Als Universal VTT herunterladen",
       "downloadUvttHint": "Bild und Raster als .uvtt-Datei"
+    },
+    "vtt": {
+      "title": "VTT-Editor",
+      "edit": "VTT bearbeiten",
+      "editHint": "Wände, Türen und Lichter für den Universal-VTT-Export zeichnen",
+      "export": "Exportieren",
+      "exportHint": "Eine .uvtt-Datei mit Bild, Raster und allem hier Erstellten herunterladen",
+      "loadFailed": "Diese Karte konnte im Editor nicht geöffnet werden.",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "unsaved": "Ungespeicherte Änderungen",
+      "unsavedConfirm": "Es gibt ungespeicherte Änderungen. Editor trotzdem verlassen?",
+      "recalibrateConfirm": "Eine Rasteränderung verschiebt alles bereits Gezeichnete. Fortfahren?",
+      "zoomIn": "Vergrößern",
+      "zoomOut": "Verkleinern",
+      "fit": "An Fenster anpassen",
+      "toggleGrid": "Rasterüberlagerung umschalten",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "deleteSelected": "Löschen",
+      "calibrate": {
+        "byCount": "Nach Größe",
+        "cellsAcross": "Felder waagerecht",
+        "cellsDown": "Felder senkrecht",
+        "byPicks": "Über Punkte",
+        "instructions": "Zwei Rasterkreuzungen anklicken, den Abstand in Feldern angeben und anwenden.",
+        "spanX": "Felder Abstand ↔",
+        "spanY": "Felder Abstand ↕",
+        "apply": "Anwenden ({{count}} gewählt)",
+        "clearPicks": "Punkte löschen",
+        "cellPx": "Feldgröße (px)",
+        "offsetX": "Versatz X",
+        "offsetY": "Versatz Y",
+        "result": "Raster: {{width}} × {{height}} Felder",
+        "confirm": "Raster bestätigen"
+      },
+      "tools": {
+        "title": "Werkzeuge",
+        "select": "Auswählen",
+        "wall": "Wand",
+        "object": "Objektwand",
+        "portal": "Tür oder Fenster",
+        "light": "Licht"
+      },
+      "snap": {
+        "title": "Fangen",
+        "grid": "Raster",
+        "half": "Halb",
+        "free": "Frei"
+      },
+      "layers": {
+        "title": "Ebenen",
+        "walls": "Wände",
+        "objects": "Objektwände",
+        "portals": "Türen & Fenster",
+        "lights": "Lichter"
+      },
+      "grid": {
+        "title": "Raster",
+        "dimensions": "{{width}} × {{height}} Felder",
+        "cellSize": "{{px}} px pro Feld",
+        "recalibrate": "Raster neu kalibrieren"
+      },
+      "selection": {
+        "title": "Auswahl",
+        "none": "Nichts ausgewählt. Mit dem Auswahlwerkzeug eine Wand, Tür oder ein Licht wählen.",
+        "wall": "Wandzug mit {{count}} Punkten",
+        "wallHint": "Universal-VTT-Wände haben keine weiteren Eigenschaften – keine Dicke, Art oder Höhe."
+      },
+      "portal": {
+        "kind": "Art",
+        "door": "Tür",
+        "window": "Fenster",
+        "doorHint": "Blockiert die Sicht, bis sie im VTT geöffnet wird.",
+        "windowHint": "Durchsichtig, aber nicht passierbar.",
+        "freestanding": "Freistehend",
+        "freestandingHint": "Nicht in eine Wand eingelassen – ein Torbogen oder Paravent."
+      },
+      "light": {
+        "x": "X",
+        "y": "Y",
+        "range": "Reichweite",
+        "rangeHint": "In Rasterfeldern, nicht in Pixeln oder Fuß.",
+        "intensity": "Intensität",
+        "intensityHint": "{{value}} – jedes VTT liest diesen Wert anders, die Vorschau ist ungefähr.",
+        "color": "Farbe",
+        "opacity": "Deckkraft",
+        "shadows": "Wirft Schatten"
+      },
+      "environment": {
+        "title": "Umgebung",
+        "baked": "Beleuchtung ist ins Bild eingebrannt",
+        "bakedHint": "Aktivieren, wenn die Kartengrafik ihre Beleuchtung bereits enthält.",
+        "bakedWarning": "Diese Karte gilt als bereits beleuchtet, daher kann ein VTT die {{count}} hier platzierten Lichter ignorieren oder abschwächen.",
+        "ambient": "Umgebungslicht",
+        "ambientStrength": "Stärke"
+      }
     }
   },
   "tokens": {

@@ -563,6 +563,102 @@
       "vttLights": "Luzes",
       "downloadUvtt": "Baixar como Universal VTT",
       "downloadUvttHint": "Imagem e grade em um arquivo .uvtt"
+    },
+    "vtt": {
+      "title": "Editor VTT",
+      "edit": "Editar VTT",
+      "editHint": "Desenhar paredes, portas e luzes para a exportação Universal VTT",
+      "export": "Exportar",
+      "exportHint": "Baixar um arquivo .uvtt com a imagem, a grade e tudo o que foi criado aqui",
+      "loadFailed": "Não foi possível abrir este mapa no editor.",
+      "saveFailed": "Falha ao salvar",
+      "unsaved": "Alterações não salvas",
+      "unsavedConfirm": "Há alterações não salvas. Sair do editor mesmo assim?",
+      "recalibrateConfirm": "Alterar a grade move tudo o que já foi desenhado. Continuar?",
+      "zoomIn": "Ampliar",
+      "zoomOut": "Reduzir",
+      "fit": "Ajustar à janela",
+      "toggleGrid": "Alternar a grade",
+      "undo": "Desfazer",
+      "redo": "Refazer",
+      "deleteSelected": "Excluir",
+      "calibrate": {
+        "byCount": "Por tamanho",
+        "cellsAcross": "Quadrados na largura",
+        "cellsDown": "Quadrados na altura",
+        "byPicks": "Escolhendo pontos",
+        "instructions": "Clique em duas interseções, informe quantos quadrados as separam e aplique.",
+        "spanX": "Quadrados de distância ↔",
+        "spanY": "Quadrados de distância ↕",
+        "apply": "Aplicar ({{count}} escolhidos)",
+        "clearPicks": "Limpar pontos",
+        "cellPx": "Tamanho do quadrado (px)",
+        "offsetX": "Deslocamento X",
+        "offsetY": "Deslocamento Y",
+        "result": "Grade: {{width}} × {{height}} quadrados",
+        "confirm": "Confirmar grade"
+      },
+      "tools": {
+        "title": "Ferramentas",
+        "select": "Selecionar",
+        "wall": "Parede",
+        "object": "Parede de objeto",
+        "portal": "Porta ou janela",
+        "light": "Luz"
+      },
+      "snap": {
+        "title": "Encaixe",
+        "grid": "Grade",
+        "half": "Meio",
+        "free": "Livre"
+      },
+      "layers": {
+        "title": "Camadas",
+        "walls": "Paredes",
+        "objects": "Paredes de objetos",
+        "portals": "Portas e janelas",
+        "lights": "Luzes"
+      },
+      "grid": {
+        "title": "Grade",
+        "dimensions": "{{width}} × {{height}} quadrados",
+        "cellSize": "{{px}} px por quadrado",
+        "recalibrate": "Recalibrar a grade"
+      },
+      "selection": {
+        "title": "Seleção",
+        "none": "Nada selecionado. Use a ferramenta de seleção para escolher uma parede, porta ou luz.",
+        "wall": "Traçado de parede com {{count}} pontos",
+        "wallHint": "As paredes do Universal VTT não têm outras propriedades — nem espessura, nem tipo, nem altura."
+      },
+      "portal": {
+        "kind": "Tipo",
+        "door": "Porta",
+        "window": "Janela",
+        "doorHint": "Bloqueia a visão até ser aberta no VTT.",
+        "windowHint": "Permite ver através, mas não passar.",
+        "freestanding": "Independente",
+        "freestandingHint": "Não embutida numa parede — um arco ou um biombo."
+      },
+      "light": {
+        "x": "X",
+        "y": "Y",
+        "range": "Alcance",
+        "rangeHint": "Em quadrados da grade, não em pixels ou pés.",
+        "intensity": "Intensidade",
+        "intensityHint": "{{value}} — cada VTT interpreta isto de forma diferente, a prévia é aproximada.",
+        "color": "Cor",
+        "opacity": "Opacidade",
+        "shadows": "Projeta sombras"
+      },
+      "environment": {
+        "title": "Ambiente",
+        "baked": "A iluminação está embutida na imagem",
+        "bakedHint": "Marque se a arte do mapa já tiver a iluminação pintada.",
+        "bakedWarning": "Este mapa está marcado como já iluminado, então um VTT pode ignorar ou atenuar as {{count}} luzes colocadas aqui.",
+        "ambient": "Luz ambiente",
+        "ambientStrength": "Intensidade"
+      }
     }
   },
   "tokens": {

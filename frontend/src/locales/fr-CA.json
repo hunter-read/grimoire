@@ -563,6 +563,102 @@
       "vttLights": "Lumières",
       "downloadUvtt": "Télécharger en Universal VTT",
       "downloadUvttHint": "Image et grille dans un fichier .uvtt"
+    },
+    "vtt": {
+      "title": "Éditeur VTT",
+      "edit": "Éditer le VTT",
+      "editHint": "Dessiner murs, portes et lumières pour l'export Universal VTT",
+      "export": "Exporter",
+      "exportHint": "Télécharger un fichier .uvtt avec l'image, la grille et tout ce qui est créé ici",
+      "loadFailed": "Cette carte n'a pas pu être ouverte dans l'éditeur.",
+      "saveFailed": "Échec de l'enregistrement",
+      "unsaved": "Modifications non enregistrées",
+      "unsavedConfirm": "Des modifications ne sont pas enregistrées. Quitter l'éditeur quand même ?",
+      "recalibrateConfirm": "Modifier la grille déplacera tout ce qui est déjà dessiné. Continuer ?",
+      "zoomIn": "Zoom avant",
+      "zoomOut": "Zoom arrière",
+      "fit": "Ajuster à la fenêtre",
+      "toggleGrid": "Afficher ou masquer la grille",
+      "undo": "Annuler",
+      "redo": "Rétablir",
+      "deleteSelected": "Supprimer",
+      "calibrate": {
+        "byCount": "Par taille",
+        "cellsAcross": "Cases en largeur",
+        "cellsDown": "Cases en hauteur",
+        "byPicks": "Par points",
+        "instructions": "Cliquez deux intersections, indiquez leur écart en cases, puis appliquez.",
+        "spanX": "Cases d'écart ↔",
+        "spanY": "Cases d'écart ↕",
+        "apply": "Appliquer ({{count}} choisis)",
+        "clearPicks": "Effacer les points",
+        "cellPx": "Taille de case (px)",
+        "offsetX": "Décalage X",
+        "offsetY": "Décalage Y",
+        "result": "Grille : {{width}} × {{height}} cases",
+        "confirm": "Confirmer la grille"
+      },
+      "tools": {
+        "title": "Outils",
+        "select": "Sélection",
+        "wall": "Mur",
+        "object": "Mur d'objet",
+        "portal": "Porte ou fenêtre",
+        "light": "Lumière"
+      },
+      "snap": {
+        "title": "Magnétisme",
+        "grid": "Grille",
+        "half": "Demi",
+        "free": "Libre"
+      },
+      "layers": {
+        "title": "Calques",
+        "walls": "Murs",
+        "objects": "Murs d'objets",
+        "portals": "Portes et fenêtres",
+        "lights": "Lumières"
+      },
+      "grid": {
+        "title": "Grille",
+        "dimensions": "{{width}} × {{height}} cases",
+        "cellSize": "{{px}} px par case",
+        "recalibrate": "Recalibrer la grille"
+      },
+      "selection": {
+        "title": "Sélection",
+        "none": "Rien de sélectionné. Utilisez l'outil de sélection pour choisir un mur, une porte ou une lumière.",
+        "wall": "Tracé de mur à {{count}} points",
+        "wallHint": "Les murs Universal VTT n'ont aucune autre propriété : ni épaisseur, ni type, ni hauteur."
+      },
+      "portal": {
+        "kind": "Type",
+        "door": "Porte",
+        "window": "Fenêtre",
+        "doorHint": "Bloque la vue jusqu'à son ouverture dans le VTT.",
+        "windowHint": "Laisse voir à travers mais ne se franchit pas.",
+        "freestanding": "Autoportante",
+        "freestandingHint": "Non encastrée dans un mur — une arche ou un paravent."
+      },
+      "light": {
+        "x": "X",
+        "y": "Y",
+        "range": "Portée",
+        "rangeHint": "En cases de la grille, ni en pixels ni en pieds.",
+        "intensity": "Intensité",
+        "intensityHint": "{{value}} — chaque VTT l'interprète différemment, l'aperçu est approximatif.",
+        "color": "Couleur",
+        "opacity": "Opacité",
+        "shadows": "Projette des ombres"
+      },
+      "environment": {
+        "title": "Environnement",
+        "baked": "L'éclairage est intégré à l'image",
+        "bakedHint": "À cocher si l'illustration de la carte contient déjà son éclairage.",
+        "bakedWarning": "Cette carte est marquée comme déjà éclairée : un VTT peut donc ignorer ou atténuer les {{count}} lumières placées ici.",
+        "ambient": "Lumière ambiante",
+        "ambientStrength": "Intensité"
+      }
     }
   },
   "tokens": {

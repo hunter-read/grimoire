@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuInfo, LuChevronDown, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
+import {
+  LuArrowLeft,
+  LuInfo,
+  LuChevronDown,
+  LuChevronLeft,
+  LuChevronRight,
+  LuPencilRuler,
+} from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
 import api, { mediaUrl } from '../../api'
@@ -268,6 +275,32 @@ export default function MapDetailView() {
           </button>
         )}
         <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} compact />
+        {/* The VTT editor authors walls, doors and lights for the export
+            (issues #126/#127). Raster-only, for the same reason the export is:
+            a PDF or video has no single image to draw on, and a .uvtt already
+            carries its own. Nothing it saves touches the file on disk. */}
+        {canExportUvtt && (
+          <button
+            type="button"
+            onClick={() => navigate(`/maps/${mapId}/vtt-editor`)}
+            title={t('maps.vtt.editHint')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              fontSize: 13,
+              borderRadius: 4,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+            }}
+          >
+            <LuPencilRuler size={13} aria-hidden="true" />
+            {!isMobilePhone && t('maps.vtt.edit')}
+          </button>
+        )}
         <AddToCampaignButton resourceType="map" resourceId={mapId} />
         <DownloadVersionButton
           type="maps"

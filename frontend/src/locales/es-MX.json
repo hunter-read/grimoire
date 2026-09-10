@@ -563,6 +563,102 @@
       "vttLights": "Luces",
       "downloadUvtt": "Descargar como Universal VTT",
       "downloadUvttHint": "Imagen y cuadrícula en un archivo .uvtt"
+    },
+    "vtt": {
+      "title": "Editor VTT",
+      "edit": "Editar VTT",
+      "editHint": "Dibuja muros, puertas y luces para la exportación a Universal VTT",
+      "export": "Exportar",
+      "exportHint": "Descargar un archivo .uvtt con la imagen, la cuadrícula y todo lo creado aquí",
+      "loadFailed": "No se pudo abrir este mapa en el editor.",
+      "saveFailed": "Error al guardar",
+      "unsaved": "Cambios sin guardar",
+      "unsavedConfirm": "Hay cambios sin guardar. ¿Salir del editor de todos modos?",
+      "recalibrateConfirm": "Cambiar la cuadrícula moverá todo lo ya dibujado. ¿Continuar?",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "fit": "Ajustar a la ventana",
+      "toggleGrid": "Alternar la cuadrícula",
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "deleteSelected": "Eliminar",
+      "calibrate": {
+        "byCount": "Por tamaño",
+        "cellsAcross": "Casillas a lo ancho",
+        "cellsDown": "Casillas a lo alto",
+        "byPicks": "Eligiendo puntos",
+        "instructions": "Haz clic en dos intersecciones, indica cuántas casillas las separan y aplica.",
+        "spanX": "Casillas de separación ↔",
+        "spanY": "Casillas de separación ↕",
+        "apply": "Aplicar ({{count}} elegidas)",
+        "clearPicks": "Borrar puntos",
+        "cellPx": "Tamaño de casilla (px)",
+        "offsetX": "Desfase X",
+        "offsetY": "Desfase Y",
+        "result": "Cuadrícula: {{width}} × {{height}} casillas",
+        "confirm": "Confirmar cuadrícula"
+      },
+      "tools": {
+        "title": "Herramientas",
+        "select": "Seleccionar",
+        "wall": "Muro",
+        "object": "Muro de objeto",
+        "portal": "Puerta o ventana",
+        "light": "Luz"
+      },
+      "snap": {
+        "title": "Ajuste",
+        "grid": "Cuadrícula",
+        "half": "Media",
+        "free": "Libre"
+      },
+      "layers": {
+        "title": "Capas",
+        "walls": "Muros",
+        "objects": "Muros de objetos",
+        "portals": "Puertas y ventanas",
+        "lights": "Luces"
+      },
+      "grid": {
+        "title": "Cuadrícula",
+        "dimensions": "{{width}} × {{height}} casillas",
+        "cellSize": "{{px}} px por casilla",
+        "recalibrate": "Recalibrar la cuadrícula"
+      },
+      "selection": {
+        "title": "Selección",
+        "none": "Nada seleccionado. Usa la herramienta de selección para elegir un muro, puerta o luz.",
+        "wall": "Tramo de muro con {{count}} puntos",
+        "wallHint": "Los muros de Universal VTT no tienen otras propiedades: ni grosor, ni tipo, ni altura."
+      },
+      "portal": {
+        "kind": "Tipo",
+        "door": "Puerta",
+        "window": "Ventana",
+        "doorHint": "Bloquea la visión hasta que se abre en el VTT.",
+        "windowHint": "Se puede ver a través, pero no atravesar.",
+        "freestanding": "Independiente",
+        "freestandingHint": "No encajada en un muro: un arco o un biombo."
+      },
+      "light": {
+        "x": "X",
+        "y": "Y",
+        "range": "Alcance",
+        "rangeHint": "En casillas de la cuadrícula, no en píxeles ni pies.",
+        "intensity": "Intensidad",
+        "intensityHint": "{{value}}: cada VTT lo interpreta de forma distinta, la vista previa es aproximada.",
+        "color": "Color",
+        "opacity": "Opacidad",
+        "shadows": "Proyecta sombras"
+      },
+      "environment": {
+        "title": "Entorno",
+        "baked": "La iluminación está integrada en la imagen",
+        "bakedHint": "Actívalo si el arte del mapa ya tiene su iluminación pintada.",
+        "bakedWarning": "Este mapa está marcado como ya iluminado, por lo que un VTT puede ignorar o atenuar las {{count}} luces colocadas aquí.",
+        "ambient": "Luz ambiental",
+        "ambientStrength": "Intensidad"
+      }
     }
   },
   "tokens": {

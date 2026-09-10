@@ -563,6 +563,102 @@
       "vttLights": "Lichten",
       "downloadUvtt": "Downloaden als Universal VTT",
       "downloadUvttHint": "Afbeelding en raster als .uvtt-bestand"
+    },
+    "vtt": {
+      "title": "VTT-editor",
+      "edit": "VTT bewerken",
+      "editHint": "Muren, deuren en lichten tekenen voor de Universal VTT-export",
+      "export": "Exporteren",
+      "exportHint": "Een .uvtt-bestand downloaden met de afbeelding, het raster en alles wat hier is gemaakt",
+      "loadFailed": "Deze kaart kon niet in de editor worden geopend.",
+      "saveFailed": "Opslaan mislukt",
+      "unsaved": "Niet-opgeslagen wijzigingen",
+      "unsavedConfirm": "Er zijn niet-opgeslagen wijzigingen. Toch de editor verlaten?",
+      "recalibrateConfirm": "Het raster wijzigen verplaatst alles wat al getekend is. Doorgaan?",
+      "zoomIn": "Inzoomen",
+      "zoomOut": "Uitzoomen",
+      "fit": "Passend maken",
+      "toggleGrid": "Rasteroverlay aan/uit",
+      "undo": "Ongedaan maken",
+      "redo": "Opnieuw",
+      "deleteSelected": "Verwijderen",
+      "calibrate": {
+        "byCount": "Op grootte",
+        "cellsAcross": "Vakjes breed",
+        "cellsDown": "Vakjes hoog",
+        "byPicks": "Via punten",
+        "instructions": "Klik twee rasterkruisingen aan, geef aan hoeveel vakjes ertussen liggen en pas toe.",
+        "spanX": "Vakjes ertussen ↔",
+        "spanY": "Vakjes ertussen ↕",
+        "apply": "Toepassen ({{count}} gekozen)",
+        "clearPicks": "Punten wissen",
+        "cellPx": "Vakgrootte (px)",
+        "offsetX": "Verschuiving X",
+        "offsetY": "Verschuiving Y",
+        "result": "Raster: {{width}} × {{height}} vakjes",
+        "confirm": "Raster bevestigen"
+      },
+      "tools": {
+        "title": "Gereedschap",
+        "select": "Selecteren",
+        "wall": "Muur",
+        "object": "Objectmuur",
+        "portal": "Deur of raam",
+        "light": "Licht"
+      },
+      "snap": {
+        "title": "Uitlijnen",
+        "grid": "Raster",
+        "half": "Half",
+        "free": "Vrij"
+      },
+      "layers": {
+        "title": "Lagen",
+        "walls": "Muren",
+        "objects": "Objectmuren",
+        "portals": "Deuren en ramen",
+        "lights": "Lichten"
+      },
+      "grid": {
+        "title": "Raster",
+        "dimensions": "{{width}} × {{height}} vakjes",
+        "cellSize": "{{px}} px per vakje",
+        "recalibrate": "Raster opnieuw kalibreren"
+      },
+      "selection": {
+        "title": "Selectie",
+        "none": "Niets geselecteerd. Kies met het selectiegereedschap een muur, deur of licht.",
+        "wall": "Muurlijn met {{count}} punten",
+        "wallHint": "Universal VTT-muren hebben geen andere eigenschappen — geen dikte, type of hoogte."
+      },
+      "portal": {
+        "kind": "Type",
+        "door": "Deur",
+        "window": "Raam",
+        "doorHint": "Blokkeert het zicht tot hij in de VTT wordt geopend.",
+        "windowHint": "Doorzichtig, maar niet doorlaatbaar.",
+        "freestanding": "Vrijstaand",
+        "freestandingHint": "Niet in een muur geplaatst — een doorgang of kamerscherm."
+      },
+      "light": {
+        "x": "X",
+        "y": "Y",
+        "range": "Bereik",
+        "rangeHint": "In rastervakjes, niet in pixels of voet.",
+        "intensity": "Intensiteit",
+        "intensityHint": "{{value}} — elke VTT leest dit anders, dus de weergave is bij benadering.",
+        "color": "Kleur",
+        "opacity": "Dekking",
+        "shadows": "Werpt schaduwen"
+      },
+      "environment": {
+        "title": "Omgeving",
+        "baked": "Belichting zit in de afbeelding",
+        "bakedHint": "Aanvinken als de kaartafbeelding de belichting al bevat.",
+        "bakedWarning": "Deze kaart staat als reeds belicht gemarkeerd, dus een VTT kan de {{count}} hier geplaatste lichten negeren of dempen.",
+        "ambient": "Omgevingslicht",
+        "ambientStrength": "Sterkte"
+      }
     }
   },
   "tokens": {
