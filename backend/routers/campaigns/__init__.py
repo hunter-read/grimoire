@@ -524,6 +524,11 @@ router.add_api_route(
     upload_campaign_file,
     methods=["POST"],
     summary="Upload a campaign file (GM); links it as a resource",
+    description=(
+        "Uploads a file and links it as a `file` resource. Optional form fields "
+        "`category_id` / `new_category_name` file it under a resource category "
+        "in the same call. GM or admin role required."
+    ),
     status_code=201,
     response_model=LinkedResourceOut,
 )

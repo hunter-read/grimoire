@@ -490,13 +490,61 @@ def _upload_limits(db):
     return disabled, max_file, max_total
 
 
+def _resolve_resource_category(
+    db: Session, campaign_id: str, category_id: str, new_category_name: str
+) -> Optional[str]:
+    """The resource category an upload should be filed under, or None.
+
+    Shared by the file and image upload handlers: both let a GM drop an upload
+    straight into a category rather than leaving it loose for a second trip
+    through the resource list. A named category is created; an id is validated
+    against this campaign so one campaign's upload cannot be filed into
+    another's.
+    """
+    from ...models import CampaignCategory
+
+    new_name = (new_category_name or "").strip()
+    if new_name:
+        max_order = (
+            db.query(CampaignCategory)
+            .filter_by(campaign_id=campaign_id, kind="resource")
+            .count()
+        )
+        cat = CampaignCategory(
+            campaign_id=campaign_id,
+            kind="resource",
+            name=new_name,
+            sort_order=max_order,
+        )
+        db.add(cat)
+        db.flush()
+        return str(cat.id)
+    if category_id:
+        cat = (
+            db.query(CampaignCategory)
+            .filter_by(id=category_id, campaign_id=campaign_id, kind="resource")
+            .first()
+        )
+        if not cat:
+            raise HTTPException(400, "Invalid category")
+        return str(cat.id)
+    return None
+
+
 def upload_campaign_file(
     campaign_id: str,
     file: UploadFile = File(...),
+    category_id: str = Form(""),
+    new_category_name: str = Form(""),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """GM uploads a file that becomes a linked 'file' resource. Admins bypass limits."""
+    """GM uploads a file that becomes a linked 'file' resource. Admins bypass limits.
+
+    The optional category fields file the upload under a resource category in
+    the same call, which is what lets the map editor send a finished ``.uvtt``
+    straight into a campaign's Maps group.
+    """
     from ...models import CampaignFile, CampaignResource
 
     c = get_campaign_or_404(db, campaign_id)
@@ -523,6 +571,10 @@ def upload_campaign_file(
         if used + len(data) > max_total:
             raise HTTPException(413, "Campaign upload storage limit reached")
 
+    resolved_category_id = _resolve_resource_category(
+        db, campaign_id, category_id, new_category_name
+    )
+
     ext = os.path.splitext(file.filename or "")[1][:16]
     stored = f"{uuid.uuid4().hex}{ext}"
     with open(os.path.join(_FILES_DIR, stored), "wb") as f:
@@ -547,6 +599,7 @@ def upload_campaign_file(
         resource_type="file",
         resource_id=cf.id,
         visibility="gm",
+        category_id=resolved_category_id,
         sort_order=max_order,
     )
     db.add(res)
@@ -578,7 +631,7 @@ def upload_campaign_image(
     so it also appears under linked resources. The GM may file it under an existing
     resource category (`category_id`) or create a new one (`new_category_name`).
     """
-    from ...models import CampaignCategory, CampaignFile, CampaignResource
+    from ...models import CampaignFile, CampaignResource
 
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
@@ -593,33 +646,10 @@ def upload_campaign_image(
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
 
-    # Resolve the category: an existing resource category, or create a new one.
-    resolved_category_id = None
-    new_name = (new_category_name or "").strip()
-    if new_name:
-        max_order = (
-            db.query(CampaignCategory)
-            .filter_by(campaign_id=campaign_id, kind="resource")
-            .count()
-        )
-        cat = CampaignCategory(
-            campaign_id=campaign_id,
-            kind="resource",
-            name=new_name,
-            sort_order=max_order,
-        )
-        db.add(cat)
-        db.flush()
-        resolved_category_id = cat.id
-    elif category_id:
-        cat = (
-            db.query(CampaignCategory)
-            .filter_by(id=category_id, campaign_id=campaign_id, kind="resource")
-            .first()
-        )
-        if not cat:
-            raise HTTPException(400, "Invalid category")
-        resolved_category_id = cat.id
+    # An existing resource category, or a new one created on the spot.
+    resolved_category_id = _resolve_resource_category(
+        db, campaign_id, category_id, new_category_name
+    )
 
     ext = _IMAGE_TYPES[file.content_type]
     stored = f"{uuid.uuid4().hex}{ext}"

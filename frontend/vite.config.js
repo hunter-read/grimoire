@@ -54,9 +54,13 @@ export default defineConfig({
         'src/**/*.test.{js,jsx}',
         'src/test/**',
         'src/main.jsx',
-        // Third-party setup glue (e.g. pdf.js worker wiring) that is mocked in
-        // tests and carries no logic of its own to exercise.
-        'src/lib/**',
+        // Third-party setup glue (pdf.js worker wiring, the three.js bundle
+        // entry) that is mocked in tests and carries no logic of its own to
+        // exercise. Named individually rather than excluding all of `src/lib/`:
+        // the rest of that directory is real logic with its own tests, and a
+        // blanket exclusion silently left it ungated.
+        'src/lib/pdfjs.js',
+        'src/lib/three.js',
         'src/**/*.config.{js,jsx}',
       ],
     },

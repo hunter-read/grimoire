@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { LuGrid3X3 } from 'react-icons/lu'
 import EnvironmentPanel from './EnvironmentPanel'
+import PreviewPanel from './PreviewPanel'
+import ToolHelp from './ToolHelp'
 import LightProperties from './LightProperties'
 import PortalProperties from './PortalProperties'
 import { LAYER_STYLE } from './tools'
@@ -21,6 +23,9 @@ export default function VttSidebar({
   counts,
   dims,
   cellPx,
+  tool,
+  preview,
+  onPreviewChange,
   selection,
   onSelect,
   onUpdateFeature,
@@ -54,6 +59,10 @@ export default function VttSidebar({
         background: 'var(--bg-panel)',
       }}
     >
+      <div style={{ marginBottom: 20 }}>
+        <ToolHelp tool={tool} />
+      </div>
+
       <div style={sectionTitleStyle}>{t('maps.vtt.layers.title')}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
         {layers.map(({ key, label, count }) => (
@@ -133,6 +142,10 @@ export default function VttSidebar({
             </button>
           </div>
         )}
+      </div>
+
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+        <PreviewPanel preview={preview} onChange={onPreviewChange} />
       </div>
 
       <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>

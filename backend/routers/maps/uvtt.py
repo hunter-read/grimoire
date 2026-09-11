@@ -156,12 +156,23 @@ def encode_map_image(filepath: str, quality: int = WEBP_QUALITY) -> str:
     return base64.b64encode(raw).decode("ascii")
 
 
-def build_uvtt(filepath: str, grid: dict, vtt_doc: Optional[dict] = None) -> dict:
+def build_uvtt(
+    filepath: str,
+    grid: dict,
+    vtt_doc: Optional[dict] = None,
+    image_b64: Optional[str] = None,
+) -> dict:
     """Assemble the Universal VTT envelope for a raster map.
 
     ``vtt_doc`` is the map's authored geometry (issues #126/#127) when the GM
     has drawn walls, doors or lights in the editor; None or an empty document
     exports the same image-and-grid file as before, with empty feature arrays.
+
+    ``image_b64`` supplies the already-encoded picture, used when the source is
+    itself a ``.uvtt``: its raster lives inside the envelope as base64, so there
+    is nothing at ``filepath`` for Pillow to open, and re-encoding a picture that
+    is already web-ready would only lose quality. Passing it through verbatim
+    also keeps the exported file's image byte-identical to the original's.
 
     Nothing is read from or written next to the source image: the file this
     returns is assembled in memory and handed to the user as a download.
@@ -179,5 +190,5 @@ def build_uvtt(filepath: str, grid: dict, vtt_doc: Optional[dict] = None) -> dic
         "portals": features["portals"],
         "environment": features["environment"],
         "lights": features["lights"],
-        "image": encode_map_image(filepath),
+        "image": image_b64 if image_b64 is not None else encode_map_image(filepath),
     }

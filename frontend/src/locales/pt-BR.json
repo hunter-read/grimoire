@@ -587,12 +587,8 @@
         "byCount": "Por tamanho",
         "cellsAcross": "Quadrados na largura",
         "cellsDown": "Quadrados na altura",
-        "byPicks": "Escolhendo pontos",
-        "instructions": "Clique em duas interseções, informe quantos quadrados as separam e aplique.",
-        "spanX": "Quadrados de distância ↔",
-        "spanY": "Quadrados de distância ↕",
-        "apply": "Aplicar ({{count}} escolhidos)",
-        "clearPicks": "Limpar pontos",
+        "instructions": "Verifique se a grade coincide com o seu mapa e corrija-a se não coincidir.",
+        "manual": "Ajuste fino",
         "cellPx": "Tamanho do quadrado (px)",
         "offsetX": "Deslocamento X",
         "offsetY": "Deslocamento Y",
@@ -604,8 +600,9 @@
         "select": "Selecionar",
         "wall": "Parede",
         "object": "Parede de objeto",
-        "portal": "Porta ou janela",
-        "light": "Luz"
+        "portal": "Porta",
+        "light": "Luz",
+        "window": "Janela"
       },
       "snap": {
         "title": "Encaixe",
@@ -654,11 +651,94 @@
       },
       "environment": {
         "title": "Ambiente",
-        "baked": "A iluminação está embutida na imagem",
-        "bakedHint": "Marque se a arte do mapa já tiver a iluminação pintada.",
+        "baked": "Este mapa já tem a iluminação pintada",
+        "bakedHint": "Marque se a arte já mostra a própria luz de tochas, sombras ou brilho. As mesas virtuais podem então ignorar ou reduzir as luzes que você colocar, para não duplicar.",
         "bakedWarning": "Este mapa está marcado como já iluminado, então um VTT pode ignorar ou atenuar as {{count}} luzes colocadas aqui.",
         "ambient": "Luz ambiente",
-        "ambientStrength": "Intensidade"
+        "ambientStrength": "Intensidade",
+        "ambientLabel": "Nível de luz sem luzes por perto",
+        "ambientHint": "O quanto um ponto sem luz própria aparece. Preto é uma masmorra totalmente escura; um azul fraco parece luar.",
+        "ambientDark": "Áreas sem luz ficam totalmente escuras.",
+        "ambientLit": "Áreas sem luz permanecem {{percent}}% iluminadas."
+      },
+      "target": {
+        "image": "Editar a imagem do mapa",
+        "imageHint": "Desenhe novas paredes, portas e luzes sobre a imagem",
+        "vtt": "Editar o VTT vinculado",
+        "vttHint": "Altere as paredes, portas e luzes que o .uvtt já contém"
+      },
+      "source": {
+        "subtitle": "Enviar um mapa",
+        "dropHint": "Solte aqui uma imagem de mapa ou um arquivo Universal VTT",
+        "formats": "PNG, JPEG, WebP, GIF, .uvtt ou .dd2vtt",
+        "chooseFile": "Escolher um arquivo",
+        "privacyNote": "Nada é enviado para a sua biblioteca. O arquivo permanece no seu navegador até você baixá-lo ou enviá-lo para uma campanha.",
+        "error": {
+          "not-json": "Esse arquivo não é um arquivo Universal VTT.",
+          "not-uvtt": "Esse arquivo não é um arquivo Universal VTT.",
+          "no-image": "Esse arquivo Universal VTT não contém nenhuma imagem de mapa.",
+          "failed": "Não foi possível abrir esse arquivo."
+        }
+      },
+      "send": {
+        "button": "Enviar para campanha",
+        "title": "Enviar para uma campanha",
+        "hint": "Envie este mapa como recurso vinculado para uma campanha que você conduz.",
+        "chooseCategory": "Escolher uma categoria",
+        "chooseCategoryHint": "Onde este mapa deve ser arquivado em {{name}}?",
+        "defaultCategory": "Sem categoria",
+        "defaultCategoryHint": "Deixar no grupo de recursos padrão da campanha",
+        "suggested": "Sugerida para mapas",
+        "noCampaigns": "Você não conduz nenhuma campanha para enviar isto.",
+        "failed": "Não foi possível enviar o mapa."
+      },
+      "help": {
+        "select": {
+          "click": "Clique em uma parede, porta ou luz para selecioná-la.",
+          "delete": "Delete ou Backspace remove o que está selecionado."
+        },
+        "wall": {
+          "click": "Clique para colocar cada canto.",
+          "finish": "Clique duas vezes, ou pressione Enter, para terminar a parede.",
+          "close": "Termine no primeiro ponto para fechar uma sala.",
+          "cancel": "Escape descarta a parede que você está desenhando.",
+          "undo": "Ctrl/Cmd+Z desfaz a última parede."
+        },
+        "object": {
+          "click": "Clique para colocar cada canto.",
+          "finish": "Clique duas vezes, ou pressione Enter, para terminar a forma.",
+          "close": "Termine no primeiro ponto para fechá-la.",
+          "cancel": "Escape descarta a forma que você está desenhando.",
+          "undo": "Ctrl/Cmd+Z desfaz a última forma."
+        },
+        "portal": {
+          "click": "Clique nas duas pontas do vão - dois cliques a colocam.",
+          "cancel": "Escape descarta uma porta pela metade."
+        },
+        "window": {
+          "click": "Clique nas duas pontas da janela - dois cliques a colocam.",
+          "cancel": "Escape descarta uma janela pela metade."
+        },
+        "light": {
+          "click": "Clique para colocar uma luz.",
+          "edit": "O alcance e a cor aparecem abaixo depois de colocada."
+        },
+        "global": {
+          "pan": "Arraste com o botão do meio ou direito para deslocar.",
+          "zoom": "Role para dar zoom.",
+          "freeSnap": "Segure Alt para colocar um ponto fora da grade."
+        }
+      },
+      "preview": {
+        "title": "Visão do jogador",
+        "show": "Mostrar visão do jogador",
+        "hide": "Ocultar visão do jogador",
+        "hint": "Escurece tudo o que um token sobre o mapa não conseguiria ver, para você conferir suas paredes sem exportar.",
+        "moveHint": "Arraste o token azul ou mova-o com as setas (segure Shift para meio quadro).",
+        "sight": "Visão (quadros)",
+        "light": "Luz do token (quadros)",
+        "rangeHint": "Visão 0 significa ilimitada - só paredes a interrompem. A luz do token é a tocha que ele carrega.",
+        "notExported": "O token e esses alcances servem apenas para a prévia. Não são salvos e nunca chegam ao arquivo .uvtt."
       }
     }
   },

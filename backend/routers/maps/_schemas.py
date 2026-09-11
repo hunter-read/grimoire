@@ -275,6 +275,12 @@ class VttAuthoringResponse(VttFeatureCounts):
     pixel_height: Optional[int] = None
     grid: MapGrid
     data: Optional[dict] = None
+    # Where the editor should fetch the picture: the page renderer for a raster
+    # map, the base64-decoding endpoint for a .uvtt.
+    image_url: str = ""
+    is_vtt: bool = False
+    # The document came from the .uvtt itself and has never been saved.
+    seeded_from_file: bool = False
 
 
 class VttAuthoringSaveResponse(VttFeatureCounts):

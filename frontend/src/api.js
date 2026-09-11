@@ -195,8 +195,15 @@ export const campaigns = {
   removeResource: (id, resourceId) => api.delete(`/campaigns/${id}/resources/${resourceId}`),
   suggestedResources: (systemId) => api.get(`/campaigns/resources/suggested/${systemId}`),
 
-  // GM-uploaded campaign files (linked as resource_type='file')
-  uploadFile: (id, file) => api.upload(`/campaigns/${id}/files`, file),
+  // GM-uploaded campaign files (linked as resource_type='file').
+  // opts: { categoryId, newCategoryName } file it under a resource category in
+  // the same call — the map editor sends a finished .uvtt straight into one.
+  uploadFile: (id, file, opts = {}) => {
+    const fields = {}
+    if (opts.categoryId) fields.category_id = opts.categoryId
+    if (opts.newCategoryName) fields.new_category_name = opts.newCategoryName
+    return api.upload(`/campaigns/${id}/files`, file, fields)
+  },
   fileUrl: (id, fileId) => mediaUrl(`/campaigns/${id}/files/${fileId}`),
   // Image upload for note embedding. opts: { categoryId, newCategoryName }.
   uploadImage: (id, file, opts = {}) => {

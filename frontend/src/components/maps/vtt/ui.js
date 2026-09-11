@@ -44,12 +44,3 @@ export const sectionTitleStyle = {
   letterSpacing: '0.06em',
   marginBottom: 10,
 }
-
-/** Caption introducing a group of related controls in a dense toolbar. */
-export const groupLabelStyle = {
-  fontSize: 10,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  alignSelf: 'center',
-}

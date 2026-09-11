@@ -587,12 +587,8 @@
         "byCount": "Nach Größe",
         "cellsAcross": "Felder waagerecht",
         "cellsDown": "Felder senkrecht",
-        "byPicks": "Über Punkte",
-        "instructions": "Zwei Rasterkreuzungen anklicken, den Abstand in Feldern angeben und anwenden.",
-        "spanX": "Felder Abstand ↔",
-        "spanY": "Felder Abstand ↕",
-        "apply": "Anwenden ({{count}} gewählt)",
-        "clearPicks": "Punkte löschen",
+        "instructions": "Prüfe, ob das Raster zu deiner Karte passt, und korrigiere es bei Bedarf.",
+        "manual": "Feinabstimmung",
         "cellPx": "Feldgröße (px)",
         "offsetX": "Versatz X",
         "offsetY": "Versatz Y",
@@ -604,8 +600,9 @@
         "select": "Auswählen",
         "wall": "Wand",
         "object": "Objektwand",
-        "portal": "Tür oder Fenster",
-        "light": "Licht"
+        "portal": "Tür",
+        "light": "Licht",
+        "window": "Fenster"
       },
       "snap": {
         "title": "Fangen",
@@ -654,11 +651,94 @@
       },
       "environment": {
         "title": "Umgebung",
-        "baked": "Beleuchtung ist ins Bild eingebrannt",
-        "bakedHint": "Aktivieren, wenn die Kartengrafik ihre Beleuchtung bereits enthält.",
+        "baked": "In diese Karte ist Beleuchtung bereits eingezeichnet",
+        "bakedHint": "Aktiviere dies, wenn das Bild selbst Fackelschein, Schatten oder Leuchten zeigt. Virtuelle Tabletops ignorieren oder dämpfen deine Lichter dann, damit sie sich nicht verdoppeln.",
         "bakedWarning": "Diese Karte gilt als bereits beleuchtet, daher kann ein VTT die {{count}} hier platzierten Lichter ignorieren oder abschwächen.",
         "ambient": "Umgebungslicht",
-        "ambientStrength": "Stärke"
+        "ambientStrength": "Stärke",
+        "ambientLabel": "Helligkeit ohne Lichtquellen in der Nähe",
+        "ambientHint": "Wie hell eine Stelle ohne eigenes Licht wirkt. Schwarz ist ein stockdunkler Dungeon; ein gedämpftes Blau wirkt wie Mondlicht.",
+        "ambientDark": "Unbeleuchtete Bereiche sind stockdunkel.",
+        "ambientLit": "Unbeleuchtete Bereiche bleiben zu {{percent}} % erhellt."
+      },
+      "target": {
+        "image": "Kartenbild bearbeiten",
+        "imageHint": "Neue Wände, Türen und Lichter über das Bild zeichnen",
+        "vtt": "Verknüpfte VTT bearbeiten",
+        "vttHint": "Die Wände, Türen und Lichter der .uvtt-Datei ändern"
+      },
+      "source": {
+        "subtitle": "Karte hochladen",
+        "dropHint": "Kartenbild oder Universal-VTT-Datei hierher ziehen",
+        "formats": "PNG, JPEG, WebP, GIF, .uvtt oder .dd2vtt",
+        "chooseFile": "Datei auswählen",
+        "privacyNote": "Es wird nichts in deine Bibliothek hochgeladen. Die Datei bleibt in deinem Browser, bis du sie herunterlädst oder an eine Kampagne sendest.",
+        "error": {
+          "not-json": "Diese Datei ist keine Universal-VTT-Datei.",
+          "not-uvtt": "Diese Datei ist keine Universal-VTT-Datei.",
+          "no-image": "Diese Universal-VTT-Datei enthält kein Kartenbild.",
+          "failed": "Diese Datei konnte nicht geöffnet werden."
+        }
+      },
+      "send": {
+        "button": "An Kampagne senden",
+        "title": "An eine Kampagne senden",
+        "hint": "Lade diese Karte als verknüpfte Ressource in eine von dir geleitete Kampagne hoch.",
+        "chooseCategory": "Kategorie wählen",
+        "chooseCategoryHint": "Wo in {{name}} soll diese Karte einsortiert werden?",
+        "defaultCategory": "Keine Kategorie",
+        "defaultCategoryHint": "In der Standard-Ressourcengruppe der Kampagne belassen",
+        "suggested": "Für Karten empfohlen",
+        "noCampaigns": "Du leitest keine Kampagne, an die du das senden könntest.",
+        "failed": "Die Karte konnte nicht gesendet werden."
+      },
+      "help": {
+        "select": {
+          "click": "Klicke eine Wand, Tür oder Lichtquelle an, um sie auszuwählen.",
+          "delete": "Entf oder Rücktaste entfernt die Auswahl."
+        },
+        "wall": {
+          "click": "Klicke, um jede Ecke zu setzen.",
+          "finish": "Doppelklick oder Enter beendet die Wand.",
+          "close": "Ende auf dem ersten Punkt schließt einen Raum.",
+          "cancel": "Escape verwirft die Wand, die du gerade zeichnest.",
+          "undo": "Strg/Cmd+Z macht die letzte Wand rückgängig."
+        },
+        "object": {
+          "click": "Klicke, um jede Ecke zu setzen.",
+          "finish": "Doppelklick oder Enter beendet die Form.",
+          "close": "Ende auf dem ersten Punkt schließt sie.",
+          "cancel": "Escape verwirft die Form, die du gerade zeichnest.",
+          "undo": "Strg/Cmd+Z macht die letzte Form rückgängig."
+        },
+        "portal": {
+          "click": "Klicke beide Enden der Türöffnung – zwei Klicks setzen sie.",
+          "cancel": "Escape verwirft eine halb gesetzte Tür."
+        },
+        "window": {
+          "click": "Klicke beide Enden des Fensters – zwei Klicks setzen es.",
+          "cancel": "Escape verwirft ein halb gesetztes Fenster."
+        },
+        "light": {
+          "click": "Klicke, um eine Lichtquelle zu setzen.",
+          "edit": "Reichweite und Farbe erscheinen unten, sobald sie gesetzt ist."
+        },
+        "global": {
+          "pan": "Mit mittlerer oder rechter Maustaste ziehen, um zu verschieben.",
+          "zoom": "Scrollen zum Zoomen.",
+          "freeSnap": "Alt halten, um einen Punkt außerhalb des Rasters zu setzen."
+        }
+      },
+      "preview": {
+        "title": "Spieleransicht",
+        "show": "Spieleransicht zeigen",
+        "hide": "Spieleransicht ausblenden",
+        "hint": "Verdunkelt alles, was eine Spielfigur auf der Karte nicht sehen könnte – so prüfst du deine Wände ohne Export.",
+        "moveHint": "Ziehe die blaue Figur oder bewege sie mit den Pfeiltasten (Umschalt für einen halben Schritt).",
+        "sight": "Sicht (Felder)",
+        "light": "Figurenlicht (Felder)",
+        "rangeHint": "Sicht 0 bedeutet unbegrenzt – nur Wände halten sie auf. Figurenlicht ist die Fackel, die die Figur trägt.",
+        "notExported": "Die Figur und diese Reichweiten dienen nur der Vorschau. Sie werden nicht gespeichert und landen nie in der .uvtt-Datei."
       }
     }
   },

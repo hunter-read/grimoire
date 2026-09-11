@@ -17,9 +17,10 @@ vi.mock('../api', () => ({
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
+const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, useNavigate: () => vi.fn() }
+  return { ...actual, useNavigate: () => mockNavigate }
 })
 
 vi.mock('../hooks/useUserPrefs', () => ({
@@ -386,5 +387,26 @@ describe('MapsView', () => {
         expect(screen.getByText('Displaying 1 of 2 maps in your collection')).toBeInTheDocument()
       )
     })
+  })
+})
+
+describe('MapsView map editor entry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsFavorite.mockReturnValue(false)
+    api.get.mockImplementation((url) => {
+      if (url.split('?')[0] === '/maps') return Promise.resolve(makeMapsResponse([]))
+      if (url === '/map-folders') return Promise.resolve({ folders: [] })
+      return Promise.resolve({})
+    })
+  })
+
+  it('opens the standalone editor', async () => {
+    // The gallery is the entry point for a map that is not in the library yet,
+    // mirroring what the token gallery offers.
+    renderView()
+    const button = await screen.findByRole('button', { name: /VTT Editor/i })
+    await userEvent.click(button)
+    expect(mockNavigate).toHaveBeenCalledWith('/maps/editor')
   })
 })

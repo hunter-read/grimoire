@@ -587,12 +587,8 @@
         "byCount": "Par taille",
         "cellsAcross": "Cases en largeur",
         "cellsDown": "Cases en hauteur",
-        "byPicks": "Par points",
-        "instructions": "Cliquez deux intersections, indiquez leur écart en cases, puis appliquez.",
-        "spanX": "Cases d'écart ↔",
-        "spanY": "Cases d'écart ↕",
-        "apply": "Appliquer ({{count}} choisis)",
-        "clearPicks": "Effacer les points",
+        "instructions": "Vérifiez que la grille correspond à votre carte et corrigez-la si besoin.",
+        "manual": "Réglage fin",
         "cellPx": "Taille de case (px)",
         "offsetX": "Décalage X",
         "offsetY": "Décalage Y",
@@ -604,8 +600,9 @@
         "select": "Sélection",
         "wall": "Mur",
         "object": "Mur d'objet",
-        "portal": "Porte ou fenêtre",
-        "light": "Lumière"
+        "portal": "Porte",
+        "light": "Lumière",
+        "window": "Fenêtre"
       },
       "snap": {
         "title": "Magnétisme",
@@ -654,11 +651,94 @@
       },
       "environment": {
         "title": "Environnement",
-        "baked": "L'éclairage est intégré à l'image",
-        "bakedHint": "À cocher si l'illustration de la carte contient déjà son éclairage.",
+        "baked": "Cette carte a déjà son éclairage peint dessus",
+        "bakedHint": "Cochez si l’illustration montre déjà ses propres torches, ombres ou lueurs. Les tables virtuelles pourront alors ignorer ou atténuer vos lumières pour éviter le doublon.",
         "bakedWarning": "Cette carte est marquée comme déjà éclairée : un VTT peut donc ignorer ou atténuer les {{count}} lumières placées ici.",
         "ambient": "Lumière ambiante",
-        "ambientStrength": "Intensité"
+        "ambientStrength": "Intensité",
+        "ambientLabel": "Niveau de lumière sans lumière à proximité",
+        "ambientHint": "La luminosité d’un endroit sans lumière propre. Le noir donne un donjon totalement obscur ; un bleu sombre évoque le clair de lune.",
+        "ambientDark": "Les zones non éclairées sont totalement noires.",
+        "ambientLit": "Les zones non éclairées restent éclairées à {{percent}} %."
+      },
+      "target": {
+        "image": "Modifier l'image de la carte",
+        "imageHint": "Dessinez de nouveaux murs, portes et lumières sur l’image",
+        "vtt": "Modifier le VTT lié",
+        "vttHint": "Modifiez les murs, portes et lumières déjà contenus dans le .uvtt"
+      },
+      "source": {
+        "subtitle": "Téléverser une carte",
+        "dropHint": "Déposez ici une image de carte ou un fichier Universal VTT",
+        "formats": "PNG, JPEG, WebP, GIF, .uvtt ou .dd2vtt",
+        "chooseFile": "Choisir un fichier",
+        "privacyNote": "Rien n’est téléversé dans votre bibliothèque. Le fichier reste dans votre navigateur jusqu’à ce que vous le téléchargiez ou l’envoyiez à une campagne.",
+        "error": {
+          "not-json": "Ce fichier n’est pas un fichier Universal VTT.",
+          "not-uvtt": "Ce fichier n’est pas un fichier Universal VTT.",
+          "no-image": "Ce fichier Universal VTT ne contient aucune image de carte.",
+          "failed": "Ce fichier n’a pas pu être ouvert."
+        }
+      },
+      "send": {
+        "button": "Envoyer à une campagne",
+        "title": "Envoyer à une campagne",
+        "hint": "Téléversez cette carte comme ressource liée dans une campagne que vous dirigez.",
+        "chooseCategory": "Choisir une catégorie",
+        "chooseCategoryHint": "Où cette carte doit-elle être classée dans {{name}} ?",
+        "defaultCategory": "Aucune catégorie",
+        "defaultCategoryHint": "La laisser dans le groupe de ressources par défaut de la campagne",
+        "suggested": "Suggérée pour les cartes",
+        "noCampaigns": "Vous ne dirigez aucune campagne à laquelle l’envoyer.",
+        "failed": "La carte n’a pas pu être envoyée."
+      },
+      "help": {
+        "select": {
+          "click": "Cliquez sur un mur, une porte ou une lumière pour la sélectionner.",
+          "delete": "Suppr ou Retour arrière retire la sélection."
+        },
+        "wall": {
+          "click": "Cliquez pour placer chaque angle.",
+          "finish": "Double-cliquez, ou appuyez sur Entrée, pour terminer le mur.",
+          "close": "Terminez sur votre premier point pour fermer une pièce.",
+          "cancel": "Échap abandonne le mur en cours.",
+          "undo": "Ctrl/Cmd+Z annule le dernier mur."
+        },
+        "object": {
+          "click": "Cliquez pour placer chaque angle.",
+          "finish": "Double-cliquez, ou appuyez sur Entrée, pour terminer la forme.",
+          "close": "Terminez sur votre premier point pour la fermer.",
+          "cancel": "Échap abandonne la forme en cours.",
+          "undo": "Ctrl/Cmd+Z annule la dernière forme."
+        },
+        "portal": {
+          "click": "Cliquez les deux extrémités de l’ouverture : deux clics la placent.",
+          "cancel": "Échap abandonne une porte à moitié placée."
+        },
+        "window": {
+          "click": "Cliquez les deux extrémités de la fenêtre : deux clics la placent.",
+          "cancel": "Échap abandonne une fenêtre à moitié placée."
+        },
+        "light": {
+          "click": "Cliquez pour placer une lumière.",
+          "edit": "Sa portée et sa couleur apparaissent ci-dessous une fois placée."
+        },
+        "global": {
+          "pan": "Faites glisser avec le bouton du milieu ou de droite pour vous déplacer.",
+          "zoom": "Molette pour zoomer.",
+          "freeSnap": "Maintenez Alt pour placer un point hors de la grille."
+        }
+      },
+      "preview": {
+        "title": "Vue du joueur",
+        "show": "Afficher la vue du joueur",
+        "hide": "Masquer la vue du joueur",
+        "hint": "Assombrit tout ce qu’un pion posé sur la carte ne pourrait pas voir, pour vérifier vos murs sans exporter.",
+        "moveHint": "Faites glisser le pion bleu, ou déplacez-le avec les flèches (Maj pour une demi-case).",
+        "sight": "Vision (cases)",
+        "light": "Lumière du pion (cases)",
+        "rangeHint": "Une vision de 0 est illimitée : seuls les murs l’arrêtent. La lumière du pion est la torche qu’il porte.",
+        "notExported": "Le pion et ces portées servent uniquement à l’aperçu. Ils ne sont pas enregistrés et n’atteignent jamais le fichier .uvtt."
       }
     }
   },

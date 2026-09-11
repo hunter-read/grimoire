@@ -587,12 +587,8 @@
         "byCount": "Por tamaño",
         "cellsAcross": "Casillas a lo ancho",
         "cellsDown": "Casillas a lo alto",
-        "byPicks": "Eligiendo puntos",
-        "instructions": "Haz clic en dos intersecciones, indica cuántas casillas las separan y aplica.",
-        "spanX": "Casillas de separación ↔",
-        "spanY": "Casillas de separación ↕",
-        "apply": "Aplicar ({{count}} elegidas)",
-        "clearPicks": "Borrar puntos",
+        "instructions": "Comprueba que la cuadrícula coincide con tu mapa y corrígela si no es así.",
+        "manual": "Ajuste fino",
         "cellPx": "Tamaño de casilla (px)",
         "offsetX": "Desfase X",
         "offsetY": "Desfase Y",
@@ -604,8 +600,9 @@
         "select": "Seleccionar",
         "wall": "Muro",
         "object": "Muro de objeto",
-        "portal": "Puerta o ventana",
-        "light": "Luz"
+        "portal": "Puerta",
+        "light": "Luz",
+        "window": "Ventana"
       },
       "snap": {
         "title": "Ajuste",
@@ -654,11 +651,94 @@
       },
       "environment": {
         "title": "Entorno",
-        "baked": "La iluminación está integrada en la imagen",
-        "bakedHint": "Actívalo si el arte del mapa ya tiene su iluminación pintada.",
+        "baked": "Este mapa ya tiene la iluminación pintada",
+        "bakedHint": "Marca esto si la ilustración ya muestra su propia luz de antorchas, sombras o resplandor. Las mesas virtuales podrán entonces ignorar o atenuar las luces que coloques, para que no se dupliquen.",
         "bakedWarning": "Este mapa está marcado como ya iluminado, por lo que un VTT puede ignorar o atenuar las {{count}} luces colocadas aquí.",
         "ambient": "Luz ambiental",
-        "ambientStrength": "Intensidad"
+        "ambientStrength": "Intensidad",
+        "ambientLabel": "Nivel de luz sin luces cerca",
+        "ambientHint": "Qué brillo tiene un punto sin luz propia. El negro es una mazmorra en tinieblas; un azul tenue se lee como luz de luna.",
+        "ambientDark": "Las zonas sin luz quedan completamente a oscuras.",
+        "ambientLit": "Las zonas sin luz mantienen un {{percent}} % de iluminación."
+      },
+      "target": {
+        "image": "Editar la imagen del mapa",
+        "imageHint": "Dibuja nuevos muros, puertas y luces sobre la imagen",
+        "vtt": "Editar el VTT vinculado",
+        "vttHint": "Modifica los muros, puertas y luces que ya contiene el .uvtt"
+      },
+      "source": {
+        "subtitle": "Subir un mapa",
+        "dropHint": "Arrastra aquí una imagen de mapa o un archivo Universal VTT",
+        "formats": "PNG, JPEG, WebP, GIF, .uvtt o .dd2vtt",
+        "chooseFile": "Elegir un archivo",
+        "privacyNote": "No se sube nada a tu biblioteca. El archivo permanece en tu navegador hasta que lo descargues o lo envíes a una campaña.",
+        "error": {
+          "not-json": "Ese archivo no es un archivo Universal VTT.",
+          "not-uvtt": "Ese archivo no es un archivo Universal VTT.",
+          "no-image": "Ese archivo Universal VTT no contiene ninguna imagen de mapa.",
+          "failed": "No se pudo abrir ese archivo."
+        }
+      },
+      "send": {
+        "button": "Enviar a campaña",
+        "title": "Enviar a una campaña",
+        "hint": "Sube este mapa como recurso vinculado a una campaña que dirijas.",
+        "chooseCategory": "Elegir una categoría",
+        "chooseCategoryHint": "¿Dónde debe archivarse este mapa en {{name}}?",
+        "defaultCategory": "Sin categoría",
+        "defaultCategoryHint": "Dejarlo en el grupo de recursos predeterminado de la campaña",
+        "suggested": "Sugerida para mapas",
+        "noCampaigns": "No diriges ninguna campaña a la que enviarlo.",
+        "failed": "No se pudo enviar el mapa."
+      },
+      "help": {
+        "select": {
+          "click": "Haz clic en un muro, puerta o luz para seleccionarlo.",
+          "delete": "Supr o Retroceso elimina lo seleccionado."
+        },
+        "wall": {
+          "click": "Haz clic para colocar cada esquina.",
+          "finish": "Haz doble clic, o pulsa Intro, para terminar el muro.",
+          "close": "Termina en el primer punto para cerrar una sala.",
+          "cancel": "Escape descarta el muro que estás dibujando.",
+          "undo": "Ctrl/Cmd+Z deshace el último muro."
+        },
+        "object": {
+          "click": "Haz clic para colocar cada esquina.",
+          "finish": "Haz doble clic, o pulsa Intro, para terminar la forma.",
+          "close": "Termina en el primer punto para cerrarla.",
+          "cancel": "Escape descarta la forma que estás dibujando.",
+          "undo": "Ctrl/Cmd+Z deshace la última forma."
+        },
+        "portal": {
+          "click": "Haz clic en los dos extremos del vano: dos clics la colocan.",
+          "cancel": "Escape descarta una puerta a medio colocar."
+        },
+        "window": {
+          "click": "Haz clic en los dos extremos de la ventana: dos clics la colocan.",
+          "cancel": "Escape descarta una ventana a medio colocar."
+        },
+        "light": {
+          "click": "Haz clic para colocar una luz.",
+          "edit": "Su alcance y color aparecen abajo una vez colocada."
+        },
+        "global": {
+          "pan": "Arrastra con el botón central o derecho para desplazarte.",
+          "zoom": "Usa la rueda para acercar o alejar.",
+          "freeSnap": "Mantén Alt para colocar un punto fuera de la cuadrícula."
+        }
+      },
+      "preview": {
+        "title": "Vista del jugador",
+        "show": "Mostrar vista del jugador",
+        "hide": "Ocultar vista del jugador",
+        "hint": "Oscurece todo lo que una ficha situada en el mapa no podría ver, para comprobar tus muros sin exportar.",
+        "moveHint": "Arrastra la ficha azul o muévela con las flechas (mantén Mayús para medio cuadro).",
+        "sight": "Visión (cuadros)",
+        "light": "Luz de la ficha (cuadros)",
+        "rangeHint": "Visión 0 significa ilimitada: solo los muros la detienen. La luz de la ficha es la antorcha que lleva.",
+        "notExported": "La ficha y estos alcances son solo para la vista previa. No se guardan y nunca llegan al archivo .uvtt."
       }
     }
   },

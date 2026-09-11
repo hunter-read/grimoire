@@ -398,3 +398,238 @@ class TestAuthoringEndpoints:
         )
         client.get(f"/api/maps/{authored_map.id}/export.uvtt", headers=gm_headers)
         assert sorted(p.name for p in tmp_path.iterdir()) == before
+
+
+def _uvtt_file(tmp_path, name="tavern.uvtt", size=(600, 480), **over):
+    """A .uvtt on disk carrying a real embedded image and some geometry."""
+    import base64
+    import io
+
+    buf = io.BytesIO()
+    Image.new("RGB", size, (10, 60, 30)).save(buf, "PNG")
+    doc = {
+        "format": 0.3,
+        "resolution": {
+            "map_origin": {"x": 0, "y": 0},
+            "map_size": {"x": 6, "y": 4.8},
+            "pixels_per_grid": 100,
+        },
+        "line_of_sight": [[{"x": 1, "y": 1}, {"x": 2, "y": 2}]],
+        "objects_line_of_sight": [],
+        "portals": [{"bounds": [{"x": 3, "y": 0}, {"x": 4, "y": 0}], "closed": True}],
+        "lights": [{"position": {"x": 2, "y": 2}, "range": 3, "color": "ffeccd8b"}],
+        "environment": {"baked_lighting": True, "ambient_light": "ff112233"},
+        "image": base64.b64encode(buf.getvalue()).decode(),
+    }
+    doc.update(over)
+    path = tmp_path / name
+    path.write_text(json.dumps(doc))
+    return path
+
+
+@pytest.fixture
+def vtt_map(tmp_path):
+    path = _uvtt_file(tmp_path)
+    return make_map(
+        filename="tavern.uvtt", filepath=str(path), relative_path="DnD/Maps/tavern.uvtt"
+    )
+
+
+class TestEditingAnExistingUvtt:
+    """A .uvtt opens on its own geometry rather than a blank overlay.
+
+    Editing one of these files is the whole point of offering the editor on a
+    standalone Universal VTT map: what it carries is what the GM wants to change.
+    """
+
+    def test_geometry_is_seeded_from_the_file(self, client, gm_headers, vtt_map):
+        r = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["is_vtt"] is True
+        assert body["seeded_from_file"] is True
+        assert body["wall_count"] == 1
+        assert body["portal_count"] == 1
+        assert body["light_count"] == 1
+        assert body["data"]["lights"][0]["color"] == "ffeccd8b"
+        assert body["data"]["environment"]["baked_lighting"] is True
+
+    def test_image_url_points_at_the_decoding_endpoint(self, client, gm_headers, vtt_map):
+        # A .uvtt's picture is base64 inside the envelope; the page renderer has
+        # nothing to render, so the editor must draw against /vtt/image.
+        body = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers).json()
+        assert body["image_url"] == f"/maps/{vtt_map.id}/vtt/image"
+
+    def test_raster_map_keeps_the_page_url(self, client, gm_headers, authored_map):
+        body = client.get(
+            f"/api/maps/{authored_map.id}/vtt/authoring", headers=gm_headers
+        ).json()
+        assert body["image_url"] == f"/maps/{authored_map.id}/page/1"
+        assert body["is_vtt"] is False
+        assert body["seeded_from_file"] is False
+
+    def test_embedded_image_is_measured_for_the_canvas(self, client, gm_headers, vtt_map):
+        # Nothing at the path is an image, so _map_image_info measures nothing.
+        # Without this the editor would have no canvas dimensions at all.
+        body = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers).json()
+        assert body["pixel_width"] == 600
+        assert body["pixel_height"] == 480
+
+    def test_grid_comes_from_the_file(self, client, gm_headers, vtt_map):
+        # The file states 100px cells; a detected or defaulted grid would draw
+        # the file's own walls onto a grid they do not fit.
+        grid = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers).json()[
+            "grid"
+        ]
+        assert grid["cell_px"] == 100
+        assert grid["width"] == 6
+        assert grid["height"] == 4.8
+
+    def test_manual_override_still_wins_over_the_file(self, client, gm_headers, tmp_path):
+        # A corrected grid is the user overruling the file, so it outranks what
+        # the file claims about its own cell size.
+        path = _uvtt_file(tmp_path, name="ov.uvtt")
+        m = make_map(
+            filename="ov.uvtt",
+            filepath=str(path),
+            relative_path="D/M/ov.uvtt",
+            grid_width=12,
+            grid_height=9.6,
+            grid_px=50,
+        )
+        grid = client.get(f"/api/maps/{m.id}/vtt/authoring", headers=gm_headers).json()["grid"]
+        assert grid["source"] == "manual"
+        assert grid["cell_px"] == 50
+
+    def test_saving_takes_over_from_the_file(self, client, gm_headers, vtt_map):
+        client.put(
+            f"/api/maps/{vtt_map.id}/vtt/authoring",
+            json={"data": _doc(lights=[{"position": {"x": 9, "y": 9}, "range": 7}])},
+            headers=gm_headers,
+        )
+        body = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers).json()
+        # Saved geometry is the truth from then on -- re-seeding here would make
+        # a deliberately emptied document refill itself on every reload.
+        assert body["seeded_from_file"] is False
+        assert body["data"]["lights"][0]["range"] == 7.0
+        assert body["light_count"] == 1
+
+    def test_clearing_stays_cleared(self, client, gm_headers, vtt_map):
+        client.put(
+            f"/api/maps/{vtt_map.id}/vtt/authoring", json={"data": None}, headers=gm_headers
+        )
+        body = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers).json()
+        # Clearing stores NULL, which is also "never edited" -- so this map does
+        # re-seed. That is the documented trade-off of a single NULL state, and
+        # it matches what the file still contains.
+        assert body["seeded_from_file"] is True
+
+    def test_malformed_geometry_does_not_break_the_editor(self, client, gm_headers, tmp_path):
+        path = _uvtt_file(tmp_path, name="bad.uvtt", line_of_sight=[[{"x": "nope", "y": 0}]])
+        m = make_map(filename="bad.uvtt", filepath=str(path), relative_path="D/M/bad.uvtt")
+        r = client.get(f"/api/maps/{m.id}/vtt/authoring", headers=gm_headers)
+        # The image and grid are still worth editing against; refusing to open
+        # the map would be a worse answer than opening it with no geometry.
+        assert r.status_code == 200
+        assert r.json()["data"] is None
+
+    def test_portal_without_bounds_is_dropped(self, client, gm_headers, tmp_path):
+        # bounds is the load-bearing field; a portal without it cannot be placed.
+        path = _uvtt_file(
+            tmp_path, name="np.uvtt", portals=[{"position": {"x": 5, "y": 5}, "closed": True}]
+        )
+        m = make_map(filename="np.uvtt", filepath=str(path), relative_path="D/M/np.uvtt")
+        body = client.get(f"/api/maps/{m.id}/vtt/authoring", headers=gm_headers).json()
+        assert body["data"] is None
+
+
+class TestVttImageSize:
+    """Measuring the raster a .uvtt carries inside its envelope."""
+
+    def test_measures_the_embedded_image(self, tmp_path):
+        from backend.routers.maps._helpers import vtt_image_size
+
+        path = _uvtt_file(tmp_path, name="sized.uvtt", size=(320, 240))
+        assert vtt_image_size(str(path)) == (320, 240)
+
+    def test_returns_nothing_for_a_file_with_no_image(self, tmp_path):
+        from backend.routers.maps._helpers import vtt_image_size
+
+        path = tmp_path / "noimg.uvtt"
+        path.write_text(json.dumps({"format": 0.3}))
+        # The caller falls back to a grid-derived size rather than failing.
+        assert vtt_image_size(str(path)) == (None, None)
+
+    def test_returns_nothing_when_the_image_is_not_decodable(self, tmp_path):
+        import base64
+
+        from backend.routers.maps._helpers import vtt_image_size
+
+        path = tmp_path / "junk.uvtt"
+        path.write_text(
+            json.dumps({"format": 0.3, "image": base64.b64encode(b"not an image").decode()})
+        )
+        assert vtt_image_size(str(path)) == (None, None)
+
+
+class TestExportingAnEditedUvtt:
+    def test_uvtt_map_exports_rather_than_400ing(self, client, gm_headers, vtt_map):
+        r = client.get(f"/api/maps/{vtt_map.id}/export.uvtt", headers=gm_headers)
+        assert r.status_code == 200
+        env = json.loads(r.content)
+        assert len(env["line_of_sight"]) == 1
+        assert env["lights"][0]["color"] == "ffeccd8b"
+
+    def test_edits_reach_the_exported_file(self, client, gm_headers, vtt_map):
+        client.put(
+            f"/api/maps/{vtt_map.id}/vtt/authoring",
+            json={"data": _doc(lights=[{"position": {"x": 1, "y": 1}, "range": 9}])},
+            headers=gm_headers,
+        )
+        env = json.loads(client.get(f"/api/maps/{vtt_map.id}/export.uvtt", headers=gm_headers).content)
+        assert env["lights"][0]["range"] == 9.0
+
+    def test_embedded_image_is_passed_through_verbatim(self, client, gm_headers, vtt_map):
+        import base64
+
+        source = json.loads(open(vtt_map.filepath).read())
+        env = json.loads(client.get(f"/api/maps/{vtt_map.id}/export.uvtt", headers=gm_headers).content)
+        # Re-encoding an already-web-ready picture would only lose quality, and
+        # there is no file at the path for Pillow to open in the first place.
+        assert env["image"] == source["image"]
+        assert base64.b64decode(env["image"])
+
+    def test_export_leaves_the_source_file_untouched(self, client, gm_headers, vtt_map):
+        before = open(vtt_map.filepath, "rb").read()
+        client.put(
+            f"/api/maps/{vtt_map.id}/vtt/authoring", json={"data": _doc()}, headers=gm_headers
+        )
+        client.get(f"/api/maps/{vtt_map.id}/export.uvtt", headers=gm_headers)
+        # Saving writes to the map row only: the user's own file is never
+        # rewritten, which is what keeps a read-only library working.
+        assert open(vtt_map.filepath, "rb").read() == before
+
+    def test_uvtt_with_no_image_is_refused(self, client, gm_headers, tmp_path):
+        # Nothing to embed and nothing to measure: this is a real 400, not a
+        # file we should emit with a missing picture.
+        path = tmp_path / "noimg.uvtt"
+        path.write_text(json.dumps({"format": 0.3, "line_of_sight": []}))
+        m = make_map(filename="noimg.uvtt", filepath=str(path), relative_path="D/M/noimg.uvtt")
+        r = client.get(f"/api/maps/{m.id}/export.uvtt", headers=gm_headers)
+        assert r.status_code == 400
+
+    def test_export_is_cached_per_document(self, client, gm_headers, vtt_map):
+        first = json.loads(
+            client.get(f"/api/maps/{vtt_map.id}/export.uvtt", headers=gm_headers).content
+        )
+        assert first["lights"][0]["range"] == 3.0
+        client.put(
+            f"/api/maps/{vtt_map.id}/vtt/authoring",
+            json={"data": _doc(lights=[{"position": {"x": 2, "y": 2}, "range": 8}])},
+            headers=gm_headers,
+        )
+        second = json.loads(
+            client.get(f"/api/maps/{vtt_map.id}/export.uvtt", headers=gm_headers).content
+        )
+        # A stale cached file here would silently discard the GM's edit.
+        assert second["lights"][0]["range"] == 8.0

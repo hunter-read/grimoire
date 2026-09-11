@@ -587,12 +587,8 @@
         "byCount": "By size",
         "cellsAcross": "Cells across",
         "cellsDown": "Cells down",
-        "byPicks": "By picking points",
-        "instructions": "Click two grid intersections, say how many cells apart they are, then apply.",
-        "spanX": "Cells apart ↔",
-        "spanY": "Cells apart ↕",
-        "apply": "Apply ({{count}} picked)",
-        "clearPicks": "Clear points",
+        "instructions": "Check the grid lines up with your map, and correct it if it does not.",
+        "manual": "Fine-tune",
         "cellPx": "Cell size (px)",
         "offsetX": "Offset X",
         "offsetY": "Offset Y",
@@ -604,8 +600,9 @@
         "select": "Select",
         "wall": "Wall",
         "object": "Object wall",
-        "portal": "Door or window",
-        "light": "Light"
+        "portal": "Door",
+        "light": "Light",
+        "window": "Window"
       },
       "snap": {
         "title": "Snap",
@@ -654,11 +651,94 @@
       },
       "environment": {
         "title": "Environment",
-        "baked": "Lighting is baked into the image",
-        "bakedHint": "Set this when the map artwork already has its lighting painted in.",
+        "baked": "This map already has lighting painted in",
+        "bakedHint": "Tick this if the artwork shows its own torchlight, shadows or glow. Virtual tabletops may then ignore or dim the lights you place, so they do not double up.",
         "bakedWarning": "This map is marked as already lit, so a VTT may ignore or dampen the {{count}} light(s) placed here.",
         "ambient": "Ambient light",
-        "ambientStrength": "Strength"
+        "ambientStrength": "Strength",
+        "ambientLabel": "Light level with no lights nearby",
+        "ambientHint": "How bright a spot with no light of its own looks. Black is a pitch-dark dungeon; a dim blue reads as moonlight.",
+        "ambientDark": "Unlit areas are pitch black.",
+        "ambientLit": "Unlit areas stay {{percent}}% lit."
+      },
+      "target": {
+        "image": "Edit the map image",
+        "imageHint": "Draw new walls, doors and lights over the picture",
+        "vtt": "Edit the linked VTT",
+        "vttHint": "Change the walls, doors and lights the .uvtt already carries"
+      },
+      "source": {
+        "subtitle": "Upload a map",
+        "dropHint": "Drop a map image or Universal VTT file here",
+        "formats": "PNG, JPEG, WebP, GIF, .uvtt or .dd2vtt",
+        "chooseFile": "Choose a file",
+        "privacyNote": "Nothing is uploaded to your library. The file stays in your browser until you download it or send it to a campaign.",
+        "error": {
+          "not-json": "That file is not a Universal VTT file.",
+          "not-uvtt": "That file is not a Universal VTT file.",
+          "no-image": "That Universal VTT file has no map image in it.",
+          "failed": "That file could not be opened."
+        }
+      },
+      "send": {
+        "button": "Send to campaign",
+        "title": "Send to a campaign",
+        "hint": "Upload this map to a campaign you run, as a linked resource.",
+        "chooseCategory": "Choose a category",
+        "chooseCategoryHint": "Where in {{name}} should this map be filed?",
+        "defaultCategory": "No category",
+        "defaultCategoryHint": "Leave it in the campaign’s default resource group",
+        "suggested": "Suggested for maps",
+        "noCampaigns": "You do not run any campaigns to send this to.",
+        "failed": "The map could not be sent."
+      },
+      "help": {
+        "select": {
+          "click": "Click a wall, door or light to select it.",
+          "delete": "Delete or Backspace removes what is selected."
+        },
+        "wall": {
+          "click": "Click to place each corner.",
+          "finish": "Double-click, or press Enter, to finish the wall.",
+          "close": "End on your first point to close a room.",
+          "cancel": "Escape abandons the wall you are drawing.",
+          "undo": "Ctrl/Cmd+Z undoes the last wall."
+        },
+        "object": {
+          "click": "Click to place each corner.",
+          "finish": "Double-click, or press Enter, to finish the shape.",
+          "close": "End on your first point to close it.",
+          "cancel": "Escape abandons the shape you are drawing.",
+          "undo": "Ctrl/Cmd+Z undoes the last shape."
+        },
+        "portal": {
+          "click": "Click both ends of the doorway - two clicks place it.",
+          "cancel": "Escape abandons a half-placed door."
+        },
+        "window": {
+          "click": "Click both ends of the window - two clicks place it.",
+          "cancel": "Escape abandons a half-placed window."
+        },
+        "light": {
+          "click": "Click to place a light.",
+          "edit": "Its range and colour appear below once placed."
+        },
+        "global": {
+          "pan": "Drag with the middle or right button to pan.",
+          "zoom": "Scroll to zoom.",
+          "freeSnap": "Hold Alt to place one point off the grid."
+        }
+      },
+      "preview": {
+        "title": "Player view",
+        "show": "Show player view",
+        "hide": "Hide player view",
+        "hint": "Darkens everything a token standing on the map could not see, so you can check your walls without exporting.",
+        "moveHint": "Drag the blue token, or move it with the arrow keys (hold Shift for half a square).",
+        "sight": "Sight (squares)",
+        "light": "Token light (squares)",
+        "rangeHint": "Sight 0 means unlimited - only walls stop it. Token light is the torch the token carries.",
+        "notExported": "The token and these ranges are for previewing only. They are not saved and never reach the .uvtt file."
       }
     }
   },

@@ -189,6 +189,11 @@ export default function AppShell() {
               {/* Full-page: the Universal VTT editor needs the whole width for
                   a zoomable canvas plus its tool and property panels, and the
                   detail pane already competes with a sidebar and nav arrows. */}
+              {/* Standalone: upload a map image or a .uvtt and edit it without
+                  anything being written to the library, as the token editor
+                  does. Declared after :mapId for readability — React Router
+                  already ranks the static segment higher. */}
+              <Route path="/maps/editor" element={<VttEditorView />} />
               <Route path="/maps/:mapId/vtt-editor" element={<VttEditorView />} />
               <Route path="/tokens" element={<TokensView />} />
               {/* Full-page for the same reason as the VTT editor: the canvas,

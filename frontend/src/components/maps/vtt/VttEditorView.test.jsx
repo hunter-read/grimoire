@@ -402,3 +402,132 @@ describe('VttEditorView', () => {
     expect(screen.getByText('maps.vtt.unsaved')).toBeInTheDocument()
   })
 })
+
+describe('VttEditorView window tool', () => {
+  it('places a window without a trip through the selector', async () => {
+    // Previously: place a door, switch to select, click the door, flip the
+    // toggle. Four steps to say something known before the first click.
+    const canvas = await enterEditPhase()
+    await userEvent.click(screen.getByRole('button', { name: 'maps.vtt.tools.window' }))
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 400, clientY: 400 })
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 500, clientY: 400 })
+
+    await userEvent.click(screen.getByText('common.save'))
+    const sent = api.put.mock.calls[0][1].data
+    expect(sent.portals).toHaveLength(1)
+    // A window is the see-through portal: `closed` false is what says so.
+    expect(sent.portals[0].closed).toBe(false)
+  })
+
+  it('still places a door with the door tool', async () => {
+    const canvas = await enterEditPhase()
+    await userEvent.click(screen.getByRole('button', { name: 'maps.vtt.tools.portal' }))
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 400, clientY: 400 })
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 500, clientY: 400 })
+
+    await userEvent.click(screen.getByText('common.save'))
+    expect(api.put.mock.calls[0][1].data.portals[0].closed).toBe(true)
+  })
+})
+
+describe('VttEditorView free placement', () => {
+  it('snaps to the grid without the modifier', async () => {
+    const canvas = await enterEditPhase()
+    // A point that does not sit on an intersection lands on the nearest one.
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 410, clientY: 405 })
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 600, clientY: 400 })
+    fireEvent.doubleClick(canvas, { clientX: 600, clientY: 400 })
+
+    await userEvent.click(screen.getByText('common.save'))
+    const [first] = api.put.mock.calls[0][1].data.line_of_sight[0]
+    expect(Number.isInteger(first.x)).toBe(true)
+    expect(Number.isInteger(first.y)).toBe(true)
+  })
+
+  it('places off the grid while Alt is held', async () => {
+    const canvas = await enterEditPhase()
+    // The case this exists for: a room drawn on the grid with one corner that
+    // genuinely is not, without switching snap mode and back.
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 413, clientY: 407, altKey: true })
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 600, clientY: 400 })
+    fireEvent.doubleClick(canvas, { clientX: 600, clientY: 400 })
+
+    await userEvent.click(screen.getByText('common.save'))
+    const [first, second] = api.put.mock.calls[0][1].data.line_of_sight[0]
+    // The Alt point keeps its fractional position; the plain one still snaps.
+    expect(Number.isInteger(first.x) && Number.isInteger(first.y)).toBe(false)
+    expect(Number.isInteger(second.x)).toBe(true)
+  })
+})
+
+describe('VttEditorView player preview', () => {
+  const enablePreview = async () => {
+    const canvas = await enterEditPhase()
+    await userEvent.click(screen.getByRole('button', { name: /preview.show/ }))
+    return canvas
+  }
+
+  it('is off until asked for', async () => {
+    await enterEditPhase()
+    // The darkened view is in the way while drawing, so it must not default on.
+    expect(screen.queryByTestId('preview-shroud')).toBeNull()
+  })
+
+  it('shrouds what the token cannot see', async () => {
+    await enablePreview()
+    expect(screen.getByTestId('preview-shroud')).toBeInTheDocument()
+    expect(screen.getByTestId('preview-token')).toBeInTheDocument()
+  })
+
+  it('walks the token with the arrow keys', async () => {
+    await enablePreview()
+    const before = screen.getByTestId('preview-token').querySelector('circle').getAttribute('cx')
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    const after = screen.getByTestId('preview-token').querySelector('circle').getAttribute('cx')
+    expect(after).not.toBe(before)
+  })
+
+  it('takes a half step with Shift', async () => {
+    await enablePreview()
+    const cx = () =>
+      Number(screen.getByTestId('preview-token').querySelector('circle').getAttribute('cx'))
+    const start = cx()
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    const full = cx() - start
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    fireEvent.keyDown(window, { key: 'ArrowRight', shiftKey: true })
+    // Half a square, for a sightline a whole one overshoots.
+    expect(cx() - start).toBeCloseTo(full / 2, 3)
+  })
+
+  it('leaves the arrow keys alone when the preview is off', async () => {
+    await enterEditPhase()
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.queryByTestId('preview-token')).toBeNull()
+  })
+
+  it('hides the authoring light circles while previewing', async () => {
+    await enablePreview()
+    // The preview draws only the lights that actually reach the token; the
+    // authoring circles would contradict it.
+    expect(screen.queryAllByTestId('light-marker')).toHaveLength(0)
+  })
+
+  it('never sends the preview to the server', async () => {
+    await enablePreview()
+    await userEvent.click(screen.getByText('common.save'))
+    const sent = api.put.mock.calls[0][1].data
+    // A .uvtt has no concept of a player token or a viewing position.
+    expect(sent).not.toHaveProperty('preview')
+    expect(sent).not.toHaveProperty('token')
+    expect(Object.keys(sent).sort()).toEqual([
+      'environment',
+      'grid_offset',
+      'lights',
+      'line_of_sight',
+      'objects_line_of_sight',
+      'pixels_per_grid',
+      'portals',
+    ])
+  })
+})

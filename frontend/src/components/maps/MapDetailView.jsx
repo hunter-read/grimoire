@@ -1,14 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  LuArrowLeft,
-  LuInfo,
-  LuChevronDown,
-  LuChevronLeft,
-  LuChevronRight,
-  LuPencilRuler,
-} from 'react-icons/lu'
+import { LuArrowLeft, LuInfo, LuChevronDown, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
 import api, { mediaUrl } from '../../api'
@@ -24,6 +17,8 @@ import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import VariantPicker from '../VariantPicker'
+import EditVttButton from './vtt/EditVttButton'
+import { canExportUvtt } from './vtt/editTargets'
 import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
@@ -176,20 +171,11 @@ export default function MapDetailView() {
   // image to embed, and a .uvtt is already in the target format.
   const isRasterMap = !isPdf && !isVideo && !isVtt && !isArchive
 
-  // A map already linked to a real Universal VTT file has nothing to gain from
-  // an export: the linked file carries walls, doors and lights, and ours would
-  // carry none of them. The link is what matters, not the filename — the
-  // duplicate manager lets anyone pair two files whatever they are called — so
-  // this reads the variant family rather than guessing from names. `kind` is
-  // the signal when the link was categorised; a link made without a kind falls
-  // back to the sibling's extension.
-  const hasLinkedVtt = (map.variants || []).some(
-    (v) => v.kind === 'universal-vtt' || /\.(uvtt|dd2vtt)$/i.test(v.filename || '')
-  )
-
-  // The grid editor stays available either way: correcting the grid is worth
-  // doing for its own sake, not only to feed an export.
-  const canExportUvtt = isRasterMap && !hasLinkedVtt
+  // Whether a .uvtt can be built for this map. The rule lives beside the
+  // editor's own target rules so the button and the download menu cannot drift
+  // apart — see `vtt/editTargets`. The grid editor stays available either way:
+  // correcting the grid is worth doing for its own sake, not only for export.
+  const exportable = canExportUvtt(map)
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -275,32 +261,11 @@ export default function MapDetailView() {
           </button>
         )}
         <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} compact />
-        {/* The VTT editor authors walls, doors and lights for the export
-            (issues #126/#127). Raster-only, for the same reason the export is:
-            a PDF or video has no single image to draw on, and a .uvtt already
-            carries its own. Nothing it saves touches the file on disk. */}
-        {canExportUvtt && (
-          <button
-            type="button"
-            onClick={() => navigate(`/maps/${mapId}/vtt-editor`)}
-            title={t('maps.vtt.editHint')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '4px 10px',
-              fontSize: 13,
-              borderRadius: 4,
-              border: '1px solid var(--border)',
-              background: 'var(--bg-card)',
-              color: 'var(--text-dim)',
-              cursor: 'pointer',
-            }}
-          >
-            <LuPencilRuler size={13} aria-hidden="true" />
-            {!isMobilePhone && t('maps.vtt.edit')}
-          </button>
-        )}
+        {/* The VTT editor authors walls, doors and lights (issues #126/#127).
+            A .uvtt opens on the geometry it already carries; a map paired with
+            one offers the choice, since only the user knows which they mean.
+            Nothing saved here touches the file on disk. */}
+        <EditVttButton map={map} compact={isMobilePhone} />
         <AddToCampaignButton resourceType="map" resourceId={mapId} />
         <DownloadVersionButton
           type="maps"
@@ -308,7 +273,7 @@ export default function MapDetailView() {
           item={map}
           compact={isMobilePhone}
           extraItems={
-            canExportUvtt
+            exportable
               ? [
                   {
                     key: 'uvtt',

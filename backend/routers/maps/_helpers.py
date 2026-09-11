@@ -15,6 +15,7 @@ from PIL import Image as PILImage  # type: ignore[import-untyped]
 from ...config import PAGE_CACHE_DIR, _valkey, logger, valkey_cache_set
 from ...indexer import MAP_OPAQUE_EXTS, VTT_DATA_EXTS, archive_ext, map_video_mime
 from ..books._helpers import _get_pdf_doc, note_page_render
+from .vtt_authoring import VttDataError, normalize_vtt_data
 
 
 # Universal VTT exports are JSON envelopes; serving them as application/json
@@ -400,3 +401,59 @@ def vtt_metadata(filepath: str) -> dict:
         "light_count": len(lights) if isinstance(lights, list) else 0,
         "has_image": bool(_vtt_get(data, *_VTT_IMAGE_KEYS)),
     }
+
+
+def vtt_authoring_doc(filepath: str) -> Optional[dict]:
+    """The geometry inside a .uvtt, shaped as an authoring document.
+
+    Opening a Universal VTT map in the editor has to start from what the file
+    already carries — a .uvtt is walls, doors and lights, and showing a blank
+    overlay over one would invite the GM to redraw what is already there.
+
+    The file's own arrays are handed through the same validator a client payload
+    goes through, so a malformed or hostile file cannot seed a document that
+    could not have been authored. A file whose geometry does not validate is
+    treated as carrying none rather than failing the editor outright: the image
+    and grid are still worth editing against, and the alternative is a map that
+    simply cannot be opened.
+
+    Returns None when the file has nothing authored, matching the storage
+    convention that an empty document is NULL rather than a husk of empty lists.
+    """
+    data = load_vtt(filepath)
+    resolution = _vtt_get(data, "resolution") or {}
+    if not isinstance(resolution, dict):
+        resolution = {}
+    env = _vtt_get(data, "environment") or {}
+    payload = {
+        # Geometry is in grid units in both the file and our storage, so this is
+        # a copy rather than a conversion.
+        "pixels_per_grid": _vtt_get(resolution, "pixels_per_grid") or 0,
+        "line_of_sight": _vtt_get(data, "line_of_sight"),
+        "objects_line_of_sight": _vtt_get(data, "objects_line_of_sight"),
+        "portals": _vtt_get(data, "portals"),
+        "lights": _vtt_get(data, "lights"),
+        "environment": env if isinstance(env, dict) else {},
+    }
+    try:
+        return normalize_vtt_data(payload)
+    except VttDataError:
+        return None
+
+
+def vtt_image_size(filepath: str) -> tuple[Optional[int], Optional[int]]:
+    """Pixel dimensions of the battlemap embedded in a Universal VTT file.
+
+    ``_map_image_info`` cannot measure these: the raster lives inside a JSON
+    envelope as base64, so there is nothing for Pillow to open at the path. The
+    editor needs real dimensions to size its canvas and grid overlay, so this
+    decodes the image and measures it. Returns ``(None, None)`` rather than
+    raising when the file carries no readable image -- the caller falls back to
+    the grid-derived size.
+    """
+    try:
+        raw = vtt_image_bytes(filepath)
+        with PILImage.open(io.BytesIO(raw)) as img:
+            return img.size
+    except (ValueError, OSError):
+        return (None, None)

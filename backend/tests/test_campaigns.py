@@ -2470,3 +2470,95 @@ class TestCampaignAccessControl:
         body = client.get(f"/api/campaigns/{cid}", headers=gm_headers).json()
         member = next(m for m in body["members"] if m["user_id"] == target_id)
         assert member["campaign_access"] is False
+
+
+class TestFileUploadCategories:
+    """A GM can file an uploaded file under a resource category in one call.
+
+    This is what lets the map editor send a finished .uvtt straight into a
+    campaign's Maps group instead of dropping it loose for a second trip
+    through the resource list. The image endpoint already worked this way;
+    a .uvtt is JSON, so it travels the file route and needs the same.
+    """
+
+    @pytest.fixture()
+    def campaign(self, client, gm_headers):
+        return client.post(
+            "/api/campaigns",
+            json={"name": f"Files {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+
+    def _category(self, client, gm_headers, campaign, name="Maps"):
+        return client.post(
+            f"/api/campaigns/{campaign['id']}/categories",
+            json={"kind": "resource", "name": name},
+            headers=gm_headers,
+        ).json()
+
+    def test_upload_without_a_category_is_uncategorised(self, client, gm_headers, campaign):
+        r = client.post(
+            f"/api/campaigns/{campaign['id']}/files",
+            files={"file": ("a.uvtt", b'{"format":0.3}', "application/json")},
+            headers=gm_headers,
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["category_id"] is None
+
+    def test_upload_lands_in_an_existing_category(self, client, gm_headers, campaign):
+        cat = self._category(client, gm_headers, campaign)
+        r = client.post(
+            f"/api/campaigns/{campaign['id']}/files",
+            files={"file": ("keep.uvtt", b'{"format":0.3}', "application/json")},
+            data={"category_id": cat["id"]},
+            headers=gm_headers,
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["category_id"] == cat["id"]
+
+    def test_a_new_category_can_be_created_on_upload(self, client, gm_headers, campaign):
+        r = client.post(
+            f"/api/campaigns/{campaign['id']}/files",
+            files={"file": ("keep.uvtt", b'{"format":0.3}', "application/json")},
+            data={"new_category_name": "Battlemaps"},
+            headers=gm_headers,
+        )
+        assert r.status_code == 201, r.text
+        cats = client.get(
+            f"/api/campaigns/{campaign['id']}/categories?kind=resource", headers=gm_headers
+        ).json()
+        created = next(c for c in cats if c["name"] == "Battlemaps")
+        assert r.json()["category_id"] == created["id"]
+
+    def test_a_foreign_category_is_refused(self, client, gm_headers, campaign):
+        # Filing one campaign's upload into another's category would leak the
+        # file into a game it does not belong to.
+        other = client.post(
+            "/api/campaigns",
+            json={"name": f"Other {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        foreign = self._category(client, gm_headers, other, name="Elsewhere")
+        r = client.post(
+            f"/api/campaigns/{campaign['id']}/files",
+            files={"file": ("keep.uvtt", b'{"format":0.3}', "application/json")},
+            data={"category_id": foreign["id"]},
+            headers=gm_headers,
+        )
+        assert r.status_code == 400
+
+    def test_image_uploads_still_categorise(self, client, gm_headers, campaign):
+        # The image handler now shares the same resolver; it must not regress.
+        from PIL import Image
+
+        cat = self._category(client, gm_headers, campaign, name="Handouts")
+        buf = io.BytesIO()
+        Image.new("RGB", (8, 8), (1, 2, 3)).save(buf, "PNG")
+        r = client.post(
+            f"/api/campaigns/{campaign['id']}/images",
+            files={"file": ("a.png", buf.getvalue(), "image/png")},
+            data={"category_id": cat["id"]},
+            headers=gm_headers,
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["category_id"] == cat["id"]

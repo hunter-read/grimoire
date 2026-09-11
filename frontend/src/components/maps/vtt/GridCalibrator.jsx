@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuCrosshair, LuMaximize, LuRotateCcw, LuZoomIn, LuZoomOut } from 'react-icons/lu'
-import { calibrateFromPoints, gridDimensions, round4 } from './geometry'
+import { LuCrosshair, LuMaximize, LuZoomIn, LuZoomOut } from 'react-icons/lu'
+import { gridDimensions, round4 } from './geometry'
 import useViewport from './useViewport'
 import { gridOverlayStyle } from './gridOverlay'
 import Field from './Field'
 import NumberNudge from './NumberNudge'
-import { btnStyle, groupLabelStyle, iconBtnStyle, inputStyle } from './ui'
+import { btnStyle, iconBtnStyle, inputStyle, sectionTitleStyle } from './ui'
 
 /**
  * Step 1 of the Universal VTT editor: confirm the grid before drawing on it.
@@ -14,14 +14,13 @@ import { btnStyle, groupLabelStyle, iconBtnStyle, inputStyle } from './ui'
  * Everything downstream is expressed in grid units, so a wrong cell size does
  * not merely look wrong — it silently misplaces every wall and light in the
  * exported file. This step puts the *detected* grid on screen as an overlay so
- * the user can see whether it lines up, and lets them correct it by clicking
- * intersections they can actually see rather than by typing numbers.
+ * the user can see whether it lines up, and gives them two ways to correct it:
+ * stating how many cells the map is across, which is how most people already
+ * know their grid, or nudging the cell size and offset directly.
  *
- * Picking two intersections several cells apart divides the user's aiming error
- * by that many cells, which is what makes this more accurate than counting one
- * square — hence the "how many cells apart" input rather than assuming adjacent
- * picks. Zoom exists for the same reason: at fit-to-window on a 5000px map, one
- * screen pixel spans several image pixels.
+ * Zoom matters here: at fit-to-window on a 5000px map, one screen pixel spans
+ * several image pixels, so judging whether the overlay lines up needs a closer
+ * look than the fitted view gives.
  */
 export default function GridCalibrator({
   imageUrl,
@@ -38,16 +37,10 @@ export default function GridCalibrator({
     () => ({ width: pixelWidth, height: pixelHeight }),
     [pixelWidth, pixelHeight]
   )
-  const { view, fit, toImage, zoomAt, zoomBy, startPan, movePan, endPan, isPanning } = useViewport(
+  const { view, fit, zoomAt, zoomBy, startPan, movePan, endPan, isPanning } = useViewport(
     containerRef,
     imageSize
   )
-
-  // Intersections the user has clicked, in image pixels.
-  const [picks, setPicks] = useState([])
-  // How many cells apart the picked extremes are, when calibrating from picks.
-  const [spanX, setSpanX] = useState('')
-  const [spanY, setSpanY] = useState('')
 
   const dims = gridDimensions(pixelWidth, pixelHeight, cellPx, offset)
 
@@ -83,23 +76,6 @@ export default function GridCalibrator({
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [onWheel])
-
-  const addPick = (e) => {
-    // Middle/right drag pans; only a plain left click places a point.
-    if (e.button !== 0) return
-    const pt = toImage(e.clientX, e.clientY)
-    if (pt.x < 0 || pt.y < 0 || pt.x > pixelWidth || pt.y > pixelHeight) return
-    setPicks((p) => [...p, { x: round4(pt.x), y: round4(pt.y) }].slice(-6))
-  }
-
-  const apply = () => {
-    const result = calibrateFromPoints(picks, Number(spanX) || 0, Number(spanY) || 0)
-    if (!result) return
-    onChange(result.cellPx, result.offset)
-    setPicks([])
-  }
-
-  const canApply = picks.length >= 2 && (Number(spanX) > 0 || Number(spanY) > 0)
 
   // Line width is tied to the zoom so the grid stays one screen pixel wide —
   // see gridOverlay.js for why that and the gradient choice both matter.
@@ -147,185 +123,158 @@ export default function GridCalibrator({
         </button>
       </div>
 
-      <div
-        ref={containerRef}
-        data-testid="calibrator-canvas"
-        onMouseDown={(e) => {
-          if (e.button === 0) addPick(e)
-          else startPan(e.clientX, e.clientY)
-        }}
-        onMouseMove={(e) => movePan(e.clientX, e.clientY)}
-        onMouseUp={endPan}
-        onMouseLeave={endPan}
-        onContextMenu={(e) => e.preventDefault()}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          position: 'relative',
-          overflow: 'hidden',
-          background: 'var(--bg-deep)',
-          cursor: isPanning ? 'grabbing' : 'crosshair',
-        }}
-      >
+      {/* Canvas and controls side by side, matching the drawing phase's
+          layout. Keeping the panel in the same place across both steps means
+          confirming the grid and then drawing on it do not shuffle the page
+          out from under the user — and a tall narrow column suits these
+          grouped controls better than a wrapping bar did. */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div
+          ref={containerRef}
+          data-testid="calibrator-canvas"
+          onMouseDown={(e) => startPan(e.clientX, e.clientY)}
+          onMouseMove={(e) => movePan(e.clientX, e.clientY)}
+          onMouseUp={endPan}
+          onMouseLeave={endPan}
+          onContextMenu={(e) => e.preventDefault()}
           style={{
-            position: 'absolute',
-            transformOrigin: '0 0',
-            transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
-            width: pixelWidth,
-            height: pixelHeight,
+            flex: 1,
+            minHeight: 0,
+            position: 'relative',
+            overflow: 'hidden',
+            background: 'var(--bg-deep)',
+            cursor: isPanning ? 'grabbing' : 'grab',
           }}
         >
-          <img
-            src={imageUrl}
-            alt=""
-            width={pixelWidth}
-            height={pixelHeight}
-            draggable={false}
-            style={{ display: 'block', width: '100%', height: '100%' }}
-          />
-          {gridStyle && (
-            <div
-              data-testid="grid-overlay"
-              aria-hidden="true"
-              style={{ position: 'absolute', inset: 0, pointerEvents: 'none', ...gridStyle }}
+          <div
+            style={{
+              position: 'absolute',
+              transformOrigin: '0 0',
+              transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
+              width: pixelWidth,
+              height: pixelHeight,
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt=""
+              width={pixelWidth}
+              height={pixelHeight}
+              draggable={false}
+              style={{ display: 'block', width: '100%', height: '100%' }}
             />
-          )}
-          {picks.map((p, i) => (
+            {gridStyle && (
+              <div
+                data-testid="grid-overlay"
+                aria-hidden="true"
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', ...gridStyle }}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Same width, border and padding as the drawing phase's sidebar, so
+            the two steps present one panel that changes contents rather than
+            two panels in different places. */}
+        <div
+          style={{
+            width: 290,
+            flexShrink: 0,
+            overflowY: 'auto',
+            padding: 16,
+            borderLeft: '1px solid var(--border)',
+            background: 'var(--bg-panel)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+          }}
+        >
+          {/* Route 1 — say how big the map is. The most direct way most people
+              know their grid, and it redraws the overlay as you type. */}
+          <div>
+            <div style={sectionTitleStyle}>{t('maps.vtt.calibrate.byCount')}</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Field label={t('maps.vtt.calibrate.cellsAcross')} style={{ flex: 1, minWidth: 0 }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  value={dims.width || ''}
+                  onChange={(e) => setFromCellCount('x', e.target.value)}
+                  aria-label={t('maps.vtt.calibrate.cellsAcross')}
+                  style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }}
+                />
+              </Field>
+              <Field label={t('maps.vtt.calibrate.cellsDown')} style={{ flex: 1, minWidth: 0 }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  value={dims.height || ''}
+                  onChange={(e) => setFromCellCount('y', e.target.value)}
+                  aria-label={t('maps.vtt.calibrate.cellsDown')}
+                  style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }}
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* Route 2 — the numbers themselves, for walking an almost-right
+              grid into place. */}
+          <div>
+            <div style={sectionTitleStyle}>{t('maps.vtt.calibrate.manual')}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Field label={t('maps.vtt.calibrate.cellPx')}>
+                <NumberNudge
+                  value={cellPx}
+                  onChange={(v) => onChange(Math.max(1, v), offset)}
+                  label={t('maps.vtt.calibrate.cellPx')}
+                />
+              </Field>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Field label={t('maps.vtt.calibrate.offsetX')} style={{ flex: 1, minWidth: 0 }}>
+                  <NumberNudge
+                    value={offset.x}
+                    onChange={(v) => onChange(cellPx, { ...offset, x: v })}
+                    label={t('maps.vtt.calibrate.offsetX')}
+                  />
+                </Field>
+                <Field label={t('maps.vtt.calibrate.offsetY')} style={{ flex: 1, minWidth: 0 }}>
+                  <NumberNudge
+                    value={offset.y}
+                    onChange={(v) => onChange(cellPx, { ...offset, y: v })}
+                    label={t('maps.vtt.calibrate.offsetY')}
+                  />
+                </Field>
+              </div>
+            </div>
+          </div>
+
+          {/* The result and the way out, pinned to the bottom of the column:
+              this is the step's conclusion, so it sits below the controls that
+              lead to it however tall they grow. */}
+          <div style={{ marginTop: 'auto', paddingTop: 4 }}>
             <div
-              key={`${p.x}-${p.y}-${i}`}
-              data-testid="calibration-pick"
-              aria-hidden="true"
+              style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}
+              data-testid="calibrator-dims"
+            >
+              {t('maps.vtt.calibrate.result', { width: dims.width, height: dims.height })}
+            </div>
+            <button
+              type="button"
+              onClick={onConfirm}
               style={{
-                position: 'absolute',
-                left: p.x,
-                top: p.y,
-                // Counter-scaled so the marker stays the same size on screen at
-                // any zoom — the point of zooming is to aim precisely, and a
-                // marker that grows with the image would hide what it marks.
-                transform: `translate(-50%, -50%) scale(${1 / view.scale})`,
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                border: '2px solid var(--gold)',
-                background: 'var(--overlay, rgba(0,0,0,0.4))',
-                pointerEvents: 'none',
+                ...btnStyle,
+                width: '100%',
+                justifyContent: 'center',
+                borderColor: 'var(--gold)',
+                color: 'var(--gold)',
               }}
-            />
-          ))}
+            >
+              {t('maps.vtt.calibrate.confirm')}
+            </button>
+          </div>
         </div>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: 12,
-          flexWrap: 'wrap',
-          padding: '10px 14px',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--bg-panel)',
-        }}
-      >
-        {/* Route 1 — say how big the map is. The most direct way most people
-            know their grid, and it redraws the overlay as you type. */}
-        <span style={groupLabelStyle}>{t('maps.vtt.calibrate.byCount')}</span>
-        <Field label={t('maps.vtt.calibrate.cellsAcross')}>
-          <input
-            type="number"
-            min="0"
-            step="0.25"
-            value={dims.width || ''}
-            onChange={(e) => setFromCellCount('x', e.target.value)}
-            aria-label={t('maps.vtt.calibrate.cellsAcross')}
-            style={{ ...inputStyle, width: 78 }}
-          />
-        </Field>
-        <Field label={t('maps.vtt.calibrate.cellsDown')}>
-          <input
-            type="number"
-            min="0"
-            step="0.25"
-            value={dims.height || ''}
-            onChange={(e) => setFromCellCount('y', e.target.value)}
-            aria-label={t('maps.vtt.calibrate.cellsDown')}
-            style={{ ...inputStyle, width: 78 }}
-          />
-        </Field>
-
-        <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
-
-        {/* Route 2 — pick two intersections. More accurate on a map whose grid
-            does not divide the image evenly, since the error is spread over
-            however many cells the picks span. */}
-        <span style={groupLabelStyle}>{t('maps.vtt.calibrate.byPicks')}</span>
-        <Field label={t('maps.vtt.calibrate.spanX')}>
-          <input
-            type="number"
-            min="0"
-            value={spanX}
-            onChange={(e) => setSpanX(e.target.value)}
-            aria-label={t('maps.vtt.calibrate.spanX')}
-            style={{ ...inputStyle, width: 70 }}
-          />
-        </Field>
-        <Field label={t('maps.vtt.calibrate.spanY')}>
-          <input
-            type="number"
-            min="0"
-            value={spanY}
-            onChange={(e) => setSpanY(e.target.value)}
-            aria-label={t('maps.vtt.calibrate.spanY')}
-            style={{ ...inputStyle, width: 70 }}
-          />
-        </Field>
-        <button type="button" onClick={apply} disabled={!canApply} style={btnStyle}>
-          {t('maps.vtt.calibrate.apply', { count: picks.length })}
-        </button>
-        <button
-          type="button"
-          onClick={() => setPicks([])}
-          disabled={picks.length === 0}
-          style={btnStyle}
-        >
-          <LuRotateCcw size={13} aria-hidden="true" /> {t('maps.vtt.calibrate.clearPicks')}
-        </button>
-
-        <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
-
-        <Field label={t('maps.vtt.calibrate.cellPx')}>
-          <NumberNudge
-            value={cellPx}
-            onChange={(v) => onChange(Math.max(1, v), offset)}
-            label={t('maps.vtt.calibrate.cellPx')}
-          />
-        </Field>
-        <Field label={t('maps.vtt.calibrate.offsetX')}>
-          <NumberNudge
-            value={offset.x}
-            onChange={(v) => onChange(cellPx, { ...offset, x: v })}
-            label={t('maps.vtt.calibrate.offsetX')}
-          />
-        </Field>
-        <Field label={t('maps.vtt.calibrate.offsetY')}>
-          <NumberNudge
-            value={offset.y}
-            onChange={(v) => onChange(cellPx, { ...offset, y: v })}
-            label={t('maps.vtt.calibrate.offsetY')}
-          />
-        </Field>
-
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }} data-testid="calibrator-dims">
-          {t('maps.vtt.calibrate.result', { width: dims.width, height: dims.height })}
-        </div>
-        <button
-          type="button"
-          onClick={onConfirm}
-          style={{ ...btnStyle, borderColor: 'var(--gold)', color: 'var(--gold)' }}
-        >
-          {t('maps.vtt.calibrate.confirm')}
-        </button>
       </div>
     </div>
   )

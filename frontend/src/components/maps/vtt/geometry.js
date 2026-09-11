@@ -83,12 +83,17 @@ export function distanceToPolyline(p, points) {
 /**
  * Cell size and origin offset implied by two or more picked grid intersections.
  *
- * This is the calibration primitive. The user clicks intersections they can see
- * and says how many cells apart they are; the spacing between the extremes,
- * divided by that span, is the cell size. Using the *extremes* rather than
- * adjacent pairs is deliberate: picking two points ten cells apart divides the
- * user's clicking error by ten, which is what makes a hand-picked calibration
- * more accurate than counting one square.
+ * **Currently unused.** The pick-two-intersections UI was taken out of the
+ * calibrator, which now offers the cell counts and the direct nudges instead.
+ * This is kept rather than deleted: the geometry is the hard part, it is
+ * covered by tests, and bringing the feature back should mean rebuilding the
+ * interaction rather than re-deriving the maths.
+ *
+ * The user clicks intersections they can see and says how many cells apart they
+ * are; the spacing between the extremes, divided by that span, is the cell
+ * size. Using the *extremes* rather than adjacent pairs is deliberate: picking
+ * two points ten cells apart divides the user's clicking error by ten, which is
+ * what makes a hand-picked calibration more accurate than counting one square.
  *
  * Each axis is solved independently and only from points that actually span
  * that axis, so a horizontal pick calibrates x and leaves y to another pick or

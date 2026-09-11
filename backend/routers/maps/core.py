@@ -1,4 +1,5 @@
 """Map CRUD, file-serving, and folder-tagging endpoints."""
+import base64
 import hashlib
 import io
 import json
@@ -36,11 +37,13 @@ from ._helpers import (
     _sniff_image_mime,
     render_map_pdf_page,
     render_map_preview,
+    vtt_authoring_doc,
     vtt_image_bytes,
+    vtt_image_size,
     vtt_metadata,
 )
 from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate, VttAuthoringUpdate
-from .uvtt import build_uvtt, check_grid_plausible, resolve_grid
+from .uvtt import build_uvtt, check_grid_plausible, resolve_grid, round2
 from .vtt_authoring import VttDataError, doc_counts, normalize_vtt_data
 
 router = APIRouter()
@@ -354,30 +357,53 @@ def export_map_uvtt(
     m = _load_accessible_map(map_id, current_user, db)
     if not os.path.exists(m.filepath):
         raise HTTPException(404, "File not found on disk")
-    # Raster only. A PDF, video, archive or an existing .uvtt has nothing to
-    # export here — the last one is already in the target format.
+    # A PDF, video or archive has no single raster to embed. A .uvtt *is* one of
+    # these files, so it re-exports rather than being rejected: the GM may have
+    # edited its walls, and the export is how the edit leaves Grimoire.
+    is_vtt = is_vtt_data(m.filename)
     opaque = Path(m.filepath).suffix.lower() in MAP_OPAQUE_EXTS
-    if _is_pdf(m.filepath) or archive_ext(m.filename) or opaque:
+    if _is_pdf(m.filepath) or archive_ext(m.filename) or (opaque and not is_vtt):
         raise HTTPException(400, "Only image maps can be exported to Universal VTT")
 
-    # A map already linked to a real Universal VTT file has nothing to gain from
-    # this export: the linked file carries walls, doors and lights, and ours
-    # would carry none of them. What makes them a pair is the variant link, not
-    # the filename -- the duplicate manager lets a user link two files whatever
-    # they are called -- so check the family. `variant_kind` is the signal when
-    # the link was categorised; a link made without one falls back to the
-    # sibling's extension.
-    _, siblings = variants.family_for(db, GenericMap, m)
-    if any(
-        s.id != m.id and (s.variant_kind == "universal-vtt" or is_vtt_data(s.filename))
-        for s in siblings
-    ):
-        raise HTTPException(400, "This map is already linked to a Universal VTT file")
+    # A raster map already linked to a real Universal VTT file has nothing to
+    # gain from this export: the linked file carries walls, doors and lights,
+    # and ours would carry none of them. What makes them a pair is the variant
+    # link, not the filename -- the duplicate manager lets a user link two files
+    # whatever they are called -- so check the family. `variant_kind` is the
+    # signal when the link was categorised; a link made without one falls back
+    # to the sibling's extension. The .uvtt side of such a pair is exempt: it is
+    # the file carrying the geometry, so exporting it is the whole point.
+    if not is_vtt:
+        _, siblings = variants.family_for(db, GenericMap, m)
+        if any(
+            s.id != m.id and (s.variant_kind == "universal-vtt" or is_vtt_data(s.filename))
+            for s in siblings
+        ):
+            raise HTTPException(400, "This map is already linked to a Universal VTT file")
 
     info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
+    # A .uvtt's raster is inside the envelope, so nothing at the path measures.
+    if is_vtt and not info.get("pixel_width"):
+        px_w, px_h = vtt_image_size(m.filepath)
+        if px_w:
+            info = {**info, "pixel_width": px_w, "pixel_height": px_h}
     if not info.get("pixel_width"):
         raise HTTPException(400, "Map image could not be read")
     grid = resolve_grid(m, info)
+    # As in the authoring handler: the file's own cell size is what its geometry
+    # was drawn against, so it wins over detection or a default.
+    if is_vtt and grid["source"] != "manual":
+        try:
+            file_px = (vtt_metadata(m.filepath) or {}).get("pixels_per_grid")
+        except ValueError:
+            file_px = None
+        if isinstance(file_px, (int, float)) and file_px > 0:
+            grid = {
+                "width": round2(info["pixel_width"] / file_px),
+                "height": round2(info["pixel_height"] / file_px),
+                "px": float(file_px),
+                "source": "vtt",
+            }
 
     try:
         mtime = int(os.path.getmtime(m.filepath))
@@ -388,8 +414,16 @@ def export_map_uvtt(
     # The authored geometry is part of the identity of the export: editing a
     # wall must not serve the previously cached file. Hashed as its canonical
     # JSON so the key stays a fixed length whatever the map holds.
+    # An unedited .uvtt exports the geometry it already carries, matching what
+    # the editor shows when opening it. Once saved, `vtt_data` is the truth.
+    export_doc = m.vtt_data
+    if is_vtt and export_doc is None:
+        try:
+            export_doc = vtt_authoring_doc(m.filepath)
+        except ValueError:
+            export_doc = None
     doc_key = hashlib.sha1(
-        json.dumps(m.vtt_data or {}, sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(export_doc or {}, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()[:16]
     key = f"{m.filepath}:{mtime}:{grid['width']}x{grid['height']}@{grid['px']}:{doc_key}"
     cache_path = os.path.join(
@@ -399,7 +433,16 @@ def export_map_uvtt(
         with open(cache_path, "rb") as f:
             payload = f.read()
     else:
-        payload = json.dumps(build_uvtt(m.filepath, grid, m.vtt_data)).encode("utf-8")
+        # A .uvtt hands its own base64 picture straight through: there is no
+        # file for Pillow to open, and re-encoding an already-web-ready image
+        # would only cost quality.
+        image_b64 = None
+        if is_vtt:
+            try:
+                image_b64 = base64.b64encode(vtt_image_bytes(m.filepath)).decode("ascii")
+            except ValueError as e:
+                raise HTTPException(400, str(e)) from None
+        payload = json.dumps(build_uvtt(m.filepath, grid, export_doc, image_b64)).encode("utf-8")
         try:
             with open(cache_path, "wb") as f:
                 f.write(payload)
@@ -433,9 +476,52 @@ def get_map_authoring(
     rather than silently redrawing walls in the wrong place.
     """
     m = _load_accessible_map(map_id, current_user, db)
+    is_vtt = is_vtt_data(m.filename)
     info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
+    # A .uvtt's raster is base64 inside the envelope, so nothing at the path can
+    # be measured and `info` comes back with no dimensions. The editor sizes its
+    # canvas and grid overlay from these, so measure the embedded image instead.
+    if is_vtt and not info.get("pixel_width"):
+        px_w, px_h = vtt_image_size(m.filepath)
+        if px_w:
+            info = {**info, "pixel_width": px_w, "pixel_height": px_h}
     grid = resolve_grid(m, info)
+    # The file states its own cell size. Trust it over a detected or defaulted
+    # one -- it is what the geometry inside was authored against, so anything
+    # else would draw the file's own walls onto a grid they do not fit. A manual
+    # override still wins: that is the user correcting the file.
+    if is_vtt and grid["source"] != "manual":
+        try:
+            meta = vtt_metadata(m.filepath)
+        except ValueError:
+            meta = {}
+        file_px = meta.get("pixels_per_grid")
+        if isinstance(file_px, (int, float)) and file_px > 0:
+            px_w, px_h = info.get("pixel_width"), info.get("pixel_height")
+            grid = {
+                "width": round2(px_w / file_px) if px_w else meta.get("grid_width") or 0.0,
+                "height": round2(px_h / file_px) if px_h else meta.get("grid_height") or 0.0,
+                "px": float(file_px),
+                "source": "vtt",
+            }
     doc = m.vtt_data or None
+
+    # A Universal VTT map opens on its own geometry. Editing one means editing
+    # what the file already holds, so an unedited .uvtt seeds the document from
+    # the file rather than presenting a blank overlay over drawn walls. Once the
+    # GM saves, `vtt_data` is the truth and the file is no longer consulted --
+    # otherwise a deliberately emptied document would refill itself on reload.
+    seeded = False
+    if is_vtt and doc is None:
+        try:
+            doc = vtt_authoring_doc(m.filepath)
+            seeded = doc is not None
+        except ValueError:
+            doc = None
+    # A .uvtt carries its picture as base64 inside the envelope, so the editor
+    # has to draw against the decoding endpoint rather than the page renderer.
+    image_url = f"/maps/{m.id}/vtt/image" if is_vtt else f"/maps/{m.id}/page/1"
+
     return {
         "map_id": m.id,
         "filename": m.filename,
@@ -448,6 +534,12 @@ def get_map_authoring(
             "source": grid["source"],
         },
         "data": doc,
+        "image_url": image_url,
+        "is_vtt": is_vtt,
+        # True when the geometry came from the file and has never been saved:
+        # the editor says so, since "save" will then move authorship into
+        # Grimoire rather than back into the user's file.
+        "seeded_from_file": seeded,
         **doc_counts(doc),
     }
 

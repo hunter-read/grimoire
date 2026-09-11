@@ -516,10 +516,10 @@ a book whose file is missing.
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
-| `/api/maps/:id/export.uvtt` | GET | any | Export a raster map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). 400 for PDF, video, archive, and existing `.uvtt` maps, and for a map already **variant-linked** to a Universal VTT file |
+| `/api/maps/:id/export.uvtt` | GET | any | Export a map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). An existing `.uvtt` re-exports, carrying its own embedded image plus any edited geometry. 400 for PDF, video and archive maps, and for a raster map already **variant-linked** to a Universal VTT file |
 | `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image |
 | `/api/maps/:id/vtt/data` | GET | any | Grid resolution plus wall/portal/light counts parsed from a `.uvtt`/`.dd2vtt` map, image omitted. 400 if the map is not Universal VTT |
-| `/api/maps/:id/vtt/authoring` | GET | any | Walls, portals, lights and environment authored in the in-app editor, plus the resolved grid to draw them on. `data` is `null` when nothing has been authored |
+| `/api/maps/:id/vtt/authoring` | GET | any | Walls, portals, lights and environment authored in the in-app editor, plus the resolved grid to draw them on, the `image_url` to draw against, and `is_vtt`/`seeded_from_file` flags. `data` is `null` when nothing has been authored; for an unedited `.uvtt` it is seeded from the file's own geometry |
 | `/api/maps/:id/vtt/authoring` | PUT | gm/admin | Replace the authored geometry in one atomic write. Body: `{data: {...}}`; `{"data": null}` clears it |
 | `/api/maps/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/maps/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, map_type?, grid_size?}]}` |
@@ -585,12 +585,20 @@ filename ending in `.uvtt`, not as `application/json` - the body is JSON by
 format, but it is a file to save rather than an API payload, and a JSON content
 type makes browsers offer it as `.json`.
 
-A map that is already **variant-linked** to a Universal VTT file returns 400.
-That file carries real walls, doors and lights; an export would carry none, so
-offering it would be a downgrade presented as an upgrade. The check is on the
-variant link, not on filenames - the duplicate manager lets a user link two
-files whatever they are named - and matches either a `universal-vtt` variant
-kind or a sibling with a `.uvtt`/`.dd2vtt` extension.
+A *raster* map that is already **variant-linked** to a Universal VTT file
+returns 400. That file carries real walls, doors and lights; an export would
+carry none, so offering it would be a downgrade presented as an upgrade. The
+check is on the variant link, not on filenames - the duplicate manager lets a
+user link two files whatever they are named - and matches either a
+`universal-vtt` variant kind or a sibling with a `.uvtt`/`.dd2vtt` extension.
+
+The `.uvtt` side of such a pair is exempt: it is the half holding the geometry,
+so exporting it is the point rather than a downgrade. Exporting a `.uvtt`
+re-emits its own embedded image **verbatim** - the raster lives inside the
+envelope as base64, so there is nothing at the path to re-encode, and passing it
+through keeps the exported image byte-identical to the original's. Its grid also
+comes from the file's own `pixels_per_grid` unless a manual override is set,
+since that is what the geometry inside was drawn against.
 
 #### Universal VTT authoring
 
@@ -598,6 +606,16 @@ kind or a sibling with a `.uvtt`/`.dd2vtt` extension.
 draw vision-blocking walls, place doors and windows, and position lights on a
 raster map. The whole document is read and replaced at once - that is what
 "save" means in the editor, and it keeps the write atomic.
+
+A standalone `.uvtt` map can be edited too, and opens on the geometry it already
+carries: when `data` has never been saved for one, the response seeds it from
+the file's own `line_of_sight`/`portals`/`lights`/`environment` (validated
+through the same gate a client payload passes) and sets `seeded_from_file`.
+Saving then writes to the map row as usual - **the file on disk is never
+rewritten**, which is what keeps a read-only library working. Because a `.uvtt`
+carries its picture as base64 rather than as a file, `image_url` names the
+decoding endpoint (`/api/maps/:id/vtt/image`) instead of the page renderer, and
+`pixel_width`/`pixel_height` are measured from the embedded image.
 
 Geometry is stored in **grid units**, the same unit the file format uses, so
 export is a copy rather than a conversion and a later grid correction does not
@@ -1093,7 +1111,7 @@ as a campaign file and links it as a `file` resource under an optional category.
 | `/api/campaigns/:id/resources/reorder` | PUT | owner | Drag-and-drop order. Body: `{ordered_ids}` |
 | `/api/campaigns/:id/resources/:res_id` | PATCH | owner | Update visibility/shares/category. Body: `{visibility?, shared_user_ids?, category_id?}` (each optional; `category_id: ""` clears it) |
 | `/api/campaigns/:id/resources/:res_id` | DELETE | owner | Unlink resource (deletes the underlying file for `file` resources) |
-| `/api/campaigns/:id/files` | POST | owner | Upload a campaign file (multipart `file`); links it as a `file` resource. Subject to admin upload limits (admins exempt). |
+| `/api/campaigns/:id/files` | POST | owner | Upload a campaign file (multipart `file`); links it as a `file` resource. Optional `category_id` / `new_category_name` form fields file it under a resource category in the same call. Subject to admin upload limits (admins exempt). |
 | `/api/campaigns/:id/images` | POST | owner | Upload an image (multipart `file`, image types only) to embed in a wiki note; links it as a `file` resource with `is_image: true`. Optional multipart fields: `category_id` (file it under an existing resource category) or `new_category_name` (create a category and file it there). |
 | `/api/campaigns/:id/files/:file_id` | GET | per visibility | Download a campaign file (honours the linking resource's visibility); for an image this also serves it inline/as its thumbnail |
 

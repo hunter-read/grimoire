@@ -587,12 +587,8 @@
         "byCount": "Op grootte",
         "cellsAcross": "Vakjes breed",
         "cellsDown": "Vakjes hoog",
-        "byPicks": "Via punten",
-        "instructions": "Klik twee rasterkruisingen aan, geef aan hoeveel vakjes ertussen liggen en pas toe.",
-        "spanX": "Vakjes ertussen ↔",
-        "spanY": "Vakjes ertussen ↕",
-        "apply": "Toepassen ({{count}} gekozen)",
-        "clearPicks": "Punten wissen",
+        "instructions": "Controleer of het raster op je kaart aansluit en corrigeer het zo nodig.",
+        "manual": "Fijnafstelling",
         "cellPx": "Vakgrootte (px)",
         "offsetX": "Verschuiving X",
         "offsetY": "Verschuiving Y",
@@ -604,8 +600,9 @@
         "select": "Selecteren",
         "wall": "Muur",
         "object": "Objectmuur",
-        "portal": "Deur of raam",
-        "light": "Licht"
+        "portal": "Deur",
+        "light": "Licht",
+        "window": "Raam"
       },
       "snap": {
         "title": "Uitlijnen",
@@ -654,11 +651,94 @@
       },
       "environment": {
         "title": "Omgeving",
-        "baked": "Belichting zit in de afbeelding",
-        "bakedHint": "Aanvinken als de kaartafbeelding de belichting al bevat.",
+        "baked": "Deze kaart heeft de belichting al ingetekend",
+        "bakedHint": "Vink dit aan als de illustratie zelf fakkellicht, schaduwen of gloed toont. Virtuele tafels kunnen jouw lichten dan negeren of dempen, zodat ze niet dubbel komen.",
         "bakedWarning": "Deze kaart staat als reeds belicht gemarkeerd, dus een VTT kan de {{count}} hier geplaatste lichten negeren of dempen.",
         "ambient": "Omgevingslicht",
-        "ambientStrength": "Sterkte"
+        "ambientStrength": "Sterkte",
+        "ambientLabel": "Lichtniveau zonder lichten in de buurt",
+        "ambientHint": "Hoe helder een plek zonder eigen licht oogt. Zwart is een pikdonkere kerker; een gedempt blauw leest als maanlicht.",
+        "ambientDark": "Onverlichte gebieden zijn pikzwart.",
+        "ambientLit": "Onverlichte gebieden blijven voor {{percent}}% verlicht."
+      },
+      "target": {
+        "image": "Kaartafbeelding bewerken",
+        "imageHint": "Teken nieuwe muren, deuren en lichten over de afbeelding",
+        "vtt": "Gekoppelde VTT bewerken",
+        "vttHint": "Wijzig de muren, deuren en lichten die het .uvtt-bestand al bevat"
+      },
+      "source": {
+        "subtitle": "Een kaart uploaden",
+        "dropHint": "Sleep hier een kaartafbeelding of Universal VTT-bestand naartoe",
+        "formats": "PNG, JPEG, WebP, GIF, .uvtt of .dd2vtt",
+        "chooseFile": "Kies een bestand",
+        "privacyNote": "Er wordt niets naar je bibliotheek geüpload. Het bestand blijft in je browser totdat je het downloadt of naar een campagne stuurt.",
+        "error": {
+          "not-json": "Dat bestand is geen Universal VTT-bestand.",
+          "not-uvtt": "Dat bestand is geen Universal VTT-bestand.",
+          "no-image": "Dat Universal VTT-bestand bevat geen kaartafbeelding.",
+          "failed": "Dat bestand kon niet worden geopend."
+        }
+      },
+      "send": {
+        "button": "Naar campagne sturen",
+        "title": "Naar een campagne sturen",
+        "hint": "Upload deze kaart als gekoppelde bron naar een campagne die jij leidt.",
+        "chooseCategory": "Kies een categorie",
+        "chooseCategoryHint": "Waar in {{name}} moet deze kaart worden ingedeeld?",
+        "defaultCategory": "Geen categorie",
+        "defaultCategoryHint": "Laat het in de standaard bronnengroep van de campagne",
+        "suggested": "Voorgesteld voor kaarten",
+        "noCampaigns": "Je leidt geen campagnes om dit naartoe te sturen.",
+        "failed": "De kaart kon niet worden verzonden."
+      },
+      "help": {
+        "select": {
+          "click": "Klik op een muur, deur of licht om het te selecteren.",
+          "delete": "Delete of Backspace verwijdert de selectie."
+        },
+        "wall": {
+          "click": "Klik om elke hoek te plaatsen.",
+          "finish": "Dubbelklik, of druk op Enter, om de muur af te ronden.",
+          "close": "Eindig op je eerste punt om een ruimte te sluiten.",
+          "cancel": "Escape annuleert de muur die je tekent.",
+          "undo": "Ctrl/Cmd+Z maakt de laatste muur ongedaan."
+        },
+        "object": {
+          "click": "Klik om elke hoek te plaatsen.",
+          "finish": "Dubbelklik, of druk op Enter, om de vorm af te ronden.",
+          "close": "Eindig op je eerste punt om hem te sluiten.",
+          "cancel": "Escape annuleert de vorm die je tekent.",
+          "undo": "Ctrl/Cmd+Z maakt de laatste vorm ongedaan."
+        },
+        "portal": {
+          "click": "Klik op beide uiteinden van de deuropening – twee klikken plaatsen hem.",
+          "cancel": "Escape annuleert een half geplaatste deur."
+        },
+        "window": {
+          "click": "Klik op beide uiteinden van het raam – twee klikken plaatsen het.",
+          "cancel": "Escape annuleert een half geplaatst raam."
+        },
+        "light": {
+          "click": "Klik om een licht te plaatsen.",
+          "edit": "Bereik en kleur verschijnen hieronder zodra het geplaatst is."
+        },
+        "global": {
+          "pan": "Sleep met de middelste of rechtermuisknop om te verschuiven.",
+          "zoom": "Scroll om te zoomen.",
+          "freeSnap": "Houd Alt ingedrukt om één punt buiten het raster te plaatsen."
+        }
+      },
+      "preview": {
+        "title": "Spelersweergave",
+        "show": "Spelersweergave tonen",
+        "hide": "Spelersweergave verbergen",
+        "hint": "Verduistert alles wat een pion op de kaart niet zou kunnen zien, zodat je je muren kunt controleren zonder te exporteren.",
+        "moveHint": "Sleep de blauwe pion of verplaats hem met de pijltjestoetsen (Shift voor een half vakje).",
+        "sight": "Zicht (vakjes)",
+        "light": "Pionlicht (vakjes)",
+        "rangeHint": "Zicht 0 betekent onbeperkt – alleen muren houden het tegen. Pionlicht is de fakkel die de pion draagt.",
+        "notExported": "De pion en deze bereiken zijn alleen voor de weergave. Ze worden niet opgeslagen en komen nooit in het .uvtt-bestand."
       }
     }
   },

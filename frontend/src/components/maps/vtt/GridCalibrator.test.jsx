@@ -37,6 +37,26 @@ beforeEach(() => {
 })
 
 describe('GridCalibrator', () => {
+  it('puts its controls in a panel beside the canvas, not below it', () => {
+    // The drawing phase keeps its panel on the right, so this step does too:
+    // confirming the grid and then drawing on it should not shuffle the page
+    // out from under the user.
+    render(<GridCalibrator {...props} />)
+    const canvas = screen.getByTestId('calibrator-canvas')
+    const panel = screen.getByTestId('calibrator-dims').closest('div[style*="width: 290px"]')
+
+    expect(panel).not.toBeNull()
+    // Same parent, laid out as a row: side by side rather than stacked.
+    expect(panel.parentElement).toBe(canvas.parentElement)
+    expect(canvas.parentElement).toHaveStyle({ display: 'flex' })
+    // The panel matches the drawing phase's sidebar, so the two read as one
+    // panel changing contents rather than two panels in different places.
+    // Asserted on the inline style text: jsdom does not resolve a `border-left`
+    // shorthand whose colour is a CSS variable.
+    expect(panel.getAttribute('style')).toContain('border-left: 1px solid var(--border)')
+    expect(panel).toHaveStyle({ width: '290px' })
+  })
+
   it('overlays the expected grid on the image', () => {
     // Seeing the detected grid on the map is the whole point of the step: it
     // is how a user tells whether the guess is right at all.
@@ -76,60 +96,6 @@ describe('GridCalibrator', () => {
   it('reports the resulting grid dimensions', () => {
     render(<GridCalibrator {...props} />)
     expect(screen.getByTestId('calibrator-dims').textContent).toContain('"width":10')
-  })
-
-  it('records clicked intersections as markers', async () => {
-    render(<GridCalibrator {...props} />)
-    const canvas = screen.getByTestId('calibrator-canvas')
-    fireEvent.mouseDown(canvas, { button: 0, clientX: 450, clientY: 500 })
-    fireEvent.mouseDown(canvas, { button: 0, clientX: 550, clientY: 500 })
-    expect(screen.getAllByTestId('calibration-pick')).toHaveLength(2)
-  })
-
-  it('interpolates a cell size from two picks and a span', async () => {
-    const onChange = vi.fn()
-    render(<GridCalibrator {...props} onChange={onChange} />)
-    const canvas = screen.getByTestId('calibrator-canvas')
-    // The container is 1000x1000 and the image 1400x1960, so fit() scales the
-    // image down; the two clicks are converted back to image space before the
-    // cell size is derived, which is what this checks end to end.
-    fireEvent.mouseDown(canvas, { button: 0, clientX: 400, clientY: 500 })
-    fireEvent.mouseDown(canvas, { button: 0, clientX: 600, clientY: 500 })
-    await userEvent.type(screen.getByLabelText('maps.vtt.calibrate.spanX'), '4')
-    await userEvent.click(screen.getByRole('button', { name: /calibrate.apply/ }))
-    expect(onChange).toHaveBeenCalled()
-    const [cellPx] = onChange.mock.calls[0]
-    expect(cellPx).toBeGreaterThan(0)
-  })
-
-  it('will not apply without a span', async () => {
-    render(<GridCalibrator {...props} />)
-    const canvas = screen.getByTestId('calibrator-canvas')
-    fireEvent.mouseDown(canvas, { button: 0, clientX: 400, clientY: 500 })
-    fireEvent.mouseDown(canvas, { button: 0, clientX: 600, clientY: 500 })
-    expect(screen.getByRole('button', { name: /calibrate.apply/ })).toBeDisabled()
-  })
-
-  it('will not apply from a single pick', async () => {
-    render(<GridCalibrator {...props} />)
-    fireEvent.mouseDown(screen.getByTestId('calibrator-canvas'), {
-      button: 0,
-      clientX: 500,
-      clientY: 500,
-    })
-    await userEvent.type(screen.getByLabelText('maps.vtt.calibrate.spanX'), '4')
-    expect(screen.getByRole('button', { name: /calibrate.apply/ })).toBeDisabled()
-  })
-
-  it('clears picked points', async () => {
-    render(<GridCalibrator {...props} />)
-    fireEvent.mouseDown(screen.getByTestId('calibrator-canvas'), {
-      button: 0,
-      clientX: 500,
-      clientY: 500,
-    })
-    await userEvent.click(screen.getByRole('button', { name: /calibrate.clearPicks/ }))
-    expect(screen.queryAllByTestId('calibration-pick')).toHaveLength(0)
   })
 
   it('nudges the offset a pixel at a time', async () => {
@@ -226,20 +192,26 @@ describe('GridCalibrator', () => {
     expect(onConfirm).toHaveBeenCalled()
   })
 
-  it('zooms so intersections can be picked precisely', async () => {
+  it('zooms so the overlay can be checked against the map closely', async () => {
+    // At fit-to-window on a large map one screen pixel spans several image
+    // pixels, so judging whether the grid lines up needs a closer look.
     render(<GridCalibrator {...props} />)
     const before = screen.getByText(/%$/).textContent
     await userEvent.click(screen.getByLabelText('maps.vtt.zoomIn'))
     expect(screen.getByText(/%$/).textContent).not.toBe(before)
   })
 
-  it('ignores clicks outside the image', () => {
+  it('pans on a left drag', () => {
+    // With nothing to aim at any more, the left button pans rather than being
+    // reserved for placing points.
     render(<GridCalibrator {...props} />)
-    fireEvent.mouseDown(screen.getByTestId('calibrator-canvas'), {
-      button: 0,
-      clientX: -500,
-      clientY: -500,
-    })
-    expect(screen.queryAllByTestId('calibration-pick')).toHaveLength(0)
+    const canvas = screen.getByTestId('calibrator-canvas')
+    const before = screen.getByTestId('grid-overlay').parentElement.style.transform
+
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 500, clientY: 500 })
+    fireEvent.mouseMove(canvas, { clientX: 560, clientY: 540 })
+    fireEvent.mouseUp(canvas)
+
+    expect(screen.getByTestId('grid-overlay').parentElement.style.transform).not.toBe(before)
   })
 })

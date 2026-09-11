@@ -6,13 +6,14 @@ import {
   LuMaximize,
   LuMousePointer2,
   LuMinus,
+  LuPanelTop,
   LuRedo2,
   LuSquare,
   LuUndo2,
   LuZoomIn,
   LuZoomOut,
 } from 'react-icons/lu'
-import { TOOL_LIGHT, TOOL_OBJECT, TOOL_PORTAL, TOOL_SELECT, TOOL_WALL } from './tools'
+import { TOOL_LIGHT, TOOL_OBJECT, TOOL_PORTAL, TOOL_SELECT, TOOL_WALL, TOOL_WINDOW } from './tools'
 import { iconBtnStyle } from './ui'
 
 /**
@@ -45,6 +46,10 @@ export default function VttToolbar({
     { id: TOOL_WALL, icon: LuMinus, label: t('maps.vtt.tools.wall') },
     { id: TOOL_OBJECT, icon: LuSquare, label: t('maps.vtt.tools.object') },
     { id: TOOL_PORTAL, icon: LuDoorOpen, label: t('maps.vtt.tools.portal') },
+    // Its own button rather than a toggle on a placed door: the user knows
+    // which they are drawing before the first click, and making them place a
+    // door and then convert it was four steps to say one thing.
+    { id: TOOL_WINDOW, icon: LuPanelTop, label: t('maps.vtt.tools.window') },
     { id: TOOL_LIGHT, icon: LuLightbulb, label: t('maps.vtt.tools.light') },
   ]
 
