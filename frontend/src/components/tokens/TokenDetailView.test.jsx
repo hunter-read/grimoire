@@ -22,7 +22,11 @@ vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: { role: 'gm' } }),
 }))
 
+const toggleFavorite = vi.fn()
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+vi.mock('../../context/FavoritesContext', () => ({
+  useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
+}))
 vi.mock('../maps/InlineTagEditor', () => ({
   default: ({ onSave }) => (
     <button onClick={() => onSave(['new'])} data-testid="save-tags">
@@ -157,5 +161,12 @@ describe('TokenDetailView', () => {
     const checkbox = await screen.findByRole('checkbox')
     await userEvent.click(checkbox)
     expect(api.patch).toHaveBeenCalledWith('/tokens/t2', { is_explicit: true })
+  })
+
+  it('favourites the token from its detail toolbar', async () => {
+    mockApi('t2')
+    render(<TokenDetailView />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    expect(toggleFavorite).toHaveBeenCalledWith('token', 't2')
   })
 })

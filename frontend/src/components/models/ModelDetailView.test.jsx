@@ -16,7 +16,11 @@ vi.mock('./ModelViewerPane', () => ({
   default: ({ model }) => <div data-testid="viewer">{model.filename}</div>,
 }))
 
+const toggleFavorite = vi.fn()
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+vi.mock('../../context/FavoritesContext', () => ({
+  useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
+}))
 vi.mock('../DownloadVersionButton', () => ({ default: () => null }))
 vi.mock('../VariantPicker', () => ({ default: () => null }))
 vi.mock('../maps/InlineTagEditor', () => ({
@@ -210,5 +214,11 @@ describe('ModelDetailView', () => {
       await userEvent.click(screen.getByTitle('Details'))
       expect(screen.getByText('12,480')).toBeVisible()
     })
+  })
+
+  it('favourites the model from its detail toolbar', async () => {
+    renderAt(aModel())
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    expect(toggleFavorite).toHaveBeenCalledWith('model', 'm1')
   })
 })

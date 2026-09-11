@@ -16,6 +16,7 @@ import MapGridEditor from './MapGridEditor'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import EditVttButton from './vtt/EditVttButton'
 import { canExportUvtt } from './vtt/editTargets'
@@ -266,6 +267,7 @@ export default function MapDetailView() {
             one offers the choice, since only the user knows which they mean.
             Nothing saved here touches the file on disk. */}
         <EditVttButton map={map} compact={isMobilePhone} />
+        <DetailFavoriteButton type="map" id={mapId} compact={isMobilePhone} />
         <AddToCampaignButton resourceType="map" resourceId={mapId} />
         <DownloadVersionButton
           type="maps"
