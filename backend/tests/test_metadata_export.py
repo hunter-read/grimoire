@@ -5,6 +5,7 @@ to a user's library. Foreign files stay untouched, a read-only mount reports
 instead of raising, and a metadata edit never conjures a file into existence.
 """
 import json
+import contextlib
 import os
 
 import pytest
@@ -516,3 +517,137 @@ class TestUmaskHelper:
             assert restored == 0o027
         finally:
             os.umask(before)
+
+
+class TestConfiguredUmask:
+    """``UMASK``/``GRIMOIRE_UMASK`` set the process umask (issue #428).
+
+    Kubernetes gives no way to set a process umask short of replacing the
+    entrypoint, so the variable has to be honoured in-process.
+    """
+
+    @contextlib.contextmanager
+    def _umask_restored(self):
+        before = os.umask(0o022)
+        os.umask(before)
+        try:
+            yield
+        finally:
+            os.umask(before)
+
+    def test_it_applies_an_octal_umask_from_the_environment(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.setenv("UMASK", "002")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o002
+
+    def test_it_accepts_the_grimoire_prefixed_name(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.delenv("UMASK", raising=False)
+            monkeypatch.setenv("GRIMOIRE_UMASK", "027")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o027
+
+    def test_umask_wins_over_the_prefixed_name(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.setenv("UMASK", "007")
+            monkeypatch.setenv("GRIMOIRE_UMASK", "027")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o007
+
+    def test_it_reads_the_value_as_octal_not_decimal(self, monkeypatch):
+        """``022`` is the octal 18, not the decimal 22 - the usual umask spelling."""
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o077)
+            monkeypatch.setenv("UMASK", "022")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o022
+
+    def test_a_zero_umask_is_applied_rather_than_treated_as_unset(self, monkeypatch):
+        """Unraid users want 000 for rw-rw-rw-; it must not read as falsy."""
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.setenv("UMASK", "000")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o000
+
+    def test_an_0o_prefixed_value_is_accepted(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.setenv("UMASK", "0o002")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o002
+
+    def test_surrounding_whitespace_is_tolerated(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.setenv("UMASK", "  002  ")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o002
+
+    def test_an_unset_variable_leaves_the_inherited_umask_alone(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o027)
+            monkeypatch.delenv("UMASK", raising=False)
+            monkeypatch.delenv("GRIMOIRE_UMASK", raising=False)
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o027
+
+    def test_an_empty_variable_leaves_the_inherited_umask_alone(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        with self._umask_restored():
+            os.umask(0o027)
+            monkeypatch.setenv("UMASK", "   ")
+            _apply_configured_umask()
+            assert os.umask(0o022) == 0o027
+
+    def test_a_non_octal_value_is_ignored_rather_than_guessed_at(self, monkeypatch):
+        """A typo must not silently widen permissions."""
+        from backend.config import _apply_configured_umask
+
+        for bad in ("not-a-number", "99", "0o9", "022x"):
+            with self._umask_restored():
+                os.umask(0o027)
+                monkeypatch.setenv("UMASK", bad)
+                _apply_configured_umask()
+                assert os.umask(0o022) == 0o027, bad
+
+    def test_an_out_of_range_value_is_ignored(self, monkeypatch):
+        from backend.config import _apply_configured_umask
+
+        for bad in ("7777", "-022"):
+            with self._umask_restored():
+                os.umask(0o027)
+                monkeypatch.setenv("UMASK", bad)
+                _apply_configured_umask()
+                assert os.umask(0o022) == 0o027, bad
+
+    def test_the_library_file_mode_follows_a_configured_umask(self, monkeypatch):
+        """The point of the variable: it governs what lands in the library."""
+        from backend.config import _apply_configured_umask, _read_umask
+
+        with self._umask_restored():
+            os.umask(0o022)
+            monkeypatch.setenv("UMASK", "000")
+            _apply_configured_umask()
+            assert 0o666 & ~_read_umask() == 0o666

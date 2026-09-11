@@ -54,6 +54,39 @@ DISABLE_VERSION_CHECKING = (
 )
 
 
+def _apply_configured_umask() -> None:
+    """Set the process umask from ``UMASK``/``GRIMOIRE_UMASK`` when either is set.
+
+    The container entrypoint applies this too, but Grimoire is not always started
+    through it — a bare ``docker run``, Kubernetes overriding the command, or a
+    source install all land here with whatever umask they inherited (issue #428:
+    k8s gives no easy way to set a process umask). Applying it in-process makes
+    the variable mean the same thing however Grimoire was launched.
+
+    Values are octal with or without a leading ``0o``/``0``, matching how umask
+    is written everywhere else (``022``, ``002``, ``000``). An unparseable or
+    out-of-range value is ignored with a warning rather than guessed at, so a
+    typo leaves the inherited umask rather than silently widening permissions.
+    """
+    raw = (os.environ.get("UMASK") or os.environ.get("GRIMOIRE_UMASK") or "").strip()
+    if not raw:
+        return
+    try:
+        value = int(raw, 8)
+    except ValueError:
+        logging.getLogger("grimoire").warning(
+            "UMASK=%r is not an octal number (expected e.g. 022 or 002) - ignoring it.",
+            raw,
+        )
+        return
+    if not 0 <= value <= 0o777:
+        logging.getLogger("grimoire").warning(
+            "UMASK=%r is out of range (expected 000-777) - ignoring it.", raw
+        )
+        return
+    os.umask(value)
+
+
 def _read_umask() -> int:
     """The process umask, read once at import.
 
@@ -67,6 +100,7 @@ def _read_umask() -> int:
     return current
 
 
+_apply_configured_umask()
 UMASK = _read_umask()
 
 # Mode for files Grimoire creates *inside the library*, where other tools and
