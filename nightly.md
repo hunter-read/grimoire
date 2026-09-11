@@ -728,6 +728,15 @@ the display name lives in the app's tag catalog rather than in `tags.json` (whic
 the app treats as read-only and never rewrites). Tags are matched
 case-insensitively, so `"dungeon"` and `"Dungeon"` are the same tag.
 
+A tag's name cannot contain `/` or `\`. Grimoire has no notion of subtags, so a
+name like `Storage/Box1` would be a flat tag that merely looks nested - and the
+slash broke the address the app uses to reach it, leaving a tag that could be
+created but never renamed or deleted. Those characters are now refused when you
+add a tag, with a note suggesting a separate tag instead. A tag already carrying
+a slash - from an older version, or from a `tags.json`, which is yours and is
+still applied as written - is reachable again, so you can rename, merge, or
+delete it from the Tags page.
+
 ---
 
 ## Ignoring Files with .grimoireignore

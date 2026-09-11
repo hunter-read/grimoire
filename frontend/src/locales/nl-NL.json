@@ -314,6 +314,7 @@
     "addTagPlaceholder": "Tag toevoegen…",
     "removeTag": "{{tag}} verwijderen",
     "createTag": "“{{name}}” aanmaken",
+    "invalidChars": "Tags mogen geen “/” of “\\” bevatten. Grimoire heeft geen subtags — gebruik in plaats daarvan een aparte tag.",
     "favoritesOnly": "Alleen favorieten",
     "favorite": "Favoriet",
     "unfavorite": "Favoriet verwijderen",

@@ -67,6 +67,41 @@ describe('api', () => {
       await expect(api.get('/books/ghost')).rejects.toThrow('Not found')
     })
 
+    // Issue #430: FastAPI's 422 body carries `detail` as a *list* of
+    // {loc, msg, type} objects. Passing that straight to `new Error` rendered
+    // "[object Object]" instead of the reason the request was refused.
+    it('surfaces a 422 validation message instead of [object Object]', async () => {
+      global.fetch = mockFetch(422, {
+        detail: [
+          {
+            type: 'value_error',
+            loc: ['body', 'tags'],
+            msg: "Value error, Tags cannot contain '/'.",
+          },
+        ],
+      })
+
+      await expect(api.get('/tags')).rejects.toThrow("Tags cannot contain '/'.")
+    })
+
+    it('joins several validation messages and drops duplicates', async () => {
+      global.fetch = mockFetch(422, {
+        detail: [
+          { msg: 'Value error, First problem' },
+          { msg: 'Value error, Second problem' },
+          { msg: 'Value error, First problem' },
+        ],
+      })
+
+      await expect(api.get('/tags')).rejects.toThrow('First problem; Second problem')
+    })
+
+    it('falls back to the status text when a 422 body has no usable message', async () => {
+      global.fetch = mockFetch(422, { detail: [{ loc: ['body'] }] })
+
+      await expect(api.get('/tags')).rejects.toThrow(/./)
+    })
+
     it('throws an error with the correct status code', async () => {
       global.fetch = mockFetch(404, { detail: 'Not found' })
 

@@ -7,6 +7,17 @@ import { tags as tagsApi } from '../../api'
 const GROUP_LIMIT = 10
 const DEBOUNCE_MS = 200
 
+// A tag's name addresses it in the API path, and a slash there reads as a path
+// separator — so a tag containing one could be created but never edited or
+// deleted (issue #430). The server rejects these outright; catching it here
+// means the user is told while typing rather than on save. Grimoire has no
+// subtags, so "Storage/Box1" was never going to nest anything anyway.
+const FORBIDDEN_TAG_CHARS = /[/\\]/
+
+export function tagNameIsAddressable(name) {
+  return !FORBIDDEN_TAG_CHARS.test(String(name || ''))
+}
+
 /**
  * Single-input tag combobox shared by every tag-editing surface (issue #235).
  * Selected tags render as removable chips above the input (like GenrePicker).
@@ -123,7 +134,7 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
       .slice(0, GROUP_LIMIT)
 
     const exact = allTags.some((tg) => tg.internal === q)
-    const canCreate = q.length > 0 && !exact && !has(q)
+    const canCreate = q.length > 0 && !exact && !has(q) && tagNameIsAddressable(q)
 
     const groups = [
       canCreate && { header: null, rows: [{ type: 'create', display: query.trim() }] },
@@ -149,6 +160,7 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
 
   const addTag = (display) => {
     const v = display.trim()
+    if (!tagNameIsAddressable(v)) return // keep the text so it can be corrected
     if (v && !has(v.toLowerCase())) onChange([...value, v])
     setQuery('')
     setDebouncedQ('')
@@ -239,7 +251,9 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
         style={{ width: '100%', boxSizing: 'border-box' }}
       />
       {open &&
-        flat.length > 0 &&
+        // An unusable name yields no rows at all (no matches, and the create row
+        // is withheld), so the menu must still open to carry the explanation.
+        (flat.length > 0 || !tagNameIsAddressable(query)) &&
         menuRect &&
         createPortal(
           <div
@@ -260,6 +274,21 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
               boxShadow: '0 6px 20px var(--shadow)',
             }}
           >
+            {/* The create row is withheld for an unusable name, so say why —
+                otherwise typing "a/b" just silently offers nothing. */}
+            {!tagNameIsAddressable(query) && (
+              <div
+                role="alert"
+                style={{
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  borderBottom: flat.length ? '1px solid var(--border)' : 'none',
+                }}
+              >
+                {t('tags.invalidChars')}
+              </div>
+            )}
             {flat.map((entry, i) =>
               entry.kind === 'header' ? (
                 <div

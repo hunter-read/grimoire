@@ -806,11 +806,24 @@ with `tags`); these endpoints manage the shared tag catalog and browse items by 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/tags` | GET | any | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
-| `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}` |
+| `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}`. A `value` containing `/` or `\` is refused with a 422 (see **Tag names** below) |
 | `/api/tags/:internal/items` | GET | any | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived - each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
-| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists - no 404). Body: `{display}` |
-| `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}` |
+| `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists - no 404). Body: `{display}`. A `display` containing `/` or `\` is refused with a 422 |
+| `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}`. `into` is refused with a 422 if it contains `/` or `\`; the **source** `:internal` may contain one, so merging is a way out of such a tag |
 | `/api/tags/:internal` | DELETE | gm/admin | Delete a tag and unlink it from every resource |
+
+**Tag names.** A tag's `internal` key is its address in these paths, so a name
+containing `/` or `\` is rejected (422) by every endpoint that accepts one — here
+and on every `tags` field of the resource editors, which share the same
+validation. A slash there is not a subtag (Grimoire has no such concept); it is a
+flat name that used to make its own tag unaddressable and so impossible to rename
+or delete (issue #430).
+
+The four `:internal` routes above match **across slashes**, so a tag that already
+carries one — created before the rule, or applied from a `tags.json`, which is
+the user's own file and is still honoured as written — can still be fetched,
+renamed, merged, and deleted. Percent-encode the key (`storage%2Fbox1`) as
+`encodeURIComponent` does.
 
 Tag object shape: `{internal, display, category}` (list/item endpoints also include
 `count`; the list adds `is_favorite`). A tag's **category** is the single resource

@@ -26,7 +26,7 @@ class BulkAddTags(BaseModel):
     @classmethod
     def dedupe_tags(cls, v):
         # Display casing is preserved; the service lowercases only the match key.
-        return tag_service.dedupe_tags(v)
+        return tag_service.dedupe_tags(v, validate=True)
 
 
 class BulkFolderTags(BaseModel):
@@ -42,7 +42,7 @@ class FolderTagsEntry(BaseModel):
     @field_validator("tags", mode="before")
     @classmethod
     def dedupe_tags(cls, v):
-        return tag_service.dedupe_tags(v)
+        return tag_service.dedupe_tags(v, validate=True)
 
 
 BulkFolderTags.model_rebuild()

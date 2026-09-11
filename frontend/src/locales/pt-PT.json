@@ -314,6 +314,7 @@
     "addTagPlaceholder": "Adicionar etiqueta…",
     "removeTag": "Remover {{tag}}",
     "createTag": "Criar “{{name}}”",
+    "invalidChars": "As etiquetas não podem conter “/” nem “\\”. O Grimoire não tem subetiquetas — usa antes uma etiqueta separada.",
     "favoritesOnly": "Apenas favoritos",
     "favorite": "Favorito",
     "unfavorite": "Remover favorito",

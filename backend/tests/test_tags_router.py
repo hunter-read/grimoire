@@ -1,5 +1,6 @@
 """Integration tests for the /api/tags router and tag dual-write (issue #235)."""
 import uuid
+from urllib.parse import quote
 
 from backend.config import SessionLocal
 from backend.models import MapFolder
@@ -369,3 +370,175 @@ class TestFolderTags:
             f"/api/tags/none-{uuid.uuid4().hex[:6]}", headers=admin_headers
         )
         assert resp.status_code == 404
+
+
+class TestSlashedTags:
+    """Tags whose key contains a slash (issue #430).
+
+    A slash in a tag name reads as a path separator once the tag is addressed as
+    `/api/tags/{internal}`: the browser sends %2F, but the ASGI server decodes it
+    before routing. Such a tag could be created and then never edited or deleted.
+    New ones are now refused; ones already in a library stay reachable so they
+    can be cleaned up.
+    """
+
+    def _slashed_tag(self, client, headers, label):
+        """Create a slashed tag the way a pre-fix library got one: straight
+        through the service, bypassing the schema validation added with it."""
+        from backend.services import tag_service
+
+        db = SessionLocal()
+        try:
+            tag_service.get_or_create_tag(db, label)
+            db.commit()
+        finally:
+            db.close()
+        return label.lower()
+
+    def test_existing_slashed_tag_can_be_viewed(self, client, admin_headers):
+        key = self._slashed_tag(client, admin_headers, f"Storage/Box{uuid.uuid4().hex[:6]}")
+        resp = client.get(f"/api/tags/{quote(key, safe='')}/items", headers=admin_headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["internal"] == key
+
+    def test_existing_slashed_tag_can_be_renamed_out_of_trouble(self, client, admin_headers):
+        suffix = uuid.uuid4().hex[:6]
+        key = self._slashed_tag(client, admin_headers, f"Storage/Box{suffix}")
+        resp = client.patch(
+            f"/api/tags/{quote(key, safe='')}",
+            json={"display": f"Storage Box{suffix}"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        # The internal key follows the new display, so the slash is gone for good.
+        assert resp.json()["internal"] == f"storage box{suffix}"
+        internals = {
+            t["internal"] for t in client.get("/api/tags", headers=admin_headers).json()["tags"]
+        }
+        assert key not in internals
+
+    def test_existing_slashed_tag_can_be_deleted(self, client, admin_headers):
+        key = self._slashed_tag(client, admin_headers, f"Storage/Box{uuid.uuid4().hex[:6]}")
+        resp = client.delete(f"/api/tags/{quote(key, safe='')}", headers=admin_headers)
+        assert resp.status_code == 204, resp.text
+        internals = {
+            t["internal"] for t in client.get("/api/tags", headers=admin_headers).json()["tags"]
+        }
+        assert key not in internals
+
+    def test_deeply_slashed_tag_is_still_addressable(self, client, admin_headers):
+        """`:path` is greedy, so more than one slash must work too."""
+        key = self._slashed_tag(client, admin_headers, f"a/b/c{uuid.uuid4().hex[:6]}")
+        assert client.delete(f"/api/tags/{quote(key, safe='')}", headers=admin_headers).status_code == 204
+
+    def test_creating_a_slashed_tag_is_rejected(self, client, admin_headers):
+        resp = client.post("/api/tags", json={"value": "Storage/Box1"}, headers=admin_headers)
+        assert resp.status_code == 422
+        assert "/" in str(resp.json()["detail"])
+
+    def test_tagging_an_item_with_a_slash_is_rejected(self, client, admin_headers):
+        m = make_map()
+        resp = client.patch(
+            f"/api/maps/{m.id}", json={"tags": ["Storage/Box1"]}, headers=admin_headers
+        )
+        assert resp.status_code == 422
+
+    def test_backslash_is_rejected_too(self, client, admin_headers):
+        resp = client.post("/api/tags", json={"value": "Storage\\Box1"}, headers=admin_headers)
+        assert resp.status_code == 422
+
+    def test_renaming_a_tag_to_a_slashed_name_is_rejected(self, client, admin_headers):
+        label = f"Plain{uuid.uuid4().hex[:6]}"
+        _tag_a_map(client, admin_headers, [label])
+        resp = client.patch(
+            f"/api/tags/{label.lower()}", json={"display": "a/b"}, headers=admin_headers
+        )
+        assert resp.status_code == 422
+
+    def test_merging_into_a_slashed_name_is_rejected(self, client, admin_headers):
+        label = f"Plain{uuid.uuid4().hex[:6]}"
+        _tag_a_map(client, admin_headers, [label])
+        resp = client.post(
+            f"/api/tags/{label.lower()}/merge", json={"into": "a/b"}, headers=admin_headers
+        )
+        assert resp.status_code == 422
+
+    def test_a_slashed_tag_can_be_merged_away(self, client, admin_headers):
+        """Merging is an escape hatch, so the *source* may carry a slash."""
+        key = self._slashed_tag(client, admin_headers, f"Storage/Box{uuid.uuid4().hex[:6]}")
+        target = f"Storage{uuid.uuid4().hex[:6]}"
+        _tag_a_map(client, admin_headers, [target])
+        resp = client.post(
+            f"/api/tags/{quote(key, safe='')}/merge",
+            json={"into": target},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        internals = {
+            t["internal"] for t in client.get("/api/tags", headers=admin_headers).json()["tags"]
+        }
+        assert key not in internals
+        assert target.lower() in internals
+
+    def test_a_legacy_slashed_tag_does_not_break_bulk_add(self, client, admin_headers):
+        """Validation belongs on request input, not on tags already stored.
+
+        The bulk "add tags" path folds an item's existing tags in with the new
+        ones. Validating that merged list would turn one legacy tag into a 500
+        on an unrelated operation — and leave the item unfixable.
+        """
+        from backend.services import tag_service
+
+        m = make_map()
+        key = f"storage/box{uuid.uuid4().hex[:6]}"
+        db = SessionLocal()
+        try:
+            tag_service.set_resource_tags(db, "map", m.id, [key])
+            db.commit()
+        finally:
+            db.close()
+        resp = client.post(
+            "/api/maps/bulk/tags", json={"ids": [m.id], "tags": ["Forest"]}, headers=admin_headers
+        )
+        assert resp.status_code == 200, resp.text
+        assert set(resp.json()["tags"][m.id]) == {"Forest", key}
+        # Reading the item back must not fail on its own stored tag either.
+        assert client.get(f"/api/maps/{m.id}", headers=admin_headers).status_code == 200
+
+    def test_bulk_add_still_rejects_a_new_slashed_tag(self, client, admin_headers):
+        m = make_map()
+        resp = client.post(
+            "/api/maps/bulk/tags", json={"ids": [m.id], "tags": ["a/b"]}, headers=admin_headers
+        )
+        assert resp.status_code == 422
+
+    def test_book_tags_are_validated_and_deduped(self, client, admin_headers):
+        """Books took `tags` without deduping; both now apply (issue #430)."""
+        book = make_book(make_game_system().id)
+        assert (
+            client.patch(
+                f"/api/books/{book.id}", json={"tags": ["a/b"]}, headers=admin_headers
+            ).status_code
+            == 422
+        )
+        ok = client.patch(
+            f"/api/books/{book.id}", json={"tags": ["Forest", "forest"]}, headers=admin_headers
+        )
+        assert ok.status_code == 200, ok.text
+        assert client.get(f"/api/books/{book.id}", headers=admin_headers).json()["tags"] == [
+            "Forest"
+        ]
+
+    def test_ordinary_tags_are_unaffected(self, client, admin_headers):
+        """The `:path` routes must not change the everyday single-segment case."""
+        label = f"Forest{uuid.uuid4().hex[:6]}"
+        _tag_a_map(client, admin_headers, [label])
+        assert client.get(f"/api/tags/{label.lower()}/items", headers=admin_headers).status_code == 200
+        renamed = client.patch(
+            f"/api/tags/{label.lower()}", json={"display": f"Woods{label}"}, headers=admin_headers
+        )
+        assert renamed.status_code == 200, renamed.text
+        assert (
+            client.delete(f"/api/tags/woods{label.lower()}", headers=admin_headers).status_code
+            == 204
+        )

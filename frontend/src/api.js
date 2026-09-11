@@ -58,6 +58,23 @@ async function authedFetch(url, build) {
   return fetch(url, build())
 }
 
+// Pull a human-readable message out of an error body. FastAPI's `detail` is a
+// string for the HTTPExceptions we raise ourselves, but a *list* of
+// `{loc, msg, type}` objects for a 422 from schema validation — and stringifying
+// that shows the user "[object Object]" rather than the reason (e.g. the tag
+// naming rule in issue #430). Join the messages instead, dropping Pydantic's
+// "Value error, " prefix, which means nothing to someone who did not write the
+// validator.
+function errorDetail(body) {
+  const detail = body?.detail
+  if (typeof detail === 'string') return detail
+  if (!Array.isArray(detail)) return null
+  const messages = detail
+    .map((e) => String(e?.msg || '').replace(/^Value error,\s*/, ''))
+    .filter(Boolean)
+  return messages.length ? [...new Set(messages)].join('; ') : null
+}
+
 async function handleResponse(res) {
   if (res.status === 401) {
     window.dispatchEvent(new CustomEvent('grimoire:unauthorized'))
@@ -76,7 +93,7 @@ async function handleResponse(res) {
     body = null
   }
   if (!res.ok) {
-    const detail = body?.detail || raw?.trim() || res.statusText || 'Request failed'
+    const detail = errorDetail(body) || raw?.trim() || res.statusText || 'Request failed'
     throw Object.assign(new Error(detail), { status: res.status, body })
   }
   return body

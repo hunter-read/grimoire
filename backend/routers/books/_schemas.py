@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
+from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
 from .._json_list_coercion import coerce_link_list, coerce_str_list
 from .._variant_schemas import VariantEntry
@@ -55,6 +56,14 @@ class BookUpdate(BaseModel):
     #
     # Admin-only on the write path — enforced in the handler, not here.
     access_level: Optional[str] = None
+
+    # Books took tags without deduping them; validating here also blocks a name
+    # the tags API could not address afterwards (issue #430). Input only — the
+    # response model below must keep returning a legacy tag rather than 500.
+    @field_validator("tags")
+    @classmethod
+    def dedupe_tags(cls, v):
+        return tag_service.dedupe_tags(v, validate=True) if v is not None else v
 
     @field_validator("access_level")
     @classmethod
