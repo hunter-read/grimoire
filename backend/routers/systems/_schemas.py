@@ -35,7 +35,7 @@ class BookFolderUpdate(BaseModel):
     def dedupe_tags(cls, v):
         # Keep the entered casing (dedupe by key); the book-folder handler
         # registers catalog rows with this casing and stores internal keys.
-        return tag_service.dedupe_tags(v)
+        return tag_service.dedupe_tags(v, validate=True)
 
 
 class MetadataSearch(BaseModel):
@@ -98,7 +98,7 @@ class GameSystemUpdate(BaseModel):
     @field_validator("tags", mode="before")
     @classmethod
     def dedupe_tags(cls, v):
-        return tag_service.dedupe_tags(v) if v is not None else v
+        return tag_service.dedupe_tags(v, validate=True) if v is not None else v
 
     @field_validator("name")
     @classmethod

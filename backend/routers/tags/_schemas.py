@@ -3,13 +3,29 @@ from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
+from ...services import tag_service
 from .._json_list_coercion import PublisherRef, coerce_publisher_list
 
 
+def _reject_forbidden_chars(v: str) -> str:
+    """Block a tag value the API could not address afterwards (issue #430)."""
+    problem = tag_service.validate_tag_value(v)
+    if problem:
+        raise ValueError(problem)
+    return v
+
+
 class TagDisplayUpdate(BaseModel):
-    """Rename a tag's human-facing display value (internal key is immutable)."""
+    """Rename a tag's human-facing display value.
+
+    The internal key follows the new display when its normalized form changes,
+    so the new value has to be addressable too — which is what lets a tag that
+    already contains a slash be renamed out of trouble.
+    """
 
     display: str
+
+    _check_display = field_validator("display")(_reject_forbidden_chars)
 
 
 class TagMerge(BaseModel):
@@ -17,12 +33,18 @@ class TagMerge(BaseModel):
 
     into: str  # target tag's internal key (or any casing of it)
 
+    # Only the *target* is checked: merging is a way out of a slashed tag, so
+    # the source is deliberately left alone.
+    _check_into = field_validator("into")(_reject_forbidden_chars)
+
 
 class TagCreate(BaseModel):
     """Create a tag up-front (optional; tags are also created on first use)."""
 
     value: str
     display: Optional[str] = None
+
+    _check_value = field_validator("value")(_reject_forbidden_chars)
 
 
 class TagListItem(BaseModel):

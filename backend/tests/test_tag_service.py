@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 
+import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -733,3 +734,31 @@ class TestBookFolderDepth:
         db.commit()
         ft = tag_service.folder_tags_in_use(db, "book")
         assert ft["gothic"]["refs"] == [{"resource_type": "book", "resource_id": bid}]
+
+
+class TestTagValueValidation:
+    """Tag names must stay addressable in the API path (issue #430)."""
+
+    def test_ordinary_values_are_accepted(self):
+        assert tag_service.validate_tag_value("Storage Box 1") is None
+        assert tag_service.validate_tag_value("d&d: 5e") is None
+        assert tag_service.validate_tag_value("") is None  # blanks are dropped, not rejected
+
+    def test_slash_and_backslash_are_rejected(self):
+        assert tag_service.validate_tag_value("Storage/Box1") is not None
+        assert tag_service.validate_tag_value("Storage\\Box1") is not None
+
+    def test_dedupe_tags_raises_only_when_asked_to_validate(self):
+        with pytest.raises(ValueError):
+            tag_service.dedupe_tags(["fine", "Storage/Box1"], validate=True)
+
+    def test_dedupe_tags_passes_a_stored_slashed_tag_through_by_default(self):
+        """The default is lenient so re-saving an item that already carries a
+        legacy tag cannot fail on data the user can no longer create."""
+        assert tag_service.dedupe_tags(["Storage/Box1", "Forest"]) == [
+            "Storage/Box1",
+            "Forest",
+        ]
+
+    def test_dedupe_tags_still_dedupes_ordinary_values(self):
+        assert tag_service.dedupe_tags(["Forest", "forest", " Cave "]) == ["Forest", "Cave"]

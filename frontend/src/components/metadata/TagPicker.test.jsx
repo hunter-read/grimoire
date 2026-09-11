@@ -110,4 +110,54 @@ describe('TagPicker', () => {
       expect(screen.queryByRole('option', { name: /Dungeon/ })).not.toBeInTheDocument()
     )
   })
+  // Issue #430: a tag whose name contains a slash addresses no route once it is
+  // sent as /api/tags/{internal}, so it could be created and never edited or
+  // deleted. The server refuses it; the picker refuses it while typing.
+  describe('unaddressable names', () => {
+    it('does not offer a create row for a name containing a slash', async () => {
+      render(<Harness />)
+      await waitFor(() => expect(mockList).toHaveBeenCalled())
+      await userEvent.type(screen.getByRole('combobox'), 'Storage/Box1')
+      await screen.findByRole('alert')
+      expect(screen.queryByRole('option', { name: /Create/i })).not.toBeInTheDocument()
+    })
+
+    it('explains why instead of silently offering nothing', async () => {
+      render(<Harness />)
+      await waitFor(() => expect(mockList).toHaveBeenCalled())
+      await userEvent.type(screen.getByRole('combobox'), 'Storage/Box1')
+      expect(await screen.findByRole('alert')).toHaveTextContent(/subtags/i)
+    })
+
+    it('does not add the tag on Enter', async () => {
+      render(<Harness />)
+      await waitFor(() => expect(mockList).toHaveBeenCalled())
+      const input = screen.getByRole('combobox')
+      await userEvent.type(input, 'Storage/Box1')
+      await screen.findByRole('alert')
+      // Nothing matches the typed text, so once the debounce settles Enter has
+      // only the create row to fall back on — and that row is withheld for an
+      // unusable name, leaving nothing to commit.
+      await waitFor(() => expect(screen.queryAllByRole('option')).toHaveLength(0))
+      await userEvent.type(input, '{Enter}')
+      // No chip was added, and the text stays so it can be corrected.
+      expect(screen.queryByRole('button', { name: /^Remove / })).not.toBeInTheDocument()
+      expect(input).toHaveValue('Storage/Box1')
+    })
+
+    it('rejects a backslash too', async () => {
+      render(<Harness />)
+      await waitFor(() => expect(mockList).toHaveBeenCalled())
+      await userEvent.type(screen.getByRole('combobox'), 'Storage\\Box1')
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+    })
+
+    it('still offers a create row for an ordinary name', async () => {
+      render(<Harness />)
+      await waitFor(() => expect(mockList).toHaveBeenCalled())
+      await userEvent.type(screen.getByRole('combobox'), 'Storage Box1')
+      expect(await screen.findByRole('option', { name: /Create/i })).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+  })
 })
