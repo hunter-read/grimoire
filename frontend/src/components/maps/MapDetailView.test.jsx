@@ -18,7 +18,11 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: `/maps/${currentMapId}`, state: locationState }),
 }))
 
+const toggleFavorite = vi.fn()
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+vi.mock('../../context/FavoritesContext', () => ({
+  useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
+}))
 vi.mock('./MapGridEditor', () => ({
   default: ({ onSaved }) => (
     <button onClick={onSaved} data-testid="grid-saved">
@@ -347,5 +351,12 @@ describe('MapDetailView', () => {
       await screen.findByTestId('image-pane')
       expect(screen.getByTestId('download-extras')).toHaveTextContent('/maps/m2/export.uvtt')
     })
+  })
+
+  it('favourites the map from its detail toolbar', async () => {
+    mockApi('m2')
+    render(<MapDetailView />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    expect(toggleFavorite).toHaveBeenCalledWith('map', 'm2')
   })
 })

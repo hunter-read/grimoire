@@ -32,7 +32,11 @@ vi.mock('react-router-dom', () => ({
 vi.mock('./AudioPlayer', () => ({
   default: () => <button>play</button>,
 }))
+const toggleFavorite = vi.fn()
 vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
+vi.mock('../../context/FavoritesContext', () => ({
+  useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
+}))
 // Cover art is a gm/admin affordance (issue #286); default to an admin so it renders.
 let authUser = { id: 'u1', role: 'admin' }
 vi.mock('../../context/AuthContext', () => ({
@@ -228,5 +232,12 @@ describe('AudioDetailView', () => {
       await userEvent.click(screen.getByRole('button', { name: /Change cover/i }))
       expect(screen.queryByRole('button', { name: /^Remove$/i })).not.toBeInTheDocument()
     })
+  })
+
+  it('favourites the track from its detail toolbar', async () => {
+    api.get.mockResolvedValue(detail())
+    render(<AudioDetailView />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    expect(toggleFavorite).toHaveBeenCalledWith('audio', 'a1')
   })
 })

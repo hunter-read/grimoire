@@ -14,6 +14,7 @@ import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
@@ -214,6 +215,7 @@ export default function TokenDetailView() {
           </button>
         )}
         <VariantPicker item={token} detailPath={(id) => `/tokens/${id}`} compact />
+        <DetailFavoriteButton type="token" id={tokenId} compact={isMobilePhone} />
         <AddToCampaignButton resourceType="token" resourceId={tokenId} />
         <DownloadVersionButton type="tokens" id={tokenId} item={token} compact={isMobilePhone} />
       </div>
