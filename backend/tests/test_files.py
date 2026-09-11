@@ -14,6 +14,7 @@ import pytest
 
 from backend.config import SessionLocal, LIBRARY_PATH
 from backend.models import Book, GenericMap
+from backend.indexer.categories import prettify_collection_name
 from backend.services import library_fs as fs
 from backend.services import tag_service
 
@@ -2327,6 +2328,148 @@ class TestNestedContainerPlacement:
         assert row.category == "handout"
         assert row.game_system_id == system_row.id
         db.close()
+
+
+class TestScannerNamedContainerChildren:
+    """A container child matched the way the *scanner* actually names it (issue #434).
+
+    ``_register_system`` keys a child row on the slug ``<container>--<folder>``
+    and gives it a display name that is rarely the bare folder name: a
+    parent-system shelf stores "{container} {folder}" ("D&D" + "5e" →
+    "D&D 5e"), a one-page shelf prettifies the folder, and any of them may have
+    been renamed by hand afterwards. Matching only on the bare folder name and
+    slug therefore missed the child and fell back to the *container*, silently
+    moving every renamed or moved book onto the parent row — while the response
+    still reported ``records: N`` as though it had succeeded.
+
+    The category half of #413 shipped correctly; this is the system half.
+    """
+
+    @pytest.fixture
+    def parent_tree(self):
+        """books/<container>/<edition folder>/Core/ under a parent-system marker."""
+        import shutil
+
+        stamp = str(uuid.uuid4())[:8]
+        container, folder = f"Check-{stamp}", "9 XX"
+        rel = f"books/{container}/{folder}/Core/Check Book.pdf"
+        src = _write(rel)
+        open(
+            os.path.join(LIB, f"books/{container}/.parent-system-container"), "wb"
+        ).close()
+        yield stamp, container, folder, rel, src
+        shutil.rmtree(os.path.join(LIB, "books", container), ignore_errors=True)
+
+    def _rows(self, tree, *, child_name=None):
+        """The rows a scan of ``parent_tree`` leaves behind.
+
+        Name and slug both follow ``_register_system``: the edition's display
+        name is "{container} {folder}" and its slug is namespaced under the
+        container's, which is what makes the bare-folder-name lookup miss.
+        """
+        stamp, container, folder, rel, src = tree
+        parent = make_game_system(name=container, slug=f"check-{stamp}")
+        child = make_game_system(
+            name=child_name or f"{container} {folder}",
+            slug=f"check-{stamp}--{folder.lower().replace(' ', '-')}",
+            parent_id=parent.id,
+        )
+        book = make_book(
+            child.id,
+            filename="Check Book.pdf",
+            filepath=src,
+            relative_path=rel,
+            category="core",
+        )
+        return parent, child, book
+
+    def test_placement_resolves_the_edition_not_the_container(self, parent_tree):
+        _stamp, _container, _folder, _rel, src = parent_tree
+        _parent, child, _book = self._rows(parent_tree)
+
+        db = SessionLocal()
+        system_id, category = fs.resolve_book_placement(db, Path(src))
+        db.close()
+
+        assert category == "core"
+        assert system_id == child.id, "the edition owns the book, not the container"
+
+    def test_rename_keeps_the_edition(self, parent_tree):
+        """The reported reproduction: rename a book, watch it change systems."""
+        _stamp, _container, _folder, rel, _src = parent_tree
+        _parent, child, book = self._rows(parent_tree)
+        book_id = book.id
+
+        db = SessionLocal()
+        result = fs.rename_path(db, rel, "Check Book & Renamed.pdf")
+        db.close()
+
+        assert result["records"] == 1
+        db = SessionLocal()
+        row = db.query(Book).filter(Book.id == book_id).first()
+        assert row.category == "core"
+        assert row.game_system_id == child.id, "the rename reassigned it to the container"
+        db.close()
+
+    def test_move_keeps_the_edition(self, parent_tree):
+        """``/api/files/move`` re-infers from the destination the same way."""
+        _stamp, container, folder, rel, _src = parent_tree
+        _parent, child, book = self._rows(parent_tree)
+        book_id = book.id
+        dest = f"books/{container}/{folder}/Supplements"
+        os.makedirs(os.path.join(LIB, dest), exist_ok=True)
+
+        db = SessionLocal()
+        result = fs.move_paths(db, [rel], dest)
+        db.close()
+
+        assert result.count == 1
+        db = SessionLocal()
+        row = db.query(Book).filter(Book.id == book_id).first()
+        assert row.category == "supplement", "the category half of #413 still holds"
+        assert row.game_system_id == child.id, "the move reassigned it to the container"
+        db.close()
+
+    def test_renamed_child_system_is_still_matched(self, parent_tree):
+        """A hand-renamed edition keeps its slug, which is what identifies it.
+
+        "Dungeons & Dragons 2e" renamed to "Advanced Dungeons & Dragons" no
+        longer resembles its folder at all, so a name-only lookup cannot find it.
+        """
+        _stamp, _container, _folder, _rel, src = parent_tree
+        _parent, child, _book = self._rows(parent_tree, child_name="Advanced Check Rules")
+
+        db = SessionLocal()
+        system_id, _category = fs.resolve_book_placement(db, Path(src))
+        db.close()
+
+        assert system_id == child.id
+
+    def test_one_page_child_is_matched_by_its_prettified_name(self):
+        """A one-page shelf prettifies its children ("honey-heist" → "Honey Heist")."""
+        import shutil
+
+        stamp = str(uuid.uuid4())[:8]
+        # Stamped so the prettified name cannot collide with the identically
+        # named system the indexer tests create in the shared session DB.
+        container, folder = f"Jam-{stamp}", f"honey-heist-{stamp}"
+        rel = f"books/{container}/{folder}/core/rules.pdf"
+        src = _write(rel)
+        open(os.path.join(LIB, f"books/{container}/.one-page-container"), "wb").close()
+        try:
+            parent = make_game_system(name=container, slug=f"jam-{stamp}")
+            child = make_game_system(
+                name=prettify_collection_name(folder),
+                slug=f"jam-{stamp}--{folder}",
+                parent_id=parent.id,
+            )
+            db = SessionLocal()
+            system_id, category = fs.resolve_book_placement(db, Path(src))
+            db.close()
+            assert category == "core"
+            assert system_id == child.id
+        finally:
+            shutil.rmtree(os.path.join(LIB, "books", container), ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
