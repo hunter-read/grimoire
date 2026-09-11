@@ -96,8 +96,38 @@ def _is_container(db: Session, parts: list[str], depth: int) -> bool:
     return parent is not None and parent.name == _system_folder_name(parts[depth])
 
 
-def _match_system(db: Session, folder_name: str) -> Optional[GameSystem]:
-    """The system row a books folder maps to, matched by name then slug."""
+def _container_child_slug(parts: list[str], depth: int) -> str:
+    """The slug ``_register_system`` gives the system folder at ``parts[depth - 1]``.
+
+    A container's children are slugged under it — ``_resolve_system_folder`` is
+    handed ``slug_prefix=f"{container.slug}--"`` — and that nests, so an edition
+    two containers down is ``family--parent--5e``. Rebuilding the chain from the
+    path is what lets a nested system be found at all: its own folder name alone
+    slugifies to something no row carries.
+    """
+    return "--".join(
+        slugify(_system_folder_name(segment)) for segment in parts[1:depth]
+    )
+
+
+def _match_system(
+    db: Session, folder_name: str, *, slug: str = ""
+) -> Optional[GameSystem]:
+    """The system row a books folder maps to, matched by slug then name.
+
+    ``slug`` is the scanner's own namespaced slug for a container's child, and
+    is tried first because it is the only identifier that survives everything
+    the display name does not: ``_register_system`` names an edition
+    "{container} {folder}", prettifies a one-page child, uniquifies a name
+    collision with a suffix, and leaves a hand-renamed system alone forever
+    after (``name_is_custom``). Matching on the bare folder name found none of
+    those, so every renamed or moved book under a container silently fell back
+    to the container row (issue #434).
+    """
+    if slug:
+        row = db.query(GameSystem).filter(GameSystem.slug == slug).first()
+        if row is not None:
+            return row
     name = _system_folder_name(folder_name)
     return (
         db.query(GameSystem).filter(GameSystem.name == name).first()
@@ -114,9 +144,11 @@ def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str],
     destination path so the record matches what the next rescan would produce —
     if they disagreed, the rescan would silently rewrite the move.
 
-    The system is matched by *name* against existing rows rather than created:
-    creating systems is ``create_folder``'s job, and a move should never
-    invent one as a side effect.
+    The system is matched against existing rows rather than created: creating
+    systems is ``create_folder``'s job, and a move should never invent one as a
+    side effect. Under a container that match is made on the scanner's own
+    namespaced slug, since a child's display name is derived rather than equal
+    to its folder name (issue #434).
     """
     rel = to_relative(dest_file)
     parts = rel.split("/")
@@ -135,7 +167,11 @@ def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str],
     # The system folder is the last segment before the category folder, so it
     # walks right with the depth: `parts[1]` unnested, `parts[2]` inside one
     # container, `parts[3]` inside two (issue #413).
-    system = _match_system(db, parts[depth - 1])
+    system = _match_system(
+        db,
+        parts[depth - 1],
+        slug=_container_child_slug(parts, depth) if depth > 2 else "",
+    )
     if system is None and depth > 2:
         # An unregistered nested folder should still land on the container row
         # rather than orphaning the book, as it did before containers nested.
