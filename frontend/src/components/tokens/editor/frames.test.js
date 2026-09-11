@@ -17,6 +17,7 @@ import {
   frameUrl,
   groupFrames,
   isBuiltinFrame,
+  matchesFrameQuery,
 } from './frames'
 
 beforeEach(() => vi.clearAllMocks())
@@ -52,12 +53,8 @@ describe('frameUrl', () => {
 })
 
 describe('generic frames', () => {
-  it('offers three recolourable shapes', () => {
-    expect(GENERIC_FRAMES.map((f) => f.id)).toEqual([
-      'generic:circle',
-      'generic:square',
-      'generic:hexagon',
-    ])
+  it('offers two recolourable shapes', () => {
+    expect(GENERIC_FRAMES.map((f) => f.id)).toEqual(['generic:circle', 'generic:square'])
   })
 
   it('renders a generic in the requested colour', () => {
@@ -67,7 +64,7 @@ describe('generic frames', () => {
   })
 
   it('marks only the generics as recolourable', () => {
-    expect(frameIsRecolourable('generic:hexagon')).toBe(true)
+    expect(frameIsRecolourable('generic:square')).toBe(true)
     expect(frameIsRecolourable('builtin:pc')).toBe(false)
     expect(frameIsRecolourable('dG9rZW5z')).toBe(false)
   })
@@ -139,5 +136,44 @@ describe('frameLabel', () => {
     )
     expect(frameLabel({ builtin: false, name: 'orc ring' }, t)).toBe('orc ring')
     expect(frameLabel(null, t)).toBe('')
+  })
+})
+
+describe('matchesFrameQuery', () => {
+  const t = (key) => (key === 'tokenEditor.framePc' ? 'Player character' : key)
+  const frame = { builtin: false, name: 'orc ring', group: 'Fantasy Frames' }
+
+  it('matches everything on an empty or whitespace query', () => {
+    expect(matchesFrameQuery(frame, '', t)).toBe(true)
+    expect(matchesFrameQuery(frame, '   ', t)).toBe(true)
+    expect(matchesFrameQuery(frame, undefined, t)).toBe(true)
+  })
+
+  it('matches the frame name, case-insensitively', () => {
+    expect(matchesFrameQuery(frame, 'ORC', t)).toBe(true)
+    expect(matchesFrameQuery(frame, 'ring', t)).toBe(true)
+    expect(matchesFrameQuery(frame, 'goblin', t)).toBe(false)
+  })
+
+  it('matches the folder, so a user can search by where a frame lives', () => {
+    expect(matchesFrameQuery(frame, 'fantasy', t)).toBe(true)
+  })
+
+  it('matches a built-in through its translated label', () => {
+    expect(matchesFrameQuery({ builtin: true, nameKey: 'tokenEditor.framePc' }, 'player', t)).toBe(
+      true
+    )
+  })
+
+  it('ignores surrounding whitespace in the query', () => {
+    expect(matchesFrameQuery(frame, '  orc  ', t)).toBe(true)
+  })
+
+  it('rejects a missing frame rather than throwing', () => {
+    expect(matchesFrameQuery(null, 'orc', t)).toBe(false)
+  })
+
+  it('tolerates a frame with no group', () => {
+    expect(matchesFrameQuery({ builtin: false, name: 'plain' }, 'plain', t)).toBe(true)
   })
 })

@@ -74,6 +74,15 @@ GENERIC_MARKER = ".container"
 # the other folder-level indicators.
 NSFW_MARKER = ".nsfw"
 
+# Marker file declaring that a folder's images are token-editor frames (overlay
+# art), read by ``routers/token_frames``. It is deliberately *not* in
+# CONTAINER_MARKERS: those describe how a books-tree folder's children relate to
+# each other and feed the container precedence chain, whereas this says nothing
+# about the folder's children and applies under ``tokens/`` at any depth. It
+# lives here so the file manager can badge such a folder without importing a
+# router, and so every folder marker is spelled out in one place.
+FRAMES_MARKER = ".frames-container"
+
 # Container kinds stored in ``GameSystem.container_kind``.
 CONTAINER_PARENT = "parent"
 CONTAINER_ONE_PAGE = "one-page"

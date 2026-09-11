@@ -492,7 +492,8 @@
     "shortcutExtend": "Selectie uitbreiden",
     "shortcutCursorOnly": "Verplaatsen zonder te selecteren",
     "shortcutSelectAll": "Alles in dit venster selecteren",
-    "shortcutClearSelection": "Selectie wissen"
+    "shortcutClearSelection": "Selectie wissen",
+    "framesContainer": "Randen"
   },
   "maps": {
     "title": "Kaarten",
@@ -701,7 +702,8 @@
       "tokenTags": "Tokenlabels",
       "editTags": "Bewerken",
       "noTags": "Geen"
-    }
+    },
+    "framesFolder": "Randen"
   },
   "models": {
     "title": "Models",
@@ -2525,7 +2527,8 @@
     "saving": "Opslaan…",
     "remove": "Verwijderen",
     "failed": "Kon de afbeelding niet instellen",
-    "searchFailed": "Kon afbeeldingen niet laden"
+    "searchFailed": "Kon afbeeldingen niet laden",
+    "ungrouped": "Losse bestanden"
   },
   "backups": {
     "notice": {
@@ -2649,12 +2652,6 @@
     "title": "Token-editor",
     "forCharacter": "voor {{name}}",
     "canvasLabel": "Tokenvoorbeeld — sleep om te verplaatsen, scroll om te zoomen, pijltoetsen om bij te stellen",
-    "shape": "Vorm",
-    "mask": {
-      "circle": "Cirkel",
-      "square": "Vierkant",
-      "none": "Volledig"
-    },
     "size": "Uitvoergrootte",
     "sizeOption": "{{size}} × {{size}} px",
     "zoom": "Zoom",
@@ -2673,7 +2670,7 @@
     "frameNpc": "Niet-spelerpersonage",
     "frameOpponent": "Tegenstander",
     "libraryFrames": "Randen uit de bibliotheek",
-    "customFramesHint": "Voeg eigen randen toe door PNG-, WebP- of SVG-afbeeldingen in een map met de naam .frames in je tokenbibliotheek te zetten.",
+    "customFramesHint": "Voeg eigen randen toe door PNG-, WebP- of SVG-afbeeldingen te zetten in een map in je tokenbibliotheek die een markeringsbestand .frames-container bevat.",
     "source": {
       "upload": "Uploaden",
       "library": "Bibliotheek"
@@ -2693,6 +2690,24 @@
     "frameColor": "Randkleur",
     "shape_circle": "Cirkel",
     "shape_square": "Vierkant",
-    "shape_hexagon": "Zeshoek"
+    "searchFrames": "Randen zoeken",
+    "favoriteFrames": "Favorieten",
+    "noFramesMatch": "Geen randen gevonden voor ‘{{query}}’.",
+    "frameColorNone": "Geen",
+    "color_white": "Wit",
+    "color_black": "Zwart",
+    "sendToCampaign": "Naar een campagne sturen",
+    "sendToCampaignHint": "Maak er de token van een personage van of voeg het toe aan een campagne die je leidt.",
+    "asCharacterToken": "Instellen als personagetoken",
+    "chooseCategory": "Categorie kiezen",
+    "chooseCategoryHint": "Waar de token in {{name}} terechtkomt.",
+    "defaultCategory": "Tokens",
+    "defaultCategoryHint": "De ingebouwde groep",
+    "noCampaigns": "Je hebt geen campagnes om dit naartoe te sturen.",
+    "sendToCharacter": "Naar een personage sturen",
+    "sendToOwnedCampaign": "Naar een campagne die je leidt sturen",
+    "pickCharacterNext": "Kies hierna een personage",
+    "chooseCharacter": "Personage kiezen",
+    "chooseCharacterHint": "Van wie deze token wordt in {{name}}."
   }
 }

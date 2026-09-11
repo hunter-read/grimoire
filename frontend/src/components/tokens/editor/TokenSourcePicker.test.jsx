@@ -3,8 +3,13 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../images/ImageSourceBrowser', () => ({
-  default: ({ onChange }) => (
-    <button type="button" onClick={() => onChange({ source_type: 'token', source_id: 't1' })}>
+  TOKEN_SOURCE_TYPES: ['token'],
+  default: ({ onChange, types }) => (
+    <button
+      type="button"
+      data-types={(types || []).join(',')}
+      onClick={() => onChange({ source_type: 'token', source_id: 't1' })}
+    >
       pick-library-image
     </button>
   ),
@@ -77,5 +82,17 @@ describe('TokenSourcePicker', () => {
 
     fireEvent.dragLeave(zone)
     expect(zone.getAttribute('style')).toBe(idle)
+  })
+
+  it('browses only the token library', async () => {
+    // The token editor browses the token library and nothing else: book covers,
+    // album art, and battlemaps are none of them a character portrait.
+    render(<TokenSourcePicker onFile={vi.fn()} onPickSource={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Library' }))
+
+    expect(screen.getByRole('button', { name: 'pick-library-image' })).toHaveAttribute(
+      'data-types',
+      'token'
+    )
   })
 })

@@ -431,6 +431,46 @@ describe('FilePane', () => {
     expect(screen.getByText('files.nsfw')).toBeInTheDocument()
   })
 
+  it('badges a folder holding token-editor frames', () => {
+    renderPane(
+      makePane({
+        rows: [
+          {
+            entry: entryDir('Fantasy Frames', { frames_container: true }),
+            depth: 0,
+            isOpen: false,
+          },
+        ],
+      })
+    )
+    expect(screen.getByText('files.framesContainer')).toBeInTheDocument()
+  })
+
+  it('badges a frames folder nested under another token folder', () => {
+    // tokens/Cyberpunk/Frames is as valid as tokens/Fantasy Frames — the marker
+    // is read at whatever depth it sits, with no container chain behind it.
+    renderPane(
+      makePane({
+        rows: [
+          {
+            entry: {
+              ...entryDir('Frames', { frames_container: true }),
+              path: 'tokens/Cyberpunk/Frames',
+            },
+            depth: 1,
+            isOpen: false,
+          },
+        ],
+      })
+    )
+    expect(screen.getByText('files.framesContainer')).toBeInTheDocument()
+  })
+
+  it('leaves an ordinary folder unbadged', () => {
+    renderPane(makePane({ rows: [{ entry: entryDir('Tokens'), depth: 0, isOpen: false }] }))
+    expect(screen.queryByText('files.framesContainer')).not.toBeInTheDocument()
+  })
+
   it('renders placeholder rows for loading, empty, and failed subfolders', () => {
     renderPane(
       makePane({

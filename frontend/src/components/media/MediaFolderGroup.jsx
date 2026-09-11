@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload, LuPlay } from 'react-icons/lu'
 import MediaCard from './MediaCard'
 import FolderTagRow from './FolderTagRow'
+import FramesBadge from './FramesBadge'
 import FolderCheckbox from '../FolderCheckbox'
 import LazyGrid from '../LazyGrid'
 import RescanButton from '../RescanButton'
@@ -36,6 +37,7 @@ export default function MediaFolderGroup({
   collapsed,
   onToggle,
   folderTags,
+  frameFolders,
   editingFolder,
   onSetEditingFolder,
   onSaveFolderTags,
@@ -54,6 +56,10 @@ export default function MediaFolderGroup({
   const { i18n, archiveType, countKey, type } = config
   const { playQueue } = useAudioPlayer()
   const [editingRoot, setEditingRoot] = useState(false)
+  // Only the token gallery is ever handed a frame-folder set; every other
+  // collection leaves it undefined, and this then answers false for all of them.
+  const isFrameFolder = (path) => !!frameFolders && frameFolders.has(path)
+
   const isCollapsed = collapsed.has(folder)
   const allInGroup = Object.values(subfolders).flat()
   const total = allInGroup.length
@@ -138,6 +144,7 @@ export default function MediaFolderGroup({
             >
               {toTitleCase(folder)}
             </span>
+            {isFrameFolder(folder) && <FramesBadge label={t('tokens.framesFolder')} />}
             {!isMobilePhone && (
               <span
                 style={{
@@ -306,6 +313,9 @@ export default function MediaFolderGroup({
                         <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
                           ({subItems.length})
                         </span>
+                        {isFrameFolder(folderPath) && (
+                          <FramesBadge label={t('tokens.framesFolder')} />
+                        )}
                       </button>
                       {editingFolder !== editKey && !bulkMode && !isMobilePhone && (
                         <>

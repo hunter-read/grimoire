@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, Response
 from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import Token, TokenFolder
 from ...services import bulk_service, tag_service, variants
+from ..token_frames._helpers import frame_folder_paths
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
@@ -69,7 +70,11 @@ def list_token_folders(db: Session = Depends(get_db)):
         "folders": [
             {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
             for f in folders
-        ]
+        ],
+        # Which of the token folders hold editor frames. A separate list because
+        # `folders` only covers folders someone has tagged, and a frame folder
+        # declares itself on disk rather than through tags.
+        "frame_folders": frame_folder_paths(),
     }
 
 

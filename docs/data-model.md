@@ -216,7 +216,7 @@ path-keyed feature.
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
 | `campaigns` | A GM-run or personal campaign. | FKs `owner_id`, `parent_campaign_id` (self), `system_id`. `system_name` is a free-text fallback when `system_id` is null. `is_gm_campaign` distinguishes group from personal (promoted one-way via `POST /:id/convert-to-group`). `is_archived` (NOT NULL, default false) + `archived_at` hide the campaign from listings and freeze it read-only. `banner_path` is a filename under `DATA_PATH/campaign_uploads/banners/`; `banner_focus_y` (0-100, default 50) is where that image sits vertically in the 2:1 hero, and resets to 50 when the banner is removed. |
-| `campaign_members` | A player invited to / in a campaign. | FKs `campaign_id`, `user_id`. **Unique** `(campaign_id, user_id)`. `guest_code` (indexed) mints guest tokens. |
+| `campaign_members` | A player invited to / in a campaign. | FKs `campaign_id`, `user_id`. **Unique** `(campaign_id, user_id)`. `guest_code` (indexed) mints guest tokens. `character_art_path` and `character_token_path` are separate on purpose: the art is a portrait for the campaign page, the token is the cropped disc for a battlemap, and a character routinely has one without the other. |
 | `campaign_resources` | A book/map/token/file linked to a campaign. | FK `campaign_id`, `category_id`. Polymorphic `(resource_type, resource_id)`. **Unique** `(campaign_id, resource_type, resource_id)`. `visibility` ∈ `public`/`private`/`gm`. |
 | `campaign_resource_shares` | A user a `private` resource is shared with. | FKs `resource_id`, `user_id`. **Unique** `(resource_id, user_id)`. |
 | `campaign_categories` | GM-defined grouping for notes or resources. | FK `campaign_id`. `kind` ∈ `note`/`resource`. |

@@ -5,17 +5,18 @@ import { LuArrowLeft, LuDownload, LuUserRound } from 'react-icons/lu'
 
 import { campaigns as campaignsApi, imageSources, mediaUrl } from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
+import useIsMobile from '../../../hooks/useIsMobile'
 import Spinner from '../../Spinner'
 import { OUTPUT_SIZES, composeToBlob, loadImage } from '../../../lib/tokenCompositor'
 import { frameApertureMask } from '../../../lib/frameMask'
 import { resolveIconColor } from '../../campaigns/iconColors'
 import FramePicker from './FramePicker'
-import SetAsArtDialog from './SetAsArtDialog'
+import SendToCampaignDialog from './SendToCampaignDialog'
 import TokenEditorCanvas from './TokenEditorCanvas'
 import TokenEditorControls from './TokenEditorControls'
 import TokenSourcePicker from './TokenSourcePicker'
-import { fetchFrames, frameIsRecolourable, frameUrl } from './frames'
-import { DEFAULT_FRAME_COLOR } from './genericFrames'
+import { fetchFrames, frameUrl } from './frames'
+import { DEFAULT_FRAME_COLOR, genericShape } from './genericFrames'
 import useTokenTransform from './useTokenTransform'
 
 /**
@@ -35,6 +36,10 @@ export default function TokenEditorView() {
   const location = useLocation()
   const { tokenId } = useParams()
   const { user } = useAuth()
+  // Stacked on a narrow screen, the two columns cannot each own a slice of a
+  // fixed viewport height — so the page scrolls as one instead, and the frame
+  // list grows to its content rather than scrolling inside a squeezed box.
+  const stacked = useIsMobile(760)
 
   // A member target arrives in router state rather than the URL: a membership id
   // in the address bar is noise, and state survives the back button.
@@ -45,15 +50,21 @@ export default function TokenEditorView() {
   const [frames, setFrames] = useState(null)
   const [frameId, setFrameId] = useState(null)
   const [frameImage, setFrameImage] = useState(null)
-  const [mask, setMask] = useState('circle')
   // Stored as an icon-colour token or "#rrggbb" (empty = transparent), the same
   // vocabulary campaign icons use, and resolved only at the point of drawing.
   const [background, setBackground] = useState('')
+  // Empty means "no visible frame": the generic shapes then contribute only
+  // their silhouette, which is what replaced the old separate Shape control.
   const [frameColor, setFrameColor] = useState(DEFAULT_FRAME_COLOR)
   const [frameMask, setFrameMask] = useState(null)
+  // A generic shape with the colour cleared: crop to the silhouette, draw no
+  // ring. This is what the old, redundant Shape segmented control did — the
+  // frame list already offers a circle and a square, so having both was two
+  // ways to say one thing.
+  const shapeOnly = !frameColor
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [choosingCharacter, setChoosingCharacter] = useState(false)
+  const [choosingDestination, setChoosingDestination] = useState(false)
 
   const transform = useTokenTransform(DEFAULT_SIZE)
   // The pointer hook reads live scale/rotation for pinch gestures, so hand it
@@ -116,7 +127,10 @@ export default function TokenEditorView() {
 
   useEffect(() => {
     let cancelled = false
-    if (!frameId) {
+    // A generic shape with no colour draws nothing — it exists only to say what
+    // silhouette to crop to, which the geometric mask below already applies. So
+    // there is no image to load, and no aperture to read from one.
+    if (!frameId || (shapeOnly && genericShape(frameId))) {
       setFrameImage(null)
       setFrameMask(null)
       return undefined
@@ -138,7 +152,7 @@ export default function TokenEditorView() {
     return () => {
       cancelled = true
     }
-  }, [frameId, frameColor])
+  }, [frameId, frameColor, shapeOnly])
 
   const onFile = useCallback(
     (file) => {
@@ -150,8 +164,9 @@ export default function TokenEditorView() {
 
   const onPickSource = useCallback(
     ({ source_type: type, source_id: id }) => {
-      // Maps and tokens have a full-resolution file; books and audio only ever
-      // have a generated thumbnail, so fall back to that.
+      // The picker only offers tokens, which have a full-resolution file. The
+      // other branches are the safety net for any type a future caller might
+      // pass: maps also have a real file, everything else only a thumbnail.
       const url =
         type === 'token' || type === 'map'
           ? mediaUrl(`/${type}s/${id}/file`)
@@ -160,6 +175,14 @@ export default function TokenEditorView() {
     },
     [applySource]
   )
+
+  // The token's outline: a generic shape names its own mask, a frame with a
+  // readable aperture supplies its own, and anything else is the full square.
+  const mask = useMemo(() => {
+    const shape = genericShape(frameId)
+    if (shape) return shape
+    return 'none'
+  }, [frameId])
 
   const spec = useMemo(
     () => ({
@@ -218,15 +241,16 @@ export default function TokenEditorView() {
     }
   }
 
-  const saveAsArt = async ({ campaignId, memberId }) => {
+  /** Compose once and hand the PNG to `send`, then land on the campaign. */
+  const deliver = async (campaignId, send) => {
     if (!source || busy) return
     setBusy(true)
     setError('')
     try {
       const blob = await composeToBlob(spec)
       const file = new File([blob], filename, { type: 'image/png' })
-      await campaignsApi.uploadMemberArt(campaignId, memberId, file)
-      setChoosingCharacter(false)
+      await send(file)
+      setChoosingDestination(false)
       navigate(`/campaigns/${campaignId}`, { state: { artUpdated: Date.now() } })
     } catch (err) {
       setError(err.message || t('tokenEditor.saveFailed'))
@@ -235,19 +259,63 @@ export default function TokenEditorView() {
     }
   }
 
+  const saveAsArt = ({ campaignId, memberId }) =>
+    deliver(campaignId, (file) => campaignsApi.uploadMemberArt(campaignId, memberId, file))
+
+  // A character's VTT token, stored beside their portrait rather than over it.
+  const saveAsMemberToken = ({ campaignId, memberId }) =>
+    deliver(campaignId, (file) => campaignsApi.uploadMemberToken(campaignId, memberId, file))
+
+  // The GM path. `uploadImage` stores the PNG as a campaign file *and* links it
+  // as a resource under the chosen category in one call — it is guarded by
+  // `assert_can_manage`, which is exactly the "GM of this campaign" rule.
+  const saveToCampaign = ({ campaignId, categoryId }) =>
+    deliver(campaignId, (file) =>
+      campaignsApi.uploadImage(campaignId, file, categoryId ? { categoryId } : {})
+    )
+
+  // Arriving from a member row pre-binds the target, which is the common path
+  // and skips the chooser entirely.
   const onSetAsArt = () => {
     if (target.campaignId && target.memberId) {
       saveAsArt(target)
       return
     }
-    setChoosingCharacter(true)
+    setChoosingDestination(true)
   }
 
   const canSave = !!source && !busy
 
   return (
-    <div style={{ padding: 20, maxWidth: 1100, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+    // `main` is overflow:hidden for /tokens/* routes (see AppShell's isReader),
+    // so this page gets the viewport height and must do its own scrolling —
+    // without that the frame list is simply clipped at the window edge. minHeight
+    // 0 is what lets the inner columns shrink and scroll rather than overflow.
+    <div
+      style={{
+        padding: 20,
+        maxWidth: 1200,
+        margin: '0 auto',
+        width: '100%',
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        ...(stacked ? { overflowY: 'auto' } : null),
+      }}
+    >
+      {/* flexShrink 0: the header must keep its height so the row below is the
+          only thing that gives, otherwise the frame list's share of the
+          viewport shrinks as the title wraps. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          marginBottom: 18,
+          flexShrink: 0,
+        }}
+      >
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -264,8 +332,37 @@ export default function TokenEditorView() {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 320px', minWidth: 280 }}>
+      {/* Side by side on a wide screen, stacked on a narrow one. `flexWrap`
+          stays off in the side-by-side case on purpose: a wrapping flex row is
+          a *multi-line* container, so `stretch` gives its children no definite
+          height and the frame list below cannot bound its own scroller. The
+          `stacked` switch handles narrow screens instead of wrapping. */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 20,
+          ...(stacked
+            ? { flexDirection: 'column', alignItems: 'stretch' }
+            : { alignItems: 'stretch', flex: 1, minHeight: 0 }),
+        }}
+      >
+        <div
+          style={{
+            minWidth: 0,
+            ...(stacked
+              ? { flex: '0 0 auto' }
+              : {
+                  flex: '1 1 320px',
+                  minHeight: 0,
+                  // Before art is loaded the source picker fills this column and
+                  // scrolls its own library list; afterwards the column scrolls
+                  // normally around the canvas and its buttons.
+                  ...(source || loadingSource
+                    ? { overflowY: 'auto' }
+                    : { display: 'flex', flexDirection: 'column' }),
+                }),
+          }}
+        >
           {loadingSource ? (
             <div style={{ padding: 60, textAlign: 'center' }}>
               <Spinner size={28} />
@@ -282,9 +379,14 @@ export default function TokenEditorView() {
                 {busy ? <Spinner size={13} /> : <LuDownload size={14} aria-hidden="true" />}
                 {t('tokenEditor.download')}
               </button>
+              {/* Arriving from a member row this really is "set as art"; opened
+                  standalone it leads to the destination chooser, which offers
+                  both the character-token and campaign-resource paths. */}
               <button type="button" onClick={onSetAsArt} disabled={!canSave} style={secondaryBtn}>
                 <LuUserRound size={14} aria-hidden="true" />
-                {t('tokenEditor.setAsArt')}
+                {target.campaignId && target.memberId
+                  ? t('tokenEditor.setAsArt')
+                  : t('tokenEditor.sendToCampaign')}
               </button>
               <button
                 type="button"
@@ -307,39 +409,53 @@ export default function TokenEditorView() {
           )}
         </div>
 
-        <div style={{ flex: '0 0 260px', minWidth: 240 }}>
-          <TokenEditorControls
-            mask={mask}
-            onMaskChange={setMask}
-            size={transform.size}
-            sizes={OUTPUT_SIZES}
-            onSizeChange={transform.setSize}
-            background={background}
-            onBackgroundChange={setBackground}
-            maskFromFrame={!!frameMask}
-            frameColor={frameColor}
-            onFrameColorChange={setFrameColor}
-            frameRecolourable={frameIsRecolourable(frameId)}
-            transform={transform.transform}
-            actions={transform}
-            disabled={!source || busy}
-            sourceWarning={sourceWarning}
-          />
+        {/* Wide enough for six frame tiles a row and for the control labels to
+            sit beside their inputs rather than wrapping under them. It still
+            gives way before the canvas does: `1 1 340px` on the canvas column
+            means the canvas keeps the surplus, and both drop to full width when
+            the row can no longer hold them side by side. */}
+        <div
+          style={{
+            flex: stacked ? '0 0 auto' : '0 0 360px',
+            minWidth: stacked ? 0 : 300,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          {/* The controls keep their natural height; only the frame list below
+              absorbs the leftover space and scrolls. */}
+          <div style={{ flexShrink: 0 }}>
+            <TokenEditorControls
+              size={transform.size}
+              sizes={OUTPUT_SIZES}
+              onSizeChange={transform.setSize}
+              background={background}
+              onBackgroundChange={setBackground}
+              transform={transform.transform}
+              actions={transform}
+              disabled={!source || busy}
+              sourceWarning={sourceWarning}
+            />
+          </div>
           <FramePicker
+            scroll={!stacked}
             frames={frames}
             value={frameId}
             onChange={setFrameId}
             color={frameColor}
+            onColorChange={setFrameColor}
             loading={frames === null}
           />
         </div>
       </div>
 
-      {choosingCharacter && (
-        <SetAsArtDialog
+      {choosingDestination && (
+        <SendToCampaignDialog
           userId={user?.id}
-          onClose={() => setChoosingCharacter(false)}
-          onChoose={saveAsArt}
+          onClose={() => setChoosingDestination(false)}
+          onChooseMember={saveAsMemberToken}
+          onChooseCampaign={saveToCampaign}
         />
       )}
     </div>

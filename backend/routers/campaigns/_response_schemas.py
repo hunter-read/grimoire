@@ -50,6 +50,7 @@ class CampaignMemberOut(BaseModel):
     is_guest: Optional[bool] = None
     guest_code: Optional[str] = None
     has_art: Optional[bool] = None
+    has_token: Optional[bool] = None
     has_sheet: Optional[bool] = None
     character_sheet_filename: Optional[str] = None
     character_sheet_url: Optional[str] = None
@@ -180,6 +181,7 @@ class GuestOut(BaseModel):
     status: Optional[str] = None
     character_name: Optional[str] = None
     has_art: bool
+    has_token: bool = False
     has_sheet: bool
 
 
@@ -275,6 +277,10 @@ class BannerFocusOut(BaseModel):
 
 class MemberArtUploadOut(BaseModel):
     character_art_path: str
+
+
+class MemberTokenUploadOut(BaseModel):
+    character_token_path: str
 
 
 class MemberSheetOut(BaseModel):
@@ -703,6 +709,7 @@ __all__ = [
     "GuestShareTemplateOut",
     "LinkedResourceOut",
     "MemberArtUploadOut",
+    "MemberTokenUploadOut",
     "MemberInviteOut",
     "MemberSheetOut",
     "MemberStatusOut",

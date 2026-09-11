@@ -164,6 +164,9 @@ function FileRow({
       </span>
 
       {entry.container_kind && <Chip>{t(`files.kind.${entry.container_kind}`)}</Chip>}
+      {/* Independent of container_kind: it marks what the images here are for
+          (token-editor overlay art), not how the children relate. */}
+      {entry.frames_container && <Chip tone="accent">{t('files.framesContainer')}</Chip>}
       {entry.nsfw && <Chip tone="danger">{t('files.nsfw')}</Chip>}
       {/* An indexed file carries metadata that a move must preserve; an
           unindexed one is invisible to the rest of the app. */}

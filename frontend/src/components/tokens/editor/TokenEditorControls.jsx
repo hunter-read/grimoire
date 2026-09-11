@@ -9,33 +9,29 @@ import {
 
 import ColorSwatchRow from './ColorSwatchRow'
 import IconButton from './IconButton'
-import SegmentedButton from './SegmentedButton'
 import { MAX_SCALE, MIN_SCALE } from './useTokenTransform'
 
 /**
- * Mask, output size, zoom, rotation, flip, and background.
+ * Output size, zoom, rotation, flip, and background.
+ *
+ * The token's shape is not here: it comes from the frame you pick, and the
+ * frame list already offers a plain circle and square (uncoloured, they crop
+ * without drawing a ring), so a separate Shape control said the same thing
+ * twice.
  *
  * Purely presentational — every control reports through a callback and holds no
  * state of its own, so the editor keeps a single source of truth for the spec.
  */
 
-const MASKS = ['circle', 'square', 'none']
-
 const label = { fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block' }
 const section = { marginBottom: 16 }
 
 export default function TokenEditorControls({
-  mask,
-  onMaskChange,
-  maskFromFrame = false,
   size,
   sizes,
   onSizeChange,
   background,
   onBackgroundChange,
-  frameColor,
-  onFrameColorChange,
-  frameRecolourable = false,
   transform,
   actions,
   disabled = false,
@@ -45,26 +41,6 @@ export default function TokenEditorControls({
 
   return (
     <div style={{ opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
-      {/* Hidden while a frame supplies the crop: the frame's own opening is
-          the token's shape then, and a control that no longer changes anything
-          reads as broken. It returns when no frame is selected. */}
-      {!maskFromFrame && (
-        <div style={section}>
-          <span style={label}>{t('tokenEditor.shape')}</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {MASKS.map((value) => (
-              <SegmentedButton
-                key={value}
-                selected={mask === value}
-                onClick={() => onMaskChange(value)}
-              >
-                {t(`tokenEditor.mask.${value}`)}
-              </SegmentedButton>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div style={section}>
         <label style={label} htmlFor="token-editor-size">
           {t('tokenEditor.size')}
@@ -168,18 +144,6 @@ export default function TokenEditorControls({
           noneLabel={t('tokenEditor.bgTransparent')}
         />
       </div>
-
-      {/* Only the generic shapes respond to a colour; the themed frames carry
-          their own identity colour, which is part of telling them apart. */}
-      {frameRecolourable && (
-        <div style={section}>
-          <ColorSwatchRow
-            label={t('tokenEditor.frameColor')}
-            value={frameColor}
-            onChange={onFrameColorChange}
-          />
-        </div>
-      )}
     </div>
   )
 }

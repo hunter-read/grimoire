@@ -1,8 +1,11 @@
 """Token frames package — overlay art for the in-app token editor.
 
 Frames are read-only: this router discovers and serves images the operator has
-placed in ``.frames-container`` folders under the token library. Nothing here writes to the
-library, and no frame ever becomes a ``Token`` row (see ``_helpers``).
+placed in ``.frames-container`` folders under the token library. Nothing here
+writes to the library. Frame images are still ordinary library files that the
+scanner indexes as tokens — the marker adds a *use* for them rather than hiding
+them — so each listed frame carries the id of its token row, which is how the
+editor knows a frame has been favourited (see ``_helpers``).
 """
 from fastapi import APIRouter, Depends
 

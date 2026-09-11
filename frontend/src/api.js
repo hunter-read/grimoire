@@ -166,6 +166,13 @@ export const campaigns = {
   // browser is still holding — same reason as `bannerUrl` above.
   memberArtUrl: (id, memberId, v) =>
     mediaUrl(`/campaigns/${id}/members/${memberId}/art`, v ? { v } : {}),
+  // The character's VTT token — a separate picture from the art above, with the
+  // same "the member themselves or the campaign owner" permission rule.
+  uploadMemberToken: (id, memberId, file) =>
+    api.upload(`/campaigns/${id}/members/${memberId}/token`, file),
+  deleteMemberToken: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/token`),
+  memberTokenUrl: (id, memberId, v) =>
+    mediaUrl(`/campaigns/${id}/members/${memberId}/token`, v ? { v } : {}),
   uploadMemberSheet: (id, memberId, file) =>
     api.upload(`/campaigns/${id}/members/${memberId}/sheet`, file),
   deleteMemberSheet: (id, memberId) => api.delete(`/campaigns/${id}/members/${memberId}/sheet`),

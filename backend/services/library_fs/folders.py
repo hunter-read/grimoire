@@ -26,6 +26,7 @@ from ...indexer.constants import (
     CONTAINER_AGNOSTIC,
     CONTAINER_MARKERS,
     CONTAINER_ONE_PAGE,
+    FRAMES_MARKER,
     NSFW_MARKER,
     SINGLETON_CONTAINER_KINDS,
 )
@@ -233,7 +234,7 @@ def _remove_marker(path: Path) -> None:
 
 
 def read_folder_markers(target: Path) -> dict:
-    """The container kind and NSFW state a folder currently declares on disk."""
+    """The container kind, NSFW state, and frame-folder flag declared on disk."""
     kind = ""
     for k, marker in CONTAINER_MARKERS.items():
         if (target / marker).exists():
@@ -243,6 +244,13 @@ def read_folder_markers(target: Path) -> dict:
         "path": to_relative(target),
         "container_kind": kind,
         "nsfw": (target / NSFW_MARKER).exists(),
+        # Reported separately from container_kind rather than joining it: the
+        # container kinds describe how a books folder's children relate to each
+        # other, while this says only "the images here are token-editor frames".
+        # A frame folder is any depth under tokens/ — tokens/Fantasy Frames and
+        # tokens/Cyberpunk/Frames are both valid — so this is a plain marker
+        # check with no precedence chain behind it.
+        "frames_container": (target / FRAMES_MARKER).is_file(),
     }
 
 

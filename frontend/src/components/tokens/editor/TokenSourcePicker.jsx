@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImagePlus, LuLibraryBig, LuUpload } from 'react-icons/lu'
 
-import ImageSourceBrowser from '../../images/ImageSourceBrowser'
+import ImageSourceBrowser, { TOKEN_SOURCE_TYPES } from '../../images/ImageSourceBrowser'
 import useClipboardImage, { ACCEPTED_IMAGE_TYPES } from '../../images/useClipboardImage'
 
 /**
@@ -12,6 +12,10 @@ import useClipboardImage, { ACCEPTED_IMAGE_TYPES } from '../../images/useClipboa
  * The library route hands back a `{source_type, source_id}` pair rather than
  * bytes. The editor turns that into an ordinary same-origin image URL, which is
  * what keeps the canvas untainted — see the note in `lib/tokenCompositor`.
+ *
+ * Only maps and tokens are offered: a book's thumbnail is a cover and a track's
+ * is album art, so neither is ever the character picture someone came here to
+ * crop. Anything else the user has is still reachable through the upload tab.
  */
 export default function TokenSourcePicker({ onFile, onPickSource, active = true }) {
   const { t } = useTranslation()
@@ -37,8 +41,10 @@ export default function TokenSourcePicker({ onFile, onPickSource, active = true 
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+    // A flex column so the library browser can claim the height left after the
+    // Upload/Library switch, rather than stopping at a fixed box partway down.
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexShrink: 0 }}>
         {['upload', 'library'].map((value) => (
           <button
             key={value}
@@ -120,7 +126,7 @@ export default function TokenSourcePicker({ onFile, onPickSource, active = true 
           />
         </div>
       ) : (
-        <ImageSourceBrowser value={source} onChange={pick} />
+        <ImageSourceBrowser fill types={TOKEN_SOURCE_TYPES} value={source} onChange={pick} />
       )}
     </div>
   )

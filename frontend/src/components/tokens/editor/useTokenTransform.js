@@ -21,12 +21,20 @@ export const wrapRotation = (deg) => ((deg % 360) + 360) % 360
 /**
  * Keep the art from being dragged entirely out of the frame.
  *
- * Bounded to one output edge in each direction: far enough to put any corner of
- * the source under the mask, close enough that the user can never lose the image
- * off-canvas and be left staring at an empty token wondering what happened.
+ * The bound grows with the zoom. The art is drawn at `cover * scale`, so zooming
+ * in pushes the source's edges further outside the frame — a limit fixed at one
+ * output edge (the old `±size`) then made the top and bottom of a magnified
+ * image physically unreachable: the drag stopped while the edge was still off
+ * screen. Scaling the limit by the zoom keeps every part of the art reachable at
+ * any magnification, while staying close enough that the user can never fling
+ * the image off-canvas and be left staring at an empty token.
+ *
+ * The floor of 1 keeps the bound at one output edge when zoomed *out* (scale
+ * below 1), where the art is smaller than the frame and a shrinking limit would
+ * pin it needlessly to the centre.
  */
-export const clampOffset = (value, size) => {
-  const limit = size || 0
+export const clampOffset = (value, size, scale = 1) => {
+  const limit = (size || 0) * Math.max(1, scale || 1)
   return Math.max(-limit, Math.min(limit, value))
 }
 
@@ -36,19 +44,35 @@ function reducer(state, action) {
     case 'pan':
       return {
         ...state,
-        offsetX: clampOffset(state.offsetX + action.dx, size),
-        offsetY: clampOffset(state.offsetY + action.dy, size),
+        offsetX: clampOffset(state.offsetX + action.dx, size, state.scale),
+        offsetY: clampOffset(state.offsetY + action.dy, size, state.scale),
       }
     case 'setOffset':
       return {
         ...state,
-        offsetX: clampOffset(action.x, size),
-        offsetY: clampOffset(action.y, size),
+        offsetX: clampOffset(action.x, size, state.scale),
+        offsetY: clampOffset(action.y, size, state.scale),
       }
-    case 'zoomBy':
-      return { ...state, scale: clampScale(state.scale * action.factor) }
-    case 'setScale':
-      return { ...state, scale: clampScale(action.scale) }
+    // Zooming out shrinks the bound, so an offset that was legal at 8x has to
+    // be pulled back in rather than left stranded outside the new limit.
+    case 'zoomBy': {
+      const scale = clampScale(state.scale * action.factor)
+      return {
+        ...state,
+        scale,
+        offsetX: clampOffset(state.offsetX, size, scale),
+        offsetY: clampOffset(state.offsetY, size, scale),
+      }
+    }
+    case 'setScale': {
+      const scale = clampScale(action.scale)
+      return {
+        ...state,
+        scale,
+        offsetX: clampOffset(state.offsetX, size, scale),
+        offsetY: clampOffset(state.offsetY, size, scale),
+      }
+    }
     case 'zoomAt': {
       // Zoom toward a point: the art under the cursor should stay put, so the
       // offset absorbs the difference the scale change introduces. Offsets are
@@ -59,8 +83,8 @@ function reducer(state, action) {
       return {
         ...state,
         scale,
-        offsetX: clampOffset(action.x - (action.x - state.offsetX) * ratio, size),
-        offsetY: clampOffset(action.y - (action.y - state.offsetY) * ratio, size),
+        offsetX: clampOffset(action.x - (action.x - state.offsetX) * ratio, size, scale),
+        offsetY: clampOffset(action.y - (action.y - state.offsetY) * ratio, size, scale),
       }
     }
     case 'rotate':
@@ -77,8 +101,8 @@ function reducer(state, action) {
       return {
         ...state,
         size: action.size,
-        offsetX: clampOffset(state.offsetX, action.size),
-        offsetY: clampOffset(state.offsetY, action.size),
+        offsetX: clampOffset(state.offsetX, action.size, state.scale),
+        offsetY: clampOffset(state.offsetY, action.size, state.scale),
       }
     case 'reset':
       return { ...DEFAULT_TRANSFORM, size: state.size }

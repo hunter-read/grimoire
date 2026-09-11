@@ -148,4 +148,40 @@ describe('useTokenTransform', () => {
     act(() => result.current.setScale(1)) // no-op value, exercises the path
     expect(result.current.transform).toEqual(before)
   })
+
+  it('lets a zoomed-in image reach its top and bottom edges', () => {
+    // The bug: the bound was a flat +/-size, so at 4x the edges of a magnified
+    // image sat outside it and the drag stopped with them still off screen.
+    expect(clampOffset(900, 256, 4)).toBe(900)
+    expect(clampOffset(-900, 256, 4)).toBe(-900)
+  })
+
+  it('still stops the art being flung off-canvas', () => {
+    expect(clampOffset(99999, 256, 4)).toBe(1024)
+    expect(clampOffset(-99999, 256, 4)).toBe(-1024)
+  })
+
+  it('keeps the bound at one output edge when zoomed out', () => {
+    // Below 1x the art is smaller than the frame; shrinking the bound too would
+    // pin it needlessly near the centre.
+    expect(clampOffset(256, 256, 0.5)).toBe(256)
+    expect(clampOffset(300, 256, 0.5)).toBe(256)
+  })
+
+  it('defaults to the unzoomed bound when no scale is given', () => {
+    expect(clampOffset(300, 256)).toBe(256)
+  })
+
+  it('pulls a far pan back in when the user zooms out again', () => {
+    const { result } = renderHook(() => useTokenTransform(256))
+
+    act(() => result.current.setScale(8))
+    act(() => result.current.pan(2000, 2000))
+    expect(result.current.transform.offsetX).toBe(2000)
+
+    act(() => result.current.setScale(1))
+    // The offset was legal at 8x but not at 1x, so it comes back to the bound
+    // rather than stranding the art outside the frame.
+    expect(result.current.transform.offsetX).toBe(256)
+  })
 })

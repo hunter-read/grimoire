@@ -663,7 +663,7 @@ all is stored as `null`.
 | `/api/tokens/:id/thumbnail` | GET | any | WebP thumbnail |
 | `/api/tokens/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, description?, tags?, is_explicit?}]}` |
 | `/api/tokens/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
-| `/api/token-folders` | GET | any | List folder tag assignments |
+| `/api/token-folders` | GET | any | List folder tag assignments. Also returns `frame_folders`: paths (relative to `tokens/`, any depth) holding a `.frames-container` marker, so the gallery can badge them. Reported separately because `folders` only covers folders that have been *tagged* |
 | `/api/token-folders` | PATCH | gm/admin | Set tags on a folder path. Body: `{path, tags}` |
 | `/api/token-folders/bulk` | POST | gm/admin | Set tags on many folders. Body: `{folders: [{path, tags}]}` |
 | `/api/token-frames` | GET | any (not guest) | List user-supplied token-editor frames |
@@ -690,6 +690,13 @@ that it decode, resolve inside the library root, sit in a folder that holds the
 marker and is reached through non-hidden folders, and carry an allowed extension.
 Any failure is a uniform 404, since a distinct 403 would confirm that a path
 exists.
+
+Each listed frame also carries `token_id`, the id of the `Token` row indexed from
+the same file, or `null` when the scanner has not reached it yet. There is no
+separate "frame" favourite type: because a frame image is an ordinary library
+file, a frame is favourited by starring its token, and this is the join that lets
+the editor group favourited frames. A frame with no `token_id` is still perfectly
+usable - it just cannot be favourited until the next rescan.
 
 Listings are cached in-process for 60 seconds; files are served with the shared
 upload cache policy (mtime+size ETag, revalidated), so replacing a frame in place
@@ -1053,11 +1060,26 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/members/:member_id/art` | POST | member (own) or owner | Upload/replace character art (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/art` | GET | member or owner | Character art image |
 | `/api/campaigns/:id/members/:member_id/art` | DELETE | member (own) or owner | Remove character art |
+| `/api/campaigns/:id/members/:member_id/token` | POST | member (own) or owner | Upload/replace the character's VTT token (multipart `file`) |
+| `/api/campaigns/:id/members/:member_id/token` | GET | member or owner | Character token image |
+| `/api/campaigns/:id/members/:member_id/token` | DELETE | member (own) or owner | Remove the character token |
 | `/api/campaigns/:id/members/:member_id/sheet` | POST | member (own) or owner | Upload/replace character sheet (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/sheet` | GET | member or owner | Download character sheet (original filename) |
 | `/api/campaigns/:id/members/:member_id/sheet` | DELETE | member (own) or owner | Remove character sheet |
 | `/api/campaigns/:id/members/:member_id/sheet/duplicate` | POST | member (own) or owner | Copy a blank PDF into the member's sheet (body `{ source_type: "book"\|"file", source_id }`) |
 | `/api/campaigns/:id/sheet-sources` | GET | member or owner | List duplicatable blank sheets (`{ books, files }`): library `character-sheet` PDFs (filtered to the campaign's system when set) and campaign PDF files |
+
+A member's **token** is stored separately from their **art** rather than reusing the same
+column: the art is a portrait for the campaign page, the token is the cropped disc that goes
+on a battlemap, and a character routinely has one without the other. Both are keyed by
+`CampaignMember` id and carry the same permission rule — the member themselves or the
+campaign owner. The member payload exposes `has_art` and `has_token` independently.
+
+Neither writes to the shared library. The token editor composes in the browser and must keep
+working against a read-only library, so a character token is campaign data (stored under
+`DATA_PATH/campaign_uploads/tokens/`), not a library `Token` row. A GM adding a token to a
+campaign's *resources* instead goes through `POST /api/campaigns/:id/images`, which stores it
+as a campaign file and links it as a `file` resource under an optional category.
 
 #### Resources
 
@@ -1714,7 +1736,7 @@ orphaned one is listed normally. They are moved and re-stemmed automatically by
 `/api/files/move` and `/api/files/rename`. Returns
 `{path, parent, writable, category_host, entries[], total, truncated}`. Each entry carries
 `name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`,
-`child_count`, and `category_host`, while files add `record_id`, `title`, `collection`,
+`frames_container`, `child_count`, and `category_host`, while files add `record_id`, `title`, `collection`,
 `has_thumbnail`, and `is_missing` when Grimoire has indexed them. A folder
 directly under `books/` that maps to a game system also carries `record_id`,
 `title`, and `collection: "system"`, so a client can offer the system editor on
@@ -1728,7 +1750,11 @@ than about its children, so a client anchored inside a system folder - where
 there is no row to hang the action off - can still offer the scaffold. Note
 `collection`
 names the *library folder* (`books`, `maps`, …) for files but the resource type
-(`system`) for system folders. Marker/dotfiles
+(`system`) for system folders. `frames_container` is true for a folder holding a
+`.frames-container` marker, whose images the token editor offers as overlay art;
+it is reported separately from `container_kind` because it says nothing about how
+the folder's children relate to each other, and it applies at any depth under
+`tokens/` (`tokens/Fantasy Frames` and `tokens/Cyberpunk/Frames` alike). Marker/dotfiles
 are surfaced as folder properties, never as listable entries.
 
 The listing is **one folder's immediate children only** - it does not recurse -

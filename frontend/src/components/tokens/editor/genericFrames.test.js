@@ -13,8 +13,8 @@ import { ICON_COLOR_PRESETS } from '../../campaigns/iconColors'
 const decode = (url) => decodeURIComponent(url.replace(/^data:image\/svg\+xml;charset=utf-8,/, ''))
 
 describe('GENERIC_SHAPES', () => {
-  it('offers a circle, a square, and a hexagon', () => {
-    expect(GENERIC_SHAPES).toEqual(['circle', 'square', 'hexagon'])
+  it('offers a circle and a square', () => {
+    expect(GENERIC_SHAPES).toEqual(['circle', 'square'])
   })
 })
 
@@ -35,7 +35,10 @@ describe('genericFrameUrl', () => {
   it('draws each shape with its own geometry', () => {
     expect(decode(genericFrameUrl('circle', 'gold'))).toContain('<circle')
     expect(decode(genericFrameUrl('square', 'gold'))).toContain('<rect')
-    expect(decode(genericFrameUrl('hexagon', 'gold'))).toContain('<polygon')
+  })
+
+  it('has no URL for a shape it no longer offers', () => {
+    expect(genericFrameUrl('hexagon', 'gold')).toBeNull()
   })
 
   it('resolves a preset colour token to its hex', () => {
@@ -86,7 +89,7 @@ describe('genericFrameUrl', () => {
 describe('id helpers', () => {
   it('recognises its own ids and extracts the shape', () => {
     expect(isGenericFrame('generic:circle')).toBe(true)
-    expect(genericShape('generic:hexagon')).toBe('hexagon')
+    expect(genericShape('generic:square')).toBe('square')
   })
 
   it('ignores ids belonging to other frame sources', () => {

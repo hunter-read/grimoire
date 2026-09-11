@@ -41,6 +41,10 @@ _MAX_SHEET_BYTES = 15 * 1024 * 1024  # 15 MB
 _BANNER_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "banners")
 _ART_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "art")
 _SHEET_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "sheets")
+# A character's VTT token, kept apart from their portrait in `art/`: the two are
+# different pictures with different jobs, and a character often has one without
+# the other.
+_TOKEN_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "tokens")
 _FILES_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "files")
 
 # Hard ceiling regardless of admin settings, to bound a single read.
@@ -335,6 +339,71 @@ def delete_member_art(
     _assert_can_edit_member(c, member, current_user)
     _remove_existing(_ART_DIR, member_id)
     member.character_art_path = None
+    db.commit()
+
+
+# --- Character token --------------------------------------------------------
+#
+# Deliberately parallel to character art above, permissions included: the member
+# themselves or the campaign owner may set it (`_assert_can_edit_member`), which
+# is what lets a player make and keep their own token without the GM.
+
+
+def upload_member_token(
+    campaign_id: str,
+    member_id: str,
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    c = get_campaign_or_404(db, campaign_id)
+    member = _get_member_or_404(db, campaign_id, member_id)
+    _assert_can_edit_member(c, member, current_user)
+    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    _validate_image(data)
+
+    ext = _IMAGE_TYPES[file.content_type]
+    os.makedirs(_TOKEN_DIR, exist_ok=True)
+    _remove_existing(_TOKEN_DIR, member_id)
+    filename = f"{member_id}{ext}"
+    with open(os.path.join(_TOKEN_DIR, filename), "wb") as f:
+        f.write(data)
+
+    member.character_token_path = filename
+    db.commit()
+    return {"character_token_path": filename}
+
+
+def get_member_token(
+    campaign_id: str,
+    member_id: str,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
+    member = _get_member_or_404(db, campaign_id, member_id)
+    if not member.character_token_path:
+        raise HTTPException(404, "No token")
+    path = os.path.join(_TOKEN_DIR, member.character_token_path)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "No token")
+    return cached_file_response(request, path)
+
+
+def delete_member_token(
+    campaign_id: str,
+    member_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    c = get_campaign_or_404(db, campaign_id)
+    member = _get_member_or_404(db, campaign_id, member_id)
+    _assert_can_edit_member(c, member, current_user)
+    _remove_existing(_TOKEN_DIR, member_id)
+    member.character_token_path = None
     db.commit()
 
 

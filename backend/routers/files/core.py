@@ -151,6 +151,7 @@ def browse(
                     is_dir=True,
                     container_kind=markers["container_kind"] or None,
                     nsfw=markers["nsfw"],
+                    frames_container=markers["frames_container"],
                     # A container's children are systems, so they host
                     # categories; the container itself does not.
                     category_host=children_may_host and not markers["container_kind"],

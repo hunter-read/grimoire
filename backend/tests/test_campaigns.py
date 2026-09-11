@@ -1355,6 +1355,96 @@ class TestCharacterUploads:
         m = next(m for m in body["members"] if m.get("id") == member_id)
         assert m["has_art"] is False
 
+    # --- Character token: a different picture from the art, same permissions ---
+
+    def test_player_can_upload_own_token(self, client, player_headers, member):
+        """A player makes their own token without needing the GM."""
+        c, member_id = member
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token",
+            files={"file": ("token.png", _png_bytes(), "image/png")},
+            headers=player_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        body = client.get(f"/api/campaigns/{c['id']}", headers=player_headers).json()
+        m = next(m for m in body["members"] if m.get("id") == member_id)
+        assert m["has_token"] is True
+
+    def test_owner_can_upload_member_token(self, client, gm_headers, member):
+        c, member_id = member
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token",
+            files={"file": ("token.png", _png_bytes(), "image/png")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+    def test_token_upload_refuses_an_unknown_member(self, client, player_headers, member):
+        """The member id is the key, so a bogus one must 404 rather than land a file."""
+        c, _ = member
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/members/{uid()}/token",
+            files={"file": ("token.png", _png_bytes(), "image/png")},
+            headers=player_headers,
+        )
+        assert resp.status_code == 404
+
+    def test_token_and_art_are_independent(self, client, player_headers, member):
+        """The whole point of a separate column: setting one must not touch the other."""
+        c, member_id = member
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/art",
+            files={"file": ("art.png", _png_bytes(), "image/png")},
+            headers=player_headers,
+        )
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token",
+            files={"file": ("token.png", _png_bytes(), "image/png")},
+            headers=player_headers,
+        )
+
+        body = client.get(f"/api/campaigns/{c['id']}", headers=player_headers).json()
+        m = next(m for m in body["members"] if m.get("id") == member_id)
+        assert m["has_art"] is True and m["has_token"] is True
+
+        # Removing the token leaves the portrait alone.
+        client.delete(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token", headers=player_headers
+        )
+        body = client.get(f"/api/campaigns/{c['id']}", headers=player_headers).json()
+        m = next(m for m in body["members"] if m.get("id") == member_id)
+        assert m["has_art"] is True
+        assert m["has_token"] is False
+
+    def test_token_is_served_back(self, client, player_headers, member):
+        c, member_id = member
+        client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token",
+            files={"file": ("token.png", _png_bytes(), "image/png")},
+            headers=player_headers,
+        )
+        resp = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token", headers=player_headers
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("image/")
+
+    def test_missing_token_is_404(self, client, player_headers, member):
+        c, member_id = member
+        resp = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token", headers=player_headers
+        )
+        assert resp.status_code == 404
+
+    def test_token_rejects_a_non_image(self, client, player_headers, member):
+        c, member_id = member
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/token",
+            files={"file": ("evil.txt", b"not an image", "text/plain")},
+            headers=player_headers,
+        )
+        assert resp.status_code == 400
+
 
 class TestUploadCaching:
     """Uploaded/served files carry cache validators + Cache-Control, revalidate

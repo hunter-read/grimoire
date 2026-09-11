@@ -87,6 +87,12 @@ class FolderTagsOut(BaseModel):
 
 class TokenFoldersResponse(BaseModel):
     folders: list[FolderTagsOut]
+    # Folder paths, relative to `tokens/`, holding a `.frames-container` marker —
+    # their images are token-editor overlay art. Reported separately from
+    # `folders` because that list only carries folders someone has *tagged*,
+    # while a frame folder is declared on disk and usually has no tags at all.
+    # Any depth: "Fantasy Frames" and "Cyberpunk/Frames" are both valid.
+    frame_folders: list[str] = []
 
 
 class StatusResponse(BaseModel):

@@ -168,6 +168,7 @@ export default function GalleryLayout({
                 collapsed={gallery.collapsed}
                 onToggle={gallery.toggleCollapse}
                 folderTags={gallery.folderTags}
+                frameFolders={gallery.frameFolders}
                 editingFolder={isPlayer ? null : gallery.editingFolder}
                 onSetEditingFolder={isPlayer ? () => {} : gallery.setEditingFolder}
                 onSaveFolderTags={isPlayer ? () => {} : gallery.saveFolderTags}

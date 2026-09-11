@@ -492,7 +492,8 @@
     "shortcutExtend": "Extend the selection",
     "shortcutCursorOnly": "Move without selecting",
     "shortcutSelectAll": "Select everything in this pane",
-    "shortcutClearSelection": "Clear the selection"
+    "shortcutClearSelection": "Clear the selection",
+    "framesContainer": "Frames"
   },
   "maps": {
     "title": "Maps",
@@ -701,7 +702,8 @@
       "tokenTags": "Token Tags",
       "editTags": "Edit",
       "noTags": "None"
-    }
+    },
+    "framesFolder": "Frames"
   },
   "models": {
     "title": "Models",
@@ -2525,7 +2527,8 @@
     "saving": "Saving…",
     "remove": "Remove",
     "failed": "Could not set the image",
-    "searchFailed": "Could not load images"
+    "searchFailed": "Could not load images",
+    "ungrouped": "Loose files"
   },
   "backups": {
     "notice": {
@@ -2649,12 +2652,6 @@
     "title": "Token editor",
     "forCharacter": "for {{name}}",
     "canvasLabel": "Token preview — drag to move, scroll to zoom, arrow keys to nudge",
-    "shape": "Shape",
-    "mask": {
-      "circle": "Circle",
-      "square": "Square",
-      "none": "Full"
-    },
     "size": "Output size",
     "sizeOption": "{{size}} × {{size}} px",
     "zoom": "Zoom",
@@ -2673,7 +2670,7 @@
     "frameNpc": "Non-player character",
     "frameOpponent": "Opponent",
     "libraryFrames": "Library frames",
-    "customFramesHint": "Add your own frames by putting PNG, WebP, or SVG images in a folder named .frames inside your tokens library.",
+    "customFramesHint": "Add your own frames by putting PNG, WebP, or SVG images in a folder that contains a .frames-container marker file, anywhere inside your tokens library.",
     "source": {
       "upload": "Upload",
       "library": "Library"
@@ -2693,6 +2690,24 @@
     "frameColor": "Frame colour",
     "shape_circle": "Circle",
     "shape_square": "Square",
-    "shape_hexagon": "Hexagon"
+    "searchFrames": "Search frames",
+    "favoriteFrames": "Favourites",
+    "noFramesMatch": "No frames match “{{query}}”.",
+    "frameColorNone": "None",
+    "color_white": "White",
+    "color_black": "Black",
+    "sendToCampaign": "Send to a campaign",
+    "sendToCampaignHint": "Make this a character’s token, or add it to a campaign you run.",
+    "asCharacterToken": "Set as a character token",
+    "chooseCategory": "Choose a category",
+    "chooseCategoryHint": "Where the token files in {{name}}.",
+    "defaultCategory": "Tokens",
+    "defaultCategoryHint": "The built-in group",
+    "noCampaigns": "You have no campaigns to send this to.",
+    "sendToCharacter": "Send to a character",
+    "sendToOwnedCampaign": "Send to a campaign you GM",
+    "pickCharacterNext": "Choose a character next",
+    "chooseCharacter": "Choose a character",
+    "chooseCharacterHint": "Whose token this becomes in {{name}}."
   }
 }

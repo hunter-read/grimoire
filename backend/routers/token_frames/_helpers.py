@@ -26,8 +26,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
+from ...config import logger
 from ...indexer import resolve_collection_dir
+from ...indexer.constants import FRAMES_MARKER as _FRAMES_MARKER
+from ...models import Token
 from ...services.library_fs.constants import LibraryFSError
 from ...services.library_fs.paths import library_root, safe_join, to_relative
 
@@ -43,17 +47,26 @@ FRAME_MEDIA_TYPES = {
     ".svg": "image/svg+xml",
 }
 
-# The marker file a folder holds to declare that its images are frames.
+# The marker file a folder holds to declare that its images are frames. Defined
+# with the other folder markers in ``indexer.constants`` and re-exported here,
+# so the file manager can badge a frame folder without importing this router.
 # Mirrors the books collection's container markers exactly: an empty file whose
 # presence reclassifies the folder containing it.
-FRAMES_MARKER = ".frames-container"
+FRAMES_MARKER = _FRAMES_MARKER
 
 # Ceilings. MAX_FRAMES bounds the listing (and so the walk); MAX_FRAME_BYTES
 # bounds what a single frame can cost the rendering client, which is the real
 # residual risk for SVG — a small file can still expand into a pathological
 # render. Anyone able to write into LIBRARY_PATH is already the operator, so
 # these are guardrails against accident rather than a security boundary.
-MAX_FRAMES = 300
+#
+# MAX_FRAMES is deliberately generous: a purchased frame pack runs to several
+# hundred images, and the old 300 silently truncated such a library mid-folder —
+# the picker showed a partial group with no indication anything was missing. A
+# listing row is roughly 150 bytes, so even a full 5000 stays well under a
+# megabyte of JSON, and the picker's search and collapsible groups are what make
+# a list that size usable rather than a low cap.
+MAX_FRAMES = 5000
 MAX_FRAME_BYTES = 4 * 1024 * 1024
 
 # The listing is a filesystem walk over the whole token library, and the editor
@@ -194,6 +207,14 @@ def scan_user_frames() -> list[dict[str, str]]:
                 continue
             found.append(_frame_row(path, root))
             if len(found) >= MAX_FRAMES:
+                # Say so rather than handing back a quietly short list: the
+                # truncation lands mid-folder, so the picker would otherwise
+                # show a partial group that looks complete.
+                logger.warning(
+                    "Token frame listing hit the %d-frame ceiling; some frames are not "
+                    "listed. Raise MAX_FRAMES if this library legitimately holds more.",
+                    MAX_FRAMES,
+                )
                 return found
     return found
 
@@ -209,6 +230,49 @@ def cached_user_frames() -> list[dict[str, str]]:
     with _cache_lock:
         _cache = (now + LISTING_TTL_SECONDS, frames)
     return frames
+
+
+def frame_folder_paths() -> list[str]:
+    """Folder paths (relative to ``tokens/``) whose images are editor frames.
+
+    Read off the cached listing rather than walking again: every row already
+    carries the ``group`` its file came from, which *is* the frame folder's path.
+    Lets the token gallery badge a frame folder the same way the file manager
+    does, without the gallery needing to know about markers.
+
+    Paths are at whatever depth the marker sits — ``Fantasy Frames`` and
+    ``Cyberpunk/Frames`` alike — so callers must match on the full path rather
+    than assume a single level.
+    """
+    return sorted({row["group"] for row in cached_user_frames() if row.get("group")})
+
+
+def attach_token_ids(db: Session, frames: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Pair each frame with the ``Token`` row indexed from the same file.
+
+    Frame images are ordinary library files that the scanner indexes as tokens
+    (see the module docstring), so a frame is favourited by starring its token
+    rather than through a favourite type of its own. This is the join that lets
+    the editor group favourited frames without inventing a second, parallel set
+    of favourites for the same files.
+
+    The frame id *is* the library-relative path, base64url-encoded, which is the
+    same string the indexer stores in ``Token.relative_path`` — so one ``IN``
+    query over the page covers the whole listing rather than a query per frame.
+    A frame with no row yet (dropped in since the last scan) gets ``None`` and
+    is simply not favouritable until the next rescan.
+
+    Returns new dicts: the caller's rows come from a process-wide TTL cache
+    shared across requests, and must not be mutated in place.
+    """
+    if not frames:
+        return []
+    paths = [decode_frame_id(f["id"]) for f in frames]
+    rows = db.query(Token.id, Token.relative_path).filter(Token.relative_path.in_(paths))
+    # Windows-indexed libraries store backslashes; frame ids are always
+    # forward-slashed, so normalise before matching rather than missing the join.
+    token_ids = {str(rel).replace("\\", "/"): tid for tid, rel in rows}
+    return [{**f, "token_id": token_ids.get(path)} for f, path in zip(frames, paths)]
 
 
 def reset_frame_cache() -> None:

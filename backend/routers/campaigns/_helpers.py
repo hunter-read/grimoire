@@ -452,6 +452,9 @@ def build_members(c: Campaign, db) -> list:
             "guest_code": m.guest_code if m.is_guest else None,
             "campaign_access": _access(all_users.get(m.user_id)),
             "has_art": bool(m.character_art_path),
+            # A token is a separate picture from the art, so it gets its own
+            # flag rather than being inferred from `has_art`.
+            "has_token": bool(m.character_token_path),
             "has_sheet": bool(m.character_sheet_path),
             "character_sheet_filename": m.character_sheet_filename,
             "character_sheet_url": m.character_sheet_url,

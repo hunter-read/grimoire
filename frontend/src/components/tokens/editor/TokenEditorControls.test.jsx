@@ -23,13 +23,10 @@ const setup = (props = {}) => {
     flipY: vi.fn(),
     reset: vi.fn(),
   }
-  const onMaskChange = vi.fn()
   const onSizeChange = vi.fn()
   const onBackgroundChange = vi.fn()
   render(
     <TokenEditorControls
-      mask="circle"
-      onMaskChange={onMaskChange}
       size={256}
       sizes={[140, 256, 512, 1024]}
       onSizeChange={onSizeChange}
@@ -37,21 +34,13 @@ const setup = (props = {}) => {
       onBackgroundChange={onBackgroundChange}
       transform={transform()}
       actions={actions}
-      onFrameColorChange={vi.fn()}
       {...props}
     />
   )
-  return { actions, onMaskChange, onSizeChange, onBackgroundChange }
+  return { actions, onSizeChange, onBackgroundChange }
 }
 
 describe('TokenEditorControls', () => {
-  it('marks the active mask and reports a change', async () => {
-    const { onMaskChange } = setup()
-    expect(screen.getByRole('button', { name: 'Circle' })).toHaveAttribute('aria-pressed', 'true')
-    await userEvent.click(screen.getByRole('button', { name: 'Square' }))
-    expect(onMaskChange).toHaveBeenCalledWith('square')
-  })
-
   it('offers every output size and reports the choice as a number', async () => {
     const { onSizeChange } = setup()
     const select = screen.getByLabelText('Output size')
@@ -122,32 +111,20 @@ describe('TokenEditorControls', () => {
     expect(onBackgroundChange).toHaveBeenCalledWith('')
   })
 
-  it('hides the shape control when the frame supplies the crop', () => {
-    // The frame's own opening is the token's shape then, so a control that no
-    // longer changes anything would read as broken.
-    setup({ maskFromFrame: true })
+  it('leaves the token shape to the frame picker', () => {
+    // The frame list already offers a plain circle and square, so a separate
+    // Shape control was two ways to say one thing.
+    setup()
     expect(screen.queryByRole('button', { name: 'Circle' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Square' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Full' })).not.toBeInTheDocument()
   })
 
-  it('shows the shape control again with no frame selected', () => {
-    setup({ maskFromFrame: false })
-    expect(screen.getByRole('button', { name: 'Circle' })).toBeInTheDocument()
-  })
-
-  it('offers a frame colour only for the recolourable shapes', async () => {
-    const onFrameColorChange = vi.fn()
-    setup({ frameRecolourable: true, frameColor: 'gold', onFrameColorChange })
-    expect(screen.getByText('Frame colour')).toBeInTheDocument()
-
-    // Two swatch rows exist once a generic frame is selected; the frame's is
-    // the second, after the background's.
-    await userEvent.click(screen.getAllByRole('button', { name: 'Red' })[1])
-    expect(onFrameColorChange).toHaveBeenCalledWith('red')
-  })
-
-  it('hides the frame colour for a themed or user frame', () => {
-    setup({ frameRecolourable: false })
+  it('leaves the frame colour to the frame picker, beside the frames it recolours', () => {
+    setup()
     expect(screen.queryByText('Frame colour')).not.toBeInTheDocument()
+    // The background swatch row is still this component's.
+    expect(screen.getByText('Background')).toBeInTheDocument()
   })
 
   it('surfaces a low-resolution warning when given one', () => {

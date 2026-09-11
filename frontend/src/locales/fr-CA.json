@@ -492,7 +492,8 @@
     "shortcutExtend": "Étendre la sélection",
     "shortcutCursorOnly": "Se déplacer sans sélectionner",
     "shortcutSelectAll": "Tout sélectionner dans ce volet",
-    "shortcutClearSelection": "Effacer la sélection"
+    "shortcutClearSelection": "Effacer la sélection",
+    "framesContainer": "Cadres"
   },
   "maps": {
     "title": "Cartes",
@@ -701,7 +702,8 @@
       "tokenTags": "Étiquettes du pion",
       "editTags": "Modifier",
       "noTags": "Aucune"
-    }
+    },
+    "framesFolder": "Cadres"
   },
   "models": {
     "title": "Models",
@@ -2525,7 +2527,8 @@
     "saving": "Enregistrement…",
     "remove": "Supprimer",
     "failed": "Impossible de définir l'image",
-    "searchFailed": "Impossible de charger les images"
+    "searchFailed": "Impossible de charger les images",
+    "ungrouped": "Fichiers isolés"
   },
   "backups": {
     "notice": {
@@ -2649,12 +2652,6 @@
     "title": "Éditeur de pions",
     "forCharacter": "pour {{name}}",
     "canvasLabel": "Aperçu du pion : faites glisser pour déplacer, faites défiler pour zoomer, ajustez avec les flèches",
-    "shape": "Forme",
-    "mask": {
-      "circle": "Cercle",
-      "square": "Carré",
-      "none": "Entier"
-    },
     "size": "Taille de sortie",
     "sizeOption": "{{size}} × {{size}} px",
     "zoom": "Zoom",
@@ -2673,7 +2670,7 @@
     "frameNpc": "Personnage non joueur",
     "frameOpponent": "Adversaire",
     "libraryFrames": "Cadres de la bibliothèque",
-    "customFramesHint": "Ajoutez vos propres cadres en plaçant des images PNG, WebP ou SVG dans un dossier nommé .frames de votre bibliothèque de pions.",
+    "customFramesHint": "Ajoutez vos propres cadres en plaçant des images PNG, WebP ou SVG dans un dossier de votre bibliothèque de pions contenant un fichier marqueur .frames-container.",
     "source": {
       "upload": "Téléverser",
       "library": "Bibliothèque"
@@ -2693,6 +2690,24 @@
     "frameColor": "Couleur du cadre",
     "shape_circle": "Cercle",
     "shape_square": "Carré",
-    "shape_hexagon": "Hexagone"
+    "searchFrames": "Rechercher des cadres",
+    "favoriteFrames": "Favoris",
+    "noFramesMatch": "Aucun cadre ne correspond à « {{query}} ».",
+    "frameColorNone": "Aucune",
+    "color_white": "Blanc",
+    "color_black": "Noir",
+    "sendToCampaign": "Envoyer à une campagne",
+    "sendToCampaignHint": "En faire le pion d’un personnage ou l’ajouter à une campagne que vous dirigez.",
+    "asCharacterToken": "Définir comme pion de personnage",
+    "chooseCategory": "Choisir une catégorie",
+    "chooseCategoryHint": "Où le pion sera classé dans {{name}}.",
+    "defaultCategory": "Pions",
+    "defaultCategoryHint": "Le groupe intégré",
+    "noCampaigns": "Vous n’avez aucune campagne où envoyer ceci.",
+    "sendToCharacter": "Envoyer à un personnage",
+    "sendToOwnedCampaign": "Envoyer à une campagne que vous dirigez",
+    "pickCharacterNext": "Choisir ensuite un personnage",
+    "chooseCharacter": "Choisir un personnage",
+    "chooseCharacterHint": "À qui appartiendra ce pion dans {{name}}."
   }
 }

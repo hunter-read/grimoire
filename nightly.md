@@ -1476,27 +1476,46 @@ Turn any picture into a VTT-ready token without leaving Grimoire. Open it from t
 route - from a character's portrait in a campaign's member list.
 
 Load art by uploading a file, pasting from the clipboard, dropping it on the page, or
-browsing what Grimoire already holds. Then position it: drag to move, scroll to zoom,
+browsing what Grimoire already holds. Browsing offers your token library and nothing else -
+book covers, album art, and battlemaps are none of them a character portrait, and tokens are
+already the collection of character images. Anything filed elsewhere is still one upload
+away. Then position it: drag to move, scroll to zoom,
 `Shift`+scroll to rotate, and the arrow keys to nudge a pixel at a time. On a touchscreen,
 drag with one finger and pinch or twist with two. Double-click (or press `R`) to start over.
 
 You choose a frame, the output size (140, 256, 512, or 1024 pixels), and an optional
-background colour behind transparent art. The frame decides the token's shape - pick the
-hexagon and the art is cropped to a hexagon. With no frame selected you choose the shape
-yourself: a circle, a square, or the full square image. The finished token is a PNG with real
-transparency.
+background colour behind transparent art. The frame decides the token's shape - pick an
+ornate border and the art is cropped to its opening. For a plain round or square token with no
+visible border, pick the circle or square frame and set its colour to **None**: the shape still
+does the cropping, it just draws nothing. With no frame at all you get the full square image.
+The finished token is a PNG with real transparency.
 
 **Two ways out.** **Download** saves the PNG to your device, ready to drop into Roll20,
-Foundry, or anything else. **Set as character art** makes it the portrait for a character in
-one of your campaigns - and because setting your own character's art has always been
-something a player can do, players can make their own tokens, not just GMs.
+Foundry, or anything else. **Send to a campaign** offers whichever of two destinations you
+have the standing for:
+
+- **Send to a character** - the games you play in, one row per character. It becomes that
+  character's VTT token, kept separately from their portrait so making a token never
+  overwrites their artwork. Because setting your own character's things has always been
+  something a player can do, players can make their own tokens, not just GMs.
+- **Send to a campaign you GM** - one row per campaign rather than per character, so running
+  four games does not bury them under twenty characters. Pick a campaign and you then choose
+  either **Set as a character token** - which lists just that campaign's characters - or a
+  resource category, defaulting to the built-in **Tokens** group.
+
+You are only shown the paths that apply to you: a player with no campaign of their own never
+sees the GM route, and someone in no campaigns at all is told so rather than offered a
+destination that would be refused.
+
+Opening the editor from a character's portrait is the exception - it already knows who the
+token is for, so the button simply sets that character's art.
 
 Nothing is written to your library and no new token is added to it: the image is composed in
 your browser and only leaves by one of those two doors. That means the editor works fine on
 a read-only library, and never disturbs a scan.
 
-**Frames.** Six ship with Grimoire. Three are plain shapes - a circle, a square, and a
-hexagon - which take any colour you pick, and three are themed role markers (player
+**Frames.** Five ship with Grimoire. Two are plain shapes - a circle and a square - which
+take any colour you pick, and three are themed role markers (player
 character, non-player character, opponent) that keep their own colour, since that colour is
 part of telling them apart at a glance. You can add your own as well. Put an empty file named `.frames-container` in any folder
 under `tokens/`, and every PNG, WebP, or SVG beside it becomes a frame. The folder keeps a
@@ -1506,7 +1525,15 @@ a system's frames can sit beside that system's tokens.
 Frame images are still indexed as ordinary tokens and appear in your token gallery. That is
 deliberate: a frame *is* a token image, just one you would normally composite rather than
 place on a map. Add a [`.grimoireignore`](#ignoring-files-with-grimoireignore) rule if you
-would rather they stayed out of the gallery.
+would rather they stayed out of the gallery. Both the tokens page and
+[in-app file management](#in-app-file-management) badge a folder holding the marker with
+**Frames**, at whatever depth it sits, so you can see which folders feed the editor.
+
+**Finding a frame.** A large collection stays manageable: the frame list scrolls in place
+rather than pushing the page down, each folder group collapses, and a search box filters by
+frame name or folder. Favouriting a frame is the same as favouriting anything else - star it
+in your token gallery, and it appears in a **Favourites** group at the top of the picker. It
+stays listed under its own folder too, so a frame never moves out from where you filed it.
 
 The editor reads a frame's crop **from the frame itself** - it fills inward from the centre
 and keeps whatever the frame encloses - so a frame can be any shape, and the art follows its

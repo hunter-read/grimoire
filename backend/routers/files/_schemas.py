@@ -21,6 +21,10 @@ class BrowseEntry(BaseModel):
     # Folder-only: what the folder declares about itself on disk.
     container_kind: Optional[str] = None
     nsfw: bool = False
+    # Folder-only: the folder holds token-editor frames (a `.frames-container`
+    # marker). Independent of container_kind — it says nothing about how the
+    # children relate, only what the images in here are for.
+    frames_container: bool = False
     # Folder-only: whether standard category folders belong inside this one —
     # true for a system folder under books/, false for books/ itself and for
     # containers, whose children are the system folders.

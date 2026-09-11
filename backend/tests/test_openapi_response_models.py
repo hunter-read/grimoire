@@ -27,6 +27,7 @@ UNTYPED_BY_DESIGN = {
     "/api/campaigns/{campaign_id}/banner",
     "/api/campaigns/{campaign_id}/files/{file_id}",
     "/api/campaigns/{campaign_id}/members/{member_id}/art",
+    "/api/campaigns/{campaign_id}/members/{member_id}/token",
     "/api/campaigns/{campaign_id}/members/{member_id}/sheet",
     "/api/campaigns/{campaign_id}/wiki/export",
     "/api/campaigns/{campaign_id}/wiki/templates/{template_id}/export",

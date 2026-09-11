@@ -266,3 +266,72 @@ describe('MediaFolderGroup — audio', () => {
     expect(playQueue).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'a2' })])
   })
 })
+
+describe('MediaFolderGroup — frame folders', () => {
+  const tokenItems = [{ id: 't1', filename: 'ring.png', is_missing: false }]
+
+  it('badges a top-level folder holding editor frames', () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.token}
+        folder="Fantasy Frames"
+        subfolders={{ '': tokenItems }}
+        {...baseProps({ frameFolders: new Set(['Fantasy Frames']) })}
+      />
+    )
+    expect(screen.getByText('Frames')).toBeInTheDocument()
+  })
+
+  it('badges a nested frame folder, matched on its full path', () => {
+    // tokens/Cyberpunk/Overlays is as valid as a top-level frame folder, so the
+    // match has to be on the joined path rather than the leaf name. The subfolder
+    // is named something other than "Frames" so the badge cannot be confused
+    // with the folder's own heading.
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.token}
+        folder="Cyberpunk"
+        subfolders={{ Overlays: tokenItems }}
+        {...baseProps({ frameFolders: new Set(['Cyberpunk/Overlays']) })}
+      />
+    )
+    expect(screen.getByText('Frames')).toBeInTheDocument()
+  })
+
+  it('leaves an ordinary token folder unbadged', () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.token}
+        folder="Goblins"
+        subfolders={{ '': tokenItems }}
+        {...baseProps({ frameFolders: new Set(['Fantasy Frames']) })}
+      />
+    )
+    expect(screen.queryByText('Frames')).not.toBeInTheDocument()
+  })
+
+  it('does not badge a parent just because a child is a frame folder', () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.token}
+        folder="Cyberpunk"
+        subfolders={{ '': tokenItems }}
+        {...baseProps({ frameFolders: new Set(['Cyberpunk/Frames']) })}
+      />
+    )
+    expect(screen.queryByText('Frames')).not.toBeInTheDocument()
+  })
+
+  it('survives a collection that is never given a frame-folder set', () => {
+    // Maps, audio and the rest have no such concept and pass nothing.
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.map}
+        folder="Dungeons"
+        subfolders={{ '': tokenItems }}
+        {...baseProps()}
+      />
+    )
+    expect(screen.queryByText('Frames')).not.toBeInTheDocument()
+  })
+})

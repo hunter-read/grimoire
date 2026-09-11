@@ -1,5 +1,5 @@
 /**
- * The recolourable generic frames: a plain circle, square, and hexagon.
+ * The recolourable generic frames: a plain circle and square.
  *
  * Unlike the themed three (PC / NPC / Opponent), which ship as static SVG files
  * with a fixed identity colour, these are generated in the browser so they can
@@ -19,18 +19,13 @@ export const DEFAULT_FRAME_COLOR = 'gold'
 const STROKE = 18
 
 // Geometry shared with the bundled SVGs: a 512 viewBox, everything inside it.
-// The editor crops to a frame's own interior, so these shapes define the crop —
-// which is the whole point of offering a hexagon.
+// The editor crops to a frame's own interior, so these shapes define the crop.
 const SHAPES = {
   circle: (color) =>
     `<circle cx="256" cy="256" r="238" fill="none" stroke="${color}" stroke-width="${STROKE}"/>`,
   square: (color) =>
     `<rect x="18" y="18" width="476" height="476" rx="24" fill="none" stroke="${color}" ` +
     `stroke-width="${STROKE}" stroke-linejoin="round"/>`,
-  // Pointy-top, matching the orientation of a hex battle map.
-  hexagon: (color) =>
-    `<polygon points="467.3,378 256,500 44.7,378 44.7,134 256,12 467.3,134" fill="none" ` +
-    `stroke="${color}" stroke-width="${STROKE}" stroke-linejoin="round"/>`,
 }
 
 export const GENERIC_SHAPES = Object.keys(SHAPES)

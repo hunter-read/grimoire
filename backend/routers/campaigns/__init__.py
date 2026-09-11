@@ -65,6 +65,9 @@ from .uploads import (
     set_banner_from_source,
     set_banner_focus,
     upload_member_art,
+    upload_member_token,
+    get_member_token,
+    delete_member_token,
     get_member_art,
     delete_member_art,
     upload_member_sheet,
@@ -135,6 +138,7 @@ from ._response_schemas import (
     GuestShareTemplateOut,
     LinkedResourceOut,
     MemberArtUploadOut,
+    MemberTokenUploadOut,
     MemberInviteOut,
     MemberSheetOut,
     MemberStatusOut,
@@ -409,6 +413,28 @@ router.add_api_route(
     delete_member_art,
     methods=["DELETE"],
     summary="Remove a member's character art",
+    status_code=204,
+)
+# A character's VTT token: a different picture from their portrait above, with
+# the same "the member themselves or the owner" permission rule.
+router.add_api_route(
+    "/{campaign_id}/members/{member_id}/token",
+    upload_member_token,
+    methods=["POST"],
+    summary="Upload a member's character token",
+    response_model=MemberTokenUploadOut,
+)
+router.add_api_route(
+    "/{campaign_id}/members/{member_id}/token",
+    get_member_token,
+    methods=["GET"],
+    summary="Get a member's character token",
+)
+router.add_api_route(
+    "/{campaign_id}/members/{member_id}/token",
+    delete_member_token,
+    methods=["DELETE"],
+    summary="Remove a member's character token",
     status_code=204,
 )
 router.add_api_route(

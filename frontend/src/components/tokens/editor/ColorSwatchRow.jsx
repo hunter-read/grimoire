@@ -3,6 +3,11 @@ import { LuBan } from 'react-icons/lu'
 
 import { ICON_COLOR_NAMES, ICON_COLOR_PRESETS, resolveIconColor } from '../../campaigns/iconColors'
 
+// Plain white and black, stored as ordinary hex literals so they travel through
+// the same validated "#rrggbb" path every custom colour uses.
+const MONOCHROME = { white: '#ffffff', black: '#000000' }
+const MONOCHROME_NAMES = Object.keys(MONOCHROME)
+
 /**
  * A row of preset colour swatches plus a native colour picker.
  *
@@ -25,7 +30,14 @@ export default function ColorSwatchRow({
   fallback = '#8a8f98',
 }) {
   const { t } = useTranslation()
-  const isPreset = typeof value === 'string' && value.trim().toLowerCase() in ICON_COLOR_PRESETS
+  // "Preset" for the custom swatch's purposes means "some other swatch already
+  // shows this", which includes the two monochrome ones — otherwise picking
+  // white would light up the custom-hex swatch as well.
+  const lowered = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  const isPreset =
+    lowered in ICON_COLOR_PRESETS || MONOCHROME_NAMES.some((n) => MONOCHROME[n] === lowered)
+  // White and black are stored as ordinary hex, so they resolve through the
+  // same validated path as any custom colour — no new vocabulary to store.
   const resolved = resolveIconColor(value, fallback)
   const isNone = allowNone && !value
 
@@ -54,6 +66,21 @@ export default function ColorSwatchRow({
             <LuBan size={11} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
           </button>
         )}
+        {/* Black and white lead the presets: a token frame or backdrop is far
+            more often plain than tinted, and neither is a sensible campaign-icon
+            tint (each vanishes against one of the two themes), which is why they
+            live here rather than in the shared palette. */}
+        {MONOCHROME_NAMES.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => onChange(MONOCHROME[name])}
+            title={t(`tokenEditor.color_${name}`)}
+            aria-label={t(`tokenEditor.color_${name}`)}
+            aria-pressed={resolved === MONOCHROME[name]}
+            style={swatchStyle(resolved === MONOCHROME[name], MONOCHROME[name])}
+          />
+        ))}
         {ICON_COLOR_NAMES.map((name) => (
           <button
             key={name}

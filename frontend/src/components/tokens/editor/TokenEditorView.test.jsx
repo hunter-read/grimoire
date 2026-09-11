@@ -155,11 +155,14 @@ describe('the character-art exit', () => {
     expect(options.state.artUpdated).toEqual(expect.any(Number))
   })
 
-  it('asks which character when opened standalone', async () => {
+  it('offers the destination chooser when opened standalone', async () => {
+    // Opened standalone there is no pre-bound member, so the button leads to the
+    // chooser (character token, or a campaign the viewer runs) rather than
+    // silently setting art on someone.
     campaigns.list.mockResolvedValue({ campaigns: [] })
     await renderWithSource()
 
-    await userEvent.click(screen.getByRole('button', { name: /Set\ as\ character\ art/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Send to a campaign/ }))
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()

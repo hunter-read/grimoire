@@ -280,3 +280,155 @@ def test_frames_are_ordinary_library_files(frame_library):
     assert any(path.endswith("ordinary.png") for path in indexed)
     # The marker file itself is a dotfile and never becomes a row.
     assert not any(path.endswith(".frames-container") for path in indexed)
+
+
+# ---------------------------------------------------------------------------
+# Frames and favourites
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def indexed_token():
+    """Register one token row for a library-relative path, and take it away after.
+
+    Written as a fixture rather than inline so these tests do not depend on
+    whether some earlier test already scanned the same tree into the shared DB.
+    """
+    created: list[str] = []
+
+    def _add(relative: str, filename: str) -> str:
+        db = SessionLocal()
+        try:
+            row = db.query(Token).filter_by(relative_path=relative).first()
+            if row is None:
+                row = Token(
+                    filename=filename,
+                    filepath=os.path.join(os.environ["LIBRARY_PATH"], relative),
+                    relative_path=relative,
+                )
+                db.add(row)
+                db.commit()
+                created.append(row.id)
+            return row.id
+        finally:
+            db.close()
+
+    yield _add
+
+    db = SessionLocal()
+    try:
+        for token_id in created:
+            db.query(Token).filter_by(id=token_id).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_listing_carries_the_token_id_for_an_indexed_frame(
+    client, admin_headers, frame_library, indexed_token
+):
+    """Each frame names its ``Token`` row, which is how a frame gets favourited.
+
+    There is no separate "frame" favourite type: a frame image is an ordinary
+    library file with a token row, so starring it in the token gallery is what
+    marks it a favourite. The editor needs this id to know which frames those are.
+    """
+    token_id = indexed_token("tokens/Fantasy Frames/orc-ring.svg", "orc-ring.svg")
+
+    by_name = {f["name"]: f for f in _listing(client, admin_headers)}
+    assert by_name["orc ring"]["token_id"] == token_id
+
+
+def test_token_ids_do_not_leak_across_frames(
+    client, admin_headers, frame_library, indexed_token
+):
+    """A token row for some *other* file must not attach itself to a frame.
+
+    ``ordinary.png`` sits in an unmarked folder, so it is a token but never a
+    frame; its id must not surface on either of the two real frames.
+    """
+    stray = indexed_token("tokens/Unmarked/ordinary.png", "ordinary.png")
+
+    assert stray not in {f["token_id"] for f in _listing(client, admin_headers)}
+
+
+def test_attach_token_ids_preserves_order_and_leaves_input_alone():
+    """The cached rows are shared process-wide, so they must not be mutated."""
+    frames = [
+        {"id": _helpers.encode_frame_id("tokens/A/one.png"), "name": "one"},
+        {"id": _helpers.encode_frame_id("tokens/A/two.png"), "name": "two"},
+    ]
+    original = [dict(f) for f in frames]
+
+    db = SessionLocal()
+    try:
+        out = _helpers.attach_token_ids(db, frames)
+    finally:
+        db.close()
+
+    assert [f["name"] for f in out] == ["one", "two"]
+    assert frames == original  # the cache entry is untouched
+
+
+def test_attach_token_ids_handles_an_empty_listing():
+    db = SessionLocal()
+    try:
+        assert _helpers.attach_token_ids(db, []) == []
+    finally:
+        db.close()
+
+
+def test_attach_token_ids_reports_none_for_an_unindexed_frame():
+    """A frame the scanner has not reached yet is listed, just not favouritable.
+
+    Dropping it from the listing instead would make a brand-new frame invisible
+    in the editor until the next rescan, which is the opposite of useful.
+    """
+    frames = [{"id": _helpers.encode_frame_id("tokens/Never Scanned/ghost.png"), "name": "ghost"}]
+    db = SessionLocal()
+    try:
+        out = _helpers.attach_token_ids(db, frames)
+    finally:
+        db.close()
+
+    assert out == [{"id": frames[0]["id"], "name": "ghost", "token_id": None}]
+
+
+def test_listing_warns_rather_than_truncating_silently(frame_library, monkeypatch, caplog):
+    """Hitting the ceiling must be visible in the log, not just a short list.
+
+    The cut lands mid-folder, so a truncated listing looks like a complete one
+    in the picker — the operator has no way to tell frames are missing without
+    this. Regression guard for a 300-frame cap that silently hid a frame pack.
+    """
+    monkeypatch.setattr(_helpers, "MAX_FRAMES", 1)
+    _helpers.reset_frame_cache()
+
+    with caplog.at_level("WARNING"):
+        frames = _helpers.scan_user_frames()
+
+    assert len(frames) == 1
+    assert any("ceiling" in r.getMessage() for r in caplog.records)
+
+
+def test_default_ceiling_admits_a_large_frame_pack():
+    """A purchased pack runs to several hundred images; the cap must clear that."""
+    assert _helpers.MAX_FRAMES >= 1000
+
+
+def test_frame_folder_paths_lists_every_marked_folder(frame_library):
+    """The token gallery badges folders from this, so nesting must be preserved."""
+    _helpers.reset_frame_cache()
+    assert _helpers.frame_folder_paths() == ["Fantasy Frames", "Scifi Frames"]
+
+
+def test_token_folders_endpoint_reports_frame_folders(client, admin_headers, frame_library):
+    """Exposed alongside the tag list, since a frame folder usually has no tags.
+
+    `folders` only carries folders someone has tagged, so a frame folder would
+    otherwise be invisible to the gallery.
+    """
+    _helpers.reset_frame_cache()
+    resp = client.get("/api/token-folders", headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["frame_folders"] == ["Fantasy Frames", "Scifi Frames"]

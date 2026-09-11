@@ -4,7 +4,7 @@ import { GENERIC_SHAPES, genericFrameUrl, genericShape, isGenericFrame } from '.
 /**
  * The frame catalogue, in three parts:
  *
- *  - three *generic* shapes (circle, square, hexagon) generated in the browser,
+ *  - two *generic* shapes (circle, square) generated in the browser,
  *    so they can take any colour the user picks;
  *  - three *themed* defaults (PC, NPC, Opponent) shipped as static SVGs with a
  *    fixed identity colour, because their colour is part of what tells them
@@ -115,4 +115,20 @@ export function groupFrames(frames) {
 export function frameLabel(frame, t) {
   if (!frame) return ''
   return frame.builtin ? t(frame.nameKey) : frame.name
+}
+
+/**
+ * Whether a frame matches a picker search.
+ *
+ * Matches the folder as well as the name, because a user who organised frames
+ * into "Fantasy Frames" and "Scifi Frames" will reach for the folder name as
+ * readily as a filename. An empty query matches everything, so callers can pass
+ * the raw input without special-casing it.
+ */
+export function matchesFrameQuery(frame, query, t) {
+  const needle = (query || '').trim().toLowerCase()
+  if (!needle) return true
+  if (!frame) return false
+  const haystack = `${frameLabel(frame, t) || ''} ${frame.group || ''}`.toLowerCase()
+  return haystack.includes(needle)
 }

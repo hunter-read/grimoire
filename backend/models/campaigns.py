@@ -119,8 +119,13 @@ class CampaignMember(Base):
     is_guest = Column(Boolean, default=False)
     guest_code = Column(String(10), nullable=True, index=True)
 
-    # Relative filenames under DATA_PATH/campaign_uploads/{art,sheets}/
+    # Relative filenames under DATA_PATH/campaign_uploads/{art,tokens,sheets}/
     character_art_path = Column(String(255), nullable=True)
+    # The character's VTT token — deliberately separate from the art above. The
+    # art is a portrait for the campaign page; the token is the cropped, framed
+    # disc a player drops on a battlemap, and a character routinely has one
+    # without the other.
+    character_token_path = Column(String(255), nullable=True)
     character_sheet_path = Column(String(255), nullable=True)
     character_sheet_filename = Column(String(255), nullable=True)  # original upload name
     # Alternatively, a link to an external sheet (e.g. D&D Beyond or a hosted PDF).

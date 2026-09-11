@@ -492,7 +492,8 @@
     "shortcutExtend": "Alargar a seleção",
     "shortcutCursorOnly": "Mover sem selecionar",
     "shortcutSelectAll": "Selecionar tudo neste painel",
-    "shortcutClearSelection": "Limpar a seleção"
+    "shortcutClearSelection": "Limpar a seleção",
+    "framesContainer": "Molduras"
   },
   "maps": {
     "title": "Mapas",
@@ -701,7 +702,8 @@
       "tokenTags": "Etiquetas do token",
       "editTags": "Editar",
       "noTags": "Nenhuma"
-    }
+    },
+    "framesFolder": "Molduras"
   },
   "models": {
     "title": "Models",
@@ -2525,7 +2527,8 @@
     "saving": "A guardar…",
     "remove": "Remover",
     "failed": "Não foi possível definir a imagem",
-    "searchFailed": "Não foi possível carregar as imagens"
+    "searchFailed": "Não foi possível carregar as imagens",
+    "ungrouped": "Ficheiros soltos"
   },
   "backups": {
     "notice": {
@@ -2649,12 +2652,6 @@
     "title": "Editor de fichas",
     "forCharacter": "para {{name}}",
     "canvasLabel": "Pré-visualização da ficha — arraste para mover, desloque para ampliar, use as setas para ajustar",
-    "shape": "Forma",
-    "mask": {
-      "circle": "Círculo",
-      "square": "Quadrado",
-      "none": "Completa"
-    },
     "size": "Tamanho de saída",
     "sizeOption": "{{size}} × {{size}} px",
     "zoom": "Zoom",
@@ -2673,7 +2670,7 @@
     "frameNpc": "Personagem não jogadora",
     "frameOpponent": "Adversário",
     "libraryFrames": "Molduras da biblioteca",
-    "customFramesHint": "Adicione as suas próprias molduras colocando imagens PNG, WebP ou SVG numa pasta chamada .frames na sua biblioteca de fichas.",
+    "customFramesHint": "Adicione as suas próprias molduras colocando imagens PNG, WebP ou SVG em qualquer pasta da sua biblioteca de fichas que contenha um ficheiro marcador .frames-container.",
     "source": {
       "upload": "Carregar",
       "library": "Biblioteca"
@@ -2693,6 +2690,24 @@
     "frameColor": "Cor da moldura",
     "shape_circle": "Círculo",
     "shape_square": "Quadrado",
-    "shape_hexagon": "Hexágono"
+    "searchFrames": "Pesquisar molduras",
+    "favoriteFrames": "Favoritos",
+    "noFramesMatch": "Nenhuma moldura corresponde a “{{query}}”.",
+    "frameColorNone": "Nenhuma",
+    "color_white": "Branco",
+    "color_black": "Preto",
+    "sendToCampaign": "Enviar para uma campanha",
+    "sendToCampaignHint": "Torne-o o token de uma personagem ou adicione-o a uma campanha que dirige.",
+    "asCharacterToken": "Definir como token de personagem",
+    "chooseCategory": "Escolher categoria",
+    "chooseCategoryHint": "Onde o token fica em {{name}}.",
+    "defaultCategory": "Tokens",
+    "defaultCategoryHint": "O grupo integrado",
+    "noCampaigns": "Não tem campanhas para enviar isto.",
+    "sendToCharacter": "Enviar para uma personagem",
+    "sendToOwnedCampaign": "Enviar para uma campanha que dirige",
+    "pickCharacterNext": "Escolha uma personagem a seguir",
+    "chooseCharacter": "Escolher personagem",
+    "chooseCharacterHint": "De quem será este token em {{name}}."
   }
 }

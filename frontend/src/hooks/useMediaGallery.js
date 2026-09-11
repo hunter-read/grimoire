@@ -39,6 +39,10 @@ export default function useMediaGallery(config) {
 
   const [data, setData] = useState(null)
   const [folderTags, setFolderTags] = useState({})
+  // Folder paths whose images are token-editor frames, from the same endpoint.
+  // Only the token gallery ever gets a non-empty set; other collections have no
+  // such concept and simply never see the field.
+  const [frameFolders, setFrameFolders] = useState(() => new Set())
   const [grouped, setGrouped] = useSessionState(`${sessionKey}:grouped`, true)
   const [viewMode, cycleViewMode] = useViewMode(type)
   const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set())
@@ -145,6 +149,7 @@ export default function useMediaGallery(config) {
       const ft = {}
       for (const f of foldersData.folders) ft[f.path] = f.tags
       setFolderTags(ft)
+      setFrameFolders(new Set(foldersData.frame_folders || []))
     })
 
     setLoadingMore(true)
@@ -438,6 +443,7 @@ export default function useMediaGallery(config) {
     // raw + status
     data,
     folderTags,
+    frameFolders,
     // sort/filter state (shared SortFilterBar)
     sortFilter,
     setSortFilter,
