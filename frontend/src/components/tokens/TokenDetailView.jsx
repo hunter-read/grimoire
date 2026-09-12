@@ -5,10 +5,9 @@ import { LuArrowLeft, LuInfo, LuChevronDown, LuWand } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
+import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import useIsMobile from '../../hooks/useIsMobile'
 
-const getFolderPath = (tok) =>
-  (tok.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
 import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
@@ -20,6 +19,8 @@ import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import SiblingNavButtons from '../media/SiblingNavButtons'
+import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 
 export default function TokenDetailView() {
@@ -37,34 +38,28 @@ export default function TokenDetailView() {
   const isMobilePhone = useIsMobile(640)
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
   const [token, setToken] = useState(null)
-  const [siblings, setSiblings] = useState([])
   const [editingTokenTags, setEditingTokenTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const imagePane = useRef(null)
 
-  // Load siblings for prev/next navigation
-  useEffect(() => {
-    api
-      .get('/tokens')
-      .then((all) => {
-        if (!token) return
-        const folder = getFolderPath(token)
-        const sorted = all
-          .filter((tok) => getFolderPath(tok) === folder)
-          .sort((a, b) => a.filename.localeCompare(b.filename))
-        setSiblings(sorted)
-      })
-      .catch(() => {})
-  }, [token])
-
-  const siblingIdx = siblings.findIndex((tok) => tok.id === tokenId)
-  const onNext = useCallback(() => {
-    if (siblingIdx < siblings.length - 1) navigate(`/tokens/${siblings[siblingIdx + 1].id}`)
-  }, [siblingIdx, siblings, navigate])
-  const onPrev = useCallback(() => {
-    if (siblingIdx > 0) navigate(`/tokens/${siblings[siblingIdx - 1].id}`)
-  }, [siblingIdx, siblings, navigate])
+  const tokenDetailPath = useCallback((id) => `/tokens/${id}`, [])
+  const {
+    siblings,
+    index: siblingIdx,
+    hasPrev,
+    hasNext,
+    onPrev,
+    onNext,
+  } = useSiblingNavigation({
+    item: token,
+    id: tokenId,
+    listUrl: '/tokens',
+    listKey: 'tokens',
+    detailPath: tokenDetailPath,
+    navigate,
+    get: api.get,
+  })
 
   const { imageStyle } = useImageGestures({
     onNext,
@@ -160,6 +155,14 @@ export default function TokenDetailView() {
         >
           {token.filename}
         </span>
+        <SiblingPosition
+          index={siblingIdx}
+          total={siblings.length}
+          label={t('tokens.detail.position', {
+            current: siblingIdx + 1,
+            total: siblings.length,
+          })}
+        />
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails((v) => !v)}
@@ -243,6 +246,8 @@ export default function TokenDetailView() {
               alignItems: 'flex-start',
               justifyContent: 'center',
               padding: 24,
+              // Anchors the overlay prev/next arrows.
+              position: 'relative',
             }}
           >
             <img
@@ -256,6 +261,14 @@ export default function TokenDetailView() {
                 ...imageStyle,
               }}
               draggable={false}
+            />
+            <SiblingNavButtons
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              onPrev={onPrev}
+              onNext={onNext}
+              prevLabel={t('tokens.detail.previous')}
+              nextLabel={t('tokens.detail.next')}
             />
           </div>
         )}

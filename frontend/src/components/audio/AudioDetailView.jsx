@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown, LuMusic, LuImagePlus } from 'react-icons/lu'
 import api, { imageSources, mediaUrl } from '../../api'
+import useSiblingNavigation from '../../hooks/useSiblingNavigation'
+import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import ImagePickerModal from '../images/ImagePickerModal'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
@@ -17,6 +19,8 @@ import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
 import AddToSoundboardButton from './AddToSoundboardButton'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import SiblingNavButtons from '../media/SiblingNavButtons'
+import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -45,6 +49,27 @@ export default function AudioDetailView() {
   const [showCoverPicker, setShowCoverPicker] = useState(false)
   // Cache-buster so a replaced cover isn't served from the browser cache.
   const [coverVersion, setCoverVersion] = useState(0)
+
+  const audioDetailPath = useCallback((id) => `/audio/${id}`, [])
+  const {
+    siblings,
+    index: siblingIdx,
+    hasPrev,
+    hasNext,
+    onPrev,
+    onNext,
+  } = useSiblingNavigation({
+    item: track,
+    id: audioId,
+    listUrl: '/audio',
+    listKey: 'audio',
+    detailPath: audioDetailPath,
+    navigate,
+    get: api.get,
+  })
+  // There is no image to swipe or zoom here, so only the keyboard half of the
+  // map/token gesture handling applies.
+  useArrowKeyNavigation(onNext, onPrev)
 
   useEffect(() => {
     api.get(`/audio/${audioId}`).then(setTrack)
@@ -123,6 +148,14 @@ export default function AudioDetailView() {
         >
           {track.title || track.filename}
         </span>
+        <SiblingPosition
+          index={siblingIdx}
+          total={siblings.length}
+          label={t('audio.detail.position', {
+            current: siblingIdx + 1,
+            total: siblings.length,
+          })}
+        />
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails((v) => !v)}
@@ -180,8 +213,18 @@ export default function AudioDetailView() {
               justifyContent: 'center',
               gap: 24,
               padding: 24,
+              // Anchors the overlay prev/next arrows.
+              position: 'relative',
             }}
           >
+            <SiblingNavButtons
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              onPrev={onPrev}
+              onNext={onNext}
+              prevLabel={t('audio.detail.previous')}
+              nextLabel={t('audio.detail.next')}
+            />
             <div
               style={{
                 width: 'min(360px, 70vw)',

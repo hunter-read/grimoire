@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuInfo, LuChevronDown, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
+import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
+import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
@@ -14,6 +15,8 @@ import MapVideoPane from './MapVideoPane'
 import MapVttPane from './MapVttPane'
 import MapGridEditor from './MapGridEditor'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import SiblingNavButtons from '../media/SiblingNavButtons'
+import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import DetailFavoriteButton from '../DetailFavoriteButton'
@@ -24,26 +27,6 @@ import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import useIsMobile from '../../hooks/useIsMobile'
-
-const getFolderPath = (m) =>
-  (m.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
-
-const navButtonStyle = {
-  position: 'absolute',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  zIndex: 2,
-  width: 44,
-  height: 44,
-  borderRadius: '50%',
-  border: '1px solid var(--border)',
-  background: 'var(--scrim)',
-  color: 'var(--text)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-}
 
 export default function MapDetailView() {
   const { mapId } = useParams()
@@ -59,42 +42,33 @@ export default function MapDetailView() {
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [map, setMap] = useState(null)
-  const [siblings, setSiblings] = useState([])
   const [editingMapTags, setEditingMapTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [editingGrid, setEditingGrid] = useState(false)
   const [vttData, setVttData] = useState(null)
   const imagePane = useRef(null)
-  const loadedFolder = useRef(null)
 
-  // Load siblings (same-folder maps) for prev/next navigation. Only refetch when
-  // the folder changes — navigating within a folder reuses the loaded list.
-  useEffect(() => {
-    if (!map) return
-    const folder = getFolderPath(map)
-    if (loadedFolder.current === folder) return
-    loadedFolder.current = folder
-    api
-      .get(`/maps?folder=${encodeURIComponent(folder)}`)
-      .then((res) => {
-        const sorted = (res.maps ?? []).sort((a, b) => a.filename.localeCompare(b.filename))
-        setSiblings(sorted)
-      })
-      .catch(() => {
-        loadedFolder.current = null
-      })
-  }, [map])
-
-  const siblingIdx = siblings.findIndex((m) => m.id === mapId)
-  const hasPrev = siblingIdx > 0
-  const hasNext = siblingIdx >= 0 && siblingIdx < siblings.length - 1
-  const onNext = useCallback(() => {
-    if (siblingIdx < siblings.length - 1) navigate(`/maps/${siblings[siblingIdx + 1].id}`)
-  }, [siblingIdx, siblings, navigate])
-  const onPrev = useCallback(() => {
-    if (siblingIdx > 0) navigate(`/maps/${siblings[siblingIdx - 1].id}`)
-  }, [siblingIdx, siblings, navigate])
+  const mapDetailPath = useCallback((id) => `/maps/${id}`, [])
+  const {
+    siblings,
+    index: siblingIdx,
+    hasPrev,
+    hasNext,
+    onPrev,
+    onNext,
+  } = useSiblingNavigation({
+    item: map,
+    id: mapId,
+    listUrl: '/maps',
+    listKey: 'maps',
+    detailPath: mapDetailPath,
+    navigate,
+    get: api.get,
+    // Maps narrow by folder in SQL, so a huge gallery does not materialise
+    // every row to find one folder's neighbours.
+    serverFiltered: true,
+  })
 
   const { imageStyle } = useImageGestures({
     onNext,
@@ -223,17 +197,14 @@ export default function MapDetailView() {
         >
           {map.filename}
         </span>
-        {siblingIdx >= 0 && siblings.length > 1 && (
-          <span
-            style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}
-            aria-label={t('maps.detail.position', {
-              current: siblingIdx + 1,
-              total: siblings.length,
-            })}
-          >
-            {siblingIdx + 1} / {siblings.length}
-          </span>
-        )}
+        <SiblingPosition
+          index={siblingIdx}
+          total={siblings.length}
+          label={t('maps.detail.position', {
+            current: siblingIdx + 1,
+            total: siblings.length,
+          })}
+        />
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails((v) => !v)}
@@ -342,26 +313,14 @@ export default function MapDetailView() {
                 isMobilePhone={isMobilePhone}
               />
             )}
-            {hasPrev && (
-              <button
-                onClick={onPrev}
-                aria-label={t('maps.detail.previous')}
-                title={t('maps.detail.previous')}
-                style={{ ...navButtonStyle, left: 12 }}
-              >
-                <LuChevronLeft size={26} />
-              </button>
-            )}
-            {hasNext && (
-              <button
-                onClick={onNext}
-                aria-label={t('maps.detail.next')}
-                title={t('maps.detail.next')}
-                style={{ ...navButtonStyle, right: 12 }}
-              >
-                <LuChevronRight size={26} />
-              </button>
-            )}
+            <SiblingNavButtons
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              onPrev={onPrev}
+              onNext={onNext}
+              prevLabel={t('maps.detail.previous')}
+              nextLabel={t('maps.detail.next')}
+            />
           </div>
         )}
 

@@ -190,7 +190,10 @@ describe('AudioDetailView', () => {
 
       await waitFor(() => expect(imageSources.uploadAudioCover).toHaveBeenCalledWith('a1', file))
       // The track is re-fetched so has_cover/has_artwork reflect the new state.
-      expect(api.get).toHaveBeenCalledTimes(2)
+      // Counted by endpoint rather than in total: the view also lists the folder's
+      // tracks for prev/next navigation, which is not what this asserts.
+      const trackFetches = api.get.mock.calls.filter((c) => c[0] === '/audio/a1')
+      expect(trackFetches).toHaveLength(2)
     })
 
     it('sets the cover from a library image', async () => {
@@ -239,5 +242,59 @@ describe('AudioDetailView', () => {
     render(<AudioDetailView />)
     await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
     expect(toggleFavorite).toHaveBeenCalledWith('audio', 'a1')
+  })
+
+  describe('sibling navigation', () => {
+    const SIBLINGS = [
+      { id: 'a0', filename: 'a.mp3', relative_path: 'audio/Ambient/a.mp3' },
+      { id: 'a1', filename: 'tavern.mp3', relative_path: 'audio/Ambient/tavern.mp3' },
+      { id: 'a2', filename: 'z.mp3', relative_path: 'audio/Ambient/z.mp3' },
+    ]
+
+    // Route by URL: the folder list vs the track itself.
+    const mockApi = (over = {}) => {
+      api.get.mockImplementation((url) => {
+        if (url.split('?')[0] === '/audio')
+          return Promise.resolve({ total: SIBLINGS.length, audio: SIBLINGS })
+        return Promise.resolve(detail(over))
+      })
+    }
+
+    it('shows the position of the track within its folder', async () => {
+      mockApi()
+      render(<AudioDetailView />)
+      expect(await screen.findByText('2 / 3')).toBeInTheDocument()
+    })
+
+    it('steps to the next track with the arrow button', async () => {
+      mockApi()
+      render(<AudioDetailView />)
+      await userEvent.click(await screen.findByRole('button', { name: 'Next track' }))
+      expect(navigate).toHaveBeenCalledWith('/audio/a2')
+    })
+
+    it('steps to the previous track with the arrow button', async () => {
+      mockApi()
+      render(<AudioDetailView />)
+      await userEvent.click(await screen.findByRole('button', { name: 'Previous track' }))
+      expect(navigate).toHaveBeenCalledWith('/audio/a0')
+    })
+
+    it('steps with the arrow keys', async () => {
+      mockApi()
+      render(<AudioDetailView />)
+      await screen.findByText('2 / 3')
+      await userEvent.keyboard('{ArrowRight}')
+      expect(navigate).toHaveBeenCalledWith('/audio/a2')
+      await userEvent.keyboard('{ArrowLeft}')
+      expect(navigate).toHaveBeenCalledWith('/audio/a0')
+    })
+
+    it('offers no navigation for an archive, which has no player pane', async () => {
+      mockApi({ filename: 'pack.zip', is_archive: true })
+      render(<AudioDetailView />)
+      await waitFor(() => expect(screen.getByText(/cannot be previewed/i)).toBeInTheDocument())
+      expect(screen.queryByRole('button', { name: 'Next track' })).not.toBeInTheDocument()
+    })
   })
 })
