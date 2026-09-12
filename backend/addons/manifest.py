@@ -393,6 +393,7 @@ class IndexEntry(BaseModel):
     requires_script: bool = False
     script_sha256: str = ""
     grimoire_min_version: str = ""
+    changelog: Optional[list[dict]] = None
 
 
 class AddonIndex(BaseModel):

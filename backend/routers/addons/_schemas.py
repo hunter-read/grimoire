@@ -4,6 +4,11 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+class ChangelogEntry(BaseModel):
+    version: str
+    changes: list[str]
+
+
 class AddonInstall(BaseModel):
     """Install/update request.
 
@@ -64,6 +69,8 @@ class InstalledAddon(BaseModel):
     source: str
     available_version: str
     update_available: bool
+    changelog: Optional[list[ChangelogEntry]] = None
+    source_url: str = ""
 
 
 class AvailableAddon(BaseModel):
@@ -86,6 +93,8 @@ class AvailableAddon(BaseModel):
     script_sha256: str
     installed: bool
     update_available: bool
+    changelog: Optional[list[ChangelogEntry]] = None
+    source_url: str = ""
 
 
 class AddonListResponse(BaseModel):

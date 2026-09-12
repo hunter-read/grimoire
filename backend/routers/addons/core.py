@@ -10,6 +10,8 @@ from ...addons.constants import DEFAULT_INDEX_URL
 from ...auth import CurrentUser, require_admin
 from ...config import get_db
 from ._schemas import AddonInstall, AddonSettingsUpdate, AddonUpdate
+import os
+import re
 
 logger = logging.getLogger("grimoire.addons")
 
@@ -24,16 +26,31 @@ def list_addons(
         for addon_id, manifest in addons.load_all().items()
     }
 
+    index_url_val = addons.get_index_url(db) or DEFAULT_INDEX_URL
+    m = re.match(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/(.*)/[^/]+$", index_url_val)
+    base_source_url = f"https://github.com/{m.group(1)}/{m.group(2)}/tree/{m.group(3)}/" if m else "https://github.com/grimoire-codex/community-add-ons/tree/main/"
+
     available = []
     for entry in addons.available(db):
         current = installed.get(entry.id)
         newer = bool(current and addons.is_newer(entry.version, current["version"]))
+
+        filtered_changelog = entry.changelog or []
+        if current is not None and "version" in current:
+            filtered_changelog = [
+                c for c in filtered_changelog
+                if addons.is_newer(c["version"], current["version"])
+            ]
+
         if current is not None:
             # Annotate the installed record too — the UI lists installed and
             # available separately, so an update is only discoverable if it is
             # reported on the row the user is actually looking at.
             current["available_version"] = entry.version
             current["update_available"] = newer
+            current["changelog"] = filtered_changelog
+            current["source_url"] = base_source_url + os.path.dirname(entry.path)
+
         entry_author, entry_author_url = parse_author(entry.author)
         available.append(
             {
@@ -52,6 +69,8 @@ def list_addons(
                 # A newer version in the index is what the UI offers an
                 # "Update" button for.
                 "update_available": newer,
+                "changelog": filtered_changelog,
+                "source_url": base_source_url + os.path.dirname(entry.path),
             }
         )
 
