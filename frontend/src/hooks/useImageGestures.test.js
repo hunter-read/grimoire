@@ -16,13 +16,12 @@ describe('useImageGestures', () => {
   let el, containerRef, onNext, onPrev
 
   const setup = (resetKey = 'a') =>
-    renderHook((props) =>
-      useImageGestures({ onNext, onPrev, containerRef, resetKey, ...props })
-    )
+    renderHook((props) => useImageGestures({ onNext, onPrev, containerRef, resetKey, ...props }))
 
-  const fire = (type, touches, changed) => act(() => {
-    el.dispatchEvent(touchEvent(type, touches, changed))
-  })
+  const fire = (type, touches, changed) =>
+    act(() => {
+      el.dispatchEvent(touchEvent(type, touches, changed))
+    })
 
   beforeEach(() => {
     el = document.createElement('div')
