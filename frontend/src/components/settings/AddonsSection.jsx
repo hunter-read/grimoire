@@ -75,13 +75,17 @@ export default function AddonsSection() {
   // Updating is the same install call — the version in the index is what gets
   // fetched. A script-backed add-on whose script changed comes back unapproved,
   // so consent is re-asked rather than inherited.
-  const update = (addon) =>
-    addon.requires_script
-      ? setConfirming({ ...addon, updating: true })
-      : run(
-          api.post(`/addons/${addon.id}/install`, { approve_script: false }),
-          t('addons.updated', { name: addon.name })
-        )
+  const update = (addon) => {
+    const hasNewChangelog = (addon.changelog || []).length > 0
+    if (addon.requires_script || hasNewChangelog) {
+      setConfirming({ ...addon, updating: true })
+    } else {
+      run(
+        api.post(`/addons/${addon.id}/install`, { approve_script: false }),
+        t('addons.updated', { name: addon.name })
+      )
+    }
+  }
 
   const updateAll = () =>
     run(
@@ -93,8 +97,12 @@ export default function AddonsSection() {
 
   const startInstall = (addon) => {
     // Only code-bearing add-ons need consent; plain YAML installs straight away.
-    if (addon.requires_script) setConfirming(addon)
-    else install(addon)
+    // (We also now show the confirmation dialog for YAML add-ons if they have a changelog)
+    if (addon.requires_script || (addon.changelog && addon.changelog.length > 0)) {
+      setConfirming(addon)
+    } else {
+      install(addon)
+    }
   }
 
   const toggleScripts = (allow) => run(api.patch('/addons/settings', { allow_scripts: allow }))
@@ -257,9 +265,10 @@ export default function AddonsSection() {
               borderRadius: 6,
               background: 'var(--bg-deep)',
               marginBottom: 6,
+
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>
                 {addon.name}{' '}
                 <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
@@ -360,9 +369,10 @@ export default function AddonsSection() {
               borderRadius: 6,
               background: 'var(--bg-deep)',
               marginBottom: 6,
+
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>
                 {addon.name}{' '}
                 <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>

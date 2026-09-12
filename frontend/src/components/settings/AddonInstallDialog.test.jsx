@@ -71,6 +71,42 @@ describe('AddonInstallDialog', () => {
         onClose={vi.fn()}
       />
     )
-    expect(screen.queryByText(/sha256:/)).toBeNull()
+    expect(screen.queryByText('a'.repeat(64))).toBeNull()
+  })
+
+  it('renders the changelog if provided', () => {
+    render(
+      <AddonInstallDialog
+        addon={{ ...ADDON, changelog: [{ version: '1.2.3', changes: ['Fixed a bug'] }] }}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText("What's New")).toBeInTheDocument()
+    expect(screen.getByText('v1.2.3')).toBeInTheDocument()
+    expect(screen.getByText('Fixed a bug')).toBeInTheDocument()
+  })
+
+  it('renders a github source link if source_url is provided', () => {
+    render(
+      <AddonInstallDialog
+        addon={{ ...ADDON, source_url: 'https://github.com/foo' }}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('link', { name: /View source code on GitHub/i })).toHaveAttribute('href', 'https://github.com/foo')
+  })
+
+  it('auto-acknowledges and enables the install button if there are no scripts', () => {
+    render(
+      <AddonInstallDialog
+        addon={{ ...ADDON, requires_script: false }}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('addons.scriptWarning')).toBeNull()
+    expect(screen.getByRole('button', { name: /^addons.install$/i })).toBeEnabled()
   })
 })
