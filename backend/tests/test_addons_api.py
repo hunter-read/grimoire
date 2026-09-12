@@ -195,6 +195,62 @@ class TestListAddons:
         assert body["available"][0]["update_available"] is True
 
 
+    def test_surfaces_source_url(self, client, admin_headers):
+        session = SessionLocal()
+        registry.save_cached_index(
+            session,
+            {
+                "addons": [
+                    {
+                        "id": "ttrpg-wiki",
+                        "name": "TTRPG Wiki",
+                        "version": "1.0.0",
+                        "path": "scrapers/ttrpg-wiki/ttrpg-wiki.yml",
+                        "sha256": "x" * 64,
+                    }
+                ]
+            },
+        )
+        session.commit()
+        session.close()
+        body = client.get("/api/addons", headers=admin_headers).json()
+        assert "github.com" in body["available"][0]["source_url"]
+        assert "ttrpg-wiki" in body["available"][0]["source_url"]
+
+    def test_filters_changelog_to_only_show_newer_versions(self, client, admin_headers, installed):
+        session = SessionLocal()
+        registry.save_cached_index(
+            session,
+            {
+                "addons": [
+                    {
+                        "id": "ttrpg-wiki",
+                        "name": "TTRPG Wiki",
+                        "version": "1.2.0",
+                        "path": "scrapers/ttrpg-wiki/ttrpg-wiki.yml",
+                        "sha256": "x" * 64,
+                        "changelog": [
+                            {"version": "1.2.0", "changes": ["Newest!"]},
+                            {"version": "1.1.0", "changes": ["Newer!"]},
+                            {"version": "1.0.0", "changes": ["Oldest!"]}
+                        ]
+                    }
+                ]
+            },
+        )
+        session.commit()
+        session.close()
+        body = client.get("/api/addons", headers=admin_headers).json()
+
+        addon = next(a for a in body["installed"] if a["id"] == "ttrpg-wiki")
+        assert addon["update_available"] is True
+        # Version 1.0.0 is installed, so 1.2.0 and 1.1.0 should be shown, but 1.0.0 shouldn't
+        versions = [c["version"] for c in addon["changelog"]]
+        assert "1.2.0" in versions
+        assert "1.1.0" in versions
+        assert "1.0.0" not in versions
+
+
 class TestAddonSettings:
     def test_updates_index_url_and_script_switch(self, client, admin_headers):
         response = client.patch(
