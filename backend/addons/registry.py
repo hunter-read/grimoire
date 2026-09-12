@@ -279,6 +279,7 @@ def describe(db: Session, addon_id: str, manifest: Optional[AddonManifest] = Non
         "runnable": runnable,
         "blocked_reason": reason,
         "source": state.get("source", "local"),
+        "index_url": state.get("index_url"),
         # Filled in by the router when the add-on appears in the cached index.
         # A hand-placed add-on has no index entry, so it never offers an update.
         "available_version": "",

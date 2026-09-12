@@ -13,13 +13,7 @@ export default function AddonsTab() {
   const { t } = useTranslation()
   return (
     <div>
-      <CollapsibleSection
-        title={t('addons.categories.metadata')}
-        description={t('addons.categories.metadataDesc')}
-        storageKey="grimoire:settings:addons:metadata"
-      >
-        <AddonsSection />
-      </CollapsibleSection>
+      <AddonsSection />
     </div>
   )
 }

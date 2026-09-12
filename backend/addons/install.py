@@ -73,23 +73,55 @@ def _fetch_text(url: str) -> bytes:
 
 
 def refresh_index(db: Session, url: Optional[str] = None) -> dict:
-    """Fetch the community index and cache it.  Returns the parsed index."""
+    """Fetch the community index and cache it.  Returns the parsed index plus any errors."""
     _assert_external_installs_enabled()
-    index_url = (url or get_index_url(db)).strip()
-    if not index_url.startswith(("http://", "https://")):
-        raise AddonError("index URL must be an http(s) URL")
+    index_urls_str = (url or get_index_url(db)).strip()
+    index_urls = [u.strip() for u in index_urls_str.split(",") if u.strip()]
+    if not index_urls:
+        raise AddonError("no index URLs configured")
 
-    raw = fetch_json(index_url, user_agent=f"Grimoire/{config.VERSION}")
-    try:
-        index = AddonIndex(**raw) if isinstance(raw, dict) else AddonIndex()
-    except ValidationError as exc:
-        raise AddonError(f"index is not in the expected format: {exc}") from exc
+    all_addons = []
+    errors = []
+    generated = ""
 
-    payload = index.model_dump()
-    payload["_url"] = index_url
+    for index_url in index_urls:
+        if not index_url.startswith(("http://", "https://")):
+            errors.append({"url": index_url, "error": "index URL must be an http(s) URL"})
+            continue
+
+        try:
+            raw = fetch_json(index_url, user_agent=f"Grimoire/{config.VERSION}")
+            index = AddonIndex(**raw) if isinstance(raw, dict) else AddonIndex()
+        except AddonFetchError as exc:
+            logger.warning("Failed to fetch add-on index from %s: %s", index_url, exc)
+            errors.append({"url": index_url, "error": str(exc)})
+            continue
+        except ValidationError as exc:
+            logger.warning("Index %s is not in the expected format: %s", index_url, exc)
+            errors.append({"url": index_url, "error": f"invalid format: {exc}"})
+            continue
+
+        if not generated:
+            generated = index.generated
+
+        for addon in index.addons:
+            addon_dict = addon.model_dump()
+            addon_dict["index_url"] = index_url
+            all_addons.append(addon_dict)
+
+    if not all_addons and index_urls and errors:
+        raise AddonFetchError("Could not fetch from any configured add-on index")
+
+    payload = {
+        "version": 1,
+        "generated": generated,
+        "addons": all_addons,
+        "_url": index_urls[0] if index_urls else "",
+        "errors": errors,
+    }
     save_cached_index(db, payload)
     db.commit()
-    logger.info("Refreshed add-on index from %s (%d add-on(s))", index_url, len(index.addons))
+    logger.info("Refreshed add-on index from %d source(s) (%d add-on(s))", len(index_urls), len(all_addons))
     return payload
 
 
@@ -105,9 +137,11 @@ def _index_entries(db: Session) -> list[IndexEntry]:
     return out
 
 
-def find_entry(db: Session, addon_id: str) -> Optional[IndexEntry]:
+def find_entry(db: Session, addon_id: str, index_url: Optional[str] = None) -> Optional[IndexEntry]:
     for entry in _index_entries(db):
         if entry.id == addon_id:
+            if index_url and entry.index_url != index_url:
+                continue
             return entry
     return None
 
@@ -132,7 +166,7 @@ def _verify(body: bytes, expected: str, what: str) -> None:
         )
 
 
-def install(db: Session, addon_id: str, approve_script: bool = False) -> dict:
+def install(db: Session, addon_id: str, approve_script: bool = False, index_url: Optional[str] = None) -> dict:
     """Install or update one add-on from the cached index.
 
     A script-backed add-on is written to disk either way, but is only marked
@@ -141,14 +175,16 @@ def install(db: Session, addon_id: str, approve_script: bool = False) -> dict:
     script drops back to unapproved.
     """
     _assert_external_installs_enabled()
-    entry = find_entry(db, addon_id)
+    entry = find_entry(db, addon_id, index_url=index_url)
     if entry is None:
         raise AddonError(
             f"'{addon_id}' is not in the add-on index - try refreshing it"
         )
 
-    index_url = get_cached_index(db).get("_url") or get_index_url(db)
-    manifest_url = urljoin(index_url, entry.path)
+    index_urls = get_index_url(db).split(",")
+    default_index_url = index_urls[0].strip() if index_urls else ""
+    manifest_index_url = entry.index_url or get_cached_index(db).get("_url") or default_index_url
+    manifest_url = urljoin(manifest_index_url, entry.path)
     manifest_body = _fetch_text(manifest_url)
     _verify(manifest_body, entry.sha256, "add-on manifest")
 
@@ -169,7 +205,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False) -> dict:
             # Read the staged manifest to learn the script filename rather than
             # trusting the index's word for it.
             script_name = _script_entry_name(staging, addon_id)
-            script_body = _fetch_text(urljoin(index_url, f"{os.path.dirname(entry.path)}/{script_name}"))
+            script_body = _fetch_text(urljoin(manifest_index_url, f"{os.path.dirname(entry.path)}/{script_name}"))
             _verify(script_body, entry.script_sha256, "add-on script")
             with open(os.path.join(staging, script_name), "wb") as fh:
                 fh.write(script_body)
@@ -194,6 +230,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False) -> dict:
         addon_id,
         version=manifest.version,
         source="index",
+        index_url=manifest_index_url,
         enabled=True,
         script_sha256=script_digest,
         script_approved=bool(approve_script and manifest.requires_script),
@@ -215,19 +252,25 @@ def _script_entry_name(directory: str, addon_id: str) -> str:
     return str(entry)
 
 
-def pending_updates(db: Session) -> list[tuple[str, str, str]]:
+def pending_updates(db: Session) -> list[tuple[str, str, str, str]]:
     """Installed add-ons with a newer version in the cached index.
 
-    Returns ``(id, installed_version, available_version)`` triples.
+    Returns ``(id, installed_version, available_version, index_url)`` quadruples.
     """
-    from .registry import is_newer, load_all
+    from .registry import is_newer, load_all, get_state_for
 
-    index = {entry.id: entry for entry in _index_entries(db)}
+    index_entries = _index_entries(db)
     out = []
     for addon_id, manifest in load_all().items():
-        entry = index.get(addon_id)
+        state = get_state_for(db, addon_id)
+        current_index_url = state.get("index_url")
+        
+        # Find the entry matching the current index_url, or the first entry if none matches
+        primary = next((e for e in index_entries if e.id == addon_id), None)
+        entry = next((e for e in index_entries if e.id == addon_id and e.index_url == current_index_url), primary)
+        
         if entry and is_newer(entry.version, manifest.version):
-            out.append((addon_id, manifest.version, entry.version))
+            out.append((addon_id, manifest.version, entry.version, entry.index_url))
     return out
 
 
@@ -241,9 +284,9 @@ def update_all(db: Session) -> dict:
     """
     updated: list[dict] = []
     failed: list[dict] = []
-    for addon_id, from_version, to_version in pending_updates(db):
+    for addon_id, from_version, to_version, index_url in pending_updates(db):
         try:
-            install(db, addon_id)
+            install(db, addon_id, index_url=index_url)
             updated.append({"id": addon_id, "from": from_version, "to": to_version})
         except (AddonError, AddonFetchError) as exc:
             logger.warning("Add-on '%s' failed to update: %s", addon_id, exc)

@@ -108,6 +108,7 @@ def _publish(db, files, version="1.0.0", addon_id="demo", **manifest_extra):
     files[f"https://example.com/scrapers/{addon_id}/{addon_id}.yml"] = body
     cached = registry.get_cached_index(db)
     entries = [e for e in (cached.get("addons") or []) if e["id"] != addon_id]
+    entry["index_url"] = "https://example.com/index.json"
     entries.append(entry)
     registry.save_cached_index(
         db, {"version": 1, "addons": entries, "_url": "https://example.com/index.json"}
@@ -165,7 +166,7 @@ class TestPendingUpdates:
         _publish(db, files, "1.0.0")
         install_mod.install(db, "demo")
         _publish(db, files, "1.1.0")
-        assert install_mod.pending_updates(db) == [("demo", "1.0.0", "1.1.0")]
+        assert install_mod.pending_updates(db) == [("demo", "1.0.0", "1.1.0", "https://example.com/index.json")]
 
     def test_not_detected_for_an_older_index_entry(self, db, addons_dir, files):
         _publish(db, files, "2.0.0")

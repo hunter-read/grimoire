@@ -10,14 +10,9 @@ class ChangelogEntry(BaseModel):
 
 
 class AddonInstall(BaseModel):
-    """Install/update request.
-
-    ``approve_script`` is the operator's explicit consent to run third-party
-    code, collected per add-on at install time. It is meaningless for YAML-only
-    add-ons and ignored for them.
-    """
-
+    """Install/update request."""
     approve_script: bool = False
+    index_url: Optional[str] = None
 
 
 class AddonUpdate(BaseModel):
@@ -26,31 +21,22 @@ class AddonUpdate(BaseModel):
 
 
 class AddonSettingsUpdate(BaseModel):
-    index_url: Optional[str] = None
+    index_urls: Optional[list[str]] = None
     allow_scripts: Optional[bool] = None
 
-    @field_validator("index_url")
+    @field_validator("index_urls")
     @classmethod
-    def http_url(cls, v: Optional[str]) -> Optional[str]:
+    def http_urls(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         if v is None:
             return v
-        v = v.strip()
-        if v and not v.startswith(("http://", "https://")):
-            raise ValueError("index URL must be an http(s) URL")
+        for url in v:
+            url = url.strip()
+            if url and not url.startswith(("http://", "https://")):
+                raise ValueError(f"index URL '{url}' must be an http(s) URL")
         return v
 
 
 class InstalledAddon(BaseModel):
-    """One installed add-on, as built by `addons.registry.describe`.
-
-    Every field is read off a validated `AddonManifest` (whose optional strings
-    default to `""`, never null) or coerced by `describe` itself, so nothing
-    here can be absent. `available_version`/`update_available` are seeded to
-    `""`/`False` by `describe` and overwritten by the list handler when the
-    add-on also appears in the cached index — a hand-placed add-on keeps the
-    seeded values rather than dropping the keys.
-    """
-
     id: str
     name: str
     version: str
@@ -71,15 +57,11 @@ class InstalledAddon(BaseModel):
     update_available: bool
     changelog: Optional[list[ChangelogEntry]] = None
     source_url: str = ""
+    index_url: str = ""
+    available_in: list[dict] = Field(default_factory=list)
 
 
 class AvailableAddon(BaseModel):
-    """One row of the cached community index, as offered to the admin UI.
-
-    Mirrors `addons.manifest.IndexEntry`, whose optional fields all default to
-    `""`/`False`, so none can be null.
-    """
-
     id: str
     name: str
     kind: str
@@ -95,28 +77,27 @@ class AvailableAddon(BaseModel):
     update_available: bool
     changelog: Optional[list[ChangelogEntry]] = None
     source_url: str = ""
+    index_url: str = ""
+    available_in: list[dict] = Field(default_factory=list)
 
 
 class AddonListResponse(BaseModel):
     installed: list[InstalledAddon]
     available: list[AvailableAddon]
-    index_url: str
+    index_urls: list[str] = Field(default_factory=list)
     default_index_url: str
     allow_scripts: bool
-    # From the cached index blob, which may predate the `generated` key.
     index_generated: Optional[str] = None
 
 
 class RefreshIndexResponse(BaseModel):
     status: str
     count: int
+    errors: list[dict] = Field(default_factory=list)
 
 
 class AddonUpdated(BaseModel):
-    """One add-on that updated cleanly. `from`/`to` are the two versions."""
-
     id: str
-    # `from` is a Python keyword, so it is aliased rather than named directly.
     from_version: str = Field(alias="from")
     to: str
 
@@ -135,7 +116,7 @@ class UpdateAllResponse(BaseModel):
 
 
 class AddonSettingsResponse(BaseModel):
-    index_url: str
+    index_urls: list[str] = Field(default_factory=list)
     allow_scripts: bool
 
 

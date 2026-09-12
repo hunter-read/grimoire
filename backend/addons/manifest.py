@@ -394,6 +394,7 @@ class IndexEntry(BaseModel):
     script_sha256: str = ""
     grimoire_min_version: str = ""
     changelog: Optional[list[dict]] = None
+    index_url: str = ""
 
 
 class AddonIndex(BaseModel):

@@ -26,60 +26,88 @@ def list_addons(
         for addon_id, manifest in addons.load_all().items()
     }
 
-    index_url_val = addons.get_index_url(db) or DEFAULT_INDEX_URL
-    m = re.match(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/(.*)/[^/]+$", index_url_val)
-    base_source_url = f"https://github.com/{m.group(1)}/{m.group(2)}/tree/{m.group(3)}/" if m else "https://github.com/grimoire-codex/community-add-ons/tree/main/"
+    # Gather available_in data
+    available_map = {}
+    for entry in addons.available(db):
+        if entry.id not in available_map:
+            available_map[entry.id] = []
+        available_map[entry.id].append(entry)
 
     available = []
-    for entry in addons.available(db):
-        current = installed.get(entry.id)
-        newer = bool(current and addons.is_newer(entry.version, current["version"]))
+    for addon_id, entries in available_map.items():
+        # First entry is highest priority
+        primary = entries[0]
+        current = installed.get(primary.id)
 
-        filtered_changelog = entry.changelog or []
+        available_in = []
+        for e in entries:
+            is_newer = bool(current and addons.is_newer(e.version, current["version"]))
+            available_in.append({
+                "index_url": e.index_url,
+                "version": e.version,
+                "update_available": is_newer
+            })
+
+        newer = available_in[0]["update_available"]
+
+        filtered_changelog = primary.changelog or []
         if current is not None and "version" in current:
             filtered_changelog = [
                 c for c in filtered_changelog
                 if addons.is_newer(c["version"], current["version"])
             ]
 
-        if current is not None:
-            # Annotate the installed record too — the UI lists installed and
-            # available separately, so an update is only discoverable if it is
-            # reported on the row the user is actually looking at.
-            current["available_version"] = entry.version
-            current["update_available"] = newer
-            current["changelog"] = filtered_changelog
-            current["source_url"] = base_source_url + os.path.dirname(entry.path)
+        m = re.match(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/(.*)/[^/]+$", primary.index_url)
+        base_source_url = f"https://github.com/{m.group(1)}/{m.group(2)}/tree/{m.group(3)}/" if m else "https://github.com/grimoire-codex/community-add-ons/tree/main/"
 
-        entry_author, entry_author_url = parse_author(entry.author)
+        if current is not None:
+            current_index_url = current.get("index_url") or primary.index_url
+            matching_entry = next((e for e in entries if e.index_url == current_index_url), primary)
+            current_is_newer = bool(addons.is_newer(matching_entry.version, current["version"]))
+
+            current["available_version"] = matching_entry.version
+            current["update_available"] = current_is_newer
+            current["index_url"] = current_index_url
+            current["available_in"] = available_in
+            current["changelog"] = filtered_changelog
+            current["source_url"] = base_source_url + os.path.dirname(matching_entry.path)
+
+        entry_author, entry_author_url = parse_author(primary.author)
         available.append(
             {
-                "id": entry.id,
-                "name": entry.name,
-                "kind": entry.kind,
-                "target": entry.target,
-                "version": entry.version,
-                "description": entry.description,
-                "homepage": entry.homepage,
+                "id": primary.id,
+                "name": primary.name,
+                "kind": primary.kind,
+                "target": primary.target,
+                "version": primary.version,
+                "description": primary.description,
+                "homepage": primary.homepage,
                 "author": entry_author,
                 "author_url": entry_author_url,
-                "requires_script": entry.requires_script,
-                "script_sha256": entry.script_sha256,
+                "requires_script": primary.requires_script,
+                "script_sha256": primary.script_sha256,
                 "installed": current is not None,
-                # A newer version in the index is what the UI offers an
-                # "Update" button for.
                 "update_available": newer,
                 "changelog": filtered_changelog,
-                "source_url": base_source_url + os.path.dirname(entry.path),
+                "source_url": base_source_url + os.path.dirname(primary.path),
+                "index_url": primary.index_url,
+                "available_in": available_in,
             }
         )
+        
+    # Ensure installed plugins missing from available still have basic fields
+    for current in installed.values():
+        if "index_url" not in current:
+            current["index_url"] = ""
+            current["available_in"] = []
+
+    index_urls_str = addons.get_index_url(db).strip()
+    index_urls = [u.strip() for u in index_urls_str.split(",") if u.strip()]
 
     return {
         "installed": sorted(installed.values(), key=lambda a: a["name"].lower()),
         "available": sorted(available, key=lambda a: a["name"].lower()),
-        "index_url": addons.get_index_url(db),
-        # Lets the UI say "using the community index" and keep the URL field
-        # tucked behind a button, rather than showing a URL nobody edits.
+        "index_urls": index_urls,
         "default_index_url": DEFAULT_INDEX_URL,
         "allow_scripts": addons.scripts_allowed(db),
         "index_generated": addons.get_cached_index(db).get("generated", ""),
@@ -97,7 +125,7 @@ def refresh_index(
         raise HTTPException(502, f"Could not fetch the add-on index: {exc}") from exc
     except addons.AddonError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return {"status": "ok", "count": len(index.get("addons", []))}
+    return {"status": "ok", "count": len(index.get("addons", [])), "errors": index.get("errors", [])}
 
 
 def update_all_addons(
@@ -129,13 +157,18 @@ def update_addon_settings(
     db: Session = Depends(get_db),
 ):
     """Set the index URL and the global script switch."""
-    if data.index_url is not None:
-        addons.set_index_url(db, data.index_url)
+    if data.index_urls is not None:
+        addons.set_index_url(db, ",".join(data.index_urls))
     if data.allow_scripts is not None:
         addons.set_scripts_allowed(db, data.allow_scripts)
+    
     db.commit()
+    
+    index_urls_str = addons.get_index_url(db).strip()
+    index_urls = [u.strip() for u in index_urls_str.split(",") if u.strip()]
+    
     return {
-        "index_url": addons.get_index_url(db),
+        "index_urls": index_urls,
         "allow_scripts": addons.scripts_allowed(db),
     }
 
@@ -148,7 +181,7 @@ def install_addon(
 ):
     """Install or update an add-on from the cached index."""
     try:
-        addons.install_addon(db, addon_id, approve_script=data.approve_script)
+        addons.install_addon(db, addon_id, approve_script=data.approve_script, index_url=data.index_url)
     except addons.AddonFetchError as exc:
         raise HTTPException(502, f"Could not download the add-on: {exc}") from exc
     except addons.AddonError as exc:
