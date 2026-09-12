@@ -1560,6 +1560,27 @@ frame name or folder. Favouriting a frame is the same as favouriting anything el
 in your token gallery, and it appears in a **Favourites** group at the top of the picker. It
 stays listed under its own folder too, so a frame never moves out from where you filed it.
 
+Hovering a frame shows it **enlarged beside the list**. A picker tile is small enough to fit
+a few hundred frames on screen but too small to judge one by - the thing that decides between
+two ornate borders is the detail in the border - so the tiles stay small and a hover shows the
+frame at a size you can actually read.
+
+**Frames that are versions of one another.** A frame folder often holds the same ring more
+than once: a black-and-white cut beside the colour original, a thinner weight, a recoloured
+set. Link them in [duplicate detection](#duplicates-and-multiple-versions) the way you would
+any other file, and the picker shows **one tile** for the frame rather than the same ring
+several times over. Selecting it lists its versions in the space the colour swatches occupy
+for the built-in shapes - the two never both apply, since a frame from your library is a file
+and takes no colour - each named the way versions are named everywhere else ("Black and
+white · v2"). Picking one keeps the frame's own tile lit, so stepping back to the original is
+one click.
+
+**Choosing which version of your art to frame.** The same applies to the picture you are
+turning into a token. When the image you pick from your library has other versions, they are
+offered under it and you choose which one the token is made from - the colour portrait or its
+black-and-white cut are different tokens, and which one you want is not a detail Grimoire
+should pick for you.
+
 The editor reads a frame's crop **from the frame itself** - it fills inward from the centre
 and keeps whatever the frame encloses - so a frame can be any shape, and the art follows its
 real outline rather than a circle. The one requirement is that the outline be **closed**: a

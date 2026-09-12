@@ -2618,7 +2618,8 @@
     "remove": "Quitar",
     "failed": "No se pudo establecer la imagen",
     "searchFailed": "No se pudieron cargar las imágenes",
-    "ungrouped": "Archivos sueltos"
+    "ungrouped": "Archivos sueltos",
+    "chooseVersion": "Elige una versión"
   },
   "backups": {
     "notice": {
@@ -2798,6 +2799,7 @@
     "sendToOwnedCampaign": "Enviar a una campaña que diriges",
     "pickCharacterNext": "Elige un personaje después",
     "chooseCharacter": "Elegir personaje",
-    "chooseCharacterHint": "De quién será esta ficha en {{name}}."
+    "chooseCharacterHint": "De quién será esta ficha en {{name}}.",
+    "frameVersions": "Versiones"
   }
 }

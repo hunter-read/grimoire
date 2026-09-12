@@ -344,6 +344,48 @@ class TestRename:
         assert refreshed.filename == "fixed.pdf"
         assert refreshed.filepath.endswith("fixed.pdf")
 
+    def test_rename_relinks_a_row_stored_under_a_noncanonical_root(
+        self, library_tree, monkeypatch
+    ):
+        """The row is found by relative path, not by the spelling of the root.
+
+        ``LIBRARY_PATH`` defaults to ``./library``, and the scanner builds
+        ``filepath`` by joining onto it verbatim — so rows are stored as
+        ``./library/books/…`` while this module's ``Path`` arithmetic yields
+        ``library/books/…``. Matching those as strings finds nothing, and the
+        rename then succeeds on disk while relinking no rows: the row points at
+        a path that no longer exists, and the next scan adds a *second* row
+        under a new id, detaching the file's tags, favourites, and variant
+        links.
+
+        The suite's own ``LIBRARY_PATH`` is absolute and already canonical, so
+        the mismatch cannot arise by accident here — the root is re-spelled with
+        a redundant ``/.`` segment to reproduce what the default config does.
+        """
+        system = make_game_system(name=f"System-{library_tree}")
+        rel = f"books/System-{library_tree}/core/typo.pdf"
+        _write(rel)
+        # Same directory, spelled the way a scanner joining onto a
+        # non-canonical LIBRARY_PATH would record it.
+        noncanonical = os.path.join(LIB, ".", *rel.split("/"))
+        assert noncanonical != str(Path(LIB) / rel), "root must be spelled differently"
+        book = make_book(
+            system.id, filename="typo.pdf",
+            filepath=noncanonical, relative_path=rel,
+        )
+
+        db = SessionLocal()
+        result = fs.rename_path(db, rel, "fixed.pdf")
+        db.close()
+
+        assert result["records"] == 1, "the row must be found despite the root spelling"
+        db = SessionLocal()
+        refreshed = db.query(Book).filter(Book.id == book.id).first()
+        db.close()
+        assert refreshed is not None, "the row must survive with its id intact"
+        assert refreshed.filename == "fixed.pdf"
+        assert refreshed.relative_path == f"books/System-{library_tree}/core/fixed.pdf"
+
     def test_rename_folder_relinks_children(self, library_tree):
         system = make_game_system(name=f"System-{library_tree}")
         src = _write(f"books/System-{library_tree}/core/child.pdf")
@@ -2967,7 +3009,14 @@ class TestSidecarCarryEdgeCases:
         folder = f"books/System-{library_tree}/core"
         src = _write(f"{folder}/guide.pdf")
         _write(f"{folder}/guide.opf")
-        make_book(system.id, filename="guide.pdf", filepath=src)
+        # relative_path as well as filepath: the lookup that finds this row
+        # matches on the relative path, and the indexer always writes both from
+        # the same walk, so a row carrying only one is not a state the library
+        # can actually be in.
+        make_book(
+            system.id, filename="guide.pdf", filepath=src,
+            relative_path=f"{folder}/guide.pdf",
+        )
 
         monkeypatch.setattr(
             fs, "_relink", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))

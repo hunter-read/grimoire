@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuSearch, LuImageOff } from 'react-icons/lu'
 import { imageSources } from '../../api'
 import ImageSourceFolder from './ImageSourceFolder'
+import ImageSourceVariants from './ImageSourceVariants'
 import LazyImg from '../LazyImg'
 import Spinner from '../Spinner'
 import { TYPE_ICONS } from '../campaigns/resourcesShared'
@@ -61,6 +62,7 @@ export default function ImageSourceBrowser({
   fill = false,
   value,
   onChange,
+  showVariants = false,
 }) {
   const { t } = useTranslation()
   const hasCampaign = Array.isArray(campaignImages) && campaignImages.length > 0
@@ -278,74 +280,103 @@ export default function ImageSourceBrowser({
         ) : (
           <>
             {groups.map((group) => (
-              <ImageSourceFolder
-                key={group.path}
-                label={group.path || t('imagePicker.ungrouped')}
-                count={group.items.length}
-                open={!closed.has(group.path)}
-                onToggle={() => toggleFolder(group.path)}
-                showHeading={grouped}
-              >
-                {group.items.map((r) => {
-                  const selected =
-                    value?.source_type === r.resource_type && value?.source_id === r.resource_id
-                  const src = r.thumb || imageSources.thumbUrl(r.resource_type, r.resource_id)
-                  return (
-                    <button
-                      key={`${r.resource_type}:${r.resource_id}`}
-                      type="button"
-                      title={r.subtitle ? `${r.name} — ${r.subtitle}` : r.name}
-                      aria-pressed={selected}
-                      onClick={() =>
-                        onChange(
-                          selected
-                            ? null
-                            : {
-                                source_type: r.resource_type,
-                                source_id: r.resource_id,
-                                name: r.name,
-                                preview: src,
-                              }
-                        )
-                      }
-                      style={{
-                        padding: 0,
-                        background: 'var(--bg-card)',
-                        border: `2px solid ${selected ? 'var(--gold)' : 'var(--border)'}`,
-                        borderRadius: 8,
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        display: 'block',
-                      }}
-                    >
-                      <LazyImg
-                        src={src}
-                        alt=""
-                        placeholder
+              <div key={group.path}>
+                <ImageSourceFolder
+                  label={group.path || t('imagePicker.ungrouped')}
+                  count={group.items.length}
+                  open={!closed.has(group.path)}
+                  onToggle={() => toggleFolder(group.path)}
+                  showHeading={grouped}
+                >
+                  {group.items.map((r) => {
+                    // A chosen *version* keeps its main row's tile lit: the version
+                    // strip hangs off that tile, so unlighting it would leave the
+                    // strip attached to nothing the user can see they are on.
+                    const pickedVariant =
+                      showVariants &&
+                      value?.source_type === r.resource_type &&
+                      (r.variants || []).some((v) => v.resource_id === value?.source_id)
+                    const selected =
+                      (value?.source_type === r.resource_type &&
+                        value?.source_id === r.resource_id) ||
+                      pickedVariant
+                    const src = r.thumb || imageSources.thumbUrl(r.resource_type, r.resource_id)
+                    return (
+                      <button
+                        key={`${r.resource_type}:${r.resource_id}`}
+                        type="button"
+                        title={r.subtitle ? `${r.name} — ${r.subtitle}` : r.name}
+                        aria-pressed={selected}
+                        onClick={() =>
+                          onChange(
+                            selected
+                              ? null
+                              : {
+                                  source_type: r.resource_type,
+                                  source_id: r.resource_id,
+                                  name: r.name,
+                                  preview: src,
+                                }
+                          )
+                        }
                         style={{
-                          width: '100%',
-                          height: 72,
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                      <span
-                        style={{
-                          display: 'block',
-                          fontSize: 10,
-                          color: selected ? 'var(--text)' : 'var(--text-muted)',
-                          padding: '4px 5px',
+                          padding: 0,
+                          background: 'var(--bg-card)',
+                          border: `2px solid ${selected ? 'var(--gold)' : 'var(--border)'}`,
+                          borderRadius: 8,
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          cursor: 'pointer',
+                          display: 'block',
                         }}
                       >
-                        {r.name}
-                      </span>
-                    </button>
-                  )
-                })}
-              </ImageSourceFolder>
+                        <LazyImg
+                          src={src}
+                          alt=""
+                          placeholder
+                          style={{
+                            width: '100%',
+                            height: 72,
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                        <span
+                          style={{
+                            display: 'block',
+                            fontSize: 10,
+                            color: selected ? 'var(--text)' : 'var(--text-muted)',
+                            padding: '4px 5px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {r.name}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </ImageSourceFolder>
+                {/* Full width beneath the folder rather than inside the grid: the
+                  strip is wider than one tile, and slotting it between tiles
+                  would push the rest of the row out of alignment. */}
+                {showVariants &&
+                  group.items
+                    .filter(
+                      (r) =>
+                        value?.source_type === r.resource_type &&
+                        (value?.source_id === r.resource_id ||
+                          (r.variants || []).some((v) => v.resource_id === value?.source_id))
+                    )
+                    .map((r) => (
+                      <ImageSourceVariants
+                        key={`variants:${r.resource_id}`}
+                        row={r}
+                        value={value}
+                        onChange={onChange}
+                      />
+                    ))}
+              </div>
             ))}
             {remaining > 0 && (
               <button

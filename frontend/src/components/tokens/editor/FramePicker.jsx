@@ -5,8 +5,17 @@ import { LuBan, LuHeart, LuSearch } from 'react-icons/lu'
 import { useFavorites } from '../../../context/FavoritesContext'
 import ColorSwatchRow from './ColorSwatchRow'
 import FrameGroup from './FrameGroup'
+import FramePreview from './FramePreview'
 import FrameTile from './FrameTile'
-import { frameIsRecolourable, frameLabel, frameUrl, groupFrames, matchesFrameQuery } from './frames'
+import FrameVariantRow from './FrameVariantRow'
+import {
+  frameFamily,
+  frameIsRecolourable,
+  frameLabel,
+  frameUrl,
+  groupFrames,
+  matchesFrameQuery,
+} from './frames'
 
 // Height the colour row occupies, reserved whether or not it is showing. The
 // row only applies to the recolourable generic shapes, and letting it appear
@@ -44,8 +53,17 @@ export default function FramePicker({
   // Collapsed groups by key. Absent means expanded — a fresh picker shows
   // everything, and only what the user has actually closed stays closed.
   const [collapsed, setCollapsed] = useState({})
+  // The tile the pointer is resting on, with the rectangle it occupies, so the
+  // enlarged preview can sit beside it. Held here rather than in each tile
+  // because only one preview is ever on screen.
+  const [hovered, setHovered] = useState(null)
 
   const groups = useMemo(() => groupFrames(frames || []), [frames])
+
+  // A selected *version* must keep its main frame's tile lit and the version row
+  // on screen, so the gallery works in families rather than exact ids.
+  const selectedFamily = useMemo(() => frameFamily(frames, value), [frames, value])
+  const selectedId = selectedFamily ? selectedFamily.id : value
   const builtins = useMemo(() => groups.filter((g) => g.builtin).flatMap((g) => g.frames), [groups])
   const userGroups = useMemo(() => groups.filter((g) => !g.builtin), [groups])
 
@@ -71,20 +89,33 @@ export default function FramePicker({
 
   const toggle = (key) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
-  const renderTile = (frame) => (
-    <FrameTile
-      key={frame.id}
-      selected={value === frame.id}
-      label={frameLabel(frame, t)}
-      onClick={() => onChange(frame.id)}
-    >
-      <img
-        src={frameUrl(frame, color)}
-        alt=""
-        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-      />
-    </FrameTile>
-  )
+  // Hovering a tile shows it enlarged beside the gallery. The rectangle is read
+  // off the event target rather than tracked per tile, so a scroll or a resize
+  // cannot leave the preview pointing at where a tile used to be.
+  const hoverProps = (frame, label) => ({
+    onMouseEnter: (e) =>
+      setHovered({ id: frame.id, label, anchor: e.currentTarget.getBoundingClientRect() }),
+    onMouseLeave: () => setHovered((prev) => (prev?.id === frame.id ? null : prev)),
+  })
+
+  const renderTile = (frame) => {
+    const label = frameLabel(frame, t)
+    return (
+      <FrameTile
+        key={frame.id}
+        selected={selectedId === frame.id}
+        label={label}
+        onClick={() => onChange(frame.id)}
+        {...hoverProps(frame, label)}
+      >
+        <img
+          src={frameUrl(frame, color)}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      </FrameTile>
+    )
+  }
 
   return (
     // A flex column filling whatever the settings sidebar has left, so the frame
@@ -123,6 +154,17 @@ export default function FramePicker({
             onChange={onColorChange}
             allowNone
             noneLabel={t('tokenEditor.frameColorNone')}
+          />
+        )}
+        {/* A library frame takes no colour, so the slot the swatches would
+            occupy holds its other versions instead — the two never both apply,
+            and reusing the reserved space keeps the gallery from shifting. */}
+        {!frameIsRecolourable(value) && (
+          <FrameVariantRow
+            frame={selectedFamily}
+            value={value}
+            onChange={onChange}
+            hoverProps={hoverProps}
           />
         )}
       </div>
@@ -216,6 +258,10 @@ export default function FramePicker({
         <p style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5, margin: 0 }}>
           {t('tokenEditor.customFramesHint')}
         </p>
+      )}
+
+      {hovered && (
+        <FramePreview frame={hovered} url={frameUrl(hovered.id, color)} anchor={hovered.anchor} />
       )}
     </div>
   )

@@ -255,3 +255,115 @@ describe('ImageSourceBrowser', () => {
     expect(box.style.flex).toBe('1 1 0%')
   })
 })
+
+describe('choosing which version of an image to use', () => {
+  // A main row plus the other cut the duplicate review linked to it.
+  const withVariants = () =>
+    row({
+      resource_id: 'tok1',
+      resource_type: 'token',
+      name: 'ireena.png',
+      variants: [
+        {
+          resource_type: 'token',
+          resource_id: 'tok1-bw',
+          name: 'ireena-bw.png',
+          has_thumbnail: true,
+          variant_kind: 'black-and-white',
+          variant_label: 'v2',
+        },
+      ],
+    })
+
+  it('stays quiet about versions unless asked', async () => {
+    imageSources.search.mockResolvedValue([withVariants()])
+    render(<ImageSourceBrowser value={null} onChange={vi.fn()} />)
+
+    // The campaign picker links a resource rather than composing with the file,
+    // so it gets the unchanged one-row-per-item browser.
+    await waitFor(() => expect(screen.getByText('ireena.png')).toBeInTheDocument())
+    expect(screen.queryByText('imagePicker.chooseVersion')).not.toBeInTheDocument()
+  })
+
+  it('offers the versions of the selected row when enabled', async () => {
+    imageSources.search.mockResolvedValue([withVariants()])
+    render(
+      <ImageSourceBrowser
+        showVariants
+        value={{ source_type: 'token', source_id: 'tok1' }}
+        onChange={vi.fn()}
+      />
+    )
+
+    await waitFor(() => expect(screen.getByText('imagePicker.chooseVersion')).toBeInTheDocument())
+    // `t` is mocked to echo its key, so the shared version-naming rule renders
+    // as the kind key beside the user's own label.
+    expect(screen.getByText('variants.kind.black-and-white · v2')).toBeInTheDocument()
+    expect(screen.getByText('variants.mainVersion')).toBeInTheDocument()
+  })
+
+  it('keeps the versions hidden until the row is selected', async () => {
+    imageSources.search.mockResolvedValue([withVariants()])
+    render(<ImageSourceBrowser showVariants value={null} onChange={vi.fn()} />)
+
+    // Showing every row's versions inline would double a gallery's length to
+    // answer a question nobody is asking yet.
+    await waitFor(() => expect(screen.getByText('ireena.png')).toBeInTheDocument())
+    expect(screen.queryByText('imagePicker.chooseVersion')).not.toBeInTheDocument()
+  })
+
+  it('reports the chosen version as the source', async () => {
+    imageSources.search.mockResolvedValue([withVariants()])
+    const onChange = vi.fn()
+    render(
+      <ImageSourceBrowser
+        showVariants
+        value={{ source_type: 'token', source_id: 'tok1' }}
+        onChange={onChange}
+      />
+    )
+
+    await waitFor(() =>
+      expect(screen.getByText('variants.kind.black-and-white · v2')).toBeInTheDocument()
+    )
+    await userEvent.click(screen.getByText('variants.kind.black-and-white · v2'))
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ source_type: 'token', source_id: 'tok1-bw' })
+    )
+  })
+
+  it('keeps the main row lit while one of its versions is chosen', async () => {
+    imageSources.search.mockResolvedValue([withVariants()])
+    render(
+      <ImageSourceBrowser
+        showVariants
+        value={{ source_type: 'token', source_id: 'tok1-bw' }}
+        onChange={vi.fn()}
+      />
+    )
+
+    // The version strip hangs off the main tile, so unlighting it would leave
+    // the strip attached to nothing visible.
+    await waitFor(() => expect(screen.getByText('imagePicker.chooseVersion')).toBeInTheDocument())
+    const tile = screen.getByTitle('ireena.png — Dungeons')
+    expect(tile).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('skips a version that could not produce an image', async () => {
+    const r = withVariants()
+    r.variants[0].has_thumbnail = false
+    imageSources.search.mockResolvedValue([r])
+    render(
+      <ImageSourceBrowser
+        showVariants
+        value={{ source_type: 'token', source_id: 'tok1' }}
+        onChange={vi.fn()}
+      />
+    )
+
+    await waitFor(() => expect(screen.getByText('ireena.png')).toBeInTheDocument())
+    // Nothing left to choose between, so the strip does not appear at all.
+    expect(screen.queryByText('imagePicker.chooseVersion')).not.toBeInTheDocument()
+  })
+})

@@ -301,7 +301,7 @@ def _find_record(db: Session, path: Path) -> tuple[Optional[Any], Optional[Any]]
     if not section:
         return None, None
     model = COLLECTIONS[section]
-    record = db.query(model).filter(model.filepath == str(path)).first()
+    record = db.query(model).filter(model.relative_path == to_relative(path)).first()
     return record, (model if record is not None else None)
 
 
@@ -515,16 +515,31 @@ def _records_under(db: Session, path: Path) -> list[tuple[Any, Any, str]]:
     A file yields at most one row; a folder yields everything under it, matched
     by path prefix. The trailing separator on the prefix keeps ``Core`` from
     also matching a sibling ``Core Rules``.
+
+    Matched on ``relative_path`` rather than the absolute ``filepath``. Both
+    describe the same file, but ``filepath`` is stored by joining onto
+    ``LIBRARY_PATH`` verbatim, so its spelling follows however that variable
+    happens to be written — the default ``./library`` yields
+    ``./library/tokens/x.png`` where this module's ``Path`` arithmetic produces
+    ``library/tokens/x.png``. An exact string comparison between the two then
+    matches nothing, and the caller renames the file on disk while relinking no
+    rows at all: the library ends up with a row pointing at a path that no
+    longer exists, and the next scan inserts a *second* row under a new id,
+    detaching every tag, favourite, and variant link from the file. Since
+    ``relative_path`` is stored via ``os.path.relpath`` and read back via
+    ``to_relative`` — both of which normalise the root away — it is the same
+    string on both sides regardless of how the root is spelled.
     """
     section = collection_of(path)
     if not section:
         return []
     model = COLLECTIONS[section]
     if path.is_dir():
-        prefix = str(path) + os.sep
-        rows = db.query(model).filter(model.filepath.startswith(prefix)).all()
+        # Forward-slashed to match how ``to_relative`` stores it, on every OS.
+        prefix = to_relative(path) + "/"
+        rows = db.query(model).filter(model.relative_path.startswith(prefix)).all()
     else:
-        rows = db.query(model).filter(model.filepath == str(path)).all()
+        rows = db.query(model).filter(model.relative_path == to_relative(path)).all()
     return [(model, r, r.filepath) for r in rows]
 
 

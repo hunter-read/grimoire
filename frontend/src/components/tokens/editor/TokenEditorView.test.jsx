@@ -46,6 +46,7 @@ vi.mock('./frames', () => ({
   BUILTIN_FRAMES: [],
   GENERIC_FRAMES: [],
   isBuiltinFrame: (id) => String(id).startsWith('builtin:'),
+  frameFamily: () => null,
 }))
 
 vi.mock('../../../lib/frameMask', () => ({

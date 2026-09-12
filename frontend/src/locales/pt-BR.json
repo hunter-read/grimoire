@@ -2618,7 +2618,8 @@
     "remove": "Remover",
     "failed": "Não foi possível definir a imagem",
     "searchFailed": "Não foi possível carregar as imagens",
-    "ungrouped": "Arquivos soltos"
+    "ungrouped": "Arquivos soltos",
+    "chooseVersion": "Escolha uma versão"
   },
   "backups": {
     "notice": {
@@ -2798,6 +2799,7 @@
     "sendToOwnedCampaign": "Enviar para uma campanha que você conduz",
     "pickCharacterNext": "Escolha um personagem em seguida",
     "chooseCharacter": "Escolher personagem",
-    "chooseCharacterHint": "De quem será este token em {{name}}."
+    "chooseCharacterHint": "De quem será este token em {{name}}.",
+    "frameVersions": "Versões"
   }
 }

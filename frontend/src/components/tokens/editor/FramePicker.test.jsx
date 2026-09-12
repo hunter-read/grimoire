@@ -348,3 +348,107 @@ describe('FramePicker', () => {
     expect(screen.getByText('Frame colour')).toBeInTheDocument()
   })
 })
+
+describe('a frame that has other versions', () => {
+  // The shape the listing returns once the duplicate review has linked two cuts
+  // of one frame: a single entry carrying the other.
+  const withVersions = {
+    id: 'main',
+    name: 'orc ring',
+    group: 'Fantasy',
+    builtin: false,
+    variants: [
+      { id: 'bw', name: 'orc ring bw', variant_kind: 'black-and-white', variant_label: 'v2' },
+    ],
+  }
+
+  it('shows one tile for the frame rather than one per version', () => {
+    mockFavorites()
+    render(<FramePicker frames={[...builtins, withVersions]} value={null} onChange={vi.fn()} />)
+
+    // The variant is not a gallery tile of its own — that duplication is the
+    // whole thing this collapses.
+    expect(screen.getByRole('button', { name: 'orc ring' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /orc ring bw/ })).not.toBeInTheDocument()
+  })
+
+  it('offers the versions once the frame is selected', () => {
+    mockFavorites()
+    render(<FramePicker frames={[...builtins, withVersions]} value="main" onChange={vi.fn()} />)
+
+    expect(screen.getByText('Versions')).toBeInTheDocument()
+    // Named by kind and label together, the way versions read everywhere else.
+    expect(screen.getByRole('button', { name: 'Black and white · v2' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Main version' })).toBeInTheDocument()
+  })
+
+  it('keeps the versions hidden until its frame is the selected one', () => {
+    mockFavorites()
+    render(<FramePicker frames={[...builtins, withVersions]} value={null} onChange={vi.fn()} />)
+    expect(screen.queryByText('Versions')).not.toBeInTheDocument()
+  })
+
+  it('selects a version through the same onChange the gallery uses', async () => {
+    mockFavorites()
+    const onChange = vi.fn()
+    render(<FramePicker frames={[...builtins, withVersions]} value="main" onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Black and white · v2' }))
+    expect(onChange).toHaveBeenCalledWith('bw')
+  })
+
+  it('keeps the frame tile lit while one of its versions is chosen', () => {
+    mockFavorites()
+    render(<FramePicker frames={[...builtins, withVersions]} value="bw" onChange={vi.fn()} />)
+
+    // Unlighting the tile would leave the version row attached to nothing the
+    // user can see they are on.
+    expect(screen.getByRole('button', { name: 'orc ring' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Black and white · v2' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+  })
+
+  it('shows the colour row instead for a recolourable shape', () => {
+    mockFavorites()
+    render(
+      <FramePicker
+        frames={[...builtins, withVersions]}
+        value="generic:circle"
+        onChange={vi.fn()}
+        color="gold"
+        onColorChange={vi.fn()}
+      />
+    )
+    // The two share a slot and never both apply: a library frame is a file and
+    // takes no colour.
+    expect(screen.getByText('Frame colour')).toBeInTheDocument()
+    expect(screen.queryByText('Versions')).not.toBeInTheDocument()
+  })
+})
+
+describe('hovering a frame', () => {
+  it('shows an enlarged preview of the frame under the pointer', async () => {
+    mockFavorites()
+    render(<FramePicker frames={builtins} value={null} onChange={vi.fn()} />)
+
+    expect(screen.queryByTestId('frame-preview')).not.toBeInTheDocument()
+    await userEvent.hover(screen.getByRole('button', { name: 'Opponent' }))
+
+    const preview = await screen.findByTestId('frame-preview')
+    expect(within(preview).getByText('Opponent')).toBeInTheDocument()
+  })
+
+  it('takes the preview away when the pointer leaves', async () => {
+    mockFavorites()
+    render(<FramePicker frames={builtins} value={null} onChange={vi.fn()} />)
+
+    const tile = screen.getByRole('button', { name: 'Opponent' })
+    await userEvent.hover(tile)
+    expect(await screen.findByTestId('frame-preview')).toBeInTheDocument()
+
+    await userEvent.unhover(tile)
+    expect(screen.queryByTestId('frame-preview')).not.toBeInTheDocument()
+  })
+})

@@ -15,15 +15,21 @@ from ._helpers import (
     FRAME_MEDIA_TYPES,
     attach_token_ids,
     cached_user_frames,
+    collapse_variants,
     frame_response_headers,
     resolve_frame_path,
 )
 
 
 def list_token_frames(db: Session = Depends(get_db)) -> dict:
-    """List every frame image found in a ``.frames-container`` folder under ``tokens/``."""
+    """List every frame image found in a ``.frames-container`` folder under ``tokens/``.
+
+    Frames marked as versions of one another are returned as a single entry
+    carrying its other versions in ``variants``, so the picker shows one tile
+    per frame rather than the same ring several times over.
+    """
     frames = cached_user_frames()
-    return {"frames": attach_token_ids(db, frames)}
+    return {"frames": collapse_variants(attach_token_ids(db, frames))}
 
 
 def serve_token_frame(frame_id: str, request: Request) -> Response:

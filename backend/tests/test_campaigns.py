@@ -674,6 +674,47 @@ class TestResourceSearch:
         )
         assert [r["name"] for r in resp.json()] == ["Ordinary Title"]
 
+    def test_a_matched_token_carries_its_other_versions(self, client, gm_headers):
+        """Results stay one row per token, with the other cuts hanging off it.
+
+        The search returns main versions only — a campaign linking a token wants
+        one entry per token, not one per recolour. A picker that *composes* with
+        the file needs the choice though (the token editor frames a specific
+        image), so the versions travel with the row rather than beside it.
+        """
+        token = f"portrait{uid()}"
+        main = make_token(filename=f"{token}.png", has_thumbnail=True)
+        variant = make_token(
+            filename=f"{token}-bw.png",
+            has_thumbnail=True,
+            variant_parent_id=main.id,
+            variant_kind="black-and-white",
+            variant_label="v2",
+        )
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q={token}&resource_type=token",
+            headers=gm_headers,
+        )
+        results = resp.json()
+
+        # One row, not two: the variant is not a result of its own.
+        assert [r["resource_id"] for r in results] == [main.id]
+        assert [v["resource_id"] for v in results[0]["variants"]] == [variant.id]
+        assert results[0]["variants"][0]["variant_kind"] == "black-and-white"
+        assert results[0]["variants"][0]["variant_label"] == "v2"
+
+    def test_a_token_with_no_versions_carries_an_empty_list(self, client, gm_headers):
+        """Always present, so the picker never branches on a missing key."""
+        token = f"lonely{uid()}"
+        make_token(filename=f"{token}.png", has_thumbnail=True)
+
+        resp = client.get(
+            f"/api/campaigns/resources/search?q={token}&resource_type=token",
+            headers=gm_headers,
+        )
+        assert resp.json()[0]["variants"] == []
+
 
 # ---------------------------------------------------------------------------
 # Sessions

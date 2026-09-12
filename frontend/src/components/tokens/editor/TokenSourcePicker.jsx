@@ -126,7 +126,16 @@ export default function TokenSourcePicker({ onFile, onPickSource, active = true 
           />
         </div>
       ) : (
-        <ImageSourceBrowser fill types={TOKEN_SOURCE_TYPES} value={source} onChange={pick} />
+        /* `showVariants`: the editor composes with the file itself, so when the
+           chosen art has other versions — a black-and-white cut, a recolour —
+           which one becomes the token is a real choice rather than a detail. */
+        <ImageSourceBrowser
+          fill
+          showVariants
+          types={TOKEN_SOURCE_TYPES}
+          value={source}
+          onChange={pick}
+        />
       )}
     </div>
   )

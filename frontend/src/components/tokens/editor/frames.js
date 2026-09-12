@@ -132,3 +132,21 @@ export function matchesFrameQuery(frame, query, t) {
   const haystack = `${frameLabel(frame, t) || ''} ${frame.group || ''}`.toLowerCase()
   return haystack.includes(needle)
 }
+
+/**
+ * The frame a given id belongs to — the frame itself, or the one it is a
+ * version of.
+ *
+ * Selecting a version has to keep the gallery tile for its main frame lit and
+ * the version row on screen, so nearly every consumer of a selected id wants
+ * the *family* rather than the exact row. Returns null for the built-ins and
+ * generic shapes, which have no versions.
+ */
+export function frameFamily(frames, id) {
+  if (!id || !frames) return null
+  for (const frame of frames) {
+    if (frame.id === id) return frame
+    if ((frame.variants || []).some((v) => v.id === id)) return frame
+  }
+  return null
+}

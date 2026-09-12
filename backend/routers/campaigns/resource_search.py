@@ -152,6 +152,45 @@ def search_resources_global(
                 book_name_hits.append(row)
         results.extend(book_folder_hits + book_name_hits)
 
+    def _attach_variants(rtype, model, rows):
+        """Hang each row's other versions off it, in one query for the page.
+
+        The search returns main versions only — a campaign linking a map wants
+        one entry per map, not one per cut of it. But a picker that *composes*
+        with the file, rather than linking to it, needs the choice: the token
+        editor frames a specific image, and the black-and-white cut of a portrait
+        is a different token from the colour one.
+
+        Attached rather than flattened into the results so the shape stays the
+        same for every existing caller: the campaign picker ignores the field and
+        behaves exactly as before.
+        """
+        ids = [r["resource_id"] for r in rows]
+        if not ids:
+            return rows
+        children = {}
+        for item in (
+            db.query(model)
+            .filter(model.variant_parent_id.in_(ids))
+            .order_by(model.variant_kind, model.variant_label, model.filename)
+            .all()
+        ):
+            children.setdefault(item.variant_parent_id, []).append(
+                {
+                    "resource_type": rtype,
+                    "resource_id": item.id,
+                    "name": (item.title or item.filename) if rtype == "audio" else item.filename,
+                    "has_thumbnail": bool(
+                        item.has_artwork if rtype == "audio" else item.has_thumbnail
+                    ),
+                    "variant_kind": item.variant_kind or "",
+                    "variant_label": item.variant_label or "",
+                }
+            )
+        for row in rows:
+            row["variants"] = children.get(row["resource_id"], [])
+        return rows
+
     # Maps/tokens/audio: prefer folder-path matches, then filename matches.
     def _media_results(rtype, model):
         query = variants.parents_only(db.query(model), model)
@@ -185,7 +224,7 @@ def search_resources_global(
                 folder_hits.append(row)
             else:
                 name_hits.append(row)
-        return folder_hits + name_hits
+        return _attach_variants(rtype, model, folder_hits + name_hits)
 
     if not resource_type or resource_type == "map":
         results.extend(_media_results("map", GenericMap))

@@ -716,6 +716,15 @@ file, a frame is favourited by starring its token, and this is the join that let
 the editor group favourited frames. A frame with no `token_id` is still perfectly
 usable - it just cannot be favourited until the next rescan.
 
+Frames linked as versions of one another collapse into a single entry. The main
+version is listed as the frame, and the others travel with it in `variants` - each
+carrying its own `id`, `name`, `token_id`, `variant_kind`, and `variant_label`, so
+a version is composited exactly like any other frame. `variants` is always present
+and empty when a frame has none. A variant whose main version is *not* itself in a
+frames container stays listed as a top-level frame rather than disappearing, since
+there is nothing in the listing for it to fold into. The same `Token` join supplies
+this, so it costs no extra query.
+
 Listings are cached in-process for 60 seconds; files are served with the shared
 upload cache policy (mtime+size ETag, revalidated), so replacing a frame in place
 invalidates it. Frame responses also carry a restrictive `Content-Security-Policy`
@@ -1116,7 +1125,7 @@ as a campaign file and links it as a `file` resource under an optional category.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Matching runs in SQL across the whole library. Books match on title, relative path, category, or game-system name (filter with `system_id?`); maps/tokens/audio match on filename or relative path, and audio also on its title. Results are ranked with folder-path matches above name-only matches. A `system_id` naming a container system (issues #261/#262) also matches its child systems' books, since a container holds none of its own. Each result's `subtitle` is its folder-tree path, letting the picker build a nested tree: for books this is `<System>/<category>/<subcategory>/…` (the game system leads; falls back to `<System>/<category>` when the book sits directly in the system dir); for media it is the folder path under the top-level media dir. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 5000, clamped to 20000) - `limit` applies **per resource type**, so requesting several types does not shrink each one's share |
+| `/api/campaigns/resources/search` | GET | any | Search books/maps/tokens/audio. Matching runs in SQL across the whole library. Books match on title, relative path, category, or game-system name (filter with `system_id?`); maps/tokens/audio match on filename or relative path, and audio also on its title. Results are ranked with folder-path matches above name-only matches. A `system_id` naming a container system (issues #261/#262) also matches its child systems' books, since a container holds none of its own. Each result's `subtitle` is its folder-tree path, letting the picker build a nested tree: for books this is `<System>/<category>/<subcategory>/…` (the game system leads; falls back to `<System>/<category>` when the book sits directly in the system dir); for media it is the folder path under the top-level media dir. Query: `q`, `resource_type?`, `system_id?`, `limit?` (default 5000, clamped to 20000) - `limit` applies **per resource type**, so requesting several types does not shrink each one's share. Results are main versions only - one row per item, not one per cut of it - and each map/token/audio hit carries its other versions in `variants` (`resource_id`, `name`, `has_thumbnail`, `variant_kind`, `variant_label`), empty when it has none. Campaign resource linking ignores the field; it exists for pickers that *compose* with the file, such as the token editor, where which version becomes the token is a real choice |
 | `/api/campaigns/resources/suggested/:system_id` | GET | any | Books in a game system for the create wizard. Core-category books are flagged `suggested` and ordered first. |
 | `/api/campaigns/:id/resources` | GET | member or owner | List linked resources (each with `visibility`, `category_id`, `sort_order`, `has_thumbnail`; owner items also include `shared_user_ids`). Ordered public → private → gm, then by `sort_order`. Players see only what their visibility allows. |
 | `/api/campaigns/:id/resources` | POST | owner | Link a resource. Body: `{resource_type, resource_id, visibility?, shared_user_ids?, category_id?}` |

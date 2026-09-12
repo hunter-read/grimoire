@@ -262,17 +262,99 @@ def attach_token_ids(db: Session, frames: list[dict[str, str]]) -> list[dict[str
     A frame with no row yet (dropped in since the last scan) gets ``None`` and
     is simply not favouritable until the next rescan.
 
+    The same join carries each row's variant grouping, which is what lets
+    :func:`collapse_variants` fold a frame's other versions into it without a
+    second query.
+
     Returns new dicts: the caller's rows come from a process-wide TTL cache
     shared across requests, and must not be mutated in place.
     """
     if not frames:
         return []
     paths = [decode_frame_id(f["id"]) for f in frames]
-    rows = db.query(Token.id, Token.relative_path).filter(Token.relative_path.in_(paths))
+    rows = db.query(
+        Token.id,
+        Token.relative_path,
+        Token.variant_parent_id,
+        Token.variant_kind,
+        Token.variant_label,
+    ).filter(Token.relative_path.in_(paths))
     # Windows-indexed libraries store backslashes; frame ids are always
     # forward-slashed, so normalise before matching rather than missing the join.
-    token_ids = {str(rel).replace("\\", "/"): tid for tid, rel in rows}
-    return [{**f, "token_id": token_ids.get(path)} for f, path in zip(frames, paths)]
+    indexed = {
+        str(rel).replace("\\", "/"): (tid, parent, kind, label)
+        for tid, rel, parent, kind, label in rows
+    }
+    out: list[dict[str, Any]] = []
+    for frame, path in zip(frames, paths):
+        tid, parent, kind, label = indexed.get(path, (None, None, "", ""))
+        out.append(
+            {
+                **frame,
+                "token_id": tid,
+                "variant_parent_id": parent or None,
+                "variant_kind": kind or "",
+                "variant_label": label or "",
+            }
+        )
+    return out
+
+
+def collapse_variants(frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fold variant frames into the frame they are a version of.
+
+    A frame folder that holds a black-and-white cut beside the colour original
+    lists both files, and before this each showed as its own tile — the same
+    ring twice, with nothing saying they were the same frame. Grouping them here
+    rather than in the picker keeps the editor's notion of "a frame" matching
+    the library's: one entry per frame, carrying its other versions.
+
+    Only variants whose main frame is *also in this listing* are folded in. A
+    variant whose parent lives outside a frames container (or was never indexed)
+    has nothing to fold into, so it stays a top-level frame of its own rather
+    than disappearing from the picker.
+
+    Order is preserved: parents keep their place in the walk, and each one's
+    variants are ordered by kind then label then name, matching
+    ``services.variants.variants_of`` so a frame's versions read the same here
+    as everywhere else in the app.
+    """
+    by_token = {f["token_id"]: f for f in frames if f.get("token_id")}
+    children: dict[str, list[dict[str, Any]]] = {}
+    for frame in frames:
+        parent = frame.get("variant_parent_id")
+        if parent and parent in by_token:
+            children.setdefault(parent, []).append(frame)
+
+    out: list[dict[str, Any]] = []
+    for frame in frames:
+        parent = frame.get("variant_parent_id")
+        if parent and parent in by_token:
+            continue
+        kids = sorted(
+            children.get(frame.get("token_id") or "", []),
+            key=lambda f: (f.get("variant_kind") or "", f.get("variant_label") or "", f["name"]),
+        )
+        out.append({**frame, "variants": [_variant_row(k) for k in kids]})
+    return out
+
+
+def _variant_row(frame: dict[str, Any]) -> dict[str, Any]:
+    """One version of a frame, as the picker needs it.
+
+    Deliberately the same ``id``/``name`` shape as a frame itself: a variant is
+    a real frame file the editor composites exactly like any other, so the
+    picker can hand it straight to ``frameUrl`` without a second code path.
+    """
+    return {
+        "id": frame["id"],
+        "name": frame["name"],
+        "group": frame.get("group", ""),
+        "format": frame.get("format", ""),
+        "token_id": frame.get("token_id"),
+        "variant_kind": frame.get("variant_kind") or "",
+        "variant_label": frame.get("variant_label") or "",
+    }
 
 
 def reset_frame_cache() -> None:

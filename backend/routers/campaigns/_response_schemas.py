@@ -200,6 +200,23 @@ class GuestShareTemplateOut(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
+class ResourceSearchVariant(BaseModel):
+    """One other version of a search hit — a gridless cut, a recolour, a remix.
+
+    Carries only what a picker needs to offer the choice; the row itself already
+    supplies the folder and the rest of the context.
+    """
+
+    resource_type: str
+    resource_id: str
+    name: str
+    has_thumbnail: Optional[bool] = None
+    # The closed variant vocabulary and the user's free-text label, rendered
+    # together ("Black and white · v2") by the shared version-naming rule.
+    variant_kind: str = ""
+    variant_label: str = ""
+
+
 class ResourceSearchHit(BaseModel):
     """One book/map/token/audio hit from ``search_resources_global``."""
 
@@ -212,6 +229,12 @@ class ResourceSearchHit(BaseModel):
     # `has_thumbnail` is a `default=False` column for books/maps/tokens; the
     # audio branch coalesces it with `bool(...)`.
     has_thumbnail: Optional[bool] = None
+    # The hit's other versions. The search returns main versions only — one row
+    # per map, not one per cut of it — which is what a campaign linking a
+    # resource wants; a picker that composes with the file (the token editor)
+    # needs the choice, and finds it here. Empty for books, which the media
+    # branch does not cover, and for anything with no versions.
+    variants: list[ResourceSearchVariant] = []
 
 
 class SuggestedResourceOut(BaseModel):

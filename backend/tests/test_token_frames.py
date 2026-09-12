@@ -391,7 +391,14 @@ def test_attach_token_ids_reports_none_for_an_unindexed_frame():
     finally:
         db.close()
 
-    assert out == [{"id": frames[0]["id"], "name": "ghost", "token_id": None}]
+    # The frame survives the join untouched apart from the columns it could not
+    # fill; asserting the fields rather than the whole dict keeps this about the
+    # unindexed case rather than the row's full width.
+    assert len(out) == 1
+    assert out[0]["id"] == frames[0]["id"]
+    assert out[0]["name"] == "ghost"
+    assert out[0]["token_id"] is None
+    assert out[0]["variant_parent_id"] is None
 
 
 def test_listing_warns_rather_than_truncating_silently(frame_library, monkeypatch, caplog):
@@ -432,3 +439,92 @@ def test_token_folders_endpoint_reports_frame_folders(client, admin_headers, fra
     resp = client.get("/api/token-folders", headers=admin_headers)
     assert resp.status_code == 200, resp.text
     assert resp.json()["frame_folders"] == ["Fantasy Frames", "Scifi Frames"]
+
+
+# ---------------------------------------------------------------------------
+# Variant collapsing
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def linked_frame_variant(indexed_token):
+    """Index two frames in one folder and make the second a version of the first.
+
+    Returns ``(main_token_id, variant_token_id)``. Both files already exist in
+    ``frame_library``'s Fantasy Frames folder, so this only adds the rows and the
+    link the duplicate review would have written.
+    """
+
+    def _link(main_rel, main_name, variant_rel, variant_name, kind="black-and-white", label=""):
+        main_id = indexed_token(main_rel, main_name)
+        variant_id = indexed_token(variant_rel, variant_name)
+        db = SessionLocal()
+        try:
+            row = db.query(Token).filter_by(id=variant_id).first()
+            row.variant_parent_id = main_id
+            row.variant_kind = kind
+            row.variant_label = label
+            db.commit()
+        finally:
+            db.close()
+        return main_id, variant_id
+
+    return _link
+
+
+def test_a_frames_versions_collapse_into_one_entry(
+    client, admin_headers, frame_library, linked_frame_variant
+):
+    """Two cuts of one frame are one tile, not two.
+
+    Before this the picker showed the same ring twice with nothing saying they
+    were the same frame — which is exactly the confusion the duplicate review
+    exists to resolve everywhere else in the app.
+    """
+    _write(os.path.join(frame_library, "tokens", "Fantasy Frames", "orc-ring-bw.svg"), _SVG)
+    _helpers.reset_frame_cache()
+    main_id, variant_id = linked_frame_variant(
+        "tokens/Fantasy Frames/orc-ring.svg",
+        "orc-ring.svg",
+        "tokens/Fantasy Frames/orc-ring-bw.svg",
+        "orc-ring-bw.svg",
+    )
+
+    frames = _listing(client, admin_headers)
+    by_token = {f["token_id"]: f for f in frames}
+
+    # The variant is not a frame of its own any more...
+    assert variant_id not in by_token
+    # ...it hangs off the frame it is a version of.
+    assert [v["token_id"] for v in by_token[main_id]["variants"]] == [variant_id]
+    assert by_token[main_id]["variants"][0]["variant_kind"] == "black-and-white"
+
+
+def test_a_frame_with_no_versions_carries_an_empty_list(
+    client, admin_headers, frame_library
+):
+    """Every row has the key, so the picker never branches on its absence."""
+    assert all(f["variants"] == [] for f in _listing(client, admin_headers))
+
+
+def test_a_variant_whose_parent_is_not_a_frame_stays_listed(
+    client, admin_headers, frame_library, indexed_token
+):
+    """A frame must not vanish because its main version lives outside a frames folder.
+
+    ``ordinary.png`` sits in an unmarked folder, so it is never listed as a
+    frame. A frame linked as a version of it has nothing to fold into — and
+    dropping it would make a real frame unreachable in the editor.
+    """
+    parent_id = indexed_token("tokens/Unmarked/ordinary.png", "ordinary.png")
+    frame_id = indexed_token("tokens/Scifi Frames/plain.png", "plain.png")
+    db = SessionLocal()
+    try:
+        row = db.query(Token).filter_by(id=frame_id).first()
+        row.variant_parent_id = parent_id
+        row.variant_kind = "color-variation"
+        db.commit()
+    finally:
+        db.close()
+
+    assert frame_id in {f["token_id"] for f in _listing(client, admin_headers)}

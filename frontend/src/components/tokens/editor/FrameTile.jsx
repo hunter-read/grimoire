@@ -5,11 +5,12 @@
  * ring on white read completely differently, and the pattern also communicates
  * that the middle of a frame is transparent.
  */
-export default function FrameTile({ selected, label, onClick, children, size = 52 }) {
+export default function FrameTile({ selected, label, onClick, children, size = 52, ...rest }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      {...rest}
       title={label}
       aria-label={label}
       aria-pressed={selected}
