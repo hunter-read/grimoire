@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import useArrowKeyNavigation from './useArrowKeyNavigation'
 
 /**
  * Pinch-to-zoom, pan-when-zoomed, swipe-to-navigate, and arrow-key navigation
@@ -38,17 +39,8 @@ export default function useImageGestures({ onNext, onPrev, containerRef, resetKe
     swipeStart.current = null
   }, [resetKey])
 
-  // Arrow-key navigation (skip when focus is in an input)
-  useEffect(() => {
-    const handler = (e) => {
-      const tag = document.activeElement?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') onNextRef.current?.()
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') onPrevRef.current?.()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
+  // Arrow-key navigation, shared with the detail views that have no image pane.
+  useArrowKeyNavigation(onNext, onPrev)
 
   // Touch gestures — registered with { passive: false } so preventDefault works
   useEffect(() => {

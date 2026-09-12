@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 import api from '../../api'
+import useSiblingNavigation from '../../hooks/useSiblingNavigation'
+import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
@@ -15,6 +17,8 @@ import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
+import SiblingNavButtons from '../media/SiblingNavButtons'
+import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import ModelViewerPane from './ModelViewerPane'
 
@@ -36,6 +40,27 @@ export default function ModelDetailView() {
   const [editingModelTags, setEditingModelTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+
+  const modelDetailPath = useCallback((id) => `/models/${id}`, [])
+  const {
+    siblings,
+    index: siblingIdx,
+    hasPrev,
+    hasNext,
+    onPrev,
+    onNext,
+  } = useSiblingNavigation({
+    item: model,
+    id: modelId,
+    listUrl: '/models',
+    listKey: 'models',
+    detailPath: modelDetailPath,
+    navigate,
+    get: api.get,
+  })
+  // The 3D viewer orbits with the mouse and binds no keys of its own, so the
+  // arrow keys are free to step between models.
+  useArrowKeyNavigation(onNext, onPrev)
 
   useEffect(() => {
     api.get(`/models/${modelId}`).then(setModel)
@@ -137,6 +162,14 @@ export default function ModelDetailView() {
         >
           {model.filename}
         </span>
+        <SiblingPosition
+          index={siblingIdx}
+          total={siblings.length}
+          label={t('models.detail.position', {
+            current: siblingIdx + 1,
+            total: siblings.length,
+          })}
+        />
         {isMobilePhone && (
           <button
             onClick={() => setShowDetails((v) => !v)}
@@ -188,9 +221,19 @@ export default function ModelDetailView() {
               overflow: 'auto',
               background: 'var(--bg-deep)',
               padding: 24,
+              // Anchors the overlay prev/next arrows.
+              position: 'relative',
             }}
           >
             <ModelViewerPane model={model} height="100%" />
+            <SiblingNavButtons
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              onPrev={onPrev}
+              onNext={onNext}
+              prevLabel={t('models.detail.previous')}
+              nextLabel={t('models.detail.next')}
+            />
           </div>
         )}
 

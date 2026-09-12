@@ -60,7 +60,10 @@ const detail = (id, over = {}) => ({
 // Route api.get by URL: the full token list vs a single token fetch.
 const mockApi = (currentId, over = {}) => {
   api.get.mockImplementation((url) => {
-    if (url.split('?')[0] === '/tokens') return Promise.resolve(SIBLINGS)
+    // The real endpoint returns {total, tokens}, not a bare array — a fixture
+    // that returned the array hid sibling navigation being broken.
+    if (url.split('?')[0] === '/tokens')
+      return Promise.resolve({ total: SIBLINGS.length, tokens: SIBLINGS })
     return Promise.resolve(detail(currentId, over))
   })
 }
@@ -168,5 +171,22 @@ describe('TokenDetailView', () => {
     render(<TokenDetailView />)
     await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
     expect(toggleFavorite).toHaveBeenCalledWith('token', 't2')
+  })
+
+  it('shows the position of the token within its folder', async () => {
+    mockApi('t2')
+    render(<TokenDetailView />)
+    expect(await screen.findByText('2 / 3')).toBeInTheDocument()
+  })
+
+  // The arrows are new: arrow keys and swipe already worked, but there was no
+  // visible control for navigating with a mouse.
+  it('steps between tokens with the arrow buttons', async () => {
+    mockApi('t2')
+    render(<TokenDetailView />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Next token' }))
+    expect(navigate).toHaveBeenCalledWith('/tokens/t3')
+    await userEvent.click(screen.getByRole('button', { name: 'Previous token' }))
+    expect(navigate).toHaveBeenCalledWith('/tokens/t1')
   })
 })
