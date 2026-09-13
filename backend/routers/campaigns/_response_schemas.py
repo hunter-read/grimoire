@@ -641,6 +641,8 @@ class CatalogueTemplateOut(BaseModel):
     description: str
     author: str
     author_url: str
+    index_url: Optional[str] = None
+    available_in: list[dict] = []
 
 
 class CatalogueFolderOut(BaseModel):
@@ -654,6 +656,7 @@ class WikiTemplateBrowseOut(BaseModel):
     downloaded_ids: list[str]
     campaign_system: str
     index_url: str
+    default_index_url: Optional[str] = None
     is_custom_url: bool
     generated: str
 

@@ -57,7 +57,7 @@ def _clear_template_setting():
     """Leave no custom catalogue URL behind for the next test."""
     yield
     session = SessionLocal()
-    row = session.query(AppSetting).filter_by(key=catalogue.SETTING_INDEX_URL).first()
+    row = session.query(AppSetting).filter_by(key="wiki_templates.index_url").first()
     if row:
         session.delete(row)
         session.commit()

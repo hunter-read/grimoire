@@ -5,12 +5,13 @@ import {
   LuChevronDown,
   LuDownload,
   LuRefreshCw,
-  LuLink,
   LuCheck,
 } from 'react-icons/lu'
 import { SiGithub } from 'react-icons/si'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
+import PluginSourcePill from '../settings/PluginSourcePill'
+import PluginSourceContextMenu from '../settings/PluginSourceContextMenu'
 import {
   row,
   rowDesc,
@@ -19,8 +20,6 @@ import {
   folderRow,
   iconBtn,
   emptyText,
-  input,
-  goldBtn,
   ghostBtn,
 } from './wikiTemplateStyles'
 
@@ -38,8 +37,7 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
   // this". Held in a ref too, so the timer can be cleared on unmount.
   const [justAdded, setJustAdded] = useState(null)
   const addedTimer = useRef(null)
-  const [editingUrl, setEditingUrl] = useState(false)
-  const [urlDraft, setUrlDraft] = useState('')
+  const [contextMenu, setContextMenu] = useState(null)
 
   useEffect(() => () => clearTimeout(addedTimer.current), [])
 
@@ -73,11 +71,17 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
       return next
     })
 
-  const download = async (templateId) => {
+  const handleContextMenu = (e, tpl) => {
+    e.preventDefault()
+    if (!tpl.available_in || tpl.available_in.length <= 1) return
+    setContextMenu({ x: e.clientX, y: e.clientY, tpl })
+  }
+
+  const download = async (templateId, indexUrl) => {
     setBusyId(templateId)
     onError(null)
     try {
-      await campaigns.downloadWikiTemplate(campaignId, templateId)
+      await campaigns.downloadWikiTemplate(campaignId, templateId, indexUrl)
       setDone((prev) => new Set(prev).add(templateId))
       // Re-arm the tick even if this template was already held, so a repeat
       // download still reads as "that worked".
@@ -92,17 +96,6 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
     }
   }
 
-  const saveUrl = async (value) => {
-    onError(null)
-    try {
-      await campaigns.setWikiTemplateSource(campaignId, value)
-      setEditingUrl(false)
-      await load(true)
-    } catch (err) {
-      onError(err.message)
-    }
-  }
-
   if (data === null) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 30 }}>
@@ -113,49 +106,11 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
 
   return (
     <div>
-      {/* The default catalogue is right for almost everyone, so the URL field
-          stays behind a button rather than occupying the panel. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1, minWidth: 0 }}>
-          {data.is_custom_url ? t('wiki.templateSourceCustom') : t('wiki.templateSourceDefault')}
-        </span>
-        <button onClick={() => load(true)} aria-label={t('wiki.templateRefresh')} style={iconBtn}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button onClick={() => load(true)} aria-label={t('wiki.templateRefresh')} title={t('wiki.templateRefresh')} style={iconBtn}>
           <LuRefreshCw size={13} />
         </button>
-        <button
-          onClick={() => {
-            setUrlDraft(data.index_url || '')
-            setEditingUrl((v) => !v)
-          }}
-          aria-label={t('wiki.templateChangeSource')}
-          title={t('wiki.templateChangeSource')}
-          style={iconBtn}
-        >
-          <LuLink size={13} />
-        </button>
       </div>
-
-      {editingUrl && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12, alignItems: 'stretch' }}>
-          {/* The URL is long, so the input takes the leftover width and shrinks
-              (minWidth:0 — a flex item won't shrink below its content
-              otherwise). The buttons keep their natural width so their labels
-              never wrap. */}
-          <input
-            value={urlDraft}
-            onChange={(e) => setUrlDraft(e.target.value)}
-            placeholder={t('wiki.templateSourcePlaceholder')}
-            aria-label={t('wiki.templateChangeSource')}
-            style={{ ...input, flex: 1, minWidth: 0 }}
-          />
-          <button onClick={() => saveUrl(urlDraft)} style={{ ...goldBtn, flexShrink: 0 }}>
-            {t('common.save')}
-          </button>
-          <button onClick={() => saveUrl('')} style={{ ...ghostBtn, flexShrink: 0 }}>
-            {t('wiki.templateSourceReset')}
-          </button>
-        </div>
-      )}
 
       {!data.folders?.length ? (
         <p style={emptyText}>{t('wiki.templatesCatalogueEmpty')}</p>
@@ -183,11 +138,31 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
                   {folder.templates.map((tpl) => {
                     const have = done.has(tpl.id)
                     return (
-                      <div key={tpl.id} style={row}>
+                      <div
+                        key={tpl.id}
+                        style={row}
+                        onContextMenu={(e) => handleContextMenu(e, tpl)}
+                      >
                         <span style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>
-                            {tpl.name}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{tpl.name}</span>
                             <span style={systemTag}>{tpl.category}</span>
+                            {tpl.index_url && (
+                              <span
+                                onClick={(e) => {
+                                  if (tpl.available_in?.length > 1) {
+                                    e.stopPropagation()
+                                    handleContextMenu(e, tpl)
+                                  }
+                                }}
+                                style={{ cursor: tpl.available_in?.length > 1 ? 'pointer' : 'default' }}
+                              >
+                                <PluginSourcePill
+                                  url={tpl.index_url}
+                                  isVerified={tpl.index_url === data?.default_index_url}
+                                />
+                              </span>
+                            )}
                           </span>
                           {tpl.description && <span style={rowDesc}>{tpl.description}</span>}
                           {tpl.author && (
@@ -253,6 +228,19 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
             </div>
           )
         })
+      )}
+
+      {contextMenu && (
+        <PluginSourceContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          isUpdate={false}
+          sources={contextMenu.tpl.available_in}
+          onSelect={(indexUrl) => {
+            download(contextMenu.tpl.id, indexUrl)
+          }}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </div>
   )

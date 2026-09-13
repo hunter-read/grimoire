@@ -36,6 +36,7 @@ from fastapi import Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from ... import config
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import GameSystem, WikiPage, WikiTemplate
@@ -559,6 +560,7 @@ def browse_wiki_templates(
         "downloaded_ids": sorted(owned),
         "campaign_system": _campaign_system(db, c),
         "index_url": catalogue.get_index_url(db),
+        "default_index_url": config.DEFAULT_WIKI_TEMPLATE_INDEX_URL,
         "is_custom_url": catalogue.is_custom_url(db),
         "generated": doc.get("generated", ""),
     }
@@ -567,6 +569,7 @@ def browse_wiki_templates(
 def download_wiki_template(
     campaign_id: str,
     template_id: str,
+    index_url: Optional[str] = None,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -584,7 +587,7 @@ def download_wiki_template(
 
     try:
         doc = catalogue.fetch_catalogue(db)
-        entry = catalogue.find_entry(doc, template_id)
+        entry = catalogue.find_entry(doc, template_id, index_url=index_url)
         if entry is None:
             raise HTTPException(404, "That template is not in the catalogue")
         body = catalogue.fetch_body(db, entry)
@@ -599,7 +602,7 @@ def download_wiki_template(
         description=str(entry.get("description") or ""),
         body=body,
         source_id=template_id[:100],
-        source_url=catalogue.get_index_url(db),
+        source_url=entry.get("index_url") or catalogue.get_index_url(db),
         source_version=str(entry.get("version") or "")[:20],
         created_by_id=current_user.id,
     )
