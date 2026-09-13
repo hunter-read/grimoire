@@ -1130,7 +1130,7 @@ class TestCategories:
 class TestMultiSourceCatalogue:
     def test_derive_template_url(self):
         assert catalogue._derive_template_url("https://example.com/templates/index.json") == "https://example.com/templates/index.json"
-        assert catalogue._derive_template_url("https://example.com/themes/index.json") == "https://example.com/templates/index.json"
+        assert catalogue._derive_template_url("https://example.com/themes/index.json") == "https://example.com/themes/index.json"
         assert catalogue._derive_template_url("https://example.com/index.yaml") == "https://example.com/templates/index.json"
         assert catalogue._derive_template_url("https://example.com/index.json") == "https://example.com/templates/index.json"
 
@@ -1161,3 +1161,27 @@ class TestMultiSourceCatalogue:
         assert len(npc["available_in"]) == 2
         assert npc["available_in"][0]["index_url"] == "https://source1.com/templates/index.json"
         assert npc["available_in"][1]["index_url"] == "https://source2.com/templates/index.json"
+
+    def test_fetch_catalogue_skips_explicit_theme_urls_and_documents(self, monkeypatch, downloads_enabled):
+        """fetch_catalogue must skip URLs ending with themes/index.json and documents containing only themes."""
+        fetched_urls = []
+        def mock_fetch(url, **kw):
+            fetched_urls.append(url)
+            if "theme-doc" in url:
+                return {"version": 1, "themes": [{"id": "theme-1"}]}
+            return {"templates": [{"id": "tmpl-1", "name": "Template 1"}]}
+
+        monkeypatch.setattr(catalogue, "fetch_document", mock_fetch)
+        monkeypatch.setattr(catalogue, "get_index_urls", lambda db: [
+            "https://source1.com/themes/index.json",
+            "https://source2.com/theme-doc/index.json",
+            "https://source3.com/templates/index.json",
+        ])
+
+        res = catalogue.fetch_catalogue(None)
+        assert "https://source1.com/themes/index.json" not in fetched_urls
+        assert "https://source2.com/theme-doc/index.json" in fetched_urls
+        assert "https://source3.com/templates/index.json" in fetched_urls
+
+        assert len(res["templates"]) == 1
+        assert res["templates"][0]["id"] == "tmpl-1"

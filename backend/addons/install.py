@@ -87,11 +87,18 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
     for index_url in index_urls:
         if not index_url.startswith(("http://", "https://")):
             # Skip invalid non-HTTP(S) URLs and record the configuration error
-            errors.append({"url": index_url, "error": "index URL must be an http(s) URL"})
+            raise AddonError("index URL must be an http(s) URL")
+
+        # If the URL explicitly points to a theme or note template index, do not fetch add-ons from it
+        if index_url.endswith("themes/index.json") or index_url.endswith("templates/index.json"):
+            logger.debug("Skipping add-on index fetch for non-addon index URL %s", index_url)
             continue
 
         try:
             raw = fetch_json(index_url, user_agent=f"Grimoire/{config.VERSION}")
+            if isinstance(raw, dict) and ("themes" in raw or "templates" in raw or "folders" in raw) and "addons" not in raw and "plugins" not in raw:
+                logger.debug("Skipping add-on index fetch for explicit theme/template index %s", index_url)
+                continue
             index = AddonIndex(**raw) if isinstance(raw, dict) else AddonIndex()
         except AddonFetchError as exc:
             # Skip unreachable or dead sources so remaining healthy sources still populate
@@ -113,6 +120,8 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
             all_addons.append(addon_dict)
 
     if not all_addons and index_urls and errors:
+        if len(errors) == 1:
+            raise AddonFetchError(errors[0]["error"])
         raise AddonFetchError("Could not fetch from any configured add-on index")
 
     payload = {

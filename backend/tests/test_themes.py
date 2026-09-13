@@ -698,3 +698,27 @@ class TestMultiSourceThemeCatalogue:
         assert len(panda["available_in"]) == 2
         assert panda["available_in"][0]["index_url"] == "https://source1.com/themes/index.json"
         assert panda["available_in"][1]["index_url"] == "https://source2.com/themes/index.json"
+
+    def test_fetch_catalogue_skips_explicit_template_urls_and_documents(self, db, monkeypatch):
+        """fetch_catalogue must skip URLs ending with templates/index.json and documents containing only templates/folders."""
+        fetched_urls = []
+        def mock_fetch(url, **kw):
+            fetched_urls.append(url)
+            if "template-doc" in url:
+                return {"version": 1, "templates": [{"id": "tmpl-1"}]}
+            return {"themes": [{"id": "theme-1", "name": "Theme 1"}]}
+
+        monkeypatch.setattr(svc, "fetch_document", mock_fetch)
+        monkeypatch.setattr(svc, "get_index_urls", lambda db: [
+            "https://source1.com/templates/index.json",
+            "https://source2.com/template-doc/index.json",
+            "https://source3.com/themes/index.json",
+        ])
+
+        res = svc.fetch_catalogue(db)
+        assert "https://source1.com/templates/index.json" not in fetched_urls
+        assert "https://source2.com/template-doc/index.json" in fetched_urls
+        assert "https://source3.com/themes/index.json" in fetched_urls
+
+        assert len(res["themes"]) == 1
+        assert res["themes"][0]["id"] == "theme-1"

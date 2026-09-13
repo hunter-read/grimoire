@@ -23,6 +23,8 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..addons.authors import parse_author
 from ..addons.constants import (
+    DEFAULT_CACHE_TTL as CATALOGUE_CACHE_TTL,
+    DEFAULT_INDEX_URL as DEFAULT_ADDON_INDEX_URL,
     HTTP_MAX_BYTES,
     HTTP_MAX_REDIRECTS,
     external_installs_enabled,
@@ -79,24 +81,33 @@ def get_index_urls(db: Session) -> list[str]:
 
 def get_index_url(db: Session) -> str:
     urls = get_index_urls(db)
-    return urls[0] if urls else config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
+    if not urls:
+        return config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
+    if urls[0] == DEFAULT_ADDON_INDEX_URL:
+        return config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
+    return urls[0]
 
 
 def set_index_url(db: Session, url: str) -> None:
-    """No-op kept for backwards compatibility."""
-    pass
+    if url and not url.startswith(("http://", "https://")):
+        raise TemplateCatalogueError("index URL must be an http(s) URL")
+    from ..addons.registry import set_index_url as set_addon_index_url
+    set_addon_index_url(db, url)
 
 
 def is_custom_url(db: Session) -> bool:
     urls = get_index_urls(db)
-    return len(urls) != 1 or urls[0] != config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
+    if not urls:
+        return False
+    return len(urls) != 1 or get_index_url(db) != config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
 
 
 def _derive_template_url(url: str) -> str:
     if url.endswith("templates/index.json"):
         return url
     if url.endswith("themes/index.json"):
-        return url.replace("themes/index.json", "templates/index.json")
+        # Explicit theme index URL; do not attempt to derive templates from it
+        return url
     if url.endswith("index.yaml"):
         return url.replace("index.yaml", "templates/index.json")
     base = url.rsplit("/", 1)[0]
@@ -110,8 +121,15 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
 
     all_templates: list[dict] = []
     all_folders: list[dict] = []
+    last_error: Optional[Exception] = None
+    invalid_format = False
 
     for url in urls:
+        # If the URL explicitly points to a theme index, do not fetch note templates from it
+        if url.endswith("themes/index.json"):
+            logger.debug("Skipping template fetch for explicit theme index URL %s", url)
+            continue
+
         doc = None
         try:
             doc = fetch_document(
@@ -121,8 +139,16 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
                 force=force,
                 timeout=FETCH_TIMEOUT,
             )
+            if not isinstance(doc, dict):
+                invalid_format = True
         except AddonFetchError as exc:
+            last_error = exc
             logger.debug("Could not fetch template source %s directly: %s", url, exc)
+
+        # If the fetched document is explicitly a theme index, skip attempting to parse templates from it
+        if isinstance(doc, dict) and "themes" in doc and not isinstance(doc.get("templates"), list) and not isinstance(doc.get("folders"), list):
+            logger.debug("Skipping template fetch for explicit theme index document %s", url)
+            continue
 
         # 1. Direct match: URL returns a Template Index schema (has "templates" or "folders").
         # If this source directly serves a template catalogue, process its contents
@@ -148,6 +174,8 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
                     force=force,
                     timeout=FETCH_TIMEOUT,
                 )
+                if not isinstance(derived_doc, dict):
+                    invalid_format = True
                 if isinstance(derived_doc, dict) and (isinstance(derived_doc.get("templates"), list) or isinstance(derived_doc.get("folders"), list)):
                     if isinstance(derived_doc.get("folders"), list):
                         all_folders.extend(derived_doc["folders"])
@@ -157,12 +185,21 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
                                 t["index_url"] = derived_url
                         all_templates.extend(derived_doc["templates"])
             except AddonFetchError as exc:
+                last_error = exc
                 logger.debug("Skipping templates from derived URL %s: %s", derived_url, exc)
 
+    if not all_templates and not all_folders:
+        if len(urls) == 1:
+            if last_error:
+                raise TemplateCatalogueError(str(last_error))
+            if invalid_format:
+                raise TemplateCatalogueError("Index is not in the expected format")
+
+    primary_url = _derive_template_url(urls[0]) if urls else config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
     return {
         "templates": all_templates,
         "folders": all_folders,
-        "index_url": urls[0] if urls else config.DEFAULT_WIKI_TEMPLATE_INDEX_URL,
+        "index_url": primary_url,
         "default_index_url": config.DEFAULT_WIKI_TEMPLATE_INDEX_URL,
         "is_custom_url": is_custom_url(db),
     }

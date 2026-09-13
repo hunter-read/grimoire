@@ -319,6 +319,9 @@ def is_custom_url(db: Session) -> bool:
 def _derive_theme_url(url: str) -> str:
     if url.endswith("themes/index.json"):
         return url
+    if url.endswith("templates/index.json"):
+        # Explicit template index URL; do not attempt to derive themes from it
+        return url
     if url.endswith("index.yaml"):
         return url.replace("index.yaml", "themes/index.json")
     base = url.rsplit("/", 1)[0]
@@ -333,6 +336,11 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
     all_themes: list[dict[str, Any]] = []
 
     for url in urls:
+        # If the URL explicitly points to a note template index, do not fetch themes from it
+        if url.endswith("templates/index.json"):
+            logger.debug("Skipping theme fetch for explicit template index URL %s", url)
+            continue
+
         doc = None
         try:
             doc = fetch_document(
@@ -343,6 +351,11 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
             )
         except AddonFetchError as exc:
             logger.debug("Could not fetch source %s directly: %s", url, exc)
+
+        # If the fetched document is explicitly a template index, skip attempting to parse themes from it
+        if isinstance(doc, dict) and ("templates" in doc or "folders" in doc) and not isinstance(doc.get("themes"), list):
+            logger.debug("Skipping theme fetch for explicit template index document %s", url)
+            continue
 
         # 1. Direct match: The URL itself returned a Theme Index schema.
         # If this URL directly hosts a theme catalogue, stamp and collect its items,
@@ -386,14 +399,19 @@ def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(raw, list):
         return []
     out = []
+    by_id: dict[str, dict[str, Any]] = {}
     for entry in raw:
         if not isinstance(entry, dict) or not valid_theme_id(entry.get("id")):
             continue
+        theme_id = entry["id"]
+        index_url = str(entry.get("index_url") or "")
+        version = str(entry.get("version") or "")[:20]
         author_name, author_url = _author(entry)
-        out.append(
-            {
-                "id": entry["id"],
-                "name": str(entry.get("name") or entry["id"])[:120],
+
+        if theme_id not in by_id:
+            item = {
+                "id": theme_id,
+                "name": str(entry.get("name") or theme_id)[:120],
                 "description": str(entry.get("description") or "")[:500],
                 "mode": (
                     str(entry.get("mode") or "dark").lower()
@@ -411,15 +429,21 @@ def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
                     if m in (entry.get("modes") or [])
                 ]
                 or [str(entry.get("mode") or "dark").lower()],
-                "version": str(entry.get("version") or "")[:20],
+                "version": version,
                 "author": author_name,
                 "author_url": author_url,
                 "path": str(entry.get("path") or ""),
                 "sha256": str(entry.get("sha256") or ""),
                 "grimoire_min_version": str(entry.get("grimoire_min_version") or "")[:20],
-                "index_url": str(entry.get("index_url") or ""),
+                "index_url": index_url,
+                "available_in": [{"index_url": index_url, "version": version}] if index_url else [],
             }
-        )
+            by_id[theme_id] = item
+            out.append(item)
+        else:
+            existing = by_id[theme_id]
+            if index_url and not any(s["index_url"] == index_url for s in existing.get("available_in", [])):
+                existing.setdefault("available_in", []).append({"index_url": index_url, "version": version})
     return out
 
 
