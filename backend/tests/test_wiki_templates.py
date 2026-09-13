@@ -1125,3 +1125,39 @@ class TestCategories:
             f"/api/campaigns/{c['id']}/wiki/templates", headers=gm_headers
         ).json()
         assert body["authored_system"] == AUTHORED_SYSTEM
+
+
+class TestMultiSourceCatalogue:
+    def test_derive_template_url(self):
+        assert catalogue._derive_template_url("https://example.com/templates/index.json") == "https://example.com/templates/index.json"
+        assert catalogue._derive_template_url("https://example.com/themes/index.json") == "https://example.com/templates/index.json"
+        assert catalogue._derive_template_url("https://example.com/index.yaml") == "https://example.com/templates/index.json"
+        assert catalogue._derive_template_url("https://example.com/index.json") == "https://example.com/templates/index.json"
+
+    def test_build_tree_aggregates_available_in(self):
+        cat = {
+            "templates": [
+                {
+                    "id": "npc",
+                    "name": "NPC",
+                    "category": "General",
+                    "version": "1.0.0",
+                    "index_url": "https://source1.com/templates/index.json",
+                },
+                {
+                    "id": "npc",
+                    "name": "NPC",
+                    "category": "General",
+                    "version": "1.1.0",
+                    "index_url": "https://source2.com/templates/index.json",
+                },
+            ]
+        }
+        tree = catalogue.build_tree(cat)
+        assert len(tree) == 1
+        npc = tree[0]["templates"][0]
+        assert npc["id"] == "npc"
+        assert npc["index_url"] == "https://source1.com/templates/index.json"
+        assert len(npc["available_in"]) == 2
+        assert npc["available_in"][0]["index_url"] == "https://source1.com/templates/index.json"
+        assert npc["available_in"][1]["index_url"] == "https://source2.com/templates/index.json"

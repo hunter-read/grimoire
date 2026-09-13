@@ -86,6 +86,7 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
 
     for index_url in index_urls:
         if not index_url.startswith(("http://", "https://")):
+            # Skip invalid non-HTTP(S) URLs and record the configuration error
             errors.append({"url": index_url, "error": "index URL must be an http(s) URL"})
             continue
 
@@ -93,10 +94,12 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
             raw = fetch_json(index_url, user_agent=f"Grimoire/{config.VERSION}")
             index = AddonIndex(**raw) if isinstance(raw, dict) else AddonIndex()
         except AddonFetchError as exc:
+            # Skip unreachable or dead sources so remaining healthy sources still populate
             logger.warning("Failed to fetch add-on index from %s: %s", index_url, exc)
             errors.append({"url": index_url, "error": str(exc)})
             continue
         except ValidationError as exc:
+            # Skip malformed index documents that fail schema validation
             logger.warning("Index %s is not in the expected format: %s", index_url, exc)
             errors.append({"url": index_url, "error": f"invalid format: {exc}"})
             continue

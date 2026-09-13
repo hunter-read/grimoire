@@ -665,3 +665,36 @@ class TestFetchTheme:
                 return _Response()
 
         monkeypatch.setattr(httpx, "Client", _Client)
+
+
+class TestMultiSourceThemeCatalogue:
+    def test_derive_theme_url(self):
+        assert svc._derive_theme_url("https://example.com/themes/index.json") == "https://example.com/themes/index.json"
+        assert svc._derive_theme_url("https://example.com/index.yaml") == "https://example.com/themes/index.json"
+        assert svc._derive_theme_url("https://example.com/index.json") == "https://example.com/themes/index.json"
+
+    def test_list_entries_aggregates_available_in(self):
+        doc = {
+            "themes": [
+                {
+                    "id": "panda",
+                    "name": "Panda",
+                    "version": "1.0.0",
+                    "index_url": "https://source1.com/themes/index.json",
+                },
+                {
+                    "id": "panda",
+                    "name": "Panda",
+                    "version": "1.1.0",
+                    "index_url": "https://source2.com/themes/index.json",
+                },
+            ]
+        }
+        entries = svc.list_entries(doc)
+        assert len(entries) == 1
+        panda = entries[0]
+        assert panda["id"] == "panda"
+        assert panda["index_url"] == "https://source1.com/themes/index.json"
+        assert len(panda["available_in"]) == 2
+        assert panda["available_in"][0]["index_url"] == "https://source1.com/themes/index.json"
+        assert panda["available_in"][1]["index_url"] == "https://source2.com/themes/index.json"

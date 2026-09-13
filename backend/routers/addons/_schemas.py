@@ -10,7 +10,13 @@ class ChangelogEntry(BaseModel):
 
 
 class AddonInstall(BaseModel):
-    """Install/update request."""
+    """Install/update request.
+
+    ``approve_script`` is the operator's explicit consent to run third-party
+    code, collected per add-on at install time. It is meaningless for YAML-only
+    add-ons and ignored for them.
+    """
+
     approve_script: bool = False
     index_url: Optional[str] = None
 
@@ -37,6 +43,16 @@ class AddonSettingsUpdate(BaseModel):
 
 
 class InstalledAddon(BaseModel):
+    """One installed add-on, as built by `addons.registry.describe`.
+
+    Every field is read off a validated `AddonManifest` (whose optional strings
+    default to `""`, never null) or coerced by `describe` itself, so nothing
+    here can be absent. `available_version`/`update_available` are seeded to
+    `""`/`False` by `describe` and overwritten by the list handler when the
+    add-on also appears in the cached index — a hand-placed add-on keeps the
+    seeded values rather than dropping the keys.
+    """
+
     id: str
     name: str
     version: str
@@ -62,6 +78,12 @@ class InstalledAddon(BaseModel):
 
 
 class AvailableAddon(BaseModel):
+    """One row of the cached community index, as offered to the admin UI.
+
+    Mirrors `addons.manifest.IndexEntry`, whose optional fields all default to
+    `""`/`False`, so none can be null.
+    """
+
     id: str
     name: str
     kind: str
@@ -87,6 +109,7 @@ class AddonListResponse(BaseModel):
     index_urls: list[str] = Field(default_factory=list)
     default_index_url: str
     allow_scripts: bool
+    # From the cached index blob, which may predate the `generated` key.
     index_generated: Optional[str] = None
 
 
@@ -97,7 +120,10 @@ class RefreshIndexResponse(BaseModel):
 
 
 class AddonUpdated(BaseModel):
+    """One add-on that updated cleanly. `from`/`to` are the two versions."""
+
     id: str
+    # `from` is a Python keyword, so it is aliased rather than named directly.
     from_version: str = Field(alias="from")
     to: str
 

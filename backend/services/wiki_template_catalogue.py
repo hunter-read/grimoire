@@ -124,7 +124,9 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
         except AddonFetchError as exc:
             logger.debug("Could not fetch template source %s directly: %s", url, exc)
 
-        # 1. Direct match: URL returns a Template Index schema (has "templates" or "folders")
+        # 1. Direct match: URL returns a Template Index schema (has "templates" or "folders").
+        # If this source directly serves a template catalogue, process its contents
+        # and skip trying the derived templates/index.json path.
         if isinstance(doc, dict) and (isinstance(doc.get("templates"), list) or isinstance(doc.get("folders"), list)):
             if isinstance(doc.get("folders"), list):
                 all_folders.extend(doc["folders"])

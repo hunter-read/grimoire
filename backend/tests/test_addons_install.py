@@ -456,3 +456,45 @@ class TestExternalInstallKillSwitch:
         assert constants.external_installs_enabled() is False
         monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", False)
         assert constants.external_installs_enabled() is True
+
+
+class TestAddonFetchYamlAndMultiSource:
+    def test_fetch_json_parses_yaml(self, monkeypatch):
+        yaml_data = "version: 1\addons:\n  - id: demo\n    name: Demo\n"
+        
+        class _Response:
+            status_code = 200
+            headers = {}
+            def iter_bytes(self):
+                yield yaml_data.encode()
+
+        class _Client:
+            def __init__(self, **kwargs):
+                pass
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def stream(self, method, url):
+                return _Response()
+
+        monkeypatch.setattr(httpx, "Client", _Client)
+        res = fetch.fetch_json("https://example.com/index.yaml")
+        assert res["version"] == 1
+        assert res["addons"][0]["id"] == "demo"
+
+    def test_find_entry_matches_index_url(self, db):
+        entry1 = _index_entry(_yaml_bytes(MANIFEST))
+        entry1["index_url"] = "https://source1.com/index.json"
+        entry2 = _index_entry(_yaml_bytes({**MANIFEST, "name": "Demo Source 2"}))
+        entry2["index_url"] = "https://source2.com/index.json"
+
+        install.save_cached_index(db, {"version": 1, "addons": [entry1, entry2]})
+
+        found1 = install.find_entry(db, "demo", index_url="https://source1.com/index.json")
+        assert found1 is not None
+        assert found1.index_url == "https://source1.com/index.json"
+
+        found2 = install.find_entry(db, "demo", index_url="https://source2.com/index.json")
+        assert found2 is not None
+        assert found2.index_url == "https://source2.com/index.json"

@@ -344,7 +344,9 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
         except AddonFetchError as exc:
             logger.debug("Could not fetch source %s directly: %s", url, exc)
 
-        # 1. Direct match: The URL itself returned a Theme Index schema
+        # 1. Direct match: The URL itself returned a Theme Index schema.
+        # If this URL directly hosts a theme catalogue, stamp and collect its items,
+        # then skip attempting to fetch from a derived themes/index.json subpath.
         if isinstance(doc, dict) and isinstance(doc.get("themes"), list):
             for t in doc["themes"]:
                 if isinstance(t, dict):
