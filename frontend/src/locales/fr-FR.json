@@ -2524,6 +2524,8 @@
     "alreadyUpToDate": "Tout est déjà à jour.",
     "updateTitle": "Mettre à jour {{name}} ?",
     "scriptUpdateWarning": "Cette mise à jour modifie le script du module. Le code ayant changé, votre approbation est de nouveau requise avant que Grimoire ne l'exécute.",
+    "updateFromSpecificSource": "Mettre à jour depuis une source spécifique",
+    "installFromSpecificSource": "Installer depuis une source spécifique",
     "categories": {
       "metadata": "Extracteurs de métadonnées",
       "metadataDesc": "Modules qui complètent les détails des systèmes de jeu et des livres depuis des sources externes."

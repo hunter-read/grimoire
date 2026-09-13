@@ -10,13 +10,27 @@ vi.mock('react-i18next', () => ({
 
 describe('PluginSourceContextMenu', () => {
   const sampleSources = [
-    { index_url: 'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml', version: '1.0.0' },
-    { index_url: 'https://raw.githubusercontent.com/user/my-repo/panda/themes/index.json', version: '1.1.0' },
+    {
+      index_url:
+        'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml',
+      version: '1.0.0',
+    },
+    {
+      index_url: 'https://raw.githubusercontent.com/user/my-repo/panda/themes/index.json',
+      version: '1.1.0',
+    },
   ]
 
   it('renders nothing when sources array is empty or missing', () => {
     const { container } = render(
-      <PluginSourceContextMenu x={100} y={100} isUpdate={false} sources={[]} onSelect={vi.fn()} onClose={vi.fn()} />
+      <PluginSourceContextMenu
+        x={100}
+        y={100}
+        isUpdate={false}
+        sources={[]}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />
     )
     expect(container).toBeEmptyDOMElement()
   })
@@ -65,7 +79,9 @@ describe('PluginSourceContextMenu', () => {
       />
     )
     fireEvent.click(screen.getByText('user/my-repo (panda)'))
-    expect(onSelect).toHaveBeenCalledWith('https://raw.githubusercontent.com/user/my-repo/panda/themes/index.json')
+    expect(onSelect).toHaveBeenCalledWith(
+      'https://raw.githubusercontent.com/user/my-repo/panda/themes/index.json'
+    )
     expect(onClose).toHaveBeenCalled()
   })
 

@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  LuChevronRight,
-  LuChevronDown,
-  LuDownload,
-  LuRefreshCw,
-  LuCheck,
-} from 'react-icons/lu'
+import { LuChevronRight, LuChevronDown, LuDownload, LuRefreshCw, LuCheck } from 'react-icons/lu'
 import { SiGithub } from 'react-icons/si'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
@@ -107,7 +101,12 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button onClick={() => load(true)} aria-label={t('wiki.templateRefresh')} title={t('wiki.templateRefresh')} style={iconBtn}>
+        <button
+          onClick={() => load(true)}
+          aria-label={t('wiki.templateRefresh')}
+          title={t('wiki.templateRefresh')}
+          style={iconBtn}
+        >
           <LuRefreshCw size={13} />
         </button>
       </div>
@@ -144,7 +143,15 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
                         onContextMenu={(e) => handleContextMenu(e, tpl)}
                       >
                         <span style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                          <span
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              flexWrap: 'wrap',
+                              marginBottom: 2,
+                            }}
+                          >
                             <span style={{ fontSize: 13, fontWeight: 600 }}>{tpl.name}</span>
                             <span style={systemTag}>{tpl.category}</span>
                             {tpl.index_url && (
@@ -155,7 +162,9 @@ export default function WikiTemplateBrowser({ campaignId, campaignSystem, onDown
                                     handleContextMenu(e, tpl)
                                   }
                                 }}
-                                style={{ cursor: tpl.available_in?.length > 1 ? 'pointer' : 'default' }}
+                                style={{
+                                  cursor: tpl.available_in?.length > 1 ? 'pointer' : 'default',
+                                }}
                               >
                                 <PluginSourcePill
                                   url={tpl.index_url}

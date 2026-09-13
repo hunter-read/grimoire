@@ -286,7 +286,7 @@ describe('WikiTemplateModal — browse tab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Download/ }))
     await waitFor(() =>
-      expect(campaigns.downloadWikiTemplate).toHaveBeenCalledWith('c1', '5e-spell')
+      expect(campaigns.downloadWikiTemplate).toHaveBeenCalledWith('c1', '5e-spell', undefined)
     )
     // Success is stated outright, not just implied by a changed label.
     expect(await screen.findByRole('button', { name: /Added/ })).toBeTruthy()

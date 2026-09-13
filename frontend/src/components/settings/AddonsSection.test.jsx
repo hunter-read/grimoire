@@ -174,16 +174,13 @@ describe('AddonsSection', () => {
     mockState()
     const user = userEvent.setup()
     render(<AddonsSection />)
-    // The index URL field is behind a toggle now; open it to reach the input.
-    await user.click(await screen.findByRole('button', { name: /addons.changeIndex/i }))
-    await screen.findByDisplayValue('https://example.com/index.json')
+
+    await user.click(
+      await screen.findByRole('button', { name: /(addons.configuredSources|addons.changeIndex)/i })
+    )
+    await screen.findByText('example.com')
 
     await user.click(screen.getByRole('button', { name: /addons.refresh/i }))
-    await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith('/addons/settings', {
-        index_url: 'https://example.com/index.json',
-      })
-    )
     expect(api.post).toHaveBeenCalledWith('/addons/refresh')
   })
 
@@ -203,12 +200,14 @@ describe('AddonsSection', () => {
 
   it('surfaces an error from a failed refresh', async () => {
     mockState()
-    api.patch.mockRejectedValue(new Error('Could not fetch the add-on index'))
+    api.post.mockRejectedValue(new Error('Could not fetch the add-on index'))
     const user = userEvent.setup()
     render(<AddonsSection />)
-    // The index URL field is behind a toggle now; open it to reach the input.
-    await user.click(await screen.findByRole('button', { name: /addons.changeIndex/i }))
-    await screen.findByDisplayValue('https://example.com/index.json')
+
+    await user.click(
+      await screen.findByRole('button', { name: /(addons.configuredSources|addons.changeIndex)/i })
+    )
+    await screen.findByText('example.com')
 
     await user.click(screen.getByRole('button', { name: /addons.refresh/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not fetch the add-on index')

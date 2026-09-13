@@ -2524,6 +2524,8 @@
     "alreadyUpToDate": "Todo está ya actualizado.",
     "updateTitle": "¿Actualizar {{name}}?",
     "scriptUpdateWarning": "Esta actualización cambia el script del complemento. Como el código ha cambiado, necesita tu aprobación de nuevo antes de que Grimoire lo ejecute.",
+    "updateFromSpecificSource": "Actualizar desde fuente específica",
+    "installFromSpecificSource": "Instalar desde fuente específica",
     "categories": {
       "metadata": "Extractores de metadatos",
       "metadataDesc": "Complementos que rellenan detalles de sistemas de juego y libros desde fuentes externas."

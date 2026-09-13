@@ -5,7 +5,10 @@ export function formatIndexUrl(url) {
   if (!url) return ''
   try {
     const parsed = new URL(url)
-    if (parsed.hostname.includes('githubusercontent.com') || parsed.hostname.includes('github.com')) {
+    if (
+      parsed.hostname.includes('githubusercontent.com') ||
+      parsed.hostname.includes('github.com')
+    ) {
       const parts = parsed.pathname.split('/').filter(Boolean)
       if (parts.length >= 2) {
         const owner = parts[0]
@@ -19,7 +22,10 @@ export function formatIndexUrl(url) {
             branch = parts[2]
           }
         } else if (parsed.hostname.includes('github.com')) {
-          if ((parts[2] === 'raw' || parts[2] === 'tree' || parts[2] === 'blob') && parts.length >= 4) {
+          if (
+            (parts[2] === 'raw' || parts[2] === 'tree' || parts[2] === 'blob') &&
+            parts.length >= 4
+          ) {
             branch = parts[3]
           } else if (parts.length >= 3) {
             branch = parts[2]

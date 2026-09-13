@@ -2524,6 +2524,8 @@
     "alreadyUpToDate": "Alles ist bereits aktuell.",
     "updateTitle": "{{name}} aktualisieren?",
     "scriptUpdateWarning": "Diese Aktualisierung ändert das Skript des Add-ons. Da sich der Code geändert hat, ist deine Zustimmung erneut erforderlich, bevor Grimoire es ausführt.",
+    "updateFromSpecificSource": "Aus spezifischer Quelle aktualisieren",
+    "installFromSpecificSource": "Aus spezifischer Quelle installieren",
     "categories": {
       "metadata": "Metadaten-Scraper",
       "metadataDesc": "Add-ons, die Details zu Spielsystemen und Büchern aus externen Quellen ergänzen."

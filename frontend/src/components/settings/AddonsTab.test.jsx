@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import AddonsTab from './AddonsTab'
 
@@ -6,21 +6,35 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k) => k }),
 }))
 
-vi.mock('./AddonsSection', () => ({ default: () => <div>addons-section</div> }))
+vi.mock('../../api', () => ({
+  default: {
+    get: vi.fn().mockResolvedValue({
+      installed: [],
+      available: [],
+      index_urls: ['https://example.com/index.json'],
+      default_index_url: 'https://example.com/index.json',
+      allow_scripts: false,
+    }),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+}))
 
 describe('AddonsTab', () => {
-  it('renders the add-ons manager', () => {
-    render(<AddonsTab />)
-    expect(screen.getByText('addons-section')).toBeInTheDocument()
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  // Add-ons are filed by what they do, so the heading names the category
-  // ("Metadata scrapers") rather than repeating "Community add-ons" under the
-  // Add-ons tab. Future categories sit alongside this one.
-  it('groups add-ons under their category heading', () => {
+  it('renders the add-ons manager', async () => {
     render(<AddonsTab />)
-    expect(screen.getByText('addons.categories.metadata')).toBeInTheDocument()
-    expect(screen.getByText('addons.categories.metadataDesc')).toBeInTheDocument()
+    expect(await screen.findByText('addons.installedHeading')).toBeInTheDocument()
+  })
+
+  it('groups add-ons under their category heading', async () => {
+    render(<AddonsTab />)
+    expect(await screen.findByText('addons.categories.metadata')).toBeInTheDocument()
+    expect(await screen.findByText('addons.categories.metadataDesc')).toBeInTheDocument()
     expect(screen.queryByText('addons.title')).not.toBeInTheDocument()
   })
 })

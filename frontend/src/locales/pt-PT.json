@@ -2524,6 +2524,8 @@
     "alreadyUpToDate": "Está tudo atualizado.",
     "updateTitle": "Atualizar {{name}}?",
     "scriptUpdateWarning": "Esta atualização altera o script do extra. Como o código mudou, precisa da sua aprovação novamente antes de o Grimoire o executar.",
+    "updateFromSpecificSource": "Atualizar de fonte específica",
+    "installFromSpecificSource": "Instalar de fonte específica",
     "categories": {
       "metadata": "Extratores de metadados",
       "metadataDesc": "Extensões que preenchem detalhes de sistemas de jogo e livros a partir de fontes externas."

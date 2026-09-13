@@ -2524,6 +2524,8 @@
     "alreadyUpToDate": "Alles is al up-to-date.",
     "updateTitle": "{{name}} bijwerken?",
     "scriptUpdateWarning": "Deze update wijzigt het script van de add-on. Omdat de code is veranderd, is je goedkeuring opnieuw nodig voordat Grimoire het uitvoert.",
+    "updateFromSpecificSource": "Bijwerken van specifieke bron",
+    "installFromSpecificSource": "Installeren van specifieke bron",
     "categories": {
       "metadata": "Metadata-scrapers",
       "metadataDesc": "Add-ons die details over spelsystemen en boeken aanvullen uit externe bronnen."

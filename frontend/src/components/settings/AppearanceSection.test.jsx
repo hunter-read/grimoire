@@ -131,7 +131,7 @@ describe('AppearanceSection', () => {
 
   it('browses the catalogue and installs from it', async () => {
     api.get.mockImplementation((url) =>
-      url === '/themes/browse'
+      url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({
             themes: [{ id: 'parchment', name: 'Parchment', description: 'Warm', installed: false }],
             is_custom_url: false,
@@ -150,7 +150,7 @@ describe('AppearanceSection', () => {
 
   it('marks a catalogue theme the user already has', async () => {
     api.get.mockImplementation((url) =>
-      url === '/themes/browse'
+      url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({ themes: [{ id: 'midnight', name: 'Midnight', installed: true }] })
         : Promise.resolve({ downloads_enabled: true })
     )
@@ -163,7 +163,7 @@ describe('AppearanceSection', () => {
 
   it('reports a catalogue that cannot be reached', async () => {
     api.get.mockImplementation((url) =>
-      url === '/themes/browse'
+      url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.reject(new Error('upstream is down'))
         : Promise.resolve({ downloads_enabled: true })
     )
@@ -176,7 +176,7 @@ describe('AppearanceSection', () => {
 
   it('shows an empty catalogue plainly', async () => {
     api.get.mockImplementation((url) =>
-      url === '/themes/browse'
+      url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({ themes: [] })
         : Promise.resolve({ downloads_enabled: true })
     )
@@ -242,7 +242,7 @@ describe('AppearanceSection', () => {
 
   it('surfaces a failed install', async () => {
     api.get.mockImplementation((url) =>
-      url === '/themes/browse'
+      url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({ themes: [{ id: 'bad', name: 'Bad', installed: false }] })
         : Promise.resolve({ downloads_enabled: true })
     )

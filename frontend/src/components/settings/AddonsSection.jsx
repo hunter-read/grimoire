@@ -19,83 +19,7 @@ import PluginSourcePill, { formatIndexUrl } from './PluginSourcePill'
 import PluginSourceContextMenu from './PluginSourceContextMenu'
 import AuthorByline from './AuthorByline'
 import CollapsibleSection from './CollapsibleSection'
-
-function ConfirmModal({ title, message, onConfirm, onClose }) {
-  const { t } = useTranslation()
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1200,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--scrim)',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div
-        style={{
-          background: 'var(--bg-panel)',
-          border: '1px solid var(--border)',
-          borderRadius: 10,
-          padding: 24,
-          width: 400,
-          maxWidth: '92vw',
-          boxSizing: 'border-box',
-        }}
-      >
-        <h3 style={{ marginTop: 0, fontSize: 16, marginBottom: 8 }}>{title}</h3>
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.5 }}>{message}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              background: 'none',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              cursor: 'pointer',
-              fontSize: 13,
-            }}
-          >
-            {t('common.cancel', 'Cancel')}
-          </button>
-          <button
-            onClick={onConfirm}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              background: 'var(--danger, #c0392b)',
-              border: 'none',
-              color: '#fff',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            {t('common.confirm', 'Confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import ConfirmModal from './ConfirmModal'
 
 export default function AddonsSection() {
   const { t } = useTranslation()
@@ -116,7 +40,7 @@ export default function AddonsSection() {
       .get('/addons')
       .then((body) => {
         setData(body)
-        setIndexUrls(body.index_urls || [])
+        setIndexUrls(body.index_urls || (body.index_url ? [body.index_url] : []))
       })
       .catch((e) => setError(e.message))
   }, [])
@@ -139,7 +63,12 @@ export default function AddonsSection() {
   }
 
   const saveIndexUrls = (newUrls, onSuccess) => {
-    return run(api.patch('/addons/settings', { index_urls: newUrls }), null, setSourceError, onSuccess)
+    return run(
+      api.patch('/addons/settings', { index_urls: newUrls }),
+      null,
+      setSourceError,
+      onSuccess
+    )
   }
 
   const addIndexUrl = () => {
@@ -167,7 +96,7 @@ export default function AddonsSection() {
     run(
       api.post('/addons/refresh').then((res) => {
         if (res.errors && res.errors.length > 0) {
-          setError(res.errors.map(e => `${e.url}: ${e.error}`).join(' | '))
+          setError(res.errors.map((e) => `${e.url}: ${e.error}`).join(' | '))
         }
       }),
       t('addons.refreshed')
@@ -175,7 +104,10 @@ export default function AddonsSection() {
 
   const install = (addon, approveScript = false, specificIndexUrl = null) =>
     run(
-      api.post(`/addons/${addon.id}/install`, { approve_script: approveScript, index_url: specificIndexUrl || addon.index_url }),
+      api.post(`/addons/${addon.id}/install`, {
+        approve_script: approveScript,
+        index_url: specificIndexUrl || addon.index_url,
+      }),
       t('addons.installed', { name: addon.name })
     )
 
@@ -189,7 +121,10 @@ export default function AddonsSection() {
       setConfirming({ ...addon, updating: true, targetIndexUrl })
     } else {
       run(
-        api.post(`/addons/${addon.id}/install`, { approve_script: false, index_url: targetIndexUrl }),
+        api.post(`/addons/${addon.id}/install`, {
+          approve_script: false,
+          index_url: targetIndexUrl,
+        }),
         t('addons.updated', { name: addon.name })
       )
     }
@@ -199,13 +134,13 @@ export default function AddonsSection() {
     run(
       api.post('/addons/update-all').then((res) => {
         if (res.errors && res.errors.length > 0) {
-          setError(res.errors.map(e => `${e.url}: ${e.error}`).join(' | '))
+          setError(res.errors.map((e) => `${e.url}: ${e.error}`).join(' | '))
         }
         return res.updated
       }),
       null
     ).then((count) => {
-        setNotice(count ? t('addons.updatedCount', { count }) : t('addons.alreadyUpToDate'))
+      setNotice(count ? t('addons.updatedCount', { count }) : t('addons.alreadyUpToDate'))
     })
 
   const startInstall = (addon, specificIndexUrl = null) => {
@@ -239,7 +174,7 @@ export default function AddonsSection() {
   const installedIds = new Set(data.installed.map((a) => a.id))
   const pendingUpdates = data.installed.filter((a) => a.update_available).length
   const notInstalled = data.available.filter((a) => !installedIds.has(a.id))
-  
+
   // An older server may not report the default, in which case treat the
   // configured URL as the default rather than crying "custom".
   const isCustomIndex = indexUrls.length !== 1 || indexUrls[0] !== data.default_index_url
@@ -254,23 +189,75 @@ export default function AddonsSection() {
         defaultOpen={false}
       >
         <div style={{ marginBottom: 24 }}>
-          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: '0 0 16px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
             {indexUrls.map((url, i) => (
-              <li key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--bg-deep)', padding: '10px 12px', borderRadius: 6 }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <li
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'center',
+                  background: 'var(--bg-deep)',
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                }}
+              >
+                <div
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}
+                >
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
                     {formatIndexUrl(url)}
                     {url.includes('grimoire-codex/community-add-ons') && (
-                      <LuBadgeCheck size={16} color="var(--gold-dim)" title={t('addons.verifiedSource', 'Verified Source')} />
+                      <LuBadgeCheck
+                        size={16}
+                        color="var(--gold-dim)"
+                        title={t('addons.verifiedSource', 'Verified Source')}
+                      />
                     )}
                   </span>
-                  <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--text-muted)', wordBreak: 'break-all', textDecoration: 'underline' }}>{url}</a>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--text-muted)',
+                      wordBreak: 'break-all',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {url}
+                  </a>
                 </div>
                 <button
                   onClick={() => requestRemoveIndex(i)}
                   disabled={busy}
                   title={t('addons.remove')}
-                  style={{ background: 'none', border: 'none', color: 'var(--danger, #c0392b)', cursor: 'pointer', padding: 8, borderRadius: 4 }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger, #c0392b)',
+                    cursor: 'pointer',
+                    padding: 8,
+                    borderRadius: 4,
+                  }}
                 >
                   <LuTrash2 size={16} />
                 </button>
@@ -290,7 +277,7 @@ export default function AddonsSection() {
                 background: 'var(--bg)',
                 color: 'var(--text)',
                 border: '1px solid var(--border)',
-                fontSize: 13
+                fontSize: 13,
               }}
             />
             <button
@@ -307,7 +294,7 @@ export default function AddonsSection() {
                 color: 'var(--text)',
                 cursor: busy || !newIndexUrl ? 'default' : 'pointer',
                 fontWeight: 500,
-                fontSize: 13
+                fontSize: 13,
               }}
             >
               <LuPlus size={14} />
@@ -323,7 +310,7 @@ export default function AddonsSection() {
                 border: '1px solid var(--border)',
                 color: 'var(--text-dim)',
                 cursor: busy || !isCustomIndex ? 'default' : 'pointer',
-                fontSize: 13
+                fontSize: 13,
               }}
             >
               {t('addons.indexReset')}
@@ -358,7 +345,15 @@ export default function AddonsSection() {
         description={t('addons.categories.metadataDesc')}
         storageKey="grimoire:settings:addons:metadata"
       >
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            marginBottom: 16,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
           <button
             onClick={refresh}
             disabled={busy}
@@ -399,7 +394,16 @@ export default function AddonsSection() {
             </button>
           )}
           {notice && (
-            <span style={{ marginLeft: 8, fontSize: 13, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 13,
+                color: 'var(--text-dim)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
               <LuCheck size={14} color="var(--gold-dim)" />
               {notice}
             </span>
@@ -407,249 +411,274 @@ export default function AddonsSection() {
         </div>
 
         {error && (
-        <div
-          role="alert"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: 13,
-            color: 'var(--danger, #c0392b)',
-            background: 'var(--bg-deep)',
-            padding: '10px 12px',
-            borderRadius: 6,
-            marginBottom: 16,
-            border: '1px solid var(--danger, #c0392b)',
-            wordBreak: 'break-word',
-          }}
-        >
-          <LuTriangleAlert size={16} style={{ flexShrink: 0 }} />
-          <span>{error}</span>
-        </div>
-      )}
-      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-        {t('addons.installedHeading')}
-      </h4>
-      {data.installed.length === 0 && (
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
-          {t('addons.noneInstalled')}
-        </p>
-      )}
-      <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px' }}>
-        {data.installed.map((addon) => (
-          <li
-            key={addon.id}
-            onContextMenu={(e) => handleContextMenu(e, addon, true)}
+          <div
+            role="alert"
             style={{
               display: 'flex',
-              gap: 12,
               alignItems: 'center',
+              gap: 8,
+              fontSize: 13,
+              color: 'var(--danger, #c0392b)',
+              background: 'var(--bg-deep)',
               padding: '10px 12px',
               borderRadius: 6,
-              background: 'var(--bg-deep)',
-              marginBottom: 6,
+              marginBottom: 16,
+              border: '1px solid var(--danger, #c0392b)',
+              wordBreak: 'break-word',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>
-                {addon.name}{' '}
-                <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
-                  v{addon.version}
-                </span>
-                {addon.index_url && (
-                  <PluginSourcePill url={addon.index_url} style={{ marginLeft: 8, marginTop: -2 }} />
-                )}
-                {addon.update_available && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 11,
-                      color: 'var(--gold-dim)',
-                      border: '1px solid var(--gold-dim)',
-                      borderRadius: 4,
-                      padding: '1px 5px',
-                    }}
-                  >
-                    {t('addons.updateBadge', { version: addon.available_version })}
+            <LuTriangleAlert size={16} style={{ flexShrink: 0 }} />
+            <span>{error}</span>
+          </div>
+        )}
+        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+          {t('addons.installedHeading')}
+        </h4>
+        {data.installed.length === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
+            {t('addons.noneInstalled')}
+          </p>
+        )}
+        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px' }}>
+          {data.installed.map((addon) => (
+            <li
+              key={addon.id}
+              onContextMenu={(e) => handleContextMenu(e, addon, true)}
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: '10px 12px',
+                borderRadius: 6,
+                background: 'var(--bg-deep)',
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>
+                  {addon.name}{' '}
+                  <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
+                    v{addon.version}
+>>>>>>> deb12be (fix: linting issues and missing tests)
                   </span>
+                  {addon.index_url && (
+                    <PluginSourcePill
+                      url={addon.index_url}
+                      style={{ marginLeft: 8, marginTop: -2 }}
+                    />
+                  )}
+                  {addon.update_available && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        color: 'var(--gold-dim)',
+                        border: '1px solid var(--gold-dim)',
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                      }}
+                    >
+                      {t('addons.updateBadge', { version: addon.available_version })}
+                    </span>
+                  )}
+                </div>
+                {addon.description && (
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
+                )}
+                <AuthorByline author={addon.author} authorUrl={addon.author_url} />
+                {!addon.runnable && addon.blocked_reason && (
+                  <div style={{ fontSize: 12, color: 'var(--warning, #d98324)' }}>
+                    {addon.blocked_reason}
+                  </div>
                 )}
               </div>
-              {addon.description && (
-                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
+              {addon.available_in && addon.available_in.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleContextMenu(e, addon, true)
+                  }}
+                  title="More options"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: 4,
+                  }}
+                >
+                  <LuMenu size={16} />
+                </button>
               )}
-              <AuthorByline author={addon.author} authorUrl={addon.author_url} />
-              {!addon.runnable && addon.blocked_reason && (
-                <div style={{ fontSize: 12, color: 'var(--warning, #d98324)' }}>
-                  {addon.blocked_reason}
-                </div>
+              {addon.update_available && (
+                <button
+                  onClick={() => update(addon)}
+                  disabled={busy}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'var(--gold-dim)',
+                    color: 'var(--bg-deep)',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: busy ? 'default' : 'pointer',
+                  }}
+                >
+                  <LuArrowUp size={13} />
+                  {t('addons.update')}
+                </button>
               )}
-            </div>
-            {addon.available_in && addon.available_in.length > 1 && (
-               <button
-                 onClick={(e) => { e.stopPropagation(); handleContextMenu(e, addon, true); }}
-                 title="More options"
-                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
-               >
-                 <LuMenu size={16} />
-               </button>
-            )}
-            {addon.update_available && (
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={addon.enabled}
+                  onChange={() => toggleEnabled(addon)}
+                  aria-label={t('addons.enabled')}
+                />
+                {t('addons.enabled')}
+              </label>
               <button
-                onClick={() => update(addon)}
+                onClick={() => remove(addon)}
+                aria-label={t('addons.remove')}
+                title={t('addons.remove')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  padding: 4,
+                }}
+              >
+                <LuTrash2 size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+          {t('addons.availableHeading')}
+        </h4>
+        {notInstalled.length === 0 && (
+          <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
+            {t('addons.noneAvailable')}
+          </p>
+        )}
+        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px' }}>
+          {notInstalled.map((addon) => (
+            <li
+              key={addon.id}
+              onContextMenu={(e) => handleContextMenu(e, addon, false)}
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: '10px 12px',
+                borderRadius: 6,
+                background: 'var(--bg-deep)',
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>
+                  {addon.name}{' '}
+                  <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
+                    v{addon.version}
+                  </span>
+                  {addon.index_url && (
+                    <PluginSourcePill
+                      url={addon.index_url}
+                      style={{ marginLeft: 8, marginTop: -2 }}
+                    />
+                  )}
+                  {addon.requires_script && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        color: 'var(--warning, #d98324)',
+                        border: '1px solid var(--warning, #d98324)',
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                      }}
+                    >
+                      {t('addons.runsCode')}
+                    </span>
+                  )}
+                </div>
+                {addon.description && (
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
+                )}
+                <AuthorByline author={addon.author} authorUrl={addon.author_url} />
+              </div>
+              {addon.available_in && addon.available_in.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleContextMenu(e, addon, false)
+                  }}
+                  title="More options"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: 4,
+                  }}
+                >
+                  <LuMenu size={16} />
+                </button>
+              )}
+              <button
+                onClick={() => startInstall(addon)}
                 disabled={busy}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '6px 12px',
+                  padding: '6px 14px',
                   borderRadius: 6,
-                  border: 'none',
-                  background: 'var(--gold-dim)',
-                  color: 'var(--bg-deep)',
-                  fontWeight: 600,
-                  fontSize: 13,
+                  border: '1px solid var(--border)',
+                  background: 'none',
+                  color: 'var(--text)',
                   cursor: busy ? 'default' : 'pointer',
                 }}
               >
-                <LuArrowUp size={13} />
-                {t('addons.update')}
+                <LuDownload size={14} />
+                {t('addons.install')}
               </button>
-            )}
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
-              <input
-                type="checkbox"
-                checked={addon.enabled}
-                onChange={() => toggleEnabled(addon)}
-                aria-label={t('addons.enabled')}
-              />
-              {t('addons.enabled')}
-            </label>
-            <button
-              onClick={() => remove(addon)}
-              aria-label={t('addons.remove')}
-              title={t('addons.remove')}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                padding: 4,
-              }}
-            >
-              <LuTrash2 size={16} />
-            </button>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
 
-      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-        {t('addons.availableHeading')}
-      </h4>
-      {notInstalled.length === 0 && (
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
-          {t('addons.noneAvailable')}
-        </p>
-      )}
-      <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px' }}>
-        {notInstalled.map((addon) => (
-          <li
-            key={addon.id}
-            onContextMenu={(e) => handleContextMenu(e, addon, false)}
-            style={{
-              display: 'flex',
-              gap: 12,
-              alignItems: 'center',
-              padding: '10px 12px',
-              borderRadius: 6,
-              background: 'var(--bg-deep)',
-              marginBottom: 6,
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>
-                {addon.name}{' '}
-                <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
-                  v{addon.version}
-                </span>
-                {addon.index_url && (
-                  <PluginSourcePill url={addon.index_url} style={{ marginLeft: 8, marginTop: -2 }} />
-                )}
-                {addon.requires_script && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 11,
-                      color: 'var(--warning, #d98324)',
-                      border: '1px solid var(--warning, #d98324)',
-                      borderRadius: 4,
-                      padding: '1px 5px',
-                    }}
-                  >
-                    {t('addons.runsCode')}
-                  </span>
-                )}
-              </div>
-              {addon.description && (
-                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
-              )}
-              <AuthorByline author={addon.author} authorUrl={addon.author_url} />
+        <label
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-start',
+            fontSize: 13,
+            padding: '12px',
+            borderRadius: 6,
+            background: 'var(--bg-deep)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={data.allow_scripts}
+            onChange={(e) => toggleScripts(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span>
+            <strong>{t('addons.allowScripts')}</strong>
+            <div style={{ color: 'var(--text-dim)', marginTop: 2 }}>
+              {t('addons.allowScriptsDesc')}
             </div>
-            {addon.available_in && addon.available_in.length > 1 && (
-               <button
-                 onClick={(e) => { e.stopPropagation(); handleContextMenu(e, addon, false); }}
-                 title="More options"
-                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
-               >
-                 <LuMenu size={16} />
-               </button>
-            )}
-            <button
-              onClick={() => startInstall(addon)}
-              disabled={busy}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: '1px solid var(--border)',
-                background: 'none',
-                color: 'var(--text)',
-                cursor: busy ? 'default' : 'pointer',
-              }}
-            >
-              <LuDownload size={14} />
-              {t('addons.install')}
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      <label
-        style={{
-          display: 'flex',
-          gap: 8,
-          alignItems: 'flex-start',
-          fontSize: 13,
-          padding: '12px',
-          borderRadius: 6,
-          background: 'var(--bg-deep)',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={data.allow_scripts}
-          onChange={(e) => toggleScripts(e.target.checked)}
-          style={{ marginTop: 2 }}
-        />
-        <span>
-          <strong>{t('addons.allowScripts')}</strong>
-          <div style={{ color: 'var(--text-dim)', marginTop: 2 }}>
-            {t('addons.allowScriptsDesc')}
-          </div>
-        </span>
-      </label>
+          </span>
+        </label>
       </CollapsibleSection>
 
       {confirming && (

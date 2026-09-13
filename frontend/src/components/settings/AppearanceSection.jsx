@@ -194,7 +194,16 @@ export default function AppearanceSection() {
               />
               <span style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
                 {theme.name}
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    marginLeft: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
                   {themeCoverage(t, theme)}
                   {theme.source_url ? (
                     <PluginSourcePill
@@ -202,7 +211,9 @@ export default function AppearanceSection() {
                       isVerified={theme.source_url === state?.default_index_url}
                       style={{ marginLeft: 4, marginTop: -2 }}
                     />
-                  ) : theme.is_community ? ` · ${t('appearance.community')}` : ''}
+                  ) : (
+                    theme.is_community && ` · ${t('appearance.community')}`
+                  )}
                 </span>
               </span>
               <button
@@ -269,11 +280,11 @@ export default function AppearanceSection() {
           <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
             {t('appearance.catalogue')}
           </h4>
-          {catalogue.themes.length === 0 && (
+          {(catalogue?.themes?.length || 0) === 0 && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('appearance.empty')}</p>
           )}
           <ul style={{ listStyle: 'none' }}>
-            {catalogue.themes.map((theme) => (
+            {(catalogue?.themes || []).map((theme) => (
               <li
                 key={theme.id}
                 style={{

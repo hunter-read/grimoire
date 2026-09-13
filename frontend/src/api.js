@@ -307,7 +307,9 @@ export const campaigns = {
   },
   downloadWikiTemplate: (id, templateId, indexUrl) => {
     const query = indexUrl ? `?index_url=${encodeURIComponent(indexUrl)}` : ''
-    return api.post(`/campaigns/${id}/wiki/templates/download/${encodeURIComponent(templateId)}${query}`)
+    return api.post(
+      `/campaigns/${id}/wiki/templates/download/${encodeURIComponent(templateId)}${query}`
+    )
   },
   setWikiTemplateSource: (id, indexUrl) =>
     api.put(`/campaigns/${id}/wiki/templates/source`, { index_url: indexUrl }),

@@ -2524,6 +2524,8 @@
     "alreadyUpToDate": "Everything is already up to date.",
     "updateTitle": "Update {{name}}?",
     "scriptUpdateWarning": "This update changes the add-on's script. Because the code has changed, it needs your approval again before Grimoire will run it.",
+    "updateFromSpecificSource": "Update from specific source",
+    "installFromSpecificSource": "Install from specific source",
     "categories": {
       "metadata": "Metadata scrapers",
       "metadataDesc": "Add-ons that fill in game system and book details from external sources."
