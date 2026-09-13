@@ -130,8 +130,16 @@ def fetch_json(url: str, user_agent: str = "", timeout: int = HTTP_TIMEOUT) -> A
 
     try:
         return json.loads(body)
-    except ValueError as exc:
-        raise AddonFetchError("source did not return valid JSON") from exc
+    except ValueError:
+        try:
+            import yaml
+
+            parsed = yaml.safe_load(body)
+            if isinstance(parsed, (dict, list)):
+                return parsed
+        except Exception:
+            pass
+        raise AddonFetchError("source did not return valid JSON or YAML")
 
 
 def fetch_document(

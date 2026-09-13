@@ -139,6 +139,7 @@ class CatalogueTheme(BaseModel):
     path: str
     sha256: str
     grimoire_min_version: str
+    index_url: str
     installed: bool
 
 
@@ -146,6 +147,7 @@ class ThemeBrowseResponse(BaseModel):
     themes: list[CatalogueTheme]
     generated: str
     index_url: str
+    default_index_url: str
     is_custom_url: bool
 
 

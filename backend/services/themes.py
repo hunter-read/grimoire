@@ -296,33 +296,86 @@ def _assert_downloads_enabled() -> None:
         raise ThemeError("Downloading themes is disabled on this server")
 
 
+def get_index_urls(db: Session) -> list[str]:
+    """The theme catalogue URLs, derived from the configured add-on sources."""
+    from ..addons.registry import get_index_url as get_addon_index_url
+
+    addon_urls_str = get_addon_index_url(db)
+    addon_urls = [u.strip() for u in addon_urls_str.split(",") if u.strip()]
+    return addon_urls or [config.DEFAULT_THEME_INDEX_URL]
+
+
 def get_index_url(db: Session) -> str:
-    """The catalogue URL: an operator's override, else the built-in default."""
-    row = db.query(AppSetting).filter_by(key=SETTING_INDEX_URL).first()
-    custom = (row.value or "").strip() if row and row.value else ""
-    return custom or config.DEFAULT_THEME_INDEX_URL
+    """The primary catalogue URL."""
+    urls = get_index_urls(db)
+    return urls[0] if urls else config.DEFAULT_THEME_INDEX_URL
 
 
 def is_custom_url(db: Session) -> bool:
-    return get_index_url(db) != config.DEFAULT_THEME_INDEX_URL
+    urls = get_index_urls(db)
+    return len(urls) != 1 or urls[0] != config.DEFAULT_THEME_INDEX_URL
+
+
+def _derive_theme_url(url: str) -> str:
+    if url.endswith("themes/index.json"):
+        return url
+    if url.endswith("index.yaml"):
+        return url.replace("index.yaml", "themes/index.json")
+    base = url.rsplit("/", 1)[0]
+    return f"{base}/themes/index.json"
 
 
 def fetch_catalogue(db: Session) -> dict[str, Any]:
-    """Fetch and cache the community theme index."""
+    """Fetch and cache community theme indexes from all configured sources with schema detection."""
     _assert_downloads_enabled()
-    url = get_index_url(db)
-    try:
-        doc = fetch_document(
-            url,
-            cache_ttl=CATALOGUE_CACHE_TTL,
-            timeout=FETCH_TIMEOUT,
-            user_agent=f"Grimoire/{config.VERSION}",
-        )
-    except AddonFetchError as exc:
-        raise ThemeError(str(exc)) from exc
-    if not isinstance(doc, dict):
-        raise ThemeError("The theme catalogue is not in the expected format")
-    return doc
+    urls = get_index_urls(db)
+
+    all_themes: list[dict[str, Any]] = []
+
+    for url in urls:
+        doc = None
+        try:
+            doc = fetch_document(
+                url,
+                cache_ttl=CATALOGUE_CACHE_TTL,
+                timeout=FETCH_TIMEOUT,
+                user_agent=f"Grimoire/{config.VERSION}",
+            )
+        except AddonFetchError as exc:
+            logger.debug("Could not fetch source %s directly: %s", url, exc)
+
+        # 1. Direct match: The URL itself returned a Theme Index schema
+        if isinstance(doc, dict) and isinstance(doc.get("themes"), list):
+            for t in doc["themes"]:
+                if isinstance(t, dict):
+                    t["index_url"] = url
+            all_themes.extend(doc["themes"])
+            continue
+
+        # 2. Add-on Index or unknown URL: try derived themes/index.json path
+        derived_url = _derive_theme_url(url)
+        if derived_url != url:
+            try:
+                derived_doc = fetch_document(
+                    derived_url,
+                    cache_ttl=CATALOGUE_CACHE_TTL,
+                    timeout=FETCH_TIMEOUT,
+                    user_agent=f"Grimoire/{config.VERSION}",
+                )
+                if isinstance(derived_doc, dict) and isinstance(derived_doc.get("themes"), list):
+                    for t in derived_doc["themes"]:
+                        if isinstance(t, dict):
+                            t["index_url"] = derived_url
+                    all_themes.extend(derived_doc["themes"])
+            except AddonFetchError as exc:
+                logger.debug("Skipping themes from derived URL %s: %s", derived_url, exc)
+
+    return {
+        "themes": all_themes,
+        "index_url": urls[0] if urls else config.DEFAULT_THEME_INDEX_URL,
+        "default_index_url": config.DEFAULT_THEME_INDEX_URL,
+        "is_custom_url": is_custom_url(db),
+    }
 
 
 def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
@@ -362,6 +415,7 @@ def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
                 "path": str(entry.get("path") or ""),
                 "sha256": str(entry.get("sha256") or ""),
                 "grimoire_min_version": str(entry.get("grimoire_min_version") or "")[:20],
+                "index_url": str(entry.get("index_url") or ""),
             }
         )
     return out
@@ -443,7 +497,8 @@ def fetch_theme(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
 
     import httpx
 
-    url = _resolve_theme_url(get_index_url(db), entry.get("path", ""))
+    index_url = entry.get("index_url") or get_index_url(db)
+    url = _resolve_theme_url(index_url, entry.get("path", ""))
     headers = {"User-Agent": f"Grimoire/{config.VERSION}"}
     try:
         with httpx.Client(

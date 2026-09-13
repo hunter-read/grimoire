@@ -149,13 +149,17 @@ def browse_themes(
         t.theme_id
         for t in db.query(UserTheme).filter_by(user_id=current_user.id).all()
     }
-    entries = svc.list_entries(doc)
-    for entry in entries:
-        entry["installed"] = entry["id"] in owned
+    unique_entries = {}
+    for entry in svc.list_entries(doc):
+        if entry["id"] not in unique_entries:
+            entry["installed"] = entry["id"] in owned
+            unique_entries[entry["id"]] = entry
+    entries = list(unique_entries.values())
     return {
         "themes": entries,
         "generated": str(doc.get("generated") or ""),
         "index_url": svc.get_index_url(db),
+        "default_index_url": config.DEFAULT_THEME_INDEX_URL,
         "is_custom_url": svc.is_custom_url(db),
     }
 
@@ -198,7 +202,7 @@ def install_theme(
         db,
         current_user.id,
         theme,
-        {"id": theme_id, "url": svc.get_index_url(db), "version": entry.get("version")},
+        {"id": theme_id, "url": entry.get("index_url") or svc.get_index_url(db), "version": entry.get("version")},
     )
     db.commit()
     db.refresh(row)
