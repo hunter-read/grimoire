@@ -15,21 +15,10 @@ import {
 import api from '../../api'
 import Spinner from '../Spinner'
 import AddonInstallDialog from './AddonInstallDialog'
+import PluginSourcePill, { formatIndexUrl } from './PluginSourcePill'
+import PluginSourceContextMenu from './PluginSourceContextMenu'
 import AuthorByline from './AuthorByline'
 import CollapsibleSection from './CollapsibleSection'
-
-function formatIndexUrl(url) {
-  try {
-    const parsed = new URL(url)
-    if (parsed.hostname.includes('githubusercontent.com') || parsed.hostname.includes('github.com')) {
-      const parts = parsed.pathname.split('/').filter(Boolean)
-      if (parts.length >= 2) return `${parts[0]}/${parts[1]}`
-    }
-    return parsed.hostname
-  } catch (e) {
-    return url
-  }
-}
 
 function ConfirmModal({ title, message, onConfirm, onClose }) {
   const { t } = useTranslation()
@@ -133,12 +122,6 @@ export default function AddonsSection() {
   }, [])
 
   useEffect(load, [load])
-
-  useEffect(() => {
-    const handleClick = () => setContextMenu(null)
-    window.addEventListener('click', handleClick)
-    return () => window.removeEventListener('click', handleClick)
-  }, [])
 
   const run = (promise, successMessage, errorSetter = setError, onSuccess = null) => {
     setBusy(true)
@@ -474,26 +457,7 @@ export default function AddonsSection() {
                   v{addon.version}
                 </span>
                 {addon.index_url && (
-                  <span
-                    title={addon.index_url.includes('grimoire-codex/community-add-ons') ? t('addons.verifiedSource', 'Verified Source') : undefined}
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 10,
-                      color: addon.index_url.includes('grimoire-codex/community-add-ons') ? 'var(--gold-dim)' : 'var(--text-muted)',
-                      border: `1px solid ${addon.index_url.includes('grimoire-codex/community-add-ons') ? 'var(--gold-dim)' : 'var(--border)'}`,
-                      borderRadius: 4,
-                      padding: '1px 4px',
-                      textTransform: 'uppercase',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      verticalAlign: 'middle',
-                      marginTop: -2,
-                    }}
-                  >
-                    {addon.index_url.includes('grimoire-codex/community-add-ons') && <LuBadgeCheck size={12} />}
-                    {formatIndexUrl(addon.index_url)}
-                  </span>
+                  <PluginSourcePill url={addon.index_url} style={{ marginLeft: 8, marginTop: -2 }} />
                 )}
                 {addon.update_available && (
                   <span
@@ -609,26 +573,7 @@ export default function AddonsSection() {
                   v{addon.version}
                 </span>
                 {addon.index_url && (
-                  <span
-                    title={addon.index_url.includes('grimoire-codex/community-add-ons') ? t('addons.verifiedSource', 'Verified Source') : undefined}
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 10,
-                      color: addon.index_url.includes('grimoire-codex/community-add-ons') ? 'var(--gold-dim)' : 'var(--text-muted)',
-                      border: `1px solid ${addon.index_url.includes('grimoire-codex/community-add-ons') ? 'var(--gold-dim)' : 'var(--border)'}`,
-                      borderRadius: 4,
-                      padding: '1px 4px',
-                      textTransform: 'uppercase',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      verticalAlign: 'middle',
-                      marginTop: -2,
-                    }}
-                  >
-                    {addon.index_url.includes('grimoire-codex/community-add-ons') && <LuBadgeCheck size={12} />}
-                    {formatIndexUrl(addon.index_url)}
-                  </span>
+                  <PluginSourcePill url={addon.index_url} style={{ marginLeft: 8, marginTop: -2 }} />
                 )}
                 {addon.requires_script && (
                   <span
@@ -720,53 +665,17 @@ export default function AddonsSection() {
       )}
 
       {contextMenu && (
-        <div
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            background: 'var(--bg-deep)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            padding: '4px 0',
-            zIndex: 1000,
-            minWidth: 200,
+        <PluginSourceContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          isUpdate={contextMenu.isUpdate}
+          sources={contextMenu.addon.available_in}
+          onSelect={(indexUrl) => {
+            if (contextMenu.isUpdate) update(contextMenu.addon, indexUrl)
+            else startInstall(contextMenu.addon, indexUrl)
           }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ padding: '4px 12px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-            {contextMenu.isUpdate ? 'Update from specific index' : 'Install from specific index'}
-          </div>
-          {contextMenu.addon.available_in.map((avail, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                if (contextMenu.isUpdate) update(contextMenu.addon, avail.index_url)
-                else startInstall(contextMenu.addon, avail.index_url)
-                setContextMenu(null)
-              }}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                padding: '8px 12px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text)',
-                cursor: 'pointer',
-                fontSize: 13,
-              }}
-              onMouseOver={(e) => (e.target.style.background = 'var(--bg-hover)')}
-              onMouseOut={(e) => (e.target.style.background = 'none')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {avail.index_url.includes('grimoire-codex/community-add-ons') && <LuBadgeCheck size={14} color="var(--gold-dim)" title={t('addons.verifiedSource', 'Verified Source')} />}
-                <span>{formatIndexUrl(avail.index_url)} (v{avail.version})</span>
-              </div>
-            </button>
-          ))}
-        </div>
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       {confirmRemove !== null && (
