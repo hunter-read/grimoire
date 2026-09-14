@@ -16,6 +16,7 @@ import {
   LuPanelBottom,
   LuTags,
   LuBoxes,
+  LuFrame,
   LuLayoutGrid,
   LuUpload,
   LuFolderUp,
@@ -107,7 +108,11 @@ export default function FileManagerView() {
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState(null) // { tone, text }
   const [context, setContext] = useState(null) // right-click menu
-  const [creatingIn, setCreatingIn] = useState(null) // parent path for the new folder
+  // { path, allowKinds, allowFrames } for the new-folder modal — the parent and
+  // what a folder created there may declare. Carried rather than re-derived: the
+  // rules live on the server, and both the row menu and the pane toolbar already
+  // have the answer from the browse response.
+  const [creatingIn, setCreatingIn] = useState(null)
   const [renaming, setRenaming] = useState(null) // entry
   const [deleting, setDeleting] = useState(null) // entry pending delete confirmation
   const [movingEntries, setMovingEntries] = useState(null) // entries pending a destination
@@ -450,7 +455,13 @@ export default function FileManagerView() {
       onDropPaths={runMove}
       onDropFiles={handleExternalDrop}
       onOpenContext={setContext}
-      onNewFolder={setCreatingIn}
+      onNewFolder={(path) =>
+        setCreatingIn({
+          path,
+          allowKinds: pane.childrenAcceptContainerKind,
+          allowFrames: pane.childrenAcceptFramesMarker,
+        })
+      }
       // Upload and category scaffolding act on the folder the pane is showing,
       // so they live in its toolbar rather than in the row menu.
       onPickFiles={pickFiles}
@@ -734,7 +745,15 @@ export default function FileManagerView() {
                 style={menuItem}
                 {...menuHover}
                 onClick={() => {
-                  setCreatingIn(context.entry.path)
+                  // A folder created *inside* this row is one level deeper, so
+                  // it inherits what this row's own children may declare: a
+                  // child of a books/ container is a system slot, a child of a
+                  // system folder is a category and may not be a container.
+                  setCreatingIn({
+                    path: context.entry.path,
+                    allowKinds: !!context.entry.category_host,
+                    allowFrames: !!context.entry.accepts_frames_marker,
+                  })
                   setContext(null)
                 }}
               >
@@ -812,28 +831,58 @@ export default function FileManagerView() {
 
               <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
 
-              <MenuSubmenu
-                label={t('files.changeContainerKind')}
-                icon={<LuBoxes size={13} />}
-                itemStyle={menuItem}
-                hoverProps={menuHover}
-                testId="container-submenu"
-              >
-                {availableKinds(context.entry).map((k) => (
-                  <button
-                    key={k || 'none'}
-                    {...menuHover}
-                    data-testid={`kind-${k || 'none'}`}
-                    style={menuItem}
-                    onClick={() => {
-                      toggleMarker(context.entry, { containerKind: k })
-                      setContext(null)
-                    }}
-                  >
-                    {k ? t(`files.kind.${k}`) : t('files.kind.none')}
-                  </button>
-                ))}
-              </MenuSubmenu>
+              {/* Container kinds only mean something where a game system
+                  belongs — inside books/, at a depth the scanner reads systems
+                  at. The server decides which folders those are (the nesting
+                  rule lives with the scanner), so a maps/ or tokens/ folder, or
+                  a category folder inside a system, is never offered a marker
+                  the next scan would ignore. A folder that somehow carries one
+                  anyway still shows the submenu, so it can be cleared. */}
+              {(context.entry.accepts_container_kind || context.entry.container_kind) && (
+                <MenuSubmenu
+                  label={t('files.changeContainerKind')}
+                  icon={<LuBoxes size={13} />}
+                  itemStyle={menuItem}
+                  hoverProps={menuHover}
+                  testId="container-submenu"
+                >
+                  {availableKinds(context.entry).map((k) => (
+                    <button
+                      key={k || 'none'}
+                      {...menuHover}
+                      data-testid={`kind-${k || 'none'}`}
+                      style={menuItem}
+                      onClick={() => {
+                        toggleMarker(context.entry, { containerKind: k })
+                        setContext(null)
+                      }}
+                    >
+                      {k ? t(`files.kind.${k}`) : t('files.kind.none')}
+                    </button>
+                  ))}
+                </MenuSubmenu>
+              )}
+
+              {/* A separate toggle rather than a container kind: it says what
+                  the images in here are for, not how the folder's children
+                  relate to each other, and it applies at any depth under
+                  tokens/. */}
+              {(context.entry.accepts_frames_marker || context.entry.frames_container) && (
+                <button
+                  style={menuItem}
+                  {...menuHover}
+                  data-testid="toggle-frames"
+                  onClick={() => {
+                    toggleMarker(context.entry, {
+                      framesContainer: !context.entry.frames_container,
+                    })
+                    setContext(null)
+                  }}
+                >
+                  <LuFrame size={13} />{' '}
+                  {context.entry.frames_container ? t('files.unmarkFrames') : t('files.markFrames')}
+                </button>
+              )}
 
               <button
                 style={menuItem}
@@ -891,9 +940,11 @@ export default function FileManagerView() {
 
       {creatingIn !== null && (
         <NewFolderModal
-          parent={creatingIn}
+          parent={creatingIn.path}
+          allowKinds={creatingIn.allowKinds}
+          allowFrames={creatingIn.allowFrames}
           onClose={() => setCreatingIn(null)}
-          onCreate={(name, opts) => handleCreate(creatingIn, name, opts)}
+          onCreate={(name, opts) => handleCreate(creatingIn.path, name, opts)}
         />
       )}
 

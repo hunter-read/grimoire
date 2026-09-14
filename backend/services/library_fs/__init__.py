@@ -94,6 +94,8 @@ from .folders import (  # noqa: F401
     _assert_singleton_free,
     _remove_marker,
     _write_marker,
+    accepts_container_kind,
+    accepts_frames_marker,
     create_folder,
     find_singleton_container,
     holds_system_folders,

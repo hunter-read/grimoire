@@ -455,13 +455,27 @@ export const files = {
   move: (sources, destination, onConflict = 'skip') =>
     api.post('/files/move', { sources, destination, on_conflict: onConflict }),
   rename: (path, newName) => api.post('/files/rename', { path, new_name: newName }),
-  createFolder: (parent, name, { containerKind = '', nsfw = false } = {}) =>
-    api.post('/files/folder', { parent, name, container_kind: containerKind, nsfw }),
-  setMarkers: (path, { containerKind, nsfw } = {}) =>
+  createFolder: (
+    parent,
+    name,
+    { containerKind = '', nsfw = false, framesContainer = false } = {}
+  ) =>
+    api.post('/files/folder', {
+      parent,
+      name,
+      container_kind: containerKind,
+      nsfw,
+      frames_container: framesContainer,
+    }),
+  // Each marker is tri-state: omitted leaves it untouched, so toggling one
+  // never clears another. `framesContainer` is its own axis rather than a
+  // container kind — it marks a tokens/ folder's images as token-editor frames.
+  setMarkers: (path, { containerKind, nsfw, framesContainer } = {}) =>
     api.put('/files/folder/markers', {
       path,
       ...(containerKind !== undefined ? { container_kind: containerKind } : {}),
       ...(nsfw !== undefined ? { nsfw } : {}),
+      ...(framesContainer !== undefined ? { frames_container: framesContainer } : {}),
     }),
   // A folder holding nothing but markers and empty descendants deletes on
   // request; one still holding content needs `confirmName` to match its own

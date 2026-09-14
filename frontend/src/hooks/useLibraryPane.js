@@ -53,6 +53,8 @@ export function useLibraryPane(initialPath = '') {
           entries: res.entries || [],
           writable: res.writable,
           categoryHost: !!res.category_host,
+          childrenAcceptContainerKind: !!res.children_accept_container_kind,
+          childrenAcceptFramesMarker: !!res.children_accept_frames_marker,
           parent: res.parent ?? null,
           total: res.total ?? (res.entries || []).length,
           truncated: !!res.truncated,
@@ -312,6 +314,11 @@ export function useLibraryPane(initialPath = '') {
     // this pane is anchored on — what decides if its background menu offers to
     // scaffold them.
     categoryHost: root?.categoryHost ?? false,
+    // Whether a folder created inside this one could declare a container kind
+    // or a frame marker — what the toolbar's "new folder" offers, since it acts
+    // on the anchored folder and has no row to read the flags from.
+    childrenAcceptContainerKind: root?.childrenAcceptContainerKind ?? false,
+    childrenAcceptFramesMarker: root?.childrenAcceptFramesMarker ?? false,
     parent: root?.parent ?? null,
     loading: root?.loading ?? true,
     error: root?.error ?? null,

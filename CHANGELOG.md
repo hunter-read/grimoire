@@ -26,6 +26,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Tags containing a slash can be edited and deleted
 - A book stays on its own system when renamed inside a container
+- Offer folder markers only where the scanner reads them
 
 ## [1.6.2] - 2026-09-10
 

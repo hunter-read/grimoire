@@ -843,11 +843,15 @@ of Grimoire's own concepts) built for bulk reorganization:
   looking at the real folder, so you get the real folder. Very large folders are
   refused rather than started and stalled; download a subfolder instead.
 - **Edit an item's metadata** with the same editor the library views use.
-- **Create folders**, including system, category, and container folders. Choosing
-  a container type writes the right marker file for you, so you no longer have to
-  remember `.parent-system-container` and create it by hand. Use the **New folder**
-  button beside *Up* to create one in the folder you are currently viewing - handy
-  in an empty folder, where there is no row to right-click.
+- **Create folders**, including system, category, container, and frame folders.
+  Choosing a container type writes the right marker file for you, so you no longer
+  have to remember `.parent-system-container` and create it by hand - and the same
+  goes for `.frames-container`, so a new folder of
+  [token frames](#token-editor) is one checkbox rather than a trip to another
+  tool. Each option only appears where it means something: a container type where
+  a game system belongs, the frame checkbox anywhere under `tokens/`. Use the
+  **New folder** button beside *Up* to create one in the folder you are currently
+  viewing - handy in an empty folder, where there is no row to right-click.
 - **Set up a system in one step** with **Create standard category folders** -
   Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew, and
   Starter Sets, named so the scanner classifies them correctly. Offered on system
@@ -862,9 +866,20 @@ of Grimoire's own concepts) built for bulk reorganization:
   Sliding your finger cancels the hold, so scrolling the tree still scrolls it.
   Dragging rows to move them is a mouse gesture and is off on touch - the menu's
   **Move to…** does the same job.
-- **Mark a folder NSFW or SFW**, or change its container type, without recreating
-  it. The *One-page RPGs* and *System-agnostic* collections are one-of-a-kind:
-  once a folder claims one, it is not offered on any other folder.
+- **Mark a folder NSFW or SFW**, change its container type, or mark it a **frame
+  folder**, without recreating it. The *One-page RPGs* and *System-agnostic*
+  collections are one-of-a-kind: once a folder claims one, it is not offered on
+  any other folder.
+
+  Each option is offered only where Grimoire actually reads it, so you cannot
+  leave a marker somewhere it does nothing. **Container types** are a `books/`
+  idea - they say "the folders inside me are game systems" - so they appear on a
+  folder standing where a system belongs, and not on a category folder inside a
+  system (marking *Adventures* a container would tell the next scan that
+  *Adventures* is a game system) nor anywhere under `maps/`, `tokens/`, `audio/`,
+  or `models/`. **Frame folders** are the mirror image: offered at any depth
+  under `tokens/`, and nowhere else. A marker you created by hand in the wrong
+  place can still be cleared from here.
 - **Rescan** from here too: the **Rescan** button beside *Refresh* re-indexes the
   whole library, and right-click → **Rescan this…** re-indexes just that folder or
   file. *Refresh* only re-reads the folder listing; a rescan updates what Grimoire
@@ -1542,8 +1557,10 @@ a read-only library, and never disturbs a scan.
 **Frames.** Five ship with Grimoire. Two are plain shapes - a circle and a square - which
 take any colour you pick, and three are themed role markers (player
 character, non-player character, opponent) that keep their own colour, since that colour is
-part of telling them apart at a glance. You can add your own as well. Put an empty file named `.frames-container` in any folder
-under `tokens/`, and every PNG, WebP, or SVG beside it becomes a frame. The folder keeps a
+part of telling them apart at a glance. You can add your own as well. Mark any folder under `tokens/` as a frame folder - right-click
+it in the [file manager](#in-app-file-management) and choose **Mark as frame folder**, or
+tick the box when creating it - and every PNG, WebP, or SVG inside becomes a frame. (That
+writes an empty `.frames-container` file, which you can equally create by hand.) The folder keeps a
 normal name - `Fantasy Frames`, `Scifi Frames` - and the picker groups frames under it, so
 a system's frames can sit beside that system's tokens.
 

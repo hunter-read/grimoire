@@ -496,7 +496,10 @@
     "shortcutCursorOnly": "Moverse sin seleccionar",
     "shortcutSelectAll": "Seleccionar todo en este panel",
     "shortcutClearSelection": "Borrar la selección",
-    "framesContainer": "Marcos"
+    "framesContainer": "Marcos",
+    "markFrames": "Marcar como carpeta de marcos",
+    "unmarkFrames": "Quitar la marca de carpeta de marcos",
+    "framesHint": "Las imágenes de una carpeta de marcos se ofrecen como arte superpuesto en el editor de fichas. Cualquier carpeta dentro de tokens/ puede serlo, a cualquier profundidad."
   },
   "maps": {
     "title": "Mapas",

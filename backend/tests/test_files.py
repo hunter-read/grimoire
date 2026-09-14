@@ -7,6 +7,7 @@ the record *id* survives and the attached rows still resolve, not merely that th
 endpoint returned 200.
 """
 import os
+import shutil
 import uuid
 from pathlib import Path
 
@@ -31,8 +32,6 @@ def library_tree():
     Uses a unique root per test so the session-scoped DB and the shared library
     directory cannot leak state between cases.
     """
-    import shutil
-
     stamp = str(uuid.uuid4())[:8]
     made = []
     for rel in (
@@ -1049,17 +1048,191 @@ class TestMarkers:
         assert result["nsfw"] is False
 
     def test_container_kinds_are_exclusive(self, library_tree):
-        rel = f"books/System-{library_tree}/adventures"
+        # A direct child of `books/` — the depth a container is read at. A
+        # category folder *inside* a system is not one; see
+        # TestContainerKindPlacement.
+        rel = f"books/System-{library_tree}"
         fs.set_folder_markers(rel, container_kind="parent")
         result = fs.set_folder_markers(rel, container_kind="publisher")
         assert result["container_kind"] == "publisher"
         assert not os.path.exists(os.path.join(LIB, rel, ".parent-system-container"))
 
     def test_clear_container_kind(self, library_tree):
-        rel = f"books/System-{library_tree}/core"
+        rel = f"books/System-{library_tree}"
         fs.set_folder_markers(rel, container_kind="family")
         result = fs.set_folder_markers(rel, container_kind="")
         assert result["container_kind"] == ""
+
+    def test_set_and_clear_frames_marker(self, library_tree):
+        rel = f"tokens/Frames-{library_tree}"
+        os.makedirs(os.path.join(LIB, rel), exist_ok=True)
+        try:
+            result = fs.set_folder_markers(rel, frames_container=True)
+            assert result["frames_container"] is True
+            assert os.path.exists(os.path.join(LIB, rel, ".frames-container"))
+            result = fs.set_folder_markers(rel, frames_container=False)
+            assert result["frames_container"] is False
+        finally:
+            shutil.rmtree(os.path.join(LIB, rel), ignore_errors=True)
+
+    def test_frames_marker_leaves_container_kind_alone(self, library_tree):
+        """Each marker is its own axis — toggling one must not clear the other."""
+        rel = f"books/System-{library_tree}"
+        fs.set_folder_markers(rel, container_kind="publisher")
+        result = fs.set_folder_markers(rel, nsfw=True)
+        assert result["container_kind"] == "publisher"
+        assert result["nsfw"] is True
+
+
+class TestBrowseMarkerCapabilities:
+    """Browse reports where a declaration would mean something.
+
+    The UI offers the container submenu and the frame toggle off these flags, so
+    a wrong answer here is what puts an inert marker on a maps/ folder.
+    """
+
+    def _rows(self, client, headers, path):
+        resp = client.get(f"/api/files/browse?path={path}", headers=headers)
+        assert resp.status_code == 200
+        return resp.json()
+
+    def test_books_children_accept_kinds(self, client, admin_headers, library_tree):
+        body = self._rows(client, admin_headers, "books")
+        assert body["children_accept_container_kind"] is True
+        row = next(r for r in body["entries"] if r["name"] == f"System-{library_tree}")
+        assert row["accepts_container_kind"] is True
+        assert row["accepts_frames_marker"] is False
+
+    def test_category_rows_refuse_kinds(self, client, admin_headers, library_tree):
+        body = self._rows(client, admin_headers, f"books/System-{library_tree}")
+        assert body["children_accept_container_kind"] is False
+        row = next(r for r in body["entries"] if r["name"] == "core")
+        assert row["accepts_container_kind"] is False
+
+    def test_token_rows_accept_frames(self, client, admin_headers, library_tree):
+        name = f"Frames-{library_tree}"
+        os.makedirs(os.path.join(LIB, "tokens", name), exist_ok=True)
+        try:
+            body = self._rows(client, admin_headers, "tokens")
+            assert body["children_accept_frames_marker"] is True
+            assert body["children_accept_container_kind"] is False
+            row = next(r for r in body["entries"] if r["name"] == name)
+            assert row["accepts_frames_marker"] is True
+            assert row["accepts_container_kind"] is False
+        finally:
+            shutil.rmtree(os.path.join(LIB, "tokens", name), ignore_errors=True)
+
+    def test_map_rows_accept_neither(self, client, admin_headers, library_tree):
+        body = self._rows(client, admin_headers, "maps")
+        row = next(r for r in body["entries"] if r["name"] == f"Battlemaps-{library_tree}")
+        assert row["accepts_container_kind"] is False
+        assert row["accepts_frames_marker"] is False
+
+
+class TestContainerKindPlacement:
+    """A container kind is only offered — and only accepted — where it is read.
+
+    The marker means "my children are game systems", which only the books
+    scanner acts on, and only at a depth where a system folder belongs. Written
+    anywhere else it is inert at best: a category folder marked a container
+    hands the scanner "Core Rulebooks" and "Adventures" as sibling game systems
+    and scatters that system's books across them.
+    """
+
+    def test_category_folder_refused(self, library_tree):
+        """The silent-corruption case: a category folder inside a system."""
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.set_folder_markers(
+                f"books/System-{library_tree}/core", container_kind="publisher"
+            )
+        assert exc.value.code == "invalid"
+        assert not os.path.exists(
+            os.path.join(LIB, "books", f"System-{library_tree}", "core", ".publisher-container")
+        )
+
+    def test_non_books_collection_refused(self, library_tree):
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.set_folder_markers(f"maps/Battlemaps-{library_tree}", container_kind="family")
+        assert exc.value.code == "invalid"
+
+    def test_system_folder_accepted(self, library_tree):
+        result = fs.set_folder_markers(f"books/System-{library_tree}", container_kind="family")
+        assert result["container_kind"] == "family"
+
+    def test_nested_container_child_accepted(self, library_tree):
+        """A container's children are systems, so they may be containers too.
+
+        This is what makes a family holding a parent system holding editions
+        work — the chain keeps handing "these are systems" down.
+        """
+        fs.set_folder_markers(f"books/System-{library_tree}", container_kind="family")
+        fs.create_folder(f"books/System-{library_tree}", "Edition", container_kind="parent")
+        assert fs.accepts_container_kind(
+            Path(LIB) / "books" / f"System-{library_tree}" / "Edition"
+        )
+        # The chain ends at the first folder that is *not* a container. `core`
+        # sits under the plain system folder, so its children are categories and
+        # it may not declare a kind.
+        assert not fs.accepts_container_kind(
+            Path(LIB) / "books" / f"System-{library_tree}" / "core" / "Anything"
+        )
+
+    def test_clearing_is_always_allowed(self, library_tree):
+        """A marker created by hand in the wrong place stays removable."""
+        rel = os.path.join(LIB, "books", f"System-{library_tree}", "core")
+        Path(rel, ".publisher-container").touch()
+        result = fs.set_folder_markers(
+            f"books/System-{library_tree}/core", container_kind=""
+        )
+        assert result["container_kind"] == ""
+
+    def test_create_refuses_kind_in_wrong_place(self, library_tree):
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.create_folder(
+                f"books/System-{library_tree}/core", "Nested", container_kind="publisher"
+            )
+        assert exc.value.code == "invalid"
+
+
+class TestFramesMarkerPlacement:
+    """The frame marker is its own axis, read only under ``tokens/``."""
+
+    def test_any_depth_under_tokens_accepted(self, library_tree):
+        rel = f"tokens/Cyberpunk-{library_tree}/Neon/Frames"
+        os.makedirs(os.path.join(LIB, rel), exist_ok=True)
+        try:
+            result = fs.set_folder_markers(rel, frames_container=True)
+            assert result["frames_container"] is True
+        finally:
+            shutil.rmtree(
+                os.path.join(LIB, "tokens", f"Cyberpunk-{library_tree}"), ignore_errors=True
+            )
+
+    def test_outside_tokens_refused(self, library_tree):
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.set_folder_markers(f"books/System-{library_tree}", frames_container=True)
+        assert exc.value.code == "invalid"
+        assert not os.path.exists(
+            os.path.join(LIB, "books", f"System-{library_tree}", ".frames-container")
+        )
+
+    def test_tokens_root_itself_refused(self):
+        """The frame walk starts at tokens/ — marking it reads every token as art."""
+        assert not fs.accepts_frames_marker(Path(LIB) / "tokens")
+
+    def test_create_folder_writes_marker(self, library_tree):
+        name = f"Frames-{library_tree}"
+        try:
+            result = fs.create_folder("tokens", name, frames_container=True)
+            assert result["frames_container"] is True
+            assert os.path.exists(os.path.join(LIB, "tokens", name, ".frames-container"))
+        finally:
+            shutil.rmtree(os.path.join(LIB, "tokens", name), ignore_errors=True)
+
+    def test_create_refuses_marker_outside_tokens(self, library_tree):
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.create_folder(f"books/System-{library_tree}", "Frames", frames_container=True)
+        assert exc.value.code == "invalid"
 
 
 class TestSingletonContainers:
@@ -2739,13 +2912,14 @@ class TestMutationEndpoints:
             "/api/files/folder",
             headers=admin_headers,
             json={
-                "parent": f"books/System-{library_tree}",
-                "name": "api-folder",
+                "parent": "books",
+                "name": f"api-folder-{library_tree}",
                 "container_kind": "publisher",
             },
         )
         assert resp.status_code == 200
         assert resp.json()["container_kind"] == "publisher"
+        shutil.rmtree(os.path.join(LIB, "books", f"api-folder-{library_tree}"), ignore_errors=True)
 
     def test_create_folder_conflict_409(self, client, admin_headers, library_tree):
         resp = client.post(

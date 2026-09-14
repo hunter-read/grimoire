@@ -29,6 +29,14 @@ class BrowseEntry(BaseModel):
     # true for a system folder under books/, false for books/ itself and for
     # containers, whose children are the system folders.
     category_host: bool = False
+    # Folder-only: whether each marker would actually mean anything here, so the
+    # UI offers a declaration only where the scanner will read it. Container
+    # kinds need a books/ folder standing where a game system belongs; the frame
+    # marker needs any folder under tokens/. Computed server-side because the
+    # rules (container nesting, in particular) live with the scanner, and a
+    # second copy in the client would drift from it.
+    accepts_container_kind: bool = False
+    accepts_frames_marker: bool = False
     # Capped at CHILD_COUNT_CAP; None when the folder could not be read.
     child_count: Optional[int] = None
 
@@ -43,6 +51,12 @@ class BrowseResponse(BaseModel):
     # action is offered on a system folder's row *and* on the empty space of a
     # pane already anchored inside it, which has no row to click.
     category_host: bool = False
+    # Whether a folder created *inside* the one being browsed could declare a
+    # container kind or a frame marker — the pane toolbar's "new folder" acts on
+    # this folder and has no row to read the flags off. Asked about the children
+    # rather than the folder itself, which is what a new child would be.
+    children_accept_container_kind: bool = False
+    children_accept_frames_marker: bool = False
     entries: list[BrowseEntry]
     # How many entries the folder really holds, and whether `entries` is a
     # prefix of them — so the UI can say "showing 2000 of 48,213" rather than
@@ -90,6 +104,7 @@ class FolderResponse(BaseModel):
     name: Optional[str] = None
     container_kind: str = ""
     nsfw: bool = False
+    frames_container: bool = False
     markers: list[str] = Field(default_factory=list)
 
 
@@ -98,12 +113,17 @@ class CreateFolderRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     container_kind: str = ""
     nsfw: bool = False
+    frames_container: bool = False
 
 
 class MarkersRequest(BaseModel):
     path: str
     container_kind: Optional[str] = None
     nsfw: Optional[bool] = None
+    # Independent of container_kind rather than a seventh kind: it describes
+    # what the images in a tokens/ folder are for, not how a books/ folder's
+    # children relate to each other. `None` leaves it untouched.
+    frames_container: Optional[bool] = None
 
 
 class DeleteFolderRequest(BaseModel):

@@ -496,7 +496,10 @@
     "shortcutCursorOnly": "Bewegen ohne auszuwählen",
     "shortcutSelectAll": "Alles in diesem Bereich auswählen",
     "shortcutClearSelection": "Auswahl aufheben",
-    "framesContainer": "Rahmen"
+    "framesContainer": "Rahmen",
+    "markFrames": "Als Rahmenordner markieren",
+    "unmarkFrames": "Rahmenordner-Markierung entfernen",
+    "framesHint": "Die Bilder eines Rahmenordners werden im Token-Editor als Overlay-Grafik angeboten. Jeder Ordner unter tokens/ kann einer sein, in beliebiger Tiefe."
   },
   "maps": {
     "title": "Karten",

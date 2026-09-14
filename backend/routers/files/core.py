@@ -104,6 +104,14 @@ def browse(
     # "and is this child itself a container?". On a folder holding thousands of
     # entries that is the difference between one ancestor walk and thousands.
     children_may_host = section == "books" and fs.holds_system_folders(target)
+    # A child may declare a container kind exactly when a *system* folder is
+    # what belongs in its place — the same question, so it reuses the same
+    # single ancestor walk rather than re-deriving the chain per row. A child of
+    # `books/` qualifies; a child of a system folder is a category and does not.
+    children_may_contain = children_may_host
+    # The frame marker has no depth rule — the token-frame walk finds one at any
+    # depth under `tokens/` — so every folder in the token tree qualifies.
+    children_may_frame = section == "tokens"
 
     entries: list[BrowseEntry] = []
     try:
@@ -155,6 +163,8 @@ def browse(
                     # A container's children are systems, so they host
                     # categories; the container itself does not.
                     category_host=children_may_host and not markers["container_kind"],
+                    accepts_container_kind=children_may_contain,
+                    accepts_frames_marker=children_may_frame,
                     child_count=_child_count(child_path),
                     record_id=getattr(system, "id", None),
                     title=getattr(system, "name", None),
@@ -203,6 +213,8 @@ def browse(
         # where there is no row for it to hang off. Only meaningful in the books
         # tree; `is_category_host` returns False everywhere else.
         category_host=fs.is_category_host(target),
+        children_accept_container_kind=children_may_contain,
+        children_accept_frames_marker=children_may_frame,
         entries=entries,
         total=total,
         truncated=total > len(entries),
@@ -276,7 +288,11 @@ def create_folder(
     """Create a folder, writing container/NSFW marker files when asked."""
     try:
         return fs.create_folder(
-            req.parent, req.name, container_kind=req.container_kind, nsfw=req.nsfw
+            req.parent,
+            req.name,
+            container_kind=req.container_kind,
+            nsfw=req.nsfw,
+            frames_container=req.frames_container,
         )
     except fs.LibraryFSError as e:
         raise _http(e) from e
@@ -286,10 +302,13 @@ def update_markers(
     req: MarkersRequest,
     _: CurrentUser = Depends(require_admin),
 ):
-    """Set or clear a folder's container-kind and NSFW markers."""
+    """Set or clear a folder's container-kind, NSFW, and frame markers."""
     try:
         return fs.set_folder_markers(
-            req.path, container_kind=req.container_kind, nsfw=req.nsfw
+            req.path,
+            container_kind=req.container_kind,
+            nsfw=req.nsfw,
+            frames_container=req.frames_container,
         )
     except fs.LibraryFSError as e:
         raise _http(e) from e

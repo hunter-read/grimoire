@@ -496,7 +496,10 @@
     "shortcutCursorOnly": "Mover sem selecionar",
     "shortcutSelectAll": "Selecionar tudo neste painel",
     "shortcutClearSelection": "Limpar a seleção",
-    "framesContainer": "Molduras"
+    "framesContainer": "Molduras",
+    "markFrames": "Marcar como pasta de molduras",
+    "unmarkFrames": "Remover a marca de pasta de molduras",
+    "framesHint": "As imagens de uma pasta de molduras são oferecidas como arte sobreposta no editor de fichas. Qualquer pasta dentro de tokens/ pode ser uma, em qualquer profundidade."
   },
   "maps": {
     "title": "Mapas",

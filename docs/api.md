@@ -1761,8 +1761,8 @@ rows) are re-homed or invalidated so no item silently loses its cover.
 | `/api/files/browse` | GET | List one library folder, merged with each file's indexing state |
 | `/api/files/move` | POST | Move files/folders into a destination folder, relinking records |
 | `/api/files/rename` | POST | Rename a file or folder on disk, relinking records |
-| `/api/files/folder` | POST | Create a folder, writing container/NSFW marker files |
-| `/api/files/folder/markers` | PUT | Set or clear a folder's container-kind and NSFW markers |
+| `/api/files/folder` | POST | Create a folder, writing container/NSFW/frame marker files |
+| `/api/files/folder/markers` | PUT | Set or clear a folder's container-kind, NSFW, and frame markers |
 | `/api/files/folder` | DELETE | Delete a folder, recursively when confirmed by name |
 | `/api/files/folder/contents` | GET | Report whether a folder holds content |
 | `/api/files/delete` | POST | Remove a file or folder from the index, or also from disk |
@@ -1777,7 +1777,8 @@ orphaned one is listed normally. They are moved and re-stemmed automatically by
 `/api/files/move` and `/api/files/rename`. Returns
 `{path, parent, writable, category_host, entries[], total, truncated}`. Each entry carries
 `name`, `path`, `is_dir`, and `size`; folders add `container_kind`, `nsfw`,
-`frames_container`, `child_count`, and `category_host`, while files add `record_id`, `title`, `collection`,
+`frames_container`, `child_count`, `category_host`, `accepts_container_kind`, and
+`accepts_frames_marker`, while files add `record_id`, `title`, `collection`,
 `has_thumbnail`, and `is_missing` when Grimoire has indexed them. A folder
 directly under `books/` that maps to a game system also carries `record_id`,
 `title`, and `collection: "system"`, so a client can offer the system editor on
@@ -1798,6 +1799,13 @@ the folder's children relate to each other, and it applies at any depth under
 `tokens/` (`tokens/Fantasy Frames` and `tokens/Cyberpunk/Frames` alike). Marker/dotfiles
 are surfaced as folder properties, never as listable entries.
 
+`accepts_container_kind` and `accepts_frames_marker` report whether each
+declaration would *mean* anything on that folder, so a client offers it only
+where the scanner reads it - the same rules the write endpoints enforce. The
+top-level `children_accept_container_kind` and `children_accept_frames_marker`
+ask the question about a folder created *inside* the one being browsed, for a
+"new folder" action anchored on it that has no row to read the flags from.
+
 The listing is **one folder's immediate children only** - it does not recurse -
 and is bounded: `total` is the folder's true entry count and `truncated` says
 whether `entries` is a prefix of it, so a client can report what it is hiding
@@ -1816,12 +1824,21 @@ folder relinks every record beneath it.
 a path. This renames the file on disk, distinct from editing an item's display
 title. Returns `{from, to, records}`.
 
-**`POST /api/files/folder`** - `{parent, name, container_kind, nsfw}`.
+**`POST /api/files/folder`** - `{parent, name, container_kind, nsfw, frames_container}`.
 `container_kind` is one of `parent`, `one-page`, `agnostic`, `family`,
 `publisher`, `generic`, or `""` for a plain folder; it writes the corresponding
 marker file (`.parent-system-container`, `.one-page-container`,
 `.system-agnostic-container`, `.system-family-container`, `.publisher-container`,
-`.container`), and `nsfw` writes `.nsfw`.
+`.container`), `nsfw` writes `.nsfw`, and `frames_container` writes
+`.frames-container`.
+
+Each marker is only accepted where it is actually read, so a request cannot
+write one the scanner will ignore. A `container_kind` needs a folder inside
+`books/` standing where a game system belongs - a direct child of `books/`, or
+one reached from it through nothing but containers; asking for one on a category
+folder, or anywhere outside `books/`, is rejected with `400`. `frames_container`
+needs any folder under `tokens/` (at any depth, but not `tokens/` itself) and is
+rejected with `400` elsewhere.
 
 `one-page` and `agnostic` are **singletons**: they name *the* collection of their
 sort, so a request to give a second folder a kind another folder already holds is
@@ -1830,9 +1847,16 @@ rejected with `409`. `GET /api/files/browse` reports which are claimed in
 available. A folder merely *named* by the reserved convention (`one-page-rpgs`,
 `system-agnostic`, …) counts as the incumbent.
 
-**`PUT /api/files/folder/markers`** - `{path, container_kind?, nsfw?}`. Omitted
-fields are left untouched. Container kinds are mutually exclusive: setting one
-clears the others.
+**`PUT /api/files/folder/markers`** - `{path, container_kind?, nsfw?,
+frames_container?}`. Omitted fields are left untouched. Container kinds are
+mutually exclusive: setting one clears the others. `frames_container` is an
+independent axis rather than a seventh kind - it says what the images in a
+`tokens/` folder are for, not how a `books/` folder's children relate - so
+toggling it never disturbs `container_kind`.
+
+The same placement rules as `POST /api/files/folder` apply to *setting* a
+marker. *Clearing* one is always allowed, whatever the folder: a marker created
+by hand in a place the scanner ignores stays removable through this endpoint.
 
 **`DELETE /api/files/folder`** - `{path, confirm_name?}`. Always deletes from
 disk, with the same guards as the permanent mode of `POST /api/files/delete`

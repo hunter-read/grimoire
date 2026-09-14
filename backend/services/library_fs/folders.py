@@ -47,8 +47,9 @@ def create_folder(
     *,
     container_kind: str = "",
     nsfw: bool = False,
+    frames_container: bool = False,
 ) -> dict:
-    """Create a folder, optionally declaring it a container and/or NSFW.
+    """Create a folder, optionally declaring it a container, frame folder, and/or NSFW.
 
     The marker files are the point. Container and NSFW conventions are currently
     documented rather than enforced, so a user has to recall the exact filename
@@ -70,10 +71,25 @@ def create_folder(
 
     if container_kind and container_kind not in CONTAINER_MARKERS:
         raise LibraryFSError(f"Unknown container kind: {container_kind}", code="invalid")
+    target = parent_dir / clean
     if container_kind:
         _assert_singleton_free(container_kind, None)
+        # Checked against where the folder *will* sit, not the parent: a new
+        # child of `books/` is a system slot and may be a container, while a new
+        # child of a system folder is a category and may not.
+        if not accepts_container_kind(target):
+            raise LibraryFSError(
+                "Container kinds only apply to folders that hold game systems — "
+                "inside books/, at a depth where a system folder belongs.",
+                code="invalid",
+            )
+    if frames_container and not accepts_frames_marker(target):
+        raise LibraryFSError(
+            "Frame folders are read from the token library — create this folder "
+            "anywhere under tokens/.",
+            code="invalid",
+        )
 
-    target = parent_dir / clean
     if target.exists():
         raise LibraryFSError(f"'{clean}' already exists", code="conflict")
 
@@ -92,6 +108,8 @@ def create_folder(
         markers.append(CONTAINER_MARKERS[container_kind])
     if nsfw:
         markers.append(NSFW_MARKER)
+    if frames_container:
+        markers.append(FRAMES_MARKER)
     for marker in markers:
         try:
             (target / marker).touch()
@@ -103,6 +121,7 @@ def create_folder(
         "name": clean,
         "container_kind": container_kind,
         "nsfw": nsfw,
+        "frames_container": frames_container,
         "markers": markers,
     }
 
@@ -181,14 +200,25 @@ def _assert_singleton_free(kind: str, target: Optional[Path]) -> None:
 
 
 def set_folder_markers(
-    path: str, *, container_kind: Optional[str] = None, nsfw: Optional[bool] = None
+    path: str,
+    *,
+    container_kind: Optional[str] = None,
+    nsfw: Optional[bool] = None,
+    frames_container: Optional[bool] = None,
 ) -> dict:
-    """Add or remove container/NSFW markers on an existing folder.
+    """Add or remove container/NSFW/frame markers on an existing folder.
 
     Separate from ``create_folder`` because reclassifying an existing shelf is a
     distinct, common operation — marking a folder NSFW, or promoting one that has
     grown into a parent system — and neither should require recreating it.
     ``None`` leaves that aspect untouched.
+
+    Container kind and the frame marker are independent axes rather than one
+    list of kinds, and they are refused in different places: a container kind
+    only means something where a game system belongs, a frame marker only under
+    ``tokens/``. Writing either where it is inert would leave the user with a
+    badge and a dot file that change nothing about the next scan, so each is
+    checked against the folder it is being written to.
     """
     target = safe_join(path, must_exist=True)
     if not target.is_dir():
@@ -198,6 +228,14 @@ def set_folder_markers(
     if container_kind is not None:
         if container_kind and container_kind not in CONTAINER_MARKERS:
             raise LibraryFSError(f"Unknown container kind: {container_kind}", code="invalid")
+        # Only guard *setting* a kind. Clearing one is always allowed, so a
+        # marker created by hand in the wrong place stays removable from here.
+        if container_kind and not accepts_container_kind(target):
+            raise LibraryFSError(
+                "Container kinds only apply to folders that hold game systems — "
+                "inside books/, at a depth where a system folder belongs.",
+                code="invalid",
+            )
         if container_kind:
             _assert_singleton_free(container_kind, target)
         # Container kinds are mutually exclusive: clear all, then set the chosen
@@ -213,6 +251,21 @@ def set_folder_markers(
             _write_marker(target / NSFW_MARKER)
         else:
             _remove_marker(target / NSFW_MARKER)
+
+    if frames_container is not None:
+        # Same asymmetry as the container kinds: setting is guarded, clearing is
+        # not, so a marker that ended up somewhere the walk ignores can still be
+        # cleaned up from the file manager.
+        if frames_container and not accepts_frames_marker(target):
+            raise LibraryFSError(
+                "Frame folders are read from the token library — put this folder "
+                "anywhere under tokens/.",
+                code="invalid",
+            )
+        if frames_container:
+            _write_marker(target / FRAMES_MARKER)
+        else:
+            _remove_marker(target / FRAMES_MARKER)
 
     return read_folder_markers(target)
 
@@ -300,6 +353,54 @@ def is_category_host(target: Path) -> bool:
     if not holds_system_folders(target.parent):
         return False
     return _container_kind_of(target) == ""
+
+
+def accepts_container_kind(target: Path) -> bool:
+    """Whether declaring ``target`` a container would mean anything.
+
+    Container kinds say "my children are game systems", which only the books
+    scanner reads — ``holds_system_folders`` refuses anything whose first
+    segment is not ``books``, and ``_scan_container`` only recurses there. A
+    marker written anywhere else is inert: the folder gains a badge and a dot
+    file, and nothing about the scan changes.
+
+    Inside ``books/`` the depth matters too. A container is only recognised
+    where systems are expected — ``books/`` itself, and any folder reached from
+    it through nothing but containers. One level deeper sits a *system* folder,
+    whose children are categories; marking that a container would hand the
+    scanner "Core Rulebooks" and "Adventures" as sibling game systems and
+    scatter the books across them.
+
+    So the question is exactly the one ``holds_system_folders`` already answers
+    about the parent: this folder may declare a kind when a system folder is
+    what belongs in its place.
+    """
+    rel = to_relative(target)
+    parts = rel.split("/")
+    if parts[0] != "books":
+        return False
+    # `books/` itself is not a folder anyone declares a kind on — it is the root
+    # the whole chain hangs from.
+    if len(parts) < 2:
+        return False
+    return holds_system_folders(target.parent)
+
+
+def accepts_frames_marker(target: Path) -> bool:
+    """Whether ``target`` can declare its images token-editor frames.
+
+    The frame marker is read by ``routers/token_frames``, which walks
+    ``tokens/**`` and nothing else, so the marker only has an effect under the
+    token library. Unlike the container kinds it carries no depth rule:
+    ``tokens/Fantasy Frames`` and ``tokens/Cyberpunk/Neon/Frames`` are equally
+    valid, because the walk finds a marker at any depth.
+
+    ``tokens/`` itself is excluded. The walk starts there and would read every
+    token in the library as frame art.
+    """
+    rel = to_relative(target)
+    parts = rel.split("/")
+    return parts[0] == "tokens" and len(parts) >= 2
 
 
 def _container_kind_of(folder: Path) -> str:

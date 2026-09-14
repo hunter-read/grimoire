@@ -14,20 +14,24 @@ describe('NewFolderModal', () => {
   it('creates a plain folder', async () => {
     const onCreate = vi.fn().mockResolvedValue({})
     const onClose = vi.fn()
-    render(<NewFolderModal parent="books" onClose={onClose} onCreate={onCreate} />)
+    render(<NewFolderModal parent="books" allowKinds onClose={onClose} onCreate={onCreate} />)
 
     await userEvent.type(screen.getByLabelText('files.folderName'), 'Supplements')
     await userEvent.click(screen.getByText('files.create'))
 
     await waitFor(() =>
-      expect(onCreate).toHaveBeenCalledWith('Supplements', { containerKind: '', nsfw: false })
+      expect(onCreate).toHaveBeenCalledWith('Supplements', {
+        containerKind: '',
+        nsfw: false,
+        framesContainer: false,
+      })
     )
     expect(onClose).toHaveBeenCalled()
   })
 
   it('creates a container folder with the NSFW marker', async () => {
     const onCreate = vi.fn().mockResolvedValue({})
-    render(<NewFolderModal parent="books" onClose={vi.fn()} onCreate={onCreate} />)
+    render(<NewFolderModal parent="books" allowKinds onClose={vi.fn()} onCreate={onCreate} />)
 
     await userEvent.type(screen.getByLabelText('files.folderName'), 'Mature')
     await userEvent.selectOptions(screen.getByLabelText('files.containerKind'), 'family')
@@ -35,7 +39,41 @@ describe('NewFolderModal', () => {
     await userEvent.click(screen.getByText('files.create'))
 
     await waitFor(() =>
-      expect(onCreate).toHaveBeenCalledWith('Mature', { containerKind: 'family', nsfw: true })
+      expect(onCreate).toHaveBeenCalledWith('Mature', {
+        containerKind: 'family',
+        nsfw: true,
+        framesContainer: false,
+      })
+    )
+  })
+
+  it('offers no container kind where one would be inert', async () => {
+    // A tokens/ folder: the scanner never reads a container marker there, so
+    // the select is not rendered at all rather than writing a dead dot file.
+    render(<NewFolderModal parent="tokens" onClose={vi.fn()} onCreate={vi.fn()} />)
+
+    expect(screen.queryByLabelText('files.containerKind')).not.toBeInTheDocument()
+  })
+
+  it('offers the frame marker only where it is read', async () => {
+    const onCreate = vi.fn().mockResolvedValue({})
+    const { unmount } = render(
+      <NewFolderModal parent="books" allowKinds onClose={vi.fn()} onCreate={onCreate} />
+    )
+    expect(screen.queryByLabelText('files.markFrames')).not.toBeInTheDocument()
+    unmount()
+
+    render(<NewFolderModal parent="tokens" allowFrames onClose={vi.fn()} onCreate={onCreate} />)
+    await userEvent.type(screen.getByLabelText('files.folderName'), 'Fantasy Frames')
+    await userEvent.click(screen.getByLabelText('files.markFrames'))
+    await userEvent.click(screen.getByText('files.create'))
+
+    await waitFor(() =>
+      expect(onCreate).toHaveBeenCalledWith('Fantasy Frames', {
+        containerKind: '',
+        nsfw: false,
+        framesContainer: true,
+      })
     )
   })
 

@@ -9,13 +9,27 @@ import Spinner from '../Spinner'
 const KINDS = ['', 'parent', 'one-page', 'family', 'publisher', 'generic']
 
 /**
- * Create a folder, optionally declaring it a container and/or NSFW.
+ * Create a folder, optionally declaring it a container, a frame folder, and/or
+ * NSFW.
+ *
+ * `allowKinds` and `allowFrames` say which declarations would mean anything
+ * where this folder is being created — the server decides, since the rules
+ * belong to the scanner. A container kind is only read inside `books/` where a
+ * game system belongs; the frame marker only under `tokens/`. Offering either
+ * elsewhere would write a dot file the next scan ignores.
  */
-export default function NewFolderModal({ parent, onClose, onCreate }) {
+export default function NewFolderModal({
+  parent,
+  allowKinds = false,
+  allowFrames = false,
+  onClose,
+  onCreate,
+}) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [kind, setKind] = useState('')
   const [nsfw, setNsfw] = useState(false)
+  const [frames, setFrames] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -25,7 +39,11 @@ export default function NewFolderModal({ parent, onClose, onCreate }) {
     setBusy(true)
     setError(null)
     try {
-      await onCreate(name.trim(), { containerKind: kind, nsfw })
+      await onCreate(name.trim(), {
+        containerKind: allowKinds ? kind : '',
+        nsfw,
+        framesContainer: allowFrames && frames,
+      })
       onClose()
     } catch (err) {
       setError(err.message || t('files.createFailed'))
@@ -70,26 +88,60 @@ export default function NewFolderModal({ parent, onClose, onCreate }) {
           aria-label={t('files.folderName')}
         />
 
-        <label style={label} htmlFor="container-kind">
-          {t('files.containerKind')}
-        </label>
-        <select
-          id="container-kind"
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-          style={input}
-        >
-          {KINDS.map((k) => (
-            <option key={k || 'none'} value={k}>
-              {k ? t(`files.kind.${k}`) : t('files.kind.none')}
-            </option>
-          ))}
-        </select>
-        <p
-          style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}
-        >
-          {t('files.containerHint')}
-        </p>
+        {allowKinds && (
+          <>
+            <label style={label} htmlFor="container-kind">
+              {t('files.containerKind')}
+            </label>
+            <select
+              id="container-kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+              style={input}
+            >
+              {KINDS.map((k) => (
+                <option key={k || 'none'} value={k}>
+                  {k ? t(`files.kind.${k}`) : t('files.kind.none')}
+                </option>
+              ))}
+            </select>
+            <p
+              style={{
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                margin: '0 0 12px',
+                lineHeight: 1.5,
+              }}
+            >
+              {t('files.containerHint')}
+            </p>
+          </>
+        )}
+
+        {allowFrames && (
+          <>
+            <label
+              style={{ ...label, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            >
+              <input
+                type="checkbox"
+                checked={frames}
+                onChange={(e) => setFrames(e.target.checked)}
+              />
+              {t('files.markFrames')}
+            </label>
+            <p
+              style={{
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                margin: '0 0 12px',
+                lineHeight: 1.5,
+              }}
+            >
+              {t('files.framesHint')}
+            </p>
+          </>
+        )}
 
         <label
           style={{ ...label, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}

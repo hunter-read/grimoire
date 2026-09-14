@@ -68,6 +68,9 @@ vi.mock('../components/BulkEditModal', () => ({
 // Entry paths are built from the folder being listed, so each pane's rows carry
 // that pane's own paths — the difference that makes a cross-pane move assertion
 // meaningful.
+// Rows here stand in for `books/` children, which is where a container kind is
+// actually read — so the capability flag defaults on, and a case about a folder
+// that cannot take one overrides it.
 const folder = (name, parent = 'books', extra = {}) => ({
   name,
   path: `${parent}/${name}`,
@@ -75,6 +78,8 @@ const folder = (name, parent = 'books', extra = {}) => ({
   child_count: 2,
   nsfw: false,
   container_kind: null,
+  accepts_container_kind: true,
+  accepts_frames_marker: false,
   ...extra,
 })
 
@@ -239,6 +244,14 @@ describe('FileManagerView', () => {
   })
 
   it('creates a folder with the chosen container kind', async () => {
+    // `category_host` on the row is what says its children are system folders —
+    // the depth a container kind is read at. Without it the new folder would be
+    // a category, and the modal offers no kind at all (see the case below).
+    filesApi.browse.mockImplementation((path) =>
+      Promise.resolve(
+        browseResult([folder('core', path || 'books', { category_host: true })], path)
+      )
+    )
     filesApi.createFolder.mockResolvedValue({ path: 'books/New', container_kind: 'parent' })
     render(<FileManagerView />)
     // Creating a folder is a right-click action on the folder it goes inside.
@@ -252,8 +265,19 @@ describe('FileManagerView', () => {
       expect(filesApi.createFolder).toHaveBeenCalledWith('books/core', 'Publishers', {
         containerKind: 'parent',
         nsfw: false,
+        framesContainer: false,
       })
     )
+  })
+
+  it('offers no container kind for a folder created inside a category', async () => {
+    // `core` is a category folder: its children are books, not game systems, so
+    // marking one a container would invent a sibling system out of a shelf.
+    render(<FileManagerView />)
+    await openMenuOn('core')
+    await userEvent.click(screen.getByText('files.newFolderInside'))
+
+    expect(screen.queryByLabelText('files.containerKind')).not.toBeInTheDocument()
   })
 
   // The context menu is where rename, marker changes, and folder deletion live.
@@ -888,6 +912,102 @@ describe('FileManagerView', () => {
 
     await screen.findByTestId('kind-parent')
     expect(screen.queryByTestId('kind-none')).not.toBeInTheDocument()
+  })
+
+  it('hides the container submenu on a folder that cannot hold systems', async () => {
+    // A tokens/ folder. Offering a container type here would write a marker the
+    // scanner never reads — the folder would gain a badge and change nothing.
+    filesApi.browse.mockImplementation((path) =>
+      Promise.resolve(
+        browseResult([folder('Goblins', 'tokens', { accepts_container_kind: false })], path)
+      )
+    )
+    render(<FileManagerView />)
+    await openMenuOn('Goblins')
+
+    expect(screen.queryByTestId('container-submenu')).not.toBeInTheDocument()
+  })
+
+  it('still offers the submenu on a folder already carrying a kind, so it can be cleared', async () => {
+    filesApi.browse.mockImplementation((path) =>
+      Promise.resolve(
+        browseResult(
+          [
+            folder('Stray', 'tokens', {
+              accepts_container_kind: false,
+              container_kind: 'publisher',
+            }),
+          ],
+          path
+        )
+      )
+    )
+    render(<FileManagerView />)
+    await openMenuOn('Stray')
+    await openSubmenu('container-submenu')
+
+    expect(await screen.findByTestId('kind-none')).toBeInTheDocument()
+  })
+
+  it('marks a tokens folder as a frame folder', async () => {
+    filesApi.browse.mockImplementation((path) =>
+      Promise.resolve(
+        browseResult(
+          [
+            folder('Fantasy Frames', 'tokens', {
+              accepts_container_kind: false,
+              accepts_frames_marker: true,
+            }),
+          ],
+          path
+        )
+      )
+    )
+    filesApi.setMarkers.mockResolvedValue({ path: 'tokens/Fantasy Frames', frames_container: true })
+    render(<FileManagerView />)
+    await openMenuOn('Fantasy Frames')
+
+    await userEvent.click(await screen.findByTestId('toggle-frames'))
+
+    await waitFor(() =>
+      expect(filesApi.setMarkers).toHaveBeenCalledWith('tokens/Fantasy Frames', {
+        framesContainer: true,
+      })
+    )
+  })
+
+  it('clears the frame marker on a folder that already carries it', async () => {
+    filesApi.browse.mockImplementation((path) =>
+      Promise.resolve(
+        browseResult(
+          [
+            folder('Fantasy Frames', 'tokens', {
+              accepts_frames_marker: true,
+              frames_container: true,
+            }),
+          ],
+          path
+        )
+      )
+    )
+    filesApi.setMarkers.mockResolvedValue({ path: 'tokens/Fantasy Frames' })
+    render(<FileManagerView />)
+    await openMenuOn('Fantasy Frames')
+
+    await userEvent.click(await screen.findByTestId('toggle-frames'))
+
+    await waitFor(() =>
+      expect(filesApi.setMarkers).toHaveBeenCalledWith('tokens/Fantasy Frames', {
+        framesContainer: false,
+      })
+    )
+  })
+
+  it('offers no frame toggle outside the token library', async () => {
+    render(<FileManagerView />)
+    await openMenuOn('core')
+
+    expect(screen.queryByTestId('toggle-frames')).not.toBeInTheDocument()
   })
 
   it('reports a metadata load failure instead of opening an empty editor', async () => {

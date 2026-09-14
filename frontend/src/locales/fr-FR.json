@@ -496,7 +496,10 @@
     "shortcutCursorOnly": "Se déplacer sans sélectionner",
     "shortcutSelectAll": "Tout sélectionner dans ce volet",
     "shortcutClearSelection": "Effacer la sélection",
-    "framesContainer": "Cadres"
+    "framesContainer": "Cadres",
+    "markFrames": "Marquer comme dossier de cadres",
+    "unmarkFrames": "Retirer la marque de dossier de cadres",
+    "framesHint": "Les images d'un dossier de cadres sont proposées comme illustrations superposées dans l'éditeur de pions. N'importe quel dossier sous tokens/ peut en être un, à n'importe quel niveau."
   },
   "maps": {
     "title": "Cartes",

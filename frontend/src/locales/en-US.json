@@ -496,7 +496,10 @@
     "shortcutCursorOnly": "Move without selecting",
     "shortcutSelectAll": "Select everything in this pane",
     "shortcutClearSelection": "Clear the selection",
-    "framesContainer": "Frames"
+    "framesContainer": "Frames",
+    "markFrames": "Mark as frame folder",
+    "unmarkFrames": "Unmark as frame folder",
+    "framesHint": "A frame folder's images are offered as overlay art in the token editor. Any folder under tokens/ can be one, at any depth."
   },
   "maps": {
     "title": "Maps",

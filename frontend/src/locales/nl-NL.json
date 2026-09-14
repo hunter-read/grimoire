@@ -496,7 +496,10 @@
     "shortcutCursorOnly": "Verplaatsen zonder te selecteren",
     "shortcutSelectAll": "Alles in dit venster selecteren",
     "shortcutClearSelection": "Selectie wissen",
-    "framesContainer": "Randen"
+    "framesContainer": "Randen",
+    "markFrames": "Markeren als randenmap",
+    "unmarkFrames": "Markering als randenmap opheffen",
+    "framesHint": "De afbeeldingen in een randenmap worden in de token-editor als overlay-artwork aangeboden. Elke map onder tokens/ kan er een zijn, op elke diepte."
   },
   "maps": {
     "title": "Kaarten",
