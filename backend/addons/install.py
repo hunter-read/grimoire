@@ -241,7 +241,11 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     default_index_url = index_urls[0].strip() if index_urls else ""
     manifest_index_url = entry.index_url or get_cached_index(db).get("_url") or default_index_url
 
-    if entry.requires_script and not is_trusted_index_url(manifest_index_url) and not approve_script:
+    # Script-backed add-ons from unverified (third-party) repositories require explicit consent to install.
+    is_verified_source = is_trusted_index_url(manifest_index_url)
+    requires_explicit_consent = entry.requires_script and not is_verified_source
+
+    if requires_explicit_consent and not approve_script:
         raise AddonError(
             f"Installing script-backed add-on '{addon_id}' from an unverified source repository requires explicit script approval consent"
         )
