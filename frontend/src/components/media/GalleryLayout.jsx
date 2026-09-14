@@ -121,7 +121,7 @@ export default function GalleryLayout({
           onChange={gallery.setSortFilter}
           sortOptions={sortOptions}
           showSearch={false}
-          multiFilters={[
+          queryFilters={[
             {
               key: 'tags',
               label: t('sortFilter.filterTags'),

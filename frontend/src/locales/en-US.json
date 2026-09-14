@@ -2451,7 +2451,17 @@
     "allEditions": "All editions",
     "specialGroup": "Special",
     "specialNone": "No {{field}}",
-    "specialAny": "Any {{field}}"
+    "specialAny": "Any {{field}}",
+    "allDice": "All dice/materials",
+    "tagQueryAnd": "AND",
+    "tagQueryOr": "OR",
+    "tagQueryNot": "NOT",
+    "tagGroupAnyOf": "any of",
+    "tagGroupNoneOf": "none of",
+    "tagGroupAdd": "Add group",
+    "tagGroupMode": "Group {{n}} match mode",
+    "tagGroupTags": "Group {{n}} tags",
+    "tagGroupRemove": "Remove group {{n}}"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

@@ -216,11 +216,15 @@ describe('LibraryView', () => {
   })
 
   describe('tag filtering', () => {
-    // Tags live in a searchable multiselect dropdown inside the filter modal;
-    // open the modal, then the "Tags" dropdown, to reach the checkboxes.
+    // Tags are a grouped AND/OR expression inside the filter modal: each row is
+    // one group with its own searchable multiselect. Open the modal, then the
+    // group's dropdown, to reach the checkboxes.
+    const openTagGroup = async (n = 1) => {
+      await userEvent.click(screen.getByRole('button', { name: `Group ${n} tags` }))
+    }
     const openTags = async () => {
       await openFilters()
-      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await openTagGroup()
     }
 
     it('lists every tag present across systems in the Tags dropdown', async () => {
@@ -252,7 +256,26 @@ describe('LibraryView', () => {
       expect(screen.queryByText('PbtA System')).not.toBeInTheDocument()
     })
 
-    it('ANDs multiple selected tags', async () => {
+    it('ORs tags selected within one group', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Both System', tags: ['osr', 'grim'] }),
+        makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
+        makeSystem({ id: 's3', name: 'Neither', tags: ['pbta'] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Both System')).toBeInTheDocument())
+
+      await openTags()
+      await userEvent.click(screen.getByRole('checkbox', { name: /^osr$/i }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /^grim$/i }))
+
+      // Same group = alternatives, so either tag is enough.
+      expect(screen.getByText('Both System')).toBeInTheDocument()
+      expect(screen.getByText('OSR Only')).toBeInTheDocument()
+      expect(screen.queryByText('Neither')).not.toBeInTheDocument()
+    })
+
+    it('ANDs tags across separate groups', async () => {
       api.get.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Both System', tags: ['osr', 'grim'] }),
         makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
@@ -262,11 +285,33 @@ describe('LibraryView', () => {
 
       await openTags()
       await userEvent.click(screen.getByRole('checkbox', { name: /^osr$/i }))
+      await userEvent.click(screen.getByRole('button', { name: 'Add group' }))
+      await openTagGroup(2)
       await userEvent.click(screen.getByRole('checkbox', { name: /^grim$/i }))
 
       // Only the system carrying BOTH tags survives.
       expect(screen.getByText('Both System')).toBeInTheDocument()
       expect(screen.queryByText('OSR Only')).not.toBeInTheDocument()
+    })
+
+    it('excludes a tag with a "none of" group', async () => {
+      api.get.mockResolvedValue([
+        makeSystem({ id: 's1', name: 'Grim System', tags: ['osr', 'grim'] }),
+        makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
+      ])
+      renderView()
+      await waitFor(() => expect(screen.getByText('Grim System')).toBeInTheDocument())
+
+      await openFilters()
+      await userEvent.selectOptions(
+        screen.getByRole('combobox', { name: 'Group 1 match mode' }),
+        'exclude'
+      )
+      await openTagGroup()
+      await userEvent.click(screen.getByRole('checkbox', { name: /^grim$/i }))
+
+      expect(screen.getByText('OSR Only')).toBeInTheDocument()
+      expect(screen.queryByText('Grim System')).not.toBeInTheDocument()
     })
 
     it('shows an empty-match message when the tag + favorites combo matches nothing', async () => {
@@ -282,7 +327,7 @@ describe('LibraryView', () => {
 
       await openFilters()
       await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
-      await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+      await openTagGroup()
       await userEvent.click(screen.getByRole('checkbox', { name: /^osr$/i }))
 
       expect(screen.queryByText('OSR System')).not.toBeInTheDocument()

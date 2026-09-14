@@ -134,8 +134,8 @@ describe('applySystemSortFilter', () => {
       expect(out.map((s) => s.id)).toEqual(['a'])
     })
 
-    // The dropdown makes a sentinel exclusive, but a hand-edited or older saved
-    // preset could still carry both — the predicate stays well-defined there.
+    // A legacy flat list is read as an AND of single-term groups, so a sentinel
+    // mixed with a concrete tag keeps constraining both ways.
     it('still honours a sentinel mixed with a concrete tag', () => {
       const out = applySystemSortFilter(
         [
@@ -153,9 +153,67 @@ describe('applySystemSortFilter', () => {
           { ...systems[0], dice_materials: ['d20'] },
           { ...systems[1], dice_materials: [] },
         ],
-        { filters: { dice: [FILTER_NONE] } }
+        { filters: { dice: FILTER_NONE } }
       )
       expect(out.map((s) => s.id)).toEqual(['b'])
+    })
+
+    // Dice was a multi-select before it was aligned with genre/family, so a
+    // preset saved back then still holds an array.
+    it('reads a legacy array dice value as its first entry', () => {
+      const out = applySystemSortFilter(
+        [
+          { ...systems[0], dice_materials: ['d20'] },
+          { ...systems[1], dice_materials: ['d6'] },
+        ],
+        { filters: { dice: ['d20'] } }
+      )
+      expect(out.map((s) => s.id)).toEqual(['a'])
+    })
+  })
+
+  describe('dice filter', () => {
+    it('filters by a single dice/material value', () => {
+      const out = applySystemSortFilter(
+        [
+          { ...systems[0], dice_materials: ['d20', 'cards'] },
+          { ...systems[1], dice_materials: ['d6'] },
+        ],
+        { filters: { dice: 'd20' } }
+      )
+      expect(out.map((s) => s.id)).toEqual(['a'])
+    })
+  })
+
+  describe('grouped tag filter', () => {
+    const tagged = [
+      { ...systems[0], tags: ['building', 'shop'] },
+      { ...systems[1], tags: ['building', 'ruined'] },
+      { ...systems[2], tags: ['forest'] },
+    ]
+
+    it('matches building AND (store OR shop)', () => {
+      const out = applySystemSortFilter(tagged, {
+        filters: {
+          tags: [
+            { mode: 'include', tags: ['building'] },
+            { mode: 'include', tags: ['store', 'shop'] },
+          ],
+        },
+      })
+      expect(out.map((s) => s.id)).toEqual(['a'])
+    })
+
+    it('matches building AND NOT ruined', () => {
+      const out = applySystemSortFilter(tagged, {
+        filters: {
+          tags: [
+            { mode: 'include', tags: ['building'] },
+            { mode: 'exclude', tags: ['ruined'] },
+          ],
+        },
+      })
+      expect(out.map((s) => s.id)).toEqual(['a'])
     })
   })
 })

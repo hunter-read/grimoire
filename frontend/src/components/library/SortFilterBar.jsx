@@ -10,6 +10,7 @@ import {
   LuFilter,
 } from 'react-icons/lu'
 import FilterModal from './FilterModal'
+import { isEmptyQuery } from './tagQuery'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -28,7 +29,9 @@ import useIsMobile from '../../hooks/useIsMobile'
  *  - state: { sort, order, filters: {...} }
  *  - onChange: (nextState) => void
  *  - sortOptions: [{ value, label }]
- *  - selectFilters / multiFilters / toggleFilters: filter definitions (rendered in the modal)
+ *  - selectFilters / multiFilters / queryFilters / toggleFilters: filter
+ *    definitions (rendered in the modal); `queryFilters` are the grouped
+ *    AND/OR tag builders
  *  - trailing: extra controls (multi-select, view-mode, …) rendered at the right
  *    end of the row, so gallery pages get one uniform toolbar line (#255)
  *  - sticky: pin the row to the top of the scroll container while scrolling
@@ -39,6 +42,7 @@ export default function SortFilterBar({
   sortOptions,
   selectFilters = [],
   multiFilters = [],
+  queryFilters = [],
   toggleFilters = [],
   showSearch = true,
   searchPlaceholder,
@@ -59,12 +63,12 @@ export default function SortFilterBar({
   const setSort = (sort) => onChange({ ...state, sort })
   const toggleOrder = () => onChange({ ...state, order: state.order === 'asc' ? 'desc' : 'asc' })
 
-  const isActive = (v) =>
-    v !== undefined &&
-    v !== null &&
-    v !== '' &&
-    v !== 'any' &&
-    !(Array.isArray(v) && v.length === 0)
+  const isActive = (v) => {
+    if (v === undefined || v === null || v === '' || v === 'any') return false
+    // A grouped tag filter is an array of groups; an all-empty one is inactive.
+    if (Array.isArray(v)) return v.length > 0 && !isEmptyQuery(v)
+    return true
+  }
   const activeFilterCount = Object.values(filters).filter(isActive).length
   const clearFilters = () => onChange({ ...state, filters: {} })
 
@@ -351,6 +355,7 @@ export default function SortFilterBar({
             onChange={onChange}
             selectFilters={selectFilters}
             multiFilters={multiFilters}
+            queryFilters={queryFilters}
             toggleFilters={toggleFilters}
             showSearch={showSearch}
             searchPlaceholder={searchPlaceholder}

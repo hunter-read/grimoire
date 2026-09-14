@@ -1,8 +1,13 @@
 // Client-side sort/filter for the systems list, matching the backend keys
-// (name | book_count | page_count | year) and filters (genre, family, explicit,
-// tags, favorites).
+// (name | book_count | page_count | year) and filters (genre, family, dice,
+// explicit, tags, favorites).
+//
+// `dice` is a single-select like genre and family — it takes one value (or a
+// presence sentinel), not a list. `tags` is the grouped AND/OR expression from
+// ./tagQuery.
 
-import { matchSpecial, splitSpecial } from './specialFilters'
+import { firstValue, matchSpecial } from './specialFilters'
+import { matchesTagQuery } from './tagQuery'
 
 const matchValue = (field, wanted) => {
   const w = String(wanted).toLowerCase()
@@ -25,8 +30,6 @@ const has = (field, wanted) => {
 export function applySystemSortFilter(systems, state, opts = {}) {
   const { sort = 'name', order = 'asc', filters = {} } = state || {}
   const { isFavorite } = opts
-  const rawTags = Array.isArray(filters.tags) ? filters.tags : []
-  const rawDice = Array.isArray(filters.dice) ? filters.dice : []
   const search = (filters.search || '').trim().toLowerCase()
   let out = systems.filter((s) => {
     if (search && !(s.name || '').toLowerCase().includes(search)) return false
@@ -35,19 +38,10 @@ export function applySystemSortFilter(systems, state, opts = {}) {
     if (filters.family && !has(s.system_family, filters.family)) return false
     if (filters.parent_system && !has(s.parent_system, filters.parent_system)) return false
     if (filters.edition && !has(s.edition, filters.edition)) return false
+    const dice = firstValue(filters.dice)
+    if (dice && !has(s.dice_materials, dice)) return false
     if (filters.favorites === true && isFavorite && !isFavorite(s.id)) return false
-    if (rawTags.length) {
-      const { values, pass } = splitSpecial(rawTags, s.tags)
-      if (!pass) return false
-      const tags = (s.tags || []).map((tg) => String(tg).toLowerCase())
-      if (!values.every((tg) => tags.includes(tg.toLowerCase()))) return false
-    }
-    if (rawDice.length) {
-      const { values, pass } = splitSpecial(rawDice, s.dice_materials)
-      if (!pass) return false
-      const dice = (s.dice_materials || []).map((d) => String(d).toLowerCase())
-      if (!values.every((d) => dice.includes(d.toLowerCase()))) return false
-    }
+    if (!matchesTagQuery(filters.tags, s.tags)) return false
     return true
   })
   const dir = order === 'desc' ? -1 : 1

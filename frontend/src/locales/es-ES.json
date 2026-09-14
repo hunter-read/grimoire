@@ -2451,7 +2451,17 @@
     "allEditions": "All editions",
     "specialGroup": "Especial",
     "specialNone": "Sin {{field}}",
-    "specialAny": "Con {{field}}"
+    "specialAny": "Con {{field}}",
+    "allDice": "Todos los dados/materiales",
+    "tagQueryAnd": "Y",
+    "tagQueryOr": "O",
+    "tagQueryNot": "NO",
+    "tagGroupAnyOf": "cualquiera de",
+    "tagGroupNoneOf": "ninguno de",
+    "tagGroupAdd": "Añadir grupo",
+    "tagGroupMode": "Modo del grupo {{n}}",
+    "tagGroupTags": "Etiquetas del grupo {{n}}",
+    "tagGroupRemove": "Eliminar grupo {{n}}"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

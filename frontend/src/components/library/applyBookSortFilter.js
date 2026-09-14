@@ -2,35 +2,40 @@
 // mirroring applySystemSortFilter but for the SystemDetailView (which keeps its
 // category grouping — so this exposes a predicate + a comparator rather than a
 // flat filtered/sorted list).
+//
+// `genre` is a single-select, matching the systems list's genre filter; `tags`
+// is the grouped AND/OR expression from ./tagQuery.
 
-import { splitSpecial } from './specialFilters'
+import { firstValue, matchSpecial } from './specialFilters'
+import { matchesTagQuery } from './tagQuery'
 
-// Match a multi-select selection against a list field, honouring the special
-// "no value" / "any value" sentinels mixed into the selection.
-const hasAll = (field, wanted) => {
-  const { values, pass } = splitSpecial(wanted, field)
-  if (!pass) return false
-  const vals = (field || []).map((v) => String(v).toLowerCase())
-  return values.every((w) => vals.includes(String(w).toLowerCase()))
+const matchValue = (field, wanted) => {
+  const w = String(wanted).toLowerCase()
+  if (Array.isArray(field)) return field.some((v) => String(v).toLowerCase() === w)
+  return String(field || '').toLowerCase() === w
 }
+
+// `has` also handles the special "no value" / "any value" sentinels.
+const has = (field, wanted) => (wanted ? matchSpecial(field, wanted, matchValue) : true)
 
 /**
  * Build a `book => boolean` predicate from the filter state.
- * @param filters { favorites, explicit, genres:[], tags:[] }
+ * @param filters { favorites, explicit, genres, tags }
  * @param opts { isFavorite: (id) => bool }
  */
 export function bookFilterPredicate(filters = {}, opts = {}) {
   const { isFavorite } = opts
-  const wantGenres = Array.isArray(filters.genres) ? filters.genres : []
-  const wantTags = Array.isArray(filters.tags) ? filters.tags : []
+  // `genres` was a multi-select before it was aligned with the systems genre
+  // filter, so an old preset can still hold an array — take its first entry.
+  const wantGenre = firstValue(filters.genres)
   const search = (filters.search || '').trim().toLowerCase()
   return (book) => {
     if (search && !(book.title || '').toLowerCase().includes(search)) return false
     if (filters.favorites === true && isFavorite && !isFavorite(book.id)) return false
     if (filters.explicit !== undefined && Boolean(book.is_explicit) !== filters.explicit)
       return false
-    if (wantGenres.length && !hasAll(book.genres, wantGenres)) return false
-    if (wantTags.length && !hasAll(book.tags, wantTags)) return false
+    if (wantGenre && !has(book.genres, wantGenre)) return false
+    if (!matchesTagQuery(filters.tags, book.tags)) return false
     return true
   }
 }

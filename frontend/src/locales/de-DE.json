@@ -2451,7 +2451,17 @@
     "allEditions": "All editions",
     "specialGroup": "Spezial",
     "specialNone": "Ohne {{field}}",
-    "specialAny": "Mit {{field}}"
+    "specialAny": "Mit {{field}}",
+    "allDice": "Alle Würfel/Materialien",
+    "tagQueryAnd": "UND",
+    "tagQueryOr": "ODER",
+    "tagQueryNot": "NICHT",
+    "tagGroupAnyOf": "eines von",
+    "tagGroupNoneOf": "keines von",
+    "tagGroupAdd": "Gruppe hinzufügen",
+    "tagGroupMode": "Gruppe {{n}} Modus",
+    "tagGroupTags": "Gruppe {{n}} Tags",
+    "tagGroupRemove": "Gruppe {{n}} entfernen"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

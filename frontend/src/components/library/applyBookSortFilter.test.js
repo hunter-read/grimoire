@@ -46,14 +46,36 @@ describe('bookFilterPredicate', () => {
     expect(books.filter(p).map((b) => b.id)).toEqual(['b'])
   })
 
-  it('filters by genre (AND)', () => {
+  it('filters by genre', () => {
+    const p = bookFilterPredicate({ genres: 'Fantasy' })
+    expect(books.filter(p).map((b) => b.id)).toEqual(['a'])
+  })
+
+  // Genre was a multi-select before it was aligned with the systems genre
+  // filter, so a preset saved back then still holds a one-element array.
+  it('reads a legacy array genre value as its first entry', () => {
     const p = bookFilterPredicate({ genres: ['Fantasy'] })
     expect(books.filter(p).map((b) => b.id)).toEqual(['a'])
   })
 
-  it('filters by multiple tags (AND)', () => {
+  it('filters by a legacy flat tag list (AND)', () => {
     const p = bookFilterPredicate({ tags: ['osr', 'grim'] })
     expect(books.filter(p).map((b) => b.id)).toEqual(['c'])
+  })
+
+  it('filters by grouped tags: osr AND (grim OR missing)', () => {
+    const p = bookFilterPredicate({
+      tags: [
+        { mode: 'include', tags: ['osr'] },
+        { mode: 'include', tags: ['grim', 'missing'] },
+      ],
+    })
+    expect(books.filter(p).map((b) => b.id)).toEqual(['c'])
+  })
+
+  it('excludes a tag group', () => {
+    const p = bookFilterPredicate({ tags: [{ mode: 'exclude', tags: ['grim'] }] })
+    expect(books.filter(p).map((b) => b.id)).toEqual(['a'])
   })
 
   it('filters by favorites via isFavorite', () => {
@@ -63,12 +85,12 @@ describe('bookFilterPredicate', () => {
 
   describe('special presence filters', () => {
     it('filters to books with no genre', () => {
-      const p = bookFilterPredicate({ genres: [FILTER_NONE] })
+      const p = bookFilterPredicate({ genres: FILTER_NONE })
       expect(books.filter(p).map((b) => b.id)).toEqual(['c'])
     })
 
     it('filters to books that have any genre', () => {
-      const p = bookFilterPredicate({ genres: [FILTER_ANY] })
+      const p = bookFilterPredicate({ genres: FILTER_ANY })
       expect(books.filter(p).map((b) => b.id)).toEqual(['a', 'b'])
     })
 
@@ -78,16 +100,24 @@ describe('bookFilterPredicate', () => {
     })
 
     it('combines a genre sentinel with a tag filter on the other field', () => {
-      const p = bookFilterPredicate({ genres: [FILTER_ANY], tags: ['grim'] })
+      const p = bookFilterPredicate({ genres: FILTER_ANY, tags: ['grim'] })
       expect(books.filter(p).map((b) => b.id)).toEqual(['b'])
     })
 
-    // The dropdown makes the sentinels exclusive per field, but a hand-edited
-    // or older saved preset could still carry both — the predicate stays
-    // well-defined (nothing can be both empty and non-empty).
-    it('excludes everything when both sentinels are selected', () => {
-      const p = bookFilterPredicate({ genres: [FILTER_NONE, FILTER_ANY] })
+    // A group ORs its terms, so "no tags OR any tags" covers everything — and
+    // excluding that covers nothing.
+    it('excludes everything when a group ORs both sentinels in exclude mode', () => {
+      const p = bookFilterPredicate({
+        tags: [{ mode: 'exclude', tags: [FILTER_NONE, FILTER_ANY] }],
+      })
       expect(books.filter(p)).toHaveLength(0)
+    })
+
+    it('keeps everything when a group ORs both sentinels in include mode', () => {
+      const p = bookFilterPredicate({
+        tags: [{ mode: 'include', tags: [FILTER_NONE, FILTER_ANY] }],
+      })
+      expect(books.filter(p)).toHaveLength(3)
     })
   })
 })

@@ -2451,7 +2451,17 @@
     "allEditions": "All editions",
     "specialGroup": "Speciaal",
     "specialNone": "Geen {{field}}",
-    "specialAny": "Met {{field}}"
+    "specialAny": "Met {{field}}",
+    "allDice": "Alle dobbelstenen/materialen",
+    "tagQueryAnd": "EN",
+    "tagQueryOr": "OF",
+    "tagQueryNot": "NIET",
+    "tagGroupAnyOf": "een van",
+    "tagGroupNoneOf": "geen van",
+    "tagGroupAdd": "Groep toevoegen",
+    "tagGroupMode": "Modus van groep {{n}}",
+    "tagGroupTags": "Tags van groep {{n}}",
+    "tagGroupRemove": "Groep {{n}} verwijderen"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

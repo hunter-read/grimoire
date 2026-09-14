@@ -20,7 +20,7 @@ import SystemGroupToggle from '../components/library/SystemGroupToggle'
 import AgnosticChip from '../components/library/AgnosticChip'
 import SortFilterBar from '../components/library/SortFilterBar'
 import { applySystemSortFilter } from '../components/library/applySystemSortFilter'
-import { isSpecialFilter } from '../components/library/specialFilters'
+import { queryTags } from '../components/library/tagQuery'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkEditModal from '../components/BulkEditModal'
 import LazyImg from '../components/LazyImg'
@@ -83,9 +83,7 @@ export default function LibraryView() {
   const activeFilters = sortFilter.filters || {}
   // Tags currently filtering the grid (set via the Filters modal's Tags
   // dropdown). Presence sentinels aren't tags, so they stay out of this set.
-  const selectedTags = new Set(
-    (activeFilters.tags || []).filter((tg) => !isSpecialFilter(tg)).map((tg) => tg.toLowerCase())
-  )
+  const selectedTags = new Set(queryTags(activeFilters.tags).map((tg) => tg.toLowerCase()))
   const favOnly = activeFilters.favorites === true
   const isFavSystem = (id) => isFavorite('system', id)
 
@@ -476,14 +474,14 @@ export default function LibraryView() {
                       },
                     ]
                   : []),
-              ]}
-              multiFilters={[
                 {
                   key: 'dice',
                   label: t('sortFilter.filterDice'),
-                  emptyLabel: t('sortFilter.noDice'),
+                  allLabel: t('sortFilter.allDice'),
                   options: diceOptions,
                 },
+              ]}
+              queryFilters={[
                 {
                   key: 'tags',
                   label: t('sortFilter.filterTags'),

@@ -12,6 +12,15 @@ export const FILTER_ANY = '__grim:any__'
 
 export const isSpecialFilter = (v) => v === FILTER_NONE || v === FILTER_ANY
 
+/**
+ * Read a single-select filter value that may have been saved as an array.
+ * Genre (books) and dice (systems) were multi-selects before they were aligned
+ * with the systems genre filter, so a preset saved back then still holds a
+ * list; take its first entry rather than comparing a string against an array
+ * and matching nothing.
+ */
+export const firstValue = (v) => (Array.isArray(v) ? v[0] : v)
+
 /** True when a field holds no value (null/undefined/empty string/empty array). */
 export const isEmptyField = (field) => {
   if (Array.isArray(field)) return field.length === 0

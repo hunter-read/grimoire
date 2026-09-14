@@ -8,7 +8,7 @@ import useSortFilterState from './useSortFilterState'
 import { useFavorites } from '../context/FavoritesContext'
 // (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
 import { getEffectiveTags, getTopFolder, getSubPath } from '../components/media/mediaConfig'
-import { splitSpecial, isSpecialFilter } from '../components/library/specialFilters'
+import { matchesTagQuery, queryTags, toggleQueryTag } from '../components/library/tagQuery'
 
 // Page size for the progressive load below. Large enough that a modest library
 // arrives in one request, small enough that the first paint is quick on a big one.
@@ -63,21 +63,15 @@ export default function useMediaGallery(config) {
   // Falls back to the shared empty array rather than a fresh `[]`: this feeds the
   // `filtered` memo's dependencies, and a new identity per render would rebuild
   // the whole filtered set on every render.
-  const rawSelectedTags = activeFilters.tags || EMPTY_ITEMS
-  // The inline tag chips only know about real tags — the special sentinels are
-  // kept out of this set so they never render as a highlighted chip.
-  const selectedTags = new Set(
-    rawSelectedTags.filter((tg) => !isSpecialFilter(tg)).map((tg) => tg.toLowerCase())
-  )
+  const tagQuery = activeFilters.tags || EMPTY_ITEMS
+  // The inline tag chips only know about real tags — the group structure and
+  // the special sentinels are flattened away so they never render as a chip.
+  const selectedTags = new Set(queryTags(tagQuery).map((tg) => tg.toLowerCase()))
   const setFilter = (v) =>
     setSortFilter((s) => ({ ...s, filters: { ...s.filters, search: v || undefined } }))
   const toggleTag = (tag) =>
     setSortFilter((s) => {
-      const cur = s.filters.tags || []
-      const lower = tag.toLowerCase()
-      const next = cur.some((tg) => tg.toLowerCase() === lower)
-        ? cur.filter((tg) => tg.toLowerCase() !== lower)
-        : [...cur, tag]
+      const next = toggleQueryTag(s.filters.tags, tag)
       return { ...s, filters: { ...s.filters, tags: next.length ? next : undefined } }
     })
   const clearTags = () =>
@@ -340,23 +334,15 @@ export default function useMediaGallery(config) {
     return decorated
       .filter((d) => {
         const textMatch = !filter || d.haystack.includes(q)
-        const tagMatch =
-          rawSelectedTags.length === 0 ||
-          (() => {
-            // An item's effective tags are its own plus those of every folder
-            // above it, so the special "untagged"/"tagged" sentinels test that
-            // combined set.
-            const { values, pass } = splitSpecial(rawSelectedTags, d.effective)
-            if (!pass) return false
-            if (values.length === 0) return true
-            const effectiveSet = new Set(d.effectiveLower)
-            return values.some((tag) => effectiveSet.has(String(tag).toLowerCase()))
-          })()
+        // An item's effective tags are its own plus those of every folder above
+        // it, so the whole expression — group membership and the
+        // "untagged"/"tagged" sentinels alike — tests that combined set.
+        const tagMatch = matchesTagQuery(tagQuery, d.effective)
         const favMatch = !favOnly || isFavorite(type, d.item.id)
         return textMatch && tagMatch && favMatch
       })
       .map((d) => d.item)
-  }, [decorated, filter, rawSelectedTags, favOnly, type, isFavorite])
+  }, [decorated, filter, tagQuery, favOnly, type, isFavorite])
 
   // Item comparator from the sort/order state. `name` sorts by filename; `size`
   // by file size (audio also supports `duration` and `title`).

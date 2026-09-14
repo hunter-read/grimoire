@@ -771,7 +771,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(screen.getByText('Tagged')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Group 1 tags' }))
     await userEvent.click(screen.getByRole('checkbox', { name: /^spooky$/i }))
     expect(screen.getByText('Tagged')).toBeInTheDocument()
     expect(screen.queryByText('Untagged')).not.toBeInTheDocument()
@@ -784,7 +784,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Group 1 tags' }))
     // All tags are available as checkboxes in the dropdown (scrolls; no cap).
     expect(screen.getByRole('checkbox', { name: /^tag-19$/i })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: /^tag-00$/i })).toBeInTheDocument()
@@ -801,10 +801,32 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(screen.getByText('Fantasy Book')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Genre' }))
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Fantasy' }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Genre' }), 'Fantasy')
     expect(screen.getByText('Fantasy Book')).toBeInTheDocument()
     expect(screen.queryByText('Horror Book')).not.toBeInTheDocument()
+  })
+
+  it('builds a grouped tag filter: spooky AND (dungeon OR cave)', async () => {
+    api.get.mockResolvedValue(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'Spooky Cave', tags: ['spooky', 'cave'] }),
+        makeBook({ id: 'b2', title: 'Spooky Field', tags: ['spooky', 'field'] }),
+        makeBook({ id: 'b3', title: 'Sunny Cave', tags: ['cave'] }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Spooky Cave')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Group 1 tags' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /^spooky$/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add group' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Group 2 tags' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /^cave$/i }))
+
+    expect(screen.getByText('Spooky Cave')).toBeInTheDocument()
+    expect(screen.queryByText('Spooky Field')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sunny Cave')).not.toBeInTheDocument()
   })
 
   it('re-sorts books when the sort control changes', async () => {

@@ -2451,7 +2451,17 @@
     "allEditions": "All editions",
     "specialGroup": "Spécial",
     "specialNone": "Sans {{field}}",
-    "specialAny": "Avec {{field}}"
+    "specialAny": "Avec {{field}}",
+    "allDice": "Tous les dés/matériaux",
+    "tagQueryAnd": "ET",
+    "tagQueryOr": "OU",
+    "tagQueryNot": "NON",
+    "tagGroupAnyOf": "l'un de",
+    "tagGroupNoneOf": "aucun de",
+    "tagGroupAdd": "Ajouter un groupe",
+    "tagGroupMode": "Mode du groupe {{n}}",
+    "tagGroupTags": "Étiquettes du groupe {{n}}",
+    "tagGroupRemove": "Supprimer le groupe {{n}}"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

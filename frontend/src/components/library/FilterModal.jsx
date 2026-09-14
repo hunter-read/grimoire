@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuSearch } from 'react-icons/lu'
 import MultiSelectDropdown from '../metadata/MultiSelectDropdown'
+import TagQueryEditor from './TagQueryEditor'
 import { FILTER_NONE, FILTER_ANY } from './specialFilters'
+import { isEmptyQuery } from './tagQuery'
 
 /**
  * Modal housing all filter controls for a scope, plus a "save as filter"
@@ -12,7 +14,8 @@ import { FILTER_NONE, FILTER_ANY } from './specialFilters'
  *
  * Props:
  *  - state, onChange: the sort/filter state and its setter
- *  - selectFilters, multiFilters, toggleFilters: same shapes as the toolbar
+ *  - selectFilters, multiFilters, queryFilters, toggleFilters: same shapes as
+ *    the toolbar; `queryFilters` render the grouped AND/OR tag builder
  *  - onSavePreset(name, { asDefault }): create a preset from the current state
  *  - onClose()
  */
@@ -21,6 +24,7 @@ export default function FilterModal({
   onChange,
   selectFilters = [],
   multiFilters = [],
+  queryFilters = [],
   toggleFilters = [],
   showSearch = true,
   searchPlaceholder,
@@ -34,12 +38,12 @@ export default function FilterModal({
   const filters = state.filters || {}
   const setFilter = (key, value) => onChange({ ...state, filters: { ...filters, [key]: value } })
 
-  const isActive = (v) =>
-    v !== undefined &&
-    v !== null &&
-    v !== '' &&
-    v !== 'any' &&
-    !(Array.isArray(v) && v.length === 0)
+  const isActive = (v) => {
+    if (v === undefined || v === null || v === '' || v === 'any') return false
+    // A grouped tag filter is an array of groups; an all-empty one is inactive.
+    if (Array.isArray(v)) return v.length > 0 && !isEmptyQuery(v)
+    return true
+  }
   const activeCount = Object.values(filters).filter(isActive).length
 
   const clearFilters = () => onChange({ ...state, filters: {} })
@@ -195,6 +199,20 @@ export default function FilterModal({
                         },
                       ]
                 }
+              />
+            </div>
+          ))}
+
+          {queryFilters.map((f) => (
+            <div key={f.key}>
+              <label style={label}>{f.label}</label>
+              <TagQueryEditor
+                value={filters[f.key]}
+                onChange={(next) => setFilter(f.key, next)}
+                options={f.options}
+                label={f.label}
+                emptyLabel={f.emptyLabel}
+                searchPlaceholder={f.searchPlaceholder}
               />
             </div>
           ))}
