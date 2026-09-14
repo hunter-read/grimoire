@@ -70,6 +70,7 @@ def test_unverified_script_backed_addon_requires_consent(db, monkeypatch):
         index_url="https://custom.repo/index.json",
     )
     monkeypatch.setattr(install, "find_entry", lambda db, addon_id, index_url=None: entry)
+    monkeypatch.setattr(install, "_fetch_text", lambda url: "id: custom-script-addon\nname: Custom Script Addon\nversion: 1.0.0\nkind: scraper\n")
 
     with pytest.raises(AddonError, match="requires explicit script approval consent"):
         install.install(db, "custom-script-addon", approve_script=False, index_url="https://custom.repo/index.json")

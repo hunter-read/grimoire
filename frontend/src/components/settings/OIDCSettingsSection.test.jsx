@@ -56,7 +56,9 @@ describe('OIDCSettingsSection', () => {
     )
     render(<OIDCSettingsSection />)
     expect(await screen.findByText('authSettings.oidc.title')).toBeInTheDocument()
-    expect(screen.getByLabelText('authSettings.oidc.clientId').value).toBe('grimoire')
+    await waitFor(() => {
+      expect(screen.getByLabelText('authSettings.oidc.clientId').value).toBe('grimoire')
+    })
     expect(screen.getByLabelText('authSettings.oidc.matchBy').value).toBe('email')
     // The enable checkbox mirrors oidc_enabled.
     expect(screen.getAllByRole('checkbox')[0].checked).toBe(true)

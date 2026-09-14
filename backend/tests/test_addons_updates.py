@@ -172,7 +172,7 @@ class TestPendingUpdates:
         _publish(db, files, "1.0.0")
         install_mod.install(db, "demo")
         _publish(db, files, "1.1.0")
-        assert install_mod.pending_updates(db) == [("demo", "1.0.0", "1.1.0", "https://example.com/index.json")]
+        assert install_mod.pending_updates(db) == [("demo", "1.0.0", "1.1.0", DEFAULT_INDEX_URL)]
 
     def test_not_detected_for_an_older_index_entry(self, db, addons_dir, files):
         _publish(db, files, "2.0.0")
