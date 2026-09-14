@@ -51,7 +51,7 @@ def test_verify_index_endpoint(client, admin_headers, player_headers):
     assert data_custom["url"] == "https://custom.repo/index.json"
 
 
-def test_unverified_script_backed_addon_requires_consent(db, monkeypatch):
+def test_unverified_script_backed_addon_requires_consent(monkeypatch):
     import pytest
     from backend.addons import install
     from backend.addons.registry import AddonError
@@ -70,8 +70,9 @@ def test_unverified_script_backed_addon_requires_consent(db, monkeypatch):
         index_url="https://custom.repo/index.json",
     )
     monkeypatch.setattr(install, "find_entry", lambda db, addon_id, index_url=None: entry)
+    monkeypatch.setattr(install, "get_index_url", lambda db: "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json")
     monkeypatch.setattr(install, "_fetch_text", lambda url: "id: custom-script-addon\nname: Custom Script Addon\nversion: 1.0.0\nkind: scraper\n")
 
     with pytest.raises(AddonError, match="requires explicit script approval consent"):
-        install.install(db, "custom-script-addon", approve_script=False, index_url="https://custom.repo/index.json")
+        install.install(None, "custom-script-addon", approve_script=False, index_url="https://custom.repo/index.json")
 
