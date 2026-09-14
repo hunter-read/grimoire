@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..addons.authors import parse_author
 from ..addons.constants import (
+    DEFAULT_CACHE_TTL as CATALOGUE_CACHE_TTL,
     DEFAULT_INDEX_URL as DEFAULT_ADDON_INDEX_URL,
     HTTP_MAX_BYTES,
     HTTP_MAX_REDIRECTS,
@@ -33,10 +34,6 @@ from ..addons.fetch import AddonFetchError, fetch_document
 logger = logging.getLogger("grimoire.wiki_templates")
 
 SETTING_INDEX_URL = "addons.index_url"
-
-# The catalogue is a small JSON document that changes rarely, so an hour of
-# caching keeps the browser instant without going stale in any way that matters.
-CATALOGUE_CACHE_TTL = 3600
 
 # A template body is a markdown page. Far below the shared add-on cap, but
 # bounded on its own so a hostile catalogue cannot hand us a huge "page".
