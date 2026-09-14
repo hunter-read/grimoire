@@ -49,3 +49,28 @@ def test_verify_index_endpoint(client, admin_headers, player_headers):
     data_custom = resp_custom.json()
     assert data_custom["verified"] is False
     assert data_custom["url"] == "https://custom.repo/index.json"
+
+
+def test_unverified_script_backed_addon_requires_consent(db_session, monkeypatch):
+    import pytest
+    from backend.addons import install
+    from backend.addons.registry import AddonError
+    from backend.addons.manifest import IndexEntry
+
+    entry = IndexEntry(
+        id="custom-script-addon",
+        name="Custom Script Addon",
+        kind="scraper",
+        target="game-system",
+        version="1.0.0",
+        path="addons/custom-script.yml",
+        sha256="abc",
+        requires_script=True,
+        script_sha256="def",
+        index_url="https://custom.repo/index.json",
+    )
+    monkeypatch.setattr(install, "find_entry", lambda db, addon_id, index_url=None: entry)
+
+    with pytest.raises(AddonError, match="requires explicit script approval consent"):
+        install.install(db_session, "custom-script-addon", approve_script=False, index_url="https://custom.repo/index.json")
+

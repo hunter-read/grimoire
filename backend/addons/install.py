@@ -21,6 +21,7 @@ from .constants import (
     HTTP_MAX_REDIRECTS,
     HTTP_TIMEOUT,
     external_installs_enabled,
+    is_trusted_index_url,
 )
 from .fetch import AddonFetchError, fetch_json
 from .manifest import AddonIndex, IndexEntry
@@ -239,6 +240,12 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     index_urls = get_index_url(db).split(",")
     default_index_url = index_urls[0].strip() if index_urls else ""
     manifest_index_url = entry.index_url or get_cached_index(db).get("_url") or default_index_url
+
+    if entry.requires_script and not is_trusted_index_url(manifest_index_url) and not approve_script:
+        raise AddonError(
+            f"Installing script-backed add-on '{addon_id}' from unverified source repository requires explicit script approval consent (approve_script=True)"
+        )
+
     manifest_url = urljoin(manifest_index_url, entry.path)
     manifest_body = _fetch_text(manifest_url)
     _verify(manifest_body, entry.sha256, "add-on manifest")
