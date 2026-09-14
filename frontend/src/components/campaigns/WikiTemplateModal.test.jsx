@@ -14,7 +14,6 @@ vi.mock('../../api', () => ({
     useWikiTemplate: vi.fn(),
     browseWikiTemplates: vi.fn(),
     downloadWikiTemplate: vi.fn(),
-    setWikiTemplateSource: vi.fn(),
   },
 }))
 
@@ -48,6 +47,7 @@ const CATALOGUE = {
           name: 'Session Recap',
           category: 'Sessions',
           description: 'A recap.',
+          index_url: 'https://raw.githubusercontent.com/x/main/templates/index.json',
         },
       ],
     },
@@ -61,6 +61,7 @@ const CATALOGUE = {
           system: 'D&D 5e',
           category: 'Spells',
           description: 'A spell.',
+          index_url: 'https://raw.githubusercontent.com/x/main/templates/index.json',
         },
       ],
     },
@@ -286,7 +287,11 @@ describe('WikiTemplateModal — browse tab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Download/ }))
     await waitFor(() =>
-      expect(campaigns.downloadWikiTemplate).toHaveBeenCalledWith('c1', '5e-spell', undefined)
+      expect(campaigns.downloadWikiTemplate).toHaveBeenCalledWith(
+        'c1',
+        '5e-spell',
+        'https://raw.githubusercontent.com/x/main/templates/index.json'
+      )
     )
     // Success is stated outright, not just implied by a changed label.
     expect(await screen.findByRole('button', { name: /Added/ })).toBeTruthy()

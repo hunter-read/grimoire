@@ -723,37 +723,14 @@ class TestDownload:
 
 
 class TestSource:
-    def test_sets_and_resets_the_catalogue_url(self, client, gm_headers, downloads_enabled):
+    def test_campaign_template_source_endpoint_is_removed(self, client, gm_headers):
         c = _campaign(client, gm_headers)
         url = f"/api/campaigns/{c['id']}/wiki/templates/source"
 
         resp = client.put(
             url, json={"index_url": "https://example.com/t.json"}, headers=gm_headers
         )
-        assert resp.status_code == 200
-        assert resp.json()["is_custom_url"] is True
-
-        resp = client.put(url, json={"index_url": ""}, headers=gm_headers)
-        assert resp.json()["index_url"] == config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
-        assert resp.json()["is_custom_url"] is False
-
-    def test_a_non_http_url_is_rejected(self, client, gm_headers):
-        c = _campaign(client, gm_headers)
-        resp = client.put(
-            f"/api/campaigns/{c['id']}/wiki/templates/source",
-            json={"index_url": "file:///etc/passwd"},
-            headers=gm_headers,
-        )
-        assert resp.status_code == 400
-
-    def test_a_non_owner_cannot_change_the_source(self, client, gm_headers, player_headers):
-        c = _campaign(client, gm_headers)
-        resp = client.put(
-            f"/api/campaigns/{c['id']}/wiki/templates/source",
-            json={"index_url": "https://example.com/t.json"},
-            headers=player_headers,
-        )
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
 
 # --------------------------------------------------------------------------- #

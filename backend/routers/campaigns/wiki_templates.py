@@ -51,7 +51,6 @@ from ._helpers import assert_can_manage, get_campaign_or_404
 from ._schemas import (
     WikiTemplateDefaults,
     WikiTemplateInput,
-    WikiTemplateSourceInput,
     WikiTemplateUpdate,
 )
 from .wiki import _ensure_unique_slug, _page_summary, rebuild_links, slugify
@@ -610,28 +609,3 @@ def download_wiki_template(
     db.commit()
     db.refresh(t)
     return _detail(t)
-
-
-def update_template_source(
-    campaign_id: str,
-    data: WikiTemplateSourceInput,
-    current_user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Point the browser at a different catalogue (owner only).
-
-    Sending an empty string restores the built-in default, which is what the
-    UI's "reset" does.
-    """
-    c = get_campaign_or_404(db, campaign_id)
-    assert_can_manage(c, current_user, db)
-
-    try:
-        catalogue.set_index_url(db, data.index_url or "")
-    except catalogue.TemplateCatalogueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    db.commit()
-    return {
-        "index_url": catalogue.get_index_url(db),
-        "is_custom_url": catalogue.is_custom_url(db),
-    }

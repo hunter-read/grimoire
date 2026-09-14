@@ -186,7 +186,7 @@ const WikiTemplateBrowser = forwardRef(function WikiTemplateBrowser(
                             that fades after a moment, and reappears on a
                             re-download), and the resting "you have this" hint. */}
                         <button
-                          onClick={() => download(tpl.id)}
+                          onClick={() => download(tpl.id, tpl.index_url)}
                           disabled={busyId !== null}
                           style={{
                             ...ghostBtn,

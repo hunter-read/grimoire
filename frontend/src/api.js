@@ -311,8 +311,6 @@ export const campaigns = {
       `/campaigns/${id}/wiki/templates/download/${encodeURIComponent(templateId)}${query}`
     )
   },
-  setWikiTemplateSource: (id, indexUrl) =>
-    api.put(`/campaigns/${id}/wiki/templates/source`, { index_url: indexUrl }),
 
   // Categories (kind: 'note' | 'resource')
   listCategories: (id, kind) =>
