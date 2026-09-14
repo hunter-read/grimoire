@@ -27,19 +27,24 @@ class AddonUpdate(BaseModel):
 
 
 class AddonSettingsUpdate(BaseModel):
+    index_url: Optional[str] = None
     index_urls: Optional[list[str]] = None
     allow_scripts: Optional[bool] = None
 
-    @field_validator("index_urls")
+    @field_validator("index_urls", "index_url")
     @classmethod
-    def http_urls(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def http_urls(cls, v: Optional[object]) -> Optional[object]:
         if v is None:
             return v
-        for url in v:
+        urls = [v] if isinstance(v, str) else v
+        for url in urls:
+            if not isinstance(url, str):
+                continue
             url = url.strip()
             if url and not url.startswith(("http://", "https://")):
                 raise ValueError(f"index URL '{url}' must be an http(s) URL")
         return v
+
 
 
 class InstalledAddon(BaseModel):
@@ -72,8 +77,8 @@ class InstalledAddon(BaseModel):
     available_version: str
     update_available: bool
     changelog: Optional[list[ChangelogEntry]] = None
-    source_url: str = ""
-    index_url: str = ""
+    source_url: Optional[str] = ""
+    index_url: Optional[str] = ""
     available_in: list[dict] = Field(default_factory=list)
 
 
@@ -98,8 +103,8 @@ class AvailableAddon(BaseModel):
     installed: bool
     update_available: bool
     changelog: Optional[list[ChangelogEntry]] = None
-    source_url: str = ""
-    index_url: str = ""
+    source_url: Optional[str] = ""
+    index_url: Optional[str] = ""
     available_in: list[dict] = Field(default_factory=list)
 
 
@@ -112,6 +117,7 @@ class VerifyIndexResponse(BaseModel):
 class AddonListResponse(BaseModel):
     installed: list[InstalledAddon]
     available: list[AvailableAddon]
+    index_url: Optional[str] = None
     index_urls: list[str] = Field(default_factory=list)
     default_index_url: str
     trusted_index_urls: list[str] = Field(default_factory=list)
@@ -150,6 +156,7 @@ class UpdateAllResponse(BaseModel):
 
 
 class AddonSettingsResponse(BaseModel):
+    index_url: Optional[str] = None
     index_urls: list[str] = Field(default_factory=list)
     allow_scripts: bool
 

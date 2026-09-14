@@ -116,4 +116,22 @@ describe('PluginSourceContextMenu', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('renders verified source title for trusted sources', () => {
+    render(
+      <PluginSourceContextMenu
+        x={100}
+        y={100}
+        isUpdate={false}
+        sources={sampleSources}
+        defaultIndexUrl="https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml"
+        trustedIndexUrls={[
+          'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml',
+        ]}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByTitle('Verified Source')).toBeInTheDocument()
+  })
 })

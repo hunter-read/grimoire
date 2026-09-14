@@ -107,6 +107,7 @@ def list_addons(
     return {
         "installed": sorted(installed.values(), key=lambda a: a["name"].lower()),
         "available": sorted(available, key=lambda a: a["name"].lower()),
+        "index_url": index_urls[0] if index_urls else DEFAULT_INDEX_URL,
         "index_urls": index_urls,
         "default_index_url": DEFAULT_INDEX_URL,
         "trusted_index_urls": TRUSTED_INDEX_URLS,
@@ -177,6 +178,8 @@ def update_addon_settings(
     """Set the index URL and the global script switch."""
     if data.index_urls is not None:
         addons.set_index_url(db, ",".join(data.index_urls))
+    elif data.index_url is not None:
+        addons.set_index_url(db, data.index_url)
     if data.allow_scripts is not None:
         addons.set_scripts_allowed(db, data.allow_scripts)
 
@@ -186,6 +189,7 @@ def update_addon_settings(
     index_urls = [u.strip() for u in index_urls_str.split(",") if u.strip()]
 
     return {
+        "index_url": index_urls[0] if index_urls else DEFAULT_INDEX_URL,
         "index_urls": index_urls,
         "allow_scripts": addons.scripts_allowed(db),
     }

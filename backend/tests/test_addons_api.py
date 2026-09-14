@@ -259,10 +259,10 @@ class TestAddonSettings:
             headers=admin_headers,
         )
         assert response.status_code == 200
-        assert response.json() == {
-            "index_url": "https://example.com/i.json",
-            "allow_scripts": True,
-        }
+        res = response.json()
+        assert res["index_url"] == "https://example.com/i.json"
+        assert res["index_urls"] == ["https://example.com/i.json"]
+        assert res["allow_scripts"] is True
 
     def test_rejects_a_non_http_index_url(self, client, admin_headers):
         response = client.patch(

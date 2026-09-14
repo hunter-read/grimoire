@@ -290,27 +290,38 @@ export default function AppearanceSection() {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 12px',
+                  gap: 16,
+                  padding: '12px 16px',
                   borderRadius: 8,
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
-                  marginBottom: 6,
+                  marginBottom: 8,
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ fontSize: 14 }}>{theme.name}</div>
-                    {theme.index_url ? (
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                    {theme.name}
+                  </div>
+                  {theme.description && (
+                    <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                      {theme.description}
+                    </div>
+                  )}
+                  {theme.index_url && (
+                    <div style={{ marginTop: 2 }}>
                       <PluginSourcePill
                         url={theme.index_url}
                         isVerified={theme.index_url === catalogue.default_index_url}
+                        trustedIndexUrls={catalogue?.trusted_index_urls || []}
                       />
-                    ) : null}
-                  </div>
-                  {theme.description && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {theme.description}
                     </div>
                   )}
                   <AuthorByline author={theme.author} authorUrl={theme.author_url} />

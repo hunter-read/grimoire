@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuUpload } from 'react-icons/lu'
+import { LuX, LuUpload, LuRefreshCw } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import WikiTemplateList from './WikiTemplateList'
 import WikiTemplateBrowser from './WikiTemplateBrowser'
 import WikiTemplateEditor from './WikiTemplateEditor'
-import { backdrop, panel, closeBtn, scrollArea, chip, dashedBtn } from './wikiTemplateStyles'
+import {
+  backdrop,
+  panel,
+  closeBtn,
+  scrollArea,
+  chip,
+  dashedBtn,
+  iconBtn,
+} from './wikiTemplateStyles'
 
 const TABS = ['mine', 'browse', 'create']
 
@@ -26,6 +34,7 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const uploadRef = useRef(null)
+  const browserRef = useRef(null)
 
   const loadOwned = useCallback(async () => {
     const res = await campaigns.wikiTemplates(campaignId)
@@ -123,17 +132,38 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
           {t('wiki.templatesTitle')}
         </h3>
 
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexShrink: 0 }}>
-          {tabs.map((name) => (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            marginBottom: 14,
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {tabs.map((name) => (
+              <button
+                key={name}
+                onClick={() => show(name)}
+                aria-pressed={tab === name && !editingId}
+                style={chip(tab === name && !editingId)}
+              >
+                {t(`wiki.templateTab.${name}`)}
+              </button>
+            ))}
+          </div>
+          {tab === 'browse' && !editingId && (
             <button
-              key={name}
-              onClick={() => show(name)}
-              aria-pressed={tab === name && !editingId}
-              style={chip(tab === name && !editingId)}
+              onClick={() => browserRef.current?.refresh()}
+              aria-label={t('wiki.templateRefresh')}
+              title={t('wiki.templateRefresh')}
+              style={{ ...iconBtn, padding: 6, borderRadius: 6 }}
             >
-              {t(`wiki.templateTab.${name}`)}
+              <LuRefreshCw size={14} />
             </button>
-          ))}
+          )}
         </div>
 
         {error && (
@@ -165,6 +195,7 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
             />
           ) : tab === 'browse' ? (
             <WikiTemplateBrowser
+              ref={browserRef}
               campaignId={campaignId}
               campaignSystem={campaignSystem}
               onDownloaded={loadOwned}
