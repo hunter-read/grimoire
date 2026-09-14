@@ -276,11 +276,11 @@ def pending_updates(db: Session) -> list[tuple[str, str, str, str]]:
     for addon_id, manifest in load_all().items():
         state = get_state_for(db, addon_id)
         current_index_url = state.get("index_url")
-        
+
         # Find the entry matching the current index_url, or the first entry if none matches
         primary = next((e for e in index_entries if e.id == addon_id), None)
         entry = next((e for e in index_entries if e.id == addon_id and e.index_url == current_index_url), primary)
-        
+
         if entry and is_newer(entry.version, manifest.version):
             out.append((addon_id, manifest.version, entry.version, entry.index_url))
     return out

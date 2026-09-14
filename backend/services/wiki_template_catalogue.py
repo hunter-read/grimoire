@@ -23,14 +23,13 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..addons.authors import parse_author
 from ..addons.constants import (
-    DEFAULT_CACHE_TTL as CATALOGUE_CACHE_TTL,
+    DEFAULT_CACHE_TTL,
     DEFAULT_INDEX_URL as DEFAULT_ADDON_INDEX_URL,
     HTTP_MAX_BYTES,
     HTTP_MAX_REDIRECTS,
     external_installs_enabled,
 )
 from ..addons.fetch import AddonFetchError, fetch_document
-from ..models import AppSetting
 
 logger = logging.getLogger("grimoire.wiki_templates")
 

@@ -461,7 +461,7 @@ class TestExternalInstallKillSwitch:
 class TestAddonFetchYamlAndMultiSource:
     def test_fetch_json_parses_yaml(self, monkeypatch):
         yaml_data = "version: 1\naddons:\n  - id: demo\n    name: Demo\n"
-        
+
         class _Response:
             status_code = 200
             headers = {}

@@ -31,7 +31,6 @@ from ..addons.constants import (
 )
 from ..addons.authors import parse_author
 from ..addons.fetch import AddonFetchError, fetch_document
-from ..models import AppSetting
 
 logger = logging.getLogger("grimoire.themes")
 

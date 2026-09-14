@@ -94,7 +94,7 @@ def list_addons(
                 "available_in": available_in,
             }
         )
-        
+
     # Ensure installed plugins missing from available still have basic fields
     for current in installed.values():
         if "index_url" not in current:
@@ -161,12 +161,12 @@ def update_addon_settings(
         addons.set_index_url(db, ",".join(data.index_urls))
     if data.allow_scripts is not None:
         addons.set_scripts_allowed(db, data.allow_scripts)
-    
+
     db.commit()
-    
+
     index_urls_str = addons.get_index_url(db).strip()
     index_urls = [u.strip() for u in index_urls_str.split(",") if u.strip()]
-    
+
     return {
         "index_urls": index_urls,
         "allow_scripts": addons.scripts_allowed(db),

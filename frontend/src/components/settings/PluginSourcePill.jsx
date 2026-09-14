@@ -1,27 +1,36 @@
 import { useTranslation } from 'react-i18next'
 import { LuBadgeCheck } from 'react-icons/lu'
 
+function isGitHubUserContentHost(hostname) {
+  return hostname === 'githubusercontent.com' || hostname.endsWith('.githubusercontent.com')
+}
+
+function isGitHubComHost(hostname) {
+  return hostname === 'github.com' || hostname.endsWith('.github.com')
+}
+
 export function formatIndexUrl(url) {
   if (!url) return ''
   try {
     const parsed = new URL(url)
-    if (
-      parsed.hostname.includes('githubusercontent.com') ||
-      parsed.hostname.includes('github.com')
-    ) {
+    const host = parsed.hostname.toLowerCase()
+    const isUserContent = isGitHubUserContentHost(host)
+    const isGitHub = isGitHubComHost(host)
+
+    if (isUserContent || isGitHub) {
       const parts = parsed.pathname.split('/').filter(Boolean)
       if (parts.length >= 2) {
         const owner = parts[0]
         const repo = parts[1]
         let branch = ''
 
-        if (parsed.hostname.includes('githubusercontent.com')) {
+        if (isUserContent) {
           if (parts[2] === 'refs' && parts[3] === 'heads' && parts.length >= 5) {
             branch = parts[4]
           } else if (parts.length >= 3) {
             branch = parts[2]
           }
-        } else if (parsed.hostname.includes('github.com')) {
+        } else if (isGitHub) {
           if (
             (parts[2] === 'raw' || parts[2] === 'tree' || parts[2] === 'blob') &&
             parts.length >= 4

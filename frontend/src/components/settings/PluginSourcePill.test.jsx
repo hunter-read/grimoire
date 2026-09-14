@@ -36,8 +36,29 @@ describe('formatIndexUrl', () => {
     ).toBe('user/my-repo (feature-1)')
   })
 
-  it('returns hostname for non-github urls', () => {
-    expect(formatIndexUrl('https://example.com/custom/path/dog.yml')).toBe('example.com')
+  it('formats github.com raw, tree, and blob urls', () => {
+    expect(formatIndexUrl('https://github.com/user/repo/raw/dev/index.json')).toBe(
+      'user/repo (dev)'
+    )
+    expect(formatIndexUrl('https://github.com/user/repo/tree/main/path')).toBe('user/repo')
+    expect(formatIndexUrl('https://github.com/user/repo')).toBe('user/repo')
+  })
+
+  it('returns hostname for spoofed github hostnames', () => {
+    expect(formatIndexUrl('https://fakegithubusercontent.com/user/repo/main')).toBe(
+      'fakegithubusercontent.com'
+    )
+    expect(formatIndexUrl('https://github.com.attacker.com/user/repo/main')).toBe(
+      'github.com.attacker.com'
+    )
+  })
+
+  it('returns raw url string if URL parsing throws', () => {
+    expect(formatIndexUrl('ht tp://invalid url')).toBe('ht tp://invalid url')
+  })
+
+  it('returns hostname if path has less than 2 parts', () => {
+    expect(formatIndexUrl('https://github.com/')).toBe('github.com')
   })
 })
 
@@ -59,5 +80,13 @@ describe('PluginSourcePill', () => {
       <PluginSourcePill url="https://raw.githubusercontent.com/user/my-repo/panda/themes/index.json" />
     )
     expect(screen.getByText('user/my-repo (panda)')).toBeInTheDocument()
+  })
+
+  it('renders verified icon when isVerified is explicitly true', () => {
+    const { container } = render(
+      <PluginSourcePill url="https://example.com/index.json" isVerified={true} />
+    )
+    expect(screen.getByText('example.com')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeInTheDocument()
   })
 })

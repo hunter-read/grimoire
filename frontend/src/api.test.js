@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import api, {
   mediaUrl,
+  bookPageUrl,
   campaigns,
   imageSources,
+  tokenFrames,
+  files,
+  sidecars,
+  backups,
   auth,
   opds,
   settings,
@@ -847,5 +852,100 @@ describe('duplicates', () => {
     global.fetch = mockFetch(200, { status: 'removed' })
     await duplicates.undismiss('d1')
     expect(url()).toBe('/api/duplicates/dismissals/d1')
+  })
+
+  it('promotes a parent version', async () => {
+    global.fetch = mockFetch(200, {})
+    await duplicates.promote('book', { newParentId: 'b2', oldParentId: 'b1' })
+    expect(url()).toBe('/api/duplicates/promote')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      resource_type: 'book',
+      new_parent_id: 'b2',
+      old_parent_id: 'b1',
+      kind: 'other',
+      label: '',
+    })
+  })
+})
+
+describe('bookPageUrl and tokenFrames', () => {
+  it('bookPageUrl generates correct media URLs with or without contentToken', () => {
+    expect(bookPageUrl('b1', 1, 800)).toBe('/api/books/b1/page/1?width=800')
+    expect(bookPageUrl('b1', 1, 800, 'tok123')).toBe('/api/books/b1/page/1?width=800&v=tok123')
+  })
+
+  it('tokenFrames helper methods', async () => {
+    global.fetch = mockFetch(200, [])
+    await tokenFrames.list()
+    expect(fetch.mock.calls[0][0]).toBe('/api/token-frames')
+    expect(tokenFrames.fileUrl('frame-1')).toBe('/api/token-frames/frame-1/file')
+  })
+})
+
+describe('files, sidecars, and backups helpers', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+    global.fetch = mockFetch(200, {})
+  })
+
+  const url = () => fetch.mock.calls[fetch.mock.calls.length - 1][0]
+
+  it('covers files helper methods', async () => {
+    await files.browse()
+    expect(url()).toBe('/api/files/browse')
+    await files.browse('folder/path')
+    expect(url()).toBe('/api/files/browse?path=folder%2Fpath')
+    await files.move(['a'], 'b')
+    expect(url()).toBe('/api/files/move')
+    await files.rename('a', 'b')
+    expect(url()).toBe('/api/files/rename')
+    await files.createFolder('p', 'n')
+    expect(url()).toBe('/api/files/folder')
+    await files.setMarkers('p', { nsfw: true })
+    expect(url()).toBe('/api/files/folder/markers')
+    await files.deleteFolder('p', 'n')
+    expect(url()).toBe('/api/files/folder')
+    await files.deleteEntry('p', 'n', true)
+    expect(url()).toBe('/api/files/delete')
+    await files.folderContents('p')
+    expect(url()).toBe('/api/files/folder/contents?path=p')
+    await files.scaffold('p')
+    expect(url()).toBe('/api/files/folder/scaffold')
+    await files.record('book', '123')
+    expect(url()).toBe('/api/books/123')
+  })
+
+  it('covers sidecars and backups helpers', async () => {
+    global.URL.createObjectURL = vi.fn(() => 'blob:x')
+    global.URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    await sidecars.get()
+    expect(url()).toBe('/api/maintenance/sidecars/settings')
+    await sidecars.save({ active: true })
+    expect(url()).toBe('/api/maintenance/sidecars/settings')
+    await sidecars.export()
+    expect(url()).toBe('/api/maintenance/sidecars/export')
+
+    await backups.list()
+    expect(url()).toBe('/api/backups')
+    await backups.create()
+    expect(url()).toBe('/api/backups')
+    await backups.remove('b1')
+    expect(url()).toBe('/api/backups/b1')
+    await backups.getSettings()
+    expect(url()).toBe('/api/backups/settings')
+    await backups.saveSettings({})
+    expect(url()).toBe('/api/backups/settings')
+
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      headers: { get: () => 'attachment; filename="file.zip"' },
+      blob: () => Promise.resolve(new Blob(['x'])),
+    })
+    await backups.download('b1', 'file.zip')
+    expect(url()).toBe('/api/backups/b1/download')
   })
 })
