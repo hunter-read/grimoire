@@ -205,7 +205,10 @@ class TestUnindexPath:
         monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
 
         system = make_game_system()
-        book = make_book(system_id=system.id, filepath=str(target))
+        book = make_book(
+            system_id=system.id, filepath=str(target),
+            relative_path="books/System/keeper.pdf",
+        )
         campaign = make_campaign(owner_id=admin_id)
 
         db = SessionLocal()
@@ -238,7 +241,10 @@ class TestUnindexPath:
         for name in ("a.pdf", "b.pdf"):
             path = folder / name
             path.write_bytes(b"%PDF-1.4 stub")
-            make_book(system_id=system.id, filepath=str(path))
+            make_book(
+                system_id=system.id, filepath=str(path),
+                relative_path=f"books/System/core/{name}",
+            )
         monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
 
         db = SessionLocal()
@@ -262,7 +268,11 @@ class TestUnindexPath:
         monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
 
         system = make_game_system()
-        make_book(system_id=system.id, filepath=str(library / "books/System/ghost.pdf"))
+        make_book(
+            system_id=system.id,
+            filepath=str(library / "books/System/ghost.pdf"),
+            relative_path="books/System/ghost.pdf",
+        )
 
         db = SessionLocal()
         try:
@@ -289,7 +299,10 @@ class TestUnindexPath:
         monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(library))
 
         system = make_game_system(name="Doomed", slug="doomed")
-        make_book(system_id=system.id, filepath=str(path))
+        make_book(
+            system_id=system.id, filepath=str(path),
+            relative_path="books/Doomed/core/a.pdf",
+        )
 
         db = SessionLocal()
         try:
