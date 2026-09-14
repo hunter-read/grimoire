@@ -36,5 +36,4 @@ router.add_api_route(
     download_book,
     methods=["GET"],
     summary="Download a book via OPDS token",
-    response_class=Response,
 )
