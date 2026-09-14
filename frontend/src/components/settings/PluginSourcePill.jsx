@@ -64,6 +64,20 @@ export function isUrlTrusted(url, trustedUrls = []) {
   return trustedUrls.some((t) => normalizeUrl(t) === norm)
 }
 
+export function getSourceContents(url, data) {
+  if (!url) return []
+  if (data?.source_contents?.[url]) {
+    return data.source_contents[url]
+  }
+  const norm = normalizeUrl(url)
+  if (norm.endsWith('themes/index.json')) return ['themes']
+  if (norm.endsWith('templates/index.json')) return ['templates']
+  if (url === data?.default_index_url || norm.includes('grimoire-codex/community-add-ons')) {
+    return ['plugins', 'themes', 'templates']
+  }
+  return ['plugins', 'themes']
+}
+
 export default function PluginSourcePill({ url, isVerified, trustedIndexUrls = [], style }) {
   const { t } = useTranslation()
 

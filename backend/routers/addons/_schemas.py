@@ -115,6 +115,7 @@ class AddonListResponse(BaseModel):
     index_urls: list[str] = Field(default_factory=list)
     default_index_url: str
     trusted_index_urls: list[str] = Field(default_factory=list)
+    source_contents: dict[str, list[str]] = Field(default_factory=dict)
     allow_scripts: bool
     # From the cached index blob, which may predate the `generated` key.
     index_generated: Optional[str] = None

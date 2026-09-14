@@ -110,6 +110,7 @@ def list_addons(
         "index_urls": index_urls,
         "default_index_url": DEFAULT_INDEX_URL,
         "trusted_index_urls": TRUSTED_INDEX_URLS,
+        "source_contents": addons.get_source_contents(db, index_urls),
         "allow_scripts": addons.scripts_allowed(db),
         "index_generated": addons.get_cached_index(db).get("generated", ""),
     }

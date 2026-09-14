@@ -2489,7 +2489,10 @@
   },
   "addons": {
     "byAuthor": "por {{author}}",
-    "verifiedSource": "Verified Source",
+    "verifiedSource": "Fuente verificada",
+    "contentPlugins": "Plugins",
+    "contentThemes": "Temas",
+    "contentTemplates": "Plantillas",
     "githubProfile": "{{author}} en GitHub",
     "title": "Complementos de la comunidad",
     "description": "Instala recopiladores de metadatos aportados por la comunidad. Los complementos pueden rellenar los detalles del sistema de juego desde fuentes externas.",

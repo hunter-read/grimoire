@@ -2489,7 +2489,10 @@
   },
   "addons": {
     "byAuthor": "par {{author}}",
-    "verifiedSource": "Verified Source",
+    "verifiedSource": "Source vérifiée",
+    "contentPlugins": "Plugins",
+    "contentThemes": "Thèmes",
+    "contentTemplates": "Modèles",
     "githubProfile": "{{author}} sur GitHub",
     "title": "Modules communautaires",
     "description": "Installez des collecteurs de métadonnées proposés par la communauté. Les modules peuvent compléter les détails des systèmes de jeu depuis des sources externes.",

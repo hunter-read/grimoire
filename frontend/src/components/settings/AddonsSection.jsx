@@ -15,7 +15,11 @@ import {
 import api from '../../api'
 import Spinner from '../Spinner'
 import AddonInstallDialog from './AddonInstallDialog'
-import PluginSourcePill, { formatIndexUrl, isUrlTrusted } from './PluginSourcePill'
+import PluginSourcePill, {
+  formatIndexUrl,
+  isUrlTrusted,
+  getSourceContents,
+} from './PluginSourcePill'
 import PluginSourceContextMenu from './PluginSourceContextMenu'
 import AuthorByline from './AuthorByline'
 import CollapsibleSection from './CollapsibleSection'
@@ -199,74 +203,144 @@ export default function AddonsSection() {
               gap: 12,
             }}
           >
-            {indexUrls.map((url, i) => (
-              <li
-                key={i}
-                style={{
-                  display: 'flex',
-                  gap: 12,
-                  alignItems: 'center',
-                  background: 'var(--bg-deep)',
-                  padding: '10px 12px',
-                  borderRadius: 6,
-                }}
-              >
-                <div
-                  style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}
-                >
-                  <span
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    {formatIndexUrl(url)}
-                    {isUrlTrusted(
-                      url,
-                      data?.trusted_index_urls ||
-                        (data?.default_index_url ? [data.default_index_url] : [])
-                    ) && (
-                      <LuBadgeCheck
-                        size={16}
-                        color="var(--gold-dim)"
-                        title={t('addons.verifiedSource', 'Verified Source')}
-                      />
-                    )}
-                  </span>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--text-muted)',
-                      wordBreak: 'break-all',
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    {url}
-                  </a>
-                </div>
-                <button
-                  onClick={() => requestRemoveIndex(i)}
-                  disabled={busy}
-                  title={t('addons.remove')}
+            {indexUrls.map((url, i) => {
+              const contents = getSourceContents(url, data)
+              return (
+                <li
+                  key={i}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--danger, #c0392b)',
-                    cursor: 'pointer',
-                    padding: 8,
-                    borderRadius: 4,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    background: 'var(--bg-deep)',
+                    padding: '10px 12px',
+                    borderRadius: 6,
                   }}
                 >
-                  <LuTrash2 size={16} />
-                </button>
-              </li>
-            ))}
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minWidth: 0,
+                      gap: 2,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {formatIndexUrl(url)}
+                      {isUrlTrusted(
+                        url,
+                        data?.trusted_index_urls ||
+                          (data?.default_index_url ? [data.default_index_url] : [])
+                      ) && (
+                        <LuBadgeCheck
+                          size={16}
+                          color="var(--gold-dim)"
+                          title={t('addons.verifiedSource', 'Verified Source')}
+                        />
+                      )}
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          marginLeft: 2,
+                        }}
+                      >
+                        {contents.includes('plugins') && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: 'var(--text-dim)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 4,
+                              padding: '1px 5px',
+                              textTransform: 'uppercase',
+                              fontWeight: 600,
+                              letterSpacing: '0.02em',
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {t('addons.contentPlugins', 'Plugins')}
+                          </span>
+                        )}
+                        {contents.includes('themes') && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: 'var(--text-dim)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 4,
+                              padding: '1px 5px',
+                              textTransform: 'uppercase',
+                              fontWeight: 600,
+                              letterSpacing: '0.02em',
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {t('addons.contentThemes', 'Themes')}
+                          </span>
+                        )}
+                        {contents.includes('templates') && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: 'var(--text-dim)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 4,
+                              padding: '1px 5px',
+                              textTransform: 'uppercase',
+                              fontWeight: 600,
+                              letterSpacing: '0.02em',
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {t('addons.contentTemplates', 'Templates')}
+                          </span>
+                        )}
+                      </div>
+                    </span>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--text-muted)',
+                        wordBreak: 'break-all',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      {url}
+                    </a>
+                  </div>
+                  <button
+                    onClick={() => requestRemoveIndex(i)}
+                    disabled={busy}
+                    title={t('addons.remove')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--danger, #c0392b)',
+                      cursor: 'pointer',
+                      padding: 8,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <LuTrash2 size={16} />
+                  </button>
+                </li>
+              )
+            })}
           </ul>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input

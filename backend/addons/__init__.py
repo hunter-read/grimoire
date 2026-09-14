@@ -23,6 +23,7 @@ from .fetch import AddonFetchError, clear_cache
 from .install import (
     available,
     find_entry,
+    get_source_contents,
     pending_updates,
     refresh_index,
     set_enabled,
@@ -91,6 +92,7 @@ __all__ = [
     "get_cached_index",
     "get_index_url",
     "get_runnable",
+    "get_source_contents",
     "get_state",
     "install_addon",
     "installed_ids",

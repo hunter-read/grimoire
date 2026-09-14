@@ -2490,6 +2490,9 @@
   "addons": {
     "byAuthor": "by {{author}}",
     "verifiedSource": "Verified Source",
+    "contentPlugins": "Plugins",
+    "contentThemes": "Themes",
+    "contentTemplates": "Templates",
     "githubProfile": "{{author}} on GitHub",
     "title": "Community add-ons",
     "description": "Install metadata scrapers contributed by the community. Add-ons can fill in game system details from external sources.",

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import PluginSourcePill, { formatIndexUrl, isUrlTrusted, normalizeUrl } from './PluginSourcePill'
+import PluginSourcePill, {
+  formatIndexUrl,
+  isUrlTrusted,
+  normalizeUrl,
+  getSourceContents,
+} from './PluginSourcePill'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -39,6 +44,41 @@ describe('normalizeUrl and isUrlTrusted', () => {
         trusted
       )
     ).toBe(false)
+  })
+})
+
+describe('getSourceContents', () => {
+  it('returns empty array when url is falsy', () => {
+    expect(getSourceContents('')).toEqual([])
+  })
+
+  it('returns themes for explicit themes/index.json URL', () => {
+    expect(getSourceContents('https://example.com/panda-theme/themes/index.json')).toEqual([
+      'themes',
+    ])
+  })
+
+  it('returns templates for explicit templates/index.json URL', () => {
+    expect(getSourceContents('https://example.com/my-templates/templates/index.json')).toEqual([
+      'templates',
+    ])
+  })
+
+  it('returns plugins, themes, and templates for official default repository', () => {
+    expect(
+      getSourceContents(
+        'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json'
+      )
+    ).toEqual(['plugins', 'themes', 'templates'])
+  })
+
+  it('uses source_contents dictionary from server data when available', () => {
+    const data = {
+      source_contents: {
+        'https://custom.com/index.json': ['plugins', 'themes'],
+      },
+    }
+    expect(getSourceContents('https://custom.com/index.json', data)).toEqual(['plugins', 'themes'])
   })
 })
 

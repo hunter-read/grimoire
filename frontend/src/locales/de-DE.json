@@ -2489,7 +2489,10 @@
   },
   "addons": {
     "byAuthor": "von {{author}}",
-    "verifiedSource": "Verified Source",
+    "verifiedSource": "Verifizierte Quelle",
+    "contentPlugins": "Plugins",
+    "contentThemes": "Themes",
+    "contentTemplates": "Vorlagen",
     "githubProfile": "{{author}} auf GitHub",
     "title": "Community-Add-ons",
     "description": "Installiere von der Community beigesteuerte Metadaten-Scraper. Add-ons können Spielsystem-Details aus externen Quellen ergänzen.",

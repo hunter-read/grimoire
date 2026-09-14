@@ -137,6 +137,49 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
     return payload
 
 
+def get_source_contents(db: Session, index_urls: list[str]) -> dict[str, list[str]]:
+    """Determine available content types (plugins, themes, templates) for each configured index URL."""
+    from .constants import DEFAULT_INDEX_URL
+
+    result: dict[str, list[str]] = {}
+    cached_addons = get_cached_index(db).get("addons", [])
+
+    for url in index_urls:
+        norm_url = url.strip().rstrip("/")
+        contents: list[str] = []
+
+        if norm_url.endswith("themes/index.json"):
+            result[url] = ["themes"]
+            continue
+        if norm_url.endswith("templates/index.json"):
+            result[url] = ["templates"]
+            continue
+
+        # 1. Plugins
+        has_plugins = False
+        if cached_addons:
+            has_plugins = any(a.get("index_url", "").strip().rstrip("/") == norm_url for a in cached_addons)
+        if not has_plugins and (
+            not cached_addons
+            or norm_url == DEFAULT_INDEX_URL.strip().rstrip("/")
+            or not norm_url.endswith(("/themes/index.json", "/templates/index.json"))
+        ):
+            has_plugins = True
+        if has_plugins:
+            contents.append("plugins")
+
+        # 2. Themes & 3. Templates (supported on official default repository and general repos)
+        is_community_repo = norm_url == DEFAULT_INDEX_URL.strip().rstrip("/") or "community-add-ons" in norm_url
+        if is_community_repo or not norm_url.endswith(("/themes/index.json", "/templates/index.json")):
+            contents.append("themes")
+        if is_community_repo:
+            contents.append("templates")
+
+        result[url] = contents
+
+    return result
+
+
 def _index_entries(db: Session) -> list[IndexEntry]:
     cached = get_cached_index(db)
     entries = cached.get("addons") or []
