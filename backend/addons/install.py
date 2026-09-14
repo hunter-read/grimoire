@@ -243,7 +243,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
 
     if entry.requires_script and not is_trusted_index_url(manifest_index_url) and not approve_script:
         raise AddonError(
-            f"Installing script-backed add-on '{addon_id}' from unverified source repository requires explicit script approval consent (approve_script=True)"
+            f"Installing script-backed add-on '{addon_id}' from an unverified source repository requires explicit script approval consent"
         )
 
     manifest_url = urljoin(manifest_index_url, entry.path)
