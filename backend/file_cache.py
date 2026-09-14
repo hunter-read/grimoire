@@ -17,6 +17,7 @@ of the source file's contents, so a given URL's body genuinely cannot change and
 ``immutable`` is honest. ``etag_matches`` serves that side.
 """
 
+import mimetypes
 import os
 from email.utils import formatdate, parsedate
 from typing import Any
@@ -24,6 +25,9 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import FileResponse, Response
 from starlette.responses import md5_hexdigest
+
+mimetypes.add_type("image/webp", ".webp")
+mimetypes.add_type("image/avif", ".avif")
 
 # Cache for 5 minutes, then revalidate against the validators below. "private"
 # keeps these access-controlled responses out of shared/proxy caches.
