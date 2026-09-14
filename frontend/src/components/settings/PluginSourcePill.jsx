@@ -80,12 +80,14 @@ export default function PluginSourcePill({ url, isVerified, trustedIndexUrls = [
         color: verified ? 'var(--gold-dim)' : 'var(--text-muted)',
         border: `1px solid ${verified ? 'var(--gold-dim)' : 'var(--border)'}`,
         borderRadius: 4,
-        padding: '1px 4px',
+        padding: '2px 6px',
         textTransform: 'uppercase',
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        verticalAlign: 'middle',
+        fontWeight: 600,
+        letterSpacing: '0.02em',
+        lineHeight: 1.2,
         ...style,
       }}
     >

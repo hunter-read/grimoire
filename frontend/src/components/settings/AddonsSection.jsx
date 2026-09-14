@@ -450,116 +450,159 @@ export default function AddonsSection() {
               onContextMenu={(e) => handleContextMenu(e, addon, true)}
               style={{
                 display: 'flex',
-                gap: 12,
+                gap: 16,
                 alignItems: 'center',
-                padding: '10px 12px',
-                borderRadius: 6,
+                padding: '12px 16px',
+                borderRadius: 8,
                 background: 'var(--bg-deep)',
-                marginBottom: 6,
+                border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.04))',
+                marginBottom: 8,
               }}
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  {addon.name}{' '}
-                  <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
+              <div
+                style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+                    {addon.name}
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 400,
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      background: 'var(--bg)',
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      border: '1px solid var(--border)',
+                      lineHeight: 1.3,
+                    }}
+                  >
                     v{addon.version}
                   </span>
-                  {addon.index_url && (
-                    <PluginSourcePill
-                      url={addon.index_url}
-                      trustedIndexUrls={data?.trusted_index_urls || []}
-                      style={{ marginLeft: 8, marginTop: -2 }}
-                    />
-                  )}
-                  {addon.update_available && (
-                    <span
-                      style={{
-                        marginLeft: 8,
-                        fontSize: 11,
-                        color: 'var(--gold-dim)',
-                        border: '1px solid var(--gold-dim)',
-                        borderRadius: 4,
-                        padding: '1px 5px',
-                      }}
-                    >
-                      {t('addons.updateBadge', { version: addon.available_version })}
-                    </span>
-                  )}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {addon.index_url && (
+                      <PluginSourcePill
+                        url={addon.index_url}
+                        trustedIndexUrls={data?.trusted_index_urls || []}
+                      />
+                    )}
+                    {addon.update_available && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--gold-dim)',
+                          border: '1px solid var(--gold-dim)',
+                          borderRadius: 4,
+                          padding: '2px 6px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                          letterSpacing: '0.02em',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {t('addons.updateBadge', { version: addon.available_version })}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {addon.description && (
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                    {addon.description}
+                  </div>
                 )}
                 <AuthorByline author={addon.author} authorUrl={addon.author_url} />
                 {!addon.runnable && addon.blocked_reason && (
-                  <div style={{ fontSize: 12, color: 'var(--warning, #d98324)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--warning, #d98324)', marginTop: 2 }}>
                     {addon.blocked_reason}
                   </div>
                 )}
               </div>
-              {addon.available_in && addon.available_in.length > 1 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleContextMenu(e, addon, true)
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                {addon.available_in && addon.available_in.length > 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleContextMenu(e, addon, true)
+                    }}
+                    title="More options"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: 6,
+                      borderRadius: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <LuMenu size={16} />
+                  </button>
+                )}
+                {addon.update_available && (
+                  <button
+                    onClick={() => update(addon)}
+                    disabled={busy}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: 'none',
+                      background: 'var(--gold-dim)',
+                      color: 'var(--bg-deep)',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: busy ? 'default' : 'pointer',
+                    }}
+                  >
+                    <LuArrowUp size={13} />
+                    {t('addons.update')}
+                  </button>
+                )}
+                <label
+                  style={{
+                    display: 'flex',
+                    gap: 6,
+                    alignItems: 'center',
+                    fontSize: 13,
+                    cursor: 'pointer',
                   }}
-                  title="More options"
+                >
+                  <input
+                    type="checkbox"
+                    checked={addon.enabled}
+                    onChange={() => toggleEnabled(addon)}
+                    aria-label={t('addons.enabled')}
+                  />
+                  {t('addons.enabled')}
+                </label>
+                <button
+                  onClick={() => remove(addon)}
+                  aria-label={t('addons.remove')}
+                  title={t('addons.remove')}
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'var(--text-muted)',
                     cursor: 'pointer',
-                    padding: 4,
-                  }}
-                >
-                  <LuMenu size={16} />
-                </button>
-              )}
-              {addon.update_available && (
-                <button
-                  onClick={() => update(addon)}
-                  disabled={busy}
-                  style={{
+                    color: 'var(--text-muted)',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 12px',
-                    borderRadius: 6,
-                    border: 'none',
-                    background: 'var(--gold-dim)',
-                    color: 'var(--bg-deep)',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: busy ? 'default' : 'pointer',
+                    padding: 6,
+                    borderRadius: 4,
                   }}
                 >
-                  <LuArrowUp size={13} />
-                  {t('addons.update')}
+                  <LuTrash2 size={16} />
                 </button>
-              )}
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
-                <input
-                  type="checkbox"
-                  checked={addon.enabled}
-                  onChange={() => toggleEnabled(addon)}
-                  aria-label={t('addons.enabled')}
-                />
-                {t('addons.enabled')}
-              </label>
-              <button
-                onClick={() => remove(addon)}
-                aria-label={t('addons.remove')}
-                title={t('addons.remove')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  padding: 4,
-                }}
-              >
-                <LuTrash2 size={16} />
-              </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -579,83 +622,119 @@ export default function AddonsSection() {
               onContextMenu={(e) => handleContextMenu(e, addon, false)}
               style={{
                 display: 'flex',
-                gap: 12,
+                gap: 16,
                 alignItems: 'center',
-                padding: '10px 12px',
-                borderRadius: 6,
+                padding: '12px 16px',
+                borderRadius: 8,
                 background: 'var(--bg-deep)',
-                marginBottom: 6,
+                border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.04))',
+                marginBottom: 8,
               }}
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  {addon.name}{' '}
-                  <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
+              <div
+                style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+                    {addon.name}
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 400,
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      background: 'var(--bg)',
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      border: '1px solid var(--border)',
+                      lineHeight: 1.3,
+                    }}
+                  >
                     v{addon.version}
                   </span>
-                  {addon.index_url && (
-                    <PluginSourcePill
-                      url={addon.index_url}
-                      trustedIndexUrls={data?.trusted_index_urls || []}
-                      style={{ marginLeft: 8, marginTop: -2 }}
-                    />
-                  )}
-                  {addon.requires_script && (
-                    <span
-                      style={{
-                        marginLeft: 8,
-                        fontSize: 11,
-                        color: 'var(--warning, #d98324)',
-                        border: '1px solid var(--warning, #d98324)',
-                        borderRadius: 4,
-                        padding: '1px 5px',
-                      }}
-                    >
-                      {t('addons.runsCode')}
-                    </span>
-                  )}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {addon.index_url && (
+                      <PluginSourcePill
+                        url={addon.index_url}
+                        trustedIndexUrls={data?.trusted_index_urls || []}
+                      />
+                    )}
+                    {addon.requires_script && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--warning, #d98324)',
+                          border: '1px solid var(--warning, #d98324)',
+                          borderRadius: 4,
+                          padding: '2px 6px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                          letterSpacing: '0.02em',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {t('addons.runsCode')}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {addon.description && (
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{addon.description}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                    {addon.description}
+                  </div>
                 )}
                 <AuthorByline author={addon.author} authorUrl={addon.author_url} />
               </div>
-              {addon.available_in && addon.available_in.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                {addon.available_in && addon.available_in.length > 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleContextMenu(e, addon, false)
+                    }}
+                    title="More options"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: 6,
+                      borderRadius: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <LuMenu size={16} />
+                  </button>
+                )}
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleContextMenu(e, addon, false)
-                  }}
-                  title="More options"
+                  onClick={() => startInstall(addon)}
+                  disabled={busy}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 14px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
                     background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: 4,
+                    color: 'var(--text)',
+                    cursor: busy ? 'default' : 'pointer',
+                    fontWeight: 500,
+                    fontSize: 13,
                   }}
                 >
-                  <LuMenu size={16} />
+                  <LuDownload size={14} />
+                  {t('addons.install')}
                 </button>
-              )}
-              <button
-                onClick={() => startInstall(addon)}
-                disabled={busy}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 14px',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                  background: 'none',
-                  color: 'var(--text)',
-                  cursor: busy ? 'default' : 'pointer',
-                }}
-              >
-                <LuDownload size={14} />
-                {t('addons.install')}
-              </button>
+              </div>
             </li>
           ))}
         </ul>
