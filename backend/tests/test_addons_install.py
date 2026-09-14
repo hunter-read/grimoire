@@ -81,7 +81,7 @@ def files(monkeypatch):
     return store
 
 
-def _seed_index(db, entries, url="https://example.com/index.json"):
+def _seed_index(db, entries, url=constants.DEFAULT_INDEX_URL):
     payload = {"version": 1, "generated": "", "addons": entries, "_url": url}
     registry.save_cached_index(db, payload)
     db.commit()
@@ -97,6 +97,7 @@ def _index_entry(manifest_body, **overrides):
         "path": "scrapers/demo/demo.yml",
         "requires_script": False,
         "sha256": _digest(manifest_body),
+        "index_url": constants.DEFAULT_INDEX_URL,
     }
     entry.update(overrides)
     return entry

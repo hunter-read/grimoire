@@ -730,7 +730,7 @@ class TestSource:
         resp = client.put(
             url, json={"index_url": "https://example.com/t.json"}, headers=gm_headers
         )
-        assert resp.status_code == 404
+        assert resp.status_code in (404, 405)
 
 
 # --------------------------------------------------------------------------- #

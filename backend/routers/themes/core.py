@@ -175,7 +175,7 @@ def _upsert(db: Session, user_id: str, theme: dict, source: dict | None) -> User
     row.app_mode = theme.get("app_mode") or svc.DEFAULT_APP_MODE
     row.variants = theme.get("variants") or {theme["mode"]: theme["tokens"]}
     row.tokens = theme["tokens"]
-    row.source_id = (source or {}).get("raw_id") or (source or {}).get("id") or theme.get("raw_id") or theme["id"]
+    row.source_id = ((source.get("raw_id") or source.get("id")) if source else theme.get("source_id"))
     row.source_url = (source or {}).get("url") or theme.get("source_url") or theme.get("index_url")
     row.source_version = (source or {}).get("version") or theme.get("version") or None
     return row

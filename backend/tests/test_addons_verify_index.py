@@ -51,7 +51,7 @@ def test_verify_index_endpoint(client, admin_headers, player_headers):
     assert data_custom["url"] == "https://custom.repo/index.json"
 
 
-def test_unverified_script_backed_addon_requires_consent(db_session, monkeypatch):
+def test_unverified_script_backed_addon_requires_consent(db, monkeypatch):
     import pytest
     from backend.addons import install
     from backend.addons.registry import AddonError
@@ -72,5 +72,5 @@ def test_unverified_script_backed_addon_requires_consent(db_session, monkeypatch
     monkeypatch.setattr(install, "find_entry", lambda db, addon_id, index_url=None: entry)
 
     with pytest.raises(AddonError, match="requires explicit script approval consent"):
-        install.install(db_session, "custom-script-addon", approve_script=False, index_url="https://custom.repo/index.json")
+        install.install(db, "custom-script-addon", approve_script=False, index_url="https://custom.repo/index.json")
 
