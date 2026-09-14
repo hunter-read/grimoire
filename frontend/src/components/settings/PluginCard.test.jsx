@@ -92,4 +92,75 @@ describe('PluginCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
     expect(onInstall).toHaveBeenCalledWith(availableAddon)
   })
+
+  it('triggers onUpdate when update button is clicked', () => {
+    const onUpdate = vi.fn()
+
+    render(
+      <PluginCard addon={installedAddon} isInstalled={true} busy={false} onUpdate={onUpdate} />
+    )
+
+    const updateBtn = screen.getByRole('button', { name: /update/i })
+    expect(updateBtn).toBeInTheDocument()
+    fireEvent.click(updateBtn)
+    expect(onUpdate).toHaveBeenCalledWith(installedAddon)
+  })
+
+  it('triggers onContextMenu on right click or more options button click', () => {
+    const onContextMenu = vi.fn()
+
+    render(<PluginCard addon={installedAddon} isInstalled={true} onContextMenu={onContextMenu} />)
+
+    const card = screen.getByRole('listitem')
+    fireEvent.contextMenu(card)
+    expect(onContextMenu).toHaveBeenCalledWith(expect.anything(), installedAddon, true)
+
+    const moreBtn = screen.getByTitle('More options')
+    expect(moreBtn).toBeInTheDocument()
+    fireEvent.click(moreBtn)
+    expect(onContextMenu).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders blocked reason when installed plugin is not runnable', () => {
+    const blockedAddon = {
+      ...installedAddon,
+      runnable: false,
+      blocked_reason: 'Requires Python execution which is disabled',
+    }
+
+    render(<PluginCard addon={blockedAddon} isInstalled={true} />)
+
+    expect(screen.getByText('Requires Python execution which is disabled')).toBeInTheDocument()
+  })
+
+  it('disables buttons when busy is true', () => {
+    const { rerender } = render(
+      <PluginCard addon={installedAddon} isInstalled={true} busy={true} onUpdate={vi.fn()} />
+    )
+
+    const updateBtn = screen.getByRole('button', { name: /update/i })
+    expect(updateBtn).toBeDisabled()
+
+    rerender(
+      <PluginCard addon={availableAddon} isInstalled={false} busy={true} onInstall={vi.fn()} />
+    )
+    const installBtn = screen.getByRole('button', { name: /install/i })
+    expect(installBtn).toBeDisabled()
+  })
+
+  it('handles missing callback handlers gracefully without throwing', () => {
+    render(<PluginCard addon={installedAddon} isInstalled={true} />)
+
+    const moreBtn = screen.getByTitle('More options')
+    expect(() => fireEvent.click(moreBtn)).not.toThrow()
+
+    const updateBtn = screen.getByRole('button', { name: /update/i })
+    expect(() => fireEvent.click(updateBtn)).not.toThrow()
+
+    const checkbox = screen.getByRole('checkbox')
+    expect(() => fireEvent.click(checkbox)).not.toThrow()
+
+    const removeBtn = screen.getByRole('button', { name: 'Remove' })
+    expect(() => fireEvent.click(removeBtn)).not.toThrow()
+  })
 })
