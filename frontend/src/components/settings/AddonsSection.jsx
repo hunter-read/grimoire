@@ -213,11 +213,13 @@ export default function AddonsSection() {
                   key={i}
                   style={{
                     display: 'flex',
-                    gap: 12,
+                    gap: 16,
                     alignItems: 'center',
+                    padding: '12px 16px',
+                    borderRadius: 8,
                     background: 'var(--bg-deep)',
-                    padding: '10px 12px',
-                    borderRadius: 6,
+                    border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.04))',
+                    marginBottom: 8,
                   }}
                 >
                   <div
@@ -226,20 +228,13 @@ export default function AddonsSection() {
                       display: 'flex',
                       flexDirection: 'column',
                       minWidth: 0,
-                      gap: 2,
+                      gap: 4,
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      {formatIndexUrl(url)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                        {formatIndexUrl(url)}
+                      </span>
                       {isUrlTrusted(
                         url,
                         data?.trusted_index_urls ||
@@ -251,67 +246,7 @@ export default function AddonsSection() {
                           title={t('addons.verifiedSource', 'Verified Source')}
                         />
                       )}
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          marginLeft: 2,
-                        }}
-                      >
-                        {contents.includes('plugins') && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: 'var(--text-dim)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 4,
-                              padding: '1px 5px',
-                              textTransform: 'uppercase',
-                              fontWeight: 600,
-                              letterSpacing: '0.02em',
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            {t('addons.contentPlugins', 'Plugins')}
-                          </span>
-                        )}
-                        {contents.includes('themes') && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: 'var(--text-dim)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 4,
-                              padding: '1px 5px',
-                              textTransform: 'uppercase',
-                              fontWeight: 600,
-                              letterSpacing: '0.02em',
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            {t('addons.contentThemes', 'Themes')}
-                          </span>
-                        )}
-                        {contents.includes('templates') && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: 'var(--text-dim)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 4,
-                              padding: '1px 5px',
-                              textTransform: 'uppercase',
-                              fontWeight: 600,
-                              letterSpacing: '0.02em',
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            {t('addons.contentTemplates', 'Templates')}
-                          </span>
-                        )}
-                      </div>
-                    </span>
+                    </div>
                     <a
                       href={url}
                       target="_blank"
@@ -325,6 +260,36 @@ export default function AddonsSection() {
                     >
                       {url}
                     </a>
+                    {contents.length > 0 && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: 'var(--text-muted)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginTop: 2,
+                        }}
+                      >
+                        {contents.map((type, idx) => {
+                          const label =
+                            type === 'plugins'
+                              ? t('addons.contentPlugins', 'Plugins')
+                              : type === 'themes'
+                                ? t('addons.contentThemes', 'Themes')
+                                : t('addons.contentTemplates', 'Templates')
+                          return (
+                            <span
+                              key={type}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            >
+                              {idx > 0 && <span style={{ opacity: 0.4 }}>•</span>}
+                              <span>{label}</span>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => requestRemoveIndex(i)}
@@ -335,7 +300,7 @@ export default function AddonsSection() {
                       border: 'none',
                       color: 'var(--danger, #c0392b)',
                       cursor: 'pointer',
-                      padding: 8,
+                      padding: 6,
                       borderRadius: 4,
                     }}
                   >
