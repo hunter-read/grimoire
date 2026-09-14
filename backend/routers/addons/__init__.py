@@ -8,21 +8,31 @@ from ._schemas import (
     RefreshIndexResponse,
     StatusResponse,
     UpdateAllResponse,
+    VerifyIndexResponse,
 )
 from .core import (
     install_addon,
     list_addons,
     refresh_index,
-    update_all_addons,
     uninstall_addon,
     update_addon,
     update_addon_settings,
+    update_all_addons,
+    verify_index,
 )
 
 router = APIRouter(prefix="/addons", tags=["addons"])
 
 __all__ = ["router"]
 
+router.add_api_route(
+    "/verify-index",
+    verify_index,
+    methods=["GET"],
+    summary="Verify an add-on index URL",
+    description="Strictly checks if a given add-on index URL is in the set of trusted index URLs.",
+    response_model=VerifyIndexResponse,
+)
 router.add_api_route(
     "",
     list_addons,

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTriangleAlert, LuX } from 'react-icons/lu'
 import AuthorByline from './AuthorByline'
-import PluginSourcePill from './PluginSourcePill'
+import PluginSourcePill, { isUrlTrusted } from './PluginSourcePill'
 
 /**
  * Install confirmation for a script-backed add-on (issue #203).
@@ -13,16 +13,18 @@ import PluginSourcePill from './PluginSourcePill'
  * reflexive click. YAML-only add-ons skip this entirely.
  *
  * Props:
- *   addon           – the index entry being installed
- *   updating        – true when re-approving an existing add-on's changed script
- *   defaultIndexUrl – the system default index URL to determine verification
- *   onConfirm       – () => void
- *   onClose         – () => void
+ *   addon            – the index entry being installed
+ *   updating         – true when re-approving an existing add-on's changed script
+ *   defaultIndexUrl  – the system default index URL to determine verification
+ *   trustedIndexUrls – array of trusted index URLs from backend
+ *   onConfirm        – () => void
+ *   onClose          – () => void
  */
 export default function AddonInstallDialog({
   addon,
   updating = false,
   defaultIndexUrl = '',
+  trustedIndexUrls = [],
   onConfirm,
   onClose,
 }) {
@@ -30,10 +32,9 @@ export default function AddonInstallDialog({
   const [acknowledged, setAcknowledged] = useState(false)
 
   const targetIndexUrl = addon.targetIndexUrl || addon.index_url
-  const isVerified = targetIndexUrl
-    ? targetIndexUrl === defaultIndexUrl ||
-      targetIndexUrl.includes('grimoire-codex/community-add-ons')
-    : true
+  const trustedList =
+    trustedIndexUrls.length > 0 ? trustedIndexUrls : defaultIndexUrl ? [defaultIndexUrl] : []
+  const isVerified = targetIndexUrl ? isUrlTrusted(targetIndexUrl, trustedList) : true
 
   useEffect(() => {
     const onKey = (e) => {

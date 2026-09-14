@@ -26,6 +26,29 @@ DEFAULT_INDEX_URL = (
     "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json"
 )
 
+TRUSTED_INDEX_URLS = [
+    DEFAULT_INDEX_URL,
+    "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml",
+]
+
+
+def normalize_index_url(url: str) -> str:
+    """Normalize an index URL for strict equality comparison."""
+    if not url:
+        return ""
+    return url.strip().rstrip("/")
+
+
+def is_trusted_index_url(url: str, trusted_urls: list[str] | None = None) -> bool:
+    """Strictly verify if an index URL matches an approved trusted index URL."""
+    if not url:
+        return False
+    normalized = normalize_index_url(url)
+    targets = trusted_urls if trusted_urls is not None else TRUSTED_INDEX_URLS
+    normalized_targets = {normalize_index_url(u) for u in targets if u}
+    return normalized in normalized_targets
+
+
 
 def external_installs_enabled() -> bool:
     """Whether this server may install content from a community repository.

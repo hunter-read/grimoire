@@ -103,11 +103,18 @@ class AvailableAddon(BaseModel):
     available_in: list[dict] = Field(default_factory=list)
 
 
+class VerifyIndexResponse(BaseModel):
+    url: str
+    verified: bool
+    trusted_index_urls: list[str] = Field(default_factory=list)
+
+
 class AddonListResponse(BaseModel):
     installed: list[InstalledAddon]
     available: list[AvailableAddon]
     index_urls: list[str] = Field(default_factory=list)
     default_index_url: str
+    trusted_index_urls: list[str] = Field(default_factory=list)
     allow_scripts: bool
     # From the cached index blob, which may predate the `generated` key.
     index_generated: Optional[str] = None

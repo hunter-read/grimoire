@@ -53,12 +53,23 @@ export function formatIndexUrl(url) {
   }
 }
 
-export default function PluginSourcePill({ url, isVerified, style }) {
+export function normalizeUrl(url) {
+  if (!url) return ''
+  return url.trim().replace(/\/+$/, '')
+}
+
+export function isUrlTrusted(url, trustedUrls = []) {
+  if (!url || !Array.isArray(trustedUrls) || trustedUrls.length === 0) return false
+  const norm = normalizeUrl(url)
+  return trustedUrls.some((t) => normalizeUrl(t) === norm)
+}
+
+export default function PluginSourcePill({ url, isVerified, trustedIndexUrls = [], style }) {
   const { t } = useTranslation()
 
   if (!url) return null
 
-  const verified = isVerified ?? url.includes('grimoire-codex/community-add-ons')
+  const verified = isVerified ?? isUrlTrusted(url, trustedIndexUrls)
   const title = verified ? t('addons.verifiedSource', 'Verified Source') : `From: ${url}`
 
   return (

@@ -15,7 +15,7 @@ import {
 import api from '../../api'
 import Spinner from '../Spinner'
 import AddonInstallDialog from './AddonInstallDialog'
-import PluginSourcePill, { formatIndexUrl } from './PluginSourcePill'
+import PluginSourcePill, { formatIndexUrl, isUrlTrusted } from './PluginSourcePill'
 import PluginSourceContextMenu from './PluginSourceContextMenu'
 import AuthorByline from './AuthorByline'
 import CollapsibleSection from './CollapsibleSection'
@@ -224,7 +224,11 @@ export default function AddonsSection() {
                     }}
                   >
                     {formatIndexUrl(url)}
-                    {url.includes('grimoire-codex/community-add-ons') && (
+                    {isUrlTrusted(
+                      url,
+                      data?.trusted_index_urls ||
+                        (data?.default_index_url ? [data.default_index_url] : [])
+                    ) && (
                       <LuBadgeCheck
                         size={16}
                         color="var(--gold-dim)"
@@ -463,6 +467,7 @@ export default function AddonsSection() {
                   {addon.index_url && (
                     <PluginSourcePill
                       url={addon.index_url}
+                      trustedIndexUrls={data?.trusted_index_urls || []}
                       style={{ marginLeft: 8, marginTop: -2 }}
                     />
                   )}
@@ -591,6 +596,7 @@ export default function AddonsSection() {
                   {addon.index_url && (
                     <PluginSourcePill
                       url={addon.index_url}
+                      trustedIndexUrls={data?.trusted_index_urls || []}
                       style={{ marginLeft: 8, marginTop: -2 }}
                     />
                   )}
@@ -684,6 +690,7 @@ export default function AddonsSection() {
         <AddonInstallDialog
           addon={confirming}
           defaultIndexUrl={data?.default_index_url}
+          trustedIndexUrls={data?.trusted_index_urls || []}
           onConfirm={() => {
             install(confirming, true, confirming.targetIndexUrl)
             setConfirming(null)

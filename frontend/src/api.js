@@ -605,6 +605,10 @@ const BULK_FOLDER_PATHS = {
  * Every response is `{updated: [id], errors: [{id, detail}]}`; `addTags` also
  * returns `tags` keyed by id so callers can patch local state without refetching.
  */
+export const addons = {
+  verifyIndex: (url) => api.get(`/addons/verify-index?url=${encodeURIComponent(url || '')}`),
+}
+
 export const bulk = {
   // Additively apply `tags` to every id — never removes existing tags.
   addTags: (type, ids, tags) => api.post(`${BULK_PATHS[type]}/bulk/tags`, { ids, tags }),

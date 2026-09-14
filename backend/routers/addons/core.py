@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from ... import addons
 from ...addons.authors import parse_author
-from ...addons.constants import DEFAULT_INDEX_URL
-from ...auth import CurrentUser, require_admin
+from ...addons.constants import DEFAULT_INDEX_URL, TRUSTED_INDEX_URLS, is_trusted_index_url
+from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import get_db
 from ._schemas import AddonInstall, AddonSettingsUpdate, AddonUpdate
 import os
@@ -109,8 +109,25 @@ def list_addons(
         "available": sorted(available, key=lambda a: a["name"].lower()),
         "index_urls": index_urls,
         "default_index_url": DEFAULT_INDEX_URL,
+        "trusted_index_urls": TRUSTED_INDEX_URLS,
         "allow_scripts": addons.scripts_allowed(db),
         "index_generated": addons.get_cached_index(db).get("generated", ""),
+    }
+
+
+def verify_index(
+    url: str = "",
+    _: CurrentUser = Depends(get_current_user),  # noqa: ARG001
+):
+    """Verify if a given index URL is an approved trusted index URL.
+
+    Available to any authenticated user (non-admin).
+    """
+    verified = is_trusted_index_url(url)
+    return {
+        "url": url,
+        "verified": verified,
+        "trusted_index_urls": TRUSTED_INDEX_URLS,
     }
 
 

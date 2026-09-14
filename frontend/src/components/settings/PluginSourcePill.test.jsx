@@ -1,12 +1,46 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import PluginSourcePill, { formatIndexUrl } from './PluginSourcePill'
+import PluginSourcePill, { formatIndexUrl, isUrlTrusted, normalizeUrl } from './PluginSourcePill'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (k, fallback) => fallback || k,
   }),
 }))
+
+describe('normalizeUrl and isUrlTrusted', () => {
+  it('normalizes URLs strictly by stripping whitespace and trailing slashes', () => {
+    expect(normalizeUrl(' https://example.com/index.json/ ')).toBe('https://example.com/index.json')
+    expect(normalizeUrl('')).toBe('')
+  })
+
+  it('strictly checks against trusted index URLs', () => {
+    const trusted = [
+      'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json',
+    ]
+    expect(
+      isUrlTrusted(
+        'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json',
+        trusted
+      )
+    ).toBe(true)
+    expect(
+      isUrlTrusted(
+        'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json/',
+        trusted
+      )
+    ).toBe(true)
+    expect(
+      isUrlTrusted('https://evil.com/grimoire-codex/community-add-ons/main/index.json', trusted)
+    ).toBe(false)
+    expect(
+      isUrlTrusted(
+        'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/fake/index.json',
+        trusted
+      )
+    ).toBe(false)
+  })
+})
 
 describe('formatIndexUrl', () => {
   it('returns empty string when url is empty or falsy', () => {
@@ -80,6 +114,15 @@ describe('PluginSourcePill', () => {
       <PluginSourcePill url="https://raw.githubusercontent.com/user/my-repo/panda/themes/index.json" />
     )
     expect(screen.getByText('user/my-repo (panda)')).toBeInTheDocument()
+  })
+
+  it('renders verified icon when url is in trustedIndexUrls', () => {
+    const trusted = ['https://example.com/index.json']
+    const { container } = render(
+      <PluginSourcePill url="https://example.com/index.json" trustedIndexUrls={trusted} />
+    )
+    expect(screen.getByText('example.com')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
   it('renders verified icon when isVerified is explicitly true', () => {
