@@ -152,7 +152,7 @@ def browse_themes(
     unique_entries = {}
     for entry in svc.list_entries(doc):
         if entry["id"] not in unique_entries:
-            entry["installed"] = entry["id"] in owned
+            entry["installed"] = entry["id"] in owned or entry.get("raw_id") in owned
             unique_entries[entry["id"]] = entry
     entries = list(unique_entries.values())
     return {
@@ -175,8 +175,8 @@ def _upsert(db: Session, user_id: str, theme: dict, source: dict | None) -> User
     row.app_mode = theme.get("app_mode") or svc.DEFAULT_APP_MODE
     row.variants = theme.get("variants") or {theme["mode"]: theme["tokens"]}
     row.tokens = theme["tokens"]
-    row.source_id = (source or {}).get("id")
-    row.source_url = (source or {}).get("url")
+    row.source_id = (source or {}).get("raw_id") or (source or {}).get("id") or theme.get("raw_id") or theme["id"]
+    row.source_url = (source or {}).get("url") or theme.get("source_url") or theme.get("index_url")
     row.source_version = (source or {}).get("version") or theme.get("version") or None
     return row
 

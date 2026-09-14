@@ -673,7 +673,7 @@ class TestMultiSourceThemeCatalogue:
         assert svc._derive_theme_url("https://example.com/index.yaml") == "https://example.com/themes/index.json"
         assert svc._derive_theme_url("https://example.com/index.json") == "https://example.com/themes/index.json"
 
-    def test_list_entries_aggregates_available_in(self):
+    def test_list_entries_namespaces_theme_ids_by_source(self):
         doc = {
             "themes": [
                 {
@@ -691,13 +691,16 @@ class TestMultiSourceThemeCatalogue:
             ]
         }
         entries = svc.list_entries(doc)
-        assert len(entries) == 1
-        panda = entries[0]
-        assert panda["id"] == "panda"
-        assert panda["index_url"] == "https://source1.com/themes/index.json"
-        assert len(panda["available_in"]) == 2
-        assert panda["available_in"][0]["index_url"] == "https://source1.com/themes/index.json"
-        assert panda["available_in"][1]["index_url"] == "https://source2.com/themes/index.json"
+        assert len(entries) == 2
+        h1 = svc.compute_source_hash("https://source1.com/themes/index.json")
+        h2 = svc.compute_source_hash("https://source2.com/themes/index.json")
+        assert entries[0]["id"] == f"panda-{h1}"
+        assert entries[0]["raw_id"] == "panda"
+        assert entries[0]["index_url"] == "https://source1.com/themes/index.json"
+
+        assert entries[1]["id"] == f"panda-{h2}"
+        assert entries[1]["raw_id"] == "panda"
+        assert entries[1]["index_url"] == "https://source2.com/themes/index.json"
 
     def test_fetch_catalogue_skips_explicit_template_urls_and_documents(self, db, monkeypatch):
         """fetch_catalogue must skip URLs ending with templates/index.json and documents containing only templates/folders."""

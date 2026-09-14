@@ -392,8 +392,16 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
     }
 
 
+def compute_source_hash(index_url: str) -> str:
+    """Compute an 8-character deterministic hash from a normalized index URL."""
+    if not index_url:
+        return ""
+    norm = index_url.strip().rstrip("/").lower()
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()[:8]
+
+
 def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
-    """The catalogue's themes, with untrusted strings bounded."""
+    """The catalogue's themes, with untrusted strings bounded and IDs namespaced by source."""
     raw = doc.get("themes")
     if not isinstance(raw, list):
         return []
@@ -402,15 +410,18 @@ def list_entries(doc: dict[str, Any]) -> list[dict[str, Any]]:
     for entry in raw:
         if not isinstance(entry, dict) or not valid_theme_id(entry.get("id")):
             continue
-        theme_id = entry["id"]
+        raw_id = entry["id"]
         index_url = str(entry.get("index_url") or "")
+        url_hash = compute_source_hash(index_url)
+        theme_id = f"{raw_id}-{url_hash}" if url_hash else raw_id
         version = str(entry.get("version") or "")[:20]
         author_name, author_url = _author(entry)
 
         if theme_id not in by_id:
             item = {
                 "id": theme_id,
-                "name": str(entry.get("name") or theme_id)[:120],
+                "raw_id": raw_id,
+                "name": str(entry.get("name") or raw_id)[:120],
                 "description": str(entry.get("description") or "")[:500],
                 "mode": (
                     str(entry.get("mode") or "dark").lower()
@@ -453,7 +464,7 @@ def _author(entry: dict[str, Any]) -> tuple[str, str]:
 
 def find_entry(doc: dict[str, Any], theme_id: str) -> Optional[dict[str, Any]]:
     for entry in list_entries(doc):
-        if entry["id"] == theme_id:
+        if entry["id"] == theme_id or entry.get("raw_id") == theme_id:
             return entry
     return None
 
@@ -555,6 +566,7 @@ def fetch_theme(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
     # The catalogue is the thing the user chose to trust, so its metadata wins
     # over whatever the file claims about itself.
     theme["id"] = entry["id"]
+    theme["raw_id"] = entry.get("raw_id") or entry["id"]
     theme["name"] = entry.get("name") or theme["name"]
     theme["version"] = entry.get("version") or theme["version"]
     return theme
