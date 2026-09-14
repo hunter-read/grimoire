@@ -1,5 +1,5 @@
 """Tests for index URL strict verification logic and API endpoint."""
-from backend.addons.constants import DEFAULT_INDEX_URL, TRUSTED_INDEX_URLS, is_trusted_index_url, normalize_index_url
+from backend.addons.constants import DEFAULT_INDEX_URL, is_trusted_index_url, normalize_index_url
 
 
 def test_normalize_index_url():
