@@ -112,4 +112,37 @@ describe('AddonInstallDialog', () => {
     expect(screen.queryByText('addons.scriptWarning')).toBeNull()
     expect(screen.getByRole('button', { name: /^addons.install$/i })).toBeEnabled()
   })
+
+  it('renders unverified source script warning when source is not verified', () => {
+    render(
+      <AddonInstallDialog
+        addon={{
+          ...ADDON,
+          index_url: 'https://raw.githubusercontent.com/custom/repo/main/index.json',
+        }}
+        defaultIndexUrl="https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml"
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText('addons.unverifiedSourceScriptWarning')).toBeInTheDocument()
+    expect(screen.getByText('custom/repo')).toBeInTheDocument()
+  })
+
+  it('does not render unverified source script warning when source is verified', () => {
+    render(
+      <AddonInstallDialog
+        addon={{
+          ...ADDON,
+          index_url:
+            'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml',
+        }}
+        defaultIndexUrl="https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml"
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('addons.unverifiedSourceScriptWarning')).toBeNull()
+    expect(screen.getByText('grimoire-codex/community-add-ons')).toBeInTheDocument()
+  })
 })

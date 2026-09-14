@@ -2512,6 +2512,7 @@
     "runsCode": "Voert code uit",
     "installTitle": "{{name}} installeren?",
     "scriptWarning": "Deze add-on voert Python-code uit op je server met netwerktoegang. Installeer alleen add-ons uit bronnen die je vertrouwt en lees eerst het script.",
+    "unverifiedSourceScriptWarning": "Let op: Deze add-on wordt gehost op een niet-gecontroleerde bron-repository van derden. Zorg ervoor dat je deze bron vertrouwt voordat je scripts op je server laat uitvoeren.",
     "scriptAcknowledge": "Ik begrijp dat deze add-on code uitvoert op mijn server.",
     "allowScripts": "Add-on-scripts toestaan",
     "allowScriptsDesc": "Standaard uit. Zelfs indien ingeschakeld moet elke add-on met script bij installatie afzonderlijk worden goedgekeurd.",

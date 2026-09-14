@@ -2512,6 +2512,7 @@
     "runsCode": "Ejecuta código",
     "installTitle": "¿Instalar {{name}}?",
     "scriptWarning": "Este complemento ejecuta código Python en tu servidor con acceso a la red. Instala solo complementos de fuentes en las que confíes y lee antes el script.",
+    "unverifiedSourceScriptWarning": "Precaución: Este complemento está alojado en un repositorio de fuentes no verificado de terceros. Asegúrate de confiar en esta fuente antes de permitir que se ejecuten scripts en tu servidor.",
     "scriptAcknowledge": "Entiendo que este complemento ejecuta código en mi servidor.",
     "allowScripts": "Permitir scripts de complementos",
     "allowScriptsDesc": "Desactivado por defecto. Incluso activado, cada complemento con script debe aprobarse individualmente al instalarlo.",

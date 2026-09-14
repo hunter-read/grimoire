@@ -2512,6 +2512,7 @@
     "runsCode": "Executa código",
     "installTitle": "Instalar {{name}}?",
     "scriptWarning": "Este extra executa código Python no seu servidor com acesso à rede. Instale apenas extras de fontes fiáveis e leia primeiro o script.",
+    "unverifiedSourceScriptWarning": "Cuidado: Este extra está hospedado em um repositório de fonte não verificado de terceiros. Garanta que confia nesta fonte antes de permitir a execução de scripts no seu servidor.",
     "scriptAcknowledge": "Compreendo que este extra executa código no meu servidor.",
     "allowScripts": "Permitir scripts de extras",
     "allowScriptsDesc": "Desativado por predefinição. Mesmo quando ativado, cada extra com script tem de ser aprovado individualmente na instalação.",

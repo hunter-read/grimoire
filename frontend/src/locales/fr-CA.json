@@ -2512,6 +2512,7 @@
     "runsCode": "Exécute du code",
     "installTitle": "Installer {{name}} ?",
     "scriptWarning": "Ce module exécute du code Python sur votre serveur avec un accès réseau. N'installez que des modules provenant de sources de confiance, et lisez d'abord le script.",
+    "unverifiedSourceScriptWarning": "Attention: Ce module est hébergé sur un dépôt source tiers non vérifié. Assurez-vous de faire confiance à cette source avant d'autoriser l'exécution de scripts sur votre serveur.",
     "scriptAcknowledge": "Je comprends que ce module exécute du code sur mon serveur.",
     "allowScripts": "Autoriser les scripts de modules",
     "allowScriptsDesc": "Désactivé par défaut. Même activé, chaque module utilisant un script doit être approuvé individuellement lors de son installation.",

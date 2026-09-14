@@ -2512,6 +2512,7 @@
     "runsCode": "Führt Code aus",
     "installTitle": "{{name}} installieren?",
     "scriptWarning": "Dieses Add-on führt Python-Code mit Netzwerkzugriff auf deinem Server aus. Installiere nur Add-ons aus vertrauenswürdigen Quellen und lies das Skript zuvor.",
+    "unverifiedSourceScriptWarning": "Achtung: Dieses Add-on wird in einem nicht verifizierten Drittanbieter-Repository gehostet. Stelle sicher, dass du dieser Quelle vertraust, bevor du die Ausführung von Skripten auf deinem Server zulässt.",
     "scriptAcknowledge": "Mir ist bewusst, dass dieses Add-on Code auf meinem Server ausführt.",
     "allowScripts": "Add-on-Skripte erlauben",
     "allowScriptsDesc": "Standardmäßig aus. Auch wenn aktiviert, muss jedes skriptbasierte Add-on bei der Installation einzeln bestätigt werden.",

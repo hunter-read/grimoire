@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTriangleAlert, LuX } from 'react-icons/lu'
 import AuthorByline from './AuthorByline'
+import PluginSourcePill from './PluginSourcePill'
 
 /**
  * Install confirmation for a script-backed add-on (issue #203).
@@ -12,14 +13,27 @@ import AuthorByline from './AuthorByline'
  * reflexive click. YAML-only add-ons skip this entirely.
  *
  * Props:
- *   addon     – the index entry being installed
- *   updating  – true when re-approving an existing add-on's changed script
- *   onConfirm – () => void
- *   onClose   – () => void
+ *   addon           – the index entry being installed
+ *   updating        – true when re-approving an existing add-on's changed script
+ *   defaultIndexUrl – the system default index URL to determine verification
+ *   onConfirm       – () => void
+ *   onClose         – () => void
  */
-export default function AddonInstallDialog({ addon, updating = false, onConfirm, onClose }) {
+export default function AddonInstallDialog({
+  addon,
+  updating = false,
+  defaultIndexUrl = '',
+  onConfirm,
+  onClose,
+}) {
   const { t } = useTranslation()
   const [acknowledged, setAcknowledged] = useState(false)
+
+  const targetIndexUrl = addon.targetIndexUrl || addon.index_url
+  const isVerified = targetIndexUrl
+    ? targetIndexUrl === defaultIndexUrl ||
+      targetIndexUrl.includes('grimoire-codex/community-add-ons')
+    : true
 
   useEffect(() => {
     const onKey = (e) => {
@@ -191,6 +205,28 @@ export default function AddonInstallDialog({ addon, updating = false, onConfirm,
                 <p style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
                   {t(updating ? 'addons.scriptUpdateWarning' : 'addons.scriptWarning')}
                 </p>
+                {!isVerified && (
+                  <p
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.4,
+                      margin: 0,
+                      color: 'var(--warning, #d98324)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t(
+                      'addons.unverifiedSourceScriptWarning',
+                      'Caution: This add-on is hosted on an unverified third-party source repository. Ensure you trust this source before allowing scripts to run on your server.'
+                    )}
+                  </p>
+                )}
+                {targetIndexUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Source:</span>
+                    <PluginSourcePill url={targetIndexUrl} isVerified={isVerified} />
+                  </div>
+                )}
                 {addon.script_sha256 && (
                   <div
                     title="SHA-256 Checksum"

@@ -683,6 +683,7 @@ export default function AddonsSection() {
       {confirming && (
         <AddonInstallDialog
           addon={confirming}
+          defaultIndexUrl={data?.default_index_url}
           onConfirm={() => {
             install(confirming, true, confirming.targetIndexUrl)
             setConfirming(null)
