@@ -103,6 +103,8 @@ COPY --from=ffmpeg-builder /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 
 COPY backend/ ./backend/
 COPY alembic.ini ./alembic.ini
+# Read and parsed at runtime by /api/changelog for the About dialog.
+COPY CHANGELOG.md ./CHANGELOG.md
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN mkdir -p /data /library

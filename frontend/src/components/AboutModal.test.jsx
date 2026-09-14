@@ -1,9 +1,34 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import AboutModal from './AboutModal'
+import api from '../api'
+
+vi.mock('../api', () => ({ default: { get: vi.fn() } }))
 
 // __REACT_VERSION__ is injected by Vite at build time; stub it for tests.
 globalThis.__REACT_VERSION__ = '18.3.1'
+
+const CHANGELOG = {
+  releases: [
+    {
+      version: '1.2.0',
+      date: '2026-04-15',
+      summary: 'The release that is running.',
+      sections: [{ title: 'Added', entries: ['A shiny feature'] }],
+    },
+    {
+      version: '1.1.0',
+      date: '2026-04-10',
+      summary: null,
+      sections: [{ title: 'Fixed', entries: ['An old bug'] }],
+    },
+  ],
+}
+
+beforeEach(() => {
+  api.get.mockReset()
+  api.get.mockResolvedValue(CHANGELOG)
+})
 
 const defaultAbout = {
   version: '1.2.0',
@@ -196,5 +221,76 @@ describe('AboutModal — accessibility', () => {
       expect(link).toHaveAttribute('target', '_blank')
       expect(link).toHaveAttribute('rel', 'noreferrer')
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Changelog
+// ---------------------------------------------------------------------------
+
+describe('AboutModal — changelog', () => {
+  it('lists every release from the API', async () => {
+    renderModal()
+    expect(await screen.findByText('1.2.0')).toBeInTheDocument()
+    expect(screen.getByText('1.1.0')).toBeInTheDocument()
+  })
+
+  it('expands the running version and marks it current', async () => {
+    renderModal()
+    // The running release's body is open without any interaction…
+    expect(await screen.findByText('A shiny feature')).toBeInTheDocument()
+    expect(screen.getByText('current')).toBeInTheDocument()
+    // …while an older one stays collapsed.
+    expect(screen.queryByText('An old bug')).not.toBeInTheDocument()
+  })
+
+  it('renders a release summary when it has one', async () => {
+    renderModal()
+    expect(await screen.findByText('The release that is running.')).toBeInTheDocument()
+  })
+
+  it('expands and collapses a release when its header is clicked', async () => {
+    renderModal()
+    const older = await screen.findByRole('button', { name: /1\.1\.0/ })
+
+    fireEvent.click(older)
+    expect(await screen.findByText('An old bug')).toBeInTheDocument()
+    expect(older).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(older)
+    expect(screen.queryByText('An old bug')).not.toBeInTheDocument()
+    expect(older).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('collapses the current release when clicked', async () => {
+    renderModal()
+    const current = await screen.findByRole('button', { name: /1\.2\.0/ })
+    fireEvent.click(current)
+    expect(screen.queryByText('A shiny feature')).not.toBeInTheDocument()
+  })
+
+  it('omits the changelog when the API returns none', async () => {
+    api.get.mockResolvedValue({ releases: [] })
+    renderModal()
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+    expect(screen.queryByText('Changelog')).not.toBeInTheDocument()
+  })
+
+  it('still shows build information when the changelog fails to load', async () => {
+    api.get.mockRejectedValue(new Error('boom'))
+    renderModal()
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+    // The dialog's actual purpose survives a failed changelog fetch.
+    expect(screen.getByText('v1.2.0')).toBeInTheDocument()
+    expect(screen.queryByText('Changelog')).not.toBeInTheDocument()
+  })
+
+  it('marks no release current when the running version is absent', async () => {
+    api.get.mockResolvedValue({
+      releases: [{ version: '9.9.9', date: null, summary: null, sections: [] }],
+    })
+    renderModal()
+    expect(await screen.findByText('9.9.9')).toBeInTheDocument()
+    expect(screen.queryByText('current')).not.toBeInTheDocument()
   })
 })

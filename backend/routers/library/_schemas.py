@@ -86,6 +86,30 @@ class AboutResponse(BaseModel):
     python_version: str
 
 
+class ChangelogSection(BaseModel):
+    """One category of entries within a release (``Added``, ``Fixed``, …)."""
+
+    # Empty for bullets that appeared with no category heading above them; the
+    # client renders such a group without a header rather than inventing one.
+    title: str
+    entries: list[str]
+
+
+class ChangelogRelease(BaseModel):
+    version: str
+    # Absent for ``Unreleased``, which has no date until it is tagged.
+    date: Optional[str] = None
+    # The lead paragraph some releases carry above their first category.
+    summary: Optional[str] = None
+    sections: list[ChangelogSection]
+
+
+class ChangelogResponse(BaseModel):
+    """Newest release first. Empty when the image ships without a changelog."""
+
+    releases: list[ChangelogRelease]
+
+
 class LatestReleaseResponse(BaseModel):
     """None when version checking is disabled or the GitHub proxy call failed."""
 

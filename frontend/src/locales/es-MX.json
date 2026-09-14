@@ -44,7 +44,9 @@
     "updateAvailable": "Actualización disponible",
     "viewRelease": "Ver versión",
     "github": "Repositorio de GitHub",
-    "openAbout": "Acerca de Grimoire"
+    "openAbout": "Acerca de Grimoire",
+    "changelog": "Registro de cambios",
+    "currentVersion": "actual"
   },
   "common": {
     "save": "Guardar",

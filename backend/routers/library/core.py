@@ -19,11 +19,12 @@ from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ...security import AUTH_RATE_LIMIT, limiter
-from ...services import access_control, variants
+from ...services import access_control, changelog, variants
 from ..settings import get_stats_api_key
 from . import _helpers
 from ._schemas import (
     AboutResponse,
+    ChangelogResponse,
     LatestReleaseResponse,
     RescanRequest,
     ScanStatusResponse,
@@ -180,6 +181,22 @@ def get_about(_: CurrentUser = Depends(get_current_user)):
         "commit_hash": COMMIT_HASH,
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
     }
+
+
+@router.get(
+    "/changelog",
+    summary="Release changelog",
+    description=(
+        "Returns the parsed contents of CHANGELOG.md for the About dialog, newest "
+        "release first. Login required, matching /about - it is build information "
+        "rather than public content. `releases` is empty when the running image "
+        "ships without a changelog file, which the dialog treats as 'no changelog "
+        "to show' rather than an error."
+    ),
+    response_model=ChangelogResponse,
+)
+def get_changelog(_: CurrentUser = Depends(get_current_user)):
+    return {"releases": changelog.load_changelog()}
 
 
 GITHUB_REPO = "hunter-read/grimoire"

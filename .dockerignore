@@ -5,6 +5,8 @@
 library/
 data/
 **/*.md
+# …except the changelog, which the About dialog reads at runtime.
+!CHANGELOG.md
 LICENSE
 .env
 **/__pycache__

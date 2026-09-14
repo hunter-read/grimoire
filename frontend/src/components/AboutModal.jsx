@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuExternalLink } from 'react-icons/lu'
 import { SiGithub } from 'react-icons/si'
+import api from '../api'
+import ChangelogRelease from './ChangelogRelease'
 
 const GITHUB_REPO_URL = 'https://github.com/hunter-read/grimoire'
 
@@ -18,6 +20,36 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  const [releases, setReleases] = useState(null)
+  // Which release bodies are expanded, keyed by version. Seeded from the fetch
+  // rather than here: the running version is the one to open, and it is not
+  // known to be present in the changelog until the list arrives.
+  const [openVersions, setOpenVersions] = useState({})
+
+  // Fetched when the dialog opens rather than with the rest of the app: the
+  // changelog is comfortably the largest thing here and nothing outside this
+  // dialog reads it. A failure leaves `releases` empty, which renders as no
+  // changelog section — the version information above it is the point of the
+  // dialog and still shows.
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get('/changelog')
+      .then((data) => {
+        if (cancelled) return
+        const list = data?.releases ?? []
+        setReleases(list)
+        const current = list.find((r) => r.version === about?.version)
+        if (current) setOpenVersions({ [current.version]: true })
+      })
+      .catch(() => {
+        if (!cancelled) setReleases([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [about?.version])
 
   const currentVersion = about?.version ?? '—'
   const commitHash = about?.commit_hash || null
@@ -64,8 +96,13 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
           border: '1px solid var(--border)',
           borderRadius: 10,
           padding: 24,
-          width: 380,
+          width: 560,
           maxWidth: '92vw',
+          // Capped so a long changelog scrolls inside the dialog instead of
+          // growing it past the viewport.
+          maxHeight: '86vh',
+          display: 'flex',
+          flexDirection: 'column',
           boxSizing: 'border-box',
         }}
       >
@@ -110,6 +147,7 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
             borderRadius: 8,
             padding: '14px 16px',
             marginBottom: 16,
+            flexShrink: 0,
           }}
         >
           <div style={rowStyle}>
@@ -160,8 +198,57 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
           )}
         </div>
 
+        {/* Changelog. Absent entirely when the running image ships without a
+            CHANGELOG.md, rather than showing an empty heading. */}
+        {releases !== null && releases.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'var(--text-muted)',
+                marginBottom: 4,
+                flexShrink: 0,
+              }}
+            >
+              {t('about.changelog')}
+            </div>
+            <div
+              style={{
+                overflowY: 'auto',
+                minHeight: 0,
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              {releases.map((release) => (
+                <ChangelogRelease
+                  key={release.version}
+                  release={release}
+                  isCurrent={release.version === currentVersion}
+                  isOpen={!!openVersions[release.version]}
+                  onToggle={() =>
+                    setOpenVersions((prev) => ({
+                      ...prev,
+                      [release.version]: !prev[release.version],
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
           <a
             href={releaseUrl}
             target="_blank"

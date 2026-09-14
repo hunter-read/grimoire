@@ -44,7 +44,9 @@
     "updateAvailable": "Update beschikbaar",
     "viewRelease": "Release bekijken",
     "github": "GitHub-repository",
-    "openAbout": "Over Grimoire"
+    "openAbout": "Over Grimoire",
+    "changelog": "Wijzigingslogboek",
+    "currentVersion": "huidig"
   },
   "common": {
     "save": "Opslaan",
