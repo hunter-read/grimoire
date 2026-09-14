@@ -459,7 +459,6 @@ export default function AddonsSection() {
                   {addon.name}{' '}
                   <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
                     v{addon.version}
->>>>>>> deb12be (fix: linting issues and missing tests)
                   </span>
                   {addon.index_url && (
                     <PluginSourcePill
