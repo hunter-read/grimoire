@@ -162,7 +162,6 @@ from ._response_schemas import (
     WikiTemplateBrowseOut,
     WikiTemplateDetailOut,
     WikiTemplateListOut,
-    WikiTemplateSourceOut,
     WikiTemplateUseOut,
 )
 

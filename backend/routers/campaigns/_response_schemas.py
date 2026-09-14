@@ -661,11 +661,6 @@ class WikiTemplateBrowseOut(BaseModel):
     generated: str
 
 
-class WikiTemplateSourceOut(BaseModel):
-    index_url: str
-    is_custom_url: bool
-
-
 # --------------------------------------------------------------------------- #
 # Categories (categories.py)
 # --------------------------------------------------------------------------- #
@@ -743,7 +738,6 @@ __all__ = [
     "WikiTemplateDefaultsOut",
     "WikiTemplateDetailOut",
     "WikiTemplateListOut",
-    "WikiTemplateSourceOut",
     "WikiTemplateSummaryOut",
     "WikiTemplateUseOut",
 ]

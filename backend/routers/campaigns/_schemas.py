@@ -259,10 +259,6 @@ class WikiTemplateUpdate(BaseModel):
     defaults: Optional[WikiTemplateDefaults] = None
 
 
-class WikiTemplateSourceInput(BaseModel):
-    # "" restores the built-in catalogue URL.
-    index_url: str = ""
-
 
 class BannerSourceIn(BaseModel):
     """Set the banner from an image Grimoire already holds (issue #286).
