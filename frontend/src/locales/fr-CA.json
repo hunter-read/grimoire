@@ -2493,6 +2493,8 @@
     "contentPlugins": "Plugins",
     "contentThemes": "Thèmes",
     "contentTemplates": "Modèles",
+    "sourcesDesc": "Configurez l'endroit où Grimoire cherche les modules, les thèmes et les modèles de notes.",
+    "addIndexUrl": "Ajouter l'URL d'un index (ex. https://.../index.json ou index.yaml)...",
     "githubProfile": "{{author}} sur GitHub",
     "title": "Modules communautaires",
     "description": "Installez des collecteurs de métadonnées proposés par la communauté. Les modules peuvent compléter les détails des systèmes de jeu depuis des sources externes.",

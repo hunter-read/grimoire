@@ -2493,6 +2493,8 @@
     "contentPlugins": "Plugins",
     "contentThemes": "Themes",
     "contentTemplates": "Templates",
+    "sourcesDesc": "Configure where Grimoire looks for add-ons, themes, and note templates.",
+    "addIndexUrl": "Add index URL (e.g. https://.../index.json or index.yaml)...",
     "githubProfile": "{{author}} on GitHub",
     "title": "Community add-ons",
     "description": "Install metadata scrapers contributed by the community. Add-ons can fill in game system details from external sources.",

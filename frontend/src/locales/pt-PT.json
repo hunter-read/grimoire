@@ -2493,6 +2493,8 @@
     "contentPlugins": "Plugins",
     "contentThemes": "Temas",
     "contentTemplates": "Modelos",
+    "sourcesDesc": "Configure onde o Grimoire busca por extras, temas e modelos de notas.",
+    "addIndexUrl": "Adicionar URL de índice (ex. https://.../index.json ou index.yaml)...",
     "githubProfile": "{{author}} no GitHub",
     "title": "Extras da comunidade",
     "description": "Instale recolhedores de metadados criados pela comunidade. Os extras podem preencher detalhes do sistema de jogo a partir de fontes externas.",

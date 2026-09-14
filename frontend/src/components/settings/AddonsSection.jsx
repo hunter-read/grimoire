@@ -188,7 +188,10 @@ export default function AddonsSection() {
       {/* The index URL section is closed by default — the default suits almost every install. */}
       <CollapsibleSection
         title={t('addons.configuredSources', 'Add-on Sources')}
-        description={t('addons.sourcesDesc', 'Configure where Grimoire looks for add-ons.')}
+        description={t(
+          'addons.sourcesDesc',
+          'Configure where Grimoire looks for add-ons, themes, and note templates.'
+        )}
         storageKey="grimoire:settings:addons:sources"
         defaultOpen={false}
       >
@@ -346,7 +349,10 @@ export default function AddonsSection() {
             <input
               value={newIndexUrl}
               onChange={(e) => setNewIndexUrl(e.target.value)}
-              placeholder={t('addons.addIndexUrl', 'Add new index URL...')}
+              placeholder={t(
+                'addons.addIndexUrl',
+                'Add index URL (e.g. https://.../index.json or index.yaml)...'
+              )}
               style={{
                 flex: 1,
                 minWidth: 240,

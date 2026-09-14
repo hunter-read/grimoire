@@ -2493,6 +2493,8 @@
     "contentPlugins": "Plugins",
     "contentThemes": "Temas",
     "contentTemplates": "Plantillas",
+    "sourcesDesc": "Configura dónde Grimoire busca complementos, temas y plantillas de notas.",
+    "addIndexUrl": "Añadir URL de índice (p. ej. https://.../index.json o index.yaml)...",
     "githubProfile": "{{author}} en GitHub",
     "title": "Complementos de la comunidad",
     "description": "Instala recopiladores de metadatos aportados por la comunidad. Los complementos pueden rellenar los detalles del sistema de juego desde fuentes externas.",
