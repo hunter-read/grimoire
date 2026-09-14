@@ -74,8 +74,13 @@ def addons_dir(tmp_path, monkeypatch):
 def files(monkeypatch):
     store: dict[str, bytes] = {}
 
+    base_prefix = DEFAULT_INDEX_URL.rsplit('/', 1)[0]
+
     def fake_fetch_text(url):
         if url not in store:
+            alt_url = url.replace(base_prefix, "https://example.com")
+            if alt_url in store:
+                return store[alt_url]
             raise AddonFetchError(f"download returned HTTP 404 ({url})")
         return store[url]
 
