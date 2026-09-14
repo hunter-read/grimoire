@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..addons.authors import parse_author
 from ..addons.constants import (
-    DEFAULT_CACHE_TTL,
     DEFAULT_INDEX_URL as DEFAULT_ADDON_INDEX_URL,
     HTTP_MAX_BYTES,
     HTTP_MAX_REDIRECTS,
