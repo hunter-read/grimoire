@@ -93,7 +93,9 @@
     "select": "Auswählen",
     "archive": "Archiv",
     "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht in der Vorschau angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen.",
-    "versions": "Versionen"
+    "versions": "Versionen",
+    "clearSearch": "Suche löschen",
+    "removeLink": "Link entfernen"
   },
   "login": {
     "username": "Benutzername",
@@ -2852,5 +2854,13 @@
     "chooseCharacter": "Figur wählen",
     "chooseCharacterHint": "Wessen Token dies in {{name}} wird.",
     "frameVersions": "Versionen"
+  },
+  "richText": {
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "strikethrough": "Durchgestrichen",
+    "link": "Link",
+    "bulletList": "Aufzählung",
+    "numberedList": "Nummerierte Liste"
   }
 }

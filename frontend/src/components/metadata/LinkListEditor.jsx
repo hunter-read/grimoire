@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { LuX, LuPlus } from 'react-icons/lu'
 
 /**
@@ -13,6 +14,7 @@ export default function LinkListEditor({
   urlPlaceholder,
   idPrefix = 'link',
 }) {
+  const { t } = useTranslation()
   const setLink = (idx, key, value) =>
     onChange(links.map((l, i) => (i === idx ? { ...l, [key]: value } : l)))
 
@@ -44,7 +46,7 @@ export default function LinkListEditor({
           <button
             type="button"
             onClick={() => removeLink(idx)}
-            aria-label="Remove link"
+            aria-label={t('common.removeLink')}
             style={{
               background: 'none',
               border: 'none',

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuBold, LuItalic, LuStrikethrough, LuLink, LuList, LuListOrdered } from 'react-icons/lu'
 import ToolbarButton from './ToolbarButton'
 
@@ -37,6 +38,7 @@ const editableStyle = {
 // Rich text editor — contentEditable with execCommand for bold/italic/strike,
 // link, and bulleted/numbered lists. Emits HTML via onChange.
 export default function RichTextEditor({ value, onChange, ariaLabel }) {
+  const { t } = useTranslation()
   const ref = useRef(null)
   const [, forceUpdate] = useState(0)
 
@@ -76,24 +78,24 @@ export default function RichTextEditor({ value, onChange, ariaLabel }) {
   return (
     <div style={editorWrapStyle}>
       <div style={toolbarStyle}>
-        <ToolbarButton onClick={() => exec('bold')} title="Bold">
+        <ToolbarButton onClick={() => exec('bold')} title={t('richText.bold')}>
           <LuBold size={14} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => exec('italic')} title="Italic">
+        <ToolbarButton onClick={() => exec('italic')} title={t('richText.italic')}>
           <LuItalic size={14} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => exec('strikeThrough')} title="Strikethrough">
+        <ToolbarButton onClick={() => exec('strikeThrough')} title={t('richText.strikethrough')}>
           <LuStrikethrough size={14} />
         </ToolbarButton>
         <span style={toolbarSepStyle} />
-        <ToolbarButton onClick={handleLink} title="Link">
+        <ToolbarButton onClick={handleLink} title={t('richText.link')}>
           <LuLink size={14} />
         </ToolbarButton>
         <span style={toolbarSepStyle} />
-        <ToolbarButton onClick={() => exec('insertUnorderedList')} title="Bulleted list">
+        <ToolbarButton onClick={() => exec('insertUnorderedList')} title={t('richText.bulletList')}>
           <LuList size={14} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => exec('insertOrderedList')} title="Numbered list">
+        <ToolbarButton onClick={() => exec('insertOrderedList')} title={t('richText.numberedList')}>
           <LuListOrdered size={14} />
         </ToolbarButton>
       </div>

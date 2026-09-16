@@ -93,7 +93,9 @@
     "select": "Seleccionar",
     "archive": "Archivo comprimido",
     "archiveNotViewable": "Este es un archivo comprimido y no se puede previsualizar. Descárgalo para abrir su contenido.",
-    "versions": "Versiones"
+    "versions": "Versiones",
+    "clearSearch": "Borrar búsqueda",
+    "removeLink": "Eliminar enlace"
   },
   "login": {
     "username": "Nombre de usuario",
@@ -2852,5 +2854,13 @@
     "chooseCharacter": "Elegir personaje",
     "chooseCharacterHint": "De quién será esta ficha en {{name}}.",
     "frameVersions": "Versiones"
+  },
+  "richText": {
+    "bold": "Negrita",
+    "italic": "Cursiva",
+    "strikethrough": "Tachado",
+    "link": "Enlace",
+    "bulletList": "Lista con viñetas",
+    "numberedList": "Lista numerada"
   }
 }

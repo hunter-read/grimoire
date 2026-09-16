@@ -62,7 +62,9 @@ export default function BackupScheduleSection({ onSaved }) {
       .then(hydrate)
       .catch(() => setError(t('backups.schedule.loadFailed')))
       .finally(() => setLoading(false))
-  }, [])
+    // Load once on mount; `t` is stable and re-running this on a language
+    // change would discard whatever the user has edited since.
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     setSaving(true)

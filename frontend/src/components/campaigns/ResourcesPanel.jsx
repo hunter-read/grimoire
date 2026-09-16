@@ -85,10 +85,12 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
       .catch(() => setCategories([]))
   }
 
+  // Reload when the campaign changes. `load`/`loadCategories` are rebuilt every
+  // render, so depending on them would refetch in a loop.
   useEffect(() => {
     load()
     loadCategories()
-  }, [campaign.id])
+  }, [campaign.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setGroupOrder(campaign.resource_group_order || [])

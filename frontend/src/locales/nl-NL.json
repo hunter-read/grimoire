@@ -93,7 +93,9 @@
     "select": "Selecteren",
     "archive": "Archief",
     "archiveNotViewable": "Dit is een archiefbestand en kan niet worden voorvertoond. Download het om de inhoud te openen.",
-    "versions": "Versies"
+    "versions": "Versies",
+    "clearSearch": "Zoekopdracht wissen",
+    "removeLink": "Link verwijderen"
   },
   "login": {
     "username": "Gebruikersnaam",
@@ -2852,5 +2854,13 @@
     "chooseCharacter": "Personage kiezen",
     "chooseCharacterHint": "Van wie deze token wordt in {{name}}.",
     "frameVersions": "Versies"
+  },
+  "richText": {
+    "bold": "Vet",
+    "italic": "Cursief",
+    "strikethrough": "Doorhalen",
+    "link": "Link",
+    "bulletList": "Opsommingslijst",
+    "numberedList": "Genummerde lijst"
   }
 }

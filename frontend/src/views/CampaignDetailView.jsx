@@ -173,7 +173,9 @@ export default function CampaignDetailView() {
       .get('/systems?include_children=true')
       .then(setSystems)
       .catch(() => {})
-  }, [campaignId])
+    // Reload when the campaign changes. The loaders are rebuilt every render,
+    // so depending on them would refetch in a loop.
+  }, [campaignId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetAvailability = async (date, status) => {
     await campaigns.setAvailability(campaignId, date, { status })

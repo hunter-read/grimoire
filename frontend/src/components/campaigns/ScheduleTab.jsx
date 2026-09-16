@@ -20,10 +20,12 @@ export default function ScheduleTab({ campaign, isOwner, userId }) {
       .then(setAvailability)
       .catch(() => {})
 
+  // Reload when the campaign changes. `loadSchedule`/`loadAvailability` are
+  // rebuilt every render, so depending on them would refetch in a loop.
   useEffect(() => {
     loadSchedule()
     loadAvailability()
-  }, [campaign.id])
+  }, [campaign.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetAvailability = async (date, status, targetUserId) => {
     // Include user_id only when the GM is editing another member's row; the

@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
+import useSystemSearch from '../hooks/useSystemSearch'
 import useRestoredView from '../hooks/useRestoredView'
 import { useTranslation } from 'react-i18next'
 import {
@@ -99,14 +100,10 @@ export default function SystemDetailView() {
   // changing the system layout silently restyle every book list.
   const [viewMode, cycleViewMode] = useViewMode('book')
   const [systemViewMode, cycleSystemViewMode] = useViewMode('system')
-  const [searchQuery, setSearchQuery] = useSessionState(
-    `grimoire:system:${systemId}:search-query`,
-    '',
-    { restore: restoreView }
+  const { searchQuery, searchResults, searching, handleSearchInput, clearSearch } = useSystemSearch(
+    systemId,
+    restoreView
   )
-  const [searchResults, setSearchResults] = useState(null)
-  const [searching, setSearching] = useState(false)
-  const searchTimer = useRef(null)
   const [downloadModal, setDownloadModal] = useState(null)
 
   // Bulk multiselect (books only)
@@ -158,44 +155,9 @@ export default function SystemDetailView() {
       if (defaultBookFilter?.state) setBookFilter(defaultBookFilter.state)
       setDefaultApplied(true)
     }
-  }, [bookFiltersLoaded, defaultApplied, defaultBookFilter])
-
-  const doSearch = useCallback(
-    (q) => {
-      if (q.length < 2) {
-        setSearchResults(null)
-        return
-      }
-      setSearching(true)
-      api
-        .get(`/search?q=${encodeURIComponent(q)}&system_id=${systemId}`)
-        .then((r) => {
-          setSearchResults(r)
-          setSearching(false)
-        })
-        .catch(() => setSearching(false))
-    },
-    [systemId]
-  )
-
-  // Re-run the search on mount only when returning to the view (e.g. back from
-  // the reader); a fresh navigation starts with an empty box.
-  useEffect(() => {
-    if (restoreView && searchQuery && searchQuery.length >= 2) doSearch(searchQuery)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSearchInput = (e) => {
-    const v = e.target.value
-    setSearchQuery(v)
-    clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => doSearch(v), 350)
-  }
-
-  const clearSearch = () => {
-    clearTimeout(searchTimer.current)
-    setSearchQuery('')
-    setSearchResults(null)
-  }
+    // `setBookFilter` is a useSessionState setter, rebuilt every render; the
+    // defaultApplied guard already makes this run exactly once.
+  }, [bookFiltersLoaded, defaultApplied, defaultBookFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A variant link changed. Refetch, then follow the promotion: the newly
   // promoted copy is the row that exists now, so the editor re-opens on it

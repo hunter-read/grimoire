@@ -94,7 +94,9 @@ export function useUploadQueue({ onFileDone } = {}) {
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.send(form)
     },
-    [patch]
+    // `send` calls `pump` when a transfer finishes and `pump` depends on
+    // `send`: the two are mutually recursive, so neither can list the other.
+    [patch] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Start as many queued uploads as the concurrency budget allows.

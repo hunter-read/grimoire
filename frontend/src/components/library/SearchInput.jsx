@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX } from 'react-icons/lu'
 
 /**
@@ -6,6 +7,7 @@ import { LuSearch, LuX } from 'react-icons/lu'
  * filter modal for the media galleries.
  */
 export default function SearchInput({ value, onChange, placeholder, ariaLabel, style }) {
+  const { t } = useTranslation()
   return (
     <div style={{ position: 'relative', ...style }}>
       <LuSearch
@@ -39,7 +41,7 @@ export default function SearchInput({ value, onChange, placeholder, ariaLabel, s
         <button
           type="button"
           onClick={() => onChange('')}
-          aria-label="Clear search"
+          aria-label={t('common.clearSearch')}
           style={{
             position: 'absolute',
             right: 8,

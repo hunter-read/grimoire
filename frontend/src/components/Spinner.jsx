@@ -1,4 +1,7 @@
+import { useTranslation } from 'react-i18next'
+
 export default function Spinner({ size = 24 }) {
+  const { t } = useTranslation()
   return (
     <svg
       width={size}
@@ -6,7 +9,7 @@ export default function Spinner({ size = 24 }) {
       viewBox="0 0 24 24"
       style={{ animation: 'pulse 1s infinite' }}
       role="status"
-      aria-label="Loading"
+      aria-label={t('common.loading')}
     >
       <circle
         cx="12"

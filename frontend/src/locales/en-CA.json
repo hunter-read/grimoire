@@ -93,7 +93,9 @@
     "select": "Select",
     "archive": "Archive",
     "archiveNotViewable": "This is an archive file and cannot be previewed. Download it to open its contents.",
-    "versions": "Versions"
+    "versions": "Versions",
+    "clearSearch": "Clear search",
+    "removeLink": "Remove link"
   },
   "login": {
     "username": "Username",
@@ -2852,5 +2854,13 @@
     "chooseCharacter": "Choose a character",
     "chooseCharacterHint": "Whose token this becomes in {{name}}.",
     "frameVersions": "Versions"
+  },
+  "richText": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "strikethrough": "Strikethrough",
+    "link": "Link",
+    "bulletList": "Bulleted list",
+    "numberedList": "Numbered list"
   }
 }

@@ -4,31 +4,36 @@ import { LuCircleCheck } from 'react-icons/lu'
 import { settings as settingsApi } from '../../api'
 import Spinner from '../Spinner'
 
+// The settings keys themselves are static; only their labels are translated.
+// Keeping the keys out of the component means the load-on-mount effect below
+// has nothing that changes identity every render to depend on.
+const STAT_KEYS = [
+  { key: 'show_stat_systems', labelKey: 'stats.systems' },
+  { key: 'show_stat_books', labelKey: 'stats.books' },
+  { key: 'show_stat_pages', labelKey: 'stats.pages' },
+  { key: 'show_stat_maps', labelKey: 'stats.maps' },
+  { key: 'show_stat_tokens', labelKey: 'stats.tokens' },
+  { key: 'show_stat_audio', labelKey: 'stats.audio' },
+  { key: 'show_stat_models', labelKey: 'stats.models' },
+  { key: 'show_stat_size', labelKey: 'stats.booksSize' },
+  { key: 'show_stat_library_size', labelKey: 'stats.librarySize' },
+]
+
 export default function StatsDisplaySection() {
   const { t } = useTranslation()
   const [values, setValues] = useState(null)
   const [saving, setSaving] = useState(null)
   const [saved, setSaved] = useState(null)
 
-  const STAT_ITEMS = [
-    { key: 'show_stat_systems', label: t('stats.systems') },
-    { key: 'show_stat_books', label: t('stats.books') },
-    { key: 'show_stat_pages', label: t('stats.pages') },
-    { key: 'show_stat_maps', label: t('stats.maps') },
-    { key: 'show_stat_tokens', label: t('stats.tokens') },
-    { key: 'show_stat_audio', label: t('stats.audio') },
-    { key: 'show_stat_models', label: t('stats.models') },
-    { key: 'show_stat_size', label: t('stats.booksSize') },
-    { key: 'show_stat_library_size', label: t('stats.librarySize') },
-  ]
+  const STAT_ITEMS = STAT_KEYS.map(({ key, labelKey }) => ({ key, label: t(labelKey) }))
 
   useEffect(() => {
     settingsApi
       .get()
       .then((d) =>
-        setValues(Object.fromEntries(STAT_ITEMS.map(({ key }) => [key, d[key] ?? false])))
+        setValues(Object.fromEntries(STAT_KEYS.map(({ key }) => [key, d[key] ?? false])))
       )
-      .catch(() => setValues(Object.fromEntries(STAT_ITEMS.map(({ key }) => [key, false]))))
+      .catch(() => setValues(Object.fromEntries(STAT_KEYS.map(({ key }) => [key, false]))))
   }, [])
 
   const toggle = async (key) => {

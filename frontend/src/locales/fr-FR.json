@@ -93,7 +93,9 @@
     "select": "Sélectionner",
     "archive": "Archive",
     "archiveNotViewable": "Ce fichier est une archive et ne peut pas être prévisualisé. Téléchargez-le pour en ouvrir le contenu.",
-    "versions": "Versions"
+    "versions": "Versions",
+    "clearSearch": "Effacer la recherche",
+    "removeLink": "Supprimer le lien"
   },
   "login": {
     "username": "Nom d'utilisateur",
@@ -2852,5 +2854,13 @@
     "chooseCharacter": "Choisir un personnage",
     "chooseCharacterHint": "À qui appartiendra ce pion dans {{name}}.",
     "frameVersions": "Versions"
+  },
+  "richText": {
+    "bold": "Gras",
+    "italic": "Italique",
+    "strikethrough": "Barré",
+    "link": "Lien",
+    "bulletList": "Liste à puces",
+    "numberedList": "Liste numérotée"
   }
 }
