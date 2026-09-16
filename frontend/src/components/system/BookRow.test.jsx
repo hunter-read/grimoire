@@ -124,6 +124,85 @@ describe('BookRow', () => {
     expect(screen.getByText('OCR').title).toBe('Full-text indexed via OCR (scanned pages)')
   })
 
+  // --- partial-OCR badge (issue #450) ---
+  // A book whose pages timed out is still indexed, so the plain green "OCR"
+  // badge made it indistinguishable from a clean read. These cover the split.
+
+  it('shows a read/total OCR badge when pages were skipped', () => {
+    render(
+      <BookRow
+        book={makeBook({
+          indexed: true,
+          index_error: 'ocr',
+          page_count: 206,
+          ocr_pages_skipped: 192,
+        })}
+      />
+    )
+    expect(screen.getByText('OCR 14/206')).toBeInTheDocument()
+  })
+
+  it('does not show the clean "OCR" badge when pages were skipped', () => {
+    render(
+      <BookRow
+        book={makeBook({
+          indexed: true,
+          index_error: 'ocr',
+          page_count: 206,
+          ocr_pages_skipped: 192,
+        })}
+      />
+    )
+    expect(screen.queryByText('OCR')).not.toBeInTheDocument()
+  })
+
+  it('partial-OCR badge tooltip names the count and how to fix it', () => {
+    render(
+      <BookRow
+        book={makeBook({
+          indexed: true,
+          index_error: 'ocr',
+          page_count: 206,
+          ocr_pages_skipped: 192,
+        })}
+      />
+    )
+    const title = screen.getByText('OCR 14/206').title
+    expect(title).toContain('192 of 206')
+    expect(title).toContain('OCR_PAGE_TIMEOUT')
+  })
+
+  it('shows the clean "OCR" badge when no pages were skipped', () => {
+    render(
+      <BookRow
+        book={makeBook({
+          indexed: true,
+          index_error: 'ocr',
+          page_count: 206,
+          ocr_pages_skipped: 0,
+        })}
+      />
+    )
+    expect(screen.getByText('OCR')).toBeInTheDocument()
+  })
+
+  it('treats a missing ocr_pages_skipped as a clean read', () => {
+    // Books indexed before the counter existed have no such field.
+    render(<BookRow book={makeBook({ indexed: true, index_error: 'ocr' })} />)
+    expect(screen.getByText('OCR')).toBeInTheDocument()
+  })
+
+  it('does not report negative pages read when the count exceeds page_count', () => {
+    // page_count can be 0 for a book whose count never got recorded; the badge
+    // must not render "OCR -5/0".
+    render(
+      <BookRow
+        book={makeBook({ indexed: true, index_error: 'ocr', page_count: 0, ocr_pages_skipped: 5 })}
+      />
+    )
+    expect(screen.getByText('OCR 0/0')).toBeInTheDocument()
+  })
+
   // --- index_failed badge ---
 
   it('shows "Index Failed" badge when index_failed is true', () => {

@@ -24,9 +24,11 @@ from . import config
 
 logger = logging.getLogger("grimoire.ocr")
 
-# Per-page OCR budget. Scanned pages are slow; anything beyond this is treated
-# as a hang and abandoned so a single bad page can't stall the whole scan.
-_OCR_TIMEOUT = 120  # seconds
+# Per-page OCR budget, from ``OCR_PAGE_TIMEOUT`` (seconds; 0 = no limit). Read
+# live rather than bound at import so tests — and an operator restarting after a
+# config change — get the current value. Scanned pages are slow; anything beyond
+# the budget is treated as a hang and abandoned so a single bad page can't stall
+# the whole scan.
 
 # Cached result of the tesseract-binary probe (None = not yet probed).
 _available: bool | None = None
@@ -92,8 +94,8 @@ def requeue_image_only_books(session: Session) -> int:
 
     result = session.execute(
         _sql_text(
-            "UPDATE books SET ocr_pending = 1, ocr_pages_done = 0, indexed = 0, "
-            "index_failed = 0, index_error = '' "
+            "UPDATE books SET ocr_pending = 1, ocr_pages_done = 0, ocr_pages_skipped = 0, "
+            "indexed = 0, index_failed = 0, index_error = '' "
             "WHERE index_error = 'image-only'"
         )
     )
@@ -120,20 +122,23 @@ def ocr_image(image: Image.Image, should_stop: Optional[Callable[[], bool]] = No
     Runs in a daemon thread with a timeout so a wedged OCR call can't hang the
     scan. Returns "" on timeout, error, or empty result — never raises.
     """
+    budget = config.OCR_PAGE_TIMEOUT
     result = [None]
     exc = [None]
     t = threading.Thread(target=_ocr_task, args=(image, result, exc), daemon=True)
     t.start()
     poll_interval = 0.5
     elapsed = 0.0
-    while t.is_alive() and elapsed < _OCR_TIMEOUT:
+    # budget <= 0 means "no limit": keep polling so ``should_stop`` is still
+    # honoured, but never give up on the page.
+    while t.is_alive() and (budget <= 0 or elapsed < budget):
         t.join(poll_interval)
         elapsed += poll_interval
         if should_stop and should_stop():
             logger.debug("OCR aborted by stop request")
             return ""
     if t.is_alive():
-        logger.warning(f"Gave up reading a page after {_OCR_TIMEOUT}s - skipping it.")
+        logger.warning(f"Gave up reading a page after {budget:g}s - skipping it.")
         return ""
     if exc[0] is not None:
         logger.warning(f"Couldn't read text from a page: {exc[0]}")

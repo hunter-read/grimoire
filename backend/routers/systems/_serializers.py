@@ -48,6 +48,9 @@ def serialize_book(
         "index_failed": book.index_failed,
         "index_error": book.index_error,
         "ocr_indexed": book.index_error == "ocr",
+        # >0 means the book is indexed but only partly searchable: these pages
+        # exceeded OCR_PAGE_TIMEOUT and their text is missing (issue #450).
+        "ocr_pages_skipped": book.ocr_pages_skipped or 0,
         "ocr_dpi": book.ocr_dpi,
         "has_thumbnail": book.has_thumbnail,
         "tags": tags if tags is not None else [],

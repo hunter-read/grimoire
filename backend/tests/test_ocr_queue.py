@@ -397,3 +397,221 @@ class TestRunOcrQueue:
             assert bad_book.ocr_pending is False
         finally:
             db.close()
+
+
+class TestOcrPageTimeoutConfig:
+    """The per-page budget is read live from config, not frozen at import (#450)."""
+
+    def test_timeout_read_from_config_not_a_constant(self):
+        """A raised OCR_PAGE_TIMEOUT must actually widen the window.
+
+        Regression guard for the original bug: the budget was a module-level
+        constant, so no env var could change it. Here the page stays alive past
+        the old 120s default's worth of polls — with a large budget the loop
+        keeps waiting rather than abandoning it.
+        """
+        from backend import config
+
+        polls = {"n": 0}
+
+        def _alive():
+            polls["n"] += 1
+            # Stay alive for a few polls, then finish.
+            return polls["n"] < 4
+
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 600), \
+             patch("backend.indexer.pickle.load", return_value="slow page text"), \
+             patch("backend.indexer.os.path.getsize", return_value=10), \
+             patch("builtins.open"):
+            proc = MockProc.return_value
+            proc.is_alive.side_effect = _alive
+            proc.exitcode = 0
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 0)
+        assert out == "slow page text"
+        assert out is not indexer.OCR_PAGE_ABANDONED
+
+    def test_timeout_abandons_page_and_flags_it(self):
+        """A page over budget comes back as the abandoned sentinel, not plain ""."""
+        from backend import config
+
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 0.4):
+            proc = MockProc.return_value
+            proc.is_alive.return_value = True  # never finishes
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 0)
+        assert out is indexer.OCR_PAGE_ABANDONED
+        proc.terminate.assert_called()
+
+    def test_zero_budget_never_times_out(self):
+        """0 = no limit: the loop waits for the page instead of abandoning it."""
+        from backend import config
+
+        polls = {"n": 0}
+
+        def _alive():
+            polls["n"] += 1
+            return polls["n"] < 6
+
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 0), \
+             patch("backend.indexer.pickle.load", return_value="eventually"), \
+             patch("backend.indexer.os.path.getsize", return_value=10), \
+             patch("builtins.open"):
+            proc = MockProc.return_value
+            proc.is_alive.side_effect = _alive
+            proc.exitcode = 0
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 0)
+        assert out == "eventually"
+
+    def test_zero_budget_still_honours_stop(self):
+        """No limit must not mean unstoppable."""
+        from backend import config
+
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 0):
+            proc = MockProc.return_value
+            proc.is_alive.return_value = True
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 0, should_stop=lambda: True)
+        assert out == ""
+        assert out is not indexer.OCR_PAGE_ABANDONED  # cancelled, not abandoned
+        proc.terminate.assert_called()
+
+    def test_crash_is_abandoned_not_blank(self):
+        """A crashed worker is a skip too — its text is missing, not absent."""
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch("backend.indexer.os.path.getsize", return_value=0):
+            proc = MockProc.return_value
+            proc.is_alive.return_value = False
+            proc.exitcode = 1
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 0)
+        assert out is indexer.OCR_PAGE_ABANDONED
+
+    def test_sentinel_behaves_as_empty_string(self):
+        """Callers that treat the result as a plain string are unaffected.
+
+        This is what lets the sentinel be introduced without touching every
+        call site: it is falsy, equals "", and concatenates like "".
+        """
+        s = indexer.OCR_PAGE_ABANDONED
+        assert s == ""
+        assert not s
+        assert isinstance(s, str)
+        assert s + "x" == "x"
+        assert len(s) == 0
+
+
+class TestOcrPagesSkipped:
+    """Skipped pages are counted and surfaced rather than silently swallowed (#450)."""
+
+    def test_counts_abandoned_pages(self):
+        """The reported scenario: most pages time out, a few succeed."""
+        bid = _queued_book(page_count=5)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+
+            def _ocr(fp, i, should_stop=None, dpi=None):
+                # Pages 2..5 are the pathological ones.
+                return "text-1" if i == 0 else indexer.OCR_PAGE_ABANDONED
+
+            with patch.object(indexer, "_book_page_count", return_value=5), \
+                 patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=_ocr):
+                assert indexer.ocr_book(book, db) == "done"
+            db.refresh(book)
+            assert book.ocr_pages_skipped == 4
+            assert book.ocr_pages_done == 5  # still advanced, so no re-loop
+            assert book.indexed is True
+        finally:
+            db.close()
+        # Only the page that actually read is searchable.
+        assert _search_pages(bid) == [1]
+
+    def test_blank_page_is_not_counted_as_skipped(self):
+        """A legitimately blank page is not a failure — the distinction the
+        sentinel exists to make."""
+        bid = _queued_book(page_count=3)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+
+            def _ocr(fp, i, should_stop=None, dpi=None):
+                return "" if i == 1 else "text"  # page 2 is blank, not abandoned
+
+            with patch.object(indexer, "_book_page_count", return_value=3), \
+                 patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=_ocr):
+                indexer.ocr_book(book, db)
+            db.refresh(book)
+            assert book.ocr_pages_skipped == 0
+        finally:
+            db.close()
+
+    def test_clean_book_reports_zero_skipped(self):
+        bid = _queued_book(page_count=3)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=3), \
+                 patch.object(
+                     indexer, "ocr_book_page_isolated_wrapper",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
+                 ):
+                indexer.ocr_book(book, db)
+            db.refresh(book)
+            assert book.ocr_pages_skipped == 0
+        finally:
+            db.close()
+
+    def test_skips_accumulate_across_a_resume(self):
+        """A restart mid-book keeps earlier skips, so the count covers the book.
+
+        Without this the counter would report only the final pass and a book
+        resumed near its end would look almost clean.
+        """
+        bid = _queued_book(pages_done=2, page_count=4)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            book.ocr_pages_skipped = 2  # both pages in the earlier pass were skipped
+            db.commit()
+
+            with patch.object(indexer, "_book_page_count", return_value=4), \
+                 patch.object(
+                     indexer, "ocr_book_page_isolated_wrapper",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None: (
+                         indexer.OCR_PAGE_ABANDONED
+                     ),
+                 ):
+                indexer.ocr_book(book, db)
+            db.refresh(book)
+            assert book.ocr_pages_skipped == 4  # 2 carried + 2 new
+        finally:
+            db.close()
+
+    def test_partial_read_is_logged_as_a_warning(self, caplog):
+        """The user-visible half: a partly-read book must not claim to be clean.
+
+        The issue's complaint was that the log said "it's now searchable" while
+        93% of pages were abandoned.
+        """
+        import logging
+
+        bid = _queued_book(page_count=3)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=3), \
+                 patch.object(
+                     indexer, "ocr_book_page_isolated_wrapper",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None: (
+                         indexer.OCR_PAGE_ABANDONED if i else "t"
+                     ),
+                 ), \
+                 caplog.at_level(logging.WARNING, logger="grimoire.indexer"):
+                indexer.ocr_book(book, db)
+        finally:
+            db.close()
+        warned = " ".join(r.message for r in caplog.records if r.levelno >= logging.WARNING)
+        assert "2 of 3" in warned
+        assert "OCR_PAGE_TIMEOUT" in warned
+        assert "it's now searchable" not in warned

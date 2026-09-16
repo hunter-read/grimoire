@@ -1963,6 +1963,8 @@
     "imageOnlyTitle": "Dieses PDF enthält nur gescannte Bilder - keine Textebene zum Durchsuchen",
     "ocrIndexed": "OCR",
     "ocrIndexedTitle": "Volltext per OCR indexiert (gescannte Seiten)",
+    "ocrPartial": "OCR {{read}}/{{total}}",
+    "ocrPartialTitle": "Nur teilweise gelesen: {{skipped}} von {{total}} Seiten wurden übersprungen (sie haben das OCR-Zeitlimit pro Seite überschritten oder sind fehlgeschlagen), ihr Text ist daher nicht durchsuchbar. Meist hilft es, OCR_PAGE_TIMEOUT zu erhöhen und das Buch erneut einzulesen.",
     "indexFailed": "Indizierung fehlgeschlagen",
     "indexFailedTitle": "Indizierung fehlgeschlagen",
     "indexFailedWithError": "Indizierung fehlgeschlagen: {{error}}",

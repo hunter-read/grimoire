@@ -264,6 +264,7 @@ def _apply_legacy_migrations(conn: Connection) -> None:
         "ALTER TABLE books ADD COLUMN ocr_pages_done INTEGER DEFAULT 0",
         "CREATE INDEX IF NOT EXISTS ix_books_ocr_pending ON books(ocr_pending)",
         "ALTER TABLE books ADD COLUMN ocr_dpi INTEGER",
+        "ALTER TABLE books ADD COLUMN ocr_pages_skipped INTEGER DEFAULT 0",
         "ALTER TABLE game_systems ADD COLUMN container_kind VARCHAR(20) DEFAULT ''",
         "ALTER TABLE game_systems ADD COLUMN parent_id VARCHAR(36)",
         "ALTER TABLE game_systems ADD COLUMN name_is_custom BOOLEAN DEFAULT 0",

@@ -111,6 +111,7 @@ def index_book_text(
             )
             book.ocr_pending = True
             book.ocr_pages_done = 0
+            book.ocr_pages_skipped = 0
             book.indexed = False
             book.index_failed = False
             book.index_error = ""
@@ -260,6 +261,7 @@ def reindex_single_book(
     book.index_error = ""
     book.ocr_pending = False
     book.ocr_pages_done = 0
+    book.ocr_pages_skipped = 0
     _commit(session, f"reset index for '{book.filepath}'")
 
     index_book_text(book, data_path, session, should_stop=should_stop)

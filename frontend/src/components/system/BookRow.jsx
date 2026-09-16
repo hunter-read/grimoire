@@ -450,7 +450,7 @@ export default function BookRow({
                   {t('bookRow.indexed')}
                 </span>
               )}
-              {book.indexed && book.index_error === 'ocr' && (
+              {book.indexed && book.index_error === 'ocr' && !book.ocr_pages_skipped && (
                 <span
                   title={t('bookRow.ocrIndexedTitle')}
                   style={{
@@ -463,6 +463,31 @@ export default function BookRow({
                   }}
                 >
                   {t('bookRow.ocrIndexed')}
+                </span>
+              )}
+              {/* Indexed, but pages were abandoned (over the per-page OCR budget,
+                  or the read failed), so some of the text may be missing. Amber
+                  rather than green: the book is searchable but not fully read, and
+                  a green badge here is what made that invisible (issue #450). */}
+              {book.indexed && book.index_error === 'ocr' && book.ocr_pages_skipped > 0 && (
+                <span
+                  title={t('bookRow.ocrPartialTitle', {
+                    skipped: book.ocr_pages_skipped,
+                    total: book.page_count || 0,
+                  })}
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--warning)',
+                    background: 'rgba(200,134,10,0.12)',
+                    padding: '1px 6px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(200,134,10,0.4)',
+                  }}
+                >
+                  {t('bookRow.ocrPartial', {
+                    read: Math.max((book.page_count || 0) - book.ocr_pages_skipped, 0),
+                    total: book.page_count || 0,
+                  })}
                 </span>
               )}
               {book.indexed && book.index_error === 'image-only' && (

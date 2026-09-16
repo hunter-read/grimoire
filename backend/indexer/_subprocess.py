@@ -31,10 +31,28 @@ from .constants import (
     _EXTRACT_TIMEOUT,
     _FITZ_TIMEOUT,
     _MP_CONTEXT,
-    _OCR_PAGE_TIMEOUT,
 )
 
 logger = logging.getLogger("grimoire.indexer")
+
+
+class _AbandonedPage(str):
+    """Marker for a page OCR gave up on, as distinct from one that read blank.
+
+    Subclasses ``str`` (and is falsy, being empty) so every existing caller and
+    test stub that treats the OCR result as a plain string keeps working — it
+    concatenates, compares equal to "", and is skipped by ``if text_out:`` just
+    as a blank page is. Only code that asks ``is OCR_PAGE_ABANDONED`` sees the
+    difference, which is what lets ``ocr_book`` count skipped pages without
+    mistaking a legitimately blank scan for a failure (issue #450).
+    """
+
+    __slots__ = ()
+
+
+# Singleton returned by ``ocr_page_isolated`` when a page times out or its
+# worker crashes. Compare with ``is``, never ``==`` (it equals "").
+OCR_PAGE_ABANDONED = _AbandonedPage()
 
 
 class PdfExtractionCrashError(Exception):
@@ -229,12 +247,17 @@ def ocr_page_isolated(
     should_stop: Optional[Callable[[], bool]] = None,
     dpi: int | None = None,
 ) -> str:
-    """OCR a single page in a spawned child, bounded by ``_OCR_PAGE_TIMEOUT``.
+    """OCR a single page in a spawned child, bounded by ``config.OCR_PAGE_TIMEOUT``.
 
-    Returns the recognised text ("" on timeout, crash, cancel, or empty result —
-    never raises).  Isolation means a native OCR/MuPDF crash or a wedged page
-    kills only this throwaway process; the caller checkpoints the page as done
-    and moves on rather than losing the whole book or crashing the server.
+    Returns the recognised text, or "" when the page is blank or the run was
+    cancelled; never raises.  A page abandoned because it exceeded the budget or
+    because its worker crashed comes back as ``OCR_PAGE_ABANDONED`` — an empty,
+    falsy string subclass, so callers that just want the text are unaffected,
+    while ``ocr_book`` can tell a skipped page from a blank one and count it.
+
+    Isolation means a native OCR/MuPDF crash or a wedged page kills only this
+    throwaway process; the caller checkpoints the page as done and moves on
+    rather than losing the whole book or crashing the server.
 
     ``dpi`` overrides the rasterization resolution (per-book re-OCR); None uses
     the global ``OCR_DPI`` default.
@@ -248,10 +271,13 @@ def ocr_page_isolated(
         args=(filepath, page_index, ocr.effective_languages(), result_path, dpi),
     )
     try:
+        budget = config.OCR_PAGE_TIMEOUT
         proc.start()
         poll_interval = 0.5
         elapsed = 0.0
-        while proc.is_alive() and elapsed < _OCR_PAGE_TIMEOUT:
+        # budget <= 0 means "no limit": keep polling so ``should_stop`` still
+        # cancels, but never abandon the page for taking too long.
+        while proc.is_alive() and (budget <= 0 or elapsed < budget):
             proc.join(poll_interval)
             elapsed += poll_interval
             if should_stop and should_stop():
@@ -260,16 +286,17 @@ def ocr_page_isolated(
                 return ""
         if proc.is_alive():
             logger.error(
-                f"OCR page {page_index + 1} timed out after {_OCR_PAGE_TIMEOUT}s for {filepath}"
+                f"OCR page {page_index + 1} timed out after {budget:g}s for {filepath} - "
+                f"skipping it. Raise OCR_PAGE_TIMEOUT to give slow pages more time."
             )
             proc.terminate()
             proc.join()
-            return ""
+            return OCR_PAGE_ABANDONED
         if os.path.getsize(result_path) == 0:
             logger.error(
                 f"OCR page {page_index + 1} worker crashed (exit {proc.exitcode}) for {filepath}"
             )
-            return ""
+            return OCR_PAGE_ABANDONED
         with open(result_path, "rb") as fh:
             return pickle.load(fh)
     finally:
@@ -313,6 +340,9 @@ def ocr_book(
         return "error"
 
     start = book.ocr_pages_done or 0
+    # Resuming keeps the skips already recorded, so the count is for the whole
+    # book across restarts rather than just this pass.
+    skipped = book.ocr_pages_skipped or 0
     dpi = book.ocr_dpi  # per-book override; None => global OCR_DPI default
     _where = f" (from page {start + 1})" if start else ""
     logger.info(
@@ -339,7 +369,13 @@ def ocr_book(
             logger.debug(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
             return "stopped"
 
-        if text_out:
+        if text_out is OCR_PAGE_ABANDONED:
+            # Timed out or the worker crashed — already logged there. Counted so
+            # the book can report how much of its text is actually missing
+            # instead of claiming a clean read (issue #450).
+            skipped += 1
+            book.ocr_pages_skipped = skipped
+        elif text_out:
             session.execute(
                 text(
                     "INSERT INTO book_search (book_id, page_number, content) "
@@ -358,14 +394,28 @@ def ocr_book(
         if on_page:
             on_page(i + 1, page_count)
 
-    # All pages processed: the book is now fully indexed.  ``index_error='ocr'``
+    # All pages processed: the book is now indexed.  ``index_error='ocr'``
     # badges it in the UI as OCR-sourced (same convention as inline OCR).
     book.ocr_pending = False
     book.indexed = True
     book.index_failed = False
     book.index_error = "ocr"
+    book.ocr_pages_skipped = skipped
     _commit(session, f"ocr done '{book.filepath}'")
-    logger.info(f"Finished reading '{book.title or book.filename}' - it's now searchable.")
+    name = book.title or book.filename
+    if skipped:
+        # Say plainly that the book is only partly readable. Reporting a book as
+        # searchable when most of its pages were abandoned is the failure mode
+        # issue #450 reported — the timeout was tunable, but only once the user
+        # knew it had fired at all, and nothing but container logs said so.
+        logger.warning(
+            f"Finished reading '{name}' - but {skipped} of {page_count} page(s) were skipped "
+            f"(they exceeded OCR_PAGE_TIMEOUT, currently {config.OCR_PAGE_TIMEOUT:g}s, or their "
+            f"worker crashed), so that text is not searchable. If the pages timed out, raise "
+            f"OCR_PAGE_TIMEOUT and re-read the book to recover them."
+        )
+    else:
+        logger.info(f"Finished reading '{name}' - it's now searchable.")
     return "done"
 
 

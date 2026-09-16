@@ -307,3 +307,108 @@ class TestOcrDpiConfig:
     def test_invalid_falls_back(self, monkeypatch):
         monkeypatch.setenv("OCR_DPI", "nope")
         assert config._read_ocr_dpi() == 150.0
+
+
+class TestOcrPageTimeoutConfig:
+    """OCR_PAGE_TIMEOUT — the per-page budget, tunable for slow hardware (#450)."""
+
+    def test_defaults_to_120(self, monkeypatch):
+        monkeypatch.delenv("OCR_PAGE_TIMEOUT", raising=False)
+        assert config._read_ocr_page_timeout() == 120.0
+
+    def test_reads_env(self, monkeypatch):
+        monkeypatch.setenv("OCR_PAGE_TIMEOUT", "600")
+        assert config._read_ocr_page_timeout() == 600.0
+
+    def test_zero_means_no_limit(self, monkeypatch):
+        monkeypatch.setenv("OCR_PAGE_TIMEOUT", "0")
+        assert config._read_ocr_page_timeout() == 0.0
+
+    def test_negative_clamps_to_zero(self, monkeypatch):
+        monkeypatch.setenv("OCR_PAGE_TIMEOUT", "-30")
+        assert config._read_ocr_page_timeout() == 0.0
+
+    def test_invalid_falls_back_to_default(self, monkeypatch):
+        monkeypatch.setenv("OCR_PAGE_TIMEOUT", "soon")
+        assert config._read_ocr_page_timeout() == 120.0
+
+    def test_accepts_fractional_seconds(self, monkeypatch):
+        monkeypatch.setenv("OCR_PAGE_TIMEOUT", "0.5")
+        assert config._read_ocr_page_timeout() == 0.5
+
+
+class TestOcrImageHonoursTimeout:
+    """``ocr_image`` reads the budget live, so a restart picks up a new value."""
+
+    def teardown_method(self):
+        sys.modules.pop("pytesseract", None)
+
+    def test_gives_up_after_configured_budget(self):
+        """A page slower than the budget returns "" rather than blocking forever."""
+        import time
+
+        img = Image.new("RGB", (10, 10), "white")
+
+        def _slow(image, lang=None):
+            time.sleep(30)
+            return "text"
+
+        mod = types.SimpleNamespace(image_to_string=_slow, get_tesseract_version=lambda: "5")
+        # A budget under one poll interval makes the loop exit on its first pass.
+        with patch.dict(sys.modules, {"pytesseract": mod}), \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 0.4):
+            started = time.monotonic()
+            assert ocr.ocr_image(img) == ""
+            # Bounded by the budget, not by the 30s sleep.
+            assert time.monotonic() - started < 10
+
+    def test_raised_budget_lets_a_slow_page_finish(self):
+        """The whole point of the env var: a page that needs longer now succeeds.
+
+        The same page under a sub-second budget returns "" (previous test); with
+        a generous budget it reads normally.
+        """
+        import time
+
+        img = Image.new("RGB", (10, 10), "white")
+
+        def _slowish(image, lang=None):
+            time.sleep(1.2)
+            return "recovered"
+
+        mod = types.SimpleNamespace(image_to_string=_slowish, get_tesseract_version=lambda: "5")
+        with patch.dict(sys.modules, {"pytesseract": mod}), \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 30):
+            assert ocr.ocr_image(img) == "recovered"
+
+    def test_zero_budget_waits_for_a_slow_page(self):
+        """0 = no limit: the page is never abandoned for taking too long."""
+        import time
+
+        img = Image.new("RGB", (10, 10), "white")
+
+        def _slowish(image, lang=None):
+            time.sleep(1.2)
+            return "patient"
+
+        mod = types.SimpleNamespace(image_to_string=_slowish, get_tesseract_version=lambda: "5")
+        with patch.dict(sys.modules, {"pytesseract": mod}), \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 0):
+            assert ocr.ocr_image(img) == "patient"
+
+    def test_zero_budget_still_honours_stop(self):
+        """No limit must not mean unstoppable — a stop request still aborts."""
+        import time
+
+        img = Image.new("RGB", (10, 10), "white")
+
+        def _slow(image, lang=None):
+            time.sleep(30)
+            return "text"
+
+        mod = types.SimpleNamespace(image_to_string=_slow, get_tesseract_version=lambda: "5")
+        with patch.dict(sys.modules, {"pytesseract": mod}), \
+             patch.object(config, "OCR_PAGE_TIMEOUT", 0):
+            started = time.monotonic()
+            assert ocr.ocr_image(img, should_stop=lambda: True) == ""
+            assert time.monotonic() - started < 10

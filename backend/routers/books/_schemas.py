@@ -206,6 +206,8 @@ class BookDetail(BaseModel):
     index_failed: Optional[bool] = None
     ocr_indexed: bool
     ocr_pending: bool
+    # Pages OCR gave up on (exceeded OCR_PAGE_TIMEOUT); 0 for a clean read.
+    ocr_pages_skipped: int = 0
     ocr_dpi: Optional[int] = None
     is_missing: bool
     mime_type: Optional[str] = None

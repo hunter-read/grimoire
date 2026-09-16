@@ -112,6 +112,7 @@ def _handle_replaced_book(ctx: _ScanContext, book: Book, filepath: str, filename
     book.scan_failed = False
     book.ocr_pending = False
     book.ocr_pages_done = 0
+    book.ocr_pages_skipped = 0
     ctx.stats["replaced_books"] = ctx.stats.get("replaced_books", 0) + 1
 
 

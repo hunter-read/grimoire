@@ -160,6 +160,7 @@ def get_book(
         "index_failed": book.index_failed,
         "ocr_indexed": book.index_error == "ocr",
         "ocr_pending": bool(book.ocr_pending),
+        "ocr_pages_skipped": book.ocr_pages_skipped or 0,
         "ocr_dpi": book.ocr_dpi,
         "is_missing": bool(book.is_missing),
         "mime_type": book.mime_type,
@@ -331,6 +332,7 @@ def reindex_book(
     book.ocr_dpi = ocr_dpi  # None => global default
     book.ocr_pending = True
     book.ocr_pages_done = 0
+    book.ocr_pages_skipped = 0
     book.indexed = False
     book.index_failed = False
     book.index_error = ""

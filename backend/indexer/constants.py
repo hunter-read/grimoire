@@ -17,10 +17,12 @@ _DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treat
 # to stall the scan forever.
 _EXTRACT_TIMEOUT = 1800  # seconds (30 min)
 
-# Per-page OCR budget for the deferred-OCR worker.  OCR is checkpointed per page,
-# so the whole-book budget no longer applies to scanned PDFs — only a single
-# wedged page is abandoned after this, and the book continues to the next page.
-_OCR_PAGE_TIMEOUT = 120  # seconds
+# The per-page OCR budget for the deferred-OCR worker is not a constant: it is
+# ``config.OCR_PAGE_TIMEOUT`` (env var ``OCR_PAGE_TIMEOUT``, seconds, 0 = no
+# limit), read live at the call site in _subprocess.py so one setting governs
+# both the deferred and the inline OCR path (issue #450). OCR is checkpointed
+# per page, so the whole-book budget no longer applies to scanned PDFs — only a
+# single wedged page is abandoned, and the book continues to the next page.
 
 # Spawn (not fork) a fresh interpreter for the extraction worker.  The app runs
 # many threads and holds a SQLite connection; forking that state into a child

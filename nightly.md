@@ -1184,6 +1184,7 @@ an example runs it.
 | `OCR_LANGUAGES` | `eng` | Optional. Tesseract language codes for OCR, e.g. `eng` or `eng+deu+fra`. Extra languages require their tessdata files to be present (see [OCR](#ocr)). |
 | `OCR_CONCURRENCY` | `1` | Optional. Number of scanned books OCR'd in parallel by the background OCR worker. Raise on multi-core hosts with spare CPU; keep at `1` on small boxes. Set to `0` to turn OCR off (same as `OCR_ENABLED=false`). See [OCR performance](#ocr-performance--resource-tuning). |
 | `OCR_DPI` | `150` | Optional. Resolution scanned pages are rasterized at before OCR (clamped 72–600). Higher = more accurate but slower and more memory per page. See [OCR performance](#ocr-performance--resource-tuning). |
+| `OCR_PAGE_TIMEOUT` | `120` | Optional. Seconds a single page may take to OCR before it is skipped and the book moves on. Raise it on slow hardware, where a dense scan can legitimately need several minutes per page. `0` means no limit. See [OCR performance](#ocr-performance--resource-tuning). |
 | `OPDS_ENABLED` | `false` | Optional, Set to `true` to enable the OPDS catalog. See [OPDS](#opds) below. |
 | `BACKUP_DIR` | `DATA_PATH/backups` | Optional. Where backup archives are written. Point this at another mounted volume to keep backups off the main disk. When set, the field is read-only in Settings → Maintenance. See [Backups](#backups) below. |
 | `BACKUP_SCHEDULE` | `off` | Optional. `off`, `hourly`, `daily`, or `weekly`. When set, pins the backup schedule and the control is shown read-only in the UI. See [Backups](#backups) below. |
@@ -1278,8 +1279,15 @@ Scanning a large book takes a while, and it happens quietly in the background - 
 - **`OCR_CONCURRENCY`** - how many scanned books to work on at once. The default is `1`, which is gentle on small devices. If you're running on a machine with several CPU cores and plenty of memory to spare, raising this (e.g. `2`–`8`) processes books in parallel and gets through the queue faster. On a small device like a Raspberry Pi, leave it at `1`. Set it to `0` to turn OCR off entirely - handy if OCR keeps failing or running your machine out of memory and you just want it to stop, without switching to the slim image.
   - Each parallel worker uses roughly 50–250 MB of RAM depending on the pdf page image size, so make sure you have that much to spare per unit, and don't set it higher than the number of CPU cores (virtual/hyper-threaded cores count) or the workers just compete for the same processors without going any faster.
 - **`OCR_DPI`** - how sharp the scanned pages are rendered before reading them (default `150`). Lowering it (e.g. `120`) makes OCR faster and lighter; raising it (e.g. `200`–`300`) can improve results on faint or low-quality scans at the cost of speed. Note: OCR scanned books can be individually rescaned at a higher DPI if needed from the application.
+- **`OCR_PAGE_TIMEOUT`** - how long a single page may take before Grimoire gives up on it and moves to the next one (default `120` seconds). This exists so one pathological page can't stall a book forever, but how long a page takes depends on how *dense and noisy* the scan is far more than how big it is: on a low-power CPU an ordinary page might read in 13 seconds while a cramped, speckled one needs four minutes. When that happens the slow pages are skipped and their text never becomes searchable. If your logs mention pages being skipped, or a book is badged **OCR 14/206**, raise this (e.g. `600`) and re-read the book. Raising it costs nothing when pages finish quickly - it is a ceiling, not a delay. Set it to `0` for no limit at all, if you would rather wait indefinitely than lose text.
 
 A rough guide: a small always-on device (like a Pi) is happiest at the defaults; a typical NAS can handle `OCR_CONCURRENCY=2`; a powerful desktop or server can go higher. It's safe to start low and raise it later - the queue just continues faster.
+
+#### When a book is only partly read
+
+A scanned book that OCR'd cleanly is badged **OCR**. If some of its pages were skipped - they took longer than `OCR_PAGE_TIMEOUT`, or reading them failed - it is badged **OCR 14/206** instead: amber, and showing how many pages were actually read. Those pages are not in the search index, so searching the book will quietly miss that text.
+
+The fix is to give the slow pages more time: raise `OCR_PAGE_TIMEOUT` (see [OCR performance](#ocr-performance--resource-tuning)), restart, then re-read the book from its actions menu (**⋮** → **Re-OCR…**). Skipped pages are also logged as warnings when the book finishes, so `docker logs grimoire` will name them.
 
 #### Re-OCR a single book at a higher DPI
 

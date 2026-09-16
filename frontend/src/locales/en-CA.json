@@ -1963,6 +1963,8 @@
     "imageOnlyTitle": "This PDF contains only scanned images - no text layer to search",
     "ocrIndexed": "OCR",
     "ocrIndexedTitle": "Full-text indexed via OCR (scanned pages)",
+    "ocrPartial": "OCR {{read}}/{{total}}",
+    "ocrPartialTitle": "Only partly read: {{skipped}} of {{total}} pages were skipped (they took longer than the per-page OCR limit, or failed), so their text is not searchable. Raising OCR_PAGE_TIMEOUT and re-reading the book usually recovers them.",
     "indexFailed": "Index Failed",
     "indexFailedTitle": "Index failed",
     "indexFailedWithError": "Index failed: {{error}}",

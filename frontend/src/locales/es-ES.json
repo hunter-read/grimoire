@@ -1963,6 +1963,8 @@
     "imageOnlyTitle": "Este PDF contiene solo imágenes escaneadas: no hay capa de texto para buscar",
     "ocrIndexed": "OCR",
     "ocrIndexedTitle": "Indexado en texto completo mediante OCR (páginas escaneadas)",
+    "ocrPartial": "OCR {{read}}/{{total}}",
+    "ocrPartialTitle": "Leído solo parcialmente: se omitieron {{skipped}} de {{total}} páginas (superaron el límite de tiempo de OCR por página, o fallaron), por lo que su texto no se puede buscar. Normalmente se recuperan aumentando OCR_PAGE_TIMEOUT y volviendo a leer el libro.",
     "indexFailed": "Error de indexación",
     "indexFailedTitle": "Error de indexación",
     "indexFailedWithError": "Error de indexación: {{error}}",

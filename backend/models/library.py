@@ -185,6 +185,13 @@ class Book(Base):
     # hours of work. See docs/architecture.md and backend/indexer.ocr_book_page.
     ocr_pending = Column(Boolean, default=False, index=True)
     ocr_pages_done = Column(Integer, default=0)
+    # Pages the OCR worker gave up on — exceeded OCR_PAGE_TIMEOUT or crashed the
+    # isolated worker. Counted separately from ocr_pages_done (which advances for
+    # skipped pages too, so the book never re-loops on one bad page) because a
+    # book with skips is indexed but only partly searchable, and nothing else
+    # distinguishes it from a clean read. Surfaced via the API so the UI can badge
+    # it and the user can raise the timeout and re-read. See issue #450.
+    ocr_pages_skipped = Column(Integer, default=0)
     # Optional per-book OCR resolution override (DPI). NULL means "use the global
     # OCR_DPI default". Set when a user re-OCRs a specific book at a higher DPI
     # for a sharper read than the library-wide default gives; persisted so the

@@ -43,6 +43,7 @@ VALKEY_URL = os.environ.get("VALKEY_URL", "")
 #                     Setting it to 0 disables OCR entirely (same effect as
 #                     OCR_ENABLED=false) — a runtime off switch for users hitting
 #                     repeated OCR errors or OOMs, without pulling the slim image.
+#   OCR_PAGE_TIMEOUT — per-page OCR budget in seconds (see _read_ocr_page_timeout).
 OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
 OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
 
@@ -135,6 +136,28 @@ def _read_ocr_dpi() -> float:
 
 
 OCR_DPI = _read_ocr_dpi()
+
+
+#   OCR_PAGE_TIMEOUT — wall-clock budget for OCR'ing a single page, in seconds.
+#             A page that exceeds it is abandoned and the book continues to the
+#             next one, so a pathological page can't stall a book forever. The
+#             default suits typical hardware, but OCR cost is driven by page
+#             *complexity* far more than page size: a dense, noisy scan can take
+#             minutes on a low-power CPU where an ordinary page takes seconds
+#             (issue #450). On such hardware the budget is what separates "slow
+#             but fine" from "abandoned", so it is tunable rather than fixed.
+#             Raising it costs nothing when pages finish early — it is a
+#             ceiling, not a delay. 0 means no limit: a wedged page then blocks
+#             its book's OCR indefinitely, so it is for operators who would
+#             rather wait than lose text.
+def _read_ocr_page_timeout() -> float:
+    try:
+        return max(0.0, float(os.environ.get("OCR_PAGE_TIMEOUT", "120")))
+    except ValueError:
+        return 120.0
+
+
+OCR_PAGE_TIMEOUT = _read_ocr_page_timeout()
 
 
 #   PAGE_RECLAIM_INTERVAL — how many page rasterizations to run between memory

@@ -1963,6 +1963,8 @@
     "imageOnlyTitle": "Este PDF contém apenas imagens digitalizadas - sem camada de texto para buscar",
     "ocrIndexed": "OCR",
     "ocrIndexedTitle": "Indexado em texto completo via OCR (páginas digitalizadas)",
+    "ocrPartial": "OCR {{read}}/{{total}}",
+    "ocrPartialTitle": "Lido apenas parcialmente: {{skipped}} de {{total}} páginas foram ignoradas (excederam o limite de tempo de OCR por página, ou falharam), portanto seu texto não é pesquisável. Normalmente elas são recuperadas aumentando OCR_PAGE_TIMEOUT e relendo o livro.",
     "indexFailed": "Falha na indexação",
     "indexFailedTitle": "Falha na indexação",
     "indexFailedWithError": "Falha na indexação: {{error}}",

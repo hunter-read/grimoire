@@ -1963,6 +1963,8 @@
     "imageOnlyTitle": "Ce PDF ne contient que des images numérisées - aucune couche de texte consultable",
     "ocrIndexed": "OCR",
     "ocrIndexedTitle": "Indexé en texte intégral via OCR (pages numérisées)",
+    "ocrPartial": "OCR {{read}}/{{total}}",
+    "ocrPartialTitle": "Lu partiellement : {{skipped}} pages sur {{total}} ont été ignorées (elles ont dépassé la limite de temps OCR par page, ou ont échoué), leur texte n'est donc pas consultable. Augmenter OCR_PAGE_TIMEOUT puis relire le livre permet généralement de les récupérer.",
     "indexFailed": "Échec d'indexation",
     "indexFailedTitle": "Échec de l'indexation",
     "indexFailedWithError": "Échec de l'indexation : {{error}}",

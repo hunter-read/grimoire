@@ -1963,6 +1963,8 @@
     "imageOnlyTitle": "Deze pdf bevat alleen gescande afbeeldingen - geen tekstlaag om te doorzoeken",
     "ocrIndexed": "OCR",
     "ocrIndexedTitle": "Volledig geïndexeerd via OCR (gescande pagina's)",
+    "ocrPartial": "OCR {{read}}/{{total}}",
+    "ocrPartialTitle": "Slechts gedeeltelijk gelezen: {{skipped}} van {{total}} pagina's zijn overgeslagen (ze duurden langer dan de OCR-tijdslimiet per pagina, of mislukten), waardoor hun tekst niet doorzoekbaar is. Meestal helpt het om OCR_PAGE_TIMEOUT te verhogen en het boek opnieuw in te lezen.",
     "indexFailed": "Indexering mislukt",
     "indexFailedTitle": "Indexering mislukt",
     "indexFailedWithError": "Indexering mislukt: {{error}}",

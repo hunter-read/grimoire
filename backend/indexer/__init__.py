@@ -120,6 +120,7 @@ from .hashing import (  # noqa: E402,F401
 
 # --- Isolated extraction / OCR -------------------------------------------------
 from ._subprocess import (  # noqa: E402,F401
+    OCR_PAGE_ABANDONED,
     PdfExtractionCrashError,
     _book_page_count,
     _commit,

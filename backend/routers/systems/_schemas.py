@@ -176,6 +176,9 @@ class BookOut(VariantCountMixin, BaseModel):
     index_error: Optional[str] = None
     # Derived comparison, so always a concrete bool.
     ocr_indexed: bool
+    # Pages OCR gave up on; 0 for a clean read. Always concrete (serializer
+    # coalesces NULL), so the UI can compare it without a null guard.
+    ocr_pages_skipped: int = 0
     ocr_dpi: Optional[int] = None
     has_thumbnail: Optional[bool] = None
     tags: list[str]
