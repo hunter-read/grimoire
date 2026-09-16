@@ -19,8 +19,8 @@ from ...indexer.constants import CONTAINER_MARKERS, NSFW_MARKER
 from ...models.campaigns import Campaign
 from ...models.library import Book, GameSystem
 from . import folders
-from .constants import _THUMB_SECTIONS, LibraryFSError
-from .moves import _records_under, _section_for_model, _thumb_files_for
+from .constants import FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
+from .moves import _folder_rel, _records_under, _section_for_model, _thumb_files_for
 from .paths import (
     assert_writable,
     collection_of,
@@ -30,7 +30,7 @@ from .paths import (
     sidecars_for,
     to_relative,
 )
-from .references import purge_references
+from .references import purge_references, purge_system_references
 
 
 def _purge_derived(db: Session, model: Any, record: Any) -> None:
@@ -212,6 +212,26 @@ def _delete_file(db: Session, target: Path) -> dict:
     return {"path": to_relative(target), "records": records, "files": 1}
 
 
+def _purge_folders(db: Session, target: Path) -> int:
+    """Remove folder-tag rows for ``target`` and everything beneath it.
+
+    ``_records_under`` only knows about path-keyed *file* rows, so deleting a
+    directory used to leave its folder row behind — a folder the tags view still
+    listed, and still offered as a group, for a directory that no longer existed
+    (issue #445). Book folders are keyed by ``{system_id}/{category}/…`` rather
+    than a disk path and are collected by the orphan sweep instead.
+    """
+    section, rel = _folder_rel(target)
+    folder_model = FOLDER_MODELS.get(section)
+    if folder_model is None or not rel:
+        return 0
+    return (
+        db.query(folder_model)
+        .filter((folder_model.path == rel) | (folder_model.path.startswith(rel + "/")))
+        .delete(synchronize_session=False)
+    )
+
+
 def _delete_folder_tree(db: Session, target: Path) -> dict:
     """Delete a folder and everything beneath it, with its records.
 
@@ -227,6 +247,7 @@ def _delete_folder_tree(db: Session, target: Path) -> dict:
     # restore, leaving books that still exist with no cover until a rescan.
     purgeable = [(model, record) for model, record, _ in affected]
     records = _delete_records(db, affected, purge=False)
+    _purge_folders(db, target)
 
     try:
         shutil.rmtree(target)
@@ -338,6 +359,9 @@ def _unindex_system_row(db: Session, target: Path) -> int:
     if db.query(Campaign).filter_by(system_id=system.id).count():
         logger.info("Unindex: keeping system '%s' - a campaign references it", system.name)
         return 0
+    # No books remain, but the system row itself may still be tagged or
+    # favorited, and those references carry no foreign key (issue #445).
+    purge_system_references(db, system.id)
     db.delete(system)
     logger.info("Unindex: removed system '%s'", system.name)
     return 1

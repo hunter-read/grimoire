@@ -138,3 +138,33 @@ describe('TagDetail download (issue #401)', () => {
     expect(screen.getByLabelText('Delete tag')).toBeInTheDocument()
   })
 })
+
+describe('TagDetail section headings (issue #445)', () => {
+  // The headings used to be built as `tags.${type}s`, which produces
+  // `tags.audios` and `tags.models` — neither of which exists in any locale, so
+  // those two sections rendered their own key instead of a name.
+  it.each([
+    ['audio', 'audio-card', 'Audio'],
+    ['model', 'model-card', 'Models'],
+  ])('names the %s section rather than printing its key', (type, testId, heading) => {
+    renderDetail({ items: [{ item_type: type, item_id: 'x1' }] })
+    expect(screen.getByTestId(testId)).toBeInTheDocument()
+    expect(screen.getByText(heading)).toBeInTheDocument()
+    expect(screen.queryByText(/^tags\./)).not.toBeInTheDocument()
+  })
+
+  it('still names the sections that already worked', () => {
+    renderDetail({
+      items: [
+        { item_type: 'system', item_id: 's1' },
+        { item_type: 'book', item_id: 'b1' },
+        { item_type: 'map', item_id: 'm1' },
+        { item_type: 'token', item_id: 't1' },
+      ],
+    })
+    for (const heading of ['Systems', 'Books', 'Maps', 'Tokens']) {
+      expect(screen.getByText(heading)).toBeInTheDocument()
+    }
+    expect(screen.queryByText(/^tags\./)).not.toBeInTheDocument()
+  })
+})

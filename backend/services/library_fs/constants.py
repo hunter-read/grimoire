@@ -5,12 +5,21 @@ creating a cycle back through the package ``__init__``.
 """
 from typing import Any
 
-from ...models.collections import models_by_section, thumb_sections
+from ...models.collections import (
+    folder_models_by_section,
+    models_by_section,
+    thumb_sections,
+)
 
 
 # The indexed collections, and the model that owns each one. Keyed by the
 # top-level library folder so a caller can go from a path straight to its model.
 COLLECTIONS: dict[str, Any] = models_by_section()
+
+# The folder-tag table for each collection, keyed the same way. Folder rows are
+# addressed by path rather than id, so a move or rename has to rewrite them
+# explicitly — see ``_relink_folders`` (issue #445).
+FOLDER_MODELS: dict[str, Any] = folder_models_by_section()
 
 # Where each collection's rendered thumbnails live under DATA_PATH/thumbnails/.
 # Derived from the registry rather than listed here: a collection that renders a

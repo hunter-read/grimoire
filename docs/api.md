@@ -835,6 +835,16 @@ the user's own file and is still honoured as written — can still be fetched,
 renamed, merged, and deleted. Percent-encode the key (`storage%2Fbox1`) as
 `encodeURIComponent` does.
 
+**What `count` counts.** `count` is the number of *items carrying the tag* — the
+same population `GET /api/tags/:internal/items` returns, so the two always agree
+(issue #445). Specifically it counts rows that still exist and that the library
+actually browses: a link whose resource has since been deleted is not counted,
+and a file [filed under a parent as a variant](#duplicates-admin-only) is counted
+once, under its parent, exactly as it is hidden in listings and search. A tag
+whose every carrier is gone reports `count: 0` rather than a figure with nothing
+behind it. Folder-derived coverage is added on top, by the items each tagged
+folder covers.
+
 Tag object shape: `{internal, display, category}` (list/item endpoints also include
 `count`; the list adds `is_favorite`). A tag's **category** is the single resource
 type it is used on (`system`/`book`/`map`/`token`/`audio`), or `shared` once it spans
@@ -1675,7 +1685,7 @@ identifying the file — `filepath`, `filename`, `relative_path`, `content_hash`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk |
+| `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk. Also collects rows that outlived what they described: folder-tag rows whose directory is gone, tag links whose resource is gone, and tags left with no links at all. Returns a per-collection count plus `systems`, `folders`, and `tag_links` |
 | `/api/maintenance/sidecars/settings` | GET | Read metadata sidecar export settings |
 | `/api/maintenance/sidecars/settings` | PUT | Configure sidecar export (`formats`, `covers`, `overwrite_foreign`) |
 | `/api/maintenance/sidecars/export` | POST | Write metadata sidecars for the whole library |

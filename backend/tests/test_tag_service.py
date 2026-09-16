@@ -30,6 +30,44 @@ def _session():
     return sessionmaker(bind=engine)()
 
 
+def _rows(db, **by_type):
+    """Insert real rows for the given ids, keyed by resource type.
+
+    The lookups under test resolve a tag's links against the resource tables —
+    a link whose row is gone is not a carrier (issue #445) — so a test that
+    tags a bare id string is asserting against a library that does not contain
+    it. ``_rows(db, map=["m1"], book=["b1"])`` gives those ids something to be.
+    """
+    from backend.models import Book, GameSystem, GenericMap, Token
+
+    models = {"map": GenericMap, "token": Token}
+    for rtype, ids in by_type.items():
+        for rid in ids:
+            if rtype == "book":
+                db.add(
+                    Book(
+                        id=rid,
+                        title=rid,
+                        filename=f"{rid}.pdf",
+                        filepath=f"/lib/books/{rid}.pdf",
+                        relative_path=f"books/{rid}.pdf",
+                        category="core",
+                    )
+                )
+            elif rtype == "system":
+                db.add(GameSystem(id=rid, name=rid, slug=rid))
+            else:
+                db.add(
+                    models[rtype](
+                        id=rid,
+                        filename=f"{rid}.png",
+                        filepath=f"/lib/{rtype}s/{rid}.png",
+                        relative_path=f"{rtype}s/{rid}.png",
+                    )
+                )
+    db.flush()
+
+
 class TestNormalization:
     def test_internal_is_lowercased_and_stripped(self):
         assert tag_service.normalize_internal("  Draw Steel  ") == "draw steel"
@@ -146,6 +184,7 @@ class TestBatchAndLookups:
 
     def test_resources_for_tag(self):
         db = _session()
+        _rows(db, map=["m1"], book=["b1"])
         tag_service.set_resource_tags(db, "map", "m1", ["Strahd"])
         tag_service.set_resource_tags(db, "book", "b1", ["Strahd"])
         res = tag_service.resources_for_tag(db, "STRAHD")
@@ -154,6 +193,7 @@ class TestBatchAndLookups:
 
     def test_resources_for_tag_filtered_by_type(self):
         db = _session()
+        _rows(db, map=["m1"], book=["b1"])
         tag_service.set_resource_tags(db, "map", "m1", ["Strahd"])
         tag_service.set_resource_tags(db, "book", "b1", ["Strahd"])
         res = tag_service.resources_for_tag(db, "strahd", resource_type="book")
@@ -165,6 +205,7 @@ class TestBatchAndLookups:
 
     def test_tags_in_use_scoped_to_type_with_counts(self):
         db = _session()
+        _rows(db, map=["m1", "m2"], book=["b1"])
         tag_service.set_resource_tags(db, "map", "m1", ["Forest"])
         tag_service.set_resource_tags(db, "map", "m2", ["Forest"])
         tag_service.set_resource_tags(db, "book", "b1", ["Lore"])
@@ -176,6 +217,7 @@ class TestBatchAndLookups:
 
     def test_tags_in_use_unscoped(self):
         db = _session()
+        _rows(db, map=["m1"], book=["b1"])
         tag_service.set_resource_tags(db, "map", "m1", ["Forest"])
         tag_service.set_resource_tags(db, "book", "b1", ["Lore"])
         internals = {t["internal"] for t in tag_service.tags_in_use(db)}

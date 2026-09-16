@@ -200,6 +200,18 @@ def models_by_section() -> Dict[str, Any]:
     return {spec.section: spec.model for spec in COLLECTIONS.values()}
 
 
+def folder_models_by_section() -> Dict[str, Any]:
+    """``{"maps": MapFolder, ...}`` — the folder-tag table for each collection.
+
+    Folder rows are keyed by *path*, not by id, which is what makes them the one
+    kind of row a move or rename cannot carry along for free (issue #445): the
+    file rows beneath a renamed directory are relinked by id, while the folder's
+    own row keeps pointing at a path that no longer exists, stranding its tags.
+    Derived here so the relink path cannot miss a collection added later.
+    """
+    return {spec.section: spec.folder_model for spec in COLLECTIONS.values()}
+
+
 def thumb_sections() -> Dict[str, str]:
     """``{section: thumb_dir}`` for collections that write thumbnails to disk.
 

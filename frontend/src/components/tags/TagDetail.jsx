@@ -20,6 +20,19 @@ const CARD_FOR_TYPE = {
 
 const TYPE_ORDER = ['system', 'book', 'map', 'token', 'audio', 'model']
 
+// The i18n key for each section heading, written out rather than built as
+// `tags.${type}s`. That naive plural produced `tags.audios` and `tags.models`,
+// neither of which exists in any locale, so those two headings silently rendered
+// their own key (issue #445). A lookup fails loudly in review instead.
+const TITLE_KEY_FOR_TYPE = {
+  system: 'tags.systems',
+  book: 'tags.books',
+  map: 'tags.maps',
+  token: 'tags.tokens',
+  audio: 'tags.audio',
+  model: 'tags.models',
+}
+
 /**
  * Detail pane for a selected tag: header (favorite/rename/delete), then a
  * collapsible section per resource type. Each section shows that type's
@@ -207,7 +220,7 @@ export default function TagDetail({
             <TagTypeSection
               key={type}
               type={type}
-              title={t(`tags.${type}s`)}
+              title={t(TITLE_KEY_FOR_TYPE[type])}
               items={items}
               folders={folders}
               renderItem={(item, grid) => <Card key={item.item_id} item={item} grid={grid} />}

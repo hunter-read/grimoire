@@ -23,7 +23,7 @@ from ...config import THUMB_DIR, logger
 from ...services import library_fs  # package namespace, for patch-sensitive calls
 from ...indexer.categories import slugify
 from ...models.library import Book
-from .constants import COLLECTIONS, _THUMB_SECTIONS, LibraryFSError
+from .constants import COLLECTIONS, FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .paths import (
     assert_writable,
     collection_of,
@@ -495,6 +495,8 @@ def _move_one(
         for model, record, old_path in affected:
             new_path = dest / Path(old_path).relative_to(src) if was_dir else dest
             library_fs._relink(db, model, record, Path(new_path))
+        if was_dir:
+            _relink_folders(db, src, dest)
     except Exception:
         # The DB could not be brought in line with the disk. Put the file back so
         # the two agree, rather than leaving rows pointing at a path that moved.
@@ -543,6 +545,82 @@ def _records_under(db: Session, path: Path) -> list[tuple[Any, Any, str]]:
     return [(model, r, r.filepath) for r in rows]
 
 
+def _folder_rel(path: Path) -> tuple[str, str]:
+    """``(section, collection-relative path)`` for a library directory.
+
+    Media folder rows store their path relative to the *collection* dir
+    (``Battlemaps/Swamps``, not ``maps/Battlemaps/Swamps``), so the section head
+    has to come off before the row can be matched.
+    """
+    section = collection_of(path) or ""
+    rel = to_relative(path)
+    return section, rel.split("/", 1)[1] if "/" in rel else ""
+
+
+def _relink_folders(db: Session, src: Path, dest: Path) -> int:
+    """Carry folder-tag rows from ``src`` onto ``dest``, including descendants.
+
+    The file rows under a renamed directory are relinked by id, but a folder's
+    own row is addressed by path, so nothing carried it and its tags silently
+    stopped applying to everything inside — while the row itself lived on as a
+    folder the tags view still listed but that no longer existed on disk. That is
+    both halves of issue #445's folder symptom.
+
+    Book folders are deliberately untouched: a ``BookFolder.path`` is
+    ``{system_id}/{category}/…`` rather than a disk path, so it is unaffected by
+    a rename that keeps the book in the same system and category, and a rename
+    that does not is resolved by the placement logic on the relinked rows.
+
+    A destination row may already exist (renaming onto a path some earlier scan
+    recorded); its tags absorb the source's rather than colliding on the unique
+    path, and the now-redundant source row is dropped.
+    """
+    section, src_rel = _folder_rel(src)
+    _, dest_rel = _folder_rel(dest)
+    folder_model = FOLDER_MODELS.get(section)
+    if folder_model is None or not src_rel:
+        return 0
+
+    # The folder itself plus everything beneath it: a rename moves the whole
+    # subtree, so a tagged child folder has to travel too.
+    rows = (
+        db.query(folder_model)
+        .filter(
+            (folder_model.path == src_rel) | (folder_model.path.startswith(src_rel + "/"))
+        )
+        .all()
+    )
+    if not rows:
+        return 0
+
+    existing = {
+        f.path: f
+        for f in db.query(folder_model)
+        .filter(
+            (folder_model.path == dest_rel)
+            | (folder_model.path.startswith(dest_rel + "/"))
+        )
+        .all()
+    }
+
+    changed = 0
+    for row in rows:
+        suffix = row.path[len(src_rel):]
+        new_path = dest_rel + suffix
+        clash = existing.get(new_path)
+        if clash is not None and clash is not row:
+            merged = list(clash.tags or [])
+            for tag in row.tags or []:
+                if tag not in merged:
+                    merged.append(tag)
+            clash.tags = merged
+            db.delete(row)
+        else:
+            row.path = new_path
+        changed += 1
+    return changed
+
+
 def rename_path(db: Session, target: str, new_name: str) -> dict:
     """Rename a file or folder in place, relinking every record beneath it.
 
@@ -589,6 +667,8 @@ def rename_path(db: Session, target: str, new_name: str) -> dict:
         for model, record, old_path in affected:
             new_path = dest / Path(old_path).relative_to(src) if was_dir else dest
             library_fs._relink(db, model, record, Path(new_path))
+        if was_dir:
+            _relink_folders(db, src, dest)
         db.commit()
     except Exception:
         db.rollback()

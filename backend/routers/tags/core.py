@@ -7,7 +7,6 @@ user (explicit items are filtered per-user); mutations require gm/admin.
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
@@ -86,13 +85,10 @@ def list_tags(
     if in_use_by is not None:
         shared = tag_service.tags_in_use(db, in_use_by)
     else:
-        # All shared tags (used or not), with usage counts.
-        counts = {
-            row[0]: row[1]
-            for row in db.query(ResourceTag.tag_id, func.count(ResourceTag.id))
-            .group_by(ResourceTag.tag_id)
-            .all()
-        }
+        # All shared tags (used or not), with usage counts. The counts come from
+        # the same live-resource resolution ``/items`` uses, so a tag whose
+        # carriers are gone reads 0 here rather than counting dead links.
+        counts = tag_service.live_link_counts(db)
         shared = [
             {
                 "internal": t.internal,

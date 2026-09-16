@@ -23,7 +23,7 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from ...models.collections import iter_specs
-from ...models import Book, CampaignResource, Favorite, ResourceTag
+from ...models import Book, CampaignResource, Favorite, GameSystem, ResourceTag
 from ...models.users import Bookmark
 from .moves import _section_for_model
 
@@ -40,7 +40,17 @@ _ITEM_TYPES: dict[str, str] = {
 
 
 def item_type_for(model: Any) -> str:
-    """The polymorphic type string for ``model``, or "" when it has none."""
+    """The polymorphic type string for ``model``, or "" when it has none.
+
+    ``GameSystem`` is not a collection — it owns no files and has no folder table
+    — but it *is* tagged and favorited under ``resource_type="system"``, so it
+    needs the same cleanup as the collections. Left out, the cascade behind
+    ``GameSystem.books`` deleted a whole shelf while every tag link on it and its
+    books survived, which is what made a tag count rows that no longer existed
+    (issue #445).
+    """
+    if model is GameSystem:
+        return "system"
     return _ITEM_TYPES.get(_section_for_model(model), "")
 
 
@@ -79,6 +89,19 @@ def purge_references(db: Session, model: Any, record_id: str) -> None:
         .all()
     ):
         db.delete(resource)
+
+
+def purge_system_references(db: Session, system_id: str) -> None:
+    """:func:`purge_references` for a system *and* every book it will cascade to.
+
+    ``GameSystem.books`` is ``cascade="all, delete-orphan"``, so deleting a
+    system deletes its books through the ORM rather than through the delete paths
+    that know to clean up after them. Each book's references have to be collected
+    here, before the cascade fires, or they outlive the row that explained them.
+    """
+    for (book_id,) in db.query(Book.id).filter(Book.game_system_id == system_id).all():
+        purge_references(db, Book, book_id)
+    purge_references(db, GameSystem, system_id)
 
 
 def reference_counts(db: Session, model: Any, record_id: str) -> dict[str, int]:
