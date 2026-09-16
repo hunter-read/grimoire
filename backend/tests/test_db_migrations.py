@@ -7,10 +7,20 @@ import json
 import os
 import tempfile
 
+from alembic import command
 from sqlalchemy import create_engine, inspect, text
 
 from backend.models.base import Base
-from backend.models.db import _alembic_config, init_db, _normalize_tags_in_db
+from backend.models.db import (
+    _alembic_config,
+    _mis_stamped_columns,
+    init_db,
+    _normalize_tags_in_db,
+)
+
+# The root revision (baseline schema); the state an old pre-Alembic install is
+# brought to before the post-baseline revisions run.
+_BASELINE = "96c733b7c205"
 
 
 def _alembic_head(path):
@@ -333,6 +343,103 @@ class TestAlembicCutover:
                 text("SELECT name FROM game_systems WHERE id='gs1'")
             ).scalar() == "Sys"
         assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_pre_alembic_db_still_runs_post_baseline_revisions(self):
+        """A pre-Alembic DB gets the columns added *after* the baseline.
+
+        Regression: the cutover used to stamp straight at head, which recorded
+        every revision as applied without running any of them. A genuinely old
+        database (one whose schema stops at the baseline, rather than the
+        already-current DB the other cutover tests use) came out missing every
+        column added since — the first one the scanner touched blew up with
+        "no such column: game_systems.folder_cover_path".
+        """
+        # A DB at exactly the baseline schema, with no alembic_version: what an
+        # old install looks like on disk.
+        path = os.path.join(tempfile.mkdtemp(), "old.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), _BASELINE)
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO game_systems (id, name, slug) VALUES ('gs1', 'Sys', 'sys')")
+            )
+            conn.execute(text("DROP TABLE alembic_version"))
+        engine.dispose()
+
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        cols = {c["name"] for c in inspect(engine).get_columns("game_systems")}
+        # Added by 0007, long after the baseline.
+        assert "folder_cover_path" in cols
+        # Data survived the cutover, and the DB is genuinely at head.
+        with engine.connect() as conn:
+            assert conn.execute(
+                text("SELECT name FROM game_systems WHERE id='gs1'")
+            ).scalar() == "Sys"
+        assert _stamped_revision(path) == _alembic_head(path)
+        assert _mis_stamped_columns(engine) == {}
+
+    def test_db_mis_stamped_at_head_is_repaired(self):
+        """A DB already broken by the old cutover repairs itself on next boot.
+
+        Installs that upgraded before the fix are stamped at head with columns
+        missing, so Alembic considers them done and does nothing. Startup has to
+        notice the schema does not match and re-run the skipped revisions.
+        """
+        path = os.path.join(tempfile.mkdtemp(), "misstamped.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), _BASELINE)
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO game_systems (id, name, slug) VALUES ('gs1', 'Sys', 'sys')")
+            )
+        # The old bug's exact signature: recorded at head, schema at baseline.
+        with engine.connect() as conn:
+            command.stamp(_alembic_config(conn), "head")
+        engine.dispose()
+
+        engine = create_engine(f"sqlite:///{path}")
+        assert "folder_cover_path" not in {
+            c["name"] for c in inspect(engine).get_columns("game_systems")
+        }
+        engine.dispose()
+
+        init_db(path)
+        init_db(path)  # repair must be idempotent, not re-run every boot
+
+        engine = create_engine(f"sqlite:///{path}")
+        assert "folder_cover_path" in {
+            c["name"] for c in inspect(engine).get_columns("game_systems")
+        }
+        assert _mis_stamped_columns(engine) == {}
+        assert _stamped_revision(path) == _alembic_head(path)
+        with engine.connect() as conn:
+            assert conn.execute(
+                text("SELECT name FROM game_systems WHERE id='gs1'")
+            ).scalar() == "Sys"
+
+    def test_db_behind_head_is_not_rewound(self):
+        """A DB legitimately stamped behind head upgrades forward as usual.
+
+        The repair only applies to a DB claiming to be at head; one that is
+        merely out of date must not have its stamp rewound to the baseline.
+        """
+        path = os.path.join(tempfile.mkdtemp(), "behind.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), _BASELINE)
+        engine.dispose()
+
+        assert _stamped_revision(path) == _BASELINE
+
+        init_db(path)
+
+        engine = create_engine(f"sqlite:///{path}")
+        assert _stamped_revision(path) == _alembic_head(path)
+        assert _mis_stamped_columns(engine) == {}
 
     def test_baseline_upgrade_and_downgrade(self):
         """The baseline revision upgrades to head and downgrades back to base.

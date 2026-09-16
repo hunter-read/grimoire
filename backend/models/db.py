@@ -373,13 +373,77 @@ def _alembic_config(connection: Connection) -> Any:
     return cfg
 
 
+def _baseline_revision(cfg: Any) -> str:
+    """The id of the root revision (the one with no down_revision).
+
+    Looked up from the script directory rather than hardcoded, so the cutover
+    keeps working if the migration history is ever squashed to a new baseline.
+    """
+    from alembic.script import ScriptDirectory
+
+    bases = ScriptDirectory.from_config(cfg).get_bases()
+    if len(bases) != 1:
+        # A branched history has no single baseline to stamp; refuse rather than
+        # guess, since picking the wrong one corrupts the upgrade path.
+        raise RuntimeError(f"Expected exactly one base revision, found {len(bases)}: {bases}")
+    return bases[0]
+
+
+def _stamped_at_head(engine: Engine) -> bool:
+    """True if the database's recorded revision is the migration head."""
+    from alembic.script import ScriptDirectory
+
+    with engine.connect() as conn:
+        heads = set(ScriptDirectory.from_config(_alembic_config(conn)).get_heads())
+        try:
+            stamped = {
+                r[0] for r in conn.execute(text("SELECT version_num FROM alembic_version"))
+            }
+        except OperationalError:
+            return False
+    return bool(stamped) and stamped == heads
+
+
+def _mis_stamped_columns(engine: Engine) -> dict[str, set[str]]:
+    """Columns the ORM expects that the database does not actually have.
+
+    A database mis-stamped at head by the old cutover (see ``_apply_migrations``)
+    claims every revision is applied while missing the columns those revisions
+    add. Comparing the live schema against the ORM metadata is how that is
+    detected; on a healthy database this finds nothing.
+
+    Only tables the ORM knows about are compared, and only missing columns are
+    reported — extra columns (from a downgrade, or a newer build rolled back)
+    are left alone.
+    """
+    insp = inspect(engine)
+    present = set(insp.get_table_names())
+    missing: dict[str, set[str]] = {}
+    for name, table in Base.metadata.tables.items():
+        if name not in present:
+            continue
+        actual = {c["name"] for c in insp.get_columns(name)}
+        gap = {c.name for c in table.columns} - actual
+        if gap:
+            missing[name] = gap
+    return missing
+
+
 def _apply_migrations(engine: Engine) -> None:
     """Apply schema migrations via Alembic, handling the pre-Alembic cutover.
 
     - No ``alembic_version`` table but real app tables exist → a database created
       by the old imperative system: replay the legacy migrations one final time
-      to reach the baseline schema, then stamp it at head (do not re-run the
-      baseline, which would try to CREATE existing tables).
+      to reach the baseline schema, stamp it at the *baseline* (not head — the
+      baseline is the only revision that cannot be re-run, since it CREATEs
+      tables that already exist), then upgrade normally so every post-baseline
+      revision still applies. Stamping at head instead would silently skip them
+      all, leaving an upgraded database missing every column added since the
+      baseline (issue: "no such column: game_systems.folder_cover_path").
+    - Already under Alembic but mis-stamped at head by an earlier build of this
+      cutover (schema is missing columns its recorded revision claims to have)
+      → rewind the stamp to the baseline and upgrade, which re-runs the skipped
+      revisions. They are all idempotent, so the ones that did apply are no-ops.
     - Otherwise (fresh/empty DB, or one already under Alembic) → ``upgrade head``.
     """
     from alembic import command
@@ -404,13 +468,46 @@ def _apply_migrations(engine: Engine) -> None:
         with engine.connect() as conn:
             _apply_legacy_migrations(conn)
 
+    # Repair a database the previous cutover stamped at head without actually
+    # running the revisions. Those installs are already upgraded, so the fix
+    # above cannot reach them — without this they stay broken across restarts.
+    # Gated on the database claiming to be at head: a DB stamped at an older
+    # revision is simply behind, and the plain upgrade below applies what it is
+    # missing. Only a DB that says "fully migrated" while missing columns is
+    # mis-stamped, and only that one needs the stamp rewound.
+    needs_repair = False
+    if has_version_table and _stamped_at_head(engine):
+        gaps = _mis_stamped_columns(engine)
+        if gaps:
+            needs_repair = True
+            names = [f"{t}.{c}" for t in sorted(gaps) for c in sorted(gaps[t])]
+            # Dozens of columns can be missing at once (a 1.3.x database is short
+            # 40+), so name a handful and count the rest rather than emitting one
+            # unreadable log line.
+            shown = ", ".join(names[:8])
+            if len(names) > 8:
+                shown += f", and {len(names) - 8} more"
+            logger.warning(
+                "Database records all migrations as applied but is missing %d column(s) "
+                "they add (%s). Re-running migrations to repair it.",
+                len(names),
+                shown,
+            )
+            # Tables added by a skipped revision are missing entirely; the
+            # revisions guard their creates, but create_all is the cheap way to
+            # restore anything whose whole table went missing.
+            Base.metadata.create_all(engine)
+
     # Alembic (via env.py) begins/commits its own transaction on this connection.
     with engine.connect() as conn:
         cfg = _alembic_config(conn)
-        if is_pre_alembic:
-            command.stamp(cfg, "head")
-        else:
-            command.upgrade(cfg, "head")
+        if is_pre_alembic or needs_repair:
+            # Mark the baseline as already applied, then let the rest run. Every
+            # post-baseline revision guards its own changes (checking for the
+            # column/table before adding it), so replaying them over a legacy
+            # schema that already has some of them is a no-op where it overlaps.
+            command.stamp(cfg, _baseline_revision(cfg))
+        command.upgrade(cfg, "head")
 
 
 def _post_migration_setup(engine: Engine) -> None:
