@@ -176,6 +176,19 @@ class TestServeMapFile:
         # An attachment disposition would download the file instead of playing it.
         assert "attachment" not in resp.headers.get("content-disposition", "")
 
+    def test_uvtt_downloads_under_its_own_filename(self, client, admin_headers, uvtt_map):
+        """A .uvtt is only ever downloaded from /file, never viewed from it.
+
+        Without the attachment hint the browser fell back to the URL and the
+        JSON content type and saved "tavern.uvtt" as "file.json" -- which bit
+        whenever a map had both an image and a .uvtt variant.
+        """
+        resp = client.get(f"/api/maps/{uvtt_map.id}/file", headers=admin_headers)
+        assert resp.status_code == 200
+        disposition = resp.headers.get("content-disposition", "")
+        assert "attachment" in disposition
+        assert "tavern.uvtt" in disposition
+
     def test_originals_get_a_short_private_cache(self, client, admin_headers, png_map):
         resp = client.get(f"/api/maps/{png_map.id}/file", headers=admin_headers)
         cache = resp.headers["cache-control"]

@@ -30,7 +30,6 @@ from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, 
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access
 from ._helpers import (
-    _VTT_MIME,
     _is_pdf,
     _map_image_info,
     _map_media_type,
@@ -219,10 +218,14 @@ def serve_map_file(
         media = archive_mime(arc_ext)
     else:
         media = _map_media_type(m.filepath)
-    # Videos and VTT data are viewed in place, so they must not arrive with a
-    # Content-Disposition that makes the browser download them instead. Only the
-    # download-oriented formats keep the filename= attachment hint.
-    inline = media.startswith("video/") or media == _VTT_MIME
+    # Videos are viewed in place (MapVideoPane points a <video src> straight at
+    # this route), so they must not arrive with a Content-Disposition that makes
+    # the browser download them instead. VTT data used to be exempt for the same
+    # reason, but the viewer now reads /vtt/data and /vtt/image instead of the
+    # envelope, so /file is only ever a download for it -- and without the
+    # attachment hint the browser named it from the URL and the JSON type,
+    # saving "tavern.uvtt" as "file.json".
+    inline = media.startswith("video/")
     return FileResponse(
         m.filepath,
         media_type=media,
