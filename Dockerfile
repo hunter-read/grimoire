@@ -105,11 +105,16 @@ COPY backend/ ./backend/
 COPY alembic.ini ./alembic.ini
 # Read and parsed at runtime by /api/changelog for the About dialog.
 COPY CHANGELOG.md ./CHANGELOG.md
+# Fallback version source when the image is built without --build-arg
+# APP_VERSION (the released images always pass it).
+COPY VERSION ./VERSION
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN mkdir -p /data /library
 
-ARG APP_VERSION=dev
+# Empty by default so an image built without --build-arg falls through to the
+# VERSION file copied above rather than reporting a literal "dev".
+ARG APP_VERSION=""
 ARG COMMIT_HASH="dev"
 ENV APP_VERSION=${APP_VERSION}
 ENV COMMIT_HASH=${COMMIT_HASH}

@@ -11,7 +11,30 @@ from sqlalchemy.orm import Session
 
 from .models import init_db
 
-VERSION = os.environ.get("APP_VERSION", "1.0.0")
+# The repo root, two levels up from this file (backend/config.py).
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Ships in the repo, so it is present in a git checkout and in the source
+# tarball GitHub attaches to a release. Kept in step with the tag by a guard in
+# the release workflow.
+_VERSION_FILE = os.path.join(_ROOT, "VERSION")
+
+
+def _version_from_file() -> str:
+    """The release number from the ``VERSION`` file, or ``""`` if unreadable."""
+    try:
+        with open(_VERSION_FILE, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+# The Docker image bakes APP_VERSION in at build time. Everything else - a
+# source checkout, a release tarball run under systemd - has no such env var,
+# so fall back to the file that ships alongside the code. "unknown" is the last
+# resort deliberately: a version-shaped fallback like "1.0.0" names a release
+# that did exist, so a failed lookup would be indistinguishable from an ancient
+# install (issue #457).
+VERSION = os.environ.get("APP_VERSION") or _version_from_file() or "unknown"
 COMMIT_HASH = os.environ.get("COMMIT_HASH", "")
 OPDS_ENABLED = os.environ.get("OPDS_ENABLED", "false").lower() == "true"
 # Public base URL of this instance (e.g. "https://grimoire.example.com").

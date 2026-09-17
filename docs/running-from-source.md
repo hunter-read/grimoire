@@ -16,6 +16,10 @@ For contributor setup (local dev environment, tests, coding standards) see
 docker build --build-arg APP_VERSION=1.5.0 -t grimoire:1.5.0 .
 ```
 
+`APP_VERSION` is what the About dialog reports. Omit it and the build falls back to the
+`VERSION` file in the repo root, which tracks the checked-out release - so a build from a
+release tag is labelled correctly either way.
+
 By default this builds the OCR-capable image (bundles Tesseract). To build the smaller
 slim variant without OCR, target the `slim` stage:
 
@@ -65,6 +69,15 @@ uvicorn backend.main:app --host 0.0.0.0 --port 9481
 ```
 
 Open `http://localhost:9481`. On first launch you'll be prompted to create an admin account.
+
+The About dialog reads its version from the `VERSION` file in the repo root, so a checkout
+or an extracted release tarball reports itself correctly with no extra configuration. If you
+run from a directory where that file is absent, the version shows as `unknown` - set
+`APP_VERSION` to override it:
+
+```bash
+export APP_VERSION=1.7.1
+```
 
 Persistent data and upgrades work the same as under Docker - see
 [Persistent data](../README.md#persistent-data) and [Upgrading](../README.md#upgrading).

@@ -33,6 +33,18 @@ jobs:
           echo "major=$MAJOR"       >> "$GITHUB_OUTPUT"
           echo "minor=$MINOR"       >> "$GITHUB_OUTPUT"
 
+      # The VERSION file is what a non-Docker install reports in the About
+      # dialog (issue #457), and nothing at runtime can detect that it is
+      # stale. Fail the release rather than ship a tarball that misreports
+      # itself - the fix is one commit bumping the file to match the tag.
+      - name: Check VERSION file matches the tag
+        run: |
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [ "$FILE_VERSION" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "::error::VERSION file says '$FILE_VERSION' but the tag says '${{ steps.ver.outputs.version }}'. Bump VERSION and re-tag."
+            exit 1
+          fi
+
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
