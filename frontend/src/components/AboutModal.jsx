@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuExternalLink } from 'react-icons/lu'
+import { LuX, LuExternalLink, LuBookOpen } from 'react-icons/lu'
 import { SiGithub } from 'react-icons/si'
 import api from '../api'
 import ChangelogRelease from './ChangelogRelease'
 
 const GITHUB_REPO_URL = 'https://github.com/hunter-read/grimoire'
+const DOCS_URL = 'https://docs.grimoirecodex.org'
 
 export default function AboutModal({ about, latestVersion, hasUpdate, onClose }) {
   const { t } = useTranslation()
@@ -273,6 +274,28 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
             }}
           >
             <LuExternalLink size={13} /> {t('about.viewRelease')}
+          </a>
+          <a
+            href={DOCS_URL}
+            target="_blank"
+            rel="noreferrer"
+            title={t('about.docs')}
+            aria-label={t('about.docs')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '7px 10px',
+              borderRadius: 6,
+              fontSize: 13,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <LuBookOpen size={16} />
           </a>
           <a
             href={GITHUB_REPO_URL}

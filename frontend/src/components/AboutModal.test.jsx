@@ -113,6 +113,17 @@ describe('AboutModal — rendering', () => {
     expect(link).toHaveAttribute('href', 'https://github.com/hunter-read/grimoire')
   })
 
+  it('renders a documentation link', () => {
+    renderModal()
+    expect(screen.getByRole('link', { name: /documentation/i })).toBeInTheDocument()
+  })
+
+  it('documentation link points to the docs site', () => {
+    renderModal()
+    const link = screen.getByRole('link', { name: /documentation/i })
+    expect(link).toHaveAttribute('href', 'https://docs.grimoirecodex.org')
+  })
+
   it('renders a close button', () => {
     renderModal()
     expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument()

@@ -11,10 +11,12 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Added
 
 - Italian (it-IT) localization
+- Link to the documentation site from the About dialog
 
 ### Fixed
 
 - Non-Docker installs report their real version instead of `1.0.0` in the About dialog
+- Return keyboard focus to the file list after a dialog closes
 
 ## [1.7.1] - 2026-09-16
 
