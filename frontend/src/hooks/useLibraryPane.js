@@ -34,6 +34,11 @@ export function useLibraryPane(initialPath = '') {
   // Where a shift-range measures from. A ref, not state: it only ever changes
   // alongside a selection change that already re-renders.
   const anchor = useRef(null)
+  // The cursor's last known neighbours, recorded while its row is still in the
+  // tree, and whether a cursor that leaves the tree should fall back to one of
+  // them. See the pair of effects below `cursorTo`.
+  const neighbours = useRef(null)
+  const keepCursor = useRef(true)
   // Guards against two loads racing for the same folder (an expand arriving
   // while a refresh is already in flight).
   const inFlight = useRef(new Set())
@@ -109,6 +114,10 @@ export function useLibraryPane(initialPath = '') {
         const next = new Set(prev)
         if (next.has(folderPath)) {
           next.delete(folderPath)
+          // Collapsing hides rows rather than removing them from the tree, so a
+          // cursor inside the subtree has no surviving neighbour to fall back
+          // to — drop it instead of snapping somewhere unrelated.
+          keepCursor.current = false
         } else {
           next.add(folderPath)
         }
@@ -296,14 +305,65 @@ export function useLibraryPane(initialPath = '') {
     [rows]
   )
 
-  // A cursor whose row has left the tree — its parent was collapsed, the file
-  // was moved away, the pane was refreshed — points at nothing. Dropping it is
-  // better than snapping to a neighbour, which moves the user somewhere they did
-  // not ask to go. Collapsing with ArrowLeft sidesteps this by moving the cursor
-  // to the parent *before* it closes.
+  // Record the cursor's neighbours while its row is still in the tree: once the
+  // row has gone, the rows array can no longer answer "what was next to it".
   useEffect(() => {
-    if (cursor && !rows.some((r) => r.entry?.path === cursor)) setCursor(null)
+    const i = rows.findIndex((r) => r.entry?.path === cursor)
+    if (i === -1) return
+    const at = (from, dir) => {
+      for (let j = from; j >= 0 && j < rows.length; j += dir) {
+        if (rows[j].entry) return rows[j].entry.path
+      }
+      return null
+    }
+    // Previous first: a deleted row's predecessor is the one that keeps the
+    // user's place, since everything below has shifted up into the gap.
+    neighbours.current = { prev: at(i - 1, -1), next: at(i + 1, 1) }
   }, [rows, cursor])
+
+  // A cursor whose row has left the tree — the file was renamed, deleted, or
+  // moved away — points at nothing. Land on the nearest surviving neighbour
+  // instead of dropping it: after deleting a file the user is usually deleting
+  // its siblings too, and a dropped cursor sends them back to the top of the
+  // list (issue #460).
+  //
+  // A cursor lost to a *collapse* is the exception — its neighbours are the
+  // collapsed subtree, which is equally gone. `pruneCursor` skips the fallback
+  // for that case, and ArrowLeft sidesteps it entirely by moving the cursor to
+  // the parent before closing.
+  useEffect(() => {
+    if (!cursor || rows.some((r) => r.entry?.path === cursor)) return
+    const { prev, next } = neighbours.current || {}
+    const fallback = keepCursor.current ? prev || next : null
+    keepCursor.current = true
+    // Only the cursor moves. Re-selecting would silently make the next bulk
+    // action act on a row the user never picked.
+    setCursor(fallback && rows.some((r) => r.entry?.path === fallback) ? fallback : null)
+  }, [rows, cursor])
+
+  /** Drop the cursor outright the next time its row leaves the tree. */
+  const pruneCursor = useCallback(() => {
+    keepCursor.current = false
+  }, [])
+
+  // A path the cursor should land on as soon as it exists. A rename replaces the
+  // row rather than removing it, so the neighbour fallback above would leave the
+  // user beside the file they just renamed instead of on it — but the new row
+  // only appears once the refresh lands, which is several renders later.
+  const pending = useRef(null)
+  const cursorWhenReady = useCallback((entryPath) => {
+    pending.current = entryPath
+  }, [])
+
+  useEffect(() => {
+    const target = pending.current
+    if (!target) return
+    if (!rows.some((r) => r.entry?.path === target)) return
+    pending.current = null
+    setCursor(target)
+    setSelected(new Set([target]))
+    anchor.current = target
+  }, [rows])
 
   return {
     path,
@@ -339,6 +399,8 @@ export function useLibraryPane(initialPath = '') {
     selectAll,
     cursor,
     cursorTo,
+    pruneCursor,
+    cursorWhenReady,
     // `writable` for an arbitrary folder, so a drop target deep in the tree can
     // be validated without assuming the root's permissions.
     isWritable: (folderPath) => folders[folderPath]?.writable ?? root?.writable ?? false,

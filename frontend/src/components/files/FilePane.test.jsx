@@ -803,4 +803,17 @@ describe('FilePane keyboard navigation', () => {
     // Row 90 sits at 2700px; a 600px viewport must end just past its bottom.
     expect(screen.getByTestId('file-list-primary').scrollTop).toBe(90 * 30 + 30 - 600)
   })
+
+  it('exposes focus() so a closing dialog can hand the keys back', () => {
+    // Issue #460: after a rename or a delete the list must be drivable again
+    // without clicking into it.
+    const ref = { current: null }
+    render(<FilePane ref={ref} pane={makePane({ rows: keyRows() })} side="primary" />)
+
+    const list = screen.getByTestId('file-list-primary')
+    expect(document.activeElement).not.toBe(list)
+
+    act(() => ref.current.focus())
+    expect(document.activeElement).toBe(list)
+  })
 })

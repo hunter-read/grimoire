@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuChevronRight,
@@ -67,24 +67,27 @@ export function edgeScrollStep(box, clientY, zone = SCROLL_ZONE_PX, step = SCROL
  * in this tree, and rendering them all — each with drag handlers — would stall
  * the main thread on every expand.
  */
-export default function FilePane({
-  pane,
-  side,
-  onDropPaths,
-  onDropFiles,
-  onOpenContext,
-  onClose,
-  onNewFolder,
-  onPickFiles,
-  onScaffold,
-  onPreview,
-  onRename,
-  onDelete,
-  onOpenMetadata,
-  onShowShortcuts,
-  compact = false,
-  fill = false,
-}) {
+const FilePane = forwardRef(function FilePane(
+  {
+    pane,
+    side,
+    onDropPaths,
+    onDropFiles,
+    onOpenContext,
+    onClose,
+    onNewFolder,
+    onPickFiles,
+    onScaffold,
+    onPreview,
+    onRename,
+    onDelete,
+    onOpenMetadata,
+    onShowShortcuts,
+    compact = false,
+    fill = false,
+  },
+  ref
+) {
   const { t } = useTranslation()
   const [dragOver, setDragOver] = useState(null) // entry path being hovered, or '__pane__'
   const [dragging, setDragging] = useState(false)
@@ -264,6 +267,20 @@ export default function FilePane({
     if (pane.cursor == null) return
     scrollRowIntoView(indexOfPath(rows, pane.cursor))
   }, [pane.cursor, rows, scrollRowIntoView])
+
+  // Give the list back the keys after a dialog closes (issue #460). Exposed as a
+  // handle rather than driven by a prop because refocusing is an *event* — it
+  // happens once, when a modal closes — and a boolean prop would have to be set
+  // and unset around it. `preventScroll` because the cursor effect above already
+  // puts the right row on screen; letting the browser scroll to the focused
+  // container as well would jump the list back to wherever it is anchored.
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => scrollRef.current?.focus({ preventScroll: true }),
+    }),
+    [scrollRef]
+  )
 
   /** Move the cursor to a row index, if it exists. */
   const moveTo = useCallback(
@@ -724,7 +741,9 @@ export default function FilePane({
       </div>
     </div>
   )
-}
+})
+
+export default FilePane
 
 // `aria-activedescendant` needs a real element id, and a path is not one — it
 // carries slashes, spaces and whatever else a filename holds. Scoped by side so

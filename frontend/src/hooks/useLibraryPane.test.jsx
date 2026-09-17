@@ -376,10 +376,10 @@ describe('useLibraryPane cursor', () => {
     expect([...result.current.selected]).toEqual(['books/core'])
   })
 
-  it('drops the cursor when its row leaves the tree', async () => {
-    // Collapsing a folder hides the row under the cursor. Dropping it beats
-    // snapping to a neighbour, which moves the user somewhere they never asked
-    // to go.
+  it('drops the cursor when a collapse hides its row', async () => {
+    // A collapsed subtree takes the cursor's neighbours with it, so there is
+    // nothing sensible to fall back to — unlike a delete, where the surviving
+    // sibling is exactly where the user wants to be.
     const { result } = await ready()
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(result.current.rows).toHaveLength(3))
@@ -388,6 +388,70 @@ describe('useLibraryPane cursor', () => {
     expect(result.current.cursor).toBe('books/core/phb.pdf')
 
     act(() => result.current.toggleExpand('books/core'))
+    await waitFor(() => expect(result.current.cursor).toBeNull())
+  })
+
+  it("falls back to the previous row when the cursor's row is deleted", async () => {
+    // Deleting a file and being sent back to the top of the list is the whole
+    // of issue #460: the next delete is usually the sibling right there.
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/loose.pdf'))
+
+    // The file is gone from the server's next listing.
+    filesApi.browse.mockImplementation((p) =>
+      Promise.resolve(p === 'books' ? listing('books', [dir('core', 'books')]) : listing(p, []))
+    )
+    act(() => result.current.refresh())
+
+    await waitFor(() => expect(result.current.cursor).toBe('books/core'))
+    // The cursor moved, but nothing was silently selected in its place.
+    expect(result.current.selected.has('books/core')).toBe(false)
+  })
+
+  it('falls back to the next row when the deleted row was first', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/core'))
+
+    filesApi.browse.mockImplementation((p) =>
+      Promise.resolve(
+        p === 'books' ? listing('books', [file('loose.pdf', 'books')]) : listing(p, [])
+      )
+    )
+    act(() => result.current.refresh())
+
+    await waitFor(() => expect(result.current.cursor).toBe('books/loose.pdf'))
+  })
+
+  it('follows a renamed file to its new path rather than a neighbour', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/loose.pdf'))
+
+    filesApi.browse.mockImplementation((p) =>
+      Promise.resolve(
+        p === 'books'
+          ? listing('books', [dir('core', 'books'), file('renamed.pdf', 'books')])
+          : listing(p, [])
+      )
+    )
+    act(() => result.current.cursorWhenReady('books/renamed.pdf'))
+    act(() => result.current.refresh())
+
+    await waitFor(() => expect(result.current.cursor).toBe('books/renamed.pdf'))
+    // The renamed file is the one thing the user is acting on, so it is selected
+    // too — unlike the delete fallback.
+    expect(result.current.selected.has('books/renamed.pdf')).toBe(true)
+  })
+
+  it('drops the cursor outright when pruneCursor is asked for', async () => {
+    const { result } = await ready()
+    act(() => result.current.cursorTo('books/loose.pdf'))
+
+    filesApi.browse.mockImplementation((p) =>
+      Promise.resolve(p === 'books' ? listing('books', [dir('core', 'books')]) : listing(p, []))
+    )
+    act(() => result.current.pruneCursor())
+    act(() => result.current.refresh())
+
     await waitFor(() => expect(result.current.cursor).toBeNull())
   })
 

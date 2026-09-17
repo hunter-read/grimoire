@@ -75,6 +75,28 @@ export default function FileManagerView() {
   // was there — maps, tokens and audio are managed here too.
   const primary = useLibraryPane('')
   const secondary = useLibraryPane('')
+  // The two panes' imperative handles, and which of them last opened a dialog.
+  // Every modal here is opened from a pane — by a key or by its context menu —
+  // and closing one must hand the keys back to *that* pane rather than to
+  // whichever happens to be first (issue #460).
+  const paneRefs = useRef({})
+  const focusSide = useRef('primary')
+  const paneFor = useCallback(
+    (side) => (side === 'secondary' ? secondary : primary),
+    [primary, secondary]
+  )
+
+  /**
+   * Return the keys to the pane that opened the dialog.
+   *
+   * Deferred a frame: a modal closes by unmounting, and focusing while it is
+   * still on screen loses the race with the browser moving focus to <body> as
+   * the focused element inside it goes away.
+   */
+  const refocusPane = useCallback(() => {
+    const side = focusSide.current
+    requestAnimationFrame(() => paneRefs.current[side]?.focus())
+  }, [])
   // null when only one pane is open; otherwise the edge the second pane is
   // pinned to ('right' | 'left' | 'top' | 'bottom').
   const [split, setSplit] = useState(null)
@@ -169,10 +191,16 @@ export default function FileManagerView() {
   const handleRename = useCallback(
     async (path, newName) => {
       await filesApi.rename(path, newName)
+      // A rename changes the path, which is what the cursor is keyed by, so the
+      // old row leaves the tree and the cursor would land on a neighbour. Ask
+      // the pane to follow the file to its new path instead: the user renamed
+      // *this* file and expects to still be on it (issue #460).
+      const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : ''
+      paneFor(focusSide.current).cursorWhenReady(`${parent}${newName}`)
       refreshAll()
       setFlash({ tone: 'ok', text: t('files.renamed', { name: newName }) })
     },
-    [refreshAll, t]
+    [paneFor, refreshAll, t]
   )
 
   // The confirmation, the typed-name guard for a non-empty folder, and the call
@@ -424,11 +452,17 @@ export default function FileManagerView() {
   const renderPane = (pane, side) => (
     <FilePane
       key={side}
+      ref={(handle) => {
+        paneRefs.current[side] = handle
+      }}
       pane={pane}
       side={side}
       onDropPaths={runMove}
       onDropFiles={handleExternalDrop}
-      onOpenContext={setContext}
+      onOpenContext={(payload) => {
+        focusSide.current = payload.side
+        setContext(payload)
+      }}
       onNewFolder={(path) =>
         setCreatingIn({
           path,
@@ -442,11 +476,24 @@ export default function FileManagerView() {
       onScaffold={scaffold}
       // The keyboard equivalents of the context menu's entries. The pane knows
       // which row the cursor is on; what to do with it lives here, beside the
-      // state each one opens.
-      onPreview={openPreview}
-      onRename={setRenaming}
-      onDelete={setDeleting}
-      onOpenMetadata={openMetadata}
+      // state each one opens. Each records the pane it came from, so closing
+      // the dialog returns the keys to the tree the user was driving.
+      onPreview={(entry) => {
+        focusSide.current = side
+        openPreview(entry)
+      }}
+      onRename={(entry) => {
+        focusSide.current = side
+        setRenaming(entry)
+      }}
+      onDelete={(entry) => {
+        focusSide.current = side
+        setDeleting(entry)
+      }}
+      onOpenMetadata={(entry) => {
+        focusSide.current = side
+        openMetadata(entry)
+      }}
       onShowShortcuts={() => setShowShortcuts(true)}
       // Both panes are closable once split: the user may want to keep either
       // one, and only offering it on the second forces a re-pin to get there.
@@ -923,7 +970,14 @@ export default function FileManagerView() {
       )}
 
       {renaming && (
-        <RenameModal entry={renaming} onClose={() => setRenaming(null)} onRename={handleRename} />
+        <RenameModal
+          entry={renaming}
+          onClose={() => {
+            setRenaming(null)
+            refocusPane()
+          }}
+          onRename={handleRename}
+        />
       )}
 
       {downloading && (
@@ -935,7 +989,14 @@ export default function FileManagerView() {
       )}
 
       {deleting && (
-        <DeleteModal entry={deleting} onClose={() => setDeleting(null)} onDeleted={handleDeleted} />
+        <DeleteModal
+          entry={deleting}
+          onClose={() => {
+            setDeleting(null)
+            refocusPane()
+          }}
+          onDeleted={handleDeleted}
+        />
       )}
 
       {movingEntries && (
@@ -953,7 +1014,10 @@ export default function FileManagerView() {
         <PreviewModal
           type={previewing.type}
           item={previewing.item}
-          onClose={() => setPreviewing(null)}
+          onClose={() => {
+            setPreviewing(null)
+            refocusPane()
+          }}
         />
       )}
 
@@ -971,9 +1035,16 @@ export default function FileManagerView() {
         <BulkEditModal
           type={editing.type}
           items={[editing.item]}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null)
+            refocusPane()
+          }}
           onSaved={() => {
             setEditing(null)
+            // Saving closes the editor by its own route rather than through
+            // `onClose`, so it has to hand the keys back too — and this is the
+            // common way out of the dialog, not the exception.
+            refocusPane()
             refreshAll()
             setFlash({ tone: 'ok', text: t('files.metadataSaved') })
           }}
