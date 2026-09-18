@@ -2,7 +2,7 @@
 
 A developer-facing map of how Grimoire fits together: what lives where, how a request
 flows end-to-end, how authentication and OIDC work, and how schema changes are applied at
-startup. It complements the high-level overview in [`CLAUDE.md`](../CLAUDE.md) and the
+startup. It complements the high-level overview in the [README](../README.md) and the
 schema reference in [`docs/data-model.md`](data-model.md).
 
 All `file_path` references point at the current code - if you change a module's shape,
@@ -11,7 +11,8 @@ update the matching section here.
 ## Stack
 
 - **Frontend** - React 18 + Vite 6 SPA, React Router v6, React Context (no Redux/Zustand),
-  i18next (EN/DE/FR), Vitest + React Testing Library.
+  i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales),
+  Vitest + React Testing Library.
 - **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search,
   PyMuPDF (`fitz`) for PDF→WebP rendering, PyJWT auth.
 - **Optional** - Valkey/Redis for in-memory page-image caching (falls back to disk).

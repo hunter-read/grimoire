@@ -38,7 +38,7 @@ publishing anything. Two jobs run in parallel:
 **Per-changed-file coverage gate (PRs only):** on pull requests, each job additionally runs
 the coverage check (`npm run coverage:check` / `backend/scripts/check_coverage.py`), which
 diffs against the PR base branch and fails if any new or touched source file is below 80%
-line coverage. See [CLAUDE.md](../CLAUDE.md#testing-conventions) for details.
+line coverage.
 
 ### Coverage badges
 
