@@ -1,6 +1,6 @@
 import { createElement, Fragment, useEffect, useMemo } from 'react'
 import FieldRenderer from './FieldRenderer'
-import { evaluate } from './expressions'
+import { evaluate, isVisible } from './expressions'
 
 /**
  * Renders a schema's `layout_ast` — the parsed, allowlisted form of its
@@ -178,13 +178,38 @@ function renderDirective(node, ctx) {
   const fields = schemaDocument?.fields || {}
   const name = attrs.name
 
+  // `visible_if` hides one directive without wrapping it in a <g-if>, which
+  // reads better for a single field. A broken condition shows the element
+  // rather than hiding it: losing access to your own data is the worse failure.
+  if (!isVisible(attrs.visible_if, context)) return null
+
   switch (node.tag) {
     case 'g-field': {
+      // Inside a <g-repeat>, a name that matches one of the list's columns
+      // addresses this row's cell rather than a field on the character.
+      const scoped = ctx.rowScope?.columns?.[name]
+      if (scoped) {
+        return (
+          <FieldRenderer
+            key={key}
+            name={name}
+            definition={{ ...scoped, ...(attrs.label ? { label: attrs.label } : {}) }}
+            value={ctx.rowScope.row?.[name]}
+            onChange={readOnly ? undefined : (value) => ctx.rowScope.edit(name, value)}
+            readOnly={readOnly || attrs.readonly !== undefined}
+            hideLabel={attrs.label === ''}
+          />
+        )
+      }
+
       const definition = fields[name]
       // A layout naming a field the schema does not declare renders nothing
       // rather than an error box: the schema validator already rejects this at
       // install, so reaching here means a stored document drifted.
       if (!definition) return null
+      // A field declaring its own condition honours it wherever it is drawn, so
+      // a schema does not have to repeat the condition in every layout.
+      if (!isVisible(definition.visible_if, context)) return null
       return (
         <FieldRenderer
           key={key}
@@ -237,19 +262,36 @@ function renderDirective(node, ctx) {
       )
 
     case 'g-repeat': {
-      // Phase 1 has no list fields, so a repeat over a non-list renders nothing.
-      // Phase 2 (#130) gives this real rows to iterate.
-      const rows = data?.[attrs.over]
+      // Iterates a `list` field's rows. A repeat over anything that is not a
+      // list renders nothing rather than erroring — the schema validator has
+      // already checked the field exists.
+      const listName = attrs.over
+      const rows = data?.[listName]
       if (!Array.isArray(rows)) return null
+
+      const listDefinition = fields[listName] || {}
+      const columns = listDefinition.columns || []
+      // Inside a repeat, a <g-field name="qty"/> means *this row's* qty. The
+      // row's columns therefore shadow the character's own fields, and an edit
+      // is written back into the row rather than to a top-level field.
+      const columnsByKey = Object.fromEntries(columns.map((column) => [column.key, column]))
+
       return (
         <Fragment key={key}>
-          {rows.map((row, index) =>
-            renderChildren(node.children, {
+          {rows.map((row, index) => {
+            const editRow = (columnKey, cellValue) => {
+              const next = rows.map((existing, i) =>
+                i === index ? { ...existing, [columnKey]: cellValue } : existing
+              )
+              onChange?.(listName, next)
+            }
+            return renderChildren(node.children, {
               ...ctx,
               key: `${key}-${index}`,
               context: { ...context, ...(row || {}), _index: index },
+              rowScope: { row: row || {}, columns: columnsByKey, edit: editRow },
             })
-          )}
+          })}
         </Fragment>
       )
     }

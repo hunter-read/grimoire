@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "Remove the \"{{name}}\" sheet? Characters using it are kept.",
     "schemaMissing": "Sheet \"{{schema}}\" is not installed",
     "usedByCount": "{{count}} character",
-    "schemaMissingHelp": "The \"{{schema}}\" sheet is not installed, so this character is showing its stored values as-is. Install the sheet again to get the full character sheet back."
+    "schemaMissingHelp": "The \"{{schema}}\" sheet is not installed, so this character is showing its stored values as-is. Install the sheet again to get the full character sheet back.",
+    "addRow": "Add row",
+    "removeRow": "Remove row",
+    "moveRowUp": "Move row up",
+    "moveRowDown": "Move row down",
+    "listEmpty": "Nothing here yet."
   }
 }

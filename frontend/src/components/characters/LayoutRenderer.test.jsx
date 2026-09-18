@@ -160,3 +160,110 @@ describe('LayoutRenderer', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+// --- Phase 2: repeats over list fields, and visible_if ----------------------
+
+describe('LayoutRenderer — Phase 2', () => {
+  const DOC = {
+    fields: {
+      is_caster: { type: 'checkbox', label: 'Caster' },
+      spell_dc: { type: 'number', label: 'Spell DC' },
+      equipment: {
+        type: 'list',
+        columns: [
+          { key: 'name', type: 'text', label: 'Name' },
+          { key: 'qty', type: 'number', label: 'Qty' },
+        ],
+      },
+    },
+    computed: {},
+  }
+
+  const rows = [
+    { name: 'Sword', qty: 1 },
+    { name: 'Rope', qty: 2 },
+  ]
+
+  const renderDoc = (ast, props = {}) =>
+    render(
+      <LayoutRenderer
+        ast={ast}
+        document={DOC}
+        data={{ equipment: rows, is_caster: false }}
+        computed={{}}
+        {...props}
+      />
+    )
+
+  it('repeats its contents once per row', () => {
+    renderDoc([
+      {
+        tag: 'g-repeat',
+        attrs: { over: 'equipment' },
+        children: [{ tag: 'g-field', attrs: { name: 'name' }, children: [] }],
+      },
+    ])
+    expect(screen.getByDisplayValue('Sword')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Rope')).toBeInTheDocument()
+  })
+
+  it('edits the row a field sits in, not a top-level field', async () => {
+    const onChange = vi.fn()
+    const { default: userEvent } = await import('@testing-library/user-event')
+    renderDoc(
+      [
+        {
+          tag: 'g-repeat',
+          attrs: { over: 'equipment' },
+          children: [{ tag: 'g-field', attrs: { name: 'name' }, children: [] }],
+        },
+      ],
+      { onChange }
+    )
+    await userEvent.type(screen.getByDisplayValue('Rope'), '!')
+    expect(onChange).toHaveBeenCalledWith('equipment', [
+      { name: 'Sword', qty: 1 },
+      { name: 'Rope!', qty: 2 },
+    ])
+  })
+
+  it('renders nothing for a repeat over a field that is not a list', () => {
+    const { container } = renderDoc([
+      { tag: 'g-repeat', attrs: { over: 'spell_dc' }, children: [] },
+    ])
+    expect(container.querySelector('input')).toBeNull()
+  })
+
+  it('honours visible_if on a directive', () => {
+    renderDoc([
+      { tag: 'g-field', attrs: { name: 'spell_dc', visible_if: 'is_caster' }, children: [] },
+    ])
+    expect(screen.queryByLabelText('Spell DC')).not.toBeInTheDocument()
+  })
+
+  it('honours a field’s own visible_if wherever it is drawn', () => {
+    render(
+      <LayoutRenderer
+        ast={[{ tag: 'g-field', attrs: { name: 'spell_dc' }, children: [] }]}
+        document={{
+          ...DOC,
+          fields: { ...DOC.fields, spell_dc: { type: 'number', visible_if: 'is_caster' } },
+        }}
+        data={{ is_caster: false }}
+        computed={{}}
+      />
+    )
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+  })
+
+  it('shows a conditional section when its test passes', () => {
+    renderDoc([
+      {
+        tag: 'g-section',
+        attrs: { title: 'Spells', visible_if: 'is_caster' },
+        children: [{ tag: 'p', children: [{ text: 'magic' }] }],
+      },
+    ])
+    expect(screen.queryByText('magic')).not.toBeInTheDocument()
+  })
+})

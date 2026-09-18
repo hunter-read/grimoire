@@ -206,9 +206,13 @@ def _serialize_character(
         payload["data"] = data
         # Computed values are derived on read, never stored: a corrected formula
         # must fix every character built on it rather than leaving stale numbers.
-        payload["computed"] = (
-            svc.compute_values(_validated_document(schema), data) if schema else {}
-        )
+        # The document is validated once and reused — it is the expensive part.
+        document = _validated_document(schema) if schema else None
+        payload["computed"] = svc.compute_values(document, data) if document else {}
+        # The client evaluates validators too, so the sheet reacts as you type.
+        # The server reports them as well so a caller that is not the sheet — an
+        # export, a future party view — sees the same warnings.
+        payload["validators"] = svc.run_validators(document, data) if document else []
     return payload
 
 

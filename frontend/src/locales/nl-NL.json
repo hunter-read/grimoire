@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "Het blad \"{{name}}\" verwijderen? Personages die het gebruiken blijven behouden.",
     "schemaMissing": "Blad \"{{schema}}\" is niet geïnstalleerd",
     "usedByCount": "{{count}} personage",
-    "schemaMissingHelp": "Het blad \"{{schema}}\" is niet geïnstalleerd, dus de opgeslagen waarden worden ongewijzigd getoond. Installeer het blad opnieuw om het volledige personageblad terug te krijgen."
+    "schemaMissingHelp": "Het blad \"{{schema}}\" is niet geïnstalleerd, dus de opgeslagen waarden worden ongewijzigd getoond. Installeer het blad opnieuw om het volledige personageblad terug te krijgen.",
+    "addRow": "Rij toevoegen",
+    "removeRow": "Rij verwijderen",
+    "moveRowUp": "Rij omhoog",
+    "moveRowDown": "Rij omlaag",
+    "listEmpty": "Nog niets."
   }
 }

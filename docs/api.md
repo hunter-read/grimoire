@@ -1752,7 +1752,8 @@ campaign, which is exactly who wants a character sheet.
 `character_count`, and on detail `document`.
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
-`schema_missing`, `created_at`, `updated_at`, and on detail `data` + `computed`.
+`schema_missing`, `created_at`, `updated_at`, and on detail `data`, `computed`,
+and `validators`.
 
 **Computed values are never stored.** They are evaluated from `data` on every
 read, so correcting a formula in a schema immediately fixes every character
@@ -1781,12 +1782,85 @@ their stored `data` intact. Reinstalling the schema restores the full sheet.
 }
 ```
 
-Field types in this release are `text`, `number`, `textarea`, `checkbox`, and
-`select`. Formulas are a small arithmetic/comparison/logic language with a
-closed function table (`floor`, `ceil`, `round`, `abs`, `min`, `max`, `sum`,
-`len`, `if`, `clamp`, `signed`). They are **parsed, never executed** - there is
-no `eval` anywhere in the engine - and a formula referencing an unknown name is
-rejected at install rather than failing at render.
+Field types are `text`, `number`, `textarea`, `checkbox`, `select`,
+`multiselect`, and `list`. Formulas are a small arithmetic/comparison/logic
+language with a closed function table (`floor`, `ceil`, `round`, `abs`, `min`,
+`max`, `sum`, `len`, `if`, `clamp`, `signed`, plus the list functions below).
+They are **parsed, never executed** - there is no `eval` anywhere in the engine
+- and a formula referencing an unknown name is rejected at install rather than
+failing at render.
+
+#### List fields
+
+A `list` is a repeatable table - equipment, attacks, spell slots. Each column is
+itself a field definition, so a column may be any scalar type (`text`, `number`,
+`checkbox`, `select`, `textarea`) but **not** another list:
+
+```json
+{
+  "equipment": {
+    "type": "list", "label": "Equipment",
+    "columns": [
+      { "key": "name", "type": "text", "label": "Name", "flex": 3 },
+      { "key": "qty", "type": "number", "label": "Qty", "default": 1 },
+      { "key": "equipped", "type": "checkbox", "label": "Eq." }
+    ]
+  }
+}
+```
+
+Every row is rebuilt from the declared columns on save, so a key the schema does
+not define is dropped - the same rule top-level fields follow. A missing cell
+falls back to its column's `default`. A list is capped at 500 rows.
+
+Five functions read across rows, taking the **column name as a string** (a bare
+name would resolve against the character before the function saw it):
+
+| Function | Returns |
+|---|---|
+| `count_where(list, 'col')` | How many rows have that column truthy (or equal to a third argument) |
+| `sum_where(list, 'col')` | Total of that column, optionally filtered: `sum_where(kit, 'qty', 'equipped', true)` |
+| `any_where(list, 'col')` | Whether any row matches |
+| `column(list, 'col')` | Every value of one column, for `sum()`/`min()`/`max()` |
+| `contains(value, x)` | Whether a multiselect holds `x`, or text contains it |
+
+#### Conditional fields - `visible_if`
+
+A field, or a whole `layout` section, may carry a `visible_if` expression and is
+drawn only when it is true. In an HTML layout it is an attribute on `g-field`,
+`g-computed` or `g-section`, alongside the existing `<g-if test="...">`:
+
+```json
+{ "spell_dc": { "type": "number", "label": "Spell DC", "visible_if": "is_caster" } }
+```
+
+A condition that cannot be evaluated **shows** the field. Hiding part of a sheet
+over a broken expression would cost the player access to their own data.
+
+#### Validators
+
+A schema may declare rules that check a character. A rule states what *should*
+be true, so a false result is what gets reported:
+
+```json
+{
+  "validators": [
+    { "rule": "count_where(equipment, 'equipped') <= 2",
+      "severity": "warning",
+      "message": "More equipped than you can carry" }
+  ]
+}
+```
+
+`severity` is `warning` or `error`; `message` is required, because a rule that
+fires without saying why is not actionable. Rules may read fields and computed
+values alike, and are rejected at install if they do not parse or name something
+that does not exist.
+
+Results come back on `GET`/`POST`/`PUT` of a character as `validators[]`, each
+`{rule, message, severity, field}`. **They never block saving.** A sheet
+mid-edit is routinely invalid - you pick the spells before you raise the level
+that allows them - and refusing the write would lose the player's work.
 
 **HTML layouts.** A schema may replace the JSON `layout` with `layout_html`, an
 HTML *template*, plus an optional `styles` block. Both are validated at install
@@ -1802,7 +1876,9 @@ and returned as derived `layout_ast` / `styles_css`:
 ```
 
 Directives are `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
-`g-if`, and `g-repeat`. Everything else is a closed allowlist of structural
+`g-if`, and `g-repeat`. Inside a `g-repeat` over a list field, a `g-field`
+naming one of that list's columns addresses **that row's** cell, so a custom
+layout can draw an editable table of its own. Everything else is a closed allowlist of structural
 tags. **The template never becomes markup**: it is parsed to an AST server-side
 and rendered as React elements, so no schema string ever reaches `innerHTML`.
 Event handlers, `<script>`, `<style>`, `<iframe>`, `<input>` and friends, and

@@ -84,8 +84,17 @@ const FUNCTIONS = {
     return places === 0 ? Math.round(toNumber(v)) : result
   },
   abs: (v) => Math.abs(toNumber(v)),
-  min: (...args) => (args.length ? Math.min(...args.map(toNumber)) : 0),
-  max: (...args) => (args.length ? Math.max(...args.map(toNumber)) : 0),
+  // min/max accept both min(a, b, c) and min(list): `column(equipment, 'qty')`
+  // yields a list, and max(column(...)) should give the largest quantity rather
+  // than the number of rows.
+  min: (...args) => {
+    const flat = flatten(args)
+    return flat.length ? Math.min(...flat.map(toNumber)) : 0
+  },
+  max: (...args) => {
+    const flat = flatten(args)
+    return flat.length ? Math.max(...flat.map(toNumber)) : 0
+  },
   sum: (...args) =>
     args.reduce(
       (total, v) =>
@@ -104,6 +113,52 @@ const FUNCTIONS = {
     const number = toNumber(v)
     return number >= 0 ? `+${number}` : String(number)
   },
+
+  // --- list functions -----------------------------------------------------
+  // A `list` field is a list of row objects, so these read a column out of
+  // every row. The column name arrives as a *string* — count_where(equipment,
+  // 'equipped', true) — because a bare name would resolve against the
+  // character before the function ever saw it.
+  count_where: (rows, column, expected = true) =>
+    listRows(rows).filter((row) => equal(row[String(column)], expected)).length,
+
+  sum_where: (rows, column, where = null, expected = true) => {
+    const key = String(column)
+    const filterKey = where === null || where === undefined ? null : String(where)
+    return listRows(rows).reduce((total, row) => {
+      if (filterKey !== null && !equal(row[filterKey], expected)) return total
+      return total + toNumber(row[key])
+    }, 0)
+  },
+
+  any_where: (rows, column, expected = true) =>
+    listRows(rows).some((row) => equal(row[String(column)], expected)),
+
+  // Every value of one column, for passing to sum()/min()/max().
+  column: (rows, column) => listRows(rows).map((row) => row[String(column)]),
+
+  // Whether a multiselect (or any list) holds a value, or text contains it.
+  contains: (haystack, needle) => {
+    if (Array.isArray(haystack)) return haystack.some((item) => equal(item, needle))
+    if (typeof haystack === 'string') {
+      return haystack.toLowerCase().includes(String(needle).trim().toLowerCase())
+    }
+    return false
+  },
+}
+
+function flatten(values) {
+  const flat = []
+  for (const value of values) {
+    if (Array.isArray(value)) flat.push(...value)
+    else flat.push(value)
+  }
+  return flat
+}
+
+function listRows(value) {
+  if (!Array.isArray(value)) return []
+  return value.filter((row) => row && typeof row === 'object' && !Array.isArray(row))
 }
 
 // --- parser ---------------------------------------------------------------
@@ -354,20 +409,43 @@ export function evaluate(source, context, fallback = 0) {
 // rather than failing to render one.
 const MAX_PASSES = 12
 
-export function computeValues(document, data) {
-  const computed = document?.computed
-  if (!computed || typeof computed !== 'object') return {}
+// What a field reads as when the character has no value for it. A list is an
+// empty list rather than 0, so `len(equipment)` is 0 on a new sheet instead of
+// counting a zero.
+const EMPTY_BY_TYPE = {
+  text: '',
+  textarea: '',
+  select: '',
+  checkbox: false,
+  multiselect: [],
+  list: [],
+}
 
-  const fields = document.fields || {}
+// The value of every field, for evaluating formulas and conditions against.
+export function buildContext(document, data) {
+  const fields = document?.fields || {}
   const context = {}
   for (const [name, definition] of Object.entries(fields)) {
     if (Object.prototype.hasOwnProperty.call(data || {}, name)) context[name] = data[name]
     else if (definition && 'default' in definition) context[name] = definition.default
-    else context[name] = definition?.type === 'text' ? '' : 0
+    else {
+      const type = definition?.type || 'text'
+      context[name] = type in EMPTY_BY_TYPE ? EMPTY_BY_TYPE[type] : 0
+    }
   }
+  // Anything stored that the schema no longer declares still resolves, so a
+  // formula referring to a since-renamed field keeps working until it is fixed.
   for (const [key, value] of Object.entries(data || {})) {
     if (!(key in context)) context[key] = value
   }
+  return context
+}
+
+export function computeValues(document, data) {
+  const computed = document?.computed
+  if (!computed || typeof computed !== 'object') return {}
+
+  const context = buildContext(document, data)
 
   const results = {}
   for (let pass = 0; pass < MAX_PASSES; pass += 1) {
@@ -384,4 +462,66 @@ export function computeValues(document, data) {
     if (!changed) break
   }
   return results
+}
+
+// A sentinel telling "this rule could not be evaluated" apart from "this rule
+// returned something falsey" — the two must not be reported the same way.
+const UNEVALUATED = Symbol('unevaluated')
+
+/**
+ * Evaluate a schema's validators, returning the ones that fired.
+ *
+ * A rule states what *should* be true, so a false result is the problem worth
+ * reporting. A rule that cannot be evaluated is skipped rather than reported:
+ * schema validation rejected unparseable rules at install, so reaching here
+ * means a stored document drifted, and inventing a warning the author never
+ * wrote would be worse than staying quiet.
+ */
+export function runValidators(document, data) {
+  const validators = document?.validators
+  if (!Array.isArray(validators) || !validators.length) return []
+
+  const context = { ...buildContext(document, data), ...computeValues(document, data) }
+
+  const fired = []
+  for (const validator of validators) {
+    if (!validator || typeof validator !== 'object') continue
+    const rule = validator.rule
+    if (typeof rule !== 'string') continue
+    const outcome = evaluate(rule, context, UNEVALUATED)
+    if (outcome === UNEVALUATED || truthy(outcome)) continue
+    fired.push({
+      rule,
+      message: validator.message || '',
+      severity: validator.severity === 'error' ? 'error' : 'warning',
+      field: validator.field ?? null,
+    })
+  }
+  return fired
+}
+
+/**
+ * Which fields a `visible_if` currently shows, keyed by field name.
+ *
+ * Only fields declaring one appear; anything absent is always shown. A
+ * condition that cannot be evaluated shows the field, because hiding part of a
+ * sheet over a broken expression loses the player access to their own data.
+ */
+export function visibleFields(document, data) {
+  const fields = document?.fields || {}
+  const context = { ...buildContext(document, data), ...computeValues(document, data) }
+
+  const result = {}
+  for (const [name, definition] of Object.entries(fields)) {
+    if (definition?.visible_if) {
+      result[name] = !!evaluate(definition.visible_if, context, true)
+    }
+  }
+  return result
+}
+
+// Whether one `visible_if` passes, for a layout section or a directive.
+export function isVisible(condition, context) {
+  if (!condition) return true
+  return !!evaluate(condition, context, true)
 }

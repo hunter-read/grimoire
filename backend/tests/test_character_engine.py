@@ -442,3 +442,293 @@ class TestCoerceValue:
     def test_text_stringifies(self):
         assert svc.coerce_value({"type": "text"}, 5) == "5"
         assert svc.coerce_value({"type": "text"}, None) == ""
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: list / multiselect fields, validators, visible_if
+# ---------------------------------------------------------------------------
+
+
+EQUIPMENT = {
+    "type": "list",
+    "label": "Equipment",
+    "columns": [
+        {"key": "name", "type": "text", "label": "Name", "flex": 3},
+        {"key": "qty", "type": "number", "label": "Qty", "default": 1, "min": 0},
+        {"key": "equipped", "type": "checkbox", "label": "Eq."},
+    ],
+}
+
+
+def _phase2_schema(**overrides):
+    document = {
+        "id": "phase-two",
+        "name": "Phase Two",
+        "fields": {
+            "level": {"type": "number", "label": "Level", "min": 1, "max": 20, "default": 1},
+            "is_caster": {"type": "checkbox", "label": "Caster"},
+            "spell_dc": {"type": "number", "label": "Spell DC", "visible_if": "is_caster"},
+            "languages": {
+                "type": "multiselect",
+                "label": "Languages",
+                "options": ["common", "elvish", "dwarvish"],
+            },
+            "equipment": EQUIPMENT,
+        },
+        "computed": {
+            "carried": {"formula": "sum_where(equipment, 'qty')", "label": "Items carried"},
+        },
+    }
+    document.update(overrides)
+    return document
+
+
+class TestListFields:
+    def test_accepts_a_list_field(self):
+        assert svc.validate_schema(_phase2_schema())
+
+    def test_rejects_a_list_with_no_columns(self):
+        with pytest.raises(svc.SchemaError, match="needs a non-empty 'columns'"):
+            svc.validate_schema(_phase2_schema(fields={"x": {"type": "list"}}))
+
+    def test_rejects_a_column_with_no_key(self):
+        with pytest.raises(svc.SchemaError, match="needs a 'key'"):
+            svc.validate_schema(
+                _phase2_schema(fields={"x": {"type": "list", "columns": [{"type": "text"}]}})
+            )
+
+    def test_rejects_duplicate_column_keys(self):
+        with pytest.raises(svc.SchemaError, match="two columns keyed"):
+            svc.validate_schema(
+                _phase2_schema(
+                    fields={
+                        "x": {
+                            "type": "list",
+                            "columns": [{"key": "a", "type": "text"}, {"key": "a", "type": "text"}],
+                        }
+                    }
+                )
+            )
+
+    def test_rejects_a_nested_list_column(self):
+        """A sheet nesting tables two deep has outgrown being a sheet."""
+        with pytest.raises(svc.SchemaError, match="unknown type 'list'"):
+            svc.validate_schema(
+                _phase2_schema(
+                    fields={"x": {"type": "list", "columns": [{"key": "a", "type": "list"}]}}
+                )
+            )
+
+    def test_rejects_a_select_column_without_options(self):
+        with pytest.raises(svc.SchemaError, match="needs a non-empty 'options'"):
+            svc.validate_schema(
+                _phase2_schema(
+                    fields={"x": {"type": "list", "columns": [{"key": "a", "type": "select"}]}}
+                )
+            )
+
+    def test_coerces_rows_column_by_column(self):
+        rows = svc.coerce_value(EQUIPMENT, [{"name": "Sword", "qty": "2", "equipped": "yes"}])
+        assert rows == [{"name": "Sword", "qty": 2, "equipped": True}]
+
+    def test_fills_missing_cells_from_column_defaults(self):
+        assert svc.coerce_value(EQUIPMENT, [{"name": "Rope"}]) == [
+            {"name": "Rope", "qty": 1, "equipped": False}
+        ]
+
+    def test_drops_keys_the_schema_does_not_declare(self):
+        rows = svc.coerce_value(EQUIPMENT, [{"name": "X", "sneaky": "payload"}])
+        assert "sneaky" not in rows[0]
+
+    def test_drops_rows_that_are_not_objects(self):
+        assert svc.coerce_value(EQUIPMENT, ["nope", 5, None]) == []
+
+    def test_a_non_list_value_becomes_an_empty_list(self):
+        assert svc.coerce_value(EQUIPMENT, "not a list") == []
+
+    def test_caps_the_number_of_rows(self):
+        rows = svc.coerce_value(EQUIPMENT, [{"name": str(i)} for i in range(svc.MAX_ROWS + 50)])
+        assert len(rows) == svc.MAX_ROWS
+
+    def test_clamps_a_column_to_its_bounds(self):
+        assert svc.coerce_value(EQUIPMENT, [{"name": "X", "qty": -5}])[0]["qty"] == 0
+
+    def test_computed_reads_across_rows(self):
+        document = svc.validate_schema(_phase2_schema())
+        data = {"equipment": [{"qty": 2}, {"qty": 3}]}
+        assert svc.compute_values(document, data) == {"carried": 5}
+
+    def test_an_empty_list_reads_as_empty_not_zero(self):
+        """`len(equipment)` must be 0 on a new sheet, not count a zero."""
+        document = svc.validate_schema(
+            _phase2_schema(computed={"count": {"formula": "len(equipment)"}})
+        )
+        assert svc.compute_values(document, {}) == {"count": 0}
+
+
+class TestMultiSelect:
+    def test_rejects_a_multiselect_without_options(self):
+        with pytest.raises(svc.SchemaError, match="needs a non-empty 'options'"):
+            svc.validate_schema(_phase2_schema(fields={"x": {"type": "multiselect"}}))
+
+    def test_keeps_only_declared_options(self):
+        definition = {"type": "multiselect", "options": ["a", "b"]}
+        assert svc.coerce_value(definition, ["a", "zzz"]) == ["a"]
+
+    def test_stores_in_schema_order_not_click_order(self):
+        definition = {"type": "multiselect", "options": ["a", "b", "c"]}
+        assert svc.coerce_value(definition, ["c", "a"]) == ["a", "c"]
+
+    def test_collapses_duplicates(self):
+        definition = {"type": "multiselect", "options": ["a", "b"]}
+        assert svc.coerce_value(definition, ["a", "a", "b"]) == ["a", "b"]
+
+    def test_a_non_list_becomes_empty(self):
+        assert svc.coerce_value({"type": "multiselect", "options": ["a"]}, "a") == []
+
+
+class TestValidators:
+    def _with_validators(self, validators):
+        return svc.validate_schema(_phase2_schema(validators=validators))
+
+    def test_a_passing_rule_does_not_fire(self):
+        document = self._with_validators(
+            [{"rule": "level >= 1", "severity": "error", "message": "Too low"}]
+        )
+        assert svc.run_validators(document, {"level": 5}) == []
+
+    def test_a_failing_rule_fires_with_its_message(self):
+        document = self._with_validators(
+            [{"rule": "level >= 3", "severity": "error", "message": "Too low"}]
+        )
+        fired = svc.run_validators(document, {"level": 1})
+        assert len(fired) == 1
+        assert fired[0]["message"] == "Too low"
+        assert fired[0]["severity"] == "error"
+
+    def test_rules_can_read_lists(self):
+        document = self._with_validators(
+            [
+                {
+                    "rule": "count_where(equipment, 'equipped') <= 2",
+                    "severity": "warning",
+                    "message": "Too much equipped",
+                }
+            ]
+        )
+        data = {"equipment": [{"equipped": True}] * 3}
+        assert svc.run_validators(document, data)[0]["severity"] == "warning"
+        assert svc.run_validators(document, {"equipment": [{"equipped": True}]}) == []
+
+    def test_a_rule_may_read_a_computed_value(self):
+        document = self._with_validators(
+            [{"rule": "carried <= 3", "severity": "warning", "message": "Overloaded"}]
+        )
+        assert svc.run_validators(document, {"equipment": [{"qty": 9}]})
+
+    def test_defaults_to_warning(self):
+        document = self._with_validators([{"rule": "level >= 3", "message": "Hmm"}])
+        assert svc.run_validators(document, {"level": 1})[0]["severity"] == "warning"
+
+    def test_rejects_a_rule_that_does_not_parse(self):
+        with pytest.raises(svc.SchemaError, match="not a valid expression"):
+            self._with_validators([{"rule": "level >=", "message": "x"}])
+
+    def test_rejects_a_rule_naming_an_unknown_field(self):
+        with pytest.raises(svc.SchemaError, match="unknown name"):
+            self._with_validators([{"rule": "nonexistent > 1", "message": "x"}])
+
+    def test_rejects_a_validator_with_no_message(self):
+        with pytest.raises(svc.SchemaError, match="needs a 'message'"):
+            self._with_validators([{"rule": "level >= 1"}])
+
+    def test_rejects_an_unknown_severity(self):
+        with pytest.raises(svc.SchemaError, match="expected 'warning' or 'error'"):
+            self._with_validators(
+                [{"rule": "level >= 1", "message": "x", "severity": "catastrophe"}]
+            )
+
+    def test_rejects_non_list_validators(self):
+        with pytest.raises(svc.SchemaError, match="'validators' must be a list"):
+            svc.validate_schema(_phase2_schema(validators={"rule": "level >= 1"}))
+
+    def test_a_schema_with_no_validators_reports_none(self):
+        assert svc.run_validators(svc.validate_schema(_phase2_schema()), {}) == []
+
+
+class TestVisibleIf:
+    def test_a_field_is_hidden_when_its_condition_is_false(self):
+        document = svc.validate_schema(_phase2_schema())
+        assert svc.visible_fields(document, {"is_caster": False}) == {"spell_dc": False}
+        assert svc.visible_fields(document, {"is_caster": True}) == {"spell_dc": True}
+
+    def test_fields_without_a_condition_are_not_listed(self):
+        document = svc.validate_schema(_phase2_schema())
+        assert set(svc.visible_fields(document, {})) == {"spell_dc"}
+
+    def test_a_condition_may_read_a_computed_value(self):
+        document = svc.validate_schema(
+            _phase2_schema(
+                fields={
+                    **_phase2_schema()["fields"],
+                    "overloaded_note": {"type": "text", "visible_if": "carried > 5"},
+                }
+            )
+        )
+        visible = svc.visible_fields(document, {"equipment": [{"qty": 9}]})
+        assert visible["overloaded_note"] is True
+
+    def test_rejects_a_condition_that_does_not_parse(self):
+        fields = {**_phase2_schema()["fields"], "x": {"type": "text", "visible_if": "1 +"}}
+        with pytest.raises(svc.SchemaError, match="not a valid expression"):
+            svc.validate_schema(_phase2_schema(fields=fields))
+
+    def test_rejects_a_condition_naming_an_unknown_field(self):
+        fields = {**_phase2_schema()["fields"], "x": {"type": "text", "visible_if": "ghost"}}
+        with pytest.raises(svc.SchemaError, match="unknown name"):
+            svc.validate_schema(_phase2_schema(fields=fields))
+
+    def test_a_layout_section_may_carry_a_condition(self):
+        assert svc.validate_schema(
+            _phase2_schema(
+                layout=[{"title": "Spells", "visible_if": "is_caster", "fields": ["spell_dc"]}]
+            )
+        )
+
+    def test_rejects_a_bad_section_condition(self):
+        with pytest.raises(svc.SchemaError, match="unknown name"):
+            svc.validate_schema(
+                _phase2_schema(layout=[{"title": "x", "visible_if": "ghost", "fields": []}])
+            )
+
+
+class TestListExpressions:
+    ROWS = [
+        {"name": "Sword", "qty": 1, "equipped": True},
+        {"name": "Rope", "qty": 2, "equipped": False},
+        {"name": "Torch", "qty": 5, "equipped": True},
+    ]
+
+    @pytest.mark.parametrize(
+        "formula,expected",
+        [
+            ("count_where(kit, 'equipped')", 2),
+            ("count_where(kit, 'equipped', false)", 1),
+            ("sum_where(kit, 'qty')", 8),
+            ("sum_where(kit, 'qty', 'equipped', true)", 6),
+            ("any_where(kit, 'equipped')", True),
+            ("sum(column(kit, 'qty'))", 8),
+            ("max(column(kit, 'qty'))", 5),
+            ("min(column(kit, 'qty'))", 1),
+            ("len(kit)", 3),
+        ],
+    )
+    def test_list_functions(self, formula, expected):
+        assert svc.evaluate(formula, {"kit": self.ROWS}) == expected
+
+    def test_contains_matches_a_multiselect(self):
+        assert svc.evaluate("contains(langs, 'Elvish')", {"langs": ["elvish"]}) is True
+        assert svc.evaluate("contains(langs, 'orcish')", {"langs": ["elvish"]}) is False
+
+    def test_list_functions_tolerate_a_non_list(self):
+        assert svc.evaluate("count_where(kit, 'equipped')", {"kit": "nonsense"}) == 0

@@ -2,8 +2,9 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import FieldRenderer from './FieldRenderer'
 import LayoutRenderer from './LayoutRenderer'
-import { computeValues } from './expressions'
+import { computeValues, runValidators, buildContext, isVisible } from './expressions'
 import { sectionHeading } from './characterStyles'
+import ValidatorMessages from './ValidatorMessages'
 
 /**
  * Draws a character against its schema.
@@ -22,18 +23,33 @@ export default function CharacterSheet({ document: schemaDocument, data, onChang
   const { t } = useTranslation()
   const computed = useMemo(() => computeValues(schemaDocument, data || {}), [schemaDocument, data])
 
+  // Validators run locally so the sheet reacts as you type; the server reports
+  // them too and is the authority. `visible_if` is evaluated against fields and
+  // computed values together, so a block can hinge on a derived number.
+  const validators = useMemo(
+    () => runValidators(schemaDocument, data || {}),
+    [schemaDocument, data]
+  )
+  const context = useMemo(
+    () => ({ ...buildContext(schemaDocument, data || {}), ...computed }),
+    [schemaDocument, data, computed]
+  )
+
   if (!schemaDocument) return null
 
   if (Array.isArray(schemaDocument.layout_ast) && schemaDocument.layout_ast.length) {
     return (
-      <LayoutRenderer
-        ast={schemaDocument.layout_ast}
-        document={schemaDocument}
-        data={data}
-        computed={computed}
-        onChange={onChange}
-        readOnly={readOnly}
-      />
+      <>
+        <ValidatorMessages results={validators} />
+        <LayoutRenderer
+          ast={schemaDocument.layout_ast}
+          document={schemaDocument}
+          data={data}
+          computed={computed}
+          onChange={onChange}
+          readOnly={readOnly}
+        />
+      </>
     )
   }
 
@@ -43,49 +59,59 @@ export default function CharacterSheet({ document: schemaDocument, data, onChang
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {layout.map((section, index) => (
-        <section key={section.title || index}>
-          {section.title ? <h3 style={sectionHeading}>{section.title}</h3> : null}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: 12,
-            }}
-          >
-            {(section.fields || section.rows || []).map((entry) => {
-              const name = typeof entry === 'string' ? entry : entry?.field
-              if (!name) return null
-              const definition = fields[name]
-              if (definition) {
-                return (
-                  <FieldRenderer
-                    key={name}
-                    name={name}
-                    definition={definition}
-                    value={data?.[name]}
-                    onChange={readOnly ? undefined : (value) => onChange?.(name, value)}
-                    readOnly={readOnly}
-                  />
-                )
-              }
-              // A computed value may be placed in the layout too.
-              if (computedDefs[name]) {
-                return (
-                  <FieldRenderer
-                    key={name}
-                    name={name}
-                    definition={{ type: 'text', label: computedDefs[name].label || name }}
-                    value={computed[name]}
-                    readOnly
-                  />
-                )
-              }
-              return null
-            })}
-          </div>
-        </section>
-      ))}
+      <ValidatorMessages results={validators} />
+      {layout.map((section, index) => {
+        // A whole section can hinge on a condition — a spellcasting block for
+        // casters only — so it is checked before anything in it is drawn.
+        if (!isVisible(section.visible_if, context)) return null
+        return (
+          <section key={section.title || index}>
+            {section.title ? <h3 style={sectionHeading}>{section.title}</h3> : null}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: 12,
+              }}
+            >
+              {(section.fields || section.rows || []).map((entry) => {
+                const name = typeof entry === 'string' ? entry : entry?.field
+                if (!name) return null
+                const definition = fields[name]
+                if (definition) {
+                  if (!isVisible(definition.visible_if, context)) return null
+                  // A list wants the full width; a score box does not.
+                  const spanAll = definition.type === 'list' || definition.type === 'textarea'
+                  return (
+                    <div key={name} style={spanAll ? { gridColumn: '1 / -1' } : undefined}>
+                      <FieldRenderer
+                        name={name}
+                        definition={definition}
+                        value={data?.[name]}
+                        onChange={readOnly ? undefined : (value) => onChange?.(name, value)}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  )
+                }
+                // A computed value may be placed in the layout too.
+                if (computedDefs[name]) {
+                  return (
+                    <FieldRenderer
+                      key={name}
+                      name={name}
+                      definition={{ type: 'text', label: computedDefs[name].label || name }}
+                      value={computed[name]}
+                      readOnly
+                    />
+                  )
+                }
+                return null
+              })}
+            </div>
+          </section>
+        )
+      })}
 
       {Object.keys(computedDefs).length > 0 && !layoutMentionsComputed(layout, computedDefs) ? (
         <section>

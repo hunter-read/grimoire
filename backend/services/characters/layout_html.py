@@ -81,13 +81,18 @@ _TAG_ATTRS: dict[str, frozenset] = {
     "td": frozenset({"colspan", "rowspan"}),
     "th": frozenset({"colspan", "rowspan", "scope"}),
     "label": frozenset({"for"}),
-    "g-field": frozenset({"name", "label", "placeholder", "readonly", "variant"}),
-    "g-computed": frozenset({"name", "label", "format", "variant"}),
+    # `visible_if` is the same expression `g-if` takes, as an attribute: it
+    # hides one element without wrapping it, which reads better for a single
+    # field than a <g-if> around it.
+    "g-field": frozenset(
+        {"name", "label", "placeholder", "readonly", "variant", "visible_if"}
+    ),
+    "g-computed": frozenset({"name", "label", "format", "variant", "visible_if"}),
     "g-label": frozenset({"name", "text"}),
     "g-value": frozenset({"name", "format"}),
     "g-repeat": frozenset({"over", "as"}),
     "g-if": frozenset({"test"}),
-    "g-section": frozenset({"title", "name"}),
+    "g-section": frozenset({"title", "name", "visible_if"}),
 }
 
 #: Tags dropped with their contents rather than unwrapped. Keeping a <script>'s

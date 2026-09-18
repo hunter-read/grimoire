@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "Rimuovere la scheda «{{name}}»? I personaggi che la usano vengono conservati.",
     "schemaMissing": "La scheda «{{schema}}» non è installata",
     "usedByCount": "{{count}} personaggio",
-    "schemaMissingHelp": "La scheda «{{schema}}» non è installata, quindi i valori salvati sono mostrati così come sono. Reinstalla la scheda per riavere la scheda completa."
+    "schemaMissingHelp": "La scheda «{{schema}}» non è installata, quindi i valori salvati sono mostrati così come sono. Reinstalla la scheda per riavere la scheda completa.",
+    "addRow": "Aggiungi riga",
+    "removeRow": "Rimuovi riga",
+    "moveRowUp": "Sposta su",
+    "moveRowDown": "Sposta giù",
+    "listEmpty": "Ancora niente."
   }
 }

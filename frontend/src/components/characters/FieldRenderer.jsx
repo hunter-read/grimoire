@@ -1,5 +1,7 @@
 import { useId } from 'react'
 import { fieldInput, fieldLabel } from './characterStyles'
+import ListField from './ListField'
+import MultiSelectField from './MultiSelectField'
 
 /**
  * Renders one field from its schema definition and value.
@@ -25,6 +27,32 @@ export default function FieldRenderer({
   const inputId = useId()
   const type = definition.type || 'text'
   const label = definition.label || name
+
+  // These two render their own label and structure, so they are delegated to
+  // whole rather than wrapped in the scalar field chrome below.
+  if (type === 'list') {
+    return (
+      <ListField
+        name={name}
+        definition={definition}
+        value={value}
+        onChange={onChange}
+        readOnly={readOnly}
+      />
+    )
+  }
+  if (type === 'multiselect') {
+    return (
+      <MultiSelectField
+        name={name}
+        definition={definition}
+        value={value}
+        onChange={onChange}
+        readOnly={readOnly}
+        hideLabel={hideLabel}
+      />
+    )
+  }
 
   const label_el = hideLabel ? null : (
     <label htmlFor={inputId} style={fieldLabel}>

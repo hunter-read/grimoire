@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "Retirer la fiche « {{name}} » ? Les personnages qui l'utilisent sont conservés.",
     "schemaMissing": "La fiche « {{schema}} » n'est pas installée",
     "usedByCount": "{{count}} personnage",
-    "schemaMissingHelp": "La fiche « {{schema}} » n'est pas installée ; les valeurs enregistrées sont donc affichées telles quelles. Réinstallez la fiche pour retrouver la fiche complète."
+    "schemaMissingHelp": "La fiche « {{schema}} » n'est pas installée ; les valeurs enregistrées sont donc affichées telles quelles. Réinstallez la fiche pour retrouver la fiche complète.",
+    "addRow": "Ajouter une ligne",
+    "removeRow": "Supprimer la ligne",
+    "moveRowUp": "Déplacer vers le haut",
+    "moveRowDown": "Déplacer vers le bas",
+    "listEmpty": "Rien pour le moment."
   }
 }

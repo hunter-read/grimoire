@@ -17,12 +17,16 @@ from .layout_html import (
     parse_layout_html,
 )
 from .schema import (
+    COLUMN_TYPES,
     FIELD_TYPES,
+    MAX_ROWS,
     SCHEMA_VERSION,
     SchemaError,
     coerce_value,
     compute_values,
+    run_validators,
     validate_schema,
+    visible_fields,
 )
 from .styles import ALLOWED_PROPERTIES, StylesError, scope_styles
 
@@ -42,6 +46,10 @@ __all__ = [
     "validate_schema",
     "compute_values",
     "coerce_value",
+    "run_validators",
+    "visible_fields",
     "FIELD_TYPES",
+    "COLUMN_TYPES",
+    "MAX_ROWS",
     "SCHEMA_VERSION",
 ]

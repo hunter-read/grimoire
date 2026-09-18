@@ -59,11 +59,23 @@ class CharacterSummary(BaseModel):
     updated_at: Optional[str] = None
 
 
+class ValidatorResult(BaseModel):
+    """One schema validator that fired against a character."""
+
+    rule: str
+    message: str = ""
+    severity: str = "warning"
+    # The field to attach the message to, when the schema names one. Null means
+    # it belongs to the sheet as a whole.
+    field: Optional[str] = None
+
+
 class CharacterDetail(CharacterSummary):
-    """A character with its values and the derived values computed from them."""
+    """A character with its values, derived values, and any validator results."""
 
     data: dict[str, Any] = Field(default_factory=dict)
     computed: dict[str, Any] = Field(default_factory=dict)
+    validators: list[ValidatorResult] = Field(default_factory=list)
 
 
 class CharacterListResponse(BaseModel):

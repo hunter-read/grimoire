@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { evaluate, parse, computeValues, ExpressionError } from './expressions'
+import {
+  evaluate,
+  parse,
+  computeValues,
+  runValidators,
+  visibleFields,
+  isVisible,
+  ExpressionError,
+} from './expressions'
 
 // These mirror backend/tests/test_character_engine.py::TestExpressions. The two
 // evaluators must agree, so the cases are deliberately the same ones.
@@ -136,5 +144,140 @@ describe('computeValues', () => {
 
   it('returns an empty object when there is nothing computed', () => {
     expect(computeValues({ fields: {} }, {})).toEqual({})
+  })
+})
+
+// --- Phase 2: list functions, validators, visibility ------------------------
+// These mirror backend/tests/test_character_engine.py's Phase 2 classes. The
+// two evaluators must agree, so the cases are deliberately the same.
+
+describe('list functions', () => {
+  const rows = [
+    { name: 'Sword', qty: 1, equipped: true },
+    { name: 'Rope', qty: 2, equipped: false },
+    { name: 'Torch', qty: 5, equipped: true },
+  ]
+  const context = { kit: rows, langs: ['common', 'elvish'] }
+
+  it.each([
+    ["count_where(kit, 'equipped')", 2],
+    ["count_where(kit, 'equipped', false)", 1],
+    ["sum_where(kit, 'qty')", 8],
+    ["sum_where(kit, 'qty', 'equipped', true)", 6],
+    ["any_where(kit, 'equipped')", true],
+    ["sum(column(kit, 'qty'))", 8],
+    ["max(column(kit, 'qty'))", 5],
+    ["min(column(kit, 'qty'))", 1],
+    ['len(kit)', 3],
+  ])('%s evaluates to %s', (formula, expected) => {
+    expect(evaluate(formula, context)).toBe(expected)
+  })
+
+  it('contains matches a multiselect case-insensitively', () => {
+    expect(evaluate("contains(langs, 'Elvish')", context)).toBe(true)
+    expect(evaluate("contains(langs, 'orcish')", context)).toBe(false)
+  })
+
+  it('tolerates a field that is not a list', () => {
+    expect(evaluate("count_where(kit, 'equipped')", { kit: 'nonsense' })).toBe(0)
+  })
+
+  it('ignores rows that are not objects', () => {
+    expect(evaluate("count_where(kit, 'a')", { kit: ['x', 5, null] })).toBe(0)
+  })
+})
+
+describe('runValidators', () => {
+  const document = {
+    fields: {
+      level: { type: 'number', default: 1 },
+      equipment: { type: 'list', columns: [{ key: 'equipped', type: 'checkbox' }] },
+    },
+    computed: { carried: { formula: "count_where(equipment, 'equipped')" } },
+    validators: [
+      { rule: 'level >= 3', severity: 'error', message: 'Too low' },
+      { rule: 'carried <= 2', severity: 'warning', message: 'Overloaded' },
+    ],
+  }
+
+  it('reports only the rules that failed', () => {
+    const fired = runValidators(document, { level: 5, equipment: [{ equipped: true }] })
+    expect(fired).toEqual([])
+  })
+
+  it('reports a failing rule with its message and severity', () => {
+    const fired = runValidators(document, { level: 1, equipment: [] })
+    expect(fired).toHaveLength(1)
+    expect(fired[0]).toMatchObject({ message: 'Too low', severity: 'error' })
+  })
+
+  it('evaluates rules against computed values too', () => {
+    const fired = runValidators(document, {
+      level: 5,
+      equipment: [{ equipped: true }, { equipped: true }, { equipped: true }],
+    })
+    expect(fired).toHaveLength(1)
+    expect(fired[0].message).toBe('Overloaded')
+  })
+
+  it('defaults an unrecognised severity to warning', () => {
+    const doc = { fields: {}, validators: [{ rule: '1 == 2', severity: 'nonsense', message: 'x' }] }
+    expect(runValidators(doc, {})[0].severity).toBe('warning')
+  })
+
+  it('stays quiet about a rule it cannot evaluate', () => {
+    // Schema validation rejects these at install, so reaching here means a
+    // stored document drifted — inventing a warning would be worse.
+    const doc = { fields: {}, validators: [{ rule: '1 +', message: 'broken' }] }
+    expect(runValidators(doc, {})).toEqual([])
+  })
+
+  it('returns nothing when the schema declares no validators', () => {
+    expect(runValidators({ fields: {} }, {})).toEqual([])
+  })
+})
+
+describe('visibleFields', () => {
+  const document = {
+    fields: {
+      is_caster: { type: 'checkbox' },
+      spell_dc: { type: 'number', visible_if: 'is_caster' },
+      level: { type: 'number', default: 1 },
+      capstone: { type: 'text', visible_if: 'level >= 20' },
+    },
+    computed: {},
+  }
+
+  it('reports only fields that declare a condition', () => {
+    expect(Object.keys(visibleFields(document, {})).sort()).toEqual(['capstone', 'spell_dc'])
+  })
+
+  it('reflects the current values', () => {
+    expect(visibleFields(document, { is_caster: true, level: 20 })).toEqual({
+      spell_dc: true,
+      capstone: true,
+    })
+    expect(visibleFields(document, { is_caster: false, level: 3 })).toEqual({
+      spell_dc: false,
+      capstone: false,
+    })
+  })
+
+  it('shows a field whose condition is broken rather than hiding it', () => {
+    // Losing access to your own data is the worse failure.
+    const broken = { fields: { x: { type: 'text', visible_if: '1 +' } } }
+    expect(visibleFields(broken, {})).toEqual({ x: true })
+  })
+})
+
+describe('isVisible', () => {
+  it('treats an absent condition as visible', () => {
+    expect(isVisible(undefined, {})).toBe(true)
+    expect(isVisible('', {})).toBe(true)
+  })
+
+  it('evaluates a condition against the context', () => {
+    expect(isVisible('level > 4', { level: 5 })).toBe(true)
+    expect(isVisible('level > 4', { level: 2 })).toBe(false)
   })
 })

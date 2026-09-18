@@ -137,12 +137,26 @@ def _fn_abs(value: Any) -> Union[int, float]:
     return abs(_to_number(value))
 
 
+def _flatten(values: tuple) -> list:
+    """Accept min(a, b, c) and min(list) alike.
+
+    `column(equipment, 'qty')` yields a list, and writing `max(column(...))`
+    should give the largest quantity rather than the number of rows — which is
+    what happened when a list arrived as a single argument and coerced to its
+    length.
+    """
+    flat: list = []
+    for value in values:
+        flat.extend(value) if isinstance(value, list) else flat.append(value)
+    return flat
+
+
 def _fn_min(*values: Any) -> Union[int, float]:
-    return min((_to_number(v) for v in values), default=0)
+    return min((_to_number(v) for v in _flatten(values)), default=0)
 
 
 def _fn_max(*values: Any) -> Union[int, float]:
-    return max((_to_number(v) for v in values), default=0)
+    return max((_to_number(v) for v in _flatten(values)), default=0)
 
 
 def _fn_sum(*values: Any) -> Union[int, float]:
@@ -176,6 +190,55 @@ def _fn_signed(value: Any) -> str:
     return f"+{number}" if number >= 0 else str(number)
 
 
+# --- list functions ------------------------------------------------------
+# A `list` field is a list of row dicts, so these read a column out of every
+# row. The column name arrives as a *string* — `count_where(equipment,
+# 'equipped', true)` — rather than as a bare name, because a bare name would
+# resolve against the character before the function ever saw it.
+
+
+def _rows(value: Any) -> list:
+    return [row for row in value if isinstance(row, dict)] if isinstance(value, list) else []
+
+
+def _fn_count_where(rows: Any, column: Any, expected: Any = True) -> int:
+    """How many rows have `column` equal to `expected` (default: truthy)."""
+    key = str(column)
+    return sum(1 for row in _rows(rows) if _equal(row.get(key), expected))
+
+
+def _fn_sum_where(rows: Any, column: Any, where: Any = None, expected: Any = True) -> Any:
+    """Total of `column` across rows, optionally only those matching `where`."""
+    key = str(column)
+    filter_key = None if where is None else str(where)
+    total: Union[int, float] = 0
+    for row in _rows(rows):
+        if filter_key is not None and not _equal(row.get(filter_key), expected):
+            continue
+        total += _to_number(row.get(key))
+    return total
+
+
+def _fn_any_where(rows: Any, column: Any, expected: Any = True) -> bool:
+    key = str(column)
+    return any(_equal(row.get(key), expected) for row in _rows(rows))
+
+
+def _fn_column(rows: Any, column: Any) -> list:
+    """Every value of one column, for passing to sum()/min()/max()."""
+    key = str(column)
+    return [row.get(key) for row in _rows(rows)]
+
+
+def _fn_contains(haystack: Any, needle: Any) -> bool:
+    """Whether a multiselect (or any list) holds a value, or text contains it."""
+    if isinstance(haystack, list):
+        return any(_equal(item, needle) for item in haystack)
+    if isinstance(haystack, str):
+        return str(needle).strip().lower() in haystack.lower()
+    return False
+
+
 FUNCTIONS: dict[str, Callable[..., Any]] = {
     "floor": _fn_floor,
     "ceil": _fn_ceil,
@@ -188,6 +251,11 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "if": _fn_if,
     "clamp": _fn_clamp,
     "signed": _fn_signed,
+    "count_where": _fn_count_where,
+    "sum_where": _fn_sum_where,
+    "any_where": _fn_any_where,
+    "column": _fn_column,
+    "contains": _fn_contains,
 }
 
 

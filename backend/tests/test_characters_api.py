@@ -324,3 +324,169 @@ class TestOwnership:
         ).json()
         assert mine["name"] == "Test RPG"
         client.delete("/api/characters/schemas/test-rpg", headers=gm_headers)
+
+
+PHASE2_SCHEMA = {
+    "id": "phase2-rpg",
+    "name": "Phase 2 RPG",
+    "fields": {
+        "level": {"type": "number", "label": "Level", "min": 1, "max": 20, "default": 1},
+        "languages": {
+            "type": "multiselect",
+            "label": "Languages",
+            "options": ["common", "elvish", "dwarvish"],
+        },
+        "equipment": {
+            "type": "list",
+            "label": "Equipment",
+            "columns": [
+                {"key": "name", "type": "text"},
+                {"key": "qty", "type": "number", "default": 1, "min": 0},
+                {"key": "equipped", "type": "checkbox"},
+            ],
+        },
+    },
+    "computed": {"carried": {"formula": "sum_where(equipment, 'qty')"}},
+    "validators": [
+        {
+            "rule": "count_where(equipment, 'equipped') <= 2",
+            "severity": "warning",
+            "message": "You have more equipped than you can carry",
+        }
+    ],
+}
+
+
+@pytest.fixture
+def phase2_schema(client, admin_headers):
+    resp = client.post(
+        "/api/characters/schemas", json={"document": PHASE2_SCHEMA}, headers=admin_headers
+    )
+    assert resp.status_code == 200, resp.text
+    yield resp.json()
+    client.delete("/api/characters/schemas/phase2-rpg", headers=admin_headers)
+
+
+class TestPhase2Fields:
+    def test_list_rows_round_trip(self, client, admin_headers, phase2_schema):
+        resp = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Packrat",
+                "data": {
+                    "equipment": [
+                        {"name": "Sword", "qty": "2", "equipped": "yes"},
+                        {"name": "Rope"},
+                    ]
+                },
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        rows = resp.json()["data"]["equipment"]
+        assert rows[0] == {"name": "Sword", "qty": 2, "equipped": True}
+        # Missing cells fall back to the column defaults.
+        assert rows[1] == {"name": "Rope", "qty": 1, "equipped": False}
+
+    def test_computed_reads_across_rows(self, client, admin_headers, phase2_schema):
+        resp = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Counter",
+                "data": {"equipment": [{"qty": 2}, {"qty": 3}]},
+            },
+            headers=admin_headers,
+        )
+        assert resp.json()["computed"]["carried"] == 5
+
+    def test_a_row_key_the_schema_does_not_declare_is_dropped(
+        self, client, admin_headers, phase2_schema
+    ):
+        resp = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Sneaky",
+                "data": {"equipment": [{"name": "X", "injected": "payload"}]},
+            },
+            headers=admin_headers,
+        )
+        assert "injected" not in resp.json()["data"]["equipment"][0]
+
+    def test_multiselect_keeps_only_declared_options_in_schema_order(
+        self, client, admin_headers, phase2_schema
+    ):
+        resp = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Linguist",
+                "data": {"languages": ["dwarvish", "klingon", "common"]},
+            },
+            headers=admin_headers,
+        )
+        assert resp.json()["data"]["languages"] == ["common", "dwarvish"]
+
+
+class TestValidatorsOverTheApi:
+    def test_a_failing_validator_is_reported(self, client, admin_headers, phase2_schema):
+        resp = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Overloaded",
+                "data": {"equipment": [{"equipped": True}] * 3},
+            },
+            headers=admin_headers,
+        )
+        validators = resp.json()["validators"]
+        assert len(validators) == 1
+        assert validators[0]["severity"] == "warning"
+        assert "more equipped" in validators[0]["message"]
+
+    def test_a_passing_character_reports_none(self, client, admin_headers, phase2_schema):
+        resp = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Tidy",
+                "data": {"equipment": [{"equipped": True}]},
+            },
+            headers=admin_headers,
+        )
+        assert resp.json()["validators"] == []
+
+    def test_a_validator_never_blocks_saving(self, client, admin_headers, phase2_schema):
+        """A sheet mid-edit is routinely invalid; refusing to save would lose work."""
+        created = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Mid-edit",
+                "data": {"equipment": [{"equipped": True}] * 5},
+            },
+            headers=admin_headers,
+        )
+        assert created.status_code == 200
+        assert created.json()["validators"]
+
+    def test_validators_are_reevaluated_on_update(self, client, admin_headers, phase2_schema):
+        created = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "phase2-rpg",
+                "name": "Changing",
+                "data": {"equipment": [{"equipped": True}] * 3},
+            },
+            headers=admin_headers,
+        ).json()
+        assert created["validators"]
+
+        updated = client.put(
+            f"/api/characters/{created['id']}",
+            json={"data": {"equipment": [{"equipped": True}]}},
+            headers=admin_headers,
+        )
+        assert updated.json()["validators"] == []

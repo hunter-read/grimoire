@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "Remover a ficha «{{name}}»? As personagens que a usam são mantidas.",
     "schemaMissing": "A ficha «{{schema}}» não está instalada",
     "usedByCount": "{{count}} personagem",
-    "schemaMissingHelp": "A ficha «{{schema}}» não está instalada, por isso os valores guardados são mostrados tal como estão. Instale a ficha novamente para recuperar a ficha completa."
+    "schemaMissingHelp": "A ficha «{{schema}}» não está instalada, por isso os valores guardados são mostrados tal como estão. Instale a ficha novamente para recuperar a ficha completa.",
+    "addRow": "Adicionar linha",
+    "removeRow": "Remover linha",
+    "moveRowUp": "Mover para cima",
+    "moveRowDown": "Mover para baixo",
+    "listEmpty": "Ainda não há nada."
   }
 }

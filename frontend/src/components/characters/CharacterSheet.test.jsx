@@ -98,3 +98,97 @@ describe('CharacterSheet', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+// --- Phase 2: conditional fields, validators, list rendering ----------------
+
+describe('CharacterSheet — Phase 2', () => {
+  const PHASE2 = {
+    fields: {
+      is_caster: { type: 'checkbox', label: 'Caster' },
+      spell_dc: { type: 'number', label: 'Spell DC', visible_if: 'is_caster' },
+      equipment: {
+        type: 'list',
+        label: 'Equipment',
+        columns: [
+          { key: 'name', type: 'text', label: 'Name' },
+          { key: 'equipped', type: 'checkbox', label: 'Eq.' },
+        ],
+      },
+    },
+    computed: { carried: { formula: "count_where(equipment, 'equipped')", label: 'Carried' } },
+    validators: [
+      {
+        rule: "count_where(equipment, 'equipped') <= 1",
+        severity: 'warning',
+        message: 'Carrying too much',
+      },
+    ],
+    layout: [
+      { title: 'Magic', fields: ['is_caster', 'spell_dc'] },
+      { title: 'Gear', fields: ['equipment'] },
+    ],
+  }
+
+  it('hides a field whose condition is false', () => {
+    render(<CharacterSheet document={PHASE2} data={{ is_caster: false }} />)
+    expect(screen.queryByLabelText('Spell DC')).not.toBeInTheDocument()
+  })
+
+  it('shows it once the condition becomes true', () => {
+    const { rerender } = render(<CharacterSheet document={PHASE2} data={{ is_caster: false }} />)
+    expect(screen.queryByLabelText('Spell DC')).not.toBeInTheDocument()
+    rerender(<CharacterSheet document={PHASE2} data={{ is_caster: true }} />)
+    expect(screen.getByLabelText('Spell DC')).toBeInTheDocument()
+  })
+
+  it('hides a whole section whose condition is false', () => {
+    const sectioned = {
+      ...PHASE2,
+      layout: [{ title: 'Magic', visible_if: 'is_caster', fields: ['spell_dc'] }],
+    }
+    const { rerender } = render(<CharacterSheet document={sectioned} data={{ is_caster: false }} />)
+    expect(screen.queryByRole('heading', { name: 'Magic' })).not.toBeInTheDocument()
+    rerender(<CharacterSheet document={sectioned} data={{ is_caster: true }} />)
+    expect(screen.getByRole('heading', { name: 'Magic' })).toBeInTheDocument()
+  })
+
+  it('renders a list field as an editable table', () => {
+    render(
+      <CharacterSheet document={PHASE2} data={{ equipment: [{ name: 'Sword', equipped: true }] }} />
+    )
+    expect(screen.getByDisplayValue('Sword')).toBeInTheDocument()
+  })
+
+  it('surfaces a firing validator', () => {
+    render(
+      <CharacterSheet
+        document={PHASE2}
+        data={{ equipment: [{ equipped: true }, { equipped: true }] }}
+      />
+    )
+    expect(screen.getByText('Carrying too much')).toBeInTheDocument()
+  })
+
+  it('drops the message once the sheet satisfies the rule', () => {
+    const { rerender } = render(
+      <CharacterSheet
+        document={PHASE2}
+        data={{ equipment: [{ equipped: true }, { equipped: true }] }}
+      />
+    )
+    expect(screen.getByText('Carrying too much')).toBeInTheDocument()
+    rerender(<CharacterSheet document={PHASE2} data={{ equipment: [{ equipped: true }] }} />)
+    expect(screen.queryByText('Carrying too much')).not.toBeInTheDocument()
+  })
+
+  it('computes across list rows', () => {
+    render(
+      <CharacterSheet
+        document={PHASE2}
+        data={{ equipment: [{ equipped: true }, { equipped: false }] }}
+      />
+    )
+    // One equipped item, shown in the derived block.
+    expect(screen.getByText('1')).toBeInTheDocument()
+  })
+})

@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "¿Quitar la hoja «{{name}}»? Los personajes que la usan se conservan.",
     "schemaMissing": "La hoja «{{schema}}» no está instalada",
     "usedByCount": "{{count}} personaje",
-    "schemaMissingHelp": "La hoja «{{schema}}» no está instalada, así que se muestran los valores guardados tal cual. Vuelve a instalar la hoja para recuperar la hoja de personaje completa."
+    "schemaMissingHelp": "La hoja «{{schema}}» no está instalada, así que se muestran los valores guardados tal cual. Vuelve a instalar la hoja para recuperar la hoja de personaje completa.",
+    "addRow": "Añadir fila",
+    "removeRow": "Eliminar fila",
+    "moveRowUp": "Subir fila",
+    "moveRowDown": "Bajar fila",
+    "listEmpty": "Aún no hay nada."
   }
 }

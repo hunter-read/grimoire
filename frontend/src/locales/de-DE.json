@@ -3080,6 +3080,11 @@
     "confirmRemoveSchema": "Den Bogen „{{name}}“ entfernen? Charaktere, die ihn nutzen, bleiben erhalten.",
     "schemaMissing": "Bogen „{{schema}}“ ist nicht installiert",
     "usedByCount": "{{count}} Charakter",
-    "schemaMissingHelp": "Der Bogen „{{schema}}“ ist nicht installiert, daher werden die gespeicherten Werte unverändert angezeigt. Installiere den Bogen erneut, um den vollständigen Charakterbogen zurückzubekommen."
+    "schemaMissingHelp": "Der Bogen „{{schema}}“ ist nicht installiert, daher werden die gespeicherten Werte unverändert angezeigt. Installiere den Bogen erneut, um den vollständigen Charakterbogen zurückzubekommen.",
+    "addRow": "Zeile hinzufügen",
+    "removeRow": "Zeile entfernen",
+    "moveRowUp": "Zeile nach oben",
+    "moveRowDown": "Zeile nach unten",
+    "listEmpty": "Noch nichts vorhanden."
   }
 }
