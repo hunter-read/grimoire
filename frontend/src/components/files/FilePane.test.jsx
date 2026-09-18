@@ -81,6 +81,18 @@ function dragData(payload) {
   }
 }
 
+// A desktop file drag, which the pane reads as an upload rather than a move.
+function fileDragData(files) {
+  return {
+    types: ['Files'],
+    files,
+    getData: () => '',
+    setData: vi.fn(),
+    dropEffect: '',
+    effectAllowed: '',
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600)
@@ -201,6 +213,37 @@ describe('FilePane', () => {
       dataTransfer: dragData({ paths: ['books/y.pdf'], from: 'maps' }),
     })
     expect(onDropPaths).toHaveBeenCalledWith(['books/y.pdf'], 'books/System')
+  })
+
+  it('uploads a desktop file dropped onto the pane background', () => {
+    const { onDropFiles } = renderPane(makePane(), { onDropFiles: vi.fn() })
+    const files = [new File(['x'], 'a.pdf')]
+    fireEvent.drop(screen.getByTestId('file-pane-primary'), {
+      dataTransfer: fileDragData(files),
+    })
+    expect(onDropFiles).toHaveBeenCalledWith(files, 'books/System')
+  })
+
+  it('ignores a desktop file dropped on the library root', () => {
+    // There is no folder for it to land in, and the upload API refuses the
+    // empty path outright — so the drop is dropped rather than sent to fail.
+    const { onDropFiles } = renderPane(makePane({ path: '', parent: null }), {
+      onDropFiles: vi.fn(),
+    })
+    fireEvent.drop(screen.getByTestId('file-pane-primary'), {
+      dataTransfer: fileDragData([new File(['x'], 'a.pdf')]),
+    })
+    expect(onDropFiles).not.toHaveBeenCalled()
+  })
+
+  it('still takes a desktop file dropped onto a folder row at the root', () => {
+    // The row carries its own path, so this one has somewhere real to go.
+    const { onDropFiles } = renderPane(makePane({ path: '', parent: null }), {
+      onDropFiles: vi.fn(),
+    })
+    const files = [new File(['x'], 'a.pdf')]
+    fireEvent.drop(screen.getByTestId('entry-core'), { dataTransfer: fileDragData(files) })
+    expect(onDropFiles).toHaveBeenCalledWith(files, 'books/System/core')
   })
 
   it('springs a collapsed folder open when a drag rests on it', () => {
@@ -401,6 +444,27 @@ describe('FilePane', () => {
       // A container holds systems, and so does books/ itself.
       renderPane(makePane({ categoryHost: false }), { onScaffold: vi.fn() })
       expect(screen.queryByTestId('scaffold-primary')).not.toBeInTheDocument()
+    })
+
+    it('hides upload and new-folder at the library root', () => {
+      // The root holds the collections and nothing else: every write API
+      // resolves through `safe_join`, which refuses the empty path the root is
+      // represented by. Offering the buttons produced a bare "Path is empty".
+      renderPane(makePane({ path: '', parent: null }), {
+        onNewFolder: vi.fn(),
+        onPickFiles: vi.fn(),
+      })
+      expect(screen.queryByTestId('upload-primary')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
+    })
+
+    it('still offers them one level in, where an upload can land', () => {
+      renderPane(makePane({ path: 'books', parent: '' }), {
+        onNewFolder: vi.fn(),
+        onPickFiles: vi.fn(),
+      })
+      expect(screen.getByTestId('upload-primary')).toBeInTheDocument()
+      expect(screen.getByTestId('new-folder-primary')).toBeInTheDocument()
     })
 
     it('hides every write action on a read-only mount', () => {

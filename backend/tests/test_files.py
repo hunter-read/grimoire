@@ -83,6 +83,16 @@ class TestSafeJoin:
             fs.safe_join("")
         assert exc.value.code == "invalid"
 
+    def test_empty_path_names_the_library_root(self):
+        # The empty path is how the browse API represents the root, so this is
+        # reached by asking to write *there* — not by sending junk. The message
+        # has to say which folder to pick instead, or the user is left looking
+        # at a perfectly good file wondering what is wrong with it.
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.safe_join("")
+        assert "library root" in str(exc.value)
+        assert "books/" in str(exc.value)
+
     def test_rejects_null_byte(self):
         with pytest.raises(fs.LibraryFSError):
             fs.safe_join("books/x\x00y")

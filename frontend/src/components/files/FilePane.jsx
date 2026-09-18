@@ -103,6 +103,15 @@ const FilePane = forwardRef(function FilePane(
 
   const segments = pane.path ? pane.path.split('/') : []
 
+  // The library root holds the collections (books/, maps/, …) and nothing else.
+  // Every write API resolves its target through `safe_join`, which rejects the
+  // empty path the root is represented by, so uploading or creating a folder
+  // here can only ever fail — and a file dropped at the root would sit outside
+  // any collection, where the scanner would never index it. Offering the
+  // actions and letting the API refuse them is how this surfaced as a bare
+  // "Path is empty" on a perfectly good PDF.
+  const canWriteHere = pane.writable && !!pane.path
+
   // Any drag ending anywhere clears this pane's affordances: a drop handled by
   // the *other* pane never fires this one's onDrop, and the highlight would
   // otherwise stick until the next hover.
@@ -145,9 +154,12 @@ const FilePane = forwardRef(function FilePane(
       setDragging(false)
       clearTimeout(springTimer.current)
 
-      // Files from the desktop are an upload, not a move.
+      // Files from the desktop are an upload, not a move. The root is not a
+      // destination an upload can use (see `canWriteHere`), and the same drop
+      // onto a folder row carries that row's path, so this only ever discards
+      // the gesture that had nowhere to land.
       if (isFileDrag(e) && e.dataTransfer.files?.length) {
-        onDropFiles?.(e.dataTransfer.files, destination)
+        if (destination) onDropFiles?.(e.dataTransfer.files, destination)
         return
       }
       const payload = readDrag(e)
@@ -517,7 +529,7 @@ const FilePane = forwardRef(function FilePane(
               navigated into the folder you meant — and in an empty folder there
               is no row to click at all. Hidden on a read-only mount, where the
               API would refuse them. */}
-          {onNewFolder && pane.writable && (
+          {onNewFolder && canWriteHere && (
             <button
               onClick={() => onNewFolder(pane.path)}
               style={actionBtnStyle}
@@ -530,7 +542,7 @@ const FilePane = forwardRef(function FilePane(
           {/* One button rather than two: uploading files and uploading a folder
               are one verb with a variant, and two buttons would cost twice the
               toolbar width to say so. */}
-          {onPickFiles && pane.writable && (
+          {onPickFiles && canWriteHere && (
             <ToolbarMenuButton
               label={t('files.upload')}
               icon={<LuUpload size={12} />}
