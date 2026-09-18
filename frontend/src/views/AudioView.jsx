@@ -54,8 +54,11 @@ export default function AudioView() {
             style={{
               // Takes the slack at the head of the toolbar row so it lines up
               // flush with the search box above rather than leaving a gap.
+              // No minWidth: 0 here — the button must not shrink past its own
+              // label (long translations, e.g. sv-SE, overflowed the box
+              // when it could; GalleryToolbar's flexWrap now wraps the
+              // Group/Collapse/Expand controls onto a second line instead).
               flex: 1,
-              minWidth: 0,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',

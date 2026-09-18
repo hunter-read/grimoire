@@ -57,7 +57,6 @@ export default function TokensView() {
             onClick={() => navigate('/tokens/editor')}
             style={{
               flex: 1,
-              minWidth: 0,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
