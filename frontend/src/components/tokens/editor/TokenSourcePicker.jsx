@@ -61,8 +61,8 @@ export default function TokenSourcePicker({ onFile, onPickSource, active = true 
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
-              background: tab === value ? 'var(--gold-dim)' : 'var(--bg-card)',
-              color: tab === value ? 'var(--gold)' : 'var(--text-dim)',
+              background: tab === value ? 'var(--gold)' : 'var(--bg-card)',
+              color: tab === value ? 'var(--on-accent)' : 'var(--text-dim)',
               border: `1px solid ${tab === value ? 'var(--gold)' : 'var(--border)'}`,
             }}
           >
