@@ -13,6 +13,7 @@ import {
   LuHeart,
   LuTags,
   LuScroll,
+  LuUsers,
   LuX,
   LuPanelLeftClose,
   LuPanelLeftOpen,
@@ -223,8 +224,11 @@ export default function Sidebar({
           <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
         )}
 
-        {/* Group 3: campaigns (more items to be grouped here later) */}
+        {/* Group 3: campaigns and the characters played in them. Not gated on
+            !isGuest: a guest account exists to play in one campaign, so a guest
+            is exactly who wants a character sheet. */}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
+        {!hide_campaigns && navItem('/characters', <LuUsers size={16} />, t('nav.characters'))}
       </nav>
 
       {/* Collapse toggle — bottom of the nav section, above the stats footer.

@@ -42,6 +42,7 @@ from .routers import (
     bookmarks as bookmarks_router,
     books as books_router,
     campaigns as campaigns_router,
+    characters as characters_router,
     downloads as downloads_router,
     favorites as favorites_router,
     files as files_router,
@@ -368,6 +369,7 @@ api.include_router(settings_router.router)
 api.include_router(api_keys_router.router)
 api.include_router(addons_router.router)
 api.include_router(themes_router.router)
+api.include_router(characters_router.router)
 api.include_router(duplicates_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(backups_router.router)

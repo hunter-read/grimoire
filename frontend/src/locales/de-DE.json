@@ -20,7 +20,8 @@
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "characters": "Charaktere"
   },
   "stats": {
     "systems": "Systeme",
@@ -3051,5 +3052,34 @@
     "link": "Link",
     "bulletList": "Aufzählung",
     "numberedList": "Nummerierte Liste"
+  },
+  "characters": {
+    "title": "Charaktere",
+    "derived": "Abgeleitet",
+    "name": "Name",
+    "system": "System",
+    "create": "Erstellen",
+    "install": "Installieren",
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert",
+    "delete": "Charakter löschen",
+    "newCharacter": "Neuer Charakter",
+    "importSchema": "Bogen importieren",
+    "pasteSchema": "Charakterbogen-Schema (JSON) einfügen",
+    "installedSheets": "Installierte Bögen",
+    "removeSchema": "Bogen entfernen",
+    "untitled": "Unbenannter Charakter",
+    "noData": "Dieser Charakter hat keine gespeicherten Werte.",
+    "notFound": "Charakter nicht gefunden.",
+    "loadFailed": "Charaktere konnten nicht geladen werden.",
+    "importInvalidJson": "Das ist kein gültiges JSON.",
+    "needSchemaFirst": "Importiere zuerst einen Charakterbogen",
+    "emptyNoCharacters": "Noch keine Charaktere. Erstelle einen, um zu beginnen.",
+    "emptyNoSchemas": "Importiere ein Charakterbogen-Schema, um deinen ersten Charakter zu erstellen.",
+    "confirmDelete": "„{{name}}“ löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirmRemoveSchema": "Den Bogen „{{name}}“ entfernen? Charaktere, die ihn nutzen, bleiben erhalten.",
+    "schemaMissing": "Bogen „{{schema}}“ ist nicht installiert",
+    "usedByCount": "{{count}} Charakter",
+    "schemaMissingHelp": "Der Bogen „{{schema}}“ ist nicht installiert, daher werden die gespeicherten Werte unverändert angezeigt. Installiere den Bogen erneut, um den vollständigen Charakterbogen zurückzubekommen."
   }
 }

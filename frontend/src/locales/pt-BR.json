@@ -20,7 +20,8 @@
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral",
     "audio": "Áudio",
-    "models": "Models"
+    "models": "Models",
+    "characters": "Personagens"
   },
   "stats": {
     "systems": "Sistemas",
@@ -3051,5 +3052,34 @@
     "link": "Link",
     "bulletList": "Lista com marcadores",
     "numberedList": "Lista numerada"
+  },
+  "characters": {
+    "title": "Personagens",
+    "derived": "Derivado",
+    "name": "Nome",
+    "system": "Sistema",
+    "create": "Criar",
+    "install": "Instalar",
+    "saving": "Salvando…",
+    "saved": "Salvo",
+    "delete": "Eliminar personagem",
+    "newCharacter": "Novo personagem",
+    "importSchema": "Importar uma ficha",
+    "pasteSchema": "Cole um esquema de ficha de personagem (JSON)",
+    "installedSheets": "Fichas instaladas",
+    "removeSchema": "Remover ficha",
+    "untitled": "Personagem sem nome",
+    "noData": "Este personagem não tem valores salvos.",
+    "notFound": "Personagem não encontrado.",
+    "loadFailed": "Não foi possível carregar os personagens.",
+    "importInvalidJson": "Isso não é JSON válido.",
+    "needSchemaFirst": "Importe primeiro uma ficha de personagem",
+    "emptyNoCharacters": "Ainda não há personagens. Crie um para começar.",
+    "emptyNoSchemas": "Importe um esquema de ficha para criar seu primeiro personagem.",
+    "confirmDelete": "Eliminar «{{name}}»? Isto não pode ser desfeito.",
+    "confirmRemoveSchema": "Remover a ficha «{{name}}»? Os personagens que a usam são mantidos.",
+    "schemaMissing": "A ficha «{{schema}}» não está instalada",
+    "usedByCount": "{{count}} personagem",
+    "schemaMissingHelp": "A ficha «{{schema}}» não está instalada, então os valores salvos são mostrados como estão. Instale a ficha novamente para recuperar a ficha completa."
   }
 }

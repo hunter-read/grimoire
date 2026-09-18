@@ -20,7 +20,8 @@
     "collapseSidebar": "Comprimi barra laterale",
     "expandSidebar": "Espandi barra laterale",
     "audio": "Audio",
-    "models": "Modelli"
+    "models": "Modelli",
+    "characters": "Personaggi"
   },
   "stats": {
     "systems": "Sistemi",
@@ -3051,5 +3052,34 @@
     "link": "Link",
     "bulletList": "Elenco puntato",
     "numberedList": "Elenco numerato"
+  },
+  "characters": {
+    "title": "Personaggi",
+    "derived": "Derivato",
+    "name": "Nome",
+    "system": "Sistema",
+    "create": "Crea",
+    "install": "Installa",
+    "saving": "Salvataggio…",
+    "saved": "Salvato",
+    "delete": "Elimina personaggio",
+    "newCharacter": "Nuovo personaggio",
+    "importSchema": "Importa una scheda",
+    "pasteSchema": "Incolla uno schema di scheda personaggio (JSON)",
+    "installedSheets": "Schede installate",
+    "removeSchema": "Rimuovi scheda",
+    "untitled": "Personaggio senza nome",
+    "noData": "Questo personaggio non ha valori salvati.",
+    "notFound": "Personaggio non trovato.",
+    "loadFailed": "Impossibile caricare i personaggi.",
+    "importInvalidJson": "Questo non è JSON valido.",
+    "needSchemaFirst": "Importa prima una scheda personaggio",
+    "emptyNoCharacters": "Nessun personaggio. Creane uno per iniziare.",
+    "emptyNoSchemas": "Importa uno schema di scheda per creare il tuo primo personaggio.",
+    "confirmDelete": "Eliminare «{{name}}»? Non può essere annullato.",
+    "confirmRemoveSchema": "Rimuovere la scheda «{{name}}»? I personaggi che la usano vengono conservati.",
+    "schemaMissing": "La scheda «{{schema}}» non è installata",
+    "usedByCount": "{{count}} personaggio",
+    "schemaMissingHelp": "La scheda «{{schema}}» non è installata, quindi i valori salvati sono mostrati così come sono. Reinstalla la scheda per riavere la scheda completa."
   }
 }

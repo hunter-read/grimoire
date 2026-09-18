@@ -20,7 +20,8 @@
     "collapseSidebar": "Contraer barra lateral",
     "expandSidebar": "Expandir barra lateral",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "characters": "Personajes"
   },
   "stats": {
     "systems": "Sistemas",
@@ -3051,5 +3052,34 @@
     "link": "Enlace",
     "bulletList": "Lista con viñetas",
     "numberedList": "Lista numerada"
+  },
+  "characters": {
+    "title": "Personajes",
+    "derived": "Derivado",
+    "name": "Nombre",
+    "system": "Sistema",
+    "create": "Crear",
+    "install": "Instalar",
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "delete": "Eliminar personaje",
+    "newCharacter": "Nuevo personaje",
+    "importSchema": "Importar una hoja",
+    "pasteSchema": "Pega un esquema de hoja de personaje (JSON)",
+    "installedSheets": "Hojas instaladas",
+    "removeSchema": "Quitar hoja",
+    "untitled": "Personaje sin nombre",
+    "noData": "Este personaje no tiene valores guardados.",
+    "notFound": "Personaje no encontrado.",
+    "loadFailed": "No se pudieron cargar los personajes.",
+    "importInvalidJson": "Eso no es JSON válido.",
+    "needSchemaFirst": "Importa primero una hoja de personaje",
+    "emptyNoCharacters": "Aún no hay personajes. Crea uno para empezar.",
+    "emptyNoSchemas": "Importa un esquema de hoja para crear tu primer personaje.",
+    "confirmDelete": "¿Eliminar «{{name}}»? Esto no se puede deshacer.",
+    "confirmRemoveSchema": "¿Quitar la hoja «{{name}}»? Los personajes que la usan se conservan.",
+    "schemaMissing": "La hoja «{{schema}}» no está instalada",
+    "usedByCount": "{{count}} personaje",
+    "schemaMissingHelp": "La hoja «{{schema}}» no está instalada, así que se muestran los valores guardados tal cual. Vuelve a instalar la hoja para recuperar la hoja de personaje completa."
   }
 }

@@ -15,6 +15,7 @@ import {
   LuEllipsis,
   LuX,
   LuScroll,
+  LuUsers,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
 
@@ -114,6 +115,16 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
                 to="/models"
                 Icon={LuBox}
                 label={t('nav.models')}
+                onClick={() => setMoreOpen(false)}
+              />
+            )}
+            {/* Characters belongs with Campaigns, which is on the bar itself;
+                the bar is full, so it lives here. Gated the same way. */}
+            {!hide_campaigns && (
+              <MoreItem
+                to="/characters"
+                Icon={LuUsers}
+                label={t('nav.characters')}
                 onClick={() => setMoreOpen(false)}
               />
             )}

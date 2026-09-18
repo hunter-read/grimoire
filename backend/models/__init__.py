@@ -8,6 +8,7 @@ from .access import UserAccessGrant
 from .api_keys import ApiKey
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
+from .characters import Character, CharacterSchema
 from .campaigns import (
     Campaign,
     CampaignCategory,
@@ -92,6 +93,9 @@ __all__ = [
     # Saved audio sets
     "AudioSet",
     "SET_TYPES",
+    # Characters
+    "CharacterSchema",
+    "Character",
     # Campaigns
     "Campaign",
     "CampaignMember",

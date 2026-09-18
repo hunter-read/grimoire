@@ -1,0 +1,480 @@
+"""A small, safe formula language for computed fields and validators.
+
+Schemas come from strangers — a community catalogue, a pasted document — so a
+formula is **parsed, never executed**. There is no ``eval``, no ``exec``, no
+``compile``, and no access to Python objects from inside an expression. What
+runs is a hand-written recursive-descent parser producing an AST, and a walker
+that understands exactly the node types below and nothing else.
+
+The language is deliberately small:
+
+    arithmetic     + - * / %  and unary -
+    comparison     == != < <= > >=
+    logic          and or not
+    conditional    cond ? a : b
+    calls          floor(x), min(a, b), ... — from a closed table
+    literals       numbers, 'strings', true, false, null
+    names          other fields on the same character
+
+Anything else is a parse error, which surfaces as a schema validation failure at
+install time rather than a broken sheet at render time.
+
+Division by zero yields 0 rather than raising. A character sheet mid-edit is
+routinely in a nonsense state — a level of 0, an empty score box — and a sheet
+that renders "0" while you fill it in is far more useful than one that refuses
+to draw. The same reasoning covers unknown names, which read as 0/empty.
+"""
+import math
+import re
+from typing import Any, Callable, Union
+
+__all__ = [
+    "ExpressionError",
+    "evaluate",
+    "parse",
+    "referenced_names",
+    "FUNCTIONS",
+]
+
+
+class ExpressionError(ValueError):
+    """An expression could not be parsed, or used something not in the language."""
+
+
+# --- tokeniser -----------------------------------------------------------
+
+_TOKEN_RE = re.compile(
+    r"""
+    (?P<ws>\s+)
+  | (?P<number>\d+\.\d+|\d+)
+  | (?P<string>'[^']*'|"[^"]*")
+  | (?P<name>[A-Za-z_][A-Za-z0-9_]*)
+  | (?P<op><=|>=|==|!=|&&|\|\||[-+*/%<>(),?:.])
+    """,
+    re.VERBOSE,
+)
+
+# Word operators are tokenised as names, then promoted here. Keeping them out of
+# the regex means `android` does not tokenise as `and` + `roid`.
+_WORD_OPS = {"and": "&&", "or": "||", "not": "not"}
+_KEYWORDS = {"true": True, "false": False, "null": None}
+
+
+def _tokenise(source: str) -> list[tuple[str, Any]]:
+    tokens: list[tuple[str, Any]] = []
+    pos = 0
+    length = len(source)
+    while pos < length:
+        match = _TOKEN_RE.match(source, pos)
+        if not match:
+            raise ExpressionError(f"Unexpected character {source[pos]!r} at {pos}")
+        pos = match.end()
+        kind = match.lastgroup
+        text = match.group()
+        if kind == "ws":
+            continue
+        if kind == "number":
+            tokens.append(("num", float(text) if "." in text else int(text)))
+        elif kind == "string":
+            tokens.append(("str", text[1:-1]))
+        elif kind == "name":
+            lowered = text.lower()
+            if lowered in _WORD_OPS:
+                tokens.append(("op", _WORD_OPS[lowered]))
+            elif lowered in _KEYWORDS:
+                tokens.append(("lit", _KEYWORDS[lowered]))
+            else:
+                tokens.append(("name", text))
+        else:
+            tokens.append(("op", text))
+    tokens.append(("end", None))
+    return tokens
+
+
+# --- functions -----------------------------------------------------------
+# A closed table. A schema can call these and nothing else: no attribute access,
+# no indexing into Python objects, no way to reach a builtin.
+
+
+def _to_number(value: Any) -> Union[int, float]:
+    """Coerce a field value to a number, treating nonsense as 0.
+
+    Sheets are edited in place, so a field is often empty or half-typed. Every
+    such state reads as 0 rather than raising, for the reason in the module
+    docstring.
+    """
+    if value is True or value is False:
+        return int(value)
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        try:
+            return float(text) if "." in text else int(text)
+        except ValueError:
+            return 0
+    if isinstance(value, (list, dict)):
+        return len(value)
+    return 0
+
+
+def _fn_floor(value: Any) -> int:
+    return math.floor(_to_number(value))
+
+
+def _fn_ceil(value: Any) -> int:
+    return math.ceil(_to_number(value))
+
+
+def _fn_round(value: Any, digits: Any = 0) -> Union[int, float]:
+    result = round(_to_number(value), int(_to_number(digits)))
+    return int(result) if _to_number(digits) == 0 else result
+
+
+def _fn_abs(value: Any) -> Union[int, float]:
+    return abs(_to_number(value))
+
+
+def _fn_min(*values: Any) -> Union[int, float]:
+    return min((_to_number(v) for v in values), default=0)
+
+
+def _fn_max(*values: Any) -> Union[int, float]:
+    return max((_to_number(v) for v in values), default=0)
+
+
+def _fn_sum(*values: Any) -> Union[int, float]:
+    total: Union[int, float] = 0
+    for value in values:
+        # sum(list) and sum(a, b, c) are both natural to write, so accept both.
+        if isinstance(value, list):
+            total += sum(_to_number(v) for v in value)
+        else:
+            total += _to_number(value)
+    return total
+
+
+def _fn_len(value: Any) -> int:
+    if isinstance(value, (list, dict, str)):
+        return len(value)
+    return 0
+
+
+def _fn_if(condition: Any, when_true: Any, when_false: Any) -> Any:
+    return when_true if _truthy(condition) else when_false
+
+
+def _fn_clamp(value: Any, low: Any, high: Any) -> Union[int, float]:
+    return max(_to_number(low), min(_to_number(high), _to_number(value)))
+
+
+def _fn_signed(value: Any) -> str:
+    """Format a modifier the way a character sheet prints one: +3, -1, +0."""
+    number = _to_number(value)
+    return f"+{number}" if number >= 0 else str(number)
+
+
+FUNCTIONS: dict[str, Callable[..., Any]] = {
+    "floor": _fn_floor,
+    "ceil": _fn_ceil,
+    "round": _fn_round,
+    "abs": _fn_abs,
+    "min": _fn_min,
+    "max": _fn_max,
+    "sum": _fn_sum,
+    "len": _fn_len,
+    "if": _fn_if,
+    "clamp": _fn_clamp,
+    "signed": _fn_signed,
+}
+
+
+def _truthy(value: Any) -> bool:
+    """Truthiness, with the sheet-shaped exception that "0" is false."""
+    if isinstance(value, str):
+        text = value.strip()
+        return bool(text) and text not in ("0", "false", "False")
+    if isinstance(value, (list, dict)):
+        return bool(value)
+    return bool(_to_number(value)) if isinstance(value, (int, float, bool)) else bool(value)
+
+
+# --- parser --------------------------------------------------------------
+# Precedence climbing, loosest binding first. Each level returns an AST node:
+# a tuple whose first element names the node type.
+
+_COMPARISONS = {"==", "!=", "<", "<=", ">", ">="}
+
+
+class _Parser:
+    def __init__(self, tokens: list[tuple[str, Any]]):
+        self.tokens = tokens
+        self.pos = 0
+
+    def peek(self) -> tuple[str, Any]:
+        return self.tokens[self.pos]
+
+    def take(self) -> tuple[str, Any]:
+        token = self.tokens[self.pos]
+        self.pos += 1
+        return token
+
+    def expect_op(self, op: str) -> None:
+        kind, value = self.take()
+        if kind != "op" or value != op:
+            raise ExpressionError(f"Expected {op!r}, found {value!r}")
+
+    def at_op(self, *ops: str) -> bool:
+        kind, value = self.peek()
+        return kind == "op" and value in ops
+
+    # conditional  →  or  [ '?' expr ':' expr ]
+    def parse_expression(self) -> tuple:
+        condition = self.parse_or()
+        if self.at_op("?"):
+            self.take()
+            when_true = self.parse_expression()
+            self.expect_op(":")
+            when_false = self.parse_expression()
+            return ("cond", condition, when_true, when_false)
+        return condition
+
+    def parse_or(self) -> tuple:
+        node = self.parse_and()
+        while self.at_op("||"):
+            self.take()
+            node = ("or", node, self.parse_and())
+        return node
+
+    def parse_and(self) -> tuple:
+        node = self.parse_not()
+        while self.at_op("&&"):
+            self.take()
+            node = ("and", node, self.parse_not())
+        return node
+
+    def parse_not(self) -> tuple:
+        if self.at_op("not"):
+            self.take()
+            return ("not", self.parse_not())
+        return self.parse_comparison()
+
+    def parse_comparison(self) -> tuple:
+        node = self.parse_additive()
+        while self.at_op(*_COMPARISONS):
+            _, op = self.take()
+            node = ("compare", op, node, self.parse_additive())
+        return node
+
+    def parse_additive(self) -> tuple:
+        node = self.parse_multiplicative()
+        while self.at_op("+", "-"):
+            _, op = self.take()
+            node = ("binary", op, node, self.parse_multiplicative())
+        return node
+
+    def parse_multiplicative(self) -> tuple:
+        node = self.parse_unary()
+        while self.at_op("*", "/", "%"):
+            _, op = self.take()
+            node = ("binary", op, node, self.parse_unary())
+        return node
+
+    def parse_unary(self) -> tuple:
+        if self.at_op("-"):
+            self.take()
+            return ("neg", self.parse_unary())
+        if self.at_op("+"):
+            self.take()
+            return self.parse_unary()
+        return self.parse_primary()
+
+    def parse_primary(self) -> tuple:
+        kind, value = self.take()
+
+        if kind == "num" or kind == "str" or kind == "lit":
+            return ("const", value)
+
+        if kind == "op" and value == "(":
+            node = self.parse_expression()
+            self.expect_op(")")
+            return node
+
+        if kind == "name":
+            if self.at_op("("):
+                self.take()
+                args = []
+                if not self.at_op(")"):
+                    args.append(self.parse_expression())
+                    while self.at_op(","):
+                        self.take()
+                        args.append(self.parse_expression())
+                self.expect_op(")")
+                name = value.lower()
+                if name not in FUNCTIONS:
+                    raise ExpressionError(f"Unknown function {value!r}")
+                return ("call", name, args)
+            # A dotted path reads one key out of a nested field value. It is a
+            # path, not attribute access — the walker only ever indexes dicts.
+            path = [value]
+            while self.at_op("."):
+                self.take()
+                next_kind, next_value = self.take()
+                if next_kind != "name":
+                    raise ExpressionError("Expected a name after '.'")
+                path.append(next_value)
+            return ("name", path)
+
+        raise ExpressionError(f"Unexpected {value!r} in expression")
+
+
+def parse(source: str) -> tuple:
+    """Parse an expression to an AST, raising ExpressionError if it is not valid."""
+    if not isinstance(source, str) or not source.strip():
+        raise ExpressionError("Expression is empty")
+    parser = _Parser(_tokenise(source))
+    node = parser.parse_expression()
+    kind, value = parser.peek()
+    if kind != "end":
+        raise ExpressionError(f"Unexpected trailing {value!r}")
+    return node
+
+
+# --- evaluation ----------------------------------------------------------
+
+
+def _lookup(path: list[str], context: dict) -> Any:
+    """Read a dotted path out of the context, missing keys reading as 0."""
+    current: Any = context
+    for key in path:
+        if isinstance(current, dict):
+            current = current.get(key)
+        else:
+            return 0
+        if current is None:
+            return 0
+    return current
+
+
+def _compare(op: str, left: Any, right: Any) -> bool:
+    # Equality compares values as written so `race == 'elf'` works; the ordering
+    # operators are numeric, because that is the only thing a sheet orders.
+    if op == "==":
+        return _equal(left, right)
+    if op == "!=":
+        return not _equal(left, right)
+    a, b = _to_number(left), _to_number(right)
+    if op == "<":
+        return a < b
+    if op == "<=":
+        return a <= b
+    if op == ">":
+        return a > b
+    return a >= b
+
+
+def _equal(left: Any, right: Any) -> bool:
+    if isinstance(left, str) or isinstance(right, str):
+        # One side being text means a text comparison was intended; compare
+        # case-insensitively so `race == 'Elf'` matches a stored "elf".
+        return str(left).strip().lower() == str(right).strip().lower()
+    return _to_number(left) == _to_number(right)
+
+
+def _eval_node(node: tuple, context: dict) -> Any:
+    kind = node[0]
+
+    if kind == "const":
+        return node[1]
+    if kind == "name":
+        return _lookup(node[1], context)
+    if kind == "neg":
+        return -_to_number(_eval_node(node[1], context))
+    if kind == "not":
+        return not _truthy(_eval_node(node[1], context))
+    if kind == "and":
+        return _truthy(_eval_node(node[1], context)) and _truthy(
+            _eval_node(node[2], context)
+        )
+    if kind == "or":
+        return _truthy(_eval_node(node[1], context)) or _truthy(
+            _eval_node(node[2], context)
+        )
+    if kind == "cond":
+        branch = node[2] if _truthy(_eval_node(node[1], context)) else node[3]
+        return _eval_node(branch, context)
+    if kind == "compare":
+        return _compare(
+            node[1], _eval_node(node[2], context), _eval_node(node[3], context)
+        )
+    if kind == "call":
+        args = [_eval_node(arg, context) for arg in node[2]]
+        try:
+            return FUNCTIONS[node[1]](*args)
+        except ExpressionError:
+            raise
+        except (TypeError, ValueError):
+            # Wrong arity or an argument the function cannot use. A sheet being
+            # edited hits this constantly, so it reads as 0 like everything else.
+            return 0
+
+    if kind == "binary":
+        op = node[1]
+        left = _to_number(_eval_node(node[2], context))
+        right = _to_number(_eval_node(node[3], context))
+        if op == "+":
+            return left + right
+        if op == "-":
+            return left - right
+        if op == "*":
+            return left * right
+        # Division by zero is routine on a half-filled sheet: see the module
+        # docstring. Integer division stays integral so modifiers print cleanly.
+        if op == "/":
+            if right == 0:
+                return 0
+            result = left / right
+            return int(result) if float(result).is_integer() else result
+        if op == "%":
+            return 0 if right == 0 else left % right
+
+    raise ExpressionError(f"Unsupported expression node {kind!r}")
+
+
+def evaluate(source: Union[str, tuple], context: dict, default: Any = 0) -> Any:
+    """Evaluate an expression against a context of field values.
+
+    Returns ``default`` if the expression cannot be parsed. Callers that need to
+    surface a bad formula (schema validation) should call ``parse`` directly.
+    """
+    try:
+        node = source if isinstance(source, tuple) else parse(source)
+    except ExpressionError:
+        return default
+    try:
+        return _eval_node(node, context)
+    except ExpressionError:
+        return default
+    except RecursionError:
+        # A pathologically nested expression. Bounded by MAX_EXPRESSION_DEPTH at
+        # validation time, so reaching here means a row edited around it.
+        return default
+
+
+def referenced_names(node: tuple) -> set[str]:
+    """Every top-level field name an AST reads, for dependency ordering."""
+    found: set[str] = set()
+    stack: list[Any] = [node]
+    while stack:
+        current = stack.pop()
+        if not isinstance(current, tuple):
+            if isinstance(current, list):
+                stack.extend(current)
+            continue
+        if current[0] == "name":
+            found.add(current[1][0])
+            continue
+        stack.extend(current[1:])
+    return found

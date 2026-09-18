@@ -20,7 +20,8 @@
     "collapseSidebar": "Réduire la barre latérale",
     "expandSidebar": "Développer la barre latérale",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "characters": "Personnages"
   },
   "stats": {
     "systems": "Systèmes",
@@ -3051,5 +3052,34 @@
     "link": "Lien",
     "bulletList": "Liste à puces",
     "numberedList": "Liste numérotée"
+  },
+  "characters": {
+    "title": "Personnages",
+    "derived": "Dérivé",
+    "name": "Nom",
+    "system": "Système",
+    "create": "Créer",
+    "install": "Installer",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "delete": "Supprimer le personnage",
+    "newCharacter": "Nouveau personnage",
+    "importSchema": "Importer une fiche",
+    "pasteSchema": "Collez un schéma de fiche de personnage (JSON)",
+    "installedSheets": "Fiches installées",
+    "removeSchema": "Retirer la fiche",
+    "untitled": "Personnage sans nom",
+    "noData": "Ce personnage n'a aucune valeur enregistrée.",
+    "notFound": "Personnage introuvable.",
+    "loadFailed": "Impossible de charger les personnages.",
+    "importInvalidJson": "Ce n'est pas du JSON valide.",
+    "needSchemaFirst": "Importez d'abord une fiche de personnage",
+    "emptyNoCharacters": "Aucun personnage. Créez-en un pour commencer.",
+    "emptyNoSchemas": "Importez un schéma de fiche pour créer votre premier personnage.",
+    "confirmDelete": "Supprimer « {{name}} » ? Cette action est irréversible.",
+    "confirmRemoveSchema": "Retirer la fiche « {{name}} » ? Les personnages qui l'utilisent sont conservés.",
+    "schemaMissing": "La fiche « {{schema}} » n'est pas installée",
+    "usedByCount": "{{count}} personnage",
+    "schemaMissingHelp": "La fiche « {{schema}} » n'est pas installée ; les valeurs enregistrées sont donc affichées telles quelles. Réinstallez la fiche pour retrouver la fiche complète."
   }
 }

@@ -32,6 +32,8 @@ import FileManagerView from '../views/FileManagerView'
 import DuplicatesView from '../views/DuplicatesView'
 import DuplicateCompareView from '../views/DuplicateCompareView'
 import CampaignsView from '../views/CampaignsView'
+import CharactersView from '../views/CharactersView'
+import CharacterDetailView from '../views/CharacterDetailView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
@@ -175,6 +177,8 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+              <Route path="/characters" element={<CharactersView />} />
+              <Route path="/characters/:characterId" element={<CharacterDetailView />} />
               <Route path="/library/book/:bookId" element={<BookReader />} />
               <Route path="/maps/:mapId" element={<MapDetailView />} />
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
@@ -220,6 +224,8 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+              <Route path="/characters" element={<CharactersView />} />
+              <Route path="/characters/:characterId" element={<CharacterDetailView />} />
               {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}
               <Route path="/settings/files" element={<FileManagerView />} />

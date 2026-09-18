@@ -20,7 +20,8 @@
     "collapseSidebar": "Zijbalk inklappen",
     "expandSidebar": "Zijbalk uitklappen",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "characters": "Personages"
   },
   "stats": {
     "systems": "Systemen",
@@ -3051,5 +3052,34 @@
     "link": "Link",
     "bulletList": "Opsommingslijst",
     "numberedList": "Genummerde lijst"
+  },
+  "characters": {
+    "title": "Personages",
+    "derived": "Afgeleid",
+    "name": "Naam",
+    "system": "Systeem",
+    "create": "Aanmaken",
+    "install": "Installeren",
+    "saving": "Opslaan…",
+    "saved": "Opgeslagen",
+    "delete": "Personage verwijderen",
+    "newCharacter": "Nieuw personage",
+    "importSchema": "Een blad importeren",
+    "pasteSchema": "Plak een personageblad-schema (JSON)",
+    "installedSheets": "Geïnstalleerde bladen",
+    "removeSchema": "Blad verwijderen",
+    "untitled": "Naamloos personage",
+    "noData": "Dit personage heeft geen opgeslagen waarden.",
+    "notFound": "Personage niet gevonden.",
+    "loadFailed": "Kon personages niet laden.",
+    "importInvalidJson": "Dat is geen geldige JSON.",
+    "needSchemaFirst": "Importeer eerst een personageblad",
+    "emptyNoCharacters": "Nog geen personages. Maak er een om te beginnen.",
+    "emptyNoSchemas": "Importeer een personageblad-schema om je eerste personage te maken.",
+    "confirmDelete": "\"{{name}}\" verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "confirmRemoveSchema": "Het blad \"{{name}}\" verwijderen? Personages die het gebruiken blijven behouden.",
+    "schemaMissing": "Blad \"{{schema}}\" is niet geïnstalleerd",
+    "usedByCount": "{{count}} personage",
+    "schemaMissingHelp": "Het blad \"{{schema}}\" is niet geïnstalleerd, dus de opgeslagen waarden worden ongewijzigd getoond. Installeer het blad opnieuw om het volledige personageblad terug te krijgen."
   }
 }

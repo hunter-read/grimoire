@@ -626,6 +626,27 @@ export const addons = {
 }
 
 /**
+ * Character sheets (issue #129).
+ *
+ * Schemas and characters are both per-user, like themes: installing a sheet
+ * cannot affect anyone else, so there is no admin step. Computed values come
+ * back from the server on every read rather than being stored, so a corrected
+ * formula fixes every character built on it.
+ */
+export const characters = {
+  listSchemas: () => api.get('/characters/schemas'),
+  getSchema: (schemaId) => api.get(`/characters/schemas/${encodeURIComponent(schemaId)}`),
+  importSchema: (body) => api.post('/characters/schemas', body),
+  deleteSchema: (schemaId) => api.delete(`/characters/schemas/${encodeURIComponent(schemaId)}`),
+  list: (schemaRef) =>
+    api.get(`/characters${schemaRef ? `?schema_ref=${encodeURIComponent(schemaRef)}` : ''}`),
+  get: (id) => api.get(`/characters/${id}`),
+  create: (body) => api.post('/characters', body),
+  update: (id, body) => api.put(`/characters/${id}`, body),
+  remove: (id) => api.delete(`/characters/${id}`),
+}
+
+/**
  * Bulk operations (issue #270).
  *
  * These replace the old one-request-per-item fan-out, which raced on tag

@@ -1723,6 +1723,94 @@ placed there by hand works without any UI step. Config and install state ride in
 the generic `app_settings` table under `addons.*` keys, so this feature adds no
 schema.
 
+### Characters
+
+Character sheets and the schemas that describe them, both stored **per user**.
+A schema is a JSON document defining a sheet's fields, computed values, and
+layout; a character is one set of answers to it. Grimoire core renders any
+schema without game-specific code.
+
+Like themes, and unlike add-ons, these are per-account: installing a sheet
+cannot affect anyone else, so any authenticated user may install one and there
+is no admin approval. Guests included - a guest account exists to play in one
+campaign, which is exactly who wants a character sheet.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/characters/schemas` | GET | user | The user's installed schemas, each with a `character_count` |
+| `/api/characters/schemas` | POST | user | Install a pasted schema. Body is `{document, source_id?, source_url?, source_version?}`. 400 with a message naming the problem if it does not validate |
+| `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document` |
+| `/api/characters/schemas/:schema_id` | DELETE | user | Uninstall a schema. Characters built on it are **kept** |
+| `/api/characters` | GET | user | The user's characters, newest first. `?schema_ref=` filters by schema |
+| `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?}`. 400 if that schema is not installed |
+| `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
+| `/api/characters/:id` | PUT | user | Update `name` and/or `data`. `data` is a **partial patch** - only the fields it names are touched |
+| `/api/characters/:id` | DELETE | user | Delete a character |
+
+**Schema fields:** `id`, `schema_id`, `name`, `system`, `description`,
+`version`, `source_id`, `source_url`, `source_version`, `is_community`,
+`character_count`, and on detail `document`.
+
+**Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
+`schema_missing`, `created_at`, `updated_at`, and on detail `data` + `computed`.
+
+**Computed values are never stored.** They are evaluated from `data` on every
+read, so correcting a formula in a schema immediately fixes every character
+built on it rather than leaving stale numbers behind.
+
+**Submitted values are coerced to their declared type** and anything the schema
+does not declare is dropped. Out-of-range numbers are clamped rather than
+rejected, because refusing to save a whole character over one out-of-range score
+would lose the player's work.
+
+**A character outlives its schema.** `schema_ref` is a soft reference by
+`schema_id`, not a foreign key, so uninstalling a sheet leaves its characters
+readable: they come back with `schema_missing: true`, an empty `computed`, and
+their stored `data` intact. Reinstalling the schema restores the full sheet.
+
+#### Schema documents
+
+```json
+{
+  "id": "dnd-5e",
+  "name": "D&D 5e",
+  "version": "1.0.0",
+  "fields": { "strength": { "type": "number", "label": "Strength", "min": 1, "max": 20 } },
+  "computed": { "str_mod": { "formula": "floor((strength - 10) / 2)", "label": "STR Mod" } },
+  "layout": [{ "title": "Abilities", "fields": ["strength", "str_mod"] }]
+}
+```
+
+Field types in this release are `text`, `number`, `textarea`, `checkbox`, and
+`select`. Formulas are a small arithmetic/comparison/logic language with a
+closed function table (`floor`, `ceil`, `round`, `abs`, `min`, `max`, `sum`,
+`len`, `if`, `clamp`, `signed`). They are **parsed, never executed** - there is
+no `eval` anywhere in the engine - and a formula referencing an unknown name is
+rejected at install rather than failing at render.
+
+**HTML layouts.** A schema may replace the JSON `layout` with `layout_html`, an
+HTML *template*, plus an optional `styles` block. Both are validated at install
+and returned as derived `layout_ast` / `styles_css`:
+
+```html
+<div class="sheet">
+  <g-section title="Abilities">
+    <g-field name="strength" /><g-computed name="str_mod" />
+  </g-section>
+  <g-if test="level > 4"><g-field name="feat" /></g-if>
+</div>
+```
+
+Directives are `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
+`g-if`, and `g-repeat`. Everything else is a closed allowlist of structural
+tags. **The template never becomes markup**: it is parsed to an AST server-side
+and rendered as React elements, so no schema string ever reaches `innerHTML`.
+Event handlers, `<script>`, `<style>`, `<iframe>`, `<input>` and friends, and
+any `href`/`src` that is not relative or https are rejected at install time.
+Schema CSS is scope-prefixed to the sheet and filtered against a property
+allowlist, so a hostile schema cannot restyle the app around it. The worst one
+can do is look wrong.
+
 ### Duplicates *(admin only)*
 
 Finding files that look like copies of one another, and deciding what to do

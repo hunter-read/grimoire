@@ -20,7 +20,8 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "characters": "Characters"
   },
   "stats": {
     "systems": "Systems",
@@ -3051,5 +3052,34 @@
     "link": "Link",
     "bulletList": "Bulleted list",
     "numberedList": "Numbered list"
+  },
+  "characters": {
+    "title": "Characters",
+    "derived": "Derived",
+    "name": "Name",
+    "system": "System",
+    "create": "Create",
+    "install": "Install",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "delete": "Delete character",
+    "newCharacter": "New character",
+    "importSchema": "Import a sheet",
+    "pasteSchema": "Paste a character sheet schema (JSON)",
+    "installedSheets": "Installed sheets",
+    "removeSchema": "Remove sheet",
+    "untitled": "Untitled character",
+    "noData": "This character has no saved values.",
+    "notFound": "Character not found.",
+    "loadFailed": "Could not load characters.",
+    "importInvalidJson": "That is not valid JSON.",
+    "needSchemaFirst": "Import a character sheet first",
+    "emptyNoCharacters": "No characters yet. Create one to get started.",
+    "emptyNoSchemas": "Import a character sheet schema to create your first character.",
+    "confirmDelete": "Delete \"{{name}}\"? This cannot be undone.",
+    "confirmRemoveSchema": "Remove the \"{{name}}\" sheet? Characters using it are kept.",
+    "schemaMissing": "Sheet \"{{schema}}\" is not installed",
+    "usedByCount": "{{count}} character",
+    "schemaMissingHelp": "The \"{{schema}}\" sheet is not installed, so this character is showing its stored values as-is. Install the sheet again to get the full character sheet back."
   }
 }
