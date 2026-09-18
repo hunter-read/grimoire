@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import GalleryToolbar from './GalleryToolbar'
 import MediaFolderGroup from './MediaFolderGroup'
 import MediaCard from './MediaCard'
-import LazyGrid from '../LazyGrid'
+import VirtualGrid from './VirtualGrid'
 import BulkActionBar from '../BulkActionBar'
 import BulkToggleButton from '../BulkToggleButton'
 import ViewModeToggle from '../ViewModeToggle'
@@ -182,31 +182,23 @@ export default function GalleryLayout({
               />
             ))
           : gallery.flatItems.length > 0 && (
-              <LazyGrid>
-                <div
-                  style={
-                    gallery.list
-                      ? { display: 'flex', flexDirection: 'column', gap: 8 }
-                      : {
-                          display: 'grid',
-                          gridTemplateColumns: `repeat(auto-fill, minmax(${config.gridMin[gallery.cardSize]}, 1fr))`,
-                          gap: config.gridGap,
-                        }
-                  }
-                >
-                  {gallery.flatItems.map((item) => (
-                    <MediaCard
-                      key={item.id}
-                      config={config}
-                      item={item}
-                      bulkMode={bulkMode}
-                      selected={gallery.selectedIds?.has(item.id)}
-                      onToggle={(mods) => gallery.toggleSelect(item.id, mods)}
-                      list={gallery.list}
-                    />
-                  ))}
-                </div>
-              </LazyGrid>
+              <VirtualGrid
+                items={gallery.flatItems}
+                minColumn={parseInt(config.gridMin[gallery.cardSize], 10)}
+                gap={gallery.list ? 8 : config.gridGap}
+                list={gallery.list}
+                renderItem={(item) => (
+                  <MediaCard
+                    key={item.id}
+                    config={config}
+                    item={item}
+                    bulkMode={bulkMode}
+                    selected={gallery.selectedIds?.has(item.id)}
+                    onToggle={(mods) => gallery.toggleSelect(item.id, mods)}
+                    list={gallery.list}
+                  />
+                )}
+              />
             )}
 
         {gallery.noFolders && (

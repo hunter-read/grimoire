@@ -17,6 +17,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Non-Docker installs report their real version instead of `1.0.0` in the About dialog
 - Return keyboard focus to the file list after a dialog closes
+- Large map, token, audio, and model galleries no longer grow to gigabytes of memory, and scroll smoothly
 
 ## [1.7.1] - 2026-09-16
 

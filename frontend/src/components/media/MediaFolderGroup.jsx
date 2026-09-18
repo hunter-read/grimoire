@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload, LuPlay } from 'react-icons/lu'
 import MediaCard from './MediaCard'
+import VirtualGrid from './VirtualGrid'
 import FolderTagRow from './FolderTagRow'
 import FramesBadge from './FramesBadge'
 import FolderCheckbox from '../FolderCheckbox'
-import LazyGrid from '../LazyGrid'
 import RescanButton from '../RescanButton'
 import { toTitleCase } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
@@ -410,31 +410,23 @@ export default function MediaFolderGroup({
                 )}
 
                 {!isSubCollapsed && (
-                  <LazyGrid count={subItems.length} cardSize={cardSize} list={list}>
-                    <div
-                      style={
-                        list
-                          ? { display: 'flex', flexDirection: 'column', gap: 8 }
-                          : {
-                              display: 'grid',
-                              gridTemplateColumns: `repeat(auto-fill, minmax(${config.gridMin[cardSize]}, 1fr))`,
-                              gap: config.gridGap,
-                            }
-                      }
-                    >
-                      {subItems.map((item) => (
-                        <MediaCard
-                          key={item.id}
-                          config={config}
-                          item={item}
-                          bulkMode={bulkMode}
-                          selected={selectedIds?.has(item.id)}
-                          onToggle={(mods) => onToggleItem(item.id, mods)}
-                          list={list}
-                        />
-                      ))}
-                    </div>
-                  </LazyGrid>
+                  <VirtualGrid
+                    items={subItems}
+                    minColumn={parseInt(config.gridMin[cardSize], 10)}
+                    gap={list ? 8 : config.gridGap}
+                    list={list}
+                    renderItem={(item) => (
+                      <MediaCard
+                        key={item.id}
+                        config={config}
+                        item={item}
+                        bulkMode={bulkMode}
+                        selected={selectedIds?.has(item.id)}
+                        onToggle={(mods) => onToggleItem(item.id, mods)}
+                        list={list}
+                      />
+                    )}
+                  />
                 )}
               </div>
             )

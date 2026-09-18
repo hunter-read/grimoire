@@ -18,7 +18,9 @@ vi.mock('./MediaCard', () => ({
     </button>
   ),
 }))
-vi.mock('../LazyGrid', () => ({ default: ({ children }) => <div>{children}</div> }))
+vi.mock('./VirtualGrid', () => ({
+  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+}))
 vi.mock('../BulkActionBar', () => ({ default: () => <div data-testid="bulk-bar" /> }))
 
 const makeGallery = (over = {}) => ({

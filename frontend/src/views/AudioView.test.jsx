@@ -40,8 +40,9 @@ vi.mock('../components/DownloadArchiveModal', () => ({
   default: () => null,
 }))
 
-vi.mock('../components/LazyGrid', () => ({
-  default: ({ children }) => <>{children}</>,
+// jsdom has no layout, so the real VirtualGrid measures zero rows; render all.
+vi.mock('../components/media/VirtualGrid', () => ({
+  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
 }))
 
 // Keep every folder expanded so filenames are immediately visible: the
