@@ -3085,6 +3085,25 @@
     "removeRow": "Rimuovi riga",
     "moveRowUp": "Sposta su",
     "moveRowDown": "Sposta giù",
-    "listEmpty": "Ancora niente."
+    "listEmpty": "Ancora niente.",
+    "browseCatalog": "Sfoglia il catalogo",
+    "searchCatalog": "Cerca nel catalogo",
+    "filters": "Filtri",
+    "filterAny": "Tutti",
+    "noEntries": "Nessun risultato.",
+    "entryCount": "{{count}} voce",
+    "addEntry": "Aggiungi alla scheda",
+    "alreadyAdded": "Già nella scheda",
+    "removeEntry": "Rimuovi",
+    "clearChoice": "Cancella",
+    "entryMissing": "non installato",
+    "addCustom": "Aggiungi personalizzato",
+    "customEntry": "Voce personalizzata",
+    "catalogFailed": "Impossibile caricare il catalogo.",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "pageOf": "Pagina {{page}} di {{pages}}",
+    "browseLabel": "Sfoglia {{label}}",
+    "entryCount_other": "{{count}} voci"
   }
 }

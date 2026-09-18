@@ -3085,6 +3085,25 @@
     "removeRow": "Remove row",
     "moveRowUp": "Move row up",
     "moveRowDown": "Move row down",
-    "listEmpty": "Nothing here yet."
+    "listEmpty": "Nothing here yet.",
+    "browseCatalog": "Browse catalog",
+    "searchCatalog": "Search the catalog",
+    "filters": "Filters",
+    "filterAny": "Any",
+    "noEntries": "Nothing matches.",
+    "entryCount": "{{count}} entry",
+    "addEntry": "Add to sheet",
+    "alreadyAdded": "Already on the sheet",
+    "removeEntry": "Remove",
+    "clearChoice": "Clear",
+    "entryMissing": "not installed",
+    "addCustom": "Add custom",
+    "customEntry": "Custom entry",
+    "catalogFailed": "Could not load the catalog.",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "browseLabel": "Browse {{label}}",
+    "entryCount_other": "{{count}} entries"
   }
 }

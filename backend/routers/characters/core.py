@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import Character, CharacterSchema
+from ...models import Character, CharacterSchema, ContentEntry
 from ...services import characters as svc
 from ._schemas import CharacterCreate, CharacterUpdate, SchemaImport
 
@@ -188,8 +188,47 @@ def _schema_for(db: Session, user_id: str, schema_ref: str) -> Optional[Characte
     )
 
 
+def _resolved_entries(db: Session, document: dict, data: dict) -> dict:
+    """Catalog entries every reference in a character points at.
+
+    Formulas like `sum_refs(spells, 'level')` need the entries themselves, not
+    just their ids. Collected in one query rather than per reference: a sheet
+    with twenty spells should cost one lookup.
+    """
+    fields = document.get("fields") or {}
+    wanted: set[str] = set()
+    for name, definition in fields.items():
+        if not isinstance(definition, dict):
+            continue
+        if definition.get("type") not in ("content_ref", "content_list"):
+            continue
+        value = data.get(name)
+        items = value if isinstance(value, list) else [value]
+        for item in items:
+            if isinstance(item, dict) and not item.get("_inline"):
+                entry_id = item.get("_ref")
+                if isinstance(entry_id, str) and entry_id:
+                    wanted.add(entry_id)
+
+    if not wanted:
+        return {}
+
+    schema_id = document.get("id") or ""
+    rows = (
+        db.query(ContentEntry)
+        .filter(ContentEntry.schema_id == schema_id)
+        .filter(ContentEntry.entry_id.in_(wanted))
+        .all()
+    )
+    return {row.entry_id: (row.data if isinstance(row.data, dict) else {}) for row in rows}
+
+
 def _serialize_character(
-    row: Character, schema: Optional[CharacterSchema], *, detail: bool = False
+    row: Character,
+    schema: Optional[CharacterSchema],
+    *,
+    detail: bool = False,
+    db: Optional[Session] = None,
 ) -> dict:
     payload: dict[str, Any] = {
         "id": row.id,
@@ -208,11 +247,20 @@ def _serialize_character(
         # must fix every character built on it rather than leaving stale numbers.
         # The document is validated once and reused — it is the expensive part.
         document = _validated_document(schema) if schema else None
-        payload["computed"] = svc.compute_values(document, data) if document else {}
+        # References resolve to their catalog entries so a formula reading an
+        # entry's own properties has something to read.
+        entries = (
+            _resolved_entries(db, document, data) if document is not None and db else {}
+        )
+        payload["computed"] = svc.compute_values(document, data, entries) if document else {}
         # The client evaluates validators too, so the sheet reacts as you type.
         # The server reports them as well so a caller that is not the sheet — an
         # export, a future party view — sees the same warnings.
-        payload["validators"] = svc.run_validators(document, data) if document else []
+        payload["validators"] = (
+            svc.run_validators(document, data, entries) if document else []
+        )
+        # The entries the sheet needs, so rendering costs no extra request.
+        payload["entries"] = entries
     return payload
 
 
@@ -248,7 +296,7 @@ def get_character(
     if not row:
         raise HTTPException(status_code=404, detail="Character not found")
     schema = _schema_for(db, current_user.id, row.schema_ref)
-    return _serialize_character(row, schema, detail=True)
+    return _serialize_character(row, schema, detail=True, db=db)
 
 
 def create_character(
@@ -271,7 +319,7 @@ def create_character(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _serialize_character(row, schema, detail=True)
+    return _serialize_character(row, schema, detail=True, db=db)
 
 
 def update_character(
@@ -303,7 +351,7 @@ def update_character(
 
     db.commit()
     db.refresh(row)
-    return _serialize_character(row, schema, detail=True)
+    return _serialize_character(row, schema, detail=True, db=db)
 
 
 def delete_character(

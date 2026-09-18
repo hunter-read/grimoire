@@ -3085,6 +3085,25 @@
     "removeRow": "Zeile entfernen",
     "moveRowUp": "Zeile nach oben",
     "moveRowDown": "Zeile nach unten",
-    "listEmpty": "Noch nichts vorhanden."
+    "listEmpty": "Noch nichts vorhanden.",
+    "browseCatalog": "Katalog durchsuchen",
+    "searchCatalog": "Katalog durchsuchen",
+    "filters": "Filter",
+    "filterAny": "Alle",
+    "noEntries": "Nichts gefunden.",
+    "entryCount": "{{count}} Eintrag",
+    "addEntry": "Zum Bogen hinzufügen",
+    "alreadyAdded": "Bereits auf dem Bogen",
+    "removeEntry": "Entfernen",
+    "clearChoice": "Löschen",
+    "entryMissing": "nicht installiert",
+    "addCustom": "Eigenen hinzufügen",
+    "customEntry": "Eigener Eintrag",
+    "catalogFailed": "Katalog konnte nicht geladen werden.",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageOf": "Seite {{page}} von {{pages}}",
+    "browseLabel": "{{label}} durchsuchen",
+    "entryCount_other": "{{count}} Einträge"
   }
 }

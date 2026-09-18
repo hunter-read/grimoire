@@ -19,20 +19,38 @@ import ValidatorMessages from './ValidatorMessages'
  * too and is the authority; doing it locally as well is what makes a modifier
  * update the instant its score changes rather than after a round trip.
  */
-export default function CharacterSheet({ document: schemaDocument, data, onChange, readOnly }) {
+export default function CharacterSheet({
+  document: schemaDocument,
+  data,
+  onChange,
+  readOnly,
+  // Catalog entries this character's references point at, resolved once by the
+  // detail view so no field has to fetch its own.
+  entries = {},
+  schemaId,
+}) {
   const { t } = useTranslation()
-  const computed = useMemo(() => computeValues(schemaDocument, data || {}), [schemaDocument, data])
+  // Entries ride in the evaluation context so `sum_refs(spells, 'level')` can
+  // read a referenced entry's own properties.
+  const withEntries = useMemo(
+    () => (Object.keys(entries).length ? { ...(data || {}), _entries: entries } : data || {}),
+    [data, entries]
+  )
+  const computed = useMemo(
+    () => computeValues(schemaDocument, withEntries),
+    [schemaDocument, withEntries]
+  )
 
   // Validators run locally so the sheet reacts as you type; the server reports
   // them too and is the authority. `visible_if` is evaluated against fields and
   // computed values together, so a block can hinge on a derived number.
   const validators = useMemo(
-    () => runValidators(schemaDocument, data || {}),
-    [schemaDocument, data]
+    () => runValidators(schemaDocument, withEntries),
+    [schemaDocument, withEntries]
   )
   const context = useMemo(
-    () => ({ ...buildContext(schemaDocument, data || {}), ...computed }),
-    [schemaDocument, data, computed]
+    () => ({ ...buildContext(schemaDocument, withEntries), ...computed }),
+    [schemaDocument, withEntries, computed]
   )
 
   if (!schemaDocument) return null
@@ -48,6 +66,8 @@ export default function CharacterSheet({ document: schemaDocument, data, onChang
           computed={computed}
           onChange={onChange}
           readOnly={readOnly}
+          entries={entries}
+          schemaId={schemaId}
         />
       </>
     )
@@ -81,7 +101,10 @@ export default function CharacterSheet({ document: schemaDocument, data, onChang
                 if (definition) {
                   if (!isVisible(definition.visible_if, context)) return null
                   // A list wants the full width; a score box does not.
-                  const spanAll = definition.type === 'list' || definition.type === 'textarea'
+                  const spanAll =
+                    definition.type === 'list' ||
+                    definition.type === 'textarea' ||
+                    definition.type === 'content_list'
                   return (
                     <div key={name} style={spanAll ? { gridColumn: '1 / -1' } : undefined}>
                       <FieldRenderer
@@ -90,6 +113,9 @@ export default function CharacterSheet({ document: schemaDocument, data, onChang
                         value={data?.[name]}
                         onChange={readOnly ? undefined : (value) => onChange?.(name, value)}
                         readOnly={readOnly}
+                        entries={entries}
+                        schemaId={schemaId || schemaDocument.id}
+                        contentTypes={schemaDocument.content_types || {}}
                       />
                     </div>
                   )

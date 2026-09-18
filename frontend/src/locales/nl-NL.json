@@ -3085,6 +3085,25 @@
     "removeRow": "Rij verwijderen",
     "moveRowUp": "Rij omhoog",
     "moveRowDown": "Rij omlaag",
-    "listEmpty": "Nog niets."
+    "listEmpty": "Nog niets.",
+    "browseCatalog": "Catalogus doorbladeren",
+    "searchCatalog": "Zoek in de catalogus",
+    "filters": "Filters",
+    "filterAny": "Alle",
+    "noEntries": "Geen resultaten.",
+    "entryCount": "{{count}} item",
+    "addEntry": "Aan blad toevoegen",
+    "alreadyAdded": "Staat al op het blad",
+    "removeEntry": "Verwijderen",
+    "clearChoice": "Wissen",
+    "entryMissing": "niet geïnstalleerd",
+    "addCustom": "Eigen toevoegen",
+    "customEntry": "Eigen item",
+    "catalogFailed": "Kon de catalogus niet laden.",
+    "previous": "Vorige",
+    "next": "Volgende",
+    "pageOf": "Pagina {{page}} van {{pages}}",
+    "browseLabel": "{{label}} doorbladeren",
+    "entryCount_other": "{{count}} items"
   }
 }

@@ -239,6 +239,66 @@ def _fn_contains(haystack: Any, needle: Any) -> bool:
     return False
 
 
+# --- catalog functions ---------------------------------------------------
+# A `content_ref`/`content_list` value is a reference — {_ref, _source, _per} —
+# not a copy of the entry. To read an entry's own properties a formula needs the
+# resolved entry, which `compute_values` puts in the context under `_entries`
+# keyed by entry id. Without it these fall back to the reference's own data, so
+# a formula still evaluates (to 0/empty) rather than failing.
+
+
+def _resolved(value: Any, entries: Any) -> list[dict]:
+    """Every entry a reference or list of references points at."""
+    items = value if isinstance(value, list) else [value]
+    table = entries if isinstance(entries, dict) else {}
+    out = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("_inline"):
+            out.append(item)
+            continue
+        entry = table.get(str(item.get("_ref")))
+        if isinstance(entry, dict):
+            # The character's own per-entry notes win over the catalog's, so
+            # `ref(spells, 'prepared')` reads what the player set.
+            out.append({**entry, **(item.get("_per") or {})})
+    return out
+
+
+def _fn_ref(value: Any, prop: Any, entries: Any = None) -> Any:
+    """One property of a single reference — `ref(klass, 'hit_die')`."""
+    found = _resolved(value, entries)
+    return found[0].get(str(prop), 0) if found else 0
+
+
+def _fn_sum_refs(value: Any, prop: Any, entries: Any = None) -> Union[int, float]:
+    """Total one property across every referenced entry."""
+    return sum(_to_number(entry.get(str(prop))) for entry in _resolved(value, entries))
+
+
+def _fn_has_ref(value: Any, entry_id: Any) -> bool:
+    """Whether a list holds a reference to one entry id."""
+    items = value if isinstance(value, list) else [value]
+    wanted = str(entry_id).strip().lower()
+    return any(
+        isinstance(item, dict) and str(item.get("_ref", "")).strip().lower() == wanted
+        for item in items
+    )
+
+
+def _fn_count_refs(value: Any, prop: Any = None, expected: Any = True,
+                   entries: Any = None) -> int:
+    """How many references there are, or how many match a property."""
+    if prop is None:
+        items = value if isinstance(value, list) else []
+        return sum(1 for item in items if isinstance(item, dict))
+    key = str(prop)
+    return sum(
+        1 for entry in _resolved(value, entries) if _equal(entry.get(key), expected)
+    )
+
+
 FUNCTIONS: dict[str, Callable[..., Any]] = {
     "floor": _fn_floor,
     "ceil": _fn_ceil,
@@ -256,7 +316,16 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "any_where": _fn_any_where,
     "column": _fn_column,
     "contains": _fn_contains,
+    "ref": _fn_ref,
+    "sum_refs": _fn_sum_refs,
+    "has_ref": _fn_has_ref,
+    "count_refs": _fn_count_refs,
 }
+
+#: Functions that read resolved catalog entries. `_eval_node` passes the table
+#: to these as a keyword, so a schema author never writes it and the function's
+#: own parameter defaults still apply.
+_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs"})
 
 
 def _truthy(value: Any) -> bool:
@@ -478,9 +547,21 @@ def _eval_node(node: tuple, context: dict) -> Any:
             node[1], _eval_node(node[2], context), _eval_node(node[3], context)
         )
     if kind == "call":
+        name = node[1]
         args = [_eval_node(arg, context) for arg in node[2]]
+        # The catalog functions need the resolved entries to read an entry's own
+        # properties. Threading that through as a visible argument would make
+        # every formula carry `_entries`, so it is supplied here instead: an
+        # author writes `ref(klass, 'hit_die')` and the table arrives behind it.
+        kwargs = {}
+        if name in _ENTRY_AWARE:
+            # By keyword, not by position: padding the skipped parameters with
+            # None would override each function's own defaults, which is how
+            # `count_refs(spells, 'prepared')` came to count entries whose
+            # `prepared` was None rather than True.
+            kwargs["entries"] = context.get("_entries")
         try:
-            return FUNCTIONS[node[1]](*args)
+            return FUNCTIONS[name](*args, **kwargs)
         except ExpressionError:
             raise
         except (TypeError, ValueError):

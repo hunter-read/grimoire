@@ -15,7 +15,7 @@ Evaluation is forgiving, for the opposite reason: a sheet is edited in place and
 is routinely half-filled, so a missing value reads as 0 rather than an error.
 """
 import re
-from typing import Any
+from typing import Any, Optional
 
 from .expressions import ExpressionError, evaluate, parse, referenced_names
 from .layout_html import LayoutHtmlError, parse_layout_html
@@ -53,8 +53,18 @@ SCHEMA_VERSION = "grimoire://character-schema/v1"
 #: scalar types but not another `list`, because a sheet that nests tables two
 #: deep has outgrown what a sheet should be doing.
 FIELD_TYPES: frozenset = frozenset(
-    {"text", "number", "textarea", "checkbox", "select", "multiselect", "list"}
+    {
+        "text", "number", "textarea", "checkbox", "select", "multiselect", "list",
+        # Phase 3: references into the content catalog. `content_ref` is a
+        # single pick (a class, a kit); `content_list` is many (spells known).
+        # Both store the entry's id, never a copy of it, so an erratum reaches
+        # every character built on it.
+        "content_ref", "content_list",
+    }
 )
+
+#: Field types that name a content type and store references to its entries.
+_CONTENT_TYPES_FIELDS: frozenset = frozenset({"content_ref", "content_list"})
 
 #: Types a `list` column may take — the scalars, so no nesting.
 COLUMN_TYPES: frozenset = frozenset(
@@ -71,6 +81,8 @@ MAX_VALIDATORS = 200
 MAX_ROWS = 500
 
 _ID_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
+#: `{name}` placeholders in a content type's compact_display template.
+_DISPLAY_TOKENS = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 MAX_FIELDS = 500
@@ -137,20 +149,51 @@ def _validate_field(name: str, definition: Any) -> None:
             f"Field name {name!r} must start with a letter and contain only "
             "letters, digits, and underscores"
         )
-    definition = _require_dict(definition, f"Field {name!r}")
+    _validate_definition(f"Field {name!r}", name, definition)
+
+
+def _validate_definition(what: str, name: str, definition: Any) -> None:
+    """Validate a field definition, given a caller-chosen description of it.
+
+    Split from `_validate_field` so a nested definition — a `per_entry_fields`
+    entry — is checked the same way without having to pass a synthetic name
+    through the identifier rule.
+    """
+    definition = _require_dict(definition, what)
 
     field_type = definition.get("type", "text")
     if field_type not in FIELD_TYPES:
         allowed = ", ".join(sorted(FIELD_TYPES))
         raise SchemaError(
-            f"Field {name!r} has unknown type {field_type!r} (expected one of: {allowed})"
+            f"{what} has unknown type {field_type!r} (expected one of: {allowed})"
         )
 
-    what = f"Field {name!r}"
     if field_type in _OPTION_TYPES:
         _validate_options(what, definition)
     if field_type == "number":
         _validate_bounds(what, definition)
+
+    if field_type in _CONTENT_TYPES_FIELDS:
+        content_type = definition.get("content_type")
+        if not isinstance(content_type, str) or not content_type.strip():
+            raise SchemaError(
+                f"{what} is a {field_type} and needs a 'content_type' naming the "
+                "catalog it picks from"
+            )
+        # Per-entry fields are the character's own notes on a referenced entry —
+        # prepared, equipped, uses remaining. They are ordinary field
+        # definitions, validated as such.
+        per_entry = definition.get("per_entry_fields") or {}
+        if not isinstance(per_entry, dict):
+            raise SchemaError(f"{what} has a non-object 'per_entry_fields'")
+        for per_name, per_definition in per_entry.items():
+            if not _NAME_RE.match(str(per_name)):
+                raise SchemaError(
+                    f"{what} per-entry field {per_name!r} is not a valid identifier"
+                )
+            _validate_definition(
+                f"{what} per-entry field {per_name!r}", per_name, per_definition
+            )
 
     if field_type == "list":
         columns = definition.get("columns")
@@ -246,6 +289,65 @@ def _validate_layout(layout: Any, known: set[str]) -> None:
                 raise SchemaError(f"Layout references unknown field {name!r}")
 
 
+MAX_CONTENT_TYPES = 50
+
+
+def _validate_content_type(name: str, definition: Any) -> None:
+    """Check one `content_types` entry.
+
+    A content type is a field schema applied to catalog entries rather than to a
+    character, so its `fields` are validated exactly as a sheet's are — one
+    renderer draws both, and one validator checks both.
+    """
+    if not _NAME_RE.match(name):
+        raise SchemaError(f"Content type {name!r} is not a valid identifier")
+    definition = _require_dict(definition, f"Content type {name!r}")
+    what = f"Content type {name!r}"
+
+    fields = _require_dict(definition.get("fields", {}), f"{what} 'fields'")
+    if not fields:
+        raise SchemaError(f"{what} needs at least one field")
+    if len(fields) > MAX_FIELDS:
+        raise SchemaError(f"{what} has more than {MAX_FIELDS} fields")
+    for field_name, field_definition in fields.items():
+        if not _NAME_RE.match(str(field_name)):
+            raise SchemaError(f"{what} field {field_name!r} is not a valid identifier")
+        _validate_definition(f"{what} field {field_name!r}", field_name, field_definition)
+
+    # The entry's "name" — what a reference shows and what the catalog sorts by.
+    identity = definition.get("identity_field", "name")
+    if identity not in fields:
+        raise SchemaError(
+            f"{what} identity_field {identity!r} is not one of its fields"
+        )
+
+    # Each of these names fields that must exist, so a typo is caught here
+    # rather than producing an empty filter sidebar nobody can explain.
+    for key in ("sort_default", "search_fields", "filter_fields"):
+        names = definition.get(key)
+        if names is None:
+            continue
+        if not isinstance(names, list):
+            raise SchemaError(f"{what} {key!r} must be a list of field names")
+        unknown = [n for n in names if n not in fields]
+        if unknown:
+            raise SchemaError(
+                f"{what} {key!r} names unknown "
+                f"{'fields' if len(unknown) > 1 else 'field'}: {', '.join(map(str, unknown))}"
+            )
+
+    display = definition.get("compact_display")
+    if display is not None:
+        if not isinstance(display, str):
+            raise SchemaError(f"{what} compact_display must be a string")
+        unknown = [token for token in _DISPLAY_TOKENS.findall(display) if token not in fields]
+        if unknown:
+            raise SchemaError(
+                f"{what} compact_display references unknown "
+                f"{'fields' if len(unknown) > 1 else 'field'}: {', '.join(unknown)}"
+            )
+
+
 def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     """Validate a schema document, returning it normalised.
 
@@ -303,6 +405,26 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         _validate_condition(
             definition.get("visible_if"), f"Field {field_name!r} visible_if", known
         )
+
+    content_types = _require_dict(document.get("content_types", {}), "'content_types'")
+    if len(content_types) > MAX_CONTENT_TYPES:
+        raise SchemaError(f"Schema has more than {MAX_CONTENT_TYPES} content types")
+    for type_name, type_definition in content_types.items():
+        _validate_content_type(type_name, type_definition)
+
+    # A content_ref/content_list must name a catalog that exists, or the picker
+    # would open on nothing with no way for the player to know why.
+    for field_name, definition in fields.items():
+        if not isinstance(definition, dict):
+            continue
+        if definition.get("type") in _CONTENT_TYPES_FIELDS:
+            wanted = definition.get("content_type")
+            if wanted not in content_types:
+                known = ", ".join(sorted(content_types)) or "none declared"
+                raise SchemaError(
+                    f"Field {field_name!r} picks from content type {wanted!r}, "
+                    f"which the schema does not define (has: {known})"
+                )
 
     validators = document.get("validators", [])
     if not isinstance(validators, list):
@@ -389,7 +511,82 @@ def coerce_value(definition: dict, value: Any) -> Any:
     if field_type == "list":
         return _coerce_rows(definition, value)
 
+    if field_type == "content_ref":
+        return _coerce_ref(definition, value)
+
+    if field_type == "content_list":
+        if not isinstance(value, list):
+            return []
+        refs = [_coerce_ref(definition, item) for item in value[:MAX_ROWS]]
+        return [ref for ref in refs if ref]
+
     return "" if value is None else str(value)
+
+
+#: Keys a stored reference carries. `_ref` is the catalog entry's id, `_source`
+#: the pack it came from (two packs may each define "fireball"), `_per` the
+#: character's own notes on it, and `_inline` marks a freeform entry that exists
+#: only on this character.
+_REF_KEYS = ("_ref", "_source", "_per", "_inline")
+
+
+def _coerce_ref(definition: dict, value: Any) -> Any:
+    """Coerce one catalog reference.
+
+    A reference is stored, never a copy of the entry: an erratum or a homebrew
+    edit then reaches every character built on it. The exception is an `_inline`
+    entry — something the player typed rather than picked — which has nothing to
+    reference and so carries its own values.
+    """
+    if not isinstance(value, dict):
+        # A bare string is read as an entry id, which is what a simple schema
+        # or a hand-written import is likely to contain.
+        if isinstance(value, str) and value.strip():
+            return {"_ref": value.strip()}
+        return None
+
+    if value.get("_inline"):
+        # Freeform: keep the declared per-entry fields plus a display name, and
+        # drop anything else, exactly as a list row is rebuilt from its columns.
+        inline: dict[str, Any] = {"_inline": True}
+        name = value.get("name")
+        inline["name"] = "" if name is None else str(name)
+        inline.update(_coerce_per_entry(definition, value.get("_per")))
+        per = inline.pop("_per", None)
+        if per:
+            inline["_per"] = per
+        return inline
+
+    entry_id = value.get("_ref")
+    if not isinstance(entry_id, str) or not entry_id.strip():
+        return None
+
+    ref: dict[str, Any] = {"_ref": entry_id.strip()}
+    source = value.get("_source")
+    if isinstance(source, str) and source.strip():
+        ref["_source"] = source.strip()
+    per = _coerce_per_entry(definition, value.get("_per")).get("_per")
+    if per:
+        ref["_per"] = per
+    return ref
+
+
+def _coerce_per_entry(definition: dict, value: Any) -> dict:
+    """Coerce a reference's per-entry fields against their declarations.
+
+    These are the character's own notes on a catalog entry — prepared, equipped,
+    uses remaining — so they are coerced like any other field, and a key the
+    schema does not declare is dropped.
+    """
+    declared = definition.get("per_entry_fields") or {}
+    if not isinstance(value, dict) or not isinstance(declared, dict) or not declared:
+        return {}
+    per = {
+        key: coerce_value(declared[key], item)
+        for key, item in value.items()
+        if key in declared
+    }
+    return {"_per": per} if per else {}
 
 
 def _option_values(definition: dict) -> list:
@@ -447,8 +644,14 @@ _EMPTY_BY_TYPE: dict[str, Any] = {
 }
 
 
-def _build_context(document: dict, data: dict) -> dict:
-    """The value of every field, for evaluating formulas and conditions against."""
+def _build_context(document: dict, data: dict, entries: Optional[dict] = None) -> dict:
+    """The value of every field, for evaluating formulas and conditions against.
+
+    ``entries`` maps a catalog entry id to the entry itself. It rides in the
+    context under ``_entries`` so `ref()` and friends can read a referenced
+    entry's own properties; without it those functions return 0, which is what a
+    sheet shows before its catalog has loaded.
+    """
     fields = document.get("fields") or {}
     context: dict[str, Any] = {}
     for field_name, definition in fields.items():
@@ -464,10 +667,12 @@ def _build_context(document: dict, data: dict) -> dict:
     # formula referring to a since-renamed field keeps working until it is fixed.
     for key, value in data.items():
         context.setdefault(key, value)
+    if entries:
+        context["_entries"] = entries
     return context
 
 
-def compute_values(document: dict, data: dict) -> dict:
+def compute_values(document: dict, data: dict, entries: Optional[dict] = None) -> dict:
     """Evaluate a schema's computed values against a character's data.
 
     Computed values may depend on one another, and a schema author should not
@@ -479,7 +684,7 @@ def compute_values(document: dict, data: dict) -> dict:
     if not isinstance(computed, dict) or not computed:
         return {}
 
-    context = _build_context(document, data)
+    context = _build_context(document, data, entries)
 
     results: dict[str, Any] = {}
     for _ in range(MAX_COMPUTE_PASSES):
@@ -499,7 +704,7 @@ def compute_values(document: dict, data: dict) -> dict:
     return results
 
 
-def run_validators(document: dict, data: dict) -> list[dict]:
+def run_validators(document: dict, data: dict, entries: Optional[dict] = None) -> list[dict]:
     """Evaluate a schema's validators against a character.
 
     Returns the ones that *fired* — a rule states what should be true, so a
@@ -514,8 +719,8 @@ def run_validators(document: dict, data: dict) -> list[dict]:
     if not isinstance(validators, list) or not validators:
         return []
 
-    context = _build_context(document, data)
-    context.update(compute_values(document, data))
+    context = _build_context(document, data, entries)
+    context.update(compute_values(document, data, entries))
 
     fired = []
     for validator in validators:
@@ -540,7 +745,7 @@ def run_validators(document: dict, data: dict) -> list[dict]:
     return fired
 
 
-def visible_fields(document: dict, data: dict) -> dict[str, bool]:
+def visible_fields(document: dict, data: dict, entries: Optional[dict] = None) -> dict[str, bool]:
     """Which fields a `visible_if` currently shows, keyed by field name.
 
     Only fields that declare one appear here; anything absent is always shown.
@@ -548,8 +753,8 @@ def visible_fields(document: dict, data: dict) -> dict[str, bool]:
     callers that need the answer server-side.
     """
     fields = document.get("fields") or {}
-    context = _build_context(document, data)
-    context.update(compute_values(document, data))
+    context = _build_context(document, data, entries)
+    context.update(compute_values(document, data, entries))
 
     return {
         name: bool(evaluate(definition["visible_if"], context, default=True))

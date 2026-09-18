@@ -109,6 +109,8 @@ export default function LayoutRenderer({
   onChange,
   readOnly = false,
   scope = 'gc-sheet',
+  entries = {},
+  schemaId,
 }) {
   const css = schemaDocument?.styles_css
 
@@ -138,6 +140,8 @@ export default function LayoutRenderer({
           context,
           onChange,
           readOnly,
+          entries,
+          schemaId,
         })
       )}
     </div>
@@ -173,7 +177,7 @@ function renderNode(node, ctx) {
 }
 
 function renderDirective(node, ctx) {
-  const { schemaDocument, data, context, onChange, readOnly, key } = ctx
+  const { schemaDocument, data, context, onChange, readOnly, key, entries, schemaId } = ctx
   const attrs = node.attrs || {}
   const fields = schemaDocument?.fields || {}
   const name = attrs.name
@@ -219,6 +223,9 @@ function renderDirective(node, ctx) {
           onChange={readOnly ? undefined : (value) => onChange?.(name, value)}
           readOnly={readOnly || attrs.readonly !== undefined}
           hideLabel={attrs.label === ''}
+          entries={entries}
+          schemaId={schemaId || schemaDocument?.id}
+          contentTypes={schemaDocument?.content_types || {}}
         />
       )
     }

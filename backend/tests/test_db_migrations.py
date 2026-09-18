@@ -304,10 +304,15 @@ class TestAlembicCutover:
 
         def app_tables(p):
             insp = inspect(create_engine(f"sqlite:///{p}"))
+            # The FTS5 tables and their shadow tables are created by migrations
+            # rather than declared as models, so they exist in a migrated
+            # database and not in one built from metadata.
             return {
                 t
                 for t in insp.get_table_names()
-                if t != "alembic_version" and not t.startswith("book_search")
+                if t != "alembic_version"
+                and not t.startswith("book_search")
+                and not t.startswith("content_search")
             }
 
         assert app_tables(path) == app_tables(other)

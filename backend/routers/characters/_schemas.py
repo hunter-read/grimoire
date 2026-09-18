@@ -76,6 +76,9 @@ class CharacterDetail(CharacterSummary):
     data: dict[str, Any] = Field(default_factory=dict)
     computed: dict[str, Any] = Field(default_factory=dict)
     validators: list[ValidatorResult] = Field(default_factory=list)
+    # Catalog entries this character's references point at, keyed by entry id,
+    # so rendering the sheet costs no extra request.
+    entries: dict[str, Any] = Field(default_factory=dict)
 
 
 class CharacterListResponse(BaseModel):

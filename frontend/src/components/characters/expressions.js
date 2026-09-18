@@ -137,6 +137,42 @@ const FUNCTIONS = {
   // Every value of one column, for passing to sum()/min()/max().
   column: (rows, column) => listRows(rows).map((row) => row[String(column)]),
 
+  // --- catalog functions --------------------------------------------------
+  // A content_ref/content_list value is a reference — {_ref, _source, _per} —
+  // not a copy of the entry. Reading an entry's own properties needs the
+  // resolved entry, which arrives in the context as `_entries` and is passed to
+  // these behind the scenes, so an author writes `ref(klass, 'hit_die')`.
+
+  ref: (value, prop, entries) => {
+    const found = resolveRefs(value, entries)
+    return found.length ? (found[0][String(prop)] ?? 0) : 0
+  },
+
+  sum_refs: (value, prop, entries) =>
+    resolveRefs(value, entries).reduce((total, entry) => total + toNumber(entry[String(prop)]), 0),
+
+  has_ref: (value, entryId) => {
+    const items = Array.isArray(value) ? value : [value]
+    const wanted = String(entryId).trim().toLowerCase()
+    return items.some(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        String(item._ref ?? '')
+          .trim()
+          .toLowerCase() === wanted
+    )
+  },
+
+  count_refs: (value, prop = null, expected = true, entries = undefined) => {
+    if (prop === null || prop === undefined) {
+      const items = Array.isArray(value) ? value : []
+      return items.filter((item) => item && typeof item === 'object').length
+    }
+    const key = String(prop)
+    return resolveRefs(value, entries).filter((entry) => equal(entry[key], expected)).length
+  },
+
   // Whether a multiselect (or any list) holds a value, or text contains it.
   contains: (haystack, needle) => {
     if (Array.isArray(haystack)) return haystack.some((item) => equal(item, needle))
@@ -154,6 +190,30 @@ function flatten(values) {
     else flat.push(value)
   }
   return flat
+}
+
+// Every entry a reference or list of references points at. An `_inline` entry
+// carries its own values and resolves to itself; a reference resolves through
+// the table, with the character's own per-entry notes layered on top so
+// `count_refs(spells, 'prepared')` reads what the player set.
+// Functions that read resolved catalog entries, and the position the entry
+// table occupies in each one's parameter list.
+const ENTRY_AWARE = { ref: 3, sum_refs: 3, count_refs: 4 }
+
+function resolveRefs(value, entries) {
+  const items = Array.isArray(value) ? value : [value]
+  const table = entries && typeof entries === 'object' ? entries : {}
+  const out = []
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue
+    if (item._inline) {
+      out.push(item)
+      continue
+    }
+    const entry = table[String(item._ref)]
+    if (entry && typeof entry === 'object') out.push({ ...entry, ...(item._per || {}) })
+  }
+  return out
 }
 
 function listRows(value) {
@@ -364,9 +424,19 @@ function evalNode(node, context) {
       return a >= b
     }
     case 'call': {
+      const name = node[1]
       const args = node[2].map((arg) => evalNode(arg, context))
+      // The catalog functions need the resolved entries. JS has no keyword
+      // arguments, so the gap is filled with `undefined` rather than null —
+      // `undefined` lets each parameter's own default apply, where null would
+      // override it (which is how count_refs(spells, 'prepared') came to count
+      // entries whose `prepared` was null rather than true).
+      if (ENTRY_AWARE[name]) {
+        while (args.length < ENTRY_AWARE[name] - 1) args.push(undefined)
+        args[ENTRY_AWARE[name] - 1] = context?._entries
+      }
       try {
-        return FUNCTIONS[node[1]](...args)
+        return FUNCTIONS[name](...args)
       } catch {
         return 0
       }

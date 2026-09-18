@@ -3085,6 +3085,25 @@
     "removeRow": "Supprimer la ligne",
     "moveRowUp": "Déplacer vers le haut",
     "moveRowDown": "Déplacer vers le bas",
-    "listEmpty": "Rien pour le moment."
+    "listEmpty": "Rien pour le moment.",
+    "browseCatalog": "Parcourir le catalogue",
+    "searchCatalog": "Rechercher dans le catalogue",
+    "filters": "Filtres",
+    "filterAny": "Tous",
+    "noEntries": "Aucun résultat.",
+    "entryCount": "{{count}} entrée",
+    "addEntry": "Ajouter à la fiche",
+    "alreadyAdded": "Déjà sur la fiche",
+    "removeEntry": "Retirer",
+    "clearChoice": "Effacer",
+    "entryMissing": "non installé",
+    "addCustom": "Ajouter personnalisé",
+    "customEntry": "Entrée personnalisée",
+    "catalogFailed": "Impossible de charger le catalogue.",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "pageOf": "Page {{page}} sur {{pages}}",
+    "browseLabel": "Parcourir {{label}}",
+    "entryCount_other": "{{count}} entrées"
   }
 }

@@ -2,6 +2,8 @@ import { useId } from 'react'
 import { fieldInput, fieldLabel } from './characterStyles'
 import ListField from './ListField'
 import MultiSelectField from './MultiSelectField'
+import ContentRefField from './ContentRefField'
+import ContentListField from './ContentListField'
 
 /**
  * Renders one field from its schema definition and value.
@@ -23,6 +25,11 @@ export default function FieldRenderer({
   readOnly = false,
   hideLabel = false,
   autoFocus = false,
+  // Catalog context, supplied by the sheet. Only the content fields use it, but
+  // it rides on every field so a layout does not have to know which is which.
+  entries = {},
+  schemaId,
+  contentTypes = {},
 }) {
   const inputId = useId()
   const type = definition.type || 'text'
@@ -50,6 +57,35 @@ export default function FieldRenderer({
         onChange={onChange}
         readOnly={readOnly}
         hideLabel={hideLabel}
+      />
+    )
+  }
+  if (type === 'content_ref') {
+    return (
+      <ContentRefField
+        name={name}
+        definition={definition}
+        value={value}
+        entries={entries}
+        schemaId={schemaId}
+        typeDefinition={contentTypes[definition.content_type] || {}}
+        onChange={onChange}
+        readOnly={readOnly}
+        hideLabel={hideLabel}
+      />
+    )
+  }
+  if (type === 'content_list') {
+    return (
+      <ContentListField
+        name={name}
+        definition={definition}
+        value={value}
+        entries={entries}
+        schemaId={schemaId}
+        typeDefinition={contentTypes[definition.content_type] || {}}
+        onChange={onChange}
+        readOnly={readOnly}
       />
     )
   }

@@ -1887,6 +1887,144 @@ Schema CSS is scope-prefixed to the sheet and filtered against a property
 allowlist, so a hostile schema cannot restyle the app around it. The worst one
 can do is look wrong.
 
+### Content catalog
+
+A **content pack** is a directory of typed entries - spells, classes, feats,
+kits - for one game system. A character references an entry rather than copying
+it, so an erratum or a homebrew edit reaches every character built on it.
+
+Packs are **server-wide**: installed once into `DATA_PATH/character-content/`,
+loaded on startup and rescan, and shared read-only. Schemas stay per user, so
+the catalog is *content everyone has, described by the caller's own copy of the
+sheet* - two people may have different versions of a schema installed, and each
+browses the content types their copy declares.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/content/packs` | GET | user | Installed packs with their licence and credit. `?schema_id=` filters |
+| `/api/content/:schema_id/types` | GET | user | The content types this user's schema declares, each with an entry count |
+| `/api/content/:schema_id/:content_type` | GET | user | Browse: `search`, `filter[field]=value`, `sort`, `page`, `page_size` |
+| `/api/content/:schema_id/:content_type/:entry_id` | GET | user | One entry in full |
+| `/api/content/:schema_id/resolve?ids=a,b,c` | GET | user | Resolve many references at once, for rendering a sheet |
+
+**Browse response:** `entries[]`, `total`, `page`, `page_size`, and
+`filters_available` - facets built from the content type's `filter_fields`, each
+value with the number of entries carrying it. Facets describe the **whole**
+catalog rather than the current page, so choosing one value does not empty every
+other facet and leave no way back. Numeric facet values sort numerically, so a
+spell-level filter reads 1, 2, 3, 10 rather than 1, 10, 2, 3.
+
+Search is FTS5 over each type's `search_fields`, prefix-matched per term. A
+query is reduced to bare words first, so an unbalanced quote or a stray operator
+cannot raise.
+
+**Resolve** marks an id no installed pack provides as `missing` rather than
+omitting it, so a sheet can say "this entry is not installed" instead of
+silently dropping something the player chose.
+
+#### `content_types`
+
+A content type is a field schema applied to catalog entries rather than to a
+character, so its `fields` are validated exactly as a sheet's are and render
+through the same `FieldRenderer`:
+
+```json
+{
+  "content_types": {
+    "spell": {
+      "label": "Spell", "label_plural": "Spells",
+      "identity_field": "name",
+      "sort_default": ["level", "name"],
+      "search_fields": ["name", "school", "description"],
+      "filter_fields": ["level", "school"],
+      "compact_display": "{name} — {school} {level}",
+      "fields": { "name": { "type": "text" }, "level": { "type": "number" } }
+    }
+  }
+}
+```
+
+`identity_field` is the entry's name - what a reference displays and what the
+catalog sorts by. The three field-name lists and every `{token}` in
+`compact_display` are checked against the type's own fields at install, so a
+typo fails loudly rather than producing an empty filter sidebar.
+
+#### `content_ref` and `content_list`
+
+Two field types pick from the catalog. `content_ref` takes one entry (a class, a
+kit); `content_list` takes many (spells known, feats). Both name the
+`content_type` they draw from, which must be one the schema declares.
+
+```json
+{
+  "spells": {
+    "type": "content_list", "content_type": "spell",
+    "allow_freeform": true,
+    "per_entry_fields": { "prepared": { "type": "checkbox" } }
+  }
+}
+```
+
+`per_entry_fields` are the **character's own** notes on an entry - prepared,
+equipped, uses remaining. They are ordinary field definitions, validated and
+coerced like any other.
+
+**Stored shape.** A reference, never a copy:
+
+```json
+{ "signature": { "_ref": "fireball", "_source": "srd" },
+  "spells": [
+    { "_ref": "fireball", "_source": "srd", "_per": { "prepared": true } },
+    { "_inline": true, "name": "A spell I made up" }
+  ] }
+```
+
+`_source` records which pack an entry came from, because two packs for one
+system may each define `fireball`. `_inline` is the freeform escape hatch that
+keeps the catalog optional: with `allow_freeform`, a player can type an entry
+instead of picking one, and never open the browser at all.
+
+A character detail response carries `entries` - the catalog entries its
+references point at, resolved in one query - so rendering the sheet costs no
+extra request. A reference whose entry is not installed is **kept**: the pack
+may come back, and erasing the player's choice would be worse than showing an id.
+
+#### Catalog functions
+
+Four more expression functions read referenced entries. The resolved table is
+supplied behind the scenes, so an author never writes it:
+
+| Function | Returns |
+|---|---|
+| `ref(field, 'prop')` | One property of a single reference |
+| `sum_refs(list, 'prop')` | That property totalled across every referenced entry |
+| `has_ref(list, 'entry-id')` | Whether the list holds that entry |
+| `count_refs(list)` / `count_refs(list, 'prop', value)` | How many references there are, or how many match |
+
+The character's `_per` notes are layered over the catalog entry, so
+`count_refs(spells, 'prepared')` reads what the player set. Before the catalog
+has resolved, these return 0 rather than failing - a sheet renders while its
+entries are still loading.
+
+#### Pack layout
+
+```
+DATA_PATH/character-content/dnd-5e-srd/
+├── _meta.json     ← pack_id, schema_id, licence, source
+├── spell.json     ← an array of entries, named after the content type
+└── class.json
+```
+
+Every entry needs an `_id`; `_source` defaults to the pack's. A pack that sets a
+`license` **must** carry an `attribution`, which Grimoire renders verbatim -
+several open licences mandate exact wording. Loading a pack replaces its entries
+wholesale, so the directory is always the source of truth, and a pack whose
+directory disappears loses its rows on the next scan.
+
+A pack may be installed before anyone has installed the matching sheet; its
+entries are stored as authored until a schema describes them, so install order
+does not matter.
+
 ### Duplicates *(admin only)*
 
 Finding files that look like copies of one another, and deciding what to do

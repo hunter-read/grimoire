@@ -187,7 +187,13 @@ export default function CharacterDetailView() {
       ) : null}
 
       {document ? (
-        <CharacterSheet document={document} data={data} onChange={onChange} />
+        <CharacterSheet
+          document={document}
+          data={data}
+          onChange={onChange}
+          entries={character.entries || {}}
+          schemaId={character.schema_ref}
+        />
       ) : (
         <RawCharacterData data={data} />
       )}

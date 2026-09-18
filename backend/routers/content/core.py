@@ -1,0 +1,242 @@
+"""Content catalog endpoints.
+
+The catalog is **server-wide content described by a per-user schema**: packs are
+installed once by an admin, but which content types exist, what shape their
+entries have, and how they are sorted and filtered all come from the calling
+user's own copy of the sheet. Two people may have different versions of a schema
+installed, and each should browse what their copy declares.
+
+Reading the catalog needs only an account. Installing packs is an admin action
+and lives with the rest of maintenance; nothing here writes.
+"""
+import logging
+from typing import Optional
+
+from fastapi import Depends, HTTPException, Query, Request
+from sqlalchemy.orm import Session
+
+from ...auth import CurrentUser, get_current_user
+from ...config import get_db
+from ...models import ContentEntry, ContentPack
+from . import _helpers as helpers
+
+logger = logging.getLogger("grimoire.content")
+
+
+def list_packs(
+    schema_id: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Every installed content pack, with its licence and credit."""
+    query = db.query(ContentPack)
+    if schema_id:
+        query = query.filter_by(schema_id=schema_id)
+    packs = query.order_by(ContentPack.name).all()
+    return {
+        "packs": [
+            {
+                "pack_id": pack.pack_id,
+                "schema_id": pack.schema_id,
+                "name": pack.name,
+                "version": pack.version or "",
+                "description": pack.description or "",
+                "license": pack.license or "",
+                "license_url": pack.license_url or "",
+                "attribution": pack.attribution or "",
+                "source_url": pack.source_url or "",
+                "entry_count": pack.entry_count or 0,
+            }
+            for pack in packs
+        ]
+    }
+
+
+def list_content_types(
+    schema_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The content types this user's copy of a schema declares."""
+    document = helpers.user_schema_document(db, current_user.id, schema_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    content_types = document.get("content_types") or {}
+
+    # One grouped count rather than a query per declared type.
+    counts: dict[str, int] = {}
+    for (name,) in db.query(ContentEntry.content_type).filter_by(schema_id=schema_id).all():
+        counts[name] = counts.get(name, 0) + 1
+
+    return {
+        "content_types": [
+            {
+                "name": name,
+                "label": definition.get("label", name),
+                "label_plural": definition.get("label_plural", ""),
+                "icon": definition.get("icon", ""),
+                "identity_field": definition.get("identity_field", "name"),
+                "sort_default": definition.get("sort_default", []),
+                "search_fields": definition.get("search_fields", []),
+                "filter_fields": definition.get("filter_fields", []),
+                "compact_display": definition.get("compact_display", ""),
+                "fields": definition.get("fields", {}),
+                "entry_count": counts.get(name, 0),
+            }
+            for name, definition in sorted(content_types.items())
+        ]
+    }
+
+
+def browse_content(
+    request: Request,
+    schema_id: str,
+    content_type: str,
+    search: str = "",
+    sort: str = "",
+    page: int = 1,
+    page_size: int = helpers.DEFAULT_PAGE_SIZE,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Browse one content type: search, filter, sort, paginate.
+
+    Filters arrive as `filter[field]=value` query parameters, which is why this
+    handler takes the raw request — FastAPI cannot express that bracketed shape
+    as a typed parameter.
+    """
+    document = helpers.user_schema_document(db, current_user.id, schema_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    content_types = document.get("content_types") or {}
+    definition = content_types.get(content_type)
+    if definition is None:
+        raise HTTPException(
+            status_code=404, detail=f"This schema declares no content type {content_type!r}"
+        )
+
+    entries = (
+        db.query(ContentEntry)
+        .filter_by(schema_id=schema_id, content_type=content_type)
+        .all()
+    )
+
+    # Facets describe the whole catalog, not the current page, so they are built
+    # before filtering — otherwise choosing one value would empty every other
+    # facet and leave no way back.
+    facets = helpers.build_facets(entries, definition.get("filter_fields", []))
+
+    filters = {
+        key[7:-1]: value
+        for key, value in request.query_params.items()
+        if key.startswith("filter[") and key.endswith("]") and value
+    }
+    if filters:
+        entries = [
+            entry
+            for entry in entries
+            if helpers.matches_filters(entry.data or {}, filters)
+        ]
+
+    if search.strip():
+        ranked = helpers.search_entry_ids(db, schema_id, content_type, search)
+        order = {row_id: index for index, row_id in enumerate(ranked)}
+        entries = [entry for entry in entries if entry.id in order]
+        entries.sort(key=lambda entry: order[entry.id])
+    else:
+        sort_fields = (
+            [field.strip() for field in sort.split(",") if field.strip()]
+            if sort
+            else definition.get("sort_default", [])
+        )
+        entries = helpers.sort_entries(entries, sort_fields)
+
+    total = len(entries)
+    size = max(1, min(page_size, helpers.MAX_PAGE_SIZE))
+    current = max(1, page)
+    window = entries[(current - 1) * size : current * size]
+
+    return {
+        "entries": [helpers.serialize_entry(entry, definition) for entry in window],
+        "total": total,
+        "page": current,
+        "page_size": size,
+        "filters_available": facets,
+    }
+
+
+def get_entry(
+    schema_id: str,
+    content_type: str,
+    entry_id: str,
+    source: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """One catalog entry in full."""
+    document = helpers.user_schema_document(db, current_user.id, schema_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    query = db.query(ContentEntry).filter_by(
+        schema_id=schema_id, content_type=content_type, entry_id=entry_id
+    )
+    if source:
+        query = query.filter_by(source=source)
+    entry = query.first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    definition = (document.get("content_types") or {}).get(content_type) or {}
+    return helpers.serialize_entry(entry, definition)
+
+
+def resolve_entries(
+    schema_id: str,
+    ids: str = Query("", description="Comma-separated entry ids"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resolve many references at once, for rendering a sheet.
+
+    A sheet with twenty referenced spells must not make twenty requests. Ids
+    that no installed pack provides come back marked `missing` rather than being
+    omitted, so the sheet can say "this entry is not installed" instead of
+    silently dropping something the player chose.
+    """
+    wanted = [item.strip() for item in ids.split(",") if item.strip()]
+    if not wanted:
+        return {"entries": {}}
+
+    rows = (
+        db.query(ContentEntry)
+        .filter(ContentEntry.schema_id == schema_id)
+        .filter(ContentEntry.entry_id.in_(wanted[: helpers.MAX_PAGE_SIZE]))
+        .all()
+    )
+    found = {
+        row.entry_id: {
+            "entry_id": row.entry_id,
+            "source": row.source,
+            "name": row.name,
+            "content_type": row.content_type,
+            "data": row.data if isinstance(row.data, dict) else {},
+            "missing": False,
+        }
+        for row in rows
+    }
+    for entry_id in wanted:
+        found.setdefault(
+            entry_id,
+            {
+                "entry_id": entry_id,
+                "source": None,
+                "name": entry_id,
+                "content_type": "",
+                "data": {},
+                "missing": True,
+            },
+        )
+    return {"entries": found}

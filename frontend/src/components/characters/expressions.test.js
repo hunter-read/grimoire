@@ -281,3 +281,58 @@ describe('isVisible', () => {
     expect(isVisible('level > 4', { level: 2 })).toBe(false)
   })
 })
+
+// --- Phase 3: catalog references -------------------------------------------
+// Mirrors backend/tests/test_content_catalog.py and the engine's catalog tests.
+// A reference is {_ref, _source, _per}; reading an entry's own properties needs
+// the resolved table, which rides in the context as `_entries`.
+
+describe('catalog functions', () => {
+  const entries = {
+    fireball: { name: 'Fireball', level: 3, school: 'evocation' },
+    shield: { name: 'Shield', level: 1, school: 'abjuration' },
+  }
+  const context = {
+    spells: [
+      { _ref: 'fireball', _per: { prepared: true } },
+      { _ref: 'shield' },
+      { _inline: true, name: 'My Cantrip' },
+    ],
+    klass: { _ref: 'fireball' },
+    _entries: entries,
+  }
+
+  it.each([
+    ["ref(klass, 'name')", 'Fireball'],
+    ["ref(klass, 'level')", 3],
+    ["sum_refs(spells, 'level')", 4],
+    ["has_ref(spells, 'fireball')", true],
+    ["has_ref(spells, 'missing')", false],
+    ['count_refs(spells)', 3],
+    ["count_refs(spells, 'prepared')", 1],
+    ["count_refs(spells, 'level', 3)", 1],
+  ])('%s evaluates to %s', (formula, expected) => {
+    expect(evaluate(formula, context)).toBe(expected)
+  })
+
+  it('layers the character’s per-entry notes over the catalog entry', () => {
+    // `prepared` lives on the character, `level` on the entry; both resolve.
+    expect(evaluate("count_refs(spells, 'prepared')", context)).toBe(1)
+  })
+
+  it('reads 0 before the catalog has resolved', () => {
+    // A sheet renders before its entries arrive; it must not throw.
+    expect(evaluate("ref(klass, 'name')", { klass: { _ref: 'fireball' } })).toBe(0)
+    expect(evaluate("sum_refs(spells, 'level')", { spells: context.spells })).toBe(0)
+  })
+
+  it('counts an inline entry but cannot read catalog properties from it', () => {
+    expect(evaluate('count_refs(spells)', context)).toBe(3)
+    expect(evaluate("sum_refs(spells, 'level')", context)).toBe(4)
+  })
+
+  it('tolerates a reference field that is not a list', () => {
+    expect(evaluate("sum_refs(klass, 'level')", context)).toBe(3)
+    expect(evaluate('count_refs(nothing)', context)).toBe(0)
+  })
+})

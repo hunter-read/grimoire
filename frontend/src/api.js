@@ -647,6 +647,46 @@ export const characters = {
 }
 
 /**
+ * Character content catalog (issue #131).
+ *
+ * Packs are server-wide and installed by an admin, but the catalog is described
+ * by the calling user's own copy of the schema — two people may have different
+ * versions installed, and each browses what their copy declares.
+ */
+export const content = {
+  packs: (schemaId) =>
+    api.get(`/content/packs${schemaId ? `?schema_id=${encodeURIComponent(schemaId)}` : ''}`),
+  types: (schemaId) => api.get(`/content/${encodeURIComponent(schemaId)}/types`),
+  browse: (schemaId, contentType, params = {}) => {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value === undefined || value === null || value === '') continue
+      // Filters travel as filter[field]=value, which is the shape the catalog
+      // endpoint reads them back out of.
+      if (key === 'filters') {
+        for (const [field, wanted] of Object.entries(value)) {
+          if (wanted !== '' && wanted !== undefined) query.set(`filter[${field}]`, wanted)
+        }
+      } else {
+        query.set(key, value)
+      }
+    }
+    const qs = query.toString()
+    return api.get(
+      `/content/${encodeURIComponent(schemaId)}/${encodeURIComponent(contentType)}${qs ? `?${qs}` : ''}`
+    )
+  },
+  entry: (schemaId, contentType, entryId) =>
+    api.get(
+      `/content/${encodeURIComponent(schemaId)}/${encodeURIComponent(contentType)}/${encodeURIComponent(entryId)}`
+    ),
+  resolve: (schemaId, ids) =>
+    api.get(
+      `/content/${encodeURIComponent(schemaId)}/resolve?ids=${encodeURIComponent(ids.join(','))}`
+    ),
+}
+
+/**
  * Bulk operations (issue #270).
  *
  * These replace the old one-request-per-item fan-out, which raced on tag

@@ -3085,6 +3085,25 @@
     "removeRow": "Eliminar fila",
     "moveRowUp": "Subir fila",
     "moveRowDown": "Bajar fila",
-    "listEmpty": "Aún no hay nada."
+    "listEmpty": "Aún no hay nada.",
+    "browseCatalog": "Explorar el catálogo",
+    "searchCatalog": "Buscar en el catálogo",
+    "filters": "Filtros",
+    "filterAny": "Cualquiera",
+    "noEntries": "No hay coincidencias.",
+    "entryCount": "{{count}} entrada",
+    "addEntry": "Añadir a la hoja",
+    "alreadyAdded": "Ya está en la hoja",
+    "removeEntry": "Quitar",
+    "clearChoice": "Borrar",
+    "entryMissing": "no instalado",
+    "addCustom": "Añadir personalizado",
+    "customEntry": "Entrada personalizada",
+    "catalogFailed": "No se pudo cargar el catálogo.",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "pageOf": "Página {{page}} de {{pages}}",
+    "browseLabel": "Explorar {{label}}",
+    "entryCount_other": "{{count}} entradas"
   }
 }
