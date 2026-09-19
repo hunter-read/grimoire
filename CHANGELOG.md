@@ -18,6 +18,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Non-Docker installs report their real version instead of `1.0.0` in the About dialog
 - Return keyboard focus to the file list after a dialog closes
 - Large map, token, audio, and model galleries no longer grow to gigabytes of memory, and scroll smoothly
+- Ungrouped galleries load in the order they display, so cards no longer pop in among those already on screen
+- Renamed maps and tokens keep their thumbnails, and a thumbnail that has gone missing is re-rendered by the next scan
 
 ## [1.7.1] - 2026-09-16
 

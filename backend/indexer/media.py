@@ -23,8 +23,10 @@ from ._context import _ScanContext, _prune_dirs, _title_from_filename
 from ._subprocess import _run_with_timeout
 from .constants import (
     AUDIO_EXTS,
+    IMAGE_EXTS,
     MAP_VIDEO_EXTS,
     MEDIA_ARCHIVE_EXTS,
+    PDF_EXTS,
     VTT_DATA_EXTS,
     _DB_TIMEOUT,
 )
@@ -37,22 +39,43 @@ from ..models import Audio
 logger = logging.getLogger("grimoire.indexer")
 
 
+def _thumbnail_on_disk(ctx: _ScanContext, section: str, title: str, filepath: str) -> bool:
+    """Whether any cached thumbnail exists for ``filepath``.
+
+    Matched on the path hash rather than the composed name, the same way the
+    serving routes do: the name also embeds the filename stem as it was at index
+    time, so a renamed file's thumbnail is on disk under a name this scan would
+    not compose. Checking only the composed name would therefore re-render a
+    file that is sitting right there.
+    """
+    import glob as _glob
+    import hashlib as _hashlib
+
+    fhash = _hashlib.md5(filepath.encode()).hexdigest()[:8]
+    pattern = os.path.join(ctx.thumb_dir, section, f"*_{fhash}.webp")
+    return bool(_glob.glob(pattern))
+
+
 def _needs_thumbnail_backfill(existing: Any, ext: str, arc_ext: str) -> bool:
     """True when a registered media row could have a thumbnail but does not.
 
-    Two formats answer yes, both for the same reason: they were registered as
-    opaque before the thumbnailer could read them, so existing rows sit at
-    has_thumbnail=0 with no way to recover. Universal VTT maps carry the
-    battlemap as base64 inside the JSON; animated maps (.webm/.mp4) now get a
-    decoded frame from the bundled decode-only ffmpeg. Archives stay excluded —
-    they are opaque by design, not by a missing decoder.
+    Every format the thumbnailer can read answers yes, not just the two that
+    were once undecodable. Ordinary images are the common recoverable case: a
+    rename leaves the cached file under the old filename stem, and when the move
+    path cannot re-home it the flag is cleared — so without this the row stays
+    blank through every future rescan. Renaming a folder of token-editor frames
+    hit exactly that. Universal VTT maps (battlemap as base64 in the JSON) and
+    animated maps (a frame from the bundled decode-only ffmpeg) keep the
+    behaviour they were given. Archives stay excluded — they are opaque by
+    design, not by a missing decoder.
 
     Guarded on the flag rather than on file state, so a genuinely un-thumbnailed
     file is retried at most once per scan and a successful row is never redone.
+    A format with no decoder at all simply fails again and costs one attempt.
     """
     if arc_ext or getattr(existing, "has_thumbnail", False):
         return False
-    return ext in VTT_DATA_EXTS or ext in MAP_VIDEO_EXTS
+    return ext in IMAGE_EXTS or ext in PDF_EXTS or ext in VTT_DATA_EXTS or ext in MAP_VIDEO_EXTS
 
 
 def _needs_model_thumbnail_requeue(existing: Any, ext: str) -> bool:
@@ -169,6 +192,15 @@ def _scan_media(
                         logger.error(f"DB hang: {e} - rolling back '{filename}'")
                         session.rollback()
                     continue
+                # A row can also claim a thumbnail whose file is no longer
+                # there — a rename that stranded it under the old stem, or a
+                # cache wiped from disk. The flag is what gates the backfill
+                # below, so clearing it here is what lets the same scan render
+                # the file again rather than skipping the row forever.
+                if getattr(existing, "has_thumbnail", False) and not arc_ext:
+                    if not _thumbnail_on_disk(ctx, section, title, filepath):
+                        logger.debug(f"Thumbnail missing on disk, re-rendering: {filepath}")
+                        existing.has_thumbnail = False
                 if _needs_thumbnail_backfill(existing, ext, arc_ext):
                     thumb_path = ctx.thumb_path(section, title, filepath)
                     logger.debug(f"Backfilling thumbnail: {filepath}")
