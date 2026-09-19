@@ -7,6 +7,28 @@ Steel, Pathfinder, Cairn or a system you invent this evening.
 
 **Characters** live under Campaigns in the sidebar, beside **Homebrew**.
 
+## Sheets that ship today
+
+The community repository carries five, each under the licence its game is
+published with:
+
+| System | Layout |
+| --- | --- |
+| Dungeons & Dragons 5e (2024) | Custom |
+| Draw Steel | Custom |
+| Pathfinder 2e | Custom |
+| Cairn | Default |
+| Basic Fantasy RPG | Default |
+
+A *custom* sheet is laid out to resemble its published original. A *default*
+sheet is drawn in plain sections from the same field definitions — perfectly
+usable, and all a rules-light game needs.
+
+Each derives the arithmetic its system actually uses: D&D scales proficiency
+into saves and passive Perception, Pathfinder adds your level to a check only
+once you are trained, Draw Steel works out winded and recovery values from your
+stamina, and Basic Fantasy derives the ability bonus table.
+
 ## Installing a sheet
 
 **Characters → Import a sheet**, then paste a schema. Sheets are **per user**,
