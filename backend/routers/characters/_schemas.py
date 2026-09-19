@@ -55,6 +55,13 @@ class CharacterSummary(BaseModel):
     # False when the schema this character was built on is not installed. The
     # character still opens; it renders read-only from stored data.
     schema_missing: bool = False
+    # The campaign this character is played in, if any. Setting it lets the
+    # party read the sheet; editing stays with the owner.
+    campaign_id: Optional[str] = None
+    portrait_path: Optional[str] = None
+    # False when the caller is reading a party member's sheet rather than
+    # their own.
+    owned: bool = True
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -89,11 +96,43 @@ class CharacterCreate(BaseModel):
     schema_ref: str
     name: str = ""
     data: dict[str, Any] = Field(default_factory=dict)
+    campaign_id: Optional[str] = None
 
 
 class CharacterUpdate(BaseModel):
     name: Optional[str] = None
     data: Optional[dict[str, Any]] = None
+    # "" clears the campaign; a real id must be one the owner belongs to.
+    campaign_id: Optional[str] = None
+
+
+class CharacterExport(BaseModel):
+    """A self-contained character file.
+
+    Every reference is denormalised into `entries`, and the schema travels with
+    it, so the file opens on an instance that has neither the pack nor the
+    homebrew it was built from.
+    """
+
+    schema_marker: str = Field(default="", alias="$schema")
+    name: str = ""
+    schema_id: str = ""
+    character_schema: dict[str, Any] = Field(default_factory=dict, alias="schema")
+    data: dict[str, Any] = Field(default_factory=dict)
+    entries: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+class CharacterImport(BaseModel):
+    payload: dict[str, Any]
+    # Recreate entries the receiving instance lacks as the importer's own
+    # homebrew, so the sheet reads correctly rather than showing gaps.
+    import_entries: bool = True
+
+
+class PortraitResponse(BaseModel):
+    portrait_path: str
 
 
 class CharacterDeletedResponse(BaseModel):

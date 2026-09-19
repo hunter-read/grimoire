@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuTriangleAlert, LuCheck } from 'react-icons/lu'
+import { LuArrowLeft, LuTriangleAlert, LuCheck, LuDownload, LuImage } from 'react-icons/lu'
 import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
 import CharacterSheet from '../components/characters/CharacterSheet'
 import RawCharacterData from '../components/characters/RawCharacterData'
-import { iconBtn, card } from '../components/characters/characterStyles'
+import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 
 // Edits are saved on a short debounce rather than on a Save button: a sheet is
 // filled in field by field over a session, and losing a column of scores to a
@@ -33,6 +33,7 @@ export default function CharacterDetailView() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
+  const [portraitKey, setPortraitKey] = useState(0)
 
   const timerRef = useRef(null)
   const pendingRef = useRef({})
@@ -105,6 +106,36 @@ export default function CharacterDetailView() {
     [flush]
   )
 
+  const uploadPortrait = async (file) => {
+    if (!file) return
+    try {
+      await charactersApi.uploadPortrait(characterId, file)
+      // The URL does not change when the image does, so a cache-busting token
+      // is what makes the new portrait actually appear.
+      setPortraitKey(Date.now())
+      setError('')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const exportCharacter = async () => {
+    try {
+      const payload = await charactersApi.export(characterId)
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      // `window.document`, not `document`: this component has a `document`
+      // state holding the schema, which shadows the global one.
+      const link = window.document.createElement('a')
+      link.href = url
+      link.download = `${(character?.name || 'character').replace(/[^\w-]+/g, '-')}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   const rename = async (name) => {
     try {
       const updated = await charactersApi.update(characterId, { name })
@@ -149,6 +180,27 @@ export default function CharacterDetailView() {
             padding: '2px 0',
           }}
         />
+        <label
+          title={t('characters.setPortrait')}
+          style={{ ...ghostBtn, padding: '6px 10px', cursor: 'pointer' }}
+        >
+          <LuImage size={14} />
+          <input
+            type="file"
+            accept="image/*"
+            aria-label={t('characters.setPortrait')}
+            onChange={(e) => uploadPortrait(e.target.files?.[0])}
+            style={{ display: 'none' }}
+          />
+        </label>
+        <button
+          onClick={exportCharacter}
+          aria-label={t('characters.export')}
+          title={t('characters.export')}
+          style={{ ...ghostBtn, padding: '6px 10px' }}
+        >
+          <LuDownload size={14} />
+        </button>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 60 }}>
           {saving ? (
             t('characters.saving')
@@ -184,6 +236,24 @@ export default function CharacterDetailView() {
           <LuTriangleAlert size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div>{t('characters.schemaMissingHelp', { schema: character.schema_ref })}</div>
         </div>
+      ) : null}
+
+      {character.portrait_path || portraitKey ? (
+        <img
+          src={`${charactersApi.portraitUrl(characterId)}?v=${portraitKey}`}
+          alt={t('characters.portraitOf', { name: character.name || '' })}
+          onError={(event) => {
+            event.currentTarget.style.display = 'none'
+          }}
+          style={{
+            width: 120,
+            height: 120,
+            objectFit: 'cover',
+            borderRadius: 10,
+            border: '1px solid var(--border)',
+            marginBottom: 16,
+          }}
+        />
       ) : null}
 
       {document ? (

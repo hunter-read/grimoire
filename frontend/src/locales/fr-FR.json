@@ -3105,7 +3105,12 @@
     "next": "Suivant",
     "pageOf": "Page {{page}} sur {{pages}}",
     "browseLabel": "Parcourir {{label}}",
-    "entryCount_other": "{{count}} entrées"
+    "entryCount_other": "{{count}} entrées",
+    "setPortrait": "Définir un portrait",
+    "export": "Exporter le personnage",
+    "importCharacter": "Importer un personnage",
+    "portraitOf": "Portrait de {{name}}",
+    "partyMember": "membre du groupe"
   },
   "homebrew": {
     "title": "Contenu maison",
@@ -3134,5 +3139,15 @@
     "confirmDelete": "Supprimer « {{name}} » ? Cette action est irréversible.",
     "confirmDeleteUsed": "Supprimer « {{name}} » ? {{count}} de vos personnages y font référence — elle y apparaîtra comme manquante.",
     "importResult": "{{imported}} importées, {{skipped}} ignorées, {{renamed}} renommées, {{overwritten}} remplacées."
+  },
+  "contentPacks": {
+    "title": "Packs de contenu",
+    "reload": "Recharger",
+    "reloading": "Rechargement…",
+    "help": "Les packs s'installent en plaçant un dossier dans character-content de votre répertoire de données. Rechargez après une modification.",
+    "empty": "Aucun pack installé.",
+    "entries": "{{count}} entrée",
+    "entries_other": "{{count}} entrées",
+    "licence": "Licence"
   }
 }

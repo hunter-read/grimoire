@@ -69,6 +69,7 @@ never writes to it.
 
 - **Book restrictions** - Restrict a book, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
 - **Community add-ons** - Install community metadata scrapers to fill in system and book details from external sources, reviewing a field-by-field diff before anything is written. See [Community add-ons](docs/addons.md).
+- **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and write your own homebrew. Sheets are per user, so no admin approval is involved. See [Character sheets](docs/characters.md).
 - **Themes and light mode** - Light, dark, or system, plus installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
 - **Docker ready** - One command to run, mount your library directory, done. Works on desktop, tablet, and phone.
 
@@ -322,6 +323,7 @@ kept in the repo so it versions with the release you are running:
 | [Token editor](docs/token-editor.md)          | Turning any picture into a VTT-ready token                                      |
 | [Universal VTT editor](docs/uvtt-editor.md)   | Drawing walls, doors, and lights for dynamic lighting                           |
 | [Setting images](docs/setting-images.md)      | Campaign banners, system covers, and audio artwork                              |
+| [Character sheets](docs/characters.md)        | The schema-driven character builder, content packs, and homebrew                |
 | [Themes](docs/themes.md)                      | Light, dark, and installable colour themes                                      |
 
 ### Administration

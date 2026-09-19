@@ -3105,7 +3105,12 @@
     "next": "Siguiente",
     "pageOf": "Página {{page}} de {{pages}}",
     "browseLabel": "Explorar {{label}}",
-    "entryCount_other": "{{count}} entradas"
+    "entryCount_other": "{{count}} entradas",
+    "setPortrait": "Establecer retrato",
+    "export": "Exportar personaje",
+    "importCharacter": "Importar un personaje",
+    "portraitOf": "Retrato de {{name}}",
+    "partyMember": "miembro del grupo"
   },
   "homebrew": {
     "title": "Contenido propio",
@@ -3134,5 +3139,15 @@
     "confirmDelete": "¿Eliminar «{{name}}»? Esto no se puede deshacer.",
     "confirmDeleteUsed": "¿Eliminar «{{name}}»? {{count}} de tus personajes la usan — aparecerá como no instalada.",
     "importResult": "{{imported}} importadas, {{skipped}} omitidas, {{renamed}} renombradas, {{overwritten}} sobrescritas."
+  },
+  "contentPacks": {
+    "title": "Paquetes de contenido",
+    "reload": "Recargar",
+    "reloading": "Recargando…",
+    "help": "Los paquetes se instalan colocando una carpeta en character-content de tu directorio de datos. Recarga tras añadir o cambiar uno.",
+    "empty": "No hay paquetes instalados.",
+    "entries": "{{count}} entrada",
+    "entries_other": "{{count}} entradas",
+    "licence": "Licencia"
   }
 }

@@ -3105,7 +3105,12 @@
     "next": "Weiter",
     "pageOf": "Seite {{page}} von {{pages}}",
     "browseLabel": "{{label}} durchsuchen",
-    "entryCount_other": "{{count}} Einträge"
+    "entryCount_other": "{{count}} Einträge",
+    "setPortrait": "Porträt festlegen",
+    "export": "Charakter exportieren",
+    "importCharacter": "Charakter importieren",
+    "portraitOf": "Porträt von {{name}}",
+    "partyMember": "Gruppenmitglied"
   },
   "homebrew": {
     "title": "Eigene Inhalte",
@@ -3134,5 +3139,15 @@
     "confirmDelete": "„{{name}}“ löschen? Das kann nicht rückgängig gemacht werden.",
     "confirmDeleteUsed": "„{{name}}“ löschen? {{count}} deiner Charaktere verweisen darauf — dort fehlt er dann.",
     "importResult": "{{imported}} importiert, {{skipped}} übersprungen, {{renamed}} umbenannt, {{overwritten}} überschrieben."
+  },
+  "contentPacks": {
+    "title": "Charakter-Inhaltspakete",
+    "reload": "Neu laden",
+    "reloading": "Wird geladen…",
+    "help": "Pakete werden installiert, indem ein Verzeichnis im Ordner character-content deines Datenverzeichnisses abgelegt wird. Nach Änderungen neu laden.",
+    "empty": "Keine Inhaltspakete installiert.",
+    "entries": "{{count}} Eintrag",
+    "entries_other": "{{count}} Einträge",
+    "licence": "Lizenz"
   }
 }

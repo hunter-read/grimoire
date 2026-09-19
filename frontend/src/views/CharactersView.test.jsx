@@ -12,8 +12,11 @@ const mockImportSchema = vi.fn()
 const mockDeleteSchema = vi.fn()
 const mockNavigate = vi.fn()
 
+const mockImportCharacter = vi.fn()
+
 vi.mock('../api', () => ({
   characters: {
+    import: (...a) => mockImportCharacter(...a),
     list: (...a) => mockList(...a),
     listSchemas: (...a) => mockListSchemas(...a),
     create: (...a) => mockCreate(...a),
@@ -155,6 +158,51 @@ describe('CharactersView', () => {
     mockList.mockRejectedValue(new Error('boom'))
     renderView()
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+  })
+
+  describe('importing a character file', () => {
+    const fileOf = (text) => {
+      const file = new File([text], 'c.json', { type: 'application/json' })
+      // jsdom's File has no text(), which is what the view reads it with.
+      file.text = () => Promise.resolve(text)
+      return file
+    }
+
+    it('imports a file and opens the new character', async () => {
+      mockImportCharacter.mockResolvedValue({ id: 'imported' })
+      renderView()
+      await screen.findByText('Vex')
+      await userEvent.upload(
+        screen.getByLabelText(/Import a character/i),
+        fileOf('{"schema_id":"demo","name":"Imported"}')
+      )
+      await waitFor(() =>
+        expect(mockImportCharacter).toHaveBeenCalledWith({
+          schema_id: 'demo',
+          name: 'Imported',
+        })
+      )
+      expect(mockNavigate).toHaveBeenCalledWith('/characters/imported')
+    })
+
+    it('reports a file that is not JSON', async () => {
+      renderView()
+      await screen.findByText('Vex')
+      await userEvent.upload(screen.getByLabelText(/Import a character/i), fileOf('nope'))
+      expect(await screen.findByRole('alert')).toHaveTextContent(/not valid JSON/i)
+      expect(mockImportCharacter).not.toHaveBeenCalled()
+    })
+
+    it('surfaces a rejected import', async () => {
+      mockImportCharacter.mockRejectedValue(new Error('that schema is not installed'))
+      renderView()
+      await screen.findByText('Vex')
+      await userEvent.upload(
+        screen.getByLabelText(/Import a character/i),
+        fileOf('{"schema_id":"ghost"}')
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent('not installed')
+    })
   })
 
   // The app styles buttons inline from its own tokens — there are no

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuUsers, LuPlus, LuTrash2, LuUpload, LuTriangleAlert } from 'react-icons/lu'
+import { LuUsers, LuPlus, LuTrash2, LuUpload, LuTriangleAlert, LuFileUp } from 'react-icons/lu'
 import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
 import {
@@ -93,6 +93,18 @@ export default function CharactersView() {
     }
   }
 
+  const importCharacter = async (file) => {
+    if (!file) return
+    try {
+      const payload = JSON.parse(await file.text())
+      const created = await charactersApi.import(payload)
+      navigate(`/characters/${created.id}`)
+    } catch (e) {
+      // A bad file and a rejected import both land here; the message says which.
+      setError(e instanceof SyntaxError ? t('characters.importInvalidJson') : e.message)
+    }
+  }
+
   const remove = async (id, name) => {
     if (!window.confirm(t('characters.confirmDelete', { name }))) return
     try {
@@ -118,6 +130,17 @@ export default function CharactersView() {
       >
         <LuUsers size={22} color="var(--gold)" style={{ flexShrink: 0 }} />
         <h1 style={{ margin: 0, fontSize: 22, flex: 1 }}>{t('characters.title')}</h1>
+        <label title={t('characters.importCharacter')} style={{ ...ghostBtn, cursor: 'pointer' }}>
+          <LuFileUp size={14} />
+          {t('characters.importCharacter')}
+          <input
+            type="file"
+            accept="application/json,.json"
+            aria-label={t('characters.importCharacter')}
+            onChange={(e) => importCharacter(e.target.files?.[0])}
+            style={{ display: 'none' }}
+          />
+        </label>
         <button onClick={() => setImporting((v) => !v)} style={ghostBtn}>
           <LuUpload size={14} />
           {t('characters.importSchema')}
@@ -249,7 +272,10 @@ export default function CharactersView() {
                       {t('characters.schemaMissing', { schema: character.schema_ref })}
                     </span>
                   ) : (
-                    character.schema_name || character.schema_ref
+                    <>
+                      {character.schema_name || character.schema_ref}
+                      {character.owned === false ? ` · ${t('characters.partyMember')}` : ''}
+                    </>
                   )}
                 </div>
               </button>

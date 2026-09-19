@@ -3105,7 +3105,12 @@
     "next": "Next",
     "pageOf": "Page {{page}} of {{pages}}",
     "browseLabel": "Browse {{label}}",
-    "entryCount_other": "{{count}} entries"
+    "entryCount_other": "{{count}} entries",
+    "setPortrait": "Set a portrait",
+    "export": "Export character",
+    "importCharacter": "Import a character",
+    "portraitOf": "Portrait of {{name}}",
+    "partyMember": "party member"
   },
   "homebrew": {
     "title": "Homebrew",
@@ -3134,5 +3139,15 @@
     "confirmDelete": "Delete \"{{name}}\"? This cannot be undone.",
     "confirmDeleteUsed": "Delete \"{{name}}\"? {{count}} of your characters reference it — they will show it as missing.",
     "importResult": "Imported {{imported}}, skipped {{skipped}}, renamed {{renamed}}, overwritten {{overwritten}}."
+  },
+  "contentPacks": {
+    "title": "Character content packs",
+    "reload": "Reload from disk",
+    "reloading": "Reloading…",
+    "help": "Packs are installed by placing a directory in the character-content folder of your data directory. Reload after adding or changing one.",
+    "empty": "No content packs installed.",
+    "entries": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "licence": "Licence"
   }
 }

@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from ...auth import CurrentUser, get_current_user
+from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import get_db
 from ...models import ContentEntry, ContentPack, HomebrewEntry, User
 from ...services.characters import homebrew as hb
@@ -350,3 +350,41 @@ def resolve_entries(
             },
         )
     return {"entries": found}
+
+
+def reload_packs(
+    current_user: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Re-read every content pack from disk.
+
+    Packs load at startup and on rescan, but an admin who has just dropped a
+    directory in should not have to restart to see it. The directory is the
+    source of truth, so this is a re-read rather than a merge: a pack whose
+    files changed is replaced, and one whose directory is gone loses its rows.
+    """
+    from ...services.characters import packs as pack_service
+
+    try:
+        loaded = pack_service.sync_packs(db)
+    except Exception as exc:  # a bad pack must not 500 the admin page
+        logger.exception("Content pack reload failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {
+        "packs": [
+            {
+                "pack_id": pack.pack_id,
+                "schema_id": pack.schema_id,
+                "name": pack.name,
+                "version": pack.version or "",
+                "description": pack.description or "",
+                "license": pack.license or "",
+                "license_url": pack.license_url or "",
+                "attribution": pack.attribution or "",
+                "source_url": pack.source_url or "",
+                "entry_count": pack.entry_count or 0,
+            }
+            for pack in loaded
+        ]
+    }

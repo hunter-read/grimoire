@@ -25,6 +25,8 @@ UNTYPED_BY_DESIGN = {
     "/api/books/{book_id}/page/{page_num}",
     "/api/books/{book_id}/thumbnail",
     "/api/campaigns/{campaign_id}/banner",
+    # Serves the portrait image itself, like the campaign art route.
+    "/api/characters/{character_id}/portrait",
     "/api/campaigns/{campaign_id}/files/{file_id}",
     "/api/campaigns/{campaign_id}/members/{member_id}/art",
     "/api/campaigns/{campaign_id}/members/{member_id}/token",

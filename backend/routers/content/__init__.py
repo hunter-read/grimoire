@@ -10,6 +10,7 @@ from ._schemas import (
 )
 from .core import (
     browse_content,
+    reload_packs,
     get_entry,
     list_content_types,
     list_packs,
@@ -26,6 +27,13 @@ router.add_api_route(
     list_packs,
     methods=["GET"],
     summary="List installed content packs",
+    response_model=PackListResponse,
+)
+router.add_api_route(
+    "/packs/reload",
+    reload_packs,
+    methods=["POST"],
+    summary="Re-read content packs from disk (admin)",
     response_model=PackListResponse,
 )
 router.add_api_route(

@@ -3105,7 +3105,12 @@
     "next": "Volgende",
     "pageOf": "Pagina {{page}} van {{pages}}",
     "browseLabel": "{{label}} doorbladeren",
-    "entryCount_other": "{{count}} items"
+    "entryCount_other": "{{count}} items",
+    "setPortrait": "Portret instellen",
+    "export": "Personage exporteren",
+    "importCharacter": "Personage importeren",
+    "portraitOf": "Portret van {{name}}",
+    "partyMember": "groepslid"
   },
   "homebrew": {
     "title": "Eigen inhoud",
@@ -3134,5 +3139,15 @@
     "confirmDelete": "\"{{name}}\" verwijderen? Dit kan niet ongedaan worden gemaakt.",
     "confirmDeleteUsed": "\"{{name}}\" verwijderen? {{count}} van je personages gebruiken het — daar ontbreekt het dan.",
     "importResult": "{{imported}} geïmporteerd, {{skipped}} overgeslagen, {{renamed}} hernoemd, {{overwritten}} overschreven."
+  },
+  "contentPacks": {
+    "title": "Inhoudspakketten",
+    "reload": "Opnieuw laden",
+    "reloading": "Bezig met laden…",
+    "help": "Pakketten installeer je door een map in character-content van je datamap te plaatsen. Laad opnieuw na een wijziging.",
+    "empty": "Geen pakketten geïnstalleerd.",
+    "entries": "{{count}} item",
+    "entries_other": "{{count}} items",
+    "licence": "Licentie"
   }
 }

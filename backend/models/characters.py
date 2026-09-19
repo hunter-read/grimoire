@@ -83,6 +83,10 @@ class Character(Base):
     every read, so a schema whose formula changes immediately corrects every
     character built on it rather than leaving stale numbers behind.
 
+    ``campaign_id`` scopes a character to a table. A campaign member may read
+    another member's sheet but never edit it — the sheet belongs to the player
+    who wrote it, the same rule homebrew follows.
+
     ``schema_ref`` stores the schema's ``schema_id`` string rather than a
     foreign key to ``character_schemas.id``. A character must survive its schema
     being uninstalled and reinstalled — which produces a new row id but the same
@@ -98,6 +102,16 @@ class Character(Base):
     schema_ref = Column(String(100), nullable=False, index=True)
     name = Column(String(200), nullable=False, default="")
     data = Column(JSON, default=dict)
+
+    # The campaign this character is played in, if any. Nullable because a
+    # character may exist before a campaign does — a player rolls one up and
+    # joins a table later — and because a character can outlive the game it was
+    # made for. Setting it lets the party see the sheet.
+    campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
+
+    # Filename under DATA_PATH/uploads/characters/, not a path: the directory is
+    # ours to choose and storing one would make moving it a migration.
+    portrait_path = Column(String(255), nullable=True)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)

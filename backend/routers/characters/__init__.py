@@ -4,13 +4,18 @@ from fastapi import APIRouter
 from ._schemas import (
     CharacterDeletedResponse,
     CharacterDetail,
+    CharacterExport,
     CharacterListResponse,
+    PortraitResponse,
     SchemaDeletedResponse,
     SchemaDetail,
     SchemaListResponse,
 )
+from .portraits import delete_portrait, get_portrait, upload_portrait
 from .core import (
     create_character,
+    export_character,
+    import_character,
     delete_character,
     delete_schema,
     get_character,
@@ -55,6 +60,13 @@ router.add_api_route(
     response_model=SchemaDeletedResponse,
 )
 router.add_api_route(
+    "/import",
+    import_character,
+    methods=["POST"],
+    summary="Import a character from an exported file",
+    response_model=CharacterDetail,
+)
+router.add_api_route(
     "",
     list_characters,
     methods=["GET"],
@@ -81,6 +93,34 @@ router.add_api_route(
     methods=["PUT"],
     summary="Update a character",
     response_model=CharacterDetail,
+)
+router.add_api_route(
+    "/{character_id}/export",
+    export_character,
+    methods=["GET"],
+    summary="Export a character as a self-contained file",
+    response_model=CharacterExport,
+    response_model_by_alias=True,
+)
+router.add_api_route(
+    "/{character_id}/portrait",
+    upload_portrait,
+    methods=["POST"],
+    summary="Set a character's portrait",
+    response_model=PortraitResponse,
+)
+router.add_api_route(
+    "/{character_id}/portrait",
+    get_portrait,
+    methods=["GET"],
+    summary="A character's portrait image",
+)
+router.add_api_route(
+    "/{character_id}/portrait",
+    delete_portrait,
+    methods=["DELETE"],
+    summary="Remove a character's portrait",
+    response_model=CharacterDeletedResponse,
 )
 router.add_api_route(
     "/{character_id}",

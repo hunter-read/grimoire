@@ -638,12 +638,26 @@ export const characters = {
   getSchema: (schemaId) => api.get(`/characters/schemas/${encodeURIComponent(schemaId)}`),
   importSchema: (body) => api.post('/characters/schemas', body),
   deleteSchema: (schemaId) => api.delete(`/characters/schemas/${encodeURIComponent(schemaId)}`),
-  list: (schemaRef) =>
-    api.get(`/characters${schemaRef ? `?schema_ref=${encodeURIComponent(schemaRef)}` : ''}`),
+  list: (params = {}) => {
+    // A string is read as a schema filter, which is what Phase 1 callers pass.
+    const query = typeof params === 'string' ? { schema_ref: params } : params || {}
+    const search = new URLSearchParams()
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== '') search.set(key, value)
+    }
+    const qs = search.toString()
+    return api.get(`/characters${qs ? `?${qs}` : ''}`)
+  },
   get: (id) => api.get(`/characters/${id}`),
   create: (body) => api.post('/characters', body),
   update: (id, body) => api.put(`/characters/${id}`, body),
   remove: (id) => api.delete(`/characters/${id}`),
+  export: (id) => api.get(`/characters/${id}/export`),
+  import: (payload, importEntries = true) =>
+    api.post('/characters/import', { payload, import_entries: importEntries }),
+  portraitUrl: (id) => `/api/characters/${id}/portrait`,
+  uploadPortrait: (id, file) => api.upload(`/characters/${id}/portrait`, file),
+  deletePortrait: (id) => api.delete(`/characters/${id}/portrait`),
 }
 
 /**
@@ -653,6 +667,10 @@ export const characters = {
  * by the calling user's own copy of the schema — two people may have different
  * versions installed, and each browses what their copy declares.
  */
+export const contentAdmin = {
+  reloadPacks: () => api.post('/content/packs/reload'),
+}
+
 export const content = {
   packs: (schemaId) =>
     api.get(`/content/packs${schemaId ? `?schema_id=${encodeURIComponent(schemaId)}` : ''}`),

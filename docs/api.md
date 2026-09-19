@@ -1746,14 +1746,57 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
 | `/api/characters/:id` | PUT | user | Update `name` and/or `data`. `data` is a **partial patch** - only the fields it names are touched |
 | `/api/characters/:id` | DELETE | user | Delete a character |
+| `/api/characters/import` | POST | user | Rebuild a character from an exported file |
+| `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
+| `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
+| `/api/characters/:id/portrait` | GET | user | The portrait image |
+| `/api/characters/:id/portrait` | DELETE | user | Remove the portrait |
 
 **Schema fields:** `id`, `schema_id`, `name`, `system`, `description`,
 `version`, `source_id`, `source_url`, `source_version`, `is_community`,
 `character_count`, and on detail `document`.
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
-`schema_missing`, `created_at`, `updated_at`, and on detail `data`, `computed`,
-and `validators`.
+`schema_missing`, `campaign_id`, `portrait_path`, `owned`, `created_at`,
+`updated_at`, and on detail `data`, `computed`, `validators`, and `entries`.
+
+#### Campaign scoping
+
+Setting `campaign_id` puts a character on a table, and every member of that
+campaign can then **read** the sheet — which is the point, since a GM should be
+able to see what their players are playing. Writing stays with the owner:
+`owned` is false when you are reading someone else's, and edits, deletes and
+portrait changes answer 404. A character may only be placed in a campaign its
+owner belongs to (403 otherwise), and `campaign_id: ""` takes it back out.
+
+A character with no campaign stays private to its owner. `GET /api/characters`
+returns your own plus your parties', and `?campaign_id=` narrows it to one
+table's roster.
+
+#### Export and import
+
+Export is **denormalised**: every reference is resolved and the entry's full
+data embedded, and the schema travels with the file. That is the portability
+guarantee — a character shared with someone whose instance has neither the pack
+nor the homebrew still opens and still computes correctly.
+
+```json
+{ "$schema": "grimoire://character/v1",
+  "name": "Vex", "schema_id": "dnd-5e",
+  "schema": { "...the whole sheet definition..." },
+  "data": { "spells": [ { "_ref": "my-spell" } ] },
+  "entries": { "my-spell": { "content_type": "spell", "source": "homebrew",
+                             "name": "My Spell", "data": { "level": 4 } } } }
+```
+
+Importing installs the schema if the importer does not have it, and recreates
+embedded entries as their own private homebrew — but **only what is missing**.
+An entry this instance already has wins over the embedded copy, so an erratum
+applied locally reaches an imported character. Pass `import_entries: false` to
+skip that and let the references read as missing instead.
+
+Anyone who may read a character may export it, so a GM can archive a party
+member's sheet.
 
 **Computed values are never stored.** They are evaluated from `data` on every
 read, so correcting a formula in a schema immediately fixes every character
@@ -1902,6 +1945,7 @@ browses the content types their copy declares.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/content/packs` | GET | user | Installed packs with their licence and credit. `?schema_id=` filters |
+| `/api/content/packs/reload` | POST | **admin** | Re-read every pack from disk |
 | `/api/content/:schema_id/types` | GET | user | The content types this user's schema declares, each with an entry count |
 | `/api/content/:schema_id/:content_type` | GET | user | Browse: `search`, `filter[field]=value`, `sort`, `page`, `page_size` |
 | `/api/content/:schema_id/:content_type/:entry_id` | GET | user | One entry in full |

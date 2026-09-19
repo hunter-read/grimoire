@@ -21,7 +21,13 @@ from ...config import get_db
 from ...models import Character, CharacterSchema, ContentEntry, HomebrewEntry
 from ...services.characters import homebrew as hb
 from ...services import characters as svc
-from ._schemas import CharacterCreate, CharacterUpdate, SchemaImport
+from . import _helpers as helpers
+from ._schemas import (
+    CharacterCreate,
+    CharacterImport,
+    CharacterUpdate,
+    SchemaImport,
+)
 
 logger = logging.getLogger("grimoire.characters")
 
@@ -241,6 +247,7 @@ def _serialize_character(
     *,
     detail: bool = False,
     db: Optional[Session] = None,
+    viewer_id: Optional[str] = None,
 ) -> dict:
     payload: dict[str, Any] = {
         "id": row.id,
@@ -249,6 +256,10 @@ def _serialize_character(
         "schema_name": schema.name if schema else "",
         "system": (schema.system or "") if schema else "",
         "schema_missing": schema is None,
+        "campaign_id": row.campaign_id,
+        "portrait_path": row.portrait_path,
+        # False when reading a party member's sheet: readable, not editable.
+        "owned": viewer_id is None or row.user_id == viewer_id,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -280,13 +291,16 @@ def _serialize_character(
 
 def list_characters(
     schema_ref: Optional[str] = None,
+    campaign_id: Optional[str] = None,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """This user's characters, newest first."""
-    query = db.query(Character).filter_by(user_id=current_user.id)
+    """Characters this user can read: their own, plus their parties' sheets."""
+    query = db.query(Character).filter(helpers.readable_filter(db, current_user.id))
     if schema_ref:
-        query = query.filter_by(schema_ref=schema_ref)
+        query = query.filter(Character.schema_ref == schema_ref)
+    if campaign_id:
+        query = query.filter(Character.campaign_id == campaign_id)
     rows = query.order_by(Character.updated_at.desc()).all()
 
     schemas = {
@@ -295,7 +309,8 @@ def list_characters(
     }
     return {
         "characters": [
-            _serialize_character(row, schemas.get(row.schema_ref)) for row in rows
+            _serialize_character(row, schemas.get(row.schema_ref), viewer_id=current_user.id)
+            for row in rows
         ]
     }
 
@@ -305,12 +320,15 @@ def get_character(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """One character, with its values and freshly computed derived values."""
-    row = db.query(Character).filter_by(id=character_id, user_id=current_user.id).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Character not found")
+    """One character, with its values and freshly computed derived values.
+
+    A campaign member may read a party member's sheet; only the owner edits it.
+    """
+    row = helpers.readable_character_or_404(db, character_id, current_user.id)
+    # The schema is looked up against the *reader*, who may not have the same
+    # sheet installed as the owner; without it the sheet degrades to raw data.
     schema = _schema_for(db, current_user.id, row.schema_ref)
-    return _serialize_character(row, schema, detail=True, db=db)
+    return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)
 
 
 def create_character(
@@ -323,17 +341,20 @@ def create_character(
     if not schema:
         raise HTTPException(status_code=400, detail="That schema is not installed")
 
+    helpers.assert_in_campaign(db, current_user.id, data.campaign_id)
+
     document = _validated_document(schema)
     row = Character(
         user_id=current_user.id,
         schema_ref=data.schema_ref,
         name=(data.name or "").strip()[:200],
         data=_coerce_all(document, data.data or {}),
+        campaign_id=data.campaign_id,
     )
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _serialize_character(row, schema, detail=True, db=db)
+    return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)
 
 
 def update_character(
@@ -355,6 +376,12 @@ def update_character(
     if data.name is not None:
         row.name = data.name.strip()[:200]
 
+    if data.campaign_id is not None:
+        # An empty string clears it; a real id must be a campaign they are in.
+        campaign_id = data.campaign_id or None
+        helpers.assert_in_campaign(db, current_user.id, campaign_id)
+        row.campaign_id = campaign_id
+
     if data.data is not None:
         document = _validated_document(schema) if schema else {"fields": {}}
         merged = dict(row.data if isinstance(row.data, dict) else {})
@@ -365,7 +392,7 @@ def update_character(
 
     db.commit()
     db.refresh(row)
-    return _serialize_character(row, schema, detail=True, db=db)
+    return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)
 
 
 def delete_character(
@@ -395,3 +422,85 @@ def _coerce_all(document: dict, submitted: dict) -> dict:
         for name, value in submitted.items()
         if name in fields
     }
+
+
+def export_character(
+    character_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Export a character as a self-contained file.
+
+    Readable by anyone who can read the sheet, so a GM can archive a party
+    member's character. Every reference is denormalised and the schema travels
+    with it, which is what makes the file open on an instance that has neither.
+    """
+    row = helpers.readable_character_or_404(db, character_id, current_user.id)
+    schema = _schema_for(db, current_user.id, row.schema_ref)
+    document = _validated_document(schema) if schema else {}
+    return helpers.export_character(db, row, document, schema_document=document)
+
+
+def import_character(
+    data: CharacterImport,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Rebuild a character from an exported file.
+
+    The schema is installed from the file when the importer does not already
+    have it — a character is unreadable without one, and asking them to find it
+    separately would make sharing a two-step affair. An installed copy is
+    preferred: theirs may be newer.
+    """
+    payload = data.payload or {}
+    schema_id = payload.get("schema_id")
+    if not isinstance(schema_id, str) or not schema_id.strip():
+        raise HTTPException(status_code=400, detail="That file names no schema")
+
+    schema = _schema_for(db, current_user.id, schema_id)
+    if not schema:
+        embedded = payload.get("schema")
+        if not isinstance(embedded, dict) or not embedded:
+            raise HTTPException(
+                status_code=400,
+                detail="That schema is not installed and the file does not carry one",
+            )
+        try:
+            validated = svc.validate_schema(embedded)
+        except svc.SchemaError as exc:
+            raise HTTPException(
+                status_code=400, detail=f"The file's schema is not valid: {exc}"
+            ) from exc
+        schema = CharacterSchema(
+            user_id=current_user.id,
+            schema_id=validated["id"],
+            name=validated["name"],
+            system=str(embedded.get("system") or "")[:200],
+            description=str(embedded.get("description") or ""),
+            version=str(embedded.get("version") or "1.0.0")[:20],
+            document=embedded,
+        )
+        db.add(schema)
+        db.flush()
+
+    document = _validated_document(schema)
+    if data.import_entries:
+        helpers.import_entries_as_homebrew(
+            db,
+            payload,
+            owner_id=current_user.id,
+            schema_id=schema_id,
+            document=document,
+        )
+
+    row = Character(
+        user_id=current_user.id,
+        schema_ref=schema_id,
+        name=str(payload.get("name") or "")[:200],
+        data=_coerce_all(document, payload.get("data") or {}),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)

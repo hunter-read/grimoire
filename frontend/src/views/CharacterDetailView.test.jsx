@@ -9,11 +9,17 @@ const mockGetSchema = vi.fn()
 const mockUpdate = vi.fn()
 const mockNavigate = vi.fn()
 
+const mockExport = vi.fn()
+const mockUploadPortrait = vi.fn()
+
 vi.mock('../api', () => ({
   characters: {
     get: (...a) => mockGet(...a),
     getSchema: (...a) => mockGetSchema(...a),
     update: (...a) => mockUpdate(...a),
+    export: (...a) => mockExport(...a),
+    uploadPortrait: (...a) => mockUploadPortrait(...a),
+    portraitUrl: (id) => `/api/characters/${id}/portrait`,
   },
 }))
 
@@ -133,6 +139,54 @@ describe('CharacterDetailView', () => {
       renderView()
       expect(await screen.findByText('strength')).toBeInTheDocument()
       expect(screen.getByText('16')).toBeInTheDocument()
+    })
+  })
+
+  describe('portraits and export', () => {
+    it('uploads a portrait', async () => {
+      mockUploadPortrait.mockResolvedValue({ portrait_path: 'c1.png' })
+      renderView()
+      const input = await screen.findByLabelText(/Set a portrait/i)
+      const file = new File(['x'], 'p.png', { type: 'image/png' })
+      await userEvent.upload(input, file)
+      await waitFor(() => expect(mockUploadPortrait).toHaveBeenCalledWith('c1', file))
+    })
+
+    it('surfaces a portrait failure', async () => {
+      mockUploadPortrait.mockRejectedValue(new Error('too big'))
+      renderView()
+      const input = await screen.findByLabelText(/Set a portrait/i)
+      await userEvent.upload(input, new File(['x'], 'p.png', { type: 'image/png' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('too big')
+    })
+
+    it('exports the character as a file', async () => {
+      mockExport.mockResolvedValue({ name: 'Vex', schema_id: 'dnd-5e' })
+      global.URL.createObjectURL = vi.fn(() => 'blob:x')
+      global.URL.revokeObjectURL = vi.fn()
+      renderView()
+      await screen.findByLabelText('Strength')
+
+      const click = vi.fn()
+      const realCreate = window.document.createElement.bind(window.document)
+      const spy = vi
+        .spyOn(window.document, 'createElement')
+        .mockImplementation((tag) =>
+          tag === 'a' ? { click, set href(v) {}, set download(v) {} } : realCreate(tag)
+        )
+      await userEvent.click(screen.getByLabelText(/Export character/i))
+      // The download is built after the fetch resolves, so both are awaited.
+      await waitFor(() => expect(mockExport).toHaveBeenCalledWith('c1'))
+      await waitFor(() => expect(click).toHaveBeenCalled())
+      spy.mockRestore()
+    })
+
+    it('surfaces an export failure', async () => {
+      mockExport.mockRejectedValue(new Error('export broke'))
+      renderView()
+      await screen.findByLabelText('Strength')
+      await userEvent.click(screen.getByLabelText(/Export character/i))
+      expect(await screen.findByRole('alert')).toHaveTextContent('export broke')
     })
   })
 
