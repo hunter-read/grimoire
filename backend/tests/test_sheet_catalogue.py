@@ -47,8 +47,16 @@ class TestUrlDerivation:
                 f"{REPO}/main/character-sheets/index.json",
                 f"{REPO}/main/character-sheets/index.json",
             ),
-            # A bare directory URL.
+            # A bare directory URL, with and without the trailing slash.
             (f"{REPO}/main/", f"{REPO}/main/character-sheets/index.json"),
+            (f"{REPO}/main", f"{REPO}/main/character-sheets/index.json"),
+            # A trailing slash on an index file would otherwise read the
+            # filename as a directory and append the catalogue path to it.
+            (f"{REPO}/main/index.json/", f"{REPO}/main/character-sheets/index.json"),
+            (
+                f"{REPO}/main/character-sheets/index.json/",
+                f"{REPO}/main/character-sheets/index.json",
+            ),
         ],
     )
     def test_derives_the_sheet_index(self, configured, expected):
@@ -372,3 +380,255 @@ class TestIndexUrls:
             f"{REPO}/main/index.json",
             f"{REPO}/feat/x/index.json",
         ]
+
+
+class TestMultipleSources:
+    """Several catalogues at once, the way add-ons and themes already allow.
+
+    Two sources may each offer a sheet with the same id, so an id alone cannot
+    identify one — which is why the listing namespaces it by source.
+    """
+
+    def _sources(self, monkeypatch, documents: dict):
+        """Serve a catalogue per URL; a value of None means that source is down."""
+        def _fetch(url, **kwargs):
+            document = documents.get(url)
+            if document is None:
+                raise cat.AddonFetchError("connection refused")
+            return document
+
+        monkeypatch.setattr(cat, "fetch_document", _fetch)
+        monkeypatch.setattr(cat, "get_index_urls", lambda db: list(documents))
+
+    def _sheet(self, sheet_id: str, name: str):
+        return {
+            "id": sheet_id,
+            "name": name,
+            "version": "1.0.0",
+            "path": f"character-sheets/{sheet_id}/{sheet_id}.json",
+            "sha256": "",
+        }
+
+    def test_lists_sheets_from_every_configured_source(self, client, admin_headers, monkeypatch):
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("cairn", "Cairn")]
+                },
+                "https://b.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("mausritter", "Mausritter")]
+                },
+            },
+        )
+        body = client.get("/api/characters/schemas/browse", headers=admin_headers).json()
+        assert sorted(sheet["name"] for sheet in body["sheets"]) == ["Cairn", "Mausritter"]
+        assert len(body["sources"]) == 2
+
+    def test_the_same_id_from_two_sources_stays_distinct(
+        self, client, admin_headers, monkeypatch
+    ):
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("cairn", "Cairn (A)")]
+                },
+                "https://b.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("cairn", "Cairn (B)")]
+                },
+            },
+        )
+        sheets = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        assert len(sheets) == 2
+        # Namespaced ids, but both still call themselves `cairn`.
+        assert len({sheet["id"] for sheet in sheets}) == 2
+        assert {sheet["raw_id"] for sheet in sheets} == {"cairn"}
+
+    def test_installs_the_copy_the_namespaced_id_names(
+        self, client, admin_headers, monkeypatch
+    ):
+        """Picking the second source's copy must not fetch the first's."""
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "From A")]
+                },
+                "https://b.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "From B")]
+                },
+            },
+        )
+        fetched: list = []
+
+        def _fetch_sheet(db, entry):
+            fetched.append(entry["index_url"])
+            return dict(SHEET)
+
+        monkeypatch.setattr(cat, "fetch_sheet", _fetch_sheet)
+
+        sheets = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        from_b = next(sheet for sheet in sheets if sheet["name"] == "From B")
+
+        resp = client.post(
+            f"/api/characters/schemas/install/{from_b['id']}", headers=admin_headers
+        )
+        assert resp.status_code == 200
+        assert fetched == ["https://b.test/character-sheets/index.json"]
+        client.delete("/api/characters/schemas/catalogue-demo", headers=admin_headers)
+
+    def test_a_bare_id_still_installs(self, client, admin_headers, monkeypatch):
+        """A link written before a second source was added keeps working."""
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "Only One")]
+                }
+            },
+        )
+        monkeypatch.setattr(cat, "fetch_sheet", lambda db, entry: dict(SHEET))
+        resp = client.post(
+            "/api/characters/schemas/install/catalogue-demo", headers=admin_headers
+        )
+        assert resp.status_code == 200
+        client.delete("/api/characters/schemas/catalogue-demo", headers=admin_headers)
+
+    def test_records_the_sheets_own_id_as_provenance(
+        self, client, admin_headers, monkeypatch
+    ):
+        """`source_id` should say what the sheet is, not how the listing keyed it."""
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "Demo")]
+                }
+            },
+        )
+        monkeypatch.setattr(cat, "fetch_sheet", lambda db, entry: dict(SHEET))
+        sheets = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        body = client.post(
+            f"/api/characters/schemas/install/{sheets[0]['id']}", headers=admin_headers
+        ).json()
+        assert body["source_id"] == "catalogue-demo"
+        assert body["source_url"] == "https://a.test/character-sheets/index.json"
+        client.delete("/api/characters/schemas/catalogue-demo", headers=admin_headers)
+
+    def test_one_dead_source_does_not_hide_the_others(
+        self, client, admin_headers, monkeypatch
+    ):
+        self._sources(
+            monkeypatch,
+            {
+                "https://up.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("cairn", "Cairn")]
+                },
+                "https://down.test/character-sheets/index.json": None,
+            },
+        )
+        body = client.get("/api/characters/schemas/browse", headers=admin_headers).json()
+        assert [sheet["name"] for sheet in body["sheets"]] == ["Cairn"]
+        # Reported, not swallowed: a missing source otherwise just looks like a
+        # smaller catalogue.
+        assert len(body["errors"]) == 1
+        assert body["errors"][0]["url"] == "https://down.test/character-sheets/index.json"
+
+    def test_a_source_that_is_not_a_sheet_catalogue_is_not_an_error(
+        self, client, admin_headers, monkeypatch
+    ):
+        """The configured list is shared with themes and add-ons."""
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("cairn", "Cairn")]
+                },
+                "https://b.test/character-sheets/index.json": {"themes": [{"id": "one-dark"}]},
+            },
+        )
+        body = client.get("/api/characters/schemas/browse", headers=admin_headers).json()
+        assert [sheet["name"] for sheet in body["sheets"]] == ["Cairn"]
+        assert body["errors"] == []
+
+    def test_only_the_installed_copy_is_marked(
+        self, client, admin_headers, monkeypatch
+    ):
+        """Installing one catalogue's copy must not mark the other's."""
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "From A")]
+                },
+                "https://b.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "From B")]
+                },
+            },
+        )
+        monkeypatch.setattr(cat, "fetch_sheet", lambda db, entry: dict(SHEET))
+
+        sheets = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        from_b = next(sheet for sheet in sheets if sheet["name"] == "From B")
+        client.post(
+            f"/api/characters/schemas/install/{from_b['id']}", headers=admin_headers
+        )
+
+        after = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        marked = {sheet["name"]: sheet["installed"] for sheet in after}
+        assert marked == {"From A": False, "From B": True}
+        client.delete("/api/characters/schemas/catalogue-demo", headers=admin_headers)
+
+    def test_a_pasted_schema_marks_every_copy_of_its_id(
+        self, client, admin_headers, monkeypatch
+    ):
+        """It has no source, and installing any copy would replace it."""
+        client.post(
+            "/api/characters/schemas", json={"document": SHEET}, headers=admin_headers
+        )
+        self._sources(
+            monkeypatch,
+            {
+                "https://a.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "From A")]
+                },
+                "https://b.test/character-sheets/index.json": {
+                    "sheets": [self._sheet("catalogue-demo", "From B")]
+                },
+            },
+        )
+        sheets = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        assert all(sheet["installed"] for sheet in sheets)
+        client.delete("/api/characters/schemas/catalogue-demo", headers=admin_headers)
+
+    def test_a_duplicate_of_the_same_source_is_listed_once(
+        self, client, admin_headers, monkeypatch
+    ):
+        """The same URL configured twice should not double every sheet."""
+        document = {"sheets": [self._sheet("cairn", "Cairn")]}
+        monkeypatch.setattr(cat, "fetch_document", lambda url, **kwargs: document)
+        monkeypatch.setattr(
+            cat,
+            "get_index_urls",
+            lambda db: [
+                "https://a.test/character-sheets/index.json",
+                "https://a.test/character-sheets/index.json/",
+            ],
+        )
+        sheets = client.get(
+            "/api/characters/schemas/browse", headers=admin_headers
+        ).json()["sheets"]
+        assert len(sheets) == 1

@@ -541,9 +541,14 @@ def browse_sheets(
     changes nothing for anyone else, so there is no admin step — the same rule
     themes follow.
     """
+    # Keyed by (schema id, source URL): two catalogues may each offer a sheet
+    # with the same id, and only one of them is the copy actually installed.
+    # A hand-written or pasted schema has no source, so it marks every
+    # catalogue copy of that id as installed — which is right, since
+    # installing any of them would replace it.
     installed = {
-        row.schema_id
-        for row in db.query(CharacterSchema.schema_id)
+        (row.schema_id, row.source_url or "")
+        for row in db.query(CharacterSchema.schema_id, CharacterSchema.source_url)
         .filter(CharacterSchema.user_id == current_user.id)
         .all()
     }
@@ -568,7 +573,12 @@ def install_sheet(
         status = 403 if not catalogue.downloads_enabled() else 502
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
+    # The namespaced id identifies one source's copy exactly. A bare id is
+    # accepted too, for a link written before a second source was configured,
+    # and resolves to the first source offering it.
     entry = next((row for row in listing["sheets"] if row["id"] == sheet_id), None)
+    if not entry:
+        entry = next((row for row in listing["sheets"] if row["raw_id"] == sheet_id), None)
     if not entry:
         raise HTTPException(status_code=404, detail="That sheet is not in the catalogue")
 
@@ -581,7 +591,10 @@ def install_sheet(
         db,
         current_user.id,
         document,
-        source_id=entry["id"],
+        # The sheet's own id, not the namespaced one: provenance should say
+        # what the sheet is called, and the URL beside it says where it came
+        # from.
+        source_id=entry["raw_id"],
         source_url=entry.get("index_url"),
         source_version=entry.get("version"),
     )

@@ -3119,7 +3119,10 @@
     "customLayout": "eigenes Layout",
     "catalogueFailed": "Der Bogen-Katalog ist nicht erreichbar.",
     "catalogueSource": "Von {{url}}",
-    "emptyBrowseFirst": "Keine Bögen installiert. Durchsuche den Katalog oder importiere einen."
+    "emptyBrowseFirst": "Keine Bögen installiert. Durchsuche den Katalog oder importiere einen.",
+    "sourceProblems": "Katalogprobleme",
+    "sourceUnreachable": "{{url}} konnte nicht gelesen werden — die Bögen fehlen in dieser Liste.",
+    "catalogueSources": "Aus {{count}} Katalogen"
   },
   "homebrew": {
     "title": "Eigene Inhalte",

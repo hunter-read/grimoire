@@ -28,6 +28,7 @@ const CAIRN = {
   index_url: 'https://example.test/main/character-sheets/index.json',
   installed: false,
 }
+CAIRN.raw_id = 'cairn'
 
 const DND = {
   ...CAIRN,
@@ -47,6 +48,8 @@ beforeEach(() => {
   mockBrowse.mockResolvedValue({
     sheets: [CAIRN, DND],
     index_url: 'https://example.test/main/character-sheets/index.json',
+    sources: ['https://example.test/main/character-sheets/index.json'],
+    errors: [],
     downloads_enabled: true,
   })
 })
@@ -128,7 +131,7 @@ describe('SheetCatalogue', () => {
   })
 
   it('shows an empty state', async () => {
-    mockBrowse.mockResolvedValue({ sheets: [], index_url: '' })
+    mockBrowse.mockResolvedValue({ sheets: [], index_url: '', sources: [], errors: [] })
     renderCatalogue()
     expect(await screen.findByText(/No sheets found/i)).toBeInTheDocument()
   })
@@ -145,5 +148,73 @@ describe('SheetCatalogue', () => {
     await screen.findByText('Cairn')
     await userEvent.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalled()
+  })
+
+  describe('several sources at once', () => {
+    const FROM_A = {
+      ...CAIRN,
+      id: 'cairn-aaaa1111',
+      raw_id: 'cairn',
+      name: 'Cairn',
+      index_url: 'https://a.test/character-sheets/index.json',
+    }
+    const FROM_B = {
+      ...CAIRN,
+      id: 'cairn-bbbb2222',
+      raw_id: 'cairn',
+      name: 'Cairn',
+      index_url: 'https://b.test/character-sheets/index.json',
+    }
+
+    it('names each sheet’s source when more than one is configured', async () => {
+      mockBrowse.mockResolvedValue({
+        sheets: [FROM_A, FROM_B],
+        sources: [FROM_A.index_url, FROM_B.index_url],
+        errors: [],
+      })
+      renderCatalogue()
+      await screen.findAllByText('Cairn')
+      // Two sheets with the same name, told apart by host.
+      expect(screen.getByText(/a\.test/)).toBeInTheDocument()
+      expect(screen.getByText(/b\.test/)).toBeInTheDocument()
+    })
+
+    it('installs the copy that was chosen, by its namespaced id', async () => {
+      mockInstall.mockResolvedValue({})
+      mockBrowse.mockResolvedValue({
+        sheets: [FROM_A, FROM_B],
+        sources: [FROM_A.index_url, FROM_B.index_url],
+        errors: [],
+      })
+      renderCatalogue()
+      await screen.findAllByText('Cairn')
+      await userEvent.click(screen.getAllByText('Install')[1])
+      await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn-bbbb2222'))
+    })
+
+    it('reports a source it could not read', async () => {
+      mockBrowse.mockResolvedValue({
+        sheets: [FROM_A],
+        sources: [FROM_A.index_url, 'https://down.test/character-sheets/index.json'],
+        errors: [
+          { url: 'https://down.test/character-sheets/index.json', error: 'connection refused' },
+        ],
+      })
+      renderCatalogue()
+      // The sheets that loaded are still listed.
+      expect(await screen.findByText('Cairn')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent(/down\.test/)
+    })
+
+    it('summarises the footer when several catalogues were read', async () => {
+      mockBrowse.mockResolvedValue({
+        sheets: [FROM_A, FROM_B],
+        sources: [FROM_A.index_url, FROM_B.index_url],
+        errors: [],
+      })
+      renderCatalogue()
+      await screen.findAllByText('Cairn')
+      expect(screen.getByText(/From 2 catalogues/i)).toBeInTheDocument()
+    })
   })
 })

@@ -21,14 +21,19 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [installing, setInstalling] = useState('')
-  const [indexUrl, setIndexUrl] = useState('')
+  const [sources, setSources] = useState([])
+  const [sourceErrors, setSourceErrors] = useState([])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const result = await charactersApi.browseSheets()
       setSheets(result.sheets || [])
-      setIndexUrl(result.index_url || '')
+      setSources(result.sources || [])
+      // A source that could not be read is shown rather than dropped: with
+      // several configured, a missing one otherwise just looks like a smaller
+      // catalogue.
+      setSourceErrors(result.errors || [])
       setError('')
     } catch (e) {
       setError(e.message || t('characters.catalogueFailed'))
@@ -134,6 +139,31 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 16px' }}>
+          {sourceErrors.length ? (
+            <ul
+              aria-label={t('characters.sourceProblems')}
+              style={{ listStyle: 'none', padding: 0, margin: '0 0 12px', display: 'grid', gap: 6 }}
+            >
+              {sourceErrors.map((problem) => (
+                <li
+                  key={problem.url}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--warning)',
+                    background: 'var(--bg-card)',
+                    fontSize: 12,
+                    color: 'var(--text-dim)',
+                  }}
+                >
+                  <span role="status">
+                    {t('characters.sourceUnreachable', { url: problem.url })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
           {error ? (
             <p role="alert" style={{ color: 'var(--danger)' }}>
               {error}
@@ -154,6 +184,7 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
                       {sheet.version ? `v${sheet.version}` : null}
                       {sheet.system ? ` · ${sheet.system}` : ''}
                       {sheet.custom_layout ? ` · ${t('characters.customLayout')}` : ''}
+                      {sources.length > 1 && sheet.index_url ? ` · ${hostOf(sheet.index_url)}` : ''}
                     </span>
                     <span style={{ flex: 1 }} />
                     {sheet.installed ? (
@@ -233,7 +264,7 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
           )}
         </div>
 
-        {indexUrl ? (
+        {sources.length ? (
           <footer
             style={{
               padding: '10px 20px',
@@ -243,10 +274,21 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
               wordBreak: 'break-all',
             }}
           >
-            {t('characters.catalogueSource', { url: indexUrl })}
+            {sources.length === 1
+              ? t('characters.catalogueSource', { url: sources[0] })
+              : t('characters.catalogueSources', { count: sources.length })}
           </footer>
         ) : null}
       </div>
     </div>
   )
+}
+
+// The host a catalogue lives on, for telling two sources apart at a glance.
+function hostOf(url) {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
 }

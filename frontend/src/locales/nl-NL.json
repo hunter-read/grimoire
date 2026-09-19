@@ -3119,7 +3119,10 @@
     "customLayout": "eigen opmaak",
     "catalogueFailed": "Kon de bladcatalogus niet bereiken.",
     "catalogueSource": "Van {{url}}",
-    "emptyBrowseFirst": "Geen bladen geïnstalleerd. Doorblader de catalogus of importeer er een."
+    "emptyBrowseFirst": "Geen bladen geïnstalleerd. Doorblader de catalogus of importeer er een.",
+    "sourceProblems": "Catalogusproblemen",
+    "sourceUnreachable": "Kon {{url}} niet lezen — de bladen ervan ontbreken in deze lijst.",
+    "catalogueSources": "Van {{count}} catalogi"
   },
   "homebrew": {
     "title": "Eigen inhoud",

@@ -106,6 +106,13 @@ themes, note templates and sheets at that branch together. The dialog shows
 which catalogue the listing came from, so it is obvious when you are not on
 `main`.
 
+That setting takes a **comma-separated list**, so you can offer several
+catalogues at once — the official one alongside a friend's fork, say. Sheets
+from every source appear together, labelled with the host they came from when
+more than one is configured, and installing one picks that source's copy even
+if another offers a sheet by the same name. A source that cannot be reached is
+called out rather than quietly leaving its sheets out of the list.
+
 ## Installing content packs (admin)
 
 Packs are server-wide: put a directory in `character-content/` inside your data

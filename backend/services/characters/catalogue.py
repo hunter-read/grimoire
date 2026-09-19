@@ -35,6 +35,7 @@ logger = logging.getLogger("grimoire.characters.catalogue")
 
 __all__ = [
     "CatalogueError",
+    "compute_source_hash",
     "fetch_catalogue",
     "fetch_sheet",
     "get_index_urls",
@@ -54,6 +55,12 @@ MAX_SHEET_BYTES = 512 * 1024
 
 #: Where the sheet index sits relative to whichever index the admin configured.
 _SHEET_INDEX_PATH = "character-sheets/index.json"
+
+#: Used when a configured source is blank, so derivation always yields a URL.
+_DEFAULT_SHEET_INDEX = (
+    "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/"
+    + _SHEET_INDEX_PATH
+)
 
 
 def downloads_enabled() -> bool:
@@ -77,6 +84,19 @@ def get_index_urls(db: Session) -> list[str]:
     configured = get_addon_index_url(db)
     urls = [url.strip() for url in configured.split(",") if url.strip()]
     return urls or [_default_index_url()]
+
+
+def compute_source_hash(index_url: str) -> str:
+    """A short, stable fingerprint of a catalogue URL.
+
+    Two catalogues may each offer a sheet called ``cairn``. Appending this to
+    the id keeps them distinct, so installing the second does not silently
+    fetch the first — the same scheme the theme catalogue uses.
+    """
+    if not index_url:
+        return ""
+    normalised = index_url.strip().rstrip("/").lower()
+    return hashlib.sha256(normalised.encode("utf-8")).hexdigest()[:8]
 
 
 def _default_index_url() -> str:
@@ -103,9 +123,20 @@ def _derive_sheet_url(url: str) -> str:
     returned unchanged; point such a branch at its full
     ``character-sheets/index.json`` path if you hit that.
     """
+    # A trailing slash would otherwise read the filename as a directory and
+    # append the catalogue path to it, turning `.../index.json/` into
+    # `.../index.json/character-sheets/index.json`.
+    url = url.strip().rstrip("/")
+    if not url:
+        return _DEFAULT_SHEET_INDEX
+
     base, _, filename = url.rpartition("/")
-    if not filename:
-        return f"{url.rstrip('/')}/{_SHEET_INDEX_PATH}"
+    if not base:
+        return f"{url}/{_SHEET_INDEX_PATH}"
+
+    if not filename.endswith(".json"):
+        # A directory rather than an index file: the catalogue sits inside it.
+        return f"{url}/{_SHEET_INDEX_PATH}"
 
     directory = base.rsplit("/", 1)[-1]
     if filename == "index.json" and directory in _SIBLING_DIRECTORIES:
@@ -127,6 +158,7 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
     installed = installed_ids or set()
 
     sheets: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
     seen: set = set()
     urls = get_index_urls(db)
 
@@ -140,24 +172,32 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
                 user_agent=f"Grimoire/{config.VERSION}",
             )
         except AddonFetchError as exc:
-            logger.debug("Could not read the sheet catalogue at %s: %s", index_url, exc)
+            # Reported rather than swallowed: with several sources configured,
+            # a silently missing one looks like a catalogue with fewer sheets
+            # in it, which is a confusing way to learn a URL is wrong.
+            logger.warning("Could not read the sheet catalogue at %s: %s", index_url, exc)
+            errors.append({"url": index_url, "error": str(exc)})
             continue
 
         if not isinstance(document, dict) or not isinstance(document.get("sheets"), list):
+            # Not a sheet catalogue — most likely a themes or add-on index
+            # sharing the configured list. Not an error worth reporting.
             continue
 
         for entry in document["sheets"]:
             if not isinstance(entry, dict) or not entry.get("id"):
                 continue
-            key = (index_url, entry["id"])
-            if key in seen:
+            summary = _summarise(entry, index_url, installed)
+            if summary["id"] in seen:
                 continue
-            seen.add(key)
-            sheets.append(_summarise(entry, index_url, installed))
+            seen.add(summary["id"])
+            sheets.append(summary)
 
     return {
         "sheets": sorted(sheets, key=lambda sheet: sheet["name"].lower()),
         "index_url": urls[0] if urls else _default_index_url(),
+        "sources": [_derive_sheet_url(url) for url in urls],
+        "errors": errors,
         "downloads_enabled": True,
     }
 
@@ -167,8 +207,14 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
     # (display name, profile URL) — a GitHub username becomes a link, anything
     # else is credited as plain text, exactly as add-ons and themes do it.
     author_name, author_url = parse_author(author) if author else ("", "")
+    raw_id = str(entry["id"])
+    source_hash = compute_source_hash(index_url)
     return {
-        "id": str(entry["id"]),
+        # Namespaced by source so two catalogues offering the same sheet stay
+        # distinct. `raw_id` is what the sheet calls itself, and what it
+        # installs as.
+        "id": f"{raw_id}-{source_hash}" if source_hash else raw_id,
+        "raw_id": raw_id,
         "name": str(entry.get("name") or entry["id"]),
         "version": str(entry.get("version") or ""),
         "system": str(entry.get("system") or ""),
@@ -185,8 +231,24 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
         "path": str(entry.get("path") or ""),
         "sha256": str(entry.get("sha256") or ""),
         "index_url": index_url,
-        "installed": str(entry["id"]) in installed,
+        "installed": _is_installed(raw_id, index_url, installed),
     }
+
+
+def _is_installed(raw_id: str, index_url: str, installed: set) -> bool:
+    """Whether *this* copy of a sheet is the one the user has.
+
+    Matched on the source as well as the id, so installing one catalogue's
+    `cairn` does not mark another catalogue's as installed too. A schema with
+    no recorded source — pasted, or written by hand — matches any copy of its
+    id, because installing one would replace it.
+    """
+    for schema_id, source_url in installed:
+        if schema_id != raw_id:
+            continue
+        if not source_url or source_url == index_url:
+            return True
+    return False
 
 
 def _resolve_sheet_url(index_url: str, path: str) -> str:

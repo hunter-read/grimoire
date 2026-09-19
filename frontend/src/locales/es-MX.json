@@ -3119,7 +3119,10 @@
     "customLayout": "diseño propio",
     "catalogueFailed": "No se pudo acceder al catálogo de hojas.",
     "catalogueSource": "De {{url}}",
-    "emptyBrowseFirst": "No hay hojas instaladas. Explora el catálogo o importa una."
+    "emptyBrowseFirst": "No hay hojas instaladas. Explora el catálogo o importa una.",
+    "sourceProblems": "Problemas del catálogo",
+    "sourceUnreachable": "No se pudo leer {{url}}: sus hojas faltan en esta lista.",
+    "catalogueSources": "De {{count}} catálogos"
   },
   "homebrew": {
     "title": "Contenido propio",

@@ -3119,7 +3119,10 @@
     "customLayout": "custom layout",
     "catalogueFailed": "Could not reach the sheet catalogue.",
     "catalogueSource": "From {{url}}",
-    "emptyBrowseFirst": "No sheets installed. Browse the catalogue or import one to get started."
+    "emptyBrowseFirst": "No sheets installed. Browse the catalogue or import one to get started.",
+    "sourceProblems": "Catalogue problems",
+    "sourceUnreachable": "Could not read {{url}} — its sheets are missing from this list.",
+    "catalogueSources": "From {{count}} catalogues"
   },
   "homebrew": {
     "title": "Homebrew",

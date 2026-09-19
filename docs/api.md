@@ -1826,6 +1826,22 @@ configured rather than being a second setting. `.../main/index.json` and
 `.../main/character-sheets/index.json`, so pointing the server at a branch
 points every catalogue at it — themes, note templates and sheets together.
 
+**Several sources** are supported, as for add-ons and themes: the add-on index
+setting takes a comma-separated list, and every entry is consulted. Because two
+catalogues may each offer a sheet with the same id, a listed `id` is
+**namespaced by its source** (`cairn-a1b2c3d4`) while `raw_id` is what the sheet
+calls itself. Install by the namespaced id to choose a particular source's copy;
+a bare id still works and resolves to the first source offering it.
+
+`installed` is matched on the source as well as the id, so installing one
+catalogue's `cairn` does not mark another's. A schema pasted in by hand has no
+recorded source and therefore marks every copy of its id, since installing any
+of them would replace it.
+
+`sources` lists every catalogue consulted and `errors` the ones that could not
+be read — reported rather than dropped, because with several configured a
+missing source otherwise just looks like a smaller catalogue.
+
 **Catalogue entry fields:** `id`, `name`, `version`, `system`, `description`,
 `author`, `author_url`, `homepage`, `license`, `license_url`, `attribution`,
 `custom_layout`, `field_count`, `grimoire_min_version`, `path`, `sha256`,

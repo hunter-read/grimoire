@@ -3119,7 +3119,10 @@
     "customLayout": "layout personalizzato",
     "catalogueFailed": "Catalogo delle schede irraggiungibile.",
     "catalogueSource": "Da {{url}}",
-    "emptyBrowseFirst": "Nessuna scheda installata. Sfoglia il catalogo o importane una."
+    "emptyBrowseFirst": "Nessuna scheda installata. Sfoglia il catalogo o importane una.",
+    "sourceProblems": "Problemi del catalogo",
+    "sourceUnreachable": "Impossibile leggere {{url}}: le sue schede mancano da questo elenco.",
+    "catalogueSources": "Da {{count}} cataloghi"
   },
   "homebrew": {
     "title": "Contenuti propri",

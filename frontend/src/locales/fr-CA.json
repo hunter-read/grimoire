@@ -3119,7 +3119,10 @@
     "customLayout": "mise en page personnalisée",
     "catalogueFailed": "Catalogue de fiches inaccessible.",
     "catalogueSource": "Depuis {{url}}",
-    "emptyBrowseFirst": "Aucune fiche installée. Parcourez le catalogue ou importez-en une."
+    "emptyBrowseFirst": "Aucune fiche installée. Parcourez le catalogue ou importez-en une.",
+    "sourceProblems": "Problèmes de catalogue",
+    "sourceUnreachable": "Impossible de lire {{url}} — ses fiches manquent dans cette liste.",
+    "catalogueSources": "Depuis {{count}} catalogues"
   },
   "homebrew": {
     "title": "Contenu maison",

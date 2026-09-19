@@ -40,9 +40,14 @@ class SchemaImport(BaseModel):
 
 
 class CatalogueSheet(BaseModel):
-    """One sheet the community catalogue offers."""
+    """One sheet the community catalogue offers.
+
+    ``id`` is namespaced by its source so two catalogues offering the same
+    sheet stay distinct; ``raw_id`` is what the sheet calls itself.
+    """
 
     id: str
+    raw_id: str = ""
     name: str
     version: str = ""
     system: str = ""
@@ -64,9 +69,21 @@ class CatalogueSheet(BaseModel):
     installed: bool = False
 
 
+class CatalogueSourceError(BaseModel):
+    """A configured source that could not be read."""
+
+    url: str
+    error: str
+
+
 class SheetCatalogueResponse(BaseModel):
     sheets: list[CatalogueSheet]
     index_url: str = ""
+    # Every catalogue consulted, so a listing can say where it came from.
+    sources: list[str] = Field(default_factory=list)
+    # Sources that failed, reported rather than silently dropped: with several
+    # configured, a missing one otherwise looks like a smaller catalogue.
+    errors: list[CatalogueSourceError] = Field(default_factory=list)
     downloads_enabled: bool = True
 
 
