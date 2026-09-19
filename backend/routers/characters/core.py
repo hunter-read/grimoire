@@ -21,6 +21,7 @@ from ...config import get_db
 from ...models import Character, CharacterSchema, ContentEntry, HomebrewEntry
 from ...services.characters import homebrew as hb
 from ...services import characters as svc
+from ...services.characters import catalogue
 from . import _helpers as helpers
 from ._schemas import (
     CharacterCreate,
@@ -126,6 +127,30 @@ def import_schema(
     if not document.get("id") and isinstance(document.get("name"), str):
         document["id"] = _slugify(document["name"])
 
+    return _store_schema(
+        db,
+        current_user.id,
+        document,
+        source_id=data.source_id,
+        source_url=data.source_url,
+        source_version=data.source_version,
+    )
+
+
+def _store_schema(
+    db: Session,
+    user_id: str,
+    document: dict,
+    *,
+    source_id: Optional[str] = None,
+    source_url: Optional[str] = None,
+    source_version: Optional[str] = None,
+) -> dict:
+    """Validate and save a schema for one user, replacing their copy if any.
+
+    Shared by pasting and by installing from the catalogue so the two cannot
+    drift apart on validation or on how provenance is recorded.
+    """
     try:
         validated = svc.validate_schema(document)
     except svc.SchemaError as exc:
@@ -134,11 +159,11 @@ def import_schema(
     schema_id = validated["id"]
     row = (
         db.query(CharacterSchema)
-        .filter_by(user_id=current_user.id, schema_id=schema_id)
+        .filter_by(user_id=user_id, schema_id=schema_id)
         .first()
     )
     if not row:
-        row = CharacterSchema(user_id=current_user.id, schema_id=schema_id)
+        row = CharacterSchema(user_id=user_id, schema_id=schema_id)
         db.add(row)
 
     row.name = validated["name"]
@@ -149,9 +174,9 @@ def import_schema(
     # layout_ast/styles_css are rebuilt on read, so a future parser improvement
     # reaches schemas that are already installed.
     row.document = document
-    row.source_id = data.source_id
-    row.source_url = data.source_url
-    row.source_version = data.source_version
+    row.source_id = source_id
+    row.source_url = source_url
+    row.source_version = source_version
 
     db.commit()
     db.refresh(row)
@@ -504,3 +529,59 @@ def import_character(
     db.commit()
     db.refresh(row)
     return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)
+
+
+def browse_sheets(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The community catalogue of character sheets.
+
+    Any account may browse and install: a sheet lives in one user's account and
+    changes nothing for anyone else, so there is no admin step — the same rule
+    themes follow.
+    """
+    installed = {
+        row.schema_id
+        for row in db.query(CharacterSchema.schema_id)
+        .filter(CharacterSchema.user_id == current_user.id)
+        .all()
+    }
+    try:
+        return catalogue.fetch_catalogue(db, installed_ids=installed)
+    except catalogue.CatalogueError as exc:
+        # Downloads switched off is a policy answer, not a failure.
+        if not catalogue.downloads_enabled():
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def install_sheet(
+    sheet_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Install one sheet from the catalogue into this user's account."""
+    try:
+        listing = catalogue.fetch_catalogue(db)
+    except catalogue.CatalogueError as exc:
+        status = 403 if not catalogue.downloads_enabled() else 502
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+    entry = next((row for row in listing["sheets"] if row["id"] == sheet_id), None)
+    if not entry:
+        raise HTTPException(status_code=404, detail="That sheet is not in the catalogue")
+
+    try:
+        document = catalogue.fetch_sheet(db, entry)
+    except catalogue.CatalogueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _store_schema(
+        db,
+        current_user.id,
+        document,
+        source_id=entry["id"],
+        source_url=entry.get("index_url"),
+        source_version=entry.get("version"),
+    )

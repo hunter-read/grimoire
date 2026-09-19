@@ -1739,6 +1739,8 @@ campaign, which is exactly who wants a character sheet.
 |----------|--------|------|-------------|
 | `/api/characters/schemas` | GET | user | The user's installed schemas, each with a `character_count` |
 | `/api/characters/schemas` | POST | user | Install a pasted schema. Body is `{document, source_id?, source_url?, source_version?}`. 400 with a message naming the problem if it does not validate |
+| `/api/characters/schemas/browse` | GET | user | The community catalogue of sheets, each marked `installed` |
+| `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue |
 | `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document` |
 | `/api/characters/schemas/:schema_id` | DELETE | user | Uninstall a schema. Characters built on it are **kept** |
 | `/api/characters` | GET | user | The user's characters, newest first. `?schema_ref=` filters by schema |
@@ -1811,6 +1813,35 @@ would lose the player's work.
 `schema_id`, not a foreign key, so uninstalling a sheet leaves its characters
 readable: they come back with `schema_missing: true`, an empty `computed`, and
 their stored `data` intact. Reinstalling the schema restores the full sheet.
+
+#### The sheet catalogue
+
+Browsing and installing need only an account — a sheet lives in one user's
+account and changes nothing for anyone else, so there is no admin step, exactly
+as with themes.
+
+The catalogue URL is **derived from the add-on index** the admin already
+configured rather than being a second setting. `.../main/index.json` and
+`.../main/themes/index.json` both resolve to
+`.../main/character-sheets/index.json`, so pointing the server at a branch
+points every catalogue at it — themes, note templates and sheets together.
+
+**Catalogue entry fields:** `id`, `name`, `version`, `system`, `description`,
+`author`, `author_url`, `homepage`, `license`, `license_url`, `attribution`,
+`custom_layout`, `field_count`, `grimoire_min_version`, `path`, `sha256`,
+`index_url`, `installed`. The attribution is carried in the listing so it can
+be read **before** installing, and is rendered verbatim.
+
+A downloaded sheet is verified against the catalogue's SHA-256 and pinned to
+the catalogue's host: a catalogue may say where its files are, but not send the
+server somewhere else. It is then validated by the same schema validator a
+pasted sheet goes through, so a sheet that does not validate is refused rather
+than stored. Nothing in a sheet executes.
+
+A source that cannot be read is skipped rather than failing the whole browse —
+one unreachable branch should not hide the sheets that are fine. Browsing
+answers 403 when `DISABLE_EXTERNAL_ADD_ON_INSTALL` is set, and 502 when the
+catalogue is unreachable.
 
 #### Schema documents
 

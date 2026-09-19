@@ -637,6 +637,8 @@ export const characters = {
   listSchemas: () => api.get('/characters/schemas'),
   getSchema: (schemaId) => api.get(`/characters/schemas/${encodeURIComponent(schemaId)}`),
   importSchema: (body) => api.post('/characters/schemas', body),
+  browseSheets: () => api.get('/characters/schemas/browse'),
+  installSheet: (sheetId) => api.post(`/characters/schemas/install/${encodeURIComponent(sheetId)}`),
   deleteSchema: (schemaId) => api.delete(`/characters/schemas/${encodeURIComponent(schemaId)}`),
   list: (params = {}) => {
     // A string is read as a schema filter, which is what Phase 1 callers pass.

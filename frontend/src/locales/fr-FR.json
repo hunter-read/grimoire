@@ -3110,7 +3110,16 @@
     "export": "Exporter le personnage",
     "importCharacter": "Importer un personnage",
     "portraitOf": "Portrait de {{name}}",
-    "partyMember": "membre du groupe"
+    "partyMember": "membre du groupe",
+    "browseSheets": "Parcourir les fiches",
+    "searchSheets": "Rechercher dans le catalogue",
+    "noSheetsFound": "Aucune fiche trouvée.",
+    "installed": "Installée",
+    "installing": "Installation…",
+    "customLayout": "mise en page personnalisée",
+    "catalogueFailed": "Catalogue de fiches inaccessible.",
+    "catalogueSource": "Depuis {{url}}",
+    "emptyBrowseFirst": "Aucune fiche installée. Parcourez le catalogue ou importez-en une."
   },
   "homebrew": {
     "title": "Contenu maison",

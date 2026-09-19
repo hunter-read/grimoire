@@ -39,6 +39,37 @@ class SchemaImport(BaseModel):
     source_version: Optional[str] = None
 
 
+class CatalogueSheet(BaseModel):
+    """One sheet the community catalogue offers."""
+
+    id: str
+    name: str
+    version: str = ""
+    system: str = ""
+    description: str = ""
+    author: str = ""
+    author_url: str = ""
+    homepage: str = ""
+    license: str = ""
+    license_url: str = ""
+    # Rendered verbatim: several open licences mandate exact wording.
+    attribution: str = ""
+    custom_layout: bool = False
+    field_count: int = 0
+    grimoire_min_version: str = ""
+    path: str = ""
+    sha256: str = ""
+    # Which catalogue offered it, so a repo on a branch stays distinguishable.
+    index_url: str = ""
+    installed: bool = False
+
+
+class SheetCatalogueResponse(BaseModel):
+    sheets: list[CatalogueSheet]
+    index_url: str = ""
+    downloads_enabled: bool = True
+
+
 class SchemaDeletedResponse(BaseModel):
     deleted: bool = True
     schema_id: str

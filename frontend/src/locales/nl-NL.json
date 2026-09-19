@@ -3110,7 +3110,16 @@
     "export": "Personage exporteren",
     "importCharacter": "Personage importeren",
     "portraitOf": "Portret van {{name}}",
-    "partyMember": "groepslid"
+    "partyMember": "groepslid",
+    "browseSheets": "Bladen doorbladeren",
+    "searchSheets": "Zoek in de catalogus",
+    "noSheetsFound": "Geen bladen gevonden.",
+    "installed": "Geïnstalleerd",
+    "installing": "Installeren…",
+    "customLayout": "eigen opmaak",
+    "catalogueFailed": "Kon de bladcatalogus niet bereiken.",
+    "catalogueSource": "Van {{url}}",
+    "emptyBrowseFirst": "Geen bladen geïnstalleerd. Doorblader de catalogus of importeer er een."
   },
   "homebrew": {
     "title": "Eigen inhoud",

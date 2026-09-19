@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuUsers, LuPlus, LuTrash2, LuUpload, LuTriangleAlert, LuFileUp } from 'react-icons/lu'
+import {
+  LuUsers,
+  LuPlus,
+  LuTrash2,
+  LuUpload,
+  LuTriangleAlert,
+  LuFileUp,
+  LuStore,
+} from 'react-icons/lu'
 import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
+import SheetCatalogue from '../components/characters/SheetCatalogue'
 import {
   goldBtn,
   ghostBtn,
@@ -32,6 +41,7 @@ export default function CharactersView() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [browsing, setBrowsing] = useState(false)
   const [importText, setImportText] = useState('')
   const [newName, setNewName] = useState('')
   const [newSchema, setNewSchema] = useState('')
@@ -141,6 +151,10 @@ export default function CharactersView() {
             style={{ display: 'none' }}
           />
         </label>
+        <button onClick={() => setBrowsing(true)} style={ghostBtn}>
+          <LuStore size={14} />
+          {t('characters.browseSheets')}
+        </button>
         <button onClick={() => setImporting((v) => !v)} style={ghostBtn}>
           <LuUpload size={14} />
           {t('characters.importSchema')}
@@ -230,7 +244,7 @@ export default function CharactersView() {
 
       {characters.length === 0 ? (
         <p style={{ color: 'var(--text-muted)' }}>
-          {schemas.length ? t('characters.emptyNoCharacters') : t('characters.emptyNoSchemas')}
+          {schemas.length ? t('characters.emptyNoCharacters') : t('characters.emptyBrowseFirst')}
         </p>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
@@ -291,6 +305,8 @@ export default function CharactersView() {
           ))}
         </ul>
       )}
+
+      {browsing ? <SheetCatalogue onInstalled={load} onClose={() => setBrowsing(false)} /> : null}
 
       {schemas.length > 0 ? (
         <section style={{ marginTop: 40 }}>

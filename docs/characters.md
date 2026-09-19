@@ -31,9 +31,12 @@ stamina, and Basic Fantasy derives the ability bonus table.
 
 ## Installing a sheet
 
-**Characters → Import a sheet**, then paste a schema. Sheets are **per user**,
+**Characters → Browse sheets** lists what the community catalogue offers, with
+each sheet's licence and credit shown before you install anything. **Import a
+sheet** takes a pasted schema instead, for one you wrote or were sent. Sheets are **per user**,
 like [themes](themes.md) - installing one changes nothing for anyone else, so
-no admin approval is involved. Uninstalling a sheet keeps the characters built
+no admin approval is involved. A downloaded sheet is checked against the
+catalogue's digest and validated before it is stored; nothing in a sheet runs. Uninstalling a sheet keeps the characters built
 on it: they open showing their stored values until you install it again.
 
 ## Building a character
@@ -94,6 +97,14 @@ was built from.
 Importing prefers what the receiving server already has and falls back to what
 is in the file, so a shared character picks up local corrections rather than
 freezing what the sender happened to have.
+
+## Pointing at a different catalogue (admin)
+
+The sheet catalogue follows whichever add-on index is configured under
+**Settings → Add-ons**, so setting that to a branch's `index.json` points
+themes, note templates and sheets at that branch together. The dialog shows
+which catalogue the listing came from, so it is obvious when you are not on
+`main`.
 
 ## Installing content packs (admin)
 

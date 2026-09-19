@@ -3110,7 +3110,16 @@
     "export": "Export character",
     "importCharacter": "Import a character",
     "portraitOf": "Portrait of {{name}}",
-    "partyMember": "party member"
+    "partyMember": "party member",
+    "browseSheets": "Browse sheets",
+    "searchSheets": "Search the catalogue",
+    "noSheetsFound": "No sheets found.",
+    "installed": "Installed",
+    "installing": "Installing…",
+    "customLayout": "custom layout",
+    "catalogueFailed": "Could not reach the sheet catalogue.",
+    "catalogueSource": "From {{url}}",
+    "emptyBrowseFirst": "No sheets installed. Browse the catalogue or import one to get started."
   },
   "homebrew": {
     "title": "Homebrew",

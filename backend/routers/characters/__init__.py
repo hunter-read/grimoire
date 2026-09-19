@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from ._schemas import (
     CharacterDeletedResponse,
+    SheetCatalogueResponse,
     CharacterDetail,
     CharacterExport,
     CharacterListResponse,
@@ -13,7 +14,9 @@ from ._schemas import (
 )
 from .portraits import delete_portrait, get_portrait, upload_portrait
 from .core import (
+    browse_sheets,
     create_character,
+    install_sheet,
     export_character,
     import_character,
     delete_character,
@@ -43,6 +46,20 @@ router.add_api_route(
     import_schema,
     methods=["POST"],
     summary="Install a pasted character schema",
+    response_model=SchemaDetail,
+)
+router.add_api_route(
+    "/schemas/browse",
+    browse_sheets,
+    methods=["GET"],
+    summary="Browse the community sheet catalogue",
+    response_model=SheetCatalogueResponse,
+)
+router.add_api_route(
+    "/schemas/install/{sheet_id}",
+    install_sheet,
+    methods=["POST"],
+    summary="Install a sheet from the catalogue",
     response_model=SchemaDetail,
 )
 router.add_api_route(

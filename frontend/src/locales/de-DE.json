@@ -3110,7 +3110,16 @@
     "export": "Charakter exportieren",
     "importCharacter": "Charakter importieren",
     "portraitOf": "Porträt von {{name}}",
-    "partyMember": "Gruppenmitglied"
+    "partyMember": "Gruppenmitglied",
+    "browseSheets": "Bögen durchsuchen",
+    "searchSheets": "Katalog durchsuchen",
+    "noSheetsFound": "Keine Bögen gefunden.",
+    "installed": "Installiert",
+    "installing": "Wird installiert…",
+    "customLayout": "eigenes Layout",
+    "catalogueFailed": "Der Bogen-Katalog ist nicht erreichbar.",
+    "catalogueSource": "Von {{url}}",
+    "emptyBrowseFirst": "Keine Bögen installiert. Durchsuche den Katalog oder importiere einen."
   },
   "homebrew": {
     "title": "Eigene Inhalte",

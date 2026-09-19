@@ -3110,7 +3110,16 @@
     "export": "Exportar personaje",
     "importCharacter": "Importar un personaje",
     "portraitOf": "Retrato de {{name}}",
-    "partyMember": "miembro del grupo"
+    "partyMember": "miembro del grupo",
+    "browseSheets": "Explorar hojas",
+    "searchSheets": "Buscar en el catálogo",
+    "noSheetsFound": "No se encontraron hojas.",
+    "installed": "Instalada",
+    "installing": "Instalando…",
+    "customLayout": "diseño propio",
+    "catalogueFailed": "No se pudo acceder al catálogo de hojas.",
+    "catalogueSource": "De {{url}}",
+    "emptyBrowseFirst": "No hay hojas instaladas. Explora el catálogo o importa una."
   },
   "homebrew": {
     "title": "Contenido propio",

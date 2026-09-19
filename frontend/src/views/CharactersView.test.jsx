@@ -66,11 +66,11 @@ describe('CharactersView', () => {
     expect(await screen.findByText(/No characters yet/i)).toBeInTheDocument()
   })
 
-  it('tells the user to import a sheet first when none is installed', async () => {
+  it('points at the catalogue when no sheet is installed', async () => {
     mockList.mockResolvedValue({ characters: [] })
     mockListSchemas.mockResolvedValue({ schemas: [] })
     renderView()
-    expect(await screen.findByText(/Import a character sheet schema/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Browse the catalogue or import one/i)).toBeInTheDocument()
   })
 
   it('disables creation until a sheet is installed', async () => {

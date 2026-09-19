@@ -3110,7 +3110,16 @@
     "export": "Esporta personaggio",
     "importCharacter": "Importa un personaggio",
     "portraitOf": "Ritratto di {{name}}",
-    "partyMember": "membro del gruppo"
+    "partyMember": "membro del gruppo",
+    "browseSheets": "Sfoglia le schede",
+    "searchSheets": "Cerca nel catalogo",
+    "noSheetsFound": "Nessuna scheda trovata.",
+    "installed": "Installata",
+    "installing": "Installazione…",
+    "customLayout": "layout personalizzato",
+    "catalogueFailed": "Catalogo delle schede irraggiungibile.",
+    "catalogueSource": "Da {{url}}",
+    "emptyBrowseFirst": "Nessuna scheda installata. Sfoglia il catalogo o importane una."
   },
   "homebrew": {
     "title": "Contenuti propri",
