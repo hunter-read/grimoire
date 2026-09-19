@@ -44,6 +44,7 @@ from .routers import (
     campaigns as campaigns_router,
     characters as characters_router,
     content as content_router,
+    homebrew as homebrew_router,
     downloads as downloads_router,
     favorites as favorites_router,
     files as files_router,
@@ -384,6 +385,7 @@ api.include_router(addons_router.router)
 api.include_router(themes_router.router)
 api.include_router(characters_router.router)
 api.include_router(content_router.router)
+api.include_router(homebrew_router.router)
 api.include_router(duplicates_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(backups_router.router)

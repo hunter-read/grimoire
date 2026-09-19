@@ -14,6 +14,9 @@ import api, {
   apiKeys,
   bulk,
   duplicates,
+  characters,
+  content,
+  homebrew,
 } from './api'
 
 // Mirrors a real Response: handleResponse reads the body as text and parses it
@@ -996,5 +999,87 @@ describe('files, sidecars, and backups helpers', () => {
     })
     await backups.download('b1', 'file.zip')
     expect(url()).toBe('/api/backups/b1/download')
+  })
+})
+
+describe('character, content, and homebrew helpers', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+    global.fetch = mockFetch(200, {})
+  })
+
+  const url = () => fetch.mock.calls[fetch.mock.calls.length - 1][0]
+
+  it('covers the characters helpers', async () => {
+    await characters.listSchemas()
+    expect(url()).toBe('/api/characters/schemas')
+    await characters.getSchema('dnd 5e')
+    expect(url()).toBe('/api/characters/schemas/dnd%205e')
+    await characters.importSchema({ document: {} })
+    expect(url()).toBe('/api/characters/schemas')
+    await characters.deleteSchema('dnd-5e')
+    expect(url()).toBe('/api/characters/schemas/dnd-5e')
+    await characters.list()
+    expect(url()).toBe('/api/characters')
+    await characters.list('dnd-5e')
+    expect(url()).toBe('/api/characters?schema_ref=dnd-5e')
+    await characters.get('c1')
+    expect(url()).toBe('/api/characters/c1')
+    await characters.create({})
+    expect(url()).toBe('/api/characters')
+    await characters.update('c1', {})
+    expect(url()).toBe('/api/characters/c1')
+    await characters.remove('c1')
+    expect(url()).toBe('/api/characters/c1')
+  })
+
+  it('covers the content helpers, including bracketed filters', async () => {
+    await content.packs()
+    expect(url()).toBe('/api/content/packs')
+    await content.packs('dnd-5e')
+    expect(url()).toBe('/api/content/packs?schema_id=dnd-5e')
+    await content.types('dnd-5e')
+    expect(url()).toBe('/api/content/dnd-5e/types')
+
+    await content.browse('dnd-5e', 'spell', { search: 'fire', page: 2 })
+    expect(url()).toBe('/api/content/dnd-5e/spell?search=fire&page=2')
+
+    // Filters travel as filter[field]=value, which is the shape the catalog
+    // endpoint reads them back out of.
+    await content.browse('dnd-5e', 'spell', { filters: { level: 3, school: '' } })
+    expect(url()).toBe('/api/content/dnd-5e/spell?filter%5Blevel%5D=3')
+
+    // Empty values are dropped rather than sent as blanks.
+    await content.browse('dnd-5e', 'spell', { search: '', sort: undefined })
+    expect(url()).toBe('/api/content/dnd-5e/spell')
+
+    await content.entry('dnd-5e', 'spell', 'fireball')
+    expect(url()).toBe('/api/content/dnd-5e/spell/fireball')
+    await content.resolve('dnd-5e', ['a', 'b'])
+    expect(url()).toBe('/api/content/dnd-5e/resolve?ids=a%2Cb')
+  })
+
+  it('covers the homebrew helpers', async () => {
+    await homebrew.list()
+    expect(url()).toBe('/api/homebrew')
+    await homebrew.list({ schema_id: 'dnd-5e', content_type: '', mine_only: true })
+    expect(url()).toBe('/api/homebrew?schema_id=dnd-5e&mine_only=true')
+    await homebrew.get('h1')
+    expect(url()).toBe('/api/homebrew/h1')
+    await homebrew.create({})
+    expect(url()).toBe('/api/homebrew')
+    await homebrew.update('h1', {})
+    expect(url()).toBe('/api/homebrew/h1')
+    await homebrew.remove('h1')
+    expect(url()).toBe('/api/homebrew/h1')
+    await homebrew.share('h1', { visibility: 'public' })
+    expect(url()).toBe('/api/homebrew/h1/share')
+    await homebrew.fork({})
+    expect(url()).toBe('/api/homebrew/fork')
+    await homebrew.export('dnd-5e')
+    expect(url()).toBe('/api/homebrew/export?schema_id=dnd-5e')
+    await homebrew.import({}, 'rename')
+    expect(url()).toBe('/api/homebrew/import')
   })
 })

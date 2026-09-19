@@ -105,3 +105,61 @@ class ContentEntry(Base):
         # The catalog's main query: every entry of one type for one system.
         Index("ix_content_entries_lookup", "schema_id", "content_type"),
     )
+
+
+class HomebrewEntry(Base):
+    """A catalog entry one user wrote, sharing the shape of pack content.
+
+    Homebrew is first-class rather than an override hack: it is the *same* data
+    as a ``ContentEntry``, validated against the same content type and rendered
+    by the same component. What differs is ownership — a homebrew entry belongs
+    to the user who wrote it, so it is per user where pack content is
+    server-wide, and it can be edited, which pack content cannot.
+
+    ``visibility`` decides who else sees it:
+
+    * ``private`` — only the owner (the default, and what a draft wants)
+    * ``campaign`` — the owner and members of ``campaign_id``
+    * ``public`` — everyone on this instance
+
+    Enforcement is server-side in every query. A client must never be the thing
+    deciding whether someone may see a private entry.
+
+    ``forked_from`` records the entry a fork started from, so a copy can be
+    traced back to the SRD spell it was based on.
+    """
+
+    __tablename__ = "homebrew_entries"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+
+    schema_id = Column(String(100), nullable=False, index=True)
+    content_type = Column(String(100), nullable=False, index=True)
+    entry_id = Column(String(200), nullable=False)
+
+    name = Column(String(500), nullable=False, default="")
+    data = Column(JSON, default=dict)
+
+    visibility = Column(String(20), nullable=False, default="private")
+    # Set only for `campaign` visibility. Not a hard requirement of the column,
+    # because an entry may be shared to a campaign and later set back to
+    # private without losing which campaign it was shared with.
+    campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
+
+    # The catalog entry this was forked from, as "<source>:<entry_id>".
+    forked_from = Column(String(300), nullable=True)
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        # One user cannot define the same entry id twice for a content type;
+        # two users may each have their own "hellfire-blast".
+        UniqueConstraint("owner_id", "schema_id", "content_type", "entry_id"),
+        Index("ix_homebrew_lookup", "schema_id", "content_type"),
+    )
+
+
+#: The visibility levels a homebrew entry may carry, loosest last.
+HOMEBREW_VISIBILITY = ("private", "campaign", "public")

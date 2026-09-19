@@ -687,6 +687,32 @@ export const content = {
 }
 
 /**
+ * Homebrew (issue #132).
+ *
+ * User-authored catalog entries: the same data shape as pack content, owned by
+ * an account, and visible to others only as far as the owner chose. Sharing
+ * grants reading — only the owner edits.
+ */
+export const homebrew = {
+  list: (params = {}) => {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') query.set(key, value)
+    }
+    const qs = query.toString()
+    return api.get(`/homebrew${qs ? `?${qs}` : ''}`)
+  },
+  get: (id) => api.get(`/homebrew/${id}`),
+  create: (body) => api.post('/homebrew', body),
+  update: (id, body) => api.put(`/homebrew/${id}`, body),
+  remove: (id) => api.delete(`/homebrew/${id}`),
+  share: (id, body) => api.patch(`/homebrew/${id}/share`, body),
+  fork: (body) => api.post('/homebrew/fork', body),
+  export: (schemaId) => api.get(`/homebrew/export?schema_id=${encodeURIComponent(schemaId)}`),
+  import: (pack, conflict = 'skip') => api.post('/homebrew/import', { pack, conflict }),
+}
+
+/**
  * Bulk operations (issue #270).
  *
  * These replace the old one-request-per-item fan-out, which raced on tag

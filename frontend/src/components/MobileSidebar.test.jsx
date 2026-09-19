@@ -95,3 +95,45 @@ describe('MobileSidebar', () => {
     expect(screen.queryByRole('button', { name: /more/i })).not.toBeInTheDocument()
   })
 })
+
+describe('MobileSidebar — characters and homebrew', () => {
+  const renderBar = (props = {}) =>
+    render(
+      <MemoryRouter>
+        <MobileSidebar user={{ role: 'admin' }} onLogout={vi.fn()} uiSettings={{}} {...props} />
+      </MemoryRouter>
+    )
+
+  it('lists Characters and Homebrew in the drawer', async () => {
+    renderBar()
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.getByText('Characters')).toBeInTheDocument()
+    expect(screen.getByText('Homebrew')).toBeInTheDocument()
+  })
+
+  it('hides maps, tokens and models when their settings are set', async () => {
+    renderBar({ uiSettings: { hide_maps: true, hide_tokens: true, hide_models: true } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByText('Maps')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tokens')).not.toBeInTheDocument()
+    expect(screen.queryByText('Models')).not.toBeInTheDocument()
+    // The ones that are not hidden remain.
+    expect(screen.getByText('Audio')).toBeInTheDocument()
+  })
+
+  it('closes the drawer when a link in it is chosen', async () => {
+    renderBar()
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    await userEvent.click(screen.getByText('Characters'))
+    expect(screen.queryByText('Homebrew')).not.toBeInTheDocument()
+  })
+
+  it('hides both when campaigns are hidden', async () => {
+    // They sit with Campaigns rather than carrying their own toggle, so the
+    // one setting governs all three.
+    renderBar({ uiSettings: { hide_campaigns: true } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByText('Characters')).not.toBeInTheDocument()
+    expect(screen.queryByText('Homebrew')).not.toBeInTheDocument()
+  })
+})

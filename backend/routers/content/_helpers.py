@@ -166,7 +166,8 @@ def sort_entries(entries: list[ContentEntry], sort_fields: list[str]) -> list[Co
     return sorted(entries, key=key)
 
 
-def serialize_entry(entry: ContentEntry, type_definition: dict) -> dict:
+def serialize_entry(entry, type_definition: dict) -> dict:
+    """Shape a catalog row for the API, pack or homebrew alike."""
     data = entry.data if isinstance(entry.data, dict) else {}
     return {
         "entry_id": entry.entry_id,
@@ -175,4 +176,25 @@ def serialize_entry(entry: ContentEntry, type_definition: dict) -> dict:
         "content_type": entry.content_type,
         "data": data,
         "display": render_display(type_definition.get("compact_display", ""), data),
+        # The browser labels a homebrew row and credits its author, so
+        # "Fireball (SRD)" and "Fireball (homebrew by Alex)" are told apart.
+        "homebrew": bool(getattr(entry, "homebrew", False)),
+        "owner_name": getattr(entry, "owner_name", ""),
+        "row_id": getattr(entry, "row_id", None),
     }
+
+
+def matches_text(entry, query: str, search_fields: list[str]) -> bool:
+    """Whether an entry matches a search, for rows the FTS index does not cover.
+
+    Homebrew changes on every edit and the visible set is per user and small, so
+    it is matched here rather than maintained in FTS. Every term must appear as
+    a prefix somewhere in the searchable text, which is what the FTS query does.
+    """
+    data = entry.data if isinstance(entry.data, dict) else {}
+    values = [data.get(field) for field in search_fields] if search_fields else list(data.values())
+    haystack = " ".join(
+        _as_text(value) for value in [entry.name, *values] if value is not None
+    ).lower()
+    terms = [term.lower() for term in re.findall(r"[\w']+", query) if term]
+    return all(any(word.startswith(term) for word in haystack.split()) for term in terms)

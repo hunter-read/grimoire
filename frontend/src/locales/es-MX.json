@@ -21,7 +21,8 @@
     "expandSidebar": "Expandir barra lateral",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Personajes"
+    "characters": "Personajes",
+    "homebrew": "Contenido propio"
   },
   "stats": {
     "systems": "Sistemas",
@@ -3105,5 +3106,33 @@
     "pageOf": "Página {{page}} de {{pages}}",
     "browseLabel": "Explorar {{label}}",
     "entryCount_other": "{{count}} entradas"
+  },
+  "homebrew": {
+    "title": "Contenido propio",
+    "create": "Nueva entrada",
+    "createTitle": "Nueva entrada propia",
+    "editTitle": "Editar entrada",
+    "import": "Importar un paquete",
+    "export": "Exportar",
+    "pastePack": "Pega un paquete (JSON)",
+    "contentType": "Tipo",
+    "allSystems": "Todos los sistemas",
+    "allTypes": "Todos los tipos",
+    "empty": "Aún no hay nada. Elige un sistema y un tipo.",
+    "pickTypeFirst": "Elige primero un sistema y un tipo",
+    "loadFailed": "No se pudo cargar el contenido propio.",
+    "visibility": "Quién puede ver esto",
+    "private": "Privado",
+    "public": "Público",
+    "campaign": "Mi campaña",
+    "sharedWithYou": "Compartido contigo",
+    "by": "por {{name}}",
+    "forked": "derivado",
+    "usedBy": "usado por {{count}} personaje",
+    "usedBy_other": "usado por {{count}} personajes",
+    "delete": "Eliminar entrada",
+    "confirmDelete": "¿Eliminar «{{name}}»? Esto no se puede deshacer.",
+    "confirmDeleteUsed": "¿Eliminar «{{name}}»? {{count}} de tus personajes la usan — aparecerá como no instalada.",
+    "importResult": "{{imported}} importadas, {{skipped}} omitidas, {{renamed}} renombradas, {{overwritten}} sobrescritas."
   }
 }

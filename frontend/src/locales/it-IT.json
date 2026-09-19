@@ -21,7 +21,8 @@
     "expandSidebar": "Espandi barra laterale",
     "audio": "Audio",
     "models": "Modelli",
-    "characters": "Personaggi"
+    "characters": "Personaggi",
+    "homebrew": "Contenuti propri"
   },
   "stats": {
     "systems": "Sistemi",
@@ -3105,5 +3106,33 @@
     "pageOf": "Pagina {{page}} di {{pages}}",
     "browseLabel": "Sfoglia {{label}}",
     "entryCount_other": "{{count}} voci"
+  },
+  "homebrew": {
+    "title": "Contenuti propri",
+    "create": "Nuova voce",
+    "createTitle": "Nuova voce propria",
+    "editTitle": "Modifica voce",
+    "import": "Importa un pacchetto",
+    "export": "Esporta",
+    "pastePack": "Incolla un pacchetto (JSON)",
+    "contentType": "Tipo",
+    "allSystems": "Tutti i sistemi",
+    "allTypes": "Tutti i tipi",
+    "empty": "Ancora niente. Scegli un sistema e un tipo.",
+    "pickTypeFirst": "Scegli prima sistema e tipo",
+    "loadFailed": "Impossibile caricare i contenuti propri.",
+    "visibility": "Chi può vederlo",
+    "private": "Privato",
+    "public": "Pubblico",
+    "campaign": "La mia campagna",
+    "sharedWithYou": "Condiviso con te",
+    "by": "di {{name}}",
+    "forked": "derivato",
+    "usedBy": "usato da {{count}} personaggio",
+    "usedBy_other": "usato da {{count}} personaggi",
+    "delete": "Elimina voce",
+    "confirmDelete": "Eliminare «{{name}}»? Non può essere annullato.",
+    "confirmDeleteUsed": "Eliminare «{{name}}»? {{count}} dei tuoi personaggi la usano — risulterà mancante.",
+    "importResult": "{{imported}} importate, {{skipped}} saltate, {{renamed}} rinominate, {{overwritten}} sovrascritte."
   }
 }

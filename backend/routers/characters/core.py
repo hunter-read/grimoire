@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import Character, CharacterSchema, ContentEntry
+from ...models import Character, CharacterSchema, ContentEntry, HomebrewEntry
+from ...services.characters import homebrew as hb
 from ...services import characters as svc
 from ._schemas import CharacterCreate, CharacterUpdate, SchemaImport
 
@@ -188,7 +189,7 @@ def _schema_for(db: Session, user_id: str, schema_ref: str) -> Optional[Characte
     )
 
 
-def _resolved_entries(db: Session, document: dict, data: dict) -> dict:
+def _resolved_entries(db: Session, document: dict, data: dict, user_id: str) -> dict:
     """Catalog entries every reference in a character points at.
 
     Formulas like `sum_refs(spells, 'level')` need the entries themselves, not
@@ -214,13 +215,24 @@ def _resolved_entries(db: Session, document: dict, data: dict) -> dict:
         return {}
 
     schema_id = document.get("id") or ""
-    rows = (
-        db.query(ContentEntry)
+    resolved = {
+        row.entry_id: (row.data if isinstance(row.data, dict) else {})
+        for row in db.query(ContentEntry)
         .filter(ContentEntry.schema_id == schema_id)
         .filter(ContentEntry.entry_id.in_(wanted))
         .all()
-    )
-    return {row.entry_id: (row.data if isinstance(row.data, dict) else {}) for row in rows}
+    }
+    # Homebrew resolves the same way, so a formula reading a spell's level does
+    # not care whether the spell came from a pack or from the player.
+    for row in (
+        db.query(HomebrewEntry)
+        .filter(HomebrewEntry.schema_id == schema_id)
+        .filter(HomebrewEntry.entry_id.in_(wanted))
+        .filter(hb.visible_filter(db, user_id))
+        .all()
+    ):
+        resolved.setdefault(row.entry_id, row.data if isinstance(row.data, dict) else {})
+    return resolved
 
 
 def _serialize_character(
@@ -250,7 +262,9 @@ def _serialize_character(
         # References resolve to their catalog entries so a formula reading an
         # entry's own properties has something to read.
         entries = (
-            _resolved_entries(db, document, data) if document is not None and db else {}
+            _resolved_entries(db, document, data, row.user_id)
+            if document is not None and db
+            else {}
         )
         payload["computed"] = svc.compute_values(document, data, entries) if document else {}
         # The client evaluates validators too, so the sheet reacts as you type.

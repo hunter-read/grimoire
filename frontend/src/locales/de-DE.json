@@ -21,7 +21,8 @@
     "expandSidebar": "Seitenleiste ausklappen",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Charaktere"
+    "characters": "Charaktere",
+    "homebrew": "Eigene Inhalte"
   },
   "stats": {
     "systems": "Systeme",
@@ -3105,5 +3106,33 @@
     "pageOf": "Seite {{page}} von {{pages}}",
     "browseLabel": "{{label}} durchsuchen",
     "entryCount_other": "{{count}} Einträge"
+  },
+  "homebrew": {
+    "title": "Eigene Inhalte",
+    "create": "Neuer Eintrag",
+    "createTitle": "Neuer eigener Eintrag",
+    "editTitle": "Eigenen Eintrag bearbeiten",
+    "import": "Paket importieren",
+    "export": "Exportieren",
+    "pastePack": "Homebrew-Paket (JSON) einfügen",
+    "contentType": "Typ",
+    "allSystems": "Alle Systeme",
+    "allTypes": "Alle Typen",
+    "empty": "Noch keine eigenen Inhalte. Wähle ein System und einen Typ.",
+    "pickTypeFirst": "Wähle zuerst System und Typ",
+    "loadFailed": "Eigene Inhalte konnten nicht geladen werden.",
+    "visibility": "Wer das sehen kann",
+    "private": "Privat",
+    "public": "Öffentlich",
+    "campaign": "Meine Kampagne",
+    "sharedWithYou": "Mit dir geteilt",
+    "by": "von {{name}}",
+    "forked": "abgeleitet",
+    "usedBy": "von {{count}} Charakter genutzt",
+    "usedBy_other": "von {{count}} Charakteren genutzt",
+    "delete": "Eintrag löschen",
+    "confirmDelete": "„{{name}}“ löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirmDeleteUsed": "„{{name}}“ löschen? {{count}} deiner Charaktere verweisen darauf — dort fehlt er dann.",
+    "importResult": "{{imported}} importiert, {{skipped}} übersprungen, {{renamed}} umbenannt, {{overwritten}} überschrieben."
   }
 }

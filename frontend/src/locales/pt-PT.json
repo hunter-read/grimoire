@@ -21,7 +21,8 @@
     "expandSidebar": "Expandir barra lateral",
     "audio": "Áudio",
     "models": "Models",
-    "characters": "Personagens"
+    "characters": "Personagens",
+    "homebrew": "Conteúdo próprio"
   },
   "stats": {
     "systems": "Sistemas",
@@ -3105,5 +3106,33 @@
     "pageOf": "Página {{page}} de {{pages}}",
     "browseLabel": "Explorar {{label}}",
     "entryCount_other": "{{count}} entradas"
+  },
+  "homebrew": {
+    "title": "Conteúdo próprio",
+    "create": "Nova entrada",
+    "createTitle": "Nova entrada própria",
+    "editTitle": "Editar entrada",
+    "import": "Importar um pacote",
+    "export": "Exportar",
+    "pastePack": "Cole um pacote (JSON)",
+    "contentType": "Tipo",
+    "allSystems": "Todos os sistemas",
+    "allTypes": "Todos os tipos",
+    "empty": "Ainda não há nada. Escolha um sistema e um tipo.",
+    "pickTypeFirst": "Escolha primeiro um sistema e um tipo",
+    "loadFailed": "Não foi possível carregar o conteúdo próprio.",
+    "visibility": "Quem pode ver isto",
+    "private": "Privado",
+    "public": "Público",
+    "campaign": "A minha campanha",
+    "sharedWithYou": "Partilhado consigo",
+    "by": "de {{name}}",
+    "forked": "derivado",
+    "usedBy": "usado por {{count}} personagem",
+    "usedBy_other": "usado por {{count}} personagens",
+    "delete": "Eliminar entrada",
+    "confirmDelete": "Eliminar «{{name}}»? Isto não pode ser desfeito.",
+    "confirmDeleteUsed": "Eliminar «{{name}}»? {{count}} das suas personagens usam-na — aparecerá como em falta.",
+    "importResult": "{{imported}} importadas, {{skipped}} ignoradas, {{renamed}} renomeadas, {{overwritten}} substituídas."
   }
 }

@@ -21,7 +21,8 @@
     "expandSidebar": "Développer la barre latérale",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Personnages"
+    "characters": "Personnages",
+    "homebrew": "Contenu maison"
   },
   "stats": {
     "systems": "Systèmes",
@@ -3105,5 +3106,33 @@
     "pageOf": "Page {{page}} sur {{pages}}",
     "browseLabel": "Parcourir {{label}}",
     "entryCount_other": "{{count}} entrées"
+  },
+  "homebrew": {
+    "title": "Contenu maison",
+    "create": "Nouvelle entrée",
+    "createTitle": "Nouvelle entrée maison",
+    "editTitle": "Modifier l'entrée",
+    "import": "Importer un pack",
+    "export": "Exporter",
+    "pastePack": "Collez un pack maison (JSON)",
+    "contentType": "Type",
+    "allSystems": "Tous les systèmes",
+    "allTypes": "Tous les types",
+    "empty": "Rien pour le moment. Choisissez un système et un type.",
+    "pickTypeFirst": "Choisissez d'abord un système et un type",
+    "loadFailed": "Impossible de charger le contenu maison.",
+    "visibility": "Qui peut voir ceci",
+    "private": "Privé",
+    "public": "Public",
+    "campaign": "Ma campagne",
+    "sharedWithYou": "Partagé avec vous",
+    "by": "par {{name}}",
+    "forked": "dérivé",
+    "usedBy": "utilisé par {{count}} personnage",
+    "usedBy_other": "utilisé par {{count}} personnages",
+    "delete": "Supprimer l'entrée",
+    "confirmDelete": "Supprimer « {{name}} » ? Cette action est irréversible.",
+    "confirmDeleteUsed": "Supprimer « {{name}} » ? {{count}} de vos personnages y font référence — elle y apparaîtra comme manquante.",
+    "importResult": "{{imported}} importées, {{skipped}} ignorées, {{renamed}} renommées, {{overwritten}} remplacées."
   }
 }

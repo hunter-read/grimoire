@@ -2025,6 +2025,83 @@ A pack may be installed before anyone has installed the matching sheet; its
 entries are stored as authored until a schema describes them, so install order
 does not matter.
 
+### Homebrew
+
+Content a user wrote: the **same data shape** as pack content, validated against
+the same content type and rendered by the same component. What differs is
+ownership — homebrew belongs to an account, so it is per user where pack content
+is server-wide, and it can be edited, which pack content cannot. Editing an SRD
+entry means **forking** it into homebrew.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/homebrew` | GET | user | Everything this user can see. `schema_id`, `content_type`, `mine_only` filter |
+| `/api/homebrew` | POST | user | Write an entry. 409 if they already have that entry id |
+| `/api/homebrew/fork` | POST | user | Copy a catalog or visible homebrew entry into their own |
+| `/api/homebrew/export?schema_id=` | GET | user | Their homebrew for one system, as a portable pack |
+| `/api/homebrew/import` | POST | user | Import a pack. `conflict` is `skip` (default), `overwrite`, or `rename` |
+| `/api/homebrew/:id` | GET | user | One entry, if they may see it |
+| `/api/homebrew/:id` | PUT | user | Edit an entry. **Owner only** |
+| `/api/homebrew/:id/share` | PATCH | user | Change visibility. **Owner only** |
+| `/api/homebrew/:id` | DELETE | user | Delete an entry. **Owner only** |
+
+**Entry fields:** `id`, `schema_id`, `content_type`, `entry_id`, `name`,
+`visibility`, `campaign_id`, `forked_from`, `owned`, `owner_name`, `used_by`,
+`created_at`, `updated_at`, and on detail `data`.
+
+#### Visibility
+
+| Level | Who sees it |
+|---|---|
+| `private` | The owner only. The default, and what a draft wants |
+| `campaign` | The owner and members of `campaign_id` |
+| `public` | Everyone on this instance |
+
+Enforced **server-side** in one shared filter that every read path uses, so
+there is a single thing to audit. The campaign arm checks *membership*, not
+merely that a campaign id is set — otherwise sharing to a campaign would publish
+to the whole instance. Sharing into a campaign you are not in is refused (403).
+
+**Sharing grants reading, never writing.** Only the owner edits, shares or
+deletes, whatever the entry's visibility — a campaign-shared subclass stays the
+GM's to change. An entry someone else owns answers 404 rather than 403 on a
+write: whether a given id exists is not something a stranger needs to learn.
+
+#### In the catalog
+
+Homebrew is merged into catalog results and tagged, so "Fireball (SRD)" and
+"Fireball (homebrew by Alex)" are told apart: each row carries `homebrew`,
+`owner_name` and `row_id`. Pass `include_homebrew=false` to browse pack content
+alone. Characters resolve homebrew references exactly as they resolve pack ones,
+so a formula reading a spell's level does not care where the spell came from.
+
+The FTS index covers pack content; visible homebrew is matched in Python on the
+same terms, because it changes on every edit and the per-user set is small.
+
+#### Deleting, and dangling references
+
+Deleting an entry leaves characters alone. A reference is soft, so the sheet
+shows it as missing rather than losing the row — the same behaviour as
+uninstalling a pack, and it means a delete can never destroy someone's
+character. The manager view warns with a `used_by` count first, taken from the
+caller's **own** characters (counting other people's would leak that they
+exist).
+
+#### Pack format
+
+```json
+{ "$schema": "grimoire://homebrew-pack/v1",
+  "pack_name": "Alex's homebrew", "schema_id": "dnd-5e", "author": "Alex",
+  "version": "1.0.0",
+  "entries": { "spell": [ { "_id": "hellfire-blast", "name": "Hellfire Blast" } ] } }
+```
+
+The same shape a filesystem content pack uses, so a homebrew pack can become an
+installed one. Import defaults to `skip` because an import should not silently
+overwrite someone's work, and returns a tally
+(`imported`/`skipped`/`renamed`/`overwritten`/`failed`) rather than stopping at
+the first conflict, so a partly-overlapping pack still imports what it can.
+
 ### Duplicates *(admin only)*
 
 Finding files that look like copies of one another, and deciding what to do

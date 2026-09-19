@@ -21,7 +21,8 @@
     "expandSidebar": "Zijbalk uitklappen",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Personages"
+    "characters": "Personages",
+    "homebrew": "Eigen inhoud"
   },
   "stats": {
     "systems": "Systemen",
@@ -3105,5 +3106,33 @@
     "pageOf": "Pagina {{page}} van {{pages}}",
     "browseLabel": "{{label}} doorbladeren",
     "entryCount_other": "{{count}} items"
+  },
+  "homebrew": {
+    "title": "Eigen inhoud",
+    "create": "Nieuw item",
+    "createTitle": "Nieuw eigen item",
+    "editTitle": "Item bewerken",
+    "import": "Pakket importeren",
+    "export": "Exporteren",
+    "pastePack": "Plak een pakket (JSON)",
+    "contentType": "Type",
+    "allSystems": "Alle systemen",
+    "allTypes": "Alle typen",
+    "empty": "Nog niets. Kies een systeem en een type.",
+    "pickTypeFirst": "Kies eerst een systeem en type",
+    "loadFailed": "Kon eigen inhoud niet laden.",
+    "visibility": "Wie dit kan zien",
+    "private": "Privé",
+    "public": "Openbaar",
+    "campaign": "Mijn campagne",
+    "sharedWithYou": "Met jou gedeeld",
+    "by": "van {{name}}",
+    "forked": "afgeleid",
+    "usedBy": "gebruikt door {{count}} personage",
+    "usedBy_other": "gebruikt door {{count}} personages",
+    "delete": "Item verwijderen",
+    "confirmDelete": "\"{{name}}\" verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "confirmDeleteUsed": "\"{{name}}\" verwijderen? {{count}} van je personages gebruiken het — daar ontbreekt het dan.",
+    "importResult": "{{imported}} geïmporteerd, {{skipped}} overgeslagen, {{renamed}} hernoemd, {{overwritten}} overschreven."
   }
 }
