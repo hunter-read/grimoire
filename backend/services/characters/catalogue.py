@@ -52,6 +52,10 @@ FETCH_TIMEOUT = 10
 #: A sheet is one JSON document. Bounded well below the shared add-on cap so a
 #: hostile catalogue cannot hand us something enormous and call it a sheet.
 MAX_SHEET_BYTES = 512 * 1024
+#: A layout and a stylesheet are bounded separately, matching the engine's own
+#: caps on `layout_html` and `styles`.
+MAX_LAYOUT_BYTES = 256 * 1024
+MAX_STYLES_BYTES = 128 * 1024
 
 #: Where the sheet index sits relative to whichever index the admin configured.
 _SHEET_INDEX_PATH = "character-sheets/index.json"
@@ -230,6 +234,12 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
         "grimoire_min_version": str(entry.get("grimoire_min_version") or ""),
         "path": str(entry.get("path") or ""),
         "sha256": str(entry.get("sha256") or ""),
+        # A sheet may keep its layout and stylesheet in sibling files rather
+        # than inlining them as escaped JSON strings.
+        "layout_path": str(entry.get("layout_path") or ""),
+        "layout_sha256": str(entry.get("layout_sha256") or ""),
+        "styles_path": str(entry.get("styles_path") or ""),
+        "styles_sha256": str(entry.get("styles_sha256") or ""),
         "index_url": index_url,
         "installed": _is_installed(raw_id, index_url, installed),
     }
@@ -303,19 +313,14 @@ def verify_digest(body: bytes, expected: str) -> None:
         )
 
 
-def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
-    """Download one sheet, verify its digest, and validate it.
+def _download(url: str, max_bytes: int, *, what: str) -> bytes:
+    """Fetch one file, bounded and with its own client.
 
-    Fetched with its own client rather than through ``fetch_document``, which
-    caches and does not verify digests: a sheet is fetched once, at install
-    time, and must be checked against the catalogue that offered it.
+    Not routed through ``fetch_document``: that caches and does not verify a
+    digest, and every file here is fetched once, at install time, and checked
+    against the catalogue that offered it.
     """
-    _assert_downloads_enabled()
-
     import httpx
-
-    index_url = entry.get("index_url") or _default_index_url()
-    url = _resolve_sheet_url(index_url, str(entry.get("path") or ""))
 
     try:
         with httpx.Client(
@@ -327,17 +332,31 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
             response = client.get(url)
             if response.status_code != 200:
                 raise CatalogueError(
-                    f"The sheet download returned HTTP {response.status_code}"
+                    f"The {what} download returned HTTP {response.status_code}"
                 )
             body = response.content
     except httpx.TimeoutException as exc:
-        raise CatalogueError("The sheet download timed out") from exc
+        raise CatalogueError(f"The {what} download timed out") from exc
     except httpx.HTTPError as exc:
-        raise CatalogueError(f"Could not download the sheet: {exc}") from exc
+        raise CatalogueError(f"Could not download the {what}: {exc}") from exc
 
-    if len(body) > min(MAX_SHEET_BYTES, HTTP_MAX_BYTES):
-        raise CatalogueError("That sheet file is too large")
+    if len(body) > min(max_bytes, HTTP_MAX_BYTES):
+        raise CatalogueError(f"That {what} file is too large")
+    return body
 
+
+def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
+    """Download one sheet, verify its digest, and validate it.
+
+    Fetched with its own client rather than through ``fetch_document``, which
+    caches and does not verify digests: a sheet is fetched once, at install
+    time, and must be checked against the catalogue that offered it.
+    """
+    _assert_downloads_enabled()
+
+    index_url = entry.get("index_url") or _default_index_url()
+    url = _resolve_sheet_url(index_url, str(entry.get("path") or ""))
+    body = _download(url, MAX_SHEET_BYTES, what="sheet")
     verify_digest(body, str(entry.get("sha256") or ""))
 
     try:
@@ -350,6 +369,18 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
     # `$schema` is an editor affordance in the repository, not part of the
     # document the engine validates.
     document.pop("$schema", None)
+    # Naming a sibling file is an authoring convenience; what gets stored is
+    # one self-contained document, so the sheet still renders if the
+    # catalogue later moves.
+    document.pop("layout_file", None)
+    document.pop("styles_file", None)
+
+    layout = _fetch_sidecar(index_url, entry, "layout", MAX_LAYOUT_BYTES)
+    if layout is not None:
+        document["layout_html"] = layout
+    styles = _fetch_sidecar(index_url, entry, "styles", MAX_STYLES_BYTES)
+    if styles is not None:
+        document["styles"] = styles
 
     try:
         validate_schema(document)
@@ -357,3 +388,23 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
         raise CatalogueError(f"That sheet is not valid: {exc}") from exc
 
     return document
+
+
+def _fetch_sidecar(
+    index_url: str, entry: dict[str, Any], kind: str, max_bytes: int
+) -> Optional[str]:
+    """Download a sheet's layout or stylesheet from its own file.
+
+    Returns None when the catalogue lists no such file, which is the ordinary
+    case for a sheet that inlines them or has none. Verified against its own
+    digest, like the sheet itself: a separate file is a separate download and
+    needs its own check.
+    """
+    path = str(entry.get(f"{kind}_path") or "")
+    if not path:
+        return None
+
+    url = _resolve_sheet_url(index_url, path)
+    body = _download(url, max_bytes, what=kind)
+    verify_digest(body, str(entry.get(f"{kind}_sha256") or ""))
+    return body.decode("utf-8", "replace")

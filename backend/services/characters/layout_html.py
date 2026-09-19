@@ -53,6 +53,11 @@ ALLOWED_TAGS: frozenset = frozenset(
         "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption",
         "figure", "figcaption", "img",
         "fieldset", "legend", "label",
+        # Collapsible sections. Interactive, but the interaction is the
+        # browser's own — there is no scripting surface and nothing a schema
+        # can hook, which is what keeps them in reach for a sheet's secondary
+        # details.
+        "details", "summary",
     }
 )
 
@@ -81,6 +86,7 @@ _TAG_ATTRS: dict[str, frozenset] = {
     "td": frozenset({"colspan", "rowspan"}),
     "th": frozenset({"colspan", "rowspan", "scope"}),
     "label": frozenset({"for"}),
+    "details": frozenset({"open"}),
     # `visible_if` is the same expression `g-if` takes, as an attribute: it
     # hides one element without wrapping it, which reads better for a single
     # field than a <g-if> around it.

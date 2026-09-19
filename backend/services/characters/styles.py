@@ -55,7 +55,11 @@ ALLOWED_PROPERTIES: frozenset = frozenset(
         "border-top-left-radius", "border-top-right-radius",
         "border-bottom-left-radius", "border-bottom-right-radius",
         "border-collapse", "border-spacing",
-        "background-color", "box-shadow", "outline", "outline-offset",
+        # `background` shorthand as well as `background-color`: what makes a
+        # background risky is `url()`, which is rejected by value regardless of
+        # which property carries it, so blocking the shorthand only forced
+        # authors to write the longhand for no gain.
+        "background", "background-color", "box-shadow", "outline", "outline-offset",
         "opacity",
         # typography
         "color", "font", "font-family", "font-size", "font-weight",

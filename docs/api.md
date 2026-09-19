@@ -1953,7 +1953,12 @@ mid-edit is routinely invalid - you pick the spells before you raise the level
 that allows them - and refusing the write would lose the player's work.
 
 **HTML layouts.** A schema may replace the JSON `layout` with `layout_html`, an
-HTML *template*, plus an optional `styles` block. Both are validated at install
+HTML *template*, plus an optional `styles` block. A catalogue sheet should keep
+both in sibling `.html` and `.css` files instead — HTML escaped into a JSON
+string is unreadable — and the catalogue then carries `layout_path`,
+`layout_sha256`, `styles_path` and `styles_sha256`. Each file is downloaded and
+digest-checked separately, then folded into one self-contained document, so the
+stored sheet does not depend on the catalogue still being there. Both are validated at install
 and returned as derived `layout_ast` / `styles_css`:
 
 ```html

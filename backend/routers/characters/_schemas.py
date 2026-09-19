@@ -64,6 +64,12 @@ class CatalogueSheet(BaseModel):
     grimoire_min_version: str = ""
     path: str = ""
     sha256: str = ""
+    # A sheet may keep its layout and stylesheet in sibling files; each is
+    # downloaded and digest-checked separately.
+    layout_path: str = ""
+    layout_sha256: str = ""
+    styles_path: str = ""
+    styles_sha256: str = ""
     # Which catalogue offered it, so a repo on a branch stays distinguishable.
     index_url: str = ""
     installed: bool = False

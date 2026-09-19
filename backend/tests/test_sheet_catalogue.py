@@ -362,6 +362,107 @@ class TestFetchingASheet:
             cat.fetch_sheet(None, self._entry(b"{}"))
 
 
+class TestSidecarFiles:
+    """A sheet may keep its layout and stylesheet in sibling files.
+
+    HTML embedded in JSON has to be escaped, which makes a real layout
+    unreadable — so the catalogue carries a path and digest per file, and they
+    are folded into one self-contained document on install.
+    """
+
+    SHEET_BODY = json.dumps(
+        {
+            "id": "sidecar-demo",
+            "name": "Sidecar Demo",
+            "version": "1.0.0",
+            "fields": {"level": {"type": "number", "label": "Level"}},
+        }
+    ).encode()
+    LAYOUT = b'<div class="s"><g-field name="level" /></div>'
+    STYLES = b".s { color: red }"
+
+    def _serve(self, monkeypatch, *, layout=None, styles=None):
+        import httpx
+
+        def handler(request):
+            path = request.url.path
+            if path.endswith(".html"):
+                return httpx.Response(200, content=layout or self.LAYOUT)
+            if path.endswith(".css"):
+                return httpx.Response(200, content=styles or self.STYLES)
+            return httpx.Response(200, content=self.SHEET_BODY)
+
+        transport = httpx.MockTransport(handler)
+        real_client = httpx.Client
+        monkeypatch.setattr(
+            httpx,
+            "Client",
+            lambda **kwargs: real_client(transport=transport, **kwargs),
+        )
+
+    def _entry(self, **overrides):
+        entry = {
+            "id": "sidecar-demo",
+            "path": "character-sheets/sidecar-demo/sidecar-demo.json",
+            "sha256": hashlib.sha256(self.SHEET_BODY).hexdigest(),
+            "index_url": f"{REPO}/main/character-sheets/index.json",
+            "layout_path": "character-sheets/sidecar-demo/sidecar-demo.html",
+            "layout_sha256": hashlib.sha256(self.LAYOUT).hexdigest(),
+            "styles_path": "character-sheets/sidecar-demo/sidecar-demo.css",
+            "styles_sha256": hashlib.sha256(self.STYLES).hexdigest(),
+        }
+        entry.update(overrides)
+        return entry
+
+    def test_folds_the_sibling_files_into_the_document(self, monkeypatch):
+        self._serve(monkeypatch)
+        document = cat.fetch_sheet(None, self._entry())
+        # What gets stored is one self-contained document, so the sheet still
+        # renders if the catalogue later moves.
+        assert document["layout_html"] == self.LAYOUT.decode()
+        assert document["styles"] == self.STYLES.decode()
+        assert "layout_file" not in document and "styles_file" not in document
+
+    def test_a_sheet_with_no_sibling_files_is_unaffected(self, monkeypatch):
+        self._serve(monkeypatch)
+        document = cat.fetch_sheet(
+            None, self._entry(layout_path="", styles_path="")
+        )
+        assert "layout_html" not in document
+
+    def test_a_tampered_layout_is_refused(self, monkeypatch):
+        self._serve(monkeypatch)
+        with pytest.raises(cat.CatalogueError, match="integrity check"):
+            cat.fetch_sheet(None, self._entry(layout_sha256="0" * 64))
+
+    def test_a_tampered_stylesheet_is_refused(self, monkeypatch):
+        self._serve(monkeypatch)
+        with pytest.raises(cat.CatalogueError, match="integrity check"):
+            cat.fetch_sheet(None, self._entry(styles_sha256="0" * 64))
+
+    def test_an_oversized_layout_is_refused(self, monkeypatch):
+        self._serve(monkeypatch, layout=b"x" * (cat.MAX_LAYOUT_BYTES + 1))
+        with pytest.raises(cat.CatalogueError, match="too large"):
+            cat.fetch_sheet(None, self._entry(layout_sha256=""))
+
+    def test_a_hostile_layout_is_still_refused(self, monkeypatch):
+        """The allowlist applies whichever file the layout arrived in."""
+        hostile = b'<div onclick="alert(1)">x</div>'
+        self._serve(monkeypatch, layout=hostile)
+        with pytest.raises(cat.CatalogueError, match="onclick"):
+            cat.fetch_sheet(
+                None,
+                self._entry(layout_sha256=hashlib.sha256(hostile).hexdigest()),
+            )
+
+    def test_a_sidecar_on_another_host_is_refused(self, monkeypatch):
+        self._serve(monkeypatch)
+        with pytest.raises(cat.CatalogueError, match="unexpected host"):
+            cat.fetch_sheet(
+                None, self._entry(layout_path="https://evil.example/layout.html")
+            )
+
+
 class TestIndexUrls:
     def test_falls_back_to_the_bundled_default(self, monkeypatch):
         monkeypatch.setattr(
