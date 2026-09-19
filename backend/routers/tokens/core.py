@@ -1,4 +1,5 @@
 """Token CRUD, file-serving, and folder-tagging endpoints."""
+import glob
 import hashlib
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access
+from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
 from ._helpers import _allow_explicit
 from ._schemas import FolderTagsUpdate, TokenBulkUpdate, TokenUpdate
 
@@ -28,6 +30,7 @@ router = APIRouter()
 def list_tokens(
     limit: int = Query(100000),
     offset: int = 0,
+    sort: str = Query("path", pattern="^(path|name)$"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -36,9 +39,14 @@ def list_tokens(
     if not can_see_explicit:
         q = q.filter(Token.is_explicit != True)
     total = q.count()
-    # By path rather than filename, so a page is a contiguous run of folders in
-    # display order and later pages append below the fold — see list_maps.
-    tokens = q.order_by(Token.relative_path).offset(offset).limit(limit).all()
+    # `path` (the default) makes a page a contiguous run of folders in display
+    # order, which is what the grouped gallery renders — see list_maps. The
+    # ungrouped gallery sorts by filename instead, so paging by path would
+    # scatter each arriving page across the whole alphabet and visibly reshuffle
+    # what the user is already looking at; it asks for `name` to be paged in the
+    # order it displays.
+    order = Token.filename if sort == "name" else Token.relative_path
+    tokens = q.order_by(order).offset(offset).limit(limit).all()
     token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
     vcounts = variants.variant_counts(db, Token, [t.id for t in tokens])
     vkinds = variants.variant_kinds(db, Token, [t.id for t in tokens])
@@ -183,6 +191,15 @@ def serve_token_thumbnail(
     thumb_path = os.path.join(THUMB_DIR, "tokens", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
         return FileResponse(thumb_path, media_type="image/webp", headers=headers)
+    # The slug half of the name is the filename as it was at index time, so a
+    # file renamed since then has its thumbnail on disk under the old stem. The
+    # path hash still identifies it, so fall back to that rather than reporting
+    # no thumbnail for an image that is sitting right there (mirrors the book
+    # cover route, issue #421).
+    matches = glob.glob(os.path.join(THUMB_DIR, "tokens", f"*_{fhash}.webp"))
+    if matches:
+        return FileResponse(matches[0], media_type="image/webp", headers=headers)
+    _clear_stale_thumbnail_flag(db, t)
     raise HTTPException(404)
 
 

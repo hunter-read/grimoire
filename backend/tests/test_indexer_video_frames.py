@@ -230,6 +230,74 @@ class TestBackfill:
     def test_archives_are_never_backfilled(self):
         assert _needs_thumbnail_backfill(_Row(False), ".zip", ".zip") is False
 
+    @pytest.mark.parametrize("ext", [".png", ".jpg", ".webp"])
+    def test_plain_images_are_backfilled_too(self, ext):
+        """An image row at has_thumbnail=0 is the common recoverable case.
+
+        A rename strands the cached file under the old filename stem, and the
+        move path clears the flag when it cannot re-home it. Nothing then
+        regenerated it: the backfill only covered the two formats that were once
+        undecodable, so an ordinary token or map stayed blank through every
+        future rescan. Renaming a folder of token-editor frames hit exactly this.
+        """
+        assert _needs_thumbnail_backfill(_Row(False), ext, "") is True
+
+    @pytest.mark.parametrize("ext", [".png", ".jpg", ".webp"])
+    def test_images_with_a_thumbnail_are_not_redone(self, ext):
+        assert _needs_thumbnail_backfill(_Row(True), ext, "") is False
+
+
+class TestThumbnailOnDisk:
+    """A row can claim a thumbnail whose file is gone; the scan must notice.
+
+    The flag gates the backfill, so a row left claiming a file that is not there
+    is skipped forever. Matched on the path hash, because the name also embeds
+    the filename stem from index time and a renamed file's thumbnail is on disk
+    under a name the scan would no longer compose.
+    """
+
+    def _ctx(self, thumb_dir):
+        class _Ctx:
+            pass
+
+        c = _Ctx()
+        c.thumb_dir = str(thumb_dir)
+        return c
+
+    def test_finds_a_thumbnail_under_its_exact_name(self, tmp_path):
+        import hashlib
+
+        from backend.indexer.media import _thumbnail_on_disk
+
+        (tmp_path / "tokens").mkdir()
+        fp = "/library/tokens/frame.png"
+        fhash = hashlib.md5(fp.encode()).hexdigest()[:8]
+        (tmp_path / "tokens" / f"frame_{fhash}.webp").write_bytes(b"webp")
+        assert _thumbnail_on_disk(self._ctx(tmp_path), "tokens", "frame", fp) is True
+
+    def test_finds_one_written_under_an_older_filename(self, tmp_path):
+        import hashlib
+
+        from backend.indexer.media import _thumbnail_on_disk
+
+        (tmp_path / "tokens").mkdir()
+        fp = "/library/tokens/area-51-frame-1.png"
+        fhash = hashlib.md5(fp.encode()).hexdigest()[:8]
+        # Written before the rename, so the stem no longer matches.
+        (tmp_path / "tokens" / f"zone-51-frame-1_{fhash}.webp").write_bytes(b"webp")
+        assert (
+            _thumbnail_on_disk(self._ctx(tmp_path), "tokens", "area 51 frame 1", fp) is True
+        ), "a renamed file's thumbnail must not be treated as missing"
+
+    def test_reports_a_genuinely_missing_thumbnail(self, tmp_path):
+        from backend.indexer.media import _thumbnail_on_disk
+
+        (tmp_path / "tokens").mkdir()
+        assert (
+            _thumbnail_on_disk(self._ctx(tmp_path), "tokens", "gone", "/library/tokens/gone.png")
+            is False
+        )
+
 
 # ---------------------------------------------------------------------------
 # end-to-end, only where a real decoder exists

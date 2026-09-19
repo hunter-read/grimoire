@@ -499,7 +499,7 @@ books-only and are not indexed here.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level) |
+| `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level), `sort` (`path` default, or `name`) |
 | `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_archive`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
 **Changing a book's category moves its file.** The folder a book sits in is what
 the next rescan reads, so recording a new category without moving the file would
@@ -675,7 +675,7 @@ all is stored as `null`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/tokens` | GET | any | Paginated token list (items include `is_archive`). Query: `limit`, `offset`, `tag` |
+| `/api/tokens` | GET | any | Paginated token list (items include `is_archive`). Query: `limit`, `offset`, `tag`, `sort` (`path` default, or `name`) |
 | `/api/tokens/:id` | GET | any | Token detail incl. `is_archive` (`pixel_width`/`pixel_height` are `null` for archives) |
 | `/api/tokens/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit` |
 | `/api/tokens/:id/file` | GET | any | Download the token image, or the archive (served with the archive's MIME type) |
@@ -789,6 +789,15 @@ supported and only the size cap held it back, so the client offers to load it
 anyway behind a warning that it may be slow or unresponsive; when it is `false`
 alongside a `false` `viewer_available`, no loader exists for the format and a
 download is the only option.
+
+**Page ordering on the media list routes:** `GET /api/maps` and `/api/tokens` take
+a `sort` of `path` (the default) or `name`; `/api/audio` and `/api/models` are
+always filename-ordered. The galleries load a library in pages and append each
+one as it lands, so a page has to arrive in the order the view displays it.
+Grouped by folder, that is path order - each page is then a contiguous run of
+folders. With grouping off the view is one flat list sorted by filename, and
+paging by path instead scatters every arriving page across the whole alphabet,
+inserting cards among the ones already on screen.
 
 **Access control on media by-id routes:** As with books, the library-browse list routes (`GET /api/maps`, `/api/tokens`, `/api/audio`, `/api/models` and their `*-folders`) are blocked for guests, but the by-id routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/artwork`) are reachable by any authenticated user and enforce access themselves. A guest may only read a map/token/audio/model item **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); otherwise the route returns 403. An explicit token returns 403 for a non-guest who has `allow_explicit` disabled, on the file/thumbnail routes as well as `GET /api/tokens/:id`. An item deliberately shared into a guest's campaign is served regardless of its explicit flag.
 

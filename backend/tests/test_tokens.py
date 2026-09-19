@@ -35,6 +35,24 @@ class TestListTokensOrdering:
         assert paths == sorted(paths)
         assert paths[0].startswith("DnD/Aaa/")
 
+    def test_orders_by_filename_when_asked(self, client, admin_headers):
+        # The ungrouped gallery sorts by filename, so it pages that way too:
+        # paging by path there made later pages insert cards throughout the
+        # alphabet, among the ones already on screen.
+        make_token(filename="z.png", relative_path="DnD/Aaa/z.png")
+        make_token(filename="a.png", relative_path="DnD/Zzz/a.png")
+        resp = client.get("/api/tokens?sort=name", headers=admin_headers)
+        assert resp.status_code == 200
+        rows = [t for t in resp.json()["tokens"] if t["relative_path"].startswith("DnD/")]
+        names = [t["filename"] for t in rows]
+        assert names == sorted(names)
+        # Which is the opposite order to the paths.
+        assert rows[0]["relative_path"].startswith("DnD/Zzz/")
+
+    def test_rejects_an_unknown_sort(self, client, admin_headers):
+        resp = client.get("/api/tokens?sort=bogus", headers=admin_headers)
+        assert resp.status_code == 422
+
 
 class TestListTokens:
     def test_returns_list(self, client, admin_headers):
@@ -180,6 +198,33 @@ class TestServeTokenThumbnail:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/webp"
 
+    def test_serves_a_thumbnail_written_under_an_older_filename(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        """A token renamed after indexing still has its thumbnail on disk.
+
+        The name embeds the filename stem as it was when the scan wrote it, so
+        after a rename the composed name points at a file that never existed.
+        The path hash still identifies the real one, and the frames people
+        rename in bulk are exactly the case that turned up blank.
+        """
+        from backend.routers.tokens import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "tokens").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        t = make_token(
+            filename="area-51-frame-1.png", filepath=str(tmp_path / "area-51-frame-1.png")
+        )
+        # Written when the file was still called zone-51-frame-1.png.
+        fhash = hashlib.md5(t.filepath.encode()).hexdigest()[:8]
+        (thumb_root / "tokens" / f"zone-51-frame-1_{fhash}.webp").write_bytes(b"webp")
+
+        resp = client.get(f"/api/tokens/{t.id}/thumbnail", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/webp"
+
     def test_thumbnail_is_cacheable_and_revalidates(
         self, client, admin_headers, tmp_path, monkeypatch
     ):
@@ -216,6 +261,58 @@ class TestServeTokenThumbnail:
             headers={**admin_headers, "If-None-Match": '"outdated"'},
         )
         assert stale.status_code == 200
+
+    def test_a_vanished_thumbnail_clears_the_flag_for_the_next_scan(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        """A row claiming a thumbnail whose file has gone must not stay broken.
+
+        The scanner decides what to render from ``has_thumbnail``, so a row left
+        claiming one it no longer has is never revisited and the image stays
+        broken through every rescan. Clearing it on the failed read is what lets
+        the next scan pick it up.
+        """
+        from backend.routers.tokens import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "tokens").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        t = make_token(
+            filename="gone.png", filepath=str(tmp_path / "gone.png"), has_thumbnail=True
+        )
+        resp = client.get(f"/api/tokens/{t.id}/thumbnail", headers=admin_headers)
+        assert resp.status_code == 404
+
+        db = SessionLocal()
+        refreshed = db.query(Token).filter(Token.id == t.id).first()
+        flag = refreshed.has_thumbnail
+        db.close()
+        assert flag is False, "the next scan must see this row as un-thumbnailed"
+
+    def test_a_served_thumbnail_leaves_the_flag_alone(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        from backend.routers.tokens import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "tokens").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        t = make_token(
+            filename="here.png", filepath=str(tmp_path / "here.png"), has_thumbnail=True
+        )
+        fhash = hashlib.md5(t.filepath.encode()).hexdigest()[:8]
+        (thumb_root / "tokens" / f"here_{fhash}.webp").write_bytes(b"webp")
+
+        assert (
+            client.get(f"/api/tokens/{t.id}/thumbnail", headers=admin_headers).status_code == 200
+        )
+        db = SessionLocal()
+        refreshed = db.query(Token).filter(Token.id == t.id).first()
+        flag = refreshed.has_thumbnail
+        db.close()
+        assert flag is True
 
     def test_missing_thumbnail_returns_404(self, client, admin_headers, tmp_path, monkeypatch):
         from backend.routers.tokens import core

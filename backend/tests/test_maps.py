@@ -82,6 +82,30 @@ class TestListMapsOrdering:
         paths = [p for p in self._paths(client, admin_headers) if p.startswith("DnD/")]
         assert paths[:2] == ["DnD/Alleys/y.png", "DnD/Alleys/z.png"]
 
+    def test_orders_by_filename_when_asked(self, client, admin_headers, scattered):
+        # Ungrouped, the gallery sorts by filename, so it pages that way too —
+        # otherwise later pages insert cards throughout the alphabet, among the
+        # ones already on screen.
+        resp = client.get("/api/maps?sort=name", headers=admin_headers)
+        assert resp.status_code == 200
+        rows = [m for m in resp.json()["maps"] if m["relative_path"].startswith("DnD/")]
+        names = [m["filename"] for m in rows]
+        assert names == sorted(names)
+        # a.png lives in Zones, which sorts last by path — so this is visibly
+        # not the path ordering.
+        assert rows[0]["relative_path"] == "DnD/Zones/a.png"
+
+    def test_filename_paging_does_not_overlap_or_drop_rows(self, client, admin_headers, scattered):
+        first = self._paths(client, admin_headers, "?sort=name&limit=2&offset=0")
+        second = self._paths(client, admin_headers, "?sort=name&limit=2&offset=2")
+        assert len(set(first) & set(second)) == 0
+        combined = self._paths(client, admin_headers, "?sort=name&limit=4&offset=0")
+        assert first + second == combined
+
+    def test_rejects_an_unknown_sort(self, client, admin_headers):
+        resp = client.get("/api/maps?sort=bogus", headers=admin_headers)
+        assert resp.status_code == 422
+
     def test_pages_do_not_overlap_or_drop_rows(self, client, admin_headers, scattered):
         first = self._paths(client, admin_headers, "?limit=2&offset=0")
         second = self._paths(client, admin_headers, "?limit=2&offset=2")
@@ -462,6 +486,49 @@ class TestServeMapThumbnail:
         resp = client.get(f"/api/maps/{m.id}/thumbnail", headers=admin_headers)
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/webp"
+
+    def test_serves_a_thumbnail_written_under_an_older_filename(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        """See the matching token test: a rename restyles the name, not the hash."""
+        from backend.routers.maps import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "maps").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        m = make_map(filename="new-swamp.png", filepath=str(tmp_path / "new-swamp.png"))
+        fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]
+        (thumb_root / "maps" / f"old-swamp_{fhash}.webp").write_bytes(b"webp")
+
+        resp = client.get(f"/api/maps/{m.id}/thumbnail", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/webp"
+
+    def test_a_vanished_thumbnail_clears_the_flag_for_the_next_scan(
+        self, client, admin_headers, tmp_path, monkeypatch
+    ):
+        """See the matching token test: the flag is what the scanner consults."""
+        from backend.routers.maps import core
+
+        thumb_root = tmp_path / "thumbs"
+        (thumb_root / "maps").mkdir(parents=True)
+        monkeypatch.setattr(core, "THUMB_DIR", str(thumb_root))
+
+        m = make_map(
+            filename="gone.png", filepath=str(tmp_path / "gone.png"), has_thumbnail=True
+        )
+        assert (
+            client.get(f"/api/maps/{m.id}/thumbnail", headers=admin_headers).status_code == 404
+        )
+
+        from backend.models import GenericMap
+
+        db = SessionLocal()
+        refreshed = db.query(GenericMap).filter(GenericMap.id == m.id).first()
+        flag = refreshed.has_thumbnail
+        db.close()
+        assert flag is False, "the next scan must see this row as un-thumbnailed"
 
     def test_missing_thumbnail_returns_404(self, client, admin_headers, tmp_path, monkeypatch):
         from backend.routers.maps import core
