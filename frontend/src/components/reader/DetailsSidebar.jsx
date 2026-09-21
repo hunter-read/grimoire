@@ -6,6 +6,7 @@ import { formatSize } from '../../utils'
 import Tag from '../Tag'
 import { publicationDate } from '../system/bookDetails'
 import DetailsSidebarEditor from './DetailsSidebarEditor'
+import ReaderSidebarShell from './ReaderSidebarShell'
 
 /**
  * The book's metadata, shown in the same right-hand sidebar as contents,
@@ -44,17 +45,7 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
   ].filter(([, value]) => value)
 
   return (
-    <div
-      style={{
-        width: 320,
-        flexShrink: 0,
-        borderLeft: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-      }}
-    >
+    <ReaderSidebarShell width={320}>
       <div
         style={{
           display: 'flex',
@@ -155,6 +146,6 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
           </>
         )}
       </div>
-    </div>
+    </ReaderSidebarShell>
   )
 }

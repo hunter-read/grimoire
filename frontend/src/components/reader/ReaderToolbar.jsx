@@ -81,6 +81,25 @@ export default function ReaderToolbar({
     book.indexed ? { key: 'search', Icon: LuSearch, label: t('common.search') } : null,
   ].filter(Boolean)
 
+  // The kebab sits beside the title on a phone and at the end of the controls
+  // on a desktop, so it is built once here and placed by whichever row wants it.
+  const moreMenu = (
+    <ReaderMoreMenu
+      book={book}
+      bookId={bookId}
+      mode={mode}
+      onModeChange={onModeChange}
+      spreadOffset={spreadOffset}
+      onSpreadOffsetChange={onSpreadOffsetChange}
+      isMobilePhone={isMobilePhone}
+      isFavorite={isFavorite}
+      onToggleFavorite={onToggleFavorite}
+      onShowDetails={onShowDetails}
+      onToggleShortcuts={onToggleShortcuts}
+      onFileChanged={onFileChanged}
+    />
+  )
+
   return (
     <>
       <div
@@ -94,15 +113,17 @@ export default function ReaderToolbar({
           flexWrap: 'wrap',
         }}
       >
-        {/* Left zone — back and title. Equal flex with the right zone keeps the
-            page navigation between them optically centred. */}
+        {/* Left zone — back and title, plus the kebab on a phone. It takes the
+            leftover width and gives it up first, so the title ellipsizes before
+            anything else is pushed off. On a phone this is the whole first row:
+            the panel buttons and page navigation share the row below. */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            flex: 1,
-            minWidth: 0,
+            flex: '1 1 160px',
+            minWidth: isMobilePhone ? '100%' : 160,
           }}
         >
           <button
@@ -125,11 +146,15 @@ export default function ReaderToolbar({
 
           <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
 
+          {/* minWidth: 0 is what lets the ellipsis actually happen — without
+              it the span holds its full text width and shoves the controls on
+              the right off the row. */}
           <span
             style={{
               fontSize: 16,
               fontWeight: 500,
               color: 'var(--text)',
+              minWidth: 0,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -137,11 +162,25 @@ export default function ReaderToolbar({
           >
             {book.title}
           </span>
+
+          {/* On a phone the kebab rides with the title rather than taking room
+              on the controls row below. */}
+          {isMobilePhone && <div style={{ marginLeft: 'auto' }}>{moreMenu}</div>}
         </div>
 
-        {/* Centre zone — page navigation */}
+        {/* Centre zone — page navigation. On a phone it shares the second row
+            with the panel buttons, sitting to their right; `order` puts it
+            after the right zone so the two land side by side on that row. */}
         {mode !== 'pdf' && totalPages > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexShrink: 0,
+              ...(isMobilePhone ? { order: 1, marginLeft: 'auto' } : null),
+            }}
+          >
             <button
               onClick={() => onPageInputCommit(currentPage - step)}
               disabled={currentPage <= 1}
@@ -177,15 +216,18 @@ export default function ReaderToolbar({
           </div>
         )}
 
-        {/* Right zone — reading controls and the overflow menu */}
+        {/* Right zone — reading controls, and the overflow menu on a desktop.
+            It must not shrink, or the title would squeeze the panel buttons out
+            of view, which is the only way in to contents, bookmarks and details
+            on a phone. On a phone it starts the second row, with the page
+            navigation to its right. */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            flex: 1,
-            minWidth: 0,
-            justifyContent: 'flex-end',
+            flex: '0 0 auto',
+            ...(isMobilePhone ? null : { marginLeft: 'auto', justifyContent: 'flex-end' }),
           }}
         >
           {/* Zoom cluster — the native PDF viewer has its own zoom, and the
@@ -285,20 +327,8 @@ export default function ReaderToolbar({
             </button>
           )}
 
-          <ReaderMoreMenu
-            book={book}
-            bookId={bookId}
-            mode={mode}
-            onModeChange={onModeChange}
-            spreadOffset={spreadOffset}
-            onSpreadOffsetChange={onSpreadOffsetChange}
-            isMobilePhone={isMobilePhone}
-            isFavorite={isFavorite}
-            onToggleFavorite={onToggleFavorite}
-            onShowDetails={onShowDetails}
-            onToggleShortcuts={onToggleShortcuts}
-            onFileChanged={onFileChanged}
-          />
+          {/* On a phone this has already been rendered beside the title. */}
+          {!isMobilePhone && moreMenu}
         </div>
       </div>
 

@@ -514,12 +514,16 @@ export default function ReaderView() {
 
       {/* Content + optional sidebar */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+        {/* On a phone an open panel takes the whole viewport, so the page is
+            hidden rather than squeezed beside it. `display: none` keeps the
+            component mounted, so zoom, pan and the preload caches survive
+            opening a panel and closing it again. */}
         <div
           ref={contentRef}
           style={{
             flex: 1,
             overflow: 'hidden',
-            display: 'flex',
+            display: isMobilePhone && panel ? 'none' : 'flex',
             background: 'var(--bg-deep)',
             touchAction: 'none',
           }}
