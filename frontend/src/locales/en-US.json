@@ -2049,8 +2049,8 @@
     "exportJsonHint": "The full wiki as Grimoire JSON. Re-importable.",
     "import": "Import",
     "importTitle": "Import wiki pages",
-    "importHint": "Add pages from Markdown, a Grimoire JSON bundle, or a LegendKeeper export. Page nesting is preserved. Existing pages are never overwritten.",
-    "importFormats": "Accepts .zip, .json, .lk, .md, .markdown, or .txt.",
+    "importHint": "Add pages from Markdown, a Grimoire JSON bundle, or a LegendKeeper export. Page nesting is preserved, and folders become parent pages - in a zip or a picked folder. Existing pages are never overwritten.",
+    "importFormats": "Accepts .zip, .json, .lk, .md, .markdown, or .txt - or pick a folder of Markdown.",
     "templates": "Templates",
     "templatesTitle": "Note templates",
     "templatesNone": "No templates yet. Browse the community catalogue, write your own, or upload a Markdown file.",
@@ -2090,6 +2090,7 @@
     "templateCreate": "Create template",
     "templateNameRequired": "Give the template a name.",
     "chooseFile": "Choose file",
+    "chooseFolder": "Choose folder",
     "importing": "Importing…",
     "imported": "Imported {{count}} page",
     "imported_other": "Imported {{count}} pages",
@@ -2138,7 +2139,8 @@
     "shareName": "Name",
     "shareReadFor": "Read access for {{name}}",
     "shareWriteFor": "Write access for {{name}}",
-    "shareReadLocked": "Read is included with write access"
+    "shareReadLocked": "Read is included with write access",
+    "importFolderEmpty": "That folder has no Markdown files in it."
   },
   "campaignNotes": {
     "backToOverview": "Back to overview"

@@ -2049,8 +2049,8 @@
     "exportJsonHint": "O wiki completo como JSON do Grimoire. Reimportável.",
     "import": "Importar",
     "importTitle": "Importar páginas de wiki",
-    "importHint": "Adicione páginas a partir de Markdown, de um pacote JSON do Grimoire ou de uma exportação do LegendKeeper. O aninhamento das páginas é preservado. As páginas existentes nunca são substituídas.",
-    "importFormats": "Aceita .zip, .json, .lk, .md, .markdown ou .txt.",
+    "importHint": "Adicione páginas a partir de Markdown, de um pacote JSON do Grimoire ou de uma exportação do LegendKeeper. O aninhamento das páginas é preservado e as pastas tornam-se páginas superiores, tanto num arquivo zip como numa pasta escolhida. As páginas existentes nunca são substituídas.",
+    "importFormats": "Aceita .zip, .json, .lk, .md, .markdown ou .txt - ou escolha uma pasta com ficheiros Markdown.",
     "templates": "Modelos",
     "templatesTitle": "Modelos de nota",
     "templatesNone": "Ainda não há modelos. Explore o catálogo da comunidade, crie o seu ou carregue um ficheiro Markdown.",
@@ -2090,6 +2090,7 @@
     "templateCreate": "Criar modelo",
     "templateNameRequired": "Dê um nome ao modelo.",
     "chooseFile": "Escolher ficheiro",
+    "chooseFolder": "Escolher pasta",
     "importing": "A importar…",
     "imported": "{{count}} página importada",
     "imported_other": "{{count}} páginas importadas",
@@ -2138,7 +2139,8 @@
     "shareName": "Nome",
     "shareReadFor": "Acesso de leitura para {{name}}",
     "shareWriteFor": "Acesso de escrita para {{name}}",
-    "shareReadLocked": "A leitura está incluída no acesso de escrita"
+    "shareReadLocked": "A leitura está incluída no acesso de escrita",
+    "importFolderEmpty": "Essa pasta não contém ficheiros Markdown."
   },
   "campaignNotes": {
     "backToOverview": "Voltar à visão geral"

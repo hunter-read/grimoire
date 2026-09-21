@@ -648,3 +648,405 @@ class TestImportExportIconColor:
         assert resp.status_code == 201
         pages = client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json()
         assert next(p for p in pages if p["title"] == "Weird")["icon_color"] is None
+
+
+def _zip(files: dict) -> bytes:
+    """A zip archive of {path: text}, paths being zip-relative with `/`."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for path, text in files.items():
+            zf.writestr(path, text)
+    return buf.getvalue()
+
+
+def _import_zip(client, headers, cid, files):
+    return _import(client, headers, cid, "vault.zip", _zip(files), "application/zip")
+
+
+def _by_title(client, headers, cid):
+    pages = client.get(f"/api/campaigns/{cid}/wiki", headers=headers).json()
+    return {p["title"]: p for p in pages}
+
+
+class TestImportZipFolders:
+    def test_folders_become_parent_pages(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Places/Cities/Waterdeep.md": "A big city.",
+            "Places/Barovia.md": "Misty.",
+            "Loose.md": "At the root.",
+        })
+        assert resp.status_code == 201, resp.text
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Places"]["parent_id"] is None
+        assert pages["Cities"]["parent_id"] == pages["Places"]["id"]
+        assert pages["Waterdeep"]["parent_id"] == pages["Cities"]["id"]
+        assert pages["Barovia"]["parent_id"] == pages["Places"]["id"]
+        assert pages["Loose"]["parent_id"] is None
+
+    def test_missing_intermediate_folder_still_nests(self, client, gm_headers):
+        """`Places/Cities/` with no file directly in `Places/` keeps both rungs."""
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Places/Cities/Waterdeep.md": "A big city.",
+        })
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Places"]["parent_id"] is None
+        assert pages["Cities"]["parent_id"] == pages["Places"]["id"]
+        assert pages["Waterdeep"]["parent_id"] == pages["Cities"]["id"]
+
+    def test_folder_note_becomes_the_folder_page(self, client, gm_headers):
+        """Obsidian's `Places/Places.md` is the Places page, not a child of it."""
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Places/Places.md": "Where things happen.",
+            "Places/Barovia.md": "Misty.",
+        })
+        assert resp.status_code == 201
+        assert resp.json()["imported"] == 2
+        pages = _by_title(client, gm_headers, c["id"])
+        assert len(pages) == 2
+        assert pages["Places"]["parent_id"] is None
+        assert pages["Barovia"]["parent_id"] == pages["Places"]["id"]
+        body = client.get(
+            f"/api/campaigns/{c['id']}/wiki/{pages['Places']['id']}", headers=gm_headers
+        ).json()["body"]
+        assert "Where things happen." in body
+
+    def test_index_md_becomes_the_folder_page(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Lore/index.md": "# Lore\n\nAll of it.",
+            "Lore/Gods.md": "Many.",
+        })
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert len(pages) == 2
+        assert pages["Lore"]["parent_id"] is None
+        assert pages["Gods"]["parent_id"] == pages["Lore"]["id"]
+
+    def test_nested_folder_note_hangs_off_its_own_parent(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Places/Cities/Cities.md": "Urban sprawl.",
+            "Places/Cities/Waterdeep.md": "A big city.",
+        })
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Places"]["parent_id"] is None
+        assert pages["Cities"]["parent_id"] == pages["Places"]["id"]
+        assert pages["Waterdeep"]["parent_id"] == pages["Cities"]["id"]
+
+    def test_frontmatter_parent_wins_over_the_folder(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "bestiary.md": "---\ntitle: Bestiary\n---\n\nBeasts.",
+            "Folder/goblin.md": "---\ntitle: Goblin\nparent: Bestiary\n---\n\nSneaky.",
+        })
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Goblin"]["parent_id"] == pages["Bestiary"]["id"]
+
+    def test_grimoire_zip_export_round_trips_its_nesting(self, client, gm_headers):
+        """The app's own flat zip export keeps using frontmatter, not folders."""
+        src = _campaign(client, gm_headers)
+        parent = _create(client, gm_headers, src["id"], title="Bestiary", body="").json()
+        _create(
+            client, gm_headers, src["id"],
+            title="Goblin", body="Sneaky.", parent_id=parent["id"],
+        )
+        export = client.get(
+            f"/api/campaigns/{src['id']}/wiki/export?format=md", headers=gm_headers
+        )
+        dest = _campaign(client, gm_headers)
+        resp = _import(
+            client, gm_headers, dest["id"], "wiki.zip", export.content, "application/zip"
+        )
+        assert resp.status_code == 201
+        assert resp.json()["imported"] == 2
+        pages = _by_title(client, gm_headers, dest["id"])
+        assert pages["Goblin"]["parent_id"] == pages["Bestiary"]["id"]
+
+    def test_a_single_top_folder_is_still_a_page(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {"Vault/Note.md": "Text."})
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Vault"]["parent_id"] is None
+        assert pages["Note"]["parent_id"] == pages["Vault"]["id"]
+
+    def test_wikilinks_still_resolve_across_folders(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Places/Barovia.md": "Ruled by [[Strahd]].",
+            "People/Strahd.md": "A vampire.",
+        })
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        body = client.get(
+            f"/api/campaigns/{c['id']}/wiki/{pages['Barovia']['id']}", headers=gm_headers
+        ).json()["body"]
+        assert "[[Strahd]]" in body
+        # Four pages, not five: no stub was spawned for the link target.
+        assert len(pages) == 4
+
+    def test_same_filename_in_two_folders_both_import(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "North/Notes.md": "Cold.",
+            "South/Notes.md": "Warm.",
+        })
+        assert resp.status_code == 201
+        pages = client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json()
+        notes = [p for p in pages if p["title"] == "Notes"]
+        assert len(notes) == 2
+        assert {p["parent_id"] for p in notes} == {
+            next(p["id"] for p in pages if p["title"] == "North"),
+            next(p["id"] for p in pages if p["title"] == "South"),
+        }
+
+    def test_path_traversal_segments_are_dropped(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {"../../Evil/Note.md": "Text."})
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert ".." not in pages
+        assert pages["Note"]["parent_id"] == pages["Evil"]["id"]
+        assert pages["Evil"]["parent_id"] is None
+
+    def test_backslash_paths_are_treated_as_folders(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {"Places\\Barovia.md": "Misty."})
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Barovia"]["parent_id"] == pages["Places"]["id"]
+
+    def test_index_page_is_titled_after_its_folder(self, client, gm_headers):
+        """`Lore/index.md` reads as "Lore", not "index"."""
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {"Lore/index.md": "All of it."})
+        assert resp.status_code == 201
+        assert resp.json()["imported"] == 1
+        assert resp.json()["pages"][0]["title"] == "Lore"
+
+    def test_index_page_keeps_its_own_heading_as_the_title(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(
+            client, gm_headers, c["id"], {"Lore/index.md": "# Ancient Lore\n\nx."}
+        )
+        assert resp.status_code == 201
+        assert resp.json()["pages"][0]["title"] == "Ancient Lore"
+
+    def test_hugo_underscore_index_claims_its_folder(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Lore/_index.md": "All of it.",
+            "Lore/Gods.md": "Many.",
+        })
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        assert len(pages) == 2
+        assert pages["Gods"]["parent_id"] == pages["Lore"]["id"]
+
+    def test_folder_pages_are_empty_placeholders(self, client, gm_headers):
+        """A folder with no note of its own gets a blank page, not invented text."""
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {"Places/Barovia.md": "Misty."})
+        assert resp.status_code == 201
+        pages = _by_title(client, gm_headers, c["id"])
+        detail = client.get(
+            f"/api/campaigns/{c['id']}/wiki/{pages['Places']['id']}", headers=gm_headers
+        ).json()
+        assert detail["body"] == ""
+
+    def test_a_folder_named_like_a_page_does_not_hijack_its_links(self, client, gm_headers):
+        """A `Strahd/` folder must not steal [[Strahd]] from the Strahd page."""
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {
+            "Strahd/Castle.md": "His home.",
+            "Strahd.md": "A vampire, see [[Strahd]].",
+        })
+        assert resp.status_code == 201
+        pages = client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json()
+        # The folder page and the real page both exist, and the folder is a root.
+        strahds = [p for p in pages if p["title"] == "Strahd"]
+        assert len(strahds) == 2
+        assert any(p["parent_id"] is None for p in strahds)
+
+
+def _import_folder(client, headers, cid, files, *, paths=True):
+    """Post `{path: text}` as a folder pick, the way the browser's picker does."""
+    parts = [
+        ("files", (path.rsplit("/", 1)[-1], text.encode("utf-8"), "text/markdown"))
+        for path, text in files.items()
+    ]
+    data = {"paths": list(files)} if paths else None
+    return client.post(
+        f"/api/campaigns/{cid}/wiki/import",
+        files=parts,
+        data=data,
+        headers=headers,
+    )
+
+
+class TestImportFolderUpload:
+    def test_picked_folder_keeps_its_structure(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(client, gm_headers, c["id"], {
+            "Vault/Places/Cities/Waterdeep.md": "A big city.",
+            "Vault/Places/Barovia.md": "Misty.",
+            "Vault/Loose.md": "Top level.",
+        })
+        assert resp.status_code == 201, resp.text
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Vault"]["parent_id"] is None
+        assert pages["Places"]["parent_id"] == pages["Vault"]["id"]
+        assert pages["Cities"]["parent_id"] == pages["Places"]["id"]
+        assert pages["Waterdeep"]["parent_id"] == pages["Cities"]["id"]
+        assert pages["Barovia"]["parent_id"] == pages["Places"]["id"]
+        assert pages["Loose"]["parent_id"] == pages["Vault"]["id"]
+
+    def test_folder_note_and_frontmatter_work_the_same_as_in_a_zip(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(client, gm_headers, c["id"], {
+            "Places/Places.md": "Where things happen.",
+            "Places/Barovia.md": "Misty.",
+        })
+        assert resp.status_code == 201
+        assert resp.json()["imported"] == 2
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Barovia"]["parent_id"] == pages["Places"]["id"]
+
+    def test_wikilinks_resolve_across_the_whole_pick(self, client, gm_headers):
+        """The set arrives in one request, so cross-links find real pages."""
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(client, gm_headers, c["id"], {
+            "Places/Barovia.md": "Ruled by [[Strahd]].",
+            "People/Strahd.md": "A vampire.",
+        })
+        assert resp.status_code == 201
+        pages = client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json()
+        # Four pages: two folders, two notes - no stub spawned for the link.
+        assert len(pages) == 4
+
+    def test_dot_directories_are_skipped(self, client, gm_headers):
+        """A picked vault brings `.obsidian/` along; its markdown isn't wiki content."""
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(client, gm_headers, c["id"], {
+            "Vault/.obsidian/templates/Daily.md": "A template.",
+            "Vault/Real.md": "A note.",
+        })
+        assert resp.status_code == 201
+        titles = set(_by_title(client, gm_headers, c["id"]))
+        assert "Daily" not in titles
+        assert ".obsidian" not in titles
+        assert titles == {"Vault", "Real"}
+
+    def test_non_markdown_files_are_ignored(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        parts = [
+            ("files", ("Note.md", b"A note.", "text/markdown")),
+            ("files", ("map.png", b"\x89PNG\r\n\x1a\n", "image/png")),
+        ]
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/import",
+            files=parts,
+            data={"paths": ["Vault/Note.md", "Vault/map.png"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201
+        assert set(_by_title(client, gm_headers, c["id"])) == {"Vault", "Note"}
+
+    def test_a_folder_of_only_non_markdown_is_rejected(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/import",
+            files=[("files", ("map.png", b"\x89PNG", "image/png"))],
+            data={"paths": ["Vault/map.png"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "markdown" in resp.json()["detail"].lower()
+
+    def test_falls_back_to_filenames_when_no_paths_are_sent(self, client, gm_headers):
+        """Without paths there is no structure to keep, but the notes still import."""
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(
+            client, gm_headers, c["id"],
+            {"Alpha.md": "One.", "Beta.md": "Two."},
+            paths=False,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["imported"] == 2
+        pages = _by_title(client, gm_headers, c["id"])
+        assert pages["Alpha"]["parent_id"] is None
+        assert pages["Beta"]["parent_id"] is None
+
+    def test_mismatched_paths_count_is_rejected(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/import",
+            files=[
+                ("files", ("a.md", b"A.", "text/markdown")),
+                ("files", ("b.md", b"B.", "text/markdown")),
+            ],
+            data={"paths": ["Vault/a.md"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "one entry per file" in resp.json()["detail"]
+
+    def test_sending_both_a_file_and_a_folder_is_rejected(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/import",
+            files=[
+                ("file", ("solo.md", b"Solo.", "text/markdown")),
+                ("files", ("a.md", b"A.", "text/markdown")),
+            ],
+            data={"paths": ["Vault/a.md"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "not both" in resp.json()["detail"]
+
+    def test_import_with_no_file_at_all_is_rejected(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/import",
+            data={"paths": ["Vault/a.md"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "No file uploaded" in resp.json()["detail"]
+
+    def test_too_many_files_is_rejected(self, client, gm_headers, monkeypatch):
+        from backend.routers.campaigns import wiki_io
+
+        monkeypatch.setattr(wiki_io, "_MAX_IMPORT_FILES", 2)
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(client, gm_headers, c["id"], {
+            "V/a.md": "A.", "V/b.md": "B.", "V/c.md": "C.",
+        })
+        assert resp.status_code == 413
+        assert "Too many files" in resp.json()["detail"]
+
+    def test_an_oversized_folder_is_rejected(self, client, gm_headers, monkeypatch):
+        """The cap is on the whole pick, so many small files can't slip past it."""
+        from backend.routers.campaigns import wiki_io
+
+        monkeypatch.setattr(wiki_io, "_MAX_IMPORT_BYTES", 100)
+        c = _campaign(client, gm_headers)
+        resp = _import_folder(client, gm_headers, c["id"], {
+            "V/a.md": "x" * 60, "V/b.md": "y" * 60,
+        })
+        assert resp.status_code == 413
+        assert "too large" in resp.json()["detail"].lower()
+
+    def test_folder_import_requires_owner(self, client, gm_headers, player_headers, player_id):
+        c = _campaign(client, gm_headers)
+        client.post(f"/api/campaigns/{c['id']}/invite", json={"user_id": player_id},
+                    headers=gm_headers)
+        resp = _import_folder(client, player_headers, c["id"], {"V/a.md": "A."})
+        assert resp.status_code == 403

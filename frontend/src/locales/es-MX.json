@@ -2049,8 +2049,8 @@
     "exportJsonHint": "El wiki completo como JSON de Grimoire. Reimportable.",
     "import": "Importar",
     "importTitle": "Importar páginas de la wiki",
-    "importHint": "Añade páginas desde Markdown, un paquete JSON de Grimoire o una exportación de LegendKeeper. Se conserva el anidamiento de las páginas. Las páginas existentes nunca se sobrescriben.",
-    "importFormats": "Acepta .zip, .json, .lk, .md, .markdown o .txt.",
+    "importHint": "Añade páginas desde Markdown, un paquete JSON de Grimoire o una exportación de LegendKeeper. Se conserva el anidamiento de las páginas y las carpetas se convierten en páginas superiores, tanto en un zip como en una carpeta elegida. Las páginas existentes nunca se sobrescriben.",
+    "importFormats": "Acepta .zip, .json, .lk, .md, .markdown o .txt - o elige una carpeta con archivos Markdown.",
     "templates": "Plantillas",
     "templatesTitle": "Plantillas de nota",
     "templatesNone": "Aún no hay plantillas. Explora el catálogo de la comunidad, crea la tuya o sube un archivo Markdown.",
@@ -2090,6 +2090,7 @@
     "templateCreate": "Crear plantilla",
     "templateNameRequired": "Dale un nombre a la plantilla.",
     "chooseFile": "Elegir archivo",
+    "chooseFolder": "Elegir carpeta",
     "importing": "Importando…",
     "imported": "{{count}} página importada",
     "imported_other": "{{count}} páginas importadas",
@@ -2138,7 +2139,8 @@
     "shareName": "Nombre",
     "shareReadFor": "Acceso de lectura para {{name}}",
     "shareWriteFor": "Acceso de escritura para {{name}}",
-    "shareReadLocked": "La lectura se incluye con el acceso de escritura"
+    "shareReadLocked": "La lectura se incluye con el acceso de escritura",
+    "importFolderEmpty": "Esa carpeta no contiene archivos Markdown."
   },
   "campaignNotes": {
     "backToOverview": "Volver al resumen"

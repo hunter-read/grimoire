@@ -2049,8 +2049,8 @@
     "exportJsonHint": "Le wiki complet en JSON Grimoire. Réimportable.",
     "import": "Importer",
     "importTitle": "Importer des pages de wiki",
-    "importHint": "Ajoutez des pages depuis Markdown, un fichier JSON Grimoire ou un export LegendKeeper. Les pages existantes ne sont jamais écrasées.",
-    "importFormats": "Accepte .zip, .json, .md, .markdown ou .txt. Le HTML de LegendKeeper est converti en Markdown.",
+    "importHint": "Ajoutez des pages depuis Markdown, un fichier JSON Grimoire ou un export LegendKeeper. L'imbrication des pages est conservée et les dossiers deviennent des pages parentes, dans une archive zip comme dans un dossier choisi. Les pages existantes ne sont jamais écrasées.",
+    "importFormats": "Accepte .zip, .json, .lk, .md, .markdown ou .txt - ou choisissez un dossier de fichiers Markdown.",
     "templates": "Modèles",
     "templatesTitle": "Modèles de note",
     "templatesNone": "Aucun modèle pour l'instant. Parcourez le catalogue communautaire, créez le vôtre ou importez un fichier Markdown.",
@@ -2090,6 +2090,7 @@
     "templateCreate": "Créer le modèle",
     "templateNameRequired": "Donnez un nom au modèle.",
     "chooseFile": "Choisir un fichier",
+    "chooseFolder": "Choisir un dossier",
     "importing": "Importation…",
     "imported": "{{count}} page importée",
     "imported_other": "{{count}} pages importées",
@@ -2138,7 +2139,8 @@
     "shareName": "Nom",
     "shareReadFor": "Accès en lecture pour {{name}}",
     "shareWriteFor": "Accès en écriture pour {{name}}",
-    "shareReadLocked": "La lecture est incluse avec l'accès en écriture"
+    "shareReadLocked": "La lecture est incluse avec l'accès en écriture",
+    "importFolderEmpty": "Ce dossier ne contient aucun fichier Markdown."
   },
   "campaignNotes": {
     "backToOverview": "Retour à l'aperçu"

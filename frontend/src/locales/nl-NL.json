@@ -2049,8 +2049,8 @@
     "exportJsonHint": "De volledige wiki als Grimoire-JSON. Herimporteerbaar.",
     "import": "Importeren",
     "importTitle": "Wikipagina's importeren",
-    "importHint": "Voeg pagina's toe vanuit Markdown, een Grimoire-JSON-bundel of een LegendKeeper-export. De nesting van pagina's blijft behouden. Bestaande pagina's worden nooit overschreven.",
-    "importFormats": "Accepteert .zip, .json, .lk, .md, .markdown of .txt.",
+    "importHint": "Voeg pagina's toe vanuit Markdown, een Grimoire-JSON-bundel of een LegendKeeper-export. De nesting van pagina's blijft behouden en mappen worden bovenliggende pagina's, in een zip-archief en in een gekozen map. Bestaande pagina's worden nooit overschreven.",
+    "importFormats": "Accepteert .zip, .json, .lk, .md, .markdown of .txt - of kies een map met Markdown-bestanden.",
     "templates": "Sjablonen",
     "templatesTitle": "Notitiesjablonen",
     "templatesNone": "Nog geen sjablonen. Blader door de community-catalogus, maak er zelf een of upload een Markdown-bestand.",
@@ -2090,6 +2090,7 @@
     "templateCreate": "Sjabloon maken",
     "templateNameRequired": "Geef het sjabloon een naam.",
     "chooseFile": "Bestand kiezen",
+    "chooseFolder": "Map kiezen",
     "importing": "Importeren…",
     "imported": "{{count}} pagina geïmporteerd",
     "imported_other": "{{count}} pagina's geïmporteerd",
@@ -2138,7 +2139,8 @@
     "shareName": "Naam",
     "shareReadFor": "Leestoegang voor {{name}}",
     "shareWriteFor": "Schrijftoegang voor {{name}}",
-    "shareReadLocked": "Lezen is inbegrepen bij schrijftoegang"
+    "shareReadLocked": "Lezen is inbegrepen bij schrijftoegang",
+    "importFolderEmpty": "Die map bevat geen Markdown-bestanden."
   },
   "campaignNotes": {
     "backToOverview": "Terug naar overzicht"

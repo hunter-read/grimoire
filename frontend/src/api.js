@@ -281,6 +281,10 @@ export const campaigns = {
       `wiki.${{ md: 'zip', mdfile: 'md' }[format] || format}`
     ),
   importWiki: (id, file) => api.upload(`/campaigns/${id}/wiki/import`, file),
+  // A picked folder of markdown, sent whole so nesting and cross-links resolve
+  // in one pass. `entries` is `[{ file, path }]` — `path` being the file's path
+  // within the folder the user picked (the browser's `webkitRelativePath`).
+  importWikiFolder: (id, entries) => api.uploadFolder(`/campaigns/${id}/wiki/import`, entries),
   // Wiki note templates — per-campaign starting points for pages.
   wikiTemplates: (id) => api.get(`/campaigns/${id}/wiki/templates`),
   getWikiTemplate: (id, templateId) =>
@@ -705,6 +709,27 @@ const api = {
       const form = new FormData()
       form.append('file', file)
       for (const [k, v] of Object.entries(fields)) form.append(k, v)
+      return form
+    }
+    return authedFetch(`/api${url}`, () => ({
+      method: 'POST',
+      headers: authHeaders(),
+      body: buildForm(),
+    })).then(handleResponse)
+  },
+
+  // Multipart upload of a whole folder pick: every file in one request, each
+  // with its path within the picked folder so the server can rebuild the tree.
+  // Separate from `upload` because that one sends a single `file` part.
+  uploadFolder: (url, entries) => {
+    // Rebuilt per attempt for the same reason as `upload` above: a FormData
+    // body is a one-shot stream, so a retry needs its own instance.
+    const buildForm = () => {
+      const form = new FormData()
+      for (const { file, path } of entries) {
+        form.append('files', file)
+        form.append('paths', path || file.name)
+      }
       return form
     }
     return authedFetch(`/api${url}`, () => ({

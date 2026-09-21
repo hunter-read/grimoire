@@ -2049,8 +2049,8 @@
     "exportJsonHint": "Das gesamte Wiki als Grimoire-JSON. Reimportierbar.",
     "import": "Importieren",
     "importTitle": "Wiki-Seiten importieren",
-    "importHint": "Füge Seiten aus Markdown, einem Grimoire-JSON-Bundle oder einem LegendKeeper-Export hinzu. Die Verschachtelung der Seiten bleibt erhalten. Vorhandene Seiten werden nie überschrieben.",
-    "importFormats": "Akzeptiert .zip, .json, .lk, .md, .markdown oder .txt.",
+    "importHint": "Füge Seiten aus Markdown, einem Grimoire-JSON-Bundle oder einem LegendKeeper-Export hinzu. Die Verschachtelung der Seiten bleibt erhalten, und Ordner werden zu übergeordneten Seiten - im ZIP-Archiv wie im gewählten Ordner. Vorhandene Seiten werden nie überschrieben.",
+    "importFormats": "Akzeptiert .zip, .json, .lk, .md, .markdown oder .txt - oder wähle einen Ordner mit Markdown-Dateien.",
     "templates": "Vorlagen",
     "templatesTitle": "Notizvorlagen",
     "templatesNone": "Noch keine Vorlagen. Durchsuche den Community-Katalog, schreibe eine eigene oder lade eine Markdown-Datei hoch.",
@@ -2090,6 +2090,7 @@
     "templateCreate": "Vorlage erstellen",
     "templateNameRequired": "Gib der Vorlage einen Namen.",
     "chooseFile": "Datei auswählen",
+    "chooseFolder": "Ordner wählen",
     "importing": "Wird importiert…",
     "imported": "{{count}} Seite importiert",
     "imported_other": "{{count}} Seiten importiert",
@@ -2138,7 +2139,8 @@
     "shareName": "Name",
     "shareReadFor": "Lesezugriff für {{name}}",
     "shareWriteFor": "Schreibzugriff für {{name}}",
-    "shareReadLocked": "Lesen ist im Schreibzugriff enthalten"
+    "shareReadLocked": "Lesen ist im Schreibzugriff enthalten",
+    "importFolderEmpty": "In diesem Ordner sind keine Markdown-Dateien."
   },
   "campaignNotes": {
     "backToOverview": "Zurück zur Übersicht"

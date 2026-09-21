@@ -740,7 +740,7 @@ router.add_api_route(
     "/{campaign_id}/wiki/import",
     import_wiki,
     methods=["POST"],
-    summary="Import wiki pages (markdown / json / LegendKeeper)",
+    summary="Import wiki pages from a file or a picked folder",
     status_code=201,
     response_model=WikiImportOut,
 )
