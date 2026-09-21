@@ -269,20 +269,22 @@ export default function ReaderToolbar({
                 disabled={!canZoomIn}
                 title={t('reader.zoomIn')}
                 aria-label={t('reader.zoomIn')}
-                style={zoomBtnStyle(!canZoomIn, isZoomed)}
+                style={zoomBtnStyle(!canZoomIn, true)}
               >
                 <LuPlus size={13} />
               </button>
-              {isZoomed && (
-                <button
-                  onClick={onResetZoom}
-                  title={t('reader.zoomReset')}
-                  aria-label={t('reader.zoomReset')}
-                  style={zoomBtnStyle(false, false)}
-                >
-                  <LuRotateCcw size={13} />
-                </button>
-              )}
+              {/* Always rendered, inert at the default zoom: mounting it on the
+                first zoom would widen the cluster and slide the button out from
+                under the cursor mid-click (#472). */}
+              <button
+                onClick={onResetZoom}
+                disabled={!isZoomed}
+                title={t('reader.zoomReset')}
+                aria-label={t('reader.zoomReset')}
+                style={zoomBtnStyle(!isZoomed, false)}
+              >
+                <LuRotateCcw size={13} />
+              </button>
             </div>
           )}
 

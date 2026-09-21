@@ -367,14 +367,40 @@ describe('ReaderToolbar — zoom controls', () => {
     expect(screen.getAllByLabelText('Zoom in').at(-1)).toBeDisabled()
   })
 
-  it('offers reset only once zoomed', async () => {
+  it('keeps reset in place, inert until zoomed, so the cluster never resizes', async () => {
     const onResetZoom = vi.fn()
-    renderToolbar({ isZoomed: false })
-    expect(screen.queryByLabelText('Reset zoom')).not.toBeInTheDocument()
+    // Rendered from the start: mounting it on the first zoom would shift the
+    // buttons beside it out from under the cursor (#472).
+    renderToolbar({ isZoomed: false, onResetZoom })
+    const reset = screen.getByLabelText('Reset zoom')
+    expect(reset).toBeDisabled()
+    await userEvent.click(reset)
+    expect(onResetZoom).not.toHaveBeenCalled()
+  })
 
+  it('resets the zoom once zoomed', async () => {
+    const onResetZoom = vi.fn()
     renderToolbar({ zoom: 1.75, isZoomed: true, canZoomOut: true, onResetZoom })
-    await userEvent.click(screen.getByLabelText('Reset zoom'))
+    const reset = screen.getByLabelText('Reset zoom')
+    expect(reset).not.toBeDisabled()
+    await userEvent.click(reset)
     expect(onResetZoom).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the zoom buttons in the same order as zoom changes', () => {
+    const labels = () =>
+      screen
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+        .filter((l) => ['Zoom out', 'Zoom in', 'Reset zoom'].includes(l))
+
+    const { unmount } = renderToolbar({ isZoomed: false })
+    const atDefault = labels()
+    unmount()
+
+    renderToolbar({ zoom: 1.75, isZoomed: true, canZoomOut: true })
+    expect(labels()).toEqual(atDefault)
+    expect(atDefault).toEqual(['Zoom out', 'Zoom in', 'Reset zoom'])
   })
 
   it('hides the cluster in pdf mode, where the native viewer zooms itself', () => {
