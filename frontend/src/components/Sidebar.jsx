@@ -14,7 +14,6 @@ import {
   LuTags,
   LuScroll,
   LuUsers,
-  LuFlaskConical,
   LuX,
   LuPanelLeftClose,
   LuPanelLeftOpen,
@@ -230,7 +229,6 @@ export default function Sidebar({
             is exactly who wants a character sheet. */}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
         {!hide_campaigns && navItem('/characters', <LuUsers size={16} />, t('nav.characters'))}
-        {!hide_campaigns && navItem('/homebrew', <LuFlaskConical size={16} />, t('nav.homebrew'))}
       </nav>
 
       {/* Collapse toggle — bottom of the nav section, above the stats footer.

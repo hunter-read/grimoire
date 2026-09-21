@@ -36,11 +36,13 @@ class CatalogEntry(BaseModel):
     # Rendered from the content type's `compact_display` template, when it has
     # one, so a list row reads the way the schema author intended.
     display: str = ""
-    # True when this row is a user's homebrew rather than pack content.
-    homebrew: bool = False
+    # True when this row comes from a ruleset rather than an installed pack.
+    ruleset: bool = False
     owner_name: str = ""
-    # The homebrew row's own id, for editing it from the browser.
+    # The row's own id, for editing it from the browser.
     row_id: Optional[str] = None
+    ruleset_id: Optional[str] = None
+    ruleset_name: str = ""
 
 
 class FilterOption(BaseModel):

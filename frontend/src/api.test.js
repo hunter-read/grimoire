@@ -16,7 +16,7 @@ import api, {
   duplicates,
   characters,
   content,
-  homebrew,
+  rulesets,
 } from './api'
 
 // Mirrors a real Response: handleResponse reads the body as text and parses it
@@ -1002,7 +1002,7 @@ describe('files, sidecars, and backups helpers', () => {
   })
 })
 
-describe('character, content, and homebrew helpers', () => {
+describe('character, content, and ruleset helpers', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
@@ -1060,26 +1060,43 @@ describe('character, content, and homebrew helpers', () => {
     expect(url()).toBe('/api/content/dnd-5e/resolve?ids=a%2Cb')
   })
 
-  it('covers the homebrew helpers', async () => {
-    await homebrew.list()
-    expect(url()).toBe('/api/homebrew')
-    await homebrew.list({ schema_id: 'dnd-5e', content_type: '', mine_only: true })
-    expect(url()).toBe('/api/homebrew?schema_id=dnd-5e&mine_only=true')
-    await homebrew.get('h1')
-    expect(url()).toBe('/api/homebrew/h1')
-    await homebrew.create({})
-    expect(url()).toBe('/api/homebrew')
-    await homebrew.update('h1', {})
-    expect(url()).toBe('/api/homebrew/h1')
-    await homebrew.remove('h1')
-    expect(url()).toBe('/api/homebrew/h1')
-    await homebrew.share('h1', { visibility: 'public' })
-    expect(url()).toBe('/api/homebrew/h1/share')
-    await homebrew.fork({})
-    expect(url()).toBe('/api/homebrew/fork')
-    await homebrew.export('dnd-5e')
-    expect(url()).toBe('/api/homebrew/export?schema_id=dnd-5e')
-    await homebrew.import({}, 'rename')
-    expect(url()).toBe('/api/homebrew/import')
+  it('covers the ruleset helpers', async () => {
+    await rulesets.list()
+    expect(url()).toBe('/api/rulesets')
+    await rulesets.list({ schema_id: 'dnd-5e', campaign_id: '' })
+    expect(url()).toBe('/api/rulesets?schema_id=dnd-5e')
+    await rulesets.get('r1')
+    expect(url()).toBe('/api/rulesets/r1')
+    await rulesets.create({})
+    expect(url()).toBe('/api/rulesets')
+    await rulesets.update('r1', {})
+    expect(url()).toBe('/api/rulesets/r1')
+    await rulesets.remove('r1')
+    expect(url()).toBe('/api/rulesets/r1')
+    await rulesets.installable('dnd-5e')
+    expect(url()).toBe('/api/rulesets/installable?schema_id=dnd-5e')
+    await rulesets.installable()
+    expect(url()).toBe('/api/rulesets/installable')
+    await rulesets.import('r1', {})
+    expect(url()).toBe('/api/rulesets/r1/import')
+    await rulesets.export('r1')
+    expect(url()).toBe('/api/rulesets/r1/export')
+    await rulesets.fork('r1', {})
+    expect(url()).toBe('/api/rulesets/r1/fork')
+  })
+
+  it('covers the ruleset entry helpers', async () => {
+    await rulesets.entries('r1')
+    expect(url()).toBe('/api/rulesets/r1/entries')
+    await rulesets.entries('r1', 'spell')
+    expect(url()).toBe('/api/rulesets/r1/entries?content_type=spell')
+    await rulesets.createEntry('r1', {})
+    expect(url()).toBe('/api/rulesets/r1/entries')
+    await rulesets.getEntry('r1', 'e1')
+    expect(url()).toBe('/api/rulesets/r1/entries/e1')
+    await rulesets.updateEntry('r1', 'e1', {})
+    expect(url()).toBe('/api/rulesets/r1/entries/e1')
+    await rulesets.removeEntry('r1', 'e1')
+    expect(url()).toBe('/api/rulesets/r1/entries/e1')
   })
 })

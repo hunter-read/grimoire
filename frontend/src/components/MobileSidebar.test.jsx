@@ -96,7 +96,7 @@ describe('MobileSidebar', () => {
   })
 })
 
-describe('MobileSidebar — characters and homebrew', () => {
+describe('MobileSidebar — characters', () => {
   const renderBar = (props = {}) =>
     render(
       <MemoryRouter>
@@ -104,11 +104,12 @@ describe('MobileSidebar — characters and homebrew', () => {
       </MemoryRouter>
     )
 
-  it('lists Characters and Homebrew in the drawer', async () => {
+  it('lists Characters in the drawer', async () => {
     renderBar()
     await userEvent.click(screen.getByRole('button', { name: /more/i }))
     expect(screen.getByText('Characters')).toBeInTheDocument()
-    expect(screen.getByText('Homebrew')).toBeInTheDocument()
+    // Rulesets are reached from within Characters, not from the drawer.
+    expect(screen.queryByText('Rulesets')).not.toBeInTheDocument()
   })
 
   it('hides maps, tokens and models when their settings are set', async () => {
@@ -125,15 +126,15 @@ describe('MobileSidebar — characters and homebrew', () => {
     renderBar()
     await userEvent.click(screen.getByRole('button', { name: /more/i }))
     await userEvent.click(screen.getByText('Characters'))
-    expect(screen.queryByText('Homebrew')).not.toBeInTheDocument()
+    expect(screen.queryByText('Audio')).not.toBeInTheDocument()
   })
 
-  it('hides both when campaigns are hidden', async () => {
-    // They sit with Campaigns rather than carrying their own toggle, so the
-    // one setting governs all three.
+  it('hides characters when campaigns are hidden', async () => {
+    // Characters sit with Campaigns rather than carrying their own toggle, so
+    // the one setting governs both.
     renderBar({ uiSettings: { hide_campaigns: true } })
     await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByText('Campaigns')).not.toBeInTheDocument()
     expect(screen.queryByText('Characters')).not.toBeInTheDocument()
-    expect(screen.queryByText('Homebrew')).not.toBeInTheDocument()
   })
 })

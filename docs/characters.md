@@ -5,7 +5,9 @@ describing its fields, the values derived from them, and how it is drawn. There
 is no game-specific code in Grimoire, so the same engine renders D&D, Draw
 Steel, Pathfinder, Cairn or a system you invent this evening.
 
-**Characters** live under Campaigns in the sidebar, beside **Homebrew**.
+**Characters** live under Campaigns in the sidebar. **Rulesets** — the content
+your tables play with — are reached from inside Characters, since the two only
+mean anything together.
 
 ## Sheets that ship today
 
@@ -63,23 +65,39 @@ can still type in by hand: every catalog field that allows it has an **Add
 custom** button, so the catalog is there when you want it and ignorable when you
 do not.
 
-## Homebrew
+## Rulesets
 
-**Homebrew** is content you write yourself, in exactly the same shape as pack
-content - so it appears in the same browser, works with the same formulas, and
-can be shared as a pack of its own.
+A **ruleset** is a named set of content a table plays with — an SRD, a
+supplement, your house rules. It holds exactly the same shape as pack content,
+so it appears in the same browser and works with the same formulas. What a
+ruleset adds is that you can **edit** it and that it is **scoped**.
 
-- **Fork** an existing entry to start from it. Pack content is read-only, so
-  editing a spell means taking a copy that is yours.
-- **Visibility** is private (the default), shared with one of your campaigns, or
-  public to everyone on the server. Sharing lets people *read* your entry;
-  only you can change it.
-- **Export** bundles your homebrew for one system into a file, and **Import**
-  reads one back. An import skips anything you already have rather than
-  overwriting your work.
+Scoping is the useful part. Two games can run the same system and allow
+different content:
 
-Deleting an entry never damages a character. The sheet shows it as missing,
-and the character is intact if the entry comes back.
+- A ruleset **belonging to a campaign** is shared with everyone at that table.
+  The GM who owns the campaign edits it; the players read it. It is deleted with
+  the campaign.
+- A ruleset **for the server** is available in every game. Only an admin can
+  create one, which is what core rules usually want.
+
+**Characters → Rulesets** is where you manage them.
+
+### Getting content into one
+
+- **Import a content pack.** An admin drops a pack into the server's content
+  directory; from then on any ruleset can import it in a click. The 5.5e SRD
+  ships this way. The pack's licence and credit are copied onto the ruleset, so
+  SRD content stays attributed wherever it is shown.
+- **Fork an existing entry.** Pack content is read-only, so changing a spell
+  means taking a copy. The copy remembers what it came from.
+- **Write one by hand**, filling in the same form the catalog browser reads.
+- **Import a document** someone exported, or **Export** yours to send on. An
+  import skips anything already there rather than overwriting your work; you
+  can ask it to rename or overwrite instead.
+
+Deleting an entry never damages a character. The sheet shows it as missing, and
+the character is intact if the entry comes back.
 
 ## Campaigns
 
@@ -91,7 +109,7 @@ see what the party is playing. Editing stays with the player who wrote it.
 
 **Export character** from the sheet's header writes a self-contained file:
 every referenced entry is embedded, and the sheet definition travels with it.
-That means it opens on a server that has neither the pack nor the homebrew it
+That means it opens on a server that has neither the pack nor the ruleset it
 was built from.
 
 Importing prefers what the receiving server already has and falls back to what

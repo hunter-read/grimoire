@@ -167,7 +167,7 @@ def sort_entries(entries: list[ContentEntry], sort_fields: list[str]) -> list[Co
 
 
 def serialize_entry(entry, type_definition: dict) -> dict:
-    """Shape a catalog row for the API, pack or homebrew alike."""
+    """Shape a catalog row for the API, pack or ruleset alike."""
     data = entry.data if isinstance(entry.data, dict) else {}
     return {
         "entry_id": entry.entry_id,
@@ -176,11 +176,13 @@ def serialize_entry(entry, type_definition: dict) -> dict:
         "content_type": entry.content_type,
         "data": data,
         "display": render_display(type_definition.get("compact_display", ""), data),
-        # The browser labels a homebrew row and credits its author, so
-        # "Fireball (SRD)" and "Fireball (homebrew by Alex)" are told apart.
-        "homebrew": bool(getattr(entry, "homebrew", False)),
+        # The browser labels a ruleset row with the ruleset it came from, so
+        # "Fireball (SRD)" and "Fireball (Strahd house rules)" are told apart.
+        "ruleset": bool(getattr(entry, "ruleset", False)),
         "owner_name": getattr(entry, "owner_name", ""),
         "row_id": getattr(entry, "row_id", None),
+        "ruleset_id": getattr(entry, "ruleset_id", None),
+        "ruleset_name": getattr(entry, "ruleset_name", ""),
     }
 
 

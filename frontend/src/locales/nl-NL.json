@@ -21,8 +21,7 @@
     "expandSidebar": "Zijbalk uitklappen",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Personages",
-    "homebrew": "Eigen inhoud"
+    "characters": "Personages"
   },
   "stats": {
     "systems": "Systemen",
@@ -3124,34 +3123,6 @@
     "sourceUnreachable": "Kon {{url}} niet lezen — de bladen ervan ontbreken in deze lijst.",
     "catalogueSources": "Van {{count}} catalogi"
   },
-  "homebrew": {
-    "title": "Eigen inhoud",
-    "create": "Nieuw item",
-    "createTitle": "Nieuw eigen item",
-    "editTitle": "Item bewerken",
-    "import": "Pakket importeren",
-    "export": "Exporteren",
-    "pastePack": "Plak een pakket (JSON)",
-    "contentType": "Type",
-    "allSystems": "Alle systemen",
-    "allTypes": "Alle typen",
-    "empty": "Nog niets. Kies een systeem en een type.",
-    "pickTypeFirst": "Kies eerst een systeem en type",
-    "loadFailed": "Kon eigen inhoud niet laden.",
-    "visibility": "Wie dit kan zien",
-    "private": "Privé",
-    "public": "Openbaar",
-    "campaign": "Mijn campagne",
-    "sharedWithYou": "Met jou gedeeld",
-    "by": "van {{name}}",
-    "forked": "afgeleid",
-    "usedBy": "gebruikt door {{count}} personage",
-    "usedBy_other": "gebruikt door {{count}} personages",
-    "delete": "Item verwijderen",
-    "confirmDelete": "\"{{name}}\" verwijderen? Dit kan niet ongedaan worden gemaakt.",
-    "confirmDeleteUsed": "\"{{name}}\" verwijderen? {{count}} van je personages gebruiken het — daar ontbreekt het dan.",
-    "importResult": "{{imported}} geïmporteerd, {{skipped}} overgeslagen, {{renamed}} hernoemd, {{overwritten}} overschreven."
-  },
   "contentPacks": {
     "title": "Inhoudspakketten",
     "reload": "Opnieuw laden",
@@ -3161,5 +3132,32 @@
     "entries": "{{count}} item",
     "entries_other": "{{count}} items",
     "licence": "Licentie"
+  },
+  "rulesets": {
+    "title": "Regelsets",
+    "create": "Nieuwe regelset",
+    "name": "Naam",
+    "forCampaign": "Voor campagne",
+    "serverWide": "Iedereen op deze server",
+    "readOnly": "Alleen lezen",
+    "help": "Een regelset is de inhoud waarmee een tafel speelt. Die van een campagne wordt met iedereen daar gedeeld; die van de server geldt in elk spel.",
+    "empty": "Nog geen regelsets. Maak er een voor een campagne of importeer er een pakket in.",
+    "needSheetFirst": "Installeer eerst een blad",
+    "loadFailed": "Kon regelsets niet laden.",
+    "entryCount": "{{count}} item",
+    "entryCount_other": "{{count}} items",
+    "newEntry": "Nieuw item",
+    "editEntry": "Item bewerken",
+    "deleteEntry": "Item verwijderen",
+    "delete": "Regelset verwijderen",
+    "noEntries": "Deze regelset is leeg. Voeg een item toe of importeer een pakket.",
+    "contentType": "Type",
+    "pickType": "Kies een type...",
+    "forked": "gekopieerd",
+    "importPack": "{{name}} importeren ({{count}})",
+    "export": "Exporteren",
+    "confirmDelete": "\"{{name}}\" en alles erin verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "confirmDeleteEntry": "\"{{name}}\" verwijderen? Personages die het gebruiken tonen het als ontbrekend.",
+    "importResult": "{{imported}} geïmporteerd, {{skipped}} overgeslagen, {{renamed}} hernoemd, {{overwritten}} overschreven."
   }
 }

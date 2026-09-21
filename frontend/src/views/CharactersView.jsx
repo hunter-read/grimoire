@@ -9,6 +9,7 @@ import {
   LuTriangleAlert,
   LuFileUp,
   LuStore,
+  LuBookOpen,
 } from 'react-icons/lu'
 import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
@@ -151,6 +152,10 @@ export default function CharactersView() {
             style={{ display: 'none' }}
           />
         </label>
+        <button onClick={() => navigate('/characters/rulesets')} style={ghostBtn}>
+          <LuBookOpen size={14} />
+          {t('rulesets.title')}
+        </button>
         <button onClick={() => setBrowsing(true)} style={ghostBtn}>
           <LuStore size={14} />
           {t('characters.browseSheets')}

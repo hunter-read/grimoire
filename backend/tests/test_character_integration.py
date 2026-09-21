@@ -4,7 +4,7 @@ import io
 import pytest
 
 from backend.config import SessionLocal
-from backend.models import Campaign, CampaignMember, Character, HomebrewEntry
+from backend.models import Campaign, CampaignMember, Character, Ruleset
 
 
 SCHEMA = {
@@ -30,7 +30,7 @@ def _clean():
     db = SessionLocal()
     try:
         db.query(Character).delete()
-        db.query(HomebrewEntry).delete()
+        db.query(Ruleset).delete()
         db.commit()
     finally:
         db.close()
@@ -54,6 +54,42 @@ def party(admin_id, gm_id):
         db.add(campaign)
         db.flush()
         db.add(CampaignMember(campaign_id=campaign.id, user_id=admin_id, status="joined"))
+        db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="joined"))
+        db.commit()
+        return campaign.id
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def solo(admin_id):
+    """A campaign only the admin belongs to.
+
+    Export/import is about content the importer does *not* have, so the source
+    entries have to live somewhere the other account cannot read. A server
+    ruleset would be visible to everyone and the embedded copy would never be
+    reached.
+    """
+    db = SessionLocal()
+    try:
+        campaign = Campaign(name="Phase 5 Solo", owner_id=admin_id)
+        db.add(campaign)
+        db.flush()
+        db.add(CampaignMember(campaign_id=campaign.id, user_id=admin_id, status="joined"))
+        db.commit()
+        return campaign.id
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def gm_table(gm_id):
+    """A campaign the GM owns, for content of their own."""
+    db = SessionLocal()
+    try:
+        campaign = Campaign(name="Phase 5 GM Table", owner_id=gm_id)
+        db.add(campaign)
+        db.flush()
         db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="joined"))
         db.commit()
         return campaign.id
@@ -256,11 +292,19 @@ class TestPortraits:
 
 
 class TestExportImport:
-    def _with_homebrew(self, client, headers):
+    def _ruleset(self, client, headers, campaign_id, name="Phase 5 rules"):
+        """A ruleset owned by one campaign, so only its members can read it."""
+        return client.post(
+            "/api/rulesets",
+            json={"schema_id": "p5-demo", "name": name, "campaign_id": campaign_id},
+            headers=headers,
+        ).json()["id"]
+
+    def _with_entry(self, client, headers, campaign_id):
+        ruleset = self._ruleset(client, headers, campaign_id)
         client.post(
-            "/api/homebrew",
+            f"/api/rulesets/{ruleset}/entries",
             json={
-                "schema_id": "p5-demo",
                 "content_type": "spell",
                 "data": {"name": "My Spell", "level": 4},
             },
@@ -277,9 +321,9 @@ class TestExportImport:
         ).json()
 
     def test_export_embeds_the_entries_and_the_schema(
-        self, client, admin_headers, both_schemas
+        self, client, admin_headers, both_schemas, solo
     ):
-        created = self._with_homebrew(client, admin_headers)
+        created = self._with_entry(client, admin_headers, solo)
         pack = client.get(
             f"/api/characters/{created['id']}/export", headers=admin_headers
         ).json()
@@ -290,14 +334,14 @@ class TestExportImport:
         assert pack["entries"]["my-spell"]["data"]["level"] == 4
 
     def test_import_round_trips_onto_an_instance_with_nothing_installed(
-        self, client, admin_headers, gm_headers, both_schemas
+        self, client, admin_headers, gm_headers, both_schemas, solo
     ):
-        created = self._with_homebrew(client, admin_headers)
+        created = self._with_entry(client, admin_headers, solo)
         pack = client.get(
             f"/api/characters/{created['id']}/export", headers=admin_headers
         ).json()
 
-        # The GM has the schema but not the homebrew, so the embedded copy is
+        # The GM has the schema but not the ruleset, so the embedded copy is
         # what makes the sheet read correctly.
         imported = client.post(
             "/api/characters/import", json={"payload": pack}, headers=gm_headers
@@ -341,19 +385,20 @@ class TestExportImport:
         client.delete("/api/characters/schemas/p5-demo", headers=gm_headers)
 
     def test_import_prefers_what_is_already_installed(
-        self, client, admin_headers, gm_headers, both_schemas
+        self, client, admin_headers, gm_headers, both_schemas, solo, gm_table
     ):
         """An erratum on this instance should reach an imported character."""
-        created = self._with_homebrew(client, admin_headers)
+        created = self._with_entry(client, admin_headers, solo)
         pack = client.get(
             f"/api/characters/{created['id']}/export", headers=admin_headers
         ).json()
 
-        # The GM already has their own "my-spell", at a different level.
+        # The GM already has their own "my-spell", at a different level. It
+        # lives in their campaign's ruleset rather than the server one.
+        gm_ruleset = self._ruleset(client, gm_headers, gm_table, name="GM errata")
         client.post(
-            "/api/homebrew",
+            f"/api/rulesets/{gm_ruleset}/entries",
             json={
-                "schema_id": "p5-demo",
                 "content_type": "spell",
                 "entry_id": "my-spell",
                 "data": {"name": "My Spell", "level": 9},
@@ -367,9 +412,9 @@ class TestExportImport:
         assert imported["computed"]["spell_levels"] == 9
 
     def test_import_can_skip_recreating_entries(
-        self, client, admin_headers, gm_headers, both_schemas
+        self, client, admin_headers, gm_headers, both_schemas, solo
     ):
-        created = self._with_homebrew(client, admin_headers)
+        created = self._with_entry(client, admin_headers, solo)
         pack = client.get(
             f"/api/characters/{created['id']}/export", headers=admin_headers
         ).json()

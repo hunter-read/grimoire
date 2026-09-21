@@ -21,8 +21,7 @@
     "expandSidebar": "Expand sidebar",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Characters",
-    "homebrew": "Homebrew"
+    "characters": "Characters"
   },
   "stats": {
     "systems": "Systems",
@@ -3124,34 +3123,6 @@
     "sourceUnreachable": "Could not read {{url}} — its sheets are missing from this list.",
     "catalogueSources": "From {{count}} catalogues"
   },
-  "homebrew": {
-    "title": "Homebrew",
-    "create": "New entry",
-    "createTitle": "New homebrew entry",
-    "editTitle": "Edit homebrew entry",
-    "import": "Import a pack",
-    "export": "Export",
-    "pastePack": "Paste a homebrew pack (JSON)",
-    "contentType": "Type",
-    "allSystems": "All systems",
-    "allTypes": "All types",
-    "empty": "No homebrew yet. Pick a system and a type to write your first entry.",
-    "pickTypeFirst": "Choose a system and a type first",
-    "loadFailed": "Could not load homebrew.",
-    "visibility": "Who can see this",
-    "private": "Private",
-    "public": "Public",
-    "campaign": "My campaign",
-    "sharedWithYou": "Shared with you",
-    "by": "by {{name}}",
-    "forked": "forked",
-    "usedBy": "used by {{count}} character",
-    "usedBy_other": "used by {{count}} characters",
-    "delete": "Delete entry",
-    "confirmDelete": "Delete \"{{name}}\"? This cannot be undone.",
-    "confirmDeleteUsed": "Delete \"{{name}}\"? {{count}} of your characters reference it — they will show it as missing.",
-    "importResult": "Imported {{imported}}, skipped {{skipped}}, renamed {{renamed}}, overwritten {{overwritten}}."
-  },
   "contentPacks": {
     "title": "Character content packs",
     "reload": "Reload from disk",
@@ -3161,5 +3132,32 @@
     "entries": "{{count}} entry",
     "entries_other": "{{count}} entries",
     "licence": "Licence"
+  },
+  "rulesets": {
+    "title": "Rulesets",
+    "create": "New ruleset",
+    "name": "Name",
+    "forCampaign": "For campaign",
+    "serverWide": "Everyone on this server",
+    "readOnly": "Read only",
+    "help": "A ruleset is the content a table plays with. One belonging to a campaign is shared with everyone at that table; one for the server is available in every game.",
+    "empty": "No rulesets yet. Create one for a campaign, or import a content pack into it.",
+    "needSheetFirst": "Install a character sheet first",
+    "loadFailed": "Could not load rulesets.",
+    "entryCount": "{{count}} entry",
+    "entryCount_other": "{{count}} entries",
+    "newEntry": "New entry",
+    "editEntry": "Edit entry",
+    "deleteEntry": "Delete entry",
+    "delete": "Delete ruleset",
+    "noEntries": "This ruleset is empty. Add an entry, or import a content pack.",
+    "contentType": "Type",
+    "pickType": "Choose a type...",
+    "forked": "copied",
+    "importPack": "Import {{name}} ({{count}})",
+    "export": "Export",
+    "confirmDelete": "Delete \"{{name}}\" and everything in it? This cannot be undone.",
+    "confirmDeleteEntry": "Delete \"{{name}}\"? Characters using it will show it as missing.",
+    "importResult": "Imported {{imported}}, skipped {{skipped}}, renamed {{renamed}}, overwritten {{overwritten}}."
   }
 }

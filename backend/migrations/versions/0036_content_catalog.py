@@ -5,7 +5,7 @@ table the catalog searches through.
 
 Unlike ``character_schemas``, these are **server-wide**: a schema is a small
 document so a copy per user costs nothing, but the 5e SRD's spell list is not,
-and nobody edits an SRD entry in place — editing means forking into homebrew,
+and nobody edits an SRD entry in place — editing means forking into a ruleset,
 which is per user and arrives in Phase 4. A character references an entry rather
 than copying it, so an erratum reaches every character built on it.
 

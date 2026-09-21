@@ -16,7 +16,6 @@ import {
   LuX,
   LuScroll,
   LuUsers,
-  LuFlaskConical,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
 
@@ -126,14 +125,6 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
                 to="/characters"
                 Icon={LuUsers}
                 label={t('nav.characters')}
-                onClick={() => setMoreOpen(false)}
-              />
-            )}
-            {!hide_campaigns && (
-              <MoreItem
-                to="/homebrew"
-                Icon={LuFlaskConical}
-                label={t('nav.homebrew')}
                 onClick={() => setMoreOpen(false)}
               />
             )}

@@ -533,7 +533,7 @@ _REF_KEYS = ("_ref", "_source", "_per", "_inline")
 def _coerce_ref(definition: dict, value: Any) -> Any:
     """Coerce one catalog reference.
 
-    A reference is stored, never a copy of the entry: an erratum or a homebrew
+    A reference is stored, never a copy of the entry: an erratum or a ruleset
     edit then reaches every character built on it. The exception is an `_inline`
     entry — something the player typed rather than picked — which has nothing to
     reference and so carries its own values.

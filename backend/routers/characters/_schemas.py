@@ -165,7 +165,7 @@ class CharacterExport(BaseModel):
 
     Every reference is denormalised into `entries`, and the schema travels with
     it, so the file opens on an instance that has neither the pack nor the
-    homebrew it was built from.
+    ruleset content it was built from.
     """
 
     schema_marker: str = Field(default="", alias="$schema")
@@ -181,7 +181,7 @@ class CharacterExport(BaseModel):
 class CharacterImport(BaseModel):
     payload: dict[str, Any]
     # Recreate entries the receiving instance lacks as the importer's own
-    # homebrew, so the sheet reads correctly rather than showing gaps.
+    # ruleset, so the sheet reads correctly rather than showing gaps.
     import_entries: bool = True
 
 

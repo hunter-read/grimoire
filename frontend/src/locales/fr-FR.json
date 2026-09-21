@@ -21,8 +21,7 @@
     "expandSidebar": "Développer la barre latérale",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Personnages",
-    "homebrew": "Contenu maison"
+    "characters": "Personnages"
   },
   "stats": {
     "systems": "Systèmes",
@@ -3124,34 +3123,6 @@
     "sourceUnreachable": "Impossible de lire {{url}} — ses fiches manquent dans cette liste.",
     "catalogueSources": "Depuis {{count}} catalogues"
   },
-  "homebrew": {
-    "title": "Contenu maison",
-    "create": "Nouvelle entrée",
-    "createTitle": "Nouvelle entrée maison",
-    "editTitle": "Modifier l'entrée",
-    "import": "Importer un pack",
-    "export": "Exporter",
-    "pastePack": "Collez un pack maison (JSON)",
-    "contentType": "Type",
-    "allSystems": "Tous les systèmes",
-    "allTypes": "Tous les types",
-    "empty": "Rien pour le moment. Choisissez un système et un type.",
-    "pickTypeFirst": "Choisissez d'abord un système et un type",
-    "loadFailed": "Impossible de charger le contenu maison.",
-    "visibility": "Qui peut voir ceci",
-    "private": "Privé",
-    "public": "Public",
-    "campaign": "Ma campagne",
-    "sharedWithYou": "Partagé avec vous",
-    "by": "par {{name}}",
-    "forked": "dérivé",
-    "usedBy": "utilisé par {{count}} personnage",
-    "usedBy_other": "utilisé par {{count}} personnages",
-    "delete": "Supprimer l'entrée",
-    "confirmDelete": "Supprimer « {{name}} » ? Cette action est irréversible.",
-    "confirmDeleteUsed": "Supprimer « {{name}} » ? {{count}} de vos personnages y font référence — elle y apparaîtra comme manquante.",
-    "importResult": "{{imported}} importées, {{skipped}} ignorées, {{renamed}} renommées, {{overwritten}} remplacées."
-  },
   "contentPacks": {
     "title": "Packs de contenu",
     "reload": "Recharger",
@@ -3161,5 +3132,32 @@
     "entries": "{{count}} entrée",
     "entries_other": "{{count}} entrées",
     "licence": "Licence"
+  },
+  "rulesets": {
+    "title": "Recueils de règles",
+    "create": "Nouveau recueil",
+    "name": "Nom",
+    "forCampaign": "Pour la campagne",
+    "serverWide": "Tout le monde sur ce serveur",
+    "readOnly": "Lecture seule",
+    "help": "Un recueil est le contenu avec lequel une table joue. Celui d'une campagne est partagé avec tous ses membres ; celui du serveur vaut pour toutes les parties.",
+    "empty": "Aucun recueil. Créez-en un pour une campagne, ou importez-y un pack de contenu.",
+    "needSheetFirst": "Installez d'abord une fiche",
+    "loadFailed": "Impossible de charger les recueils.",
+    "entryCount": "{{count}} entrée",
+    "entryCount_other": "{{count}} entrées",
+    "newEntry": "Nouvelle entrée",
+    "editEntry": "Modifier l'entrée",
+    "deleteEntry": "Supprimer l'entrée",
+    "delete": "Supprimer le recueil",
+    "noEntries": "Ce recueil est vide. Ajoutez une entrée ou importez un pack.",
+    "contentType": "Type",
+    "pickType": "Choisir un type...",
+    "forked": "copié",
+    "importPack": "Importer {{name}} ({{count}})",
+    "export": "Exporter",
+    "confirmDelete": "Supprimer « {{name}} » et tout son contenu ? Action irréversible.",
+    "confirmDeleteEntry": "Supprimer « {{name}} » ? Les personnages qui l'utilisent l'afficheront comme manquante.",
+    "importResult": "{{imported}} importées, {{skipped}} ignorées, {{renamed}} renommées, {{overwritten}} remplacées."
   }
 }

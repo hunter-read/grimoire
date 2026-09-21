@@ -85,7 +85,7 @@ class Character(Base):
 
     ``campaign_id`` scopes a character to a table. A campaign member may read
     another member's sheet but never edit it — the sheet belongs to the player
-    who wrote it, the same rule homebrew follows.
+    who wrote it, the same rule a campaign ruleset follows.
 
     ``schema_ref`` stores the schema's ``schema_id`` string rather than a
     foreign key to ``character_schemas.id``. A character must survive its schema

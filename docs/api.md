@@ -1780,22 +1780,25 @@ table's roster.
 Export is **denormalised**: every reference is resolved and the entry's full
 data embedded, and the schema travels with the file. That is the portability
 guarantee — a character shared with someone whose instance has neither the pack
-nor the homebrew still opens and still computes correctly.
+nor the ruleset still opens and still computes correctly.
 
 ```json
 { "$schema": "grimoire://character/v1",
   "name": "Vex", "schema_id": "dnd-5e",
   "schema": { "...the whole sheet definition..." },
   "data": { "spells": [ { "_ref": "my-spell" } ] },
-  "entries": { "my-spell": { "content_type": "spell", "source": "homebrew",
+  "entries": { "my-spell": { "content_type": "spell", "source": "ruleset",
                              "name": "My Spell", "data": { "level": 4 } } } }
 ```
 
 Importing installs the schema if the importer does not have it, and recreates
-embedded entries as their own private homebrew — but **only what is missing**.
-An entry this instance already has wins over the embedded copy, so an erratum
-applied locally reaches an imported character. Pass `import_entries: false` to
-skip that and let the references read as missing instead.
+embedded entries in a ruleset named after the import — but **only what is
+missing**. An entry this instance already has, in a pack or in any ruleset the
+importer can read, wins over the embedded copy, so an erratum applied locally
+reaches an imported character. The new ruleset is scoped to the campaign the
+character joined, or left server-wide when it joined none. Pass
+`import_entries: false` to skip that and let the references read as missing
+instead.
 
 Anyone who may read a character may export it, so a GM can archive a party
 member's sheet.
@@ -1986,7 +1989,7 @@ can do is look wrong.
 
 A **content pack** is a directory of typed entries - spells, classes, feats,
 kits - for one game system. A character references an entry rather than copying
-it, so an erratum or a homebrew edit reaches every character built on it.
+it, so an erratum or a ruleset edit reaches every character built on it.
 
 Packs are **server-wide**: installed once into `DATA_PATH/character-content/`,
 loaded on startup and rescan, and shared read-only. Schemas stay per user, so
@@ -2121,80 +2124,107 @@ A pack may be installed before anyone has installed the matching sheet; its
 entries are stored as authored until a schema describes them, so install order
 does not matter.
 
-### Homebrew
+### Rulesets
 
-Content a user wrote: the **same data shape** as pack content, validated against
-the same content type and rendered by the same component. What differs is
-ownership — homebrew belongs to an account, so it is per user where pack content
-is server-wide, and it can be edited, which pack content cannot. Editing an SRD
-entry means **forking** it into homebrew.
+A **ruleset** is a named set of catalog entries — an SRD, a supplement, a
+table's house rules. Same data shape as pack content, validated against the same
+content type and rendered by the same component. What differs is that a ruleset
+is **editable** and **scoped**, where pack content is neither. Editing an SRD
+entry means **forking** it into a ruleset.
+
+Scope is the point. Two games can run the same system and allow different
+content, which is not something a per-user model can express:
+
+| Kind | `campaign_id` | Who reads it | Who edits it |
+|---|---|---|---|
+| **Campaign** | the campaign | everyone at that table, GM and players | the campaign owner, and admins |
+| **Server** | null | everyone on the instance | admins |
+
+A campaign ruleset is deleted with its campaign — the content existed to serve
+that table. Creating a server ruleset requires admin; creating a campaign one
+requires owning the campaign.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/homebrew` | GET | user | Everything this user can see. `schema_id`, `content_type`, `mine_only` filter |
-| `/api/homebrew` | POST | user | Write an entry. 409 if they already have that entry id |
-| `/api/homebrew/fork` | POST | user | Copy a catalog or visible homebrew entry into their own |
-| `/api/homebrew/export?schema_id=` | GET | user | Their homebrew for one system, as a portable pack |
-| `/api/homebrew/import` | POST | user | Import a pack. `conflict` is `skip` (default), `overwrite`, or `rename` |
-| `/api/homebrew/:id` | GET | user | One entry, if they may see it |
-| `/api/homebrew/:id` | PUT | user | Edit an entry. **Owner only** |
-| `/api/homebrew/:id/share` | PATCH | user | Change visibility. **Owner only** |
-| `/api/homebrew/:id` | DELETE | user | Delete an entry. **Owner only** |
+| `/api/rulesets` | GET | user | Rulesets this user can read. `schema_id`, `campaign_id` filter |
+| `/api/rulesets` | POST | user | Create one. `campaign_id` null asks for a server ruleset (**admin**) |
+| `/api/rulesets/installable` | GET | user | Filesystem content packs that can be imported |
+| `/api/rulesets/:id` | GET | user | One ruleset, if they may read it |
+| `/api/rulesets/:id` | PUT | editor | Rename it or change its credit |
+| `/api/rulesets/:id` | DELETE | editor | Delete it and its entries |
+| `/api/rulesets/:id/export` | GET | user | The whole ruleset as a portable document |
+| `/api/rulesets/:id/import` | POST | editor | Import a `pack_id` or a `document`. `conflict` is `skip` (default), `overwrite`, or `rename` |
+| `/api/rulesets/:id/fork` | POST | editor | Copy a catalogue or readable ruleset entry into this one |
+| `/api/rulesets/:id/entries` | GET | user | Its entries. `content_type` filters |
+| `/api/rulesets/:id/entries` | POST | editor | Write an entry |
+| `/api/rulesets/:id/entries/:entry_id` | GET | user | One entry, with its `data` |
+| `/api/rulesets/:id/entries/:entry_id` | PUT | editor | Edit an entry |
+| `/api/rulesets/:id/entries/:entry_id` | DELETE | editor | Delete an entry |
 
-**Entry fields:** `id`, `schema_id`, `content_type`, `entry_id`, `name`,
-`visibility`, `campaign_id`, `forked_from`, `owned`, `owner_name`, `used_by`,
-`created_at`, `updated_at`, and on detail `data`.
+"editor" above means whoever may edit that ruleset per the table: the campaign
+owner for a campaign ruleset, an admin for a server one. Everyone else gets 403.
 
-#### Visibility
+**Ruleset fields:** `id`, `schema_id`, `name`, `description`, `version`,
+`license`, `license_url`, `attribution`, `source_pack_id`, `campaign_id`,
+`campaign_name`, `editable`, `entry_count`, `created_at`, `updated_at`.
 
-| Level | Who sees it |
-|---|---|
-| `private` | The owner only. The default, and what a draft wants |
-| `campaign` | The owner and members of `campaign_id` |
-| `public` | Everyone on this instance |
+**Entry fields:** `id`, `ruleset_id`, `content_type`, `entry_id`, `name`,
+`forked_from`, `editable`, and on detail `data`.
 
-Enforced **server-side** in one shared filter that every read path uses, so
-there is a single thing to audit. The campaign arm checks *membership*, not
-merely that a campaign id is set — otherwise sharing to a campaign would publish
-to the whole instance. Sharing into a campaign you are not in is refused (403).
+`editable` is computed per caller, so the UI can show a read-only view to a
+player at the table without a second request.
 
-**Sharing grants reading, never writing.** Only the owner edits, shares or
-deletes, whatever the entry's visibility — a campaign-shared subclass stays the
-GM's to change. An entry someone else owns answers 404 rather than 403 on a
-write: whether a given id exists is not something a stranger needs to learn.
+#### Installing the SRD
+
+Core content reaches a table in two steps. An admin drops a content pack into
+`DATA_PATH/character-content/` and it is loaded at startup; `GET
+/api/rulesets/installable` then lists it, and a GM imports it into their
+campaign's ruleset with `POST /api/rulesets/:id/import` and `{"pack_id": "..."}`.
+
+An import **copies the pack's credit onto the ruleset** — `license`,
+`license_url`, `attribution` and `source_pack_id` — so content taken from the
+SRD stays attributed wherever it is shown. Importing a pack built for another
+system is refused (400), as is a `pack_id` that is not installed (404).
+
+#### Forking
+
+`POST /api/rulesets/:id/fork` copies one entry into a ruleset you can edit,
+appending ` (copy)` to its identity field and recording `forked_from` as
+`"<source>:<entry_id>"`. The source may be a pack entry or an entry in any
+ruleset the caller can read, so a table can take a server ruleset's spell and
+change it locally. Forking the same entry twice yields two distinct entry ids
+rather than a conflict.
 
 #### In the catalog
 
-Homebrew is merged into catalog results and tagged, so "Fireball (SRD)" and
-"Fireball (homebrew by Alex)" are told apart: each row carries `homebrew`,
-`owner_name` and `row_id`. Pass `include_homebrew=false` to browse pack content
-alone. Characters resolve homebrew references exactly as they resolve pack ones,
-so a formula reading a spell's level does not care where the spell came from.
+Ruleset content is merged into catalog results and tagged, so "Fireball (SRD)"
+and "Fireball (House Rules)" are told apart: each row carries `ruleset`,
+`ruleset_id` and `ruleset_name`. Pass `include_rulesets=false` to browse pack
+content alone. Characters resolve ruleset references exactly as they resolve
+pack ones, so a formula reading a spell's level does not care where it came
+from.
 
-The FTS index covers pack content; visible homebrew is matched in Python on the
-same terms, because it changes on every edit and the per-user set is small.
+The FTS index covers pack content; ruleset content is matched in Python on the
+same terms, because it changes on every edit and the readable set is small.
 
 #### Deleting, and dangling references
 
 Deleting an entry leaves characters alone. A reference is soft, so the sheet
 shows it as missing rather than losing the row — the same behaviour as
 uninstalling a pack, and it means a delete can never destroy someone's
-character. The manager view warns with a `used_by` count first, taken from the
-caller's **own** characters (counting other people's would leak that they
-exist).
+character.
 
-#### Pack format
+#### Export format
 
 ```json
-{ "$schema": "grimoire://homebrew-pack/v1",
-  "pack_name": "Alex's homebrew", "schema_id": "dnd-5e", "author": "Alex",
-  "version": "1.0.0",
+{ "$schema": "grimoire://ruleset/v1",
+  "name": "House Rules", "schema_id": "dnd-5e-2024", "version": "1.0.0",
   "entries": { "spell": [ { "_id": "hellfire-blast", "name": "Hellfire Blast" } ] } }
 ```
 
-The same shape a filesystem content pack uses, so a homebrew pack can become an
-installed one. Import defaults to `skip` because an import should not silently
-overwrite someone's work, and returns a tally
+The same shape a filesystem content pack uses, so an exported ruleset can become
+an installed pack. Import defaults to `skip` because an import should not
+silently overwrite someone's work, and returns a tally
 (`imported`/`skipped`/`renamed`/`overwritten`/`failed`) rather than stopping at
 the first conflict, so a partly-overlapping pack still imports what it can.
 

@@ -34,7 +34,7 @@ import DuplicateCompareView from '../views/DuplicateCompareView'
 import CampaignsView from '../views/CampaignsView'
 import CharactersView from '../views/CharactersView'
 import CharacterDetailView from '../views/CharacterDetailView'
-import HomebrewView from '../views/HomebrewView'
+import RulesetsView from '../views/RulesetsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
@@ -179,8 +179,9 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
               <Route path="/characters" element={<CharactersView />} />
+              {/* Before :characterId, which would otherwise swallow it. */}
+              <Route path="/characters/rulesets" element={<RulesetsView />} />
               <Route path="/characters/:characterId" element={<CharacterDetailView />} />
-              <Route path="/homebrew" element={<HomebrewView />} />
               <Route path="/library/book/:bookId" element={<BookReader />} />
               <Route path="/maps/:mapId" element={<MapDetailView />} />
               <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
@@ -227,8 +228,9 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
               <Route path="/characters" element={<CharactersView />} />
+              {/* Before :characterId, which would otherwise swallow it. */}
+              <Route path="/characters/rulesets" element={<RulesetsView />} />
               <Route path="/characters/:characterId" element={<CharacterDetailView />} />
-              <Route path="/homebrew" element={<HomebrewView />} />
               {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}
               <Route path="/settings/files" element={<FileManagerView />} />

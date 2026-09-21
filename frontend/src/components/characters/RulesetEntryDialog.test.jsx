@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import HomebrewDialog from './HomebrewDialog'
+import RulesetEntryDialog from './RulesetEntryDialog'
 
 const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
 vi.mock('../../api', () => ({
-  homebrew: {
-    create: (...a) => mockCreate(...a),
-    update: (...a) => mockUpdate(...a),
+  rulesets: {
+    createEntry: (...a) => mockCreate(...a),
+    updateEntry: (...a) => mockUpdate(...a),
   },
 }))
 
@@ -23,8 +23,8 @@ const TYPE = {
 
 const renderDialog = (props = {}) =>
   render(
-    <HomebrewDialog
-      schemaId="demo"
+    <RulesetEntryDialog
+      rulesetId="r1"
       contentType="spell"
       typeDefinition={TYPE}
       onClose={vi.fn()}
@@ -38,7 +38,7 @@ beforeEach(() => {
   mockUpdate.mockResolvedValue({ id: 'h1' })
 })
 
-describe('HomebrewDialog', () => {
+describe('RulesetEntryDialog', () => {
   it('builds its form from the content type', () => {
     renderDialog()
     // The same fields a catalog entry has, rendered by the same component.
@@ -53,8 +53,7 @@ describe('HomebrewDialog', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'Hellfire')
     await userEvent.click(screen.getByText('Save'))
     await waitFor(() =>
-      expect(mockCreate).toHaveBeenCalledWith({
-        schema_id: 'demo',
+      expect(mockCreate).toHaveBeenCalledWith('r1', {
         content_type: 'spell',
         data: { name: 'Hellfire' },
       })
@@ -69,7 +68,9 @@ describe('HomebrewDialog', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'New')
     await userEvent.click(screen.getByText('Save'))
     await waitFor(() =>
-      expect(mockUpdate).toHaveBeenCalledWith('h1', { data: { name: 'New', level: 2 } })
+      expect(mockUpdate).toHaveBeenCalledWith('r1', 'h1', {
+        data: { name: 'New', level: 2 },
+      })
     )
     expect(mockCreate).not.toHaveBeenCalled()
   })

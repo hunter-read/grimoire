@@ -21,8 +21,7 @@
     "expandSidebar": "Expandir barra lateral",
     "audio": "Áudio",
     "models": "Models",
-    "characters": "Personagens",
-    "homebrew": "Conteúdo próprio"
+    "characters": "Personagens"
   },
   "stats": {
     "systems": "Sistemas",
@@ -3124,34 +3123,6 @@
     "sourceUnreachable": "Não foi possível ler {{url}} — as suas fichas faltam nesta lista.",
     "catalogueSources": "De {{count}} catálogos"
   },
-  "homebrew": {
-    "title": "Conteúdo próprio",
-    "create": "Nova entrada",
-    "createTitle": "Nova entrada própria",
-    "editTitle": "Editar entrada",
-    "import": "Importar um pacote",
-    "export": "Exportar",
-    "pastePack": "Cole um pacote (JSON)",
-    "contentType": "Tipo",
-    "allSystems": "Todos os sistemas",
-    "allTypes": "Todos os tipos",
-    "empty": "Ainda não há nada. Escolha um sistema e um tipo.",
-    "pickTypeFirst": "Escolha primeiro um sistema e um tipo",
-    "loadFailed": "Não foi possível carregar o conteúdo próprio.",
-    "visibility": "Quem pode ver isto",
-    "private": "Privado",
-    "public": "Público",
-    "campaign": "A minha campanha",
-    "sharedWithYou": "Partilhado consigo",
-    "by": "de {{name}}",
-    "forked": "derivado",
-    "usedBy": "usado por {{count}} personagem",
-    "usedBy_other": "usado por {{count}} personagens",
-    "delete": "Eliminar entrada",
-    "confirmDelete": "Eliminar «{{name}}»? Isto não pode ser desfeito.",
-    "confirmDeleteUsed": "Eliminar «{{name}}»? {{count}} das suas personagens usam-na — aparecerá como em falta.",
-    "importResult": "{{imported}} importadas, {{skipped}} ignoradas, {{renamed}} renomeadas, {{overwritten}} substituídas."
-  },
   "contentPacks": {
     "title": "Pacotes de conteúdo",
     "reload": "Recarregar",
@@ -3161,5 +3132,32 @@
     "entries": "{{count}} entrada",
     "entries_other": "{{count}} entradas",
     "licence": "Licença"
+  },
+  "rulesets": {
+    "title": "Conjuntos de regras",
+    "create": "Novo conjunto",
+    "name": "Nome",
+    "forCampaign": "Para a campanha",
+    "serverWide": "Todos neste servidor",
+    "readOnly": "Apenas leitura",
+    "help": "Um conjunto de regras é o conteúdo com que uma mesa joga. O de uma campanha é partilhado com todos os seus membros; o do servidor vale em todos os jogos.",
+    "empty": "Ainda não há conjuntos. Crie um para uma campanha ou importe um pacote.",
+    "needSheetFirst": "Instale primeiro uma ficha",
+    "loadFailed": "Não foi possível carregar os conjuntos.",
+    "entryCount": "{{count}} entrada",
+    "entryCount_other": "{{count}} entradas",
+    "newEntry": "Nova entrada",
+    "editEntry": "Editar entrada",
+    "deleteEntry": "Eliminar entrada",
+    "delete": "Eliminar conjunto",
+    "noEntries": "Este conjunto está vazio. Adicione uma entrada ou importe um pacote.",
+    "contentType": "Tipo",
+    "pickType": "Escolha um tipo...",
+    "forked": "copiada",
+    "importPack": "Importar {{name}} ({{count}})",
+    "export": "Exportar",
+    "confirmDelete": "Eliminar «{{name}}» e tudo o que contém? Não pode ser desfeito.",
+    "confirmDeleteEntry": "Eliminar «{{name}}»? As personagens que a usam mostram-na como em falta.",
+    "importResult": "{{imported}} importadas, {{skipped}} ignoradas, {{renamed}} renomeadas, {{overwritten}} substituídas."
   }
 }

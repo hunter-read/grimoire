@@ -8,7 +8,7 @@ import { ghostBtn, iconBtn, fieldLabel } from './characterStyles'
  * A single pick from the catalog — a class, an ancestry, a kit.
  *
  * Stores `{_ref, _source}`, never a copy of the entry, so an erratum or a
- * homebrew edit reaches every character that chose it. The entry's own values
+ * ruleset edit reaches every character that chose it. The entry's own values
  * come from `entries`, which the sheet resolves in one request.
  */
 export default function ContentRefField({

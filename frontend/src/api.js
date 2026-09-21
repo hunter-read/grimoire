@@ -707,29 +707,39 @@ export const content = {
 }
 
 /**
- * Homebrew (issue #132).
+ * Rulesets (issue #132).
  *
- * User-authored catalog entries: the same data shape as pack content, owned by
- * an account, and visible to others only as far as the owner chose. Sharing
- * grants reading — only the owner edits.
+ * A named set of catalogue content that belongs either to a campaign —
+ * everyone at that table reads it, the GM edits it — or to the server, which
+ * every game can use. That is what lets two games in the same system allow
+ * different content.
  */
-export const homebrew = {
+export const rulesets = {
   list: (params = {}) => {
     const query = new URLSearchParams()
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== '') query.set(key, value)
     }
     const qs = query.toString()
-    return api.get(`/homebrew${qs ? `?${qs}` : ''}`)
+    return api.get(`/rulesets${qs ? `?${qs}` : ''}`)
   },
-  get: (id) => api.get(`/homebrew/${id}`),
-  create: (body) => api.post('/homebrew', body),
-  update: (id, body) => api.put(`/homebrew/${id}`, body),
-  remove: (id) => api.delete(`/homebrew/${id}`),
-  share: (id, body) => api.patch(`/homebrew/${id}/share`, body),
-  fork: (body) => api.post('/homebrew/fork', body),
-  export: (schemaId) => api.get(`/homebrew/export?schema_id=${encodeURIComponent(schemaId)}`),
-  import: (pack, conflict = 'skip') => api.post('/homebrew/import', { pack, conflict }),
+  get: (id) => api.get(`/rulesets/${id}`),
+  create: (body) => api.post('/rulesets', body),
+  update: (id, body) => api.put(`/rulesets/${id}`, body),
+  remove: (id) => api.delete(`/rulesets/${id}`),
+  installable: (schemaId) =>
+    api.get(`/rulesets/installable${schemaId ? `?schema_id=${encodeURIComponent(schemaId)}` : ''}`),
+  import: (id, body) => api.post(`/rulesets/${id}/import`, body),
+  export: (id) => api.get(`/rulesets/${id}/export`),
+  entries: (id, contentType) =>
+    api.get(
+      `/rulesets/${id}/entries${contentType ? `?content_type=${encodeURIComponent(contentType)}` : ''}`
+    ),
+  createEntry: (id, body) => api.post(`/rulesets/${id}/entries`, body),
+  getEntry: (id, entryId) => api.get(`/rulesets/${id}/entries/${entryId}`),
+  updateEntry: (id, entryId, body) => api.put(`/rulesets/${id}/entries/${entryId}`, body),
+  removeEntry: (id, entryId) => api.delete(`/rulesets/${id}/entries/${entryId}`),
+  fork: (id, body) => api.post(`/rulesets/${id}/fork`, body),
 }
 
 /**

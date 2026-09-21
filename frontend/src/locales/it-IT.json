@@ -21,8 +21,7 @@
     "expandSidebar": "Espandi barra laterale",
     "audio": "Audio",
     "models": "Modelli",
-    "characters": "Personaggi",
-    "homebrew": "Contenuti propri"
+    "characters": "Personaggi"
   },
   "stats": {
     "systems": "Sistemi",
@@ -3124,34 +3123,6 @@
     "sourceUnreachable": "Impossibile leggere {{url}}: le sue schede mancano da questo elenco.",
     "catalogueSources": "Da {{count}} cataloghi"
   },
-  "homebrew": {
-    "title": "Contenuti propri",
-    "create": "Nuova voce",
-    "createTitle": "Nuova voce propria",
-    "editTitle": "Modifica voce",
-    "import": "Importa un pacchetto",
-    "export": "Esporta",
-    "pastePack": "Incolla un pacchetto (JSON)",
-    "contentType": "Tipo",
-    "allSystems": "Tutti i sistemi",
-    "allTypes": "Tutti i tipi",
-    "empty": "Ancora niente. Scegli un sistema e un tipo.",
-    "pickTypeFirst": "Scegli prima sistema e tipo",
-    "loadFailed": "Impossibile caricare i contenuti propri.",
-    "visibility": "Chi può vederlo",
-    "private": "Privato",
-    "public": "Pubblico",
-    "campaign": "La mia campagna",
-    "sharedWithYou": "Condiviso con te",
-    "by": "di {{name}}",
-    "forked": "derivato",
-    "usedBy": "usato da {{count}} personaggio",
-    "usedBy_other": "usato da {{count}} personaggi",
-    "delete": "Elimina voce",
-    "confirmDelete": "Eliminare «{{name}}»? Non può essere annullato.",
-    "confirmDeleteUsed": "Eliminare «{{name}}»? {{count}} dei tuoi personaggi la usano — risulterà mancante.",
-    "importResult": "{{imported}} importate, {{skipped}} saltate, {{renamed}} rinominate, {{overwritten}} sovrascritte."
-  },
   "contentPacks": {
     "title": "Pacchetti di contenuti",
     "reload": "Ricarica",
@@ -3161,5 +3132,32 @@
     "entries": "{{count}} voce",
     "entries_other": "{{count}} voci",
     "licence": "Licenza"
+  },
+  "rulesets": {
+    "title": "Raccolte di regole",
+    "create": "Nuova raccolta",
+    "name": "Nome",
+    "forCampaign": "Per la campagna",
+    "serverWide": "Tutti su questo server",
+    "readOnly": "Sola lettura",
+    "help": "Una raccolta è il contenuto con cui gioca un tavolo. Quella di una campagna è condivisa con tutti i suoi membri; quella del server vale in ogni partita.",
+    "empty": "Nessuna raccolta. Creane una per una campagna o importaci un pacchetto.",
+    "needSheetFirst": "Installa prima una scheda",
+    "loadFailed": "Impossibile caricare le raccolte.",
+    "entryCount": "{{count}} voce",
+    "entryCount_other": "{{count}} voci",
+    "newEntry": "Nuova voce",
+    "editEntry": "Modifica voce",
+    "deleteEntry": "Elimina voce",
+    "delete": "Elimina raccolta",
+    "noEntries": "Questa raccolta è vuota. Aggiungi una voce o importa un pacchetto.",
+    "contentType": "Tipo",
+    "pickType": "Scegli un tipo...",
+    "forked": "copiata",
+    "importPack": "Importa {{name}} ({{count}})",
+    "export": "Esporta",
+    "confirmDelete": "Eliminare «{{name}}» e tutto il suo contenuto? Non è reversibile.",
+    "confirmDeleteEntry": "Eliminare «{{name}}»? I personaggi che la usano la mostreranno come mancante.",
+    "importResult": "{{imported}} importate, {{skipped}} saltate, {{renamed}} rinominate, {{overwritten}} sovrascritte."
   }
 }

@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import Character, CharacterSchema, ContentEntry, HomebrewEntry
-from ...services.characters import homebrew as hb
+from ...models import Character, CharacterSchema, ContentEntry, Ruleset, RulesetEntry
+from ...services.characters import rulesets as rs
 from ...services import characters as svc
 from ...services.characters import catalogue
 from . import _helpers as helpers
@@ -253,13 +253,15 @@ def _resolved_entries(db: Session, document: dict, data: dict, user_id: str) -> 
         .filter(ContentEntry.entry_id.in_(wanted))
         .all()
     }
-    # Homebrew resolves the same way, so a formula reading a spell's level does
-    # not care whether the spell came from a pack or from the player.
+    # Ruleset entries resolve the same way, so a formula reading a spell's
+    # level does not care whether the spell came from a pack or a table's own
+    # ruleset.
     for row in (
-        db.query(HomebrewEntry)
-        .filter(HomebrewEntry.schema_id == schema_id)
-        .filter(HomebrewEntry.entry_id.in_(wanted))
-        .filter(hb.visible_filter(db, user_id))
+        db.query(RulesetEntry)
+        .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
+        .filter(RulesetEntry.schema_id == schema_id)
+        .filter(RulesetEntry.entry_id.in_(wanted))
+        .filter(rs.readable_filter(db, user_id))
         .all()
     ):
         resolved.setdefault(row.entry_id, row.data if isinstance(row.data, dict) else {})
@@ -511,7 +513,7 @@ def import_character(
 
     document = _validated_document(schema)
     if data.import_entries:
-        helpers.import_entries_as_homebrew(
+        helpers.import_embedded_entries(
             db,
             payload,
             owner_id=current_user.id,

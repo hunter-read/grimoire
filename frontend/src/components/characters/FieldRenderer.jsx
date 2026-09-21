@@ -9,7 +9,7 @@ import ContentListField from './ContentListField'
  * Renders one field from its schema definition and value.
  *
  * This is the single renderer the whole character system draws with. Phase 3
- * points it at content-catalog entries and Phase 4 at homebrew forms, so it
+ * points it at content-catalog entries and Phase 4 at ruleset forms, so it
  * takes a field *definition* rather than anything sheet-specific, and it never
  * reaches for the character it belongs to.
  *

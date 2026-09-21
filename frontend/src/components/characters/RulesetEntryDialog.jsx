@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
-import { homebrew as homebrewApi } from '../../api'
+import { rulesets as rulesetsApi } from '../../api'
 import FieldRenderer from './FieldRenderer'
 import { goldBtn, ghostBtn, iconBtn } from './characterStyles'
 
 /**
- * Write or edit a homebrew entry.
+ * Write or edit one entry in a ruleset.
  *
  * The form is generated from the content type's own `fields` and rendered
  * through `FieldRenderer` — the same component that draws a character sheet and
  * a catalog entry. A content type is a field schema applied to entries, so
  * authoring one needs no bespoke form.
  */
-export default function HomebrewDialog({
-  schemaId,
+export default function RulesetEntryDialog({
+  rulesetId,
   contentType,
   typeDefinition = {},
   entry = null,
@@ -42,8 +42,8 @@ export default function HomebrewDialog({
     setSaving(true)
     try {
       const saved = editing
-        ? await homebrewApi.update(entry.id, { data })
-        : await homebrewApi.create({ schema_id: schemaId, content_type: contentType, data })
+        ? await rulesetsApi.updateEntry(rulesetId, entry.id, { data })
+        : await rulesetsApi.createEntry(rulesetId, { content_type: contentType, data })
       onSaved?.(saved)
       onClose?.()
     } catch (e) {
@@ -57,7 +57,7 @@ export default function HomebrewDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={editing ? t('homebrew.editTitle') : t('homebrew.createTitle')}
+      aria-label={editing ? t('rulesets.editEntry') : t('rulesets.newEntry')}
       style={{
         position: 'fixed',
         inset: 0,
@@ -96,7 +96,7 @@ export default function HomebrewDialog({
         </button>
 
         <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>
-          {editing ? t('homebrew.editTitle') : t('homebrew.createTitle')}
+          {editing ? t('rulesets.editEntry') : t('rulesets.newEntry')}
         </h2>
 
         {error ? (

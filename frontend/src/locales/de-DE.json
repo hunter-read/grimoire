@@ -21,8 +21,7 @@
     "expandSidebar": "Seitenleiste ausklappen",
     "audio": "Audio",
     "models": "Models",
-    "characters": "Charaktere",
-    "homebrew": "Eigene Inhalte"
+    "characters": "Charaktere"
   },
   "stats": {
     "systems": "Systeme",
@@ -3124,34 +3123,6 @@
     "sourceUnreachable": "{{url}} konnte nicht gelesen werden — die Bögen fehlen in dieser Liste.",
     "catalogueSources": "Aus {{count}} Katalogen"
   },
-  "homebrew": {
-    "title": "Eigene Inhalte",
-    "create": "Neuer Eintrag",
-    "createTitle": "Neuer eigener Eintrag",
-    "editTitle": "Eigenen Eintrag bearbeiten",
-    "import": "Paket importieren",
-    "export": "Exportieren",
-    "pastePack": "Homebrew-Paket (JSON) einfügen",
-    "contentType": "Typ",
-    "allSystems": "Alle Systeme",
-    "allTypes": "Alle Typen",
-    "empty": "Noch keine eigenen Inhalte. Wähle ein System und einen Typ.",
-    "pickTypeFirst": "Wähle zuerst System und Typ",
-    "loadFailed": "Eigene Inhalte konnten nicht geladen werden.",
-    "visibility": "Wer das sehen kann",
-    "private": "Privat",
-    "public": "Öffentlich",
-    "campaign": "Meine Kampagne",
-    "sharedWithYou": "Mit dir geteilt",
-    "by": "von {{name}}",
-    "forked": "abgeleitet",
-    "usedBy": "von {{count}} Charakter genutzt",
-    "usedBy_other": "von {{count}} Charakteren genutzt",
-    "delete": "Eintrag löschen",
-    "confirmDelete": "„{{name}}“ löschen? Das kann nicht rückgängig gemacht werden.",
-    "confirmDeleteUsed": "„{{name}}“ löschen? {{count}} deiner Charaktere verweisen darauf — dort fehlt er dann.",
-    "importResult": "{{imported}} importiert, {{skipped}} übersprungen, {{renamed}} umbenannt, {{overwritten}} überschrieben."
-  },
   "contentPacks": {
     "title": "Charakter-Inhaltspakete",
     "reload": "Neu laden",
@@ -3161,5 +3132,32 @@
     "entries": "{{count}} Eintrag",
     "entries_other": "{{count}} Einträge",
     "licence": "Lizenz"
+  },
+  "rulesets": {
+    "title": "Regelsätze",
+    "create": "Neuer Regelsatz",
+    "name": "Name",
+    "forCampaign": "Für Kampagne",
+    "serverWide": "Alle auf diesem Server",
+    "readOnly": "Nur lesen",
+    "help": "Ein Regelsatz ist der Inhalt, mit dem ein Tisch spielt. Einer, der zu einer Kampagne gehört, wird dort mit allen geteilt; einer für den Server gilt in jedem Spiel.",
+    "empty": "Noch keine Regelsätze. Erstelle einen für eine Kampagne oder importiere ein Inhaltspaket.",
+    "needSheetFirst": "Installiere zuerst einen Charakterbogen",
+    "loadFailed": "Regelsätze konnten nicht geladen werden.",
+    "entryCount": "{{count}} Eintrag",
+    "entryCount_other": "{{count}} Einträge",
+    "newEntry": "Neuer Eintrag",
+    "editEntry": "Eintrag bearbeiten",
+    "deleteEntry": "Eintrag löschen",
+    "delete": "Regelsatz löschen",
+    "noEntries": "Dieser Regelsatz ist leer. Füge einen Eintrag hinzu oder importiere ein Paket.",
+    "contentType": "Typ",
+    "pickType": "Typ wählen...",
+    "forked": "kopiert",
+    "importPack": "{{name}} importieren ({{count}})",
+    "export": "Exportieren",
+    "confirmDelete": "„{{name}}“ und alles darin löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirmDeleteEntry": "„{{name}}“ löschen? Charaktere, die ihn nutzen, zeigen ihn als fehlend.",
+    "importResult": "{{imported}} importiert, {{skipped}} übersprungen, {{renamed}} umbenannt, {{overwritten}} überschrieben."
   }
 }

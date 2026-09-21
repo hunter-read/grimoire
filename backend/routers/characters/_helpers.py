@@ -5,9 +5,9 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from ...models import CampaignMember, Character, ContentEntry, HomebrewEntry
+from ...models import CampaignMember, Character, ContentEntry, Ruleset, RulesetEntry
 from ...services import characters as svc
-from ...services.characters import homebrew as hb
+from ...services.characters import rulesets as rs
 
 #: The file format a character exports as.
 EXPORT_SCHEMA = "grimoire://character/v1"
@@ -74,7 +74,7 @@ def export_character(
 
     Every reference is **denormalised**: the entry's full data is embedded
     alongside the id. That is the portability guarantee — a character shared
-    with someone whose instance has neither the pack nor the homebrew still
+    with someone whose instance has neither the pack nor the ruleset still
     opens and still reads correctly. Importing prefers whatever the receiving
     instance has installed and falls back to the embedded copy, so the file is
     a floor rather than a ceiling.
@@ -100,17 +100,18 @@ def export_character(
                 "data": row.data if isinstance(row.data, dict) else {},
             }
         for row in (
-            db.query(HomebrewEntry)
-            .filter(HomebrewEntry.schema_id == character.schema_ref)
-            .filter(HomebrewEntry.entry_id.in_(entry_ids))
-            .filter(hb.visible_filter(db, character.user_id))
+            db.query(RulesetEntry)
+            .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
+            .filter(RulesetEntry.schema_id == character.schema_ref)
+            .filter(RulesetEntry.entry_id.in_(entry_ids))
+            .filter(rs.readable_filter(db, character.user_id))
             .all()
         ):
             embedded.setdefault(
                 row.entry_id,
                 {
                     "content_type": row.content_type,
-                    "source": "homebrew",
+                    "source": "ruleset",
                     "name": row.name,
                     "data": row.data if isinstance(row.data, dict) else {},
                 },
@@ -145,21 +146,33 @@ def referenced_ids(document: dict, data: dict) -> set:
     return wanted
 
 
-def import_entries_as_homebrew(
-    db: Session, payload: dict, *, owner_id: str, schema_id: str, document: Optional[dict]
+def import_embedded_entries(
+    db: Session,
+    payload: dict,
+    *,
+    owner_id: str,
+    schema_id: str,
+    document: Optional[dict],
+    campaign_id: Optional[str] = None,
 ) -> int:
-    """Recreate an exported file's embedded entries as the importer's homebrew.
+    """Recreate an exported file's embedded entries in a ruleset.
 
     Only entries this instance does not already have: an import should adopt
     local content where it exists — that is how an erratum reaches an imported
     character — and fall back to the embedded copy only for what is genuinely
     missing.
+
+    The recreated entries go into a ruleset named after the import, scoped to
+    the campaign the character joined or, with none, left as a server ruleset
+    the importer can move later.
     """
     embedded = payload.get("entries")
     if not isinstance(embedded, dict) or not embedded:
         return 0
 
     created = 0
+    # Created lazily, so an import that needs no entries adds no ruleset.
+    target: Optional[Ruleset] = None
     for entry_id, entry in embedded.items():
         if not isinstance(entry, dict):
             continue
@@ -175,13 +188,12 @@ def import_entries_as_homebrew(
         ):
             continue
         if (
-            db.query(HomebrewEntry.id)
-            .filter_by(
-                owner_id=owner_id,
-                schema_id=schema_id,
-                content_type=content_type,
-                entry_id=entry_id,
-            )
+            db.query(RulesetEntry.id)
+            .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
+            .filter(RulesetEntry.schema_id == schema_id)
+            .filter(RulesetEntry.content_type == content_type)
+            .filter(RulesetEntry.entry_id == entry_id)
+            .filter(rs.readable_filter(db, owner_id))
             .first()
         ):
             continue
@@ -189,23 +201,33 @@ def import_entries_as_homebrew(
         data = entry.get("data") if isinstance(entry.get("data"), dict) else {}
         try:
             cleaned = (
-                hb.validate_entry(document, content_type, data) if document else dict(data)
+                rs.validate_entry(document, content_type, data) if document else dict(data)
             )
-        except (hb.HomebrewError, svc.SchemaError):
+        except (rs.RulesetError, svc.SchemaError):
             # An entry that does not fit this instance's schema is skipped
             # rather than failing the whole import: the character still opens,
             # and the reference simply reads as missing.
             continue
 
+        if target is None:
+            target = Ruleset(
+                campaign_id=campaign_id,
+                schema_id=schema_id,
+                name=str(payload.get("name") or "Imported content")[:200],
+                description="Recreated from an imported character.",
+                created_by_id=owner_id,
+            )
+            db.add(target)
+            db.flush()
+
         db.add(
-            HomebrewEntry(
-                owner_id=owner_id,
+            RulesetEntry(
+                ruleset_id=target.id,
                 schema_id=schema_id,
                 content_type=content_type,
                 entry_id=entry_id,
                 name=str(entry.get("name") or entry_id)[:500],
                 data=cleaned,
-                visibility="private",
             )
         )
         created += 1

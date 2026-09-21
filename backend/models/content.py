@@ -2,14 +2,15 @@
 
 A *content pack* is a directory of JSON files holding typed entries — spells,
 classes, feats, kits — for one game system. A character references an entry
-rather than copying it, so an erratum or a homebrew edit reaches every character
+rather than copying it, so an erratum or a ruleset edit reaches every character
 built on it.
 
 Unlike ``character_schemas``, which are per user, **packs are server-wide**. A
 schema is a small document, so a copy per account costs nothing; the 5e SRD's
 spell list is not, and duplicating hundreds of entries per user would be waste
-with no benefit — nobody edits an SRD entry in place. Editing happens by forking
-into homebrew, which is per user and arrives in Phase 4 (#132).
+with no benefit — nobody edits an SRD entry in place. Editing happens by
+importing a pack into a *ruleset*, or forking one entry into it, which is what
+scopes content to a table rather than to the server.
 
 Packs are installed by an admin into ``DATA_PATH/character-content/``, one
 directory per pack, and loaded on startup and rescan. The directory is the
@@ -27,6 +28,8 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+
+from sqlalchemy.orm import relationship
 
 from .base import Base, _utcnow, _uuid
 
@@ -107,32 +110,73 @@ class ContentEntry(Base):
     )
 
 
-class HomebrewEntry(Base):
-    """A catalog entry one user wrote, sharing the shape of pack content.
+class Ruleset(Base):
+    """A named set of catalog entries — an SRD, a supplement, a table's house rules.
 
-    Homebrew is first-class rather than an override hack: it is the *same* data
-    as a ``ContentEntry``, validated against the same content type and rendered
-    by the same component. What differs is ownership — a homebrew entry belongs
-    to the user who wrote it, so it is per user where pack content is
-    server-wide, and it can be edited, which pack content cannot.
+    A ruleset is what a campaign actually plays with. It holds the same data a
+    filesystem content pack does, validated against the same content types and
+    rendered by the same components; what differs is where it lives and who it
+    reaches.
 
-    ``visibility`` decides who else sees it:
+    Two kinds, decided by ``campaign_id``:
 
-    * ``private`` — only the owner (the default, and what a draft wants)
-    * ``campaign`` — the owner and members of ``campaign_id``
-    * ``public`` — everyone on this instance
+    * **campaign** — owned by one campaign. Everyone at that table can read it,
+      and the GM who owns the campaign can edit it. This is what makes "these
+      two games run the same system with different content" expressible:
+      a ruleset belongs to a table, not to the server and not to a person.
+    * **server** — ``campaign_id`` is null. Installed once by an admin and
+      available in every game, which is what core rules want to be.
 
-    Enforcement is server-side in every query. A client must never be the thing
-    deciding whether someone may see a private entry.
-
-    ``forked_from`` records the entry a fork started from, so a copy can be
-    traced back to the SRD spell it was based on.
+    ``source_pack_id`` records the filesystem pack a ruleset was imported from,
+    so an SRD imported into a campaign can be told from one typed by hand.
     """
 
-    __tablename__ = "homebrew_entries"
+    __tablename__ = "rulesets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    owner_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    # Null for a server ruleset. A campaign ruleset is deleted with its
+    # campaign: the content existed to serve that table.
+    campaign_id = Column(
+        String(36), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    schema_id = Column(String(100), nullable=False, index=True)
+
+    name = Column(String(200), nullable=False, default="")
+    description = Column(Text, default="")
+    version = Column(String(20), default="1.0.0")
+
+    # Licence metadata, rendered verbatim wherever the ruleset's content is
+    # surfaced. Several open licences mandate exact wording.
+    license = Column(String(200), default="")
+    license_url = Column(Text, default="")
+    attribution = Column(Text, default="")
+
+    # The filesystem pack this was imported from, when it was.
+    source_pack_id = Column(String(100), nullable=True)
+    created_by_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    entries = relationship(
+        "RulesetEntry", back_populates="ruleset", cascade="all, delete-orphan"
+    )
+
+
+class RulesetEntry(Base):
+    """One entry in a ruleset — a spell, a class, a feat.
+
+    The same shape as a ``ContentEntry``, so the catalog, the character sheet
+    and the formula language treat the two identically. What a ruleset adds is
+    that its entries are editable and scoped to a table.
+    """
+
+    __tablename__ = "ruleset_entries"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    ruleset_id = Column(
+        String(36), ForeignKey("rulesets.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     schema_id = Column(String(100), nullable=False, index=True)
     content_type = Column(String(100), nullable=False, index=True)
@@ -141,25 +185,18 @@ class HomebrewEntry(Base):
     name = Column(String(500), nullable=False, default="")
     data = Column(JSON, default=dict)
 
-    visibility = Column(String(20), nullable=False, default="private")
-    # Set only for `campaign` visibility. Not a hard requirement of the column,
-    # because an entry may be shared to a campaign and later set back to
-    # private without losing which campaign it was shared with.
-    campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
-
-    # The catalog entry this was forked from, as "<source>:<entry_id>".
+    # The entry this was copied from, as "<source>:<entry_id>", so a variant
+    # can be traced back to the SRD entry it started as.
     forked_from = Column(String(300), nullable=True)
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
+    ruleset = relationship("Ruleset", back_populates="entries")
+
     __table_args__ = (
-        # One user cannot define the same entry id twice for a content type;
-        # two users may each have their own "hellfire-blast".
-        UniqueConstraint("owner_id", "schema_id", "content_type", "entry_id"),
-        Index("ix_homebrew_lookup", "schema_id", "content_type"),
+        # One ruleset cannot define the same entry twice; two rulesets may each
+        # carry their own "fireball", which is the point of scoping them.
+        UniqueConstraint("ruleset_id", "content_type", "entry_id"),
+        Index("ix_ruleset_entries_lookup", "schema_id", "content_type"),
     )
-
-
-#: The visibility levels a homebrew entry may carry, loosest last.
-HOMEBREW_VISIBILITY = ("private", "campaign", "public")

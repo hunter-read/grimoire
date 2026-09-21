@@ -17,42 +17,45 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import get_db
-from ...models import ContentEntry, ContentPack, HomebrewEntry, User
-from ...services.characters import homebrew as hb
+from ...models import ContentEntry, ContentPack, Ruleset, RulesetEntry
+from ...services.characters import rulesets as rs
 from . import _helpers as helpers
 
 logger = logging.getLogger("grimoire.content")
 
 
 class _CatalogRow:
-    """A pack entry or a homebrew entry, seen the same way.
+    """A pack entry or a ruleset entry, seen the same way.
 
-    Homebrew is first-class: it is the same data, so the catalog should not care
-    which table a row came from. This wrapper gives both the handful of
-    attributes the sort, filter and serialize helpers read, plus the
-    `homebrew`/`owner` markers the UI uses to label a row.
+    Ruleset content is first-class: it is the same data, so the catalog should
+    not care which table a row came from. This wrapper gives both the handful
+    of attributes the sort, filter and serialize helpers read, plus the markers
+    the UI uses to label which ruleset a row belongs to.
     """
 
     __slots__ = ("id", "entry_id", "source", "name", "data", "content_type",
-                 "homebrew", "owner_name", "row_id")
+                 "ruleset", "owner_name", "row_id", "ruleset_id", "ruleset_name")
 
     def __init__(self, *, id, entry_id, source, name, data, content_type,
-                 homebrew=False, owner_name="", row_id=None):
+                 ruleset=False, owner_name="", row_id=None,
+                 ruleset_id=None, ruleset_name=""):
         self.id = id
         self.entry_id = entry_id
         self.source = source
         self.name = name
         self.data = data
         self.content_type = content_type
-        self.homebrew = homebrew
+        self.ruleset = ruleset
         self.owner_name = owner_name
         self.row_id = row_id
+        self.ruleset_id = ruleset_id
+        self.ruleset_name = ruleset_name
 
 
 def _catalog_rows(
-    db: Session, user_id: str, schema_id: str, content_type: str, *, include_homebrew: bool
+    db: Session, user_id: str, schema_id: str, content_type: str, *, include_rulesets: bool
 ) -> list:
-    """Every entry of one type this user can see, pack and homebrew together."""
+    """Every entry of one type this user can see, packs and rulesets together."""
     rows = [
         _CatalogRow(
             id=row.id,
@@ -66,38 +69,33 @@ def _catalog_rows(
         .filter_by(schema_id=schema_id, content_type=content_type)
         .all()
     ]
-    if not include_homebrew:
+    if not include_rulesets:
         return rows
 
-    homebrew = (
-        db.query(HomebrewEntry)
-        .filter_by(schema_id=schema_id, content_type=content_type)
-        .filter(hb.visible_filter(db, user_id))
+    ruleset_rows = (
+        db.query(RulesetEntry, Ruleset)
+        .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
+        .filter(RulesetEntry.schema_id == schema_id)
+        .filter(RulesetEntry.content_type == content_type)
+        .filter(rs.readable_filter(db, user_id))
         .all()
     )
-    names = {}
-    if homebrew:
-        owner_ids = {entry.owner_id for entry in homebrew}
-        names = {
-            row[0]: (row[1] or row[2] or "")
-            for row in db.query(User.id, User.display_name, User.username)
-            .filter(User.id.in_(owner_ids))
-            .all()
-        }
 
     rows.extend(
         _CatalogRow(
             id=entry.id,
             entry_id=entry.entry_id,
-            source="homebrew",
+            source="ruleset",
             name=entry.name,
             data=entry.data if isinstance(entry.data, dict) else {},
             content_type=entry.content_type,
-            homebrew=True,
-            owner_name=names.get(entry.owner_id, ""),
+            ruleset=True,
+            owner_name=ruleset.name,
             row_id=entry.id,
+            ruleset_id=ruleset.id,
+            ruleset_name=ruleset.name,
         )
-        for entry in homebrew
+        for entry, ruleset in ruleset_rows
     )
     return rows
 
@@ -176,7 +174,7 @@ def browse_content(
     sort: str = "",
     page: int = 1,
     page_size: int = helpers.DEFAULT_PAGE_SIZE,
-    include_homebrew: bool = True,
+    include_rulesets: bool = True,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -198,7 +196,7 @@ def browse_content(
         )
 
     entries = _catalog_rows(
-        db, current_user.id, schema_id, content_type, include_homebrew=include_homebrew
+        db, current_user.id, schema_id, content_type, include_rulesets=include_rulesets
     )
 
     # Facets describe the whole catalog, not the current page, so they are built
@@ -221,7 +219,7 @@ def browse_content(
     if search.strip():
         ranked = helpers.search_entry_ids(db, schema_id, content_type, search)
         order = {row_id: index for index, row_id in enumerate(ranked)}
-        # The FTS index covers pack content; homebrew is matched here on the
+        # The FTS index covers pack content; ruleset content is matched here on the
         # same terms rather than being indexed, because it changes on every
         # edit and the per-user set is small.
         definition_fields = definition.get("search_fields") or []
@@ -229,7 +227,7 @@ def browse_content(
             entry
             for entry in entries
             if entry.id in order
-            or (entry.homebrew and helpers.matches_text(entry, search, definition_fields))
+            or (entry.ruleset and helpers.matches_text(entry, search, definition_fields))
         ]
         matched.sort(key=lambda entry: order.get(entry.id, len(order)))
         entries = matched
@@ -317,20 +315,21 @@ def resolve_entries(
         for row in rows
     }
 
-    # Homebrew resolves too, or a sheet built on someone's own spell would show
-    # it as missing. Visible homebrew only, enforced by the shared filter.
+    # Ruleset entries resolve too, or a sheet built on a table's own spell
+    # would show it as missing. Readable rulesets only, by the shared filter.
     for row in (
-        db.query(HomebrewEntry)
-        .filter(HomebrewEntry.schema_id == schema_id)
-        .filter(HomebrewEntry.entry_id.in_(ids))
-        .filter(hb.visible_filter(db, current_user.id))
+        db.query(RulesetEntry)
+        .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
+        .filter(RulesetEntry.schema_id == schema_id)
+        .filter(RulesetEntry.entry_id.in_(ids))
+        .filter(rs.readable_filter(db, current_user.id))
         .all()
     ):
         found.setdefault(
             row.entry_id,
             {
                 "entry_id": row.entry_id,
-                "source": "homebrew",
+                "source": "ruleset",
                 "name": row.name,
                 "content_type": row.content_type,
                 "data": row.data if isinstance(row.data, dict) else {},
