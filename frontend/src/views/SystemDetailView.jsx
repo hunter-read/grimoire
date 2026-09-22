@@ -30,7 +30,8 @@ import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
 import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
-import { categoryDepth } from '../components/system/folderTree'
+import { buildFolderTree, categoryDepth, orderedBooks } from '../components/system/folderTree'
+import { getFolderPlacement } from '../hooks/useUserPrefs'
 import { systemScope, groupScope } from '../components/system/rescanScope'
 import BulkToggleButton from '../components/BulkToggleButton'
 import CollapseExpandButtons from '../components/CollapseExpandButtons'
@@ -243,6 +244,13 @@ export default function SystemDetailView() {
 
   const comparator = bookComparator(bookFilter.sort, bookFilter.order)
   const sortBooks = (books) => [...books].sort(comparator)
+  // How folders are ordered against the books beside them: the active sort plus
+  // the user's folder-placement preference (issue #448).
+  const folderOrder = {
+    sort: bookFilter.sort,
+    order: bookFilter.order,
+    placement: getFolderPlacement(),
+  }
 
   // Books of a system nested in a container sit one folder deeper, so rescan
   // scopes must account for the container segment. Bound here (where the system
@@ -278,7 +286,9 @@ export default function SystemDetailView() {
   // Flat ordered list of visible book ids, for shift-range selection. Matches
   // the on-screen order: grouped → by category; flat → the single sorted list.
   const orderedBookIds = grouped
-    ? orderedCatKeys.flatMap((cat) => sortBooks(categories[cat]).map((b) => b.id))
+    ? orderedCatKeys.flatMap((cat) =>
+        orderedBooks(buildFolderTree(categories[cat], scopeDepth), folderOrder).map((b) => b.id)
+      )
     : flatBooks.map((b) => b.id)
   const toggleBookSelect = (id, mods = {}) =>
     bulk.toggleItem(id, { ...mods, orderedIds: orderedBookIds })
@@ -793,6 +803,7 @@ export default function SystemDetailView() {
               key={cat}
               cat={cat}
               books={sortBooks(categories[cat])}
+              folderOrder={folderOrder}
               system={system}
               isCollapsed={collapsedCats.has(cat)}
               onToggleCat={() =>

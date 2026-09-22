@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { getUserPrefs, saveUserPref } from './useUserPrefs'
+import { getUserPrefs, saveUserPref, getFolderPlacement } from './useUserPrefs'
 
 const KEY = 'grimoire:user-prefs'
 
@@ -50,6 +50,21 @@ describe('useUserPrefs', () => {
       expect(prefs.str).toBe('hello')
       expect(prefs.bool).toBe(true)
       expect(prefs.flag).toBe(false)
+    })
+  })
+
+  describe('getFolderPlacement', () => {
+    it('defaults to folders first', () => {
+      expect(getFolderPlacement()).toBe('first')
+    })
+
+    it('returns the saved placement', () => {
+      saveUserPref('folderPlacement', 'mixed')
+      expect(getFolderPlacement()).toBe('mixed')
+    })
+
+    it('ignores an unknown stored value', () => {
+      expect(getFolderPlacement({ folderPlacement: 'last' })).toBe('first')
     })
   })
 })

@@ -1,3 +1,5 @@
+import { bookComparator } from '../library/applyBookSortFilter'
+
 /** Nested-subfolder tree helpers shared by SystemCategorySection and BookFolderGroup.
  *  Supports arbitrarily deep folder nesting under a category (issue #189). */
 
@@ -69,4 +71,65 @@ export function allBooks(node) {
       .sort((a, b) => a.localeCompare(b))
       .flatMap((name) => allBooks(node.folders[name])),
   ]
+}
+
+/** A node's direct children in display order: `{ type: 'folder', name, node }`
+ *  and `{ type: 'book', book }` entries, applied identically at every level so a
+ *  category and the folders inside it never disagree about where folders go.
+ *
+ *  A folder sorts as a stand-in book. Sorting by title, the stand-in is titled
+ *  with the folder's name; sorting by anything else (year, pages, size) a
+ *  folder has no value of its own, so it takes the value of whichever of its
+ *  books sorts first. Folders therefore follow the sort and its direction in
+ *  either placement, and in `mixed` a folder whose name falls between two books
+ *  lands between them. On a tie the folder goes first. */
+export function orderedEntries(node, { sort = 'title', order = 'asc', placement = 'first' } = {}) {
+  // placement: 'first' pulls every folder ahead of the loose books; 'mixed'
+  // sorts them in among the books as though each were one more entry.
+  const cmp = bookComparator(sort, order)
+  const standIn = (name, child) =>
+    sort === 'title' ? { title: name } : [...allBooks(child)].sort(cmp)[0]
+  const folders = Object.entries(node.folders)
+    .map(([name, child]) => ({ type: 'folder', name, node: child, key: standIn(name, child) }))
+    .sort((a, b) => cmp(a.key, b.key) || a.name.localeCompare(b.name))
+  const books = [...node.books].sort(cmp).map((book) => ({ type: 'book', book, key: book }))
+  if (placement !== 'mixed') return [...folders, ...books]
+  // Both lists are already in order, so merge rather than re-sort.
+  const out = []
+  let f = 0
+  let b = 0
+  while (f < folders.length || b < books.length) {
+    if (b >= books.length || (f < folders.length && cmp(folders[f].key, books[b].key) <= 0)) {
+      out.push(folders[f++])
+    } else {
+      out.push(books[b++])
+    }
+  }
+  return out
+}
+
+/** Every book at or below a node in on-screen order — the order `orderedEntries`
+ *  renders, flattened. Shift-click range selection walks this, so the range it
+ *  picks is the one the user sees. */
+export function orderedBooks(node, opts) {
+  return orderedEntries(node, opts).flatMap((entry) =>
+    entry.type === 'book' ? [entry.book] : orderedBooks(entry.node, opts)
+  )
+}
+
+/** `orderedEntries` with each stretch of consecutive books gathered into one
+ *  `{ type: 'books', books }` run, so a run renders in a single grid/list
+ *  container and folders sit between runs. Folder entries pass through. */
+export function entryRuns(entries) {
+  const runs = []
+  for (const entry of entries) {
+    if (entry.type === 'folder') {
+      runs.push(entry)
+    } else if (runs.at(-1)?.type === 'books') {
+      runs.at(-1).books.push(entry.book)
+    } else {
+      runs.push({ type: 'books', books: [entry.book] })
+    }
+  }
+  return runs
 }

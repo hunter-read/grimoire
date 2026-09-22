@@ -37,3 +37,11 @@ export function getWheelAction(prefs = read()) {
   if (WHEEL_ACTIONS.includes(prefs.wheelAction)) return prefs.wheelAction
   return prefs.wheelNav === false ? 'none' : 'page'
 }
+
+// Where folders sit among the books beside them (issue #448).
+export const FOLDER_PLACEMENTS = ['first', 'mixed']
+
+/** The folder placement pref, defaulting to folders first like most file managers. */
+export function getFolderPlacement(prefs = read()) {
+  return FOLDER_PLACEMENTS.includes(prefs.folderPlacement) ? prefs.folderPlacement : 'first'
+}

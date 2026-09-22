@@ -13,6 +13,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Italian (it-IT) localization
 - Link to the documentation site from the About dialog
 - Reach a book's details in one click from its row
+- Choose whether folders in a book list sort ahead of the books or in among them by name
 
 ### Changed
 
@@ -28,6 +29,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Renamed maps and tokens keep their thumbnails, and a thumbnail that has gone missing is re-rendered by the next scan
 - Quoted searches match the words together as a phrase, instead of returning every page that mentions each word somewhere
 - Keep the reader's zoom controls from shifting under the cursor
+- Folders in a book list sit in the same place at every level, instead of after the books in a category but before them inside a folder
 - Keep row action menus inside the visible window
 - Restore the reader's panel controls on phones and improve the header bar on mobile
 - Scanned books are read much faster, and pages no longer go missing from the search index when several are processed at once

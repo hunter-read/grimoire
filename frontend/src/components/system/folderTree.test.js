@@ -5,6 +5,9 @@ import {
   countBooks,
   allBooks,
   categoryDepth,
+  orderedEntries,
+  orderedBooks,
+  entryRuns,
 } from './folderTree'
 
 function book(id, relative_path) {
@@ -147,5 +150,148 @@ describe('allBooks', () => {
       book('a', 'books/S/core/alpha/a.pdf'),
     ])
     expect(allBooks(tree).map((x) => x.id)).toEqual(['root', 'a', 'z'])
+  })
+})
+
+// Issue #448: where folders sit among the books beside them.
+describe('orderedEntries', () => {
+  // The reporter's shelf: 1036 shipped with companion sheets, so it is a folder.
+  const shelf = () =>
+    buildFolderTree([
+      {
+        id: '1035',
+        title: 'Aventurisches Jahrbuch 1035 BF',
+        relative_path: 'books/S/core/j1035.pdf',
+      },
+      {
+        id: '1037',
+        title: 'Aventurisches Jahrbuch 1037 BF',
+        relative_path: 'books/S/core/j1037.pdf',
+      },
+      {
+        id: '1036',
+        title: 'Aventurisches Jahrbuch 1036 BF',
+        relative_path: 'books/S/core/AVENTURISCHES JAHRBUCH 1036 BF/j1036.pdf',
+      },
+    ])
+  const labels = (entries) => entries.map((e) => (e.type === 'folder' ? `[${e.name}]` : e.book.id))
+
+  it('puts folders ahead of loose books by default', () => {
+    expect(labels(orderedEntries(shelf()))).toEqual([
+      '[AVENTURISCHES JAHRBUCH 1036 BF]',
+      '1035',
+      '1037',
+    ])
+  })
+
+  it('sorts a folder in among the books by its name when mixed', () => {
+    expect(labels(orderedEntries(shelf(), { placement: 'mixed' }))).toEqual([
+      '1035',
+      '[AVENTURISCHES JAHRBUCH 1036 BF]',
+      '1037',
+    ])
+  })
+
+  it('reverses folders and books together for a descending title sort', () => {
+    expect(labels(orderedEntries(shelf(), { order: 'desc', placement: 'mixed' }))).toEqual([
+      '1037',
+      '[AVENTURISCHES JAHRBUCH 1036 BF]',
+      '1035',
+    ])
+    expect(labels(orderedEntries(shelf(), { order: 'desc' }))).toEqual([
+      '[AVENTURISCHES JAHRBUCH 1036 BF]',
+      '1037',
+      '1035',
+    ])
+  })
+
+  it('orders folders by their name even in folders-first placement', () => {
+    const tree = buildFolderTree([
+      book('z', 'books/S/core/Zeta/z.pdf'),
+      book('a', 'books/S/core/Alpha/a.pdf'),
+    ])
+    expect(labels(orderedEntries(tree))).toEqual(['[Alpha]', '[Zeta]'])
+    expect(labels(orderedEntries(tree, { order: 'desc' }))).toEqual(['[Zeta]', '[Alpha]'])
+  })
+
+  it('places a folder by its first book for a non-title sort', () => {
+    const tree = buildFolderTree([
+      { id: 'y1990', title: 'A', year: 1990, relative_path: 'books/S/core/a.pdf' },
+      { id: 'y2010', title: 'B', year: 2010, relative_path: 'books/S/core/b.pdf' },
+      { id: 'f2020', title: 'C', year: 2020, relative_path: 'books/S/core/Extras/c.pdf' },
+      { id: 'f2000', title: 'D', year: 2000, relative_path: 'books/S/core/Extras/d.pdf' },
+    ])
+    // Ascending by year the folder's earliest book is 2000, so it lands between 1990 and 2010.
+    expect(labels(orderedEntries(tree, { sort: 'year', placement: 'mixed' }))).toEqual([
+      'y1990',
+      '[Extras]',
+      'y2010',
+    ])
+    // Descending, its first book is 2020, so it leads.
+    expect(
+      labels(orderedEntries(tree, { sort: 'year', order: 'desc', placement: 'mixed' }))
+    ).toEqual(['[Extras]', 'y2010', 'y1990'])
+  })
+
+  it('puts a folder ahead of a book it ties with', () => {
+    const tree = buildFolderTree([
+      { id: 'b', title: 'Same', relative_path: 'books/S/core/same.pdf' },
+      { id: 'f', title: 'x', relative_path: 'books/S/core/Same/x.pdf' },
+    ])
+    expect(labels(orderedEntries(tree, { placement: 'mixed' }))).toEqual(['[Same]', 'b'])
+  })
+
+  it('applies the same rule inside a folder as at the category level', () => {
+    const tree = buildFolderTree([
+      { id: 'r1', title: '1. First', relative_path: 'books/S/core/Regional/r1.pdf' },
+      { id: 'r2', title: '2. Second', relative_path: 'books/S/core/Regional/r2.pdf' },
+      { id: 'r3', title: '3. Third', relative_path: 'books/S/core/Regional/3. Third/r3.pdf' },
+    ])
+    const regional = tree.folders.Regional
+    expect(labels(orderedEntries(regional))).toEqual(['[3. Third]', 'r1', 'r2'])
+    expect(labels(orderedEntries(regional, { placement: 'mixed' }))).toEqual([
+      'r1',
+      'r2',
+      '[3. Third]',
+    ])
+  })
+})
+
+describe('orderedBooks', () => {
+  it('flattens the tree in the order it renders', () => {
+    const tree = buildFolderTree([
+      { id: 'a', title: 'A', relative_path: 'books/S/core/a.pdf' },
+      { id: 'c', title: 'C', relative_path: 'books/S/core/c.pdf' },
+      { id: 'b1', title: 'B1', relative_path: 'books/S/core/B/b1.pdf' },
+      { id: 'b0', title: 'B0', relative_path: 'books/S/core/B/Inner/b0.pdf' },
+    ])
+    expect(orderedBooks(tree).map((b) => b.id)).toEqual(['b0', 'b1', 'a', 'c'])
+    expect(orderedBooks(tree, { placement: 'mixed' }).map((b) => b.id)).toEqual([
+      'a',
+      'b1',
+      'b0',
+      'c',
+    ])
+  })
+})
+
+describe('entryRuns', () => {
+  it('gathers consecutive books into runs between folders', () => {
+    const node = { books: [], folders: {} }
+    const runs = entryRuns([
+      { type: 'book', book: { id: 1 } },
+      { type: 'book', book: { id: 2 } },
+      { type: 'folder', name: 'F', node },
+      { type: 'book', book: { id: 3 } },
+    ])
+    expect(runs).toEqual([
+      { type: 'books', books: [{ id: 1 }, { id: 2 }] },
+      { type: 'folder', name: 'F', node },
+      { type: 'books', books: [{ id: 3 }] },
+    ])
+  })
+
+  it('returns no runs for no entries', () => {
+    expect(entryRuns([])).toEqual([])
   })
 })

@@ -170,6 +170,35 @@ describe('BookFolderGroup', () => {
     expect(screen.getByText('Spelljammer Bestiary')).toBeInTheDocument()
   })
 
+  // Issue #448: a folder's subfolders follow the same placement as the category.
+  describe('subfolder placement', () => {
+    const node = () => ({
+      books: [makeBook({ title: 'Alpha Book' }), makeBook({ title: 'Gamma Book' })],
+      folders: { 'beta folder': { books: [makeBook({ title: 'Inner Book' })], folders: {} } },
+    })
+    const before = (a, b) =>
+      !!(screen.getByText(a).compareDocumentPosition(screen.getByText(b)) & 4)
+
+    it('renders subfolders ahead of the folder own books by default', () => {
+      render(<BookFolderGroup {...makeProps({ folder: 'monsters', node: node() })} />)
+      expect(before('Beta Folder', 'Alpha Book')).toBe(true)
+    })
+
+    it('sorts subfolders in among the books when mixed', () => {
+      render(
+        <BookFolderGroup
+          {...makeProps({
+            folder: 'monsters',
+            node: node(),
+            folderOrder: { sort: 'title', order: 'asc', placement: 'mixed' },
+          })}
+        />
+      )
+      expect(before('Alpha Book', 'Beta Folder')).toBe(true)
+      expect(before('Inner Book', 'Gamma Book')).toBe(true)
+    })
+  })
+
   it('parent count includes books nested in subfolders', () => {
     const node = {
       books: [makeBook()],
