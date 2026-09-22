@@ -135,6 +135,38 @@ def _ocr_page(page: "fitz.Page", languages: str, dpi: int | None = None) -> str:
         return ""
 
 
+def _prepare_worker() -> None:
+    """Prepare a freshly spawned worker before it does any OCR.
+
+    Both settings concern the ``tesseract`` binary this process goes on to run
+    via pytesseract, which is a *grandchild* of the indexer and therefore
+    invisible to it.
+
+    * ``setsid`` makes this process a process-group leader, so the parent can
+      signal the whole group when a page overruns its budget.
+      ``Process.terminate()`` signals only this process; the tesseract
+      grandchild survives it, is reparented to init, and keeps consuming CPU
+      long after the page was abandoned.
+    * ``OMP_THREAD_LIMIT`` caps Tesseract's OpenMP pool at one thread.  Its
+      internal threading scales badly here: with several pages in flight each
+      process claims every core, and measured on a 4-core host that turned a
+      4.3s job into a 155s one which then timed out on 20 of 24 pages and
+      indexed 426 characters instead of 18,249.  One thread per process;
+      parallelism belongs at the page level, where the queue already has it.
+
+    ``setdefault`` so an operator can still override the limit from the
+    environment.
+    """
+    os.environ.setdefault("OMP_THREAD_LIMIT", "1")
+    if hasattr(os, "setsid"):
+        try:
+            os.setsid()
+        except OSError:
+            # Already a group leader, or the platform declined. The parent
+            # falls back to terminate(), i.e. today's behaviour.
+            pass
+
+
 def main(filepath: str, result_path: str, text_only: bool = False) -> None:
     """Subprocess entry point: extract and pickle ``(pages, used_ocr)`` to disk.
 
@@ -143,6 +175,7 @@ def main(filepath: str, result_path: str, text_only: bool = False) -> None:
     propagates and the process exits nonzero, which the parent treats as a
     crash — the result file is left empty so the parent can tell.
     """
+    _prepare_worker()
     result = run(filepath, text_only=text_only)
     with open(result_path, "wb") as fh:
         pickle.dump(result, fh)
@@ -157,6 +190,7 @@ def ocr_page_main(
     empty, which the parent treats as a failed page and skips. ``dpi`` overrides
     the rasterization resolution (per-book re-OCR); None uses the global default.
     """
+    _prepare_worker()
     text = ocr_page(filepath, page_index, languages, dpi=dpi)
     with open(result_path, "wb") as fh:
         pickle.dump(text, fh)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import tempfile
 import time
 import uuid
@@ -12,6 +13,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend import indexer, pdf_worker
+from backend.indexer import _subprocess
 from backend.indexer import (
     PdfExtractionCrashError,
     _fitz_open_with_timeout,
@@ -1083,3 +1085,50 @@ class TestReindexSingleBook:
             assert book.indexed is True
         finally:
             db.close()
+
+
+class TestWorkerThreadingAndOrphans:
+    """An abandoned OCR page must not leave the tesseract binary running.
+
+    ``Process.terminate()`` signals only the spawned worker. pytesseract runs
+    ``tesseract`` as a *grandchild*, so it survived, was reparented to init and
+    kept holding a core — which starved the pages still in flight and made more
+    of them overrun the same budget. Measured on a 4-core host, unbounded
+    OpenMP turned a 4.3s job into a 155s one that abandoned 20 of 24 pages.
+    """
+
+    def test_worker_caps_tesseract_threads(self, monkeypatch):
+        monkeypatch.delenv("OMP_THREAD_LIMIT", raising=False)
+        monkeypatch.setattr(os, "setsid", lambda: None)
+        pdf_worker._prepare_worker()
+        assert os.environ["OMP_THREAD_LIMIT"] == "1"
+
+    def test_an_operator_override_is_respected(self, monkeypatch):
+        monkeypatch.setenv("OMP_THREAD_LIMIT", "4")
+        monkeypatch.setattr(os, "setsid", lambda: None)
+        pdf_worker._prepare_worker()
+        assert os.environ["OMP_THREAD_LIMIT"] == "4"
+
+    def test_worker_becomes_a_process_group_leader(self, monkeypatch):
+        called = []
+        monkeypatch.setattr(os, "setsid", lambda: called.append(True))
+        pdf_worker._prepare_worker()
+        assert called, "worker must setsid() so the parent can signal the group"
+
+    def test_timeout_kills_the_whole_group_not_just_the_worker(self, monkeypatch):
+        """The grandchild is the point: signal the group, not the process."""
+        killed = []
+        monkeypatch.setattr(os, "getpgid", lambda pid: pid)  # setsid() took effect
+        monkeypatch.setattr(os, "killpg", lambda pid, sig: killed.append((pid, sig)))
+        proc = MagicMock(pid=4242)
+        _subprocess._kill_worker(proc)
+        assert killed == [(4242, signal.SIGKILL)]
+        proc.terminate.assert_not_called()
+
+    def test_falls_back_to_terminate_when_not_a_group_leader(self, monkeypatch):
+        # Never worse than the old behaviour if setsid() did not take.
+        monkeypatch.setattr(os, "getpgid", lambda pid: pid + 1)
+        monkeypatch.setattr(os, "killpg", lambda pid, sig: pytest.fail("must not killpg"))
+        proc = MagicMock(pid=4242)
+        _subprocess._kill_worker(proc)
+        proc.terminate.assert_called_once()

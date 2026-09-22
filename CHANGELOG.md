@@ -28,6 +28,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Keep the reader's zoom controls from shifting under the cursor
 - Keep row action menus inside the visible window
 - Restore the reader's panel controls on phones and improve the header bar on mobile
+- Scanned books are read much faster, and pages no longer go missing from the search index when several are processed at once
 
 ## [1.7.1] - 2026-09-16
 
