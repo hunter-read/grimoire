@@ -12,6 +12,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Italian (it-IT) localization
 - Link to the documentation site from the About dialog
+- Reach a book's details in one click from its row
 
 ### Changed
 
@@ -21,6 +22,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Non-Docker installs report their real version instead of `1.0.0` in the About dialog
 - Return keyboard focus to the file list after a dialog closes
+- The file manager no longer offers upload and new folder at the library root, where they could only fail
 - Large map, token, audio, and model galleries no longer grow to gigabytes of memory, and scroll smoothly
 - Ungrouped galleries load in the order they display, so cards no longer pop in among those already on screen
 - Renamed maps and tokens keep their thumbnails, and a thumbnail that has gone missing is re-rendered by the next scan

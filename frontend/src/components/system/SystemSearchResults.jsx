@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import BookRow from './BookRow'
+import BookDetailsModal from './BookDetailsModal'
 import SystemPageHit from './SystemPageHit'
 
 /**
@@ -22,6 +24,8 @@ export default function SystemSearchResults({
   compact,
 }) {
   const { t } = useTranslation()
+  // The book whose read-only details view is open, if any.
+  const [detailsBook, setDetailsBook] = useState(null)
   if (!searchResults) return null
 
   return (
@@ -41,6 +45,7 @@ export default function SystemSearchResults({
                 card={card}
                 compact={compact}
                 onEdit={null}
+                onDetails={() => setDetailsBook(book)}
                 editing={false}
                 bulkMode={false}
                 selected={false}
@@ -50,6 +55,8 @@ export default function SystemSearchResults({
           </div>
         </div>
       )}
+
+      {detailsBook && <BookDetailsModal book={detailsBook} onClose={() => setDetailsBook(null)} />}
 
       {/* Nothing matched — neither a book nor a page. */}
       {matchedBooks.length === 0 && searchResults.results.length === 0 && (
