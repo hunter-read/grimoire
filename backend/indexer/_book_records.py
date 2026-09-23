@@ -266,6 +266,7 @@ def _register_book(
         publisher=opf_meta.get("publisher"),
         year=opf_meta.get("year"),
         isbn=opf_meta.get("isbn", ""),
+        product_code=opf_meta.get("product_code", ""),
     )
 
     # Commit the book record first so that if a subsequent

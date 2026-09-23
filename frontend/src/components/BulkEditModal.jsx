@@ -1,6 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuChevronLeft, LuChevronRight, LuDownload, LuCopy } from 'react-icons/lu'
+import {
+  LuX,
+  LuChevronLeft,
+  LuChevronRight,
+  LuDownload,
+  LuCopy,
+  LuScanBarcode,
+} from 'react-icons/lu'
 import api, { bulk as bulkApi } from '../api'
 import SystemBulkEditFields from './system/SystemBulkEditFields'
 import BookBulkEditFields from './system/BookBulkEditFields'
@@ -9,6 +16,7 @@ import MetadataFetchDialog from './system/MetadataFetchDialog'
 import useMetadataSources from './system/useMetadataSources'
 import { intoBookForm } from './system/metadataFieldValue'
 import { cleanLinks } from './metadata/metadataUtils'
+import { productCodeFromFilename } from '../utils/productCode'
 
 // Per-type editable fields. Saving goes through the shared bulk endpoint for
 // this type (see `bulk` in api.js). Tags are edited as a comma-separated string
@@ -44,6 +52,7 @@ const CONFIG = {
       'artists',
       'publisher',
       'isbn',
+      'product_code',
       'version',
       'language',
       // BookBulkEditFields renders a license combobox; without it here the
@@ -129,6 +138,7 @@ const BOOK_LABEL_KEYS = {
   artists: 'artistsLabel',
   publisher: 'publisherLabel',
   isbn: 'isbnLabel',
+  product_code: 'productCodeLabel',
   version: 'versionLabel',
   language: 'languageLabel',
   license: 'licenseLabel',
@@ -153,8 +163,8 @@ const SYSTEM_LABEL_KEYS = {
 
 // Fields excluded from "apply to all" because copying them across the selection
 // is never meaningful: a cover book id only belongs to its own system, and an
-// ISBN identifies one specific book.
-const NOT_COPYABLE = new Set(['cover_book_id', 'isbn'])
+// ISBN or product code identifies one specific book.
+const NOT_COPYABLE = new Set(['cover_book_id', 'isbn', 'product_code'])
 
 // One entry of a list-valued field, flattened for the checklist preview.
 // Publishers are {name, url}; link lists are {label, url}.
@@ -314,6 +324,28 @@ export default function BulkEditModal({
     }
     return out
   }, [copyableFields, draft, t])
+
+  // Fill every empty product code from a code found in that book's file name
+  // (issue #479). Opt-in by button rather than on scan: a pattern can misread a
+  // name, so the result lands in the drafts for review and nothing is written
+  // until "Save all". Codes already set are never replaced.
+  const [codesFilled, setCodesFilled] = useState(null)
+  const readCodesFromFilenames = () => {
+    const found = {}
+    for (const it of items) {
+      if ((drafts[it.id].product_code || '').trim()) continue
+      const code = productCodeFromFilename(it.filename)
+      if (code) found[it.id] = code
+    }
+    setDrafts((prev) => {
+      const next = { ...prev }
+      for (const [id, code] of Object.entries(found)) {
+        next[id] = { ...next[id], product_code: code }
+      }
+      return next
+    })
+    setCodesFilled(Object.keys(found).length)
+  }
 
   const go = (delta) => setIndex((i) => Math.min(items.length - 1, Math.max(0, i + delta)))
 
@@ -480,6 +512,11 @@ export default function BulkEditModal({
         {error && (
           <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</div>
         )}
+        {codesFilled !== null && (
+          <div role="status" style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 12 }}>
+            {t('bulkEdit.readCodesResult', { count: codesFilled })}
+          </div>
+        )}
 
         <div
           style={{
@@ -494,6 +531,16 @@ export default function BulkEditModal({
             <button onClick={() => setApplyingAll(true)} style={fetchBtn}>
               <LuCopy size={13} />
               {t('bulkEdit.applyToAll', { count: items.length })}
+            </button>
+          )}
+          {type === 'book' && (
+            <button
+              onClick={readCodesFromFilenames}
+              style={fetchBtn}
+              title={t('bulkEdit.readCodesHint')}
+            >
+              <LuScanBarcode size={13} />
+              {t('bulkEdit.readCodes')}
             </button>
           )}
           {hasSources && (

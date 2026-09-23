@@ -25,6 +25,7 @@ FIELDS = {
     "publisher": "Wizards of the Coast",
     "genres": ["Fantasy"],
     "isbn": "9780786965601",
+    "product_code": "WTC 39380",
     "version": "5e",
     "language": "en",
     "license": "",
@@ -94,6 +95,8 @@ class TestOpf:
         # Scoped by opf:scheme="ISBN" on both sides, so it survives the trip
         # (issue #376) — an unscoped identifier still would not.
         assert parsed["isbn"] == FIELDS["isbn"]
+        # Carried the same way, under its own scheme (issue #479).
+        assert parsed["product_code"] == FIELDS["product_code"]
         assert parsed["tags"] == ["core", "rules"]
         assert parsed["cover_image_filename"] == "phb.jpg"
 
@@ -104,6 +107,7 @@ class TestOpf:
     def test_empty_fields_are_omitted_entirely(self):
         out = render_opf({"title": "Only A Title"})
         assert "dc:creator" not in out
+        assert "dc:identifier" not in out
         assert "dc:publisher" not in out
         assert "guide" not in out
 

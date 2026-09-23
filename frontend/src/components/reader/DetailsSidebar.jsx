@@ -36,6 +36,7 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
     [t('bookDetails.genres'), (book.genres || []).join(', ')],
     [t('bookDetails.license'), book.license],
     [t('bookDetails.isbn'), book.isbn],
+    [t('bookDetails.productCode'), book.product_code],
     [t('bookDetails.version'), book.version],
     [t('bookDetails.language'), book.language],
     [t('bookDetails.pages'), book.page_count ? String(book.page_count) : ''],

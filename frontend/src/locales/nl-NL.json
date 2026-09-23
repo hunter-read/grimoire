@@ -276,7 +276,8 @@
         "tag": "Tags op boeken, kaarten, tokens, audio",
         "publisher": "Uitgever",
         "year": "Publicatiejaar, of een bereik",
-        "text": "Alleen pagina-inhoud"
+        "text": "Alleen pagina-inhoud",
+        "code": "Productcode van de uitgever (SKU)"
       }
     }
   },
@@ -1932,7 +1933,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licentie",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Metadata ophalen"
+    "fetchMetadata": "Metadata ophalen",
+    "productCodeLabel": "Productcode"
   },
   "reocr": {
     "button": "OCR opnieuw",
@@ -2232,7 +2234,12 @@
     "discardTitle": "Niet-opgeslagen wijzigingen negeren?",
     "discardHint": "Je hebt niet-opgeslagen bewerkingen in deze bulkbewerking. Als je nu sluit, gaan ze verloren.",
     "keepEditing": "Verder bewerken",
-    "discardChanges": "Wijzigingen negeren"
+    "discardChanges": "Wijzigingen negeren",
+    "readCodes": "Codes uit bestandsnamen lezen",
+    "readCodesHint": "Vult elke lege productcode met een code uit de bestandsnaam van het boek (PZO…, DDAL…, TSR…, CAT…). Bestaande codes blijven staan en er wordt niets opgeslagen tot je ‘Alles opslaan’ kiest.",
+    "readCodesResult_zero": "Geen productcodes gevonden in deze bestandsnamen.",
+    "readCodesResult_one": "1 productcode ingevuld. Controleer deze en kies dan ‘Alles opslaan’.",
+    "readCodesResult_other": "{{count}} productcodes ingevuld. Controleer ze en kies dan ‘Alles opslaan’."
   },
   "guests": {
     "guests": "Gasten",
@@ -2502,7 +2509,10 @@
     "tagGroupAdd": "Groep toevoegen",
     "tagGroupMode": "Modus van groep {{n}}",
     "tagGroupTags": "Tags van groep {{n}}",
-    "tagGroupRemove": "Groep {{n}} verwijderen"
+    "tagGroupRemove": "Groep {{n}} verwijderen",
+    "sortProductCode": "Productcode",
+    "filterProductCode": "Productcode",
+    "allProductCodes": "Alle productcodes"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2627,7 +2637,8 @@
     "pages": "Pagina's",
     "fileSize": "Bestandsgrootte",
     "format": "Formaat",
-    "path": "Pad"
+    "path": "Pad",
+    "productCode": "Productcode"
   },
   "appearance": {
     "title": "Appearance",

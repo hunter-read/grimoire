@@ -165,6 +165,7 @@ class BookOut(VariantCountMixin, BaseModel):
     urls: list[LinkEntry]
     # Coalesced with `or ""` by the serializer.
     isbn: str
+    product_code: str = ""
     version: str
     language: str
     license: str

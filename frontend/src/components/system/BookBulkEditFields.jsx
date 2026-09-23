@@ -161,6 +161,18 @@ export default function BookBulkEditFields({
             style={input}
           />
         </div>
+        <div style={{ flex: '1 1 120px' }}>
+          <label htmlFor="book-bulk-product-code" style={label}>
+            {t('bookEditor.productCodeLabel')}
+          </label>
+          <input
+            id="book-bulk-product-code"
+            type="text"
+            value={draft.product_code || ''}
+            onChange={(e) => setField('product_code', e.target.value)}
+            style={input}
+          />
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

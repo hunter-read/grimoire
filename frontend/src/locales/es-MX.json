@@ -276,7 +276,8 @@
         "tag": "Etiquetas en libros, mapas, fichas, audio",
         "publisher": "Editorial",
         "year": "Año de publicación, o un intervalo",
-        "text": "Solo contenido de páginas"
+        "text": "Solo contenido de páginas",
+        "code": "Código de producto de la editorial (SKU)"
       }
     }
   },
@@ -1932,7 +1933,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licencia",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Obtener metadatos"
+    "fetchMetadata": "Obtener metadatos",
+    "productCodeLabel": "Código de producto"
   },
   "reocr": {
     "button": "Repetir OCR",
@@ -2232,7 +2234,12 @@
     "discardTitle": "¿Descartar los cambios sin guardar?",
     "discardHint": "Tienes cambios sin guardar en esta edición masiva. Si cierras ahora, se perderán.",
     "keepEditing": "Seguir editando",
-    "discardChanges": "Descartar cambios"
+    "discardChanges": "Descartar cambios",
+    "readCodes": "Leer códigos de los nombres de archivo",
+    "readCodesHint": "Rellena cada código de producto vacío con un código del nombre de archivo del libro (PZO…, DDAL…, TSR…, CAT…). Los códigos ya definidos se conservan y no se guarda nada hasta que elijas «Guardar todo».",
+    "readCodesResult_zero": "No se encontraron códigos de producto en estos nombres de archivo.",
+    "readCodesResult_one": "Se rellenó 1 código de producto. Revísalo y luego elige «Guardar todo».",
+    "readCodesResult_other": "Se rellenaron {{count}} códigos de producto. Revísalos y luego elige «Guardar todo»."
   },
   "guests": {
     "guests": "Invitados",
@@ -2502,7 +2509,10 @@
     "tagGroupAdd": "Agregar grupo",
     "tagGroupMode": "Modo del grupo {{n}}",
     "tagGroupTags": "Etiquetas del grupo {{n}}",
-    "tagGroupRemove": "Eliminar grupo {{n}}"
+    "tagGroupRemove": "Eliminar grupo {{n}}",
+    "sortProductCode": "Código de producto",
+    "filterProductCode": "Código de producto",
+    "allProductCodes": "Todos los códigos de producto"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2627,7 +2637,8 @@
     "pages": "Páginas",
     "fileSize": "Tamaño del archivo",
     "format": "Formato",
-    "path": "Ruta"
+    "path": "Ruta",
+    "productCode": "Código de producto"
   },
   "appearance": {
     "title": "Appearance",

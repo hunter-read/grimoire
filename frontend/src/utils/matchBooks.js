@@ -2,7 +2,7 @@
 // system search surfaces matching books (not just page hits) at the top.
 //
 // Scoring is coarse but intentional: a title match beats a tag match beats a
-// description/author/publisher/year match. Every whitespace-separated term must
+// description/author/publisher/product code/year match. Every whitespace-separated term must
 // appear somewhere for a book to match (AND semantics), matching how users
 // expect multi-word queries to narrow results.
 
@@ -13,6 +13,7 @@ const fieldsOf = (book) => ({
     book.description || '',
     (book.authors || []).join(' '),
     book.publisher || '',
+    book.product_code || '',
     book.year != null ? String(book.year) : '',
     book.category || '',
   ]

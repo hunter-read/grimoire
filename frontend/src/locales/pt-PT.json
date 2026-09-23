@@ -276,7 +276,8 @@
         "tag": "Etiquetas em livros, mapas, fichas, áudio",
         "publisher": "Editora",
         "year": "Ano de publicação, ou intervalo",
-        "text": "Apenas conteúdo das páginas"
+        "text": "Apenas conteúdo das páginas",
+        "code": "Código de produto da editora (SKU)"
       }
     }
   },
@@ -1932,7 +1933,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licença",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Obter metadados"
+    "fetchMetadata": "Obter metadados",
+    "productCodeLabel": "Código do produto"
   },
   "reocr": {
     "button": "Refazer OCR",
@@ -2232,7 +2234,12 @@
     "discardTitle": "Descartar alterações não guardadas?",
     "discardHint": "Tem edições não guardadas nesta edição em massa. Fechar agora irá perdê-las.",
     "keepEditing": "Continuar a editar",
-    "discardChanges": "Descartar alterações"
+    "discardChanges": "Descartar alterações",
+    "readCodes": "Ler códigos dos nomes de ficheiro",
+    "readCodesHint": "Preenche cada código de produto vazio com um código do nome de ficheiro do livro (PZO…, DDAL…, TSR…, CAT…). Os códigos já definidos são mantidos e nada é guardado até escolher «Guardar tudo».",
+    "readCodesResult_zero": "Não foram encontrados códigos de produto nestes nomes de ficheiro.",
+    "readCodesResult_one": "1 código de produto preenchido. Reveja-o e depois escolha «Guardar tudo».",
+    "readCodesResult_other": "{{count}} códigos de produto preenchidos. Reveja-os e depois escolha «Guardar tudo»."
   },
   "guests": {
     "guests": "Convidados",
@@ -2502,7 +2509,10 @@
     "tagGroupAdd": "Adicionar grupo",
     "tagGroupMode": "Modo do grupo {{n}}",
     "tagGroupTags": "Etiquetas do grupo {{n}}",
-    "tagGroupRemove": "Remover grupo {{n}}"
+    "tagGroupRemove": "Remover grupo {{n}}",
+    "sortProductCode": "Código do produto",
+    "filterProductCode": "Código do produto",
+    "allProductCodes": "Todos os códigos de produto"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2627,7 +2637,8 @@
     "pages": "Páginas",
     "fileSize": "Tamanho do ficheiro",
     "format": "Formato",
-    "path": "Caminho"
+    "path": "Caminho",
+    "productCode": "Código do produto"
   },
   "appearance": {
     "title": "Appearance",

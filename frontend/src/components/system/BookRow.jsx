@@ -428,6 +428,9 @@ export default function BookRow({
           {progress > 0 && <span style={{ color: 'var(--gold-dim)' }}>p. {lastPage}</span>}
           {book.year && <span>{book.year}</span>}
           {book.publisher && <span>{book.publisher}</span>}
+          {book.product_code && (
+            <span title={t('bookDetails.productCode')}>{book.product_code}</span>
+          )}
           {(book.genres || []).length > 0 && (
             <span style={{ color: 'var(--green, #5a9a5a)' }}>
               {(book.genres || []).slice(0, 3).join(', ')}

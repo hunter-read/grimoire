@@ -73,6 +73,8 @@ class TestParseQuery:
 
     def test_aliases_map_to_canonical_field(self):
         assert parse_query("name:x").filters == {"title": ["x"]}
+        assert parse_query("sku:x").filters == {"code": ["x"]}
+        assert parse_query("product_code:x").filters == {"code": ["x"]}
         assert parse_query("game:x").filters == {"system": ["x"]}
         assert parse_query("authors:x").filters == {"author": ["x"]}
 
@@ -563,3 +565,59 @@ class TestQuotedPhraseSearch:
         self, client, admin_headers, phrase_library
     ):
         assert self._pages(client, admin_headers, 'text:"lucky feat"') == [1]
+
+
+class TestProductCodeSearch:
+    """The publisher's catalogue number is searchable (issue #479)."""
+
+    @pytest.fixture(scope="class")
+    def coded(self, title_library):
+        system_id = title_library["system"].id
+        return {
+            "paizo": make_book(
+                system_id=system_id,
+                title="Monster Compendium Volume",
+                filename="monsters.pdf",
+                product_code="PZO9001",
+            ),
+            "tsr": make_book(
+                system_id=system_id,
+                title="Castle on the Hill",
+                filename="castle.pdf",
+                product_code="TSR 9247",
+            ),
+        }
+
+    def _ids(self, client, headers, q):
+        resp = client.get("/api/search", params={"q": q}, headers=headers)
+        assert resp.status_code == 200
+        return {b["id"] for b in resp.json()["book_matches"]}
+
+    def test_code_filter(self, client, admin_headers, coded):
+        ids = self._ids(client, admin_headers, "code:pzo9001")
+        assert ids == {coded["paizo"].id}
+
+    def test_sku_alias(self, client, admin_headers, coded):
+        assert coded["paizo"].id in self._ids(client, admin_headers, "sku:PZO9001")
+
+    def test_bare_query_finds_the_code(self, client, admin_headers, coded):
+        # Searching the code printed on a cover finds the book, not just titles.
+        assert coded["paizo"].id in self._ids(client, admin_headers, "PZO9001")
+
+    def test_separators_are_ignored(self, client, admin_headers, coded):
+        # "TSR 9247" on the cover, "TSR9247" in a store listing: one code.
+        assert coded["tsr"].id in self._ids(client, admin_headers, "code:TSR9247")
+        assert coded["tsr"].id in self._ids(client, admin_headers, "TSR-9247")
+
+    def test_match_carries_the_code(self, client, admin_headers, coded):
+        resp = client.get("/api/search", params={"q": "code:PZO9001"}, headers=admin_headers)
+        (match,) = resp.json()["book_matches"]
+        assert match["product_code"] == "PZO9001"
+
+    def test_separator_only_term_does_not_match_everything(
+        self, client, admin_headers, coded
+    ):
+        assert self._ids(client, admin_headers, 'code:"-"') == set()
+
+    def test_code_is_a_book_only_field(self):
+        assert parse_query("code:PZO9001").books_only

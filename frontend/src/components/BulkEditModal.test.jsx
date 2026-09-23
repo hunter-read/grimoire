@@ -320,6 +320,7 @@ describe('BulkEditModal', () => {
       openDialog()
       // An ISBN identifies one specific book, so it is never offered.
       expect(screen.queryByRole('checkbox', { name: 'ISBN' })).toBeNull()
+      expect(screen.queryByRole('checkbox', { name: 'Product code' })).toBeNull()
       expect(screen.getByRole('checkbox', { name: 'Category' })).toBeInTheDocument()
     })
 
@@ -427,6 +428,47 @@ describe('BulkEditModal', () => {
 
       expect(onClose).not.toHaveBeenCalled()
       expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument()
+    })
+  })
+
+  describe('read product codes from file names (issue #479)', () => {
+    const coded = [
+      { id: 'c1', title: 'Bestiary', filename: 'PZO9001 Bestiary.pdf', tags: [], genres: [] },
+      {
+        id: 'c2',
+        title: 'Greyhawk',
+        filename: 'TSR 9247.pdf',
+        product_code: 'KEEP-ME',
+        tags: [],
+        genres: [],
+      },
+      { id: 'c3', title: 'Notes', filename: 'notes.pdf', tags: [], genres: [] },
+    ]
+
+    it('fills only empty codes, and only on save', async () => {
+      const onSaved = vi.fn()
+      render(<BulkEditModal type="book" items={coded} onClose={vi.fn()} onSaved={onSaved} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /read codes from file names/i }))
+      expect(screen.getByRole('status')).toHaveTextContent('Filled in 1 product code')
+      expect(screen.getByLabelText('Product code')).toHaveValue('PZO9001')
+      expect(bulkUpdate).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByText('Save all'))
+      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      // The book that already had a code, and the one whose name has none, are untouched.
+      expect(onSaved.mock.calls[0][0]).toEqual({ c1: { product_code: 'PZO9001' } })
+    })
+
+    it('says so when no file name holds a code', () => {
+      render(<BulkEditModal type="book" items={[coded[2]]} onClose={vi.fn()} onSaved={vi.fn()} />)
+      fireEvent.click(screen.getByRole('button', { name: /read codes from file names/i }))
+      expect(screen.getByRole('status')).toHaveTextContent('No product codes found')
+    })
+
+    it('is not offered for other item types', () => {
+      renderModal()
+      expect(screen.queryByRole('button', { name: /read codes from file names/i })).toBeNull()
     })
   })
 })

@@ -41,7 +41,11 @@ import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import SortFilterBar from '../components/library/SortFilterBar'
-import { bookFilterPredicate, bookComparator } from '../components/library/applyBookSortFilter'
+import {
+  bookFilterPredicate,
+  bookComparator,
+  productCodePrefix,
+} from '../components/library/applyBookSortFilter'
 import { queryTags } from '../components/library/tagQuery'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
@@ -355,10 +359,18 @@ export default function SystemDetailView() {
     { value: 'year', label: t('sortFilter.sortYear') },
     { value: 'page_count', label: t('sortFilter.sortPageCount') },
     { value: 'size', label: t('sortFilter.sortSize') },
+    { value: 'product_code', label: t('sortFilter.sortProductCode') },
   ]
   const bookGenreOptions = [...new Set((system.books || []).flatMap((b) => b.genres || []))]
     .sort((a, b) => a.localeCompare(b))
     .map((g) => ({ value: g, label: g }))
+  // Product codes are unique per book, so the filter offers their publisher
+  // prefixes ("PZO", "TSR") plus the has/has-no-code sentinels (issue #479).
+  const bookProductCodeOptions = [
+    ...new Set((system.books || []).map((b) => productCodePrefix(b.product_code)).filter(Boolean)),
+  ]
+    .sort((a, b) => a.localeCompare(b))
+    .map((p) => ({ value: p, label: `${p}…` }))
   const bookTagOptions = allTags.map((tg) => ({
     value: tg,
     label: bookTagLabels[tg] || titleCaseTag(tg),
@@ -766,6 +778,12 @@ export default function SystemDetailView() {
                 label: t('sortFilter.filterGenre'),
                 allLabel: t('sortFilter.allGenres'),
                 options: bookGenreOptions,
+              },
+              {
+                key: 'productCode',
+                label: t('sortFilter.filterProductCode'),
+                allLabel: t('sortFilter.allProductCodes'),
+                options: bookProductCodeOptions,
               },
             ]}
             queryFilters={[

@@ -276,7 +276,8 @@
         "tag": "Tags an Büchern, Karten, Tokens, Audio",
         "publisher": "Verlag",
         "year": "Erscheinungsjahr oder Zeitraum",
-        "text": "Nur Seiteninhalt"
+        "text": "Nur Seiteninhalt",
+        "code": "Produktcode des Verlags (SKU)"
       }
     }
   },
@@ -1932,7 +1933,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Lizenz",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Metadaten abrufen"
+    "fetchMetadata": "Metadaten abrufen",
+    "productCodeLabel": "Produktcode"
   },
   "reocr": {
     "button": "OCR wiederholen",
@@ -2232,7 +2234,12 @@
     "discardTitle": "Nicht gespeicherte Änderungen verwerfen?",
     "discardHint": "Du hast nicht gespeicherte Änderungen in dieser Sammelbearbeitung. Beim Schließen gehen sie verloren.",
     "keepEditing": "Weiter bearbeiten",
-    "discardChanges": "Änderungen verwerfen"
+    "discardChanges": "Änderungen verwerfen",
+    "readCodes": "Codes aus Dateinamen lesen",
+    "readCodesHint": "Füllt jeden leeren Produktcode mit einem Code aus dem Dateinamen des Buchs (PZO…, DDAL…, TSR…, CAT…). Vorhandene Codes bleiben erhalten; gespeichert wird erst mit „Alle speichern“.",
+    "readCodesResult_zero": "In diesen Dateinamen wurden keine Produktcodes gefunden.",
+    "readCodesResult_one": "1 Produktcode eingetragen. Bitte prüfen und dann „Alle speichern“ wählen.",
+    "readCodesResult_other": "{{count}} Produktcodes eingetragen. Bitte prüfen und dann „Alle speichern“ wählen."
   },
   "guests": {
     "guests": "Gäste",
@@ -2502,7 +2509,10 @@
     "tagGroupAdd": "Gruppe hinzufügen",
     "tagGroupMode": "Gruppe {{n}} Modus",
     "tagGroupTags": "Gruppe {{n}} Tags",
-    "tagGroupRemove": "Gruppe {{n}} entfernen"
+    "tagGroupRemove": "Gruppe {{n}} entfernen",
+    "sortProductCode": "Produktcode",
+    "filterProductCode": "Produktcode",
+    "allProductCodes": "Alle Produktcodes"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2627,7 +2637,8 @@
     "pages": "Seiten",
     "fileSize": "Dateigröße",
     "format": "Format",
-    "path": "Pfad"
+    "path": "Pfad",
+    "productCode": "Produktcode"
   },
   "appearance": {
     "title": "Appearance",

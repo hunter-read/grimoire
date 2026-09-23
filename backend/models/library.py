@@ -128,6 +128,10 @@ class Book(Base):
     # its own (e.g. a grimdark D&D book tagged Horror as well as Fantasy).
     genres = Column(JSON, default=list)
     isbn = Column(String(20), default="")
+    # The publisher's own catalogue number / SKU ("PZO9001", "TSR 9247", issue
+    # #479). Most RPG PDFs carry no ISBN, so this is the identifier that tells
+    # two printings or editions of one product apart.
+    product_code = Column(String(100), default="")
     version = Column(String(50), default="")
     language = Column(String(20), default="")
     # Per-book license override. Empty means "inherit the system's license" — an

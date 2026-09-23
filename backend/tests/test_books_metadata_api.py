@@ -53,6 +53,8 @@ MANIFEST = {
         "artists": {"from": "artists"},
         "publisher": {"from": "publisher.name"},
         "year": {"from": "dateAvailable"},
+        # DriveThruRPG lists the publisher's stock number as ``sku`` (issue #479).
+        "product_code": {"from": "sku"},
         "genres": {
             "from": "filters",
             "select": {"field": "parentId", "in": [10, 100]},
@@ -266,6 +268,20 @@ class TestMetadataFetch:
 
     def test_requires_gm_or_admin(self, client, player_headers, book, installed):
         assert self._fetch(client, player_headers, book.id).status_code == 403
+
+    def test_maps_the_publisher_stock_number(
+        self, client, gm_headers, book, installed, monkeypatch
+    ):
+        """A book scraper may fill ``product_code`` (issue #479)."""
+        with open(os.path.join(FIXTURE_DIR, "drivethrurpg_detail.json"), encoding="utf-8") as fh:
+            detail_doc = {**json.load(fh), "sku": "PZO2102E"}
+        monkeypatch.setattr(
+            "backend.addons.service.fetch.fetch_document", lambda url, **kwargs: detail_doc
+        )
+        body = self._fetch(client, gm_headers, book.id).json()
+        row = next(r for r in body["fields"] if r["field"] == "product_code")
+        assert row["status"] == "only_incoming"
+        assert row["incoming"] == "PZO2102E"
 
     def test_unknown_book_is_404(self, client, gm_headers, installed, source_data):
         assert self._fetch(client, gm_headers, "nope").status_code == 404

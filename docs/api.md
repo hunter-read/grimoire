@@ -363,7 +363,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 |----------|--------|------|-------------|
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
 | `/api/books/:id` | GET | any | Book detail with game system |
-| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
+| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
@@ -433,8 +433,8 @@ Identical in shape and semantics to the game-system endpoints above (same
 differs. Applying goes through `PATCH /api/books/:id`.
 
 Book scrapers may map: `title`, `description`, `authors`, `artists`,
-`publisher`, `publisher_url`, `urls`, `genres`, `isbn`, `version`, `language`,
-`license`, `year`, `month`, `day`, `tags`.
+`publisher`, `publisher_url`, `urls`, `genres`, `isbn`, `product_code`,
+`version`, `language`, `license`, `year`, `month`, `day`, `tags`.
 
 **`query` on fetch:** sources that answer per query (a search endpoint) rather
 than serving a whole catalogue need the query to re-find the chosen candidate,
@@ -995,6 +995,7 @@ A term may be prefixed with a field name to search only that field:
 | `tag` | `tags` | Tags on books, maps, tokens, audio, and 3D models |
 | `year` | — | Publication year: `year:2015`, `year:>2015`, `year:<=2020`, `year:2015-2020` |
 | `isbn` | — | Book ISBN |
+| `code` | `sku`, `product_code` | Book product code (publisher's catalogue number); spaces and hyphens ignored on both sides |
 | `language` | `lang` | Book language |
 | `description` | `desc` | Book description |
 | `album` | — | Audio album |
@@ -1011,7 +1012,7 @@ Rules:
 * **Quoted phrases** (`author:"Gary Gygax"`, single or double quotes) keep spaces
   together.
 * **Book-only fields suppress the media sections.** `author:`, `publisher:`,
-  `category:`, `year:`, `isbn:`, `language:`, `description:`, and `text:` cannot
+  `category:`, `year:`, `isbn:`, `code:`, `language:`, `description:`, and `text:` cannot
   describe a map, so `maps`/`tokens`/`audio` come back empty rather than
   unfiltered.
 * **Unknown prefixes are searched literally.** A colon is ordinary punctuation in
@@ -1529,8 +1530,14 @@ does, so `available_version` and `update_available` are reported on each
 *installed* add-on (not just the available list) - an update is only actionable
 if it is visible on the row the admin is looking at. Versions compare as semver,
 so `1.10.0` is correctly newer than `1.9.0` and a downgrade in the index is
-never offered as an update. Applying an update is the same
-`POST /api/addons/:id/install` call. `update-all` continues past individual
+never offered as an update. Neither is a version whose index entry declares a
+`grimoire_min_version` above the running build: installing one is refused with
+a 400 before anything is downloaded, since the manifest may map a field this
+build lacks. A running version of `unknown` (a source checkout with no
+`VERSION` file) is never blocked. Applying an update is the same
+`POST /api/addons/:id/install` call, and the downloaded manifest is validated
+before it replaces the installed one, so a failed update leaves the previous
+version working. `update-all` continues past individual
 failures rather than aborting the batch. An add-on installed by hand has no
 index entry and therefore never reports an update.
 

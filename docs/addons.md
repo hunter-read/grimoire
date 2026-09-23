@@ -59,6 +59,13 @@ Two deliberate behaviours:
 - **A changed script drops back to unapproved.** Consent was given to specific
   code; if the code changed, Grimoire asks again before running it. `Update all`
   is no exception.
+- **An update that needs a newer Grimoire is held back.** A version whose
+  `grimoire_min_version` is above the running build is not offered as an
+  update, and installing it directly is refused with a message naming the
+  version it needs. Update Grimoire, and the update appears.
+
+An update that fails for any other reason - a download error, or a definition
+this build cannot load - leaves the installed version in place and working.
 
 An add-on you placed by hand has no index entry, so it never reports an update -
 update it the way you installed it.
@@ -68,7 +75,7 @@ update it the way you installed it.
 | Add-on | Target | Source | Fills in |
 | --- | --- | --- | --- |
 | TTRPG Wiki | game system | [ttrpgwiki.com](https://ttrpgwiki.com) | description, publisher, year, licence, system family, edition, genres, dice, tags, links |
-| DriveThruRPG | book | [drivethrurpg.com](https://www.drivethrurpg.com) | title, description, authors, artists, publisher, genres, ISBN, year, links |
+| DriveThruRPG | book | [drivethrurpg.com](https://www.drivethrurpg.com) | title, description, authors, artists, publisher, genres, ISBN, product code, year, links |
 
 **A note on DriveThruRPG:** its web storefront is behind a Cloudflare bot
 challenge, so the scraper does not touch it. It uses the OneBookShelf JSON API

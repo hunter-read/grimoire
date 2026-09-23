@@ -45,6 +45,11 @@ FIELD_ALIASES: dict[str, str] = {
     "tags": "tag",
     "year": "year",
     "isbn": "isbn",
+    # The publisher's catalogue number (issue #479). "sku" and "code" are the
+    # words a store listing and a cover actually use.
+    "code": "code",
+    "sku": "code",
+    "product_code": "code",
     "language": "language",
     "lang": "language",
     "description": "description",
@@ -62,7 +67,17 @@ FIELD_ALIASES: dict[str, str] = {
 # saying "author:gygax" is asking about books, and a full list of every map
 # would read as though the filter had been ignored.
 BOOK_ONLY_FIELDS = frozenset(
-    {"author", "publisher", "category", "year", "isbn", "language", "description", "text"}
+    {
+        "author",
+        "publisher",
+        "category",
+        "year",
+        "isbn",
+        "code",
+        "language",
+        "description",
+        "text",
+    }
 )
 
 # Fields a book row can match. The complement of the media-only fields
@@ -79,6 +94,7 @@ BOOK_FIELDS = frozenset(
         "tag",
         "year",
         "isbn",
+        "code",
         "language",
         "description",
         "filename",

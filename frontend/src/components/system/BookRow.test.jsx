@@ -453,6 +453,11 @@ describe('BookRow', () => {
     expect(screen.getByText('Errata')).toBeInTheDocument()
   })
 
+  it('shows the product code in the list layout', () => {
+    render(<BookRow book={makeBook({ product_code: 'PZO9001' })} />)
+    expect(screen.getByText('PZO9001')).toBeInTheDocument()
+  })
+
   // Issue #313 — cards are now real anchors (CardLink), so the browser handles
   // middle-click and ctrl/cmd-click natively. Tests verify the href.
   describe('real link row (issue #313)', () => {

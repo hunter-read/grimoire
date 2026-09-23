@@ -149,6 +149,7 @@ def get_book(
         "publisher_url": book.publisher_url,
         "urls": book.urls or [],
         "isbn": book.isbn or "",
+        "product_code": book.product_code or "",
         "version": book.version or "",
         "language": book.language or "",
         "license": book.license or "",

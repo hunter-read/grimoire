@@ -276,7 +276,8 @@
         "tag": "Étiquettes sur livres, cartes, jetons, audio",
         "publisher": "Éditeur",
         "year": "Année de publication, ou intervalle",
-        "text": "Contenu des pages uniquement"
+        "text": "Contenu des pages uniquement",
+        "code": "Code produit de l'éditeur (SKU)"
       }
     }
   },
@@ -1932,7 +1933,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Licence",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Récupérer les métadonnées"
+    "fetchMetadata": "Récupérer les métadonnées",
+    "productCodeLabel": "Code produit"
   },
   "reocr": {
     "button": "Relancer l'OCR",
@@ -2232,7 +2234,12 @@
     "discardTitle": "Abandonner les modifications non enregistrées ?",
     "discardHint": "Vous avez des modifications non enregistrées dans cette édition groupée. Les perdre en fermant ?",
     "keepEditing": "Continuer l'édition",
-    "discardChanges": "Abandonner les modifications"
+    "discardChanges": "Abandonner les modifications",
+    "readCodes": "Lire les codes dans les noms de fichier",
+    "readCodesHint": "Remplit chaque code produit vide avec un code trouvé dans le nom de fichier du livre (PZO…, DDAL…, TSR…, CAT…). Les codes déjà saisis sont conservés et rien n'est enregistré avant «Tout enregistrer».",
+    "readCodesResult_zero": "Aucun code produit trouvé dans ces noms de fichier.",
+    "readCodesResult_one": "1 code produit rempli. Vérifiez-le, puis choisissez «Tout enregistrer».",
+    "readCodesResult_other": "{{count}} codes produit remplis. Vérifiez-les, puis choisissez «Tout enregistrer»."
   },
   "guests": {
     "guests": "Invités",
@@ -2502,7 +2509,10 @@
     "tagGroupAdd": "Ajouter un groupe",
     "tagGroupMode": "Mode du groupe {{n}}",
     "tagGroupTags": "Étiquettes du groupe {{n}}",
-    "tagGroupRemove": "Supprimer le groupe {{n}}"
+    "tagGroupRemove": "Supprimer le groupe {{n}}",
+    "sortProductCode": "Code produit",
+    "filterProductCode": "Code produit",
+    "allProductCodes": "Tous les codes produit"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2627,7 +2637,8 @@
     "pages": "Pages",
     "fileSize": "Taille du fichier",
     "format": "Format",
-    "path": "Chemin"
+    "path": "Chemin",
+    "productCode": "Code produit"
   },
   "appearance": {
     "title": "Appearance",

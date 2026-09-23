@@ -64,6 +64,7 @@ MAPPABLE_BOOK_FIELDS = (
     "urls",
     "genres",
     "isbn",
+    "product_code",
     "version",
     "language",
     "license",

@@ -40,6 +40,7 @@ class BookUpdate(BaseModel):
     publisher_url: Optional[str] = None
     urls: Optional[list[LinkEntry]] = None
     isbn: Optional[str] = None
+    product_code: Optional[str] = None
     version: Optional[str] = None
     language: Optional[str] = None
     license: Optional[str] = None
@@ -195,6 +196,7 @@ class BookDetail(BaseModel):
     urls: list[LinkEntry]
     # Coalesced with `or ""` by the handler.
     isbn: str
+    product_code: str = ""
     version: str
     language: str
     license: str

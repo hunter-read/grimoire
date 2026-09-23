@@ -31,7 +31,9 @@ from .registry import (
     drop_state_for,
     get_cached_index,
     get_index_url,
+    is_newer,
     load_manifest,
+    read_manifest_file,
     save_cached_index,
     update_state_for,
 )
@@ -222,6 +224,21 @@ def _verify(body: bytes, expected: str, what: str) -> None:
         )
 
 
+def needs_newer_grimoire(entry: IndexEntry) -> bool:
+    """Whether ``entry`` declares a ``grimoire_min_version`` above this build.
+
+    An add-on that maps a field this build does not have fails validation, so
+    installing it would at best error and at worst replace a working older
+    version. A build that does not know its own version (a source checkout with
+    no VERSION file) is never blocked - refusing every add-on there is worse than
+    the rare install that turns out too new, which validation still catches.
+    """
+    needed = (entry.grimoire_min_version or "").strip()
+    if not needed or config.VERSION == "unknown":
+        return False
+    return is_newer(needed, config.VERSION)
+
+
 def install(db: Session, addon_id: str, approve_script: bool = False, index_url: Optional[str] = None) -> dict:
     """Install or update one add-on from the cached index.
 
@@ -235,6 +252,11 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     if entry is None:
         raise AddonError(
             f"'{addon_id}' is not in the add-on index - try refreshing it"
+        )
+    if needs_newer_grimoire(entry):
+        raise AddonError(
+            f"'{addon_id}' v{entry.version} needs Grimoire {entry.grimoire_min_version} "
+            f"or newer (this is {config.VERSION}) - update Grimoire first"
         )
 
     index_urls = get_index_url(db).split(",")
@@ -263,8 +285,13 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     os.makedirs(staging, exist_ok=True)
 
     try:
-        with open(os.path.join(staging, f"{addon_id}.yml"), "wb") as fh:
+        staged_manifest = os.path.join(staging, f"{addon_id}.yml")
+        with open(staged_manifest, "wb") as fh:
             fh.write(manifest_body)
+        # Validate before the swap: a manifest this build cannot load (a field it
+        # does not know, say) must leave the installed version working rather
+        # than replace it and then be removed by the load check below.
+        read_manifest_file(staged_manifest, addon_id)
 
         script_digest = ""
         if entry.requires_script:
@@ -323,7 +350,7 @@ def pending_updates(db: Session) -> list[tuple[str, str, str, str]]:
 
     Returns ``(id, installed_version, available_version, index_url)`` quadruples.
     """
-    from .registry import is_newer, load_all, get_state_for
+    from .registry import load_all, get_state_for
 
     index_entries = _index_entries(db)
     out = []
@@ -335,7 +362,9 @@ def pending_updates(db: Session) -> list[tuple[str, str, str, str]]:
         primary = next((e for e in index_entries if e.id == addon_id), None)
         entry = next((e for e in index_entries if e.id == addon_id and e.index_url == current_index_url), primary)
 
-        if entry and is_newer(entry.version, manifest.version):
+        # An update this build cannot install is not offered: "Update all" would
+        # only report it as a failure every time.
+        if entry and is_newer(entry.version, manifest.version) and not needs_newer_grimoire(entry):
             out.append((addon_id, manifest.version, entry.version, entry.index_url))
     return out
 

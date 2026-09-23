@@ -134,6 +134,33 @@ class TestUpdateBook:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
+    def test_product_code_round_trips(self, client, admin_headers, book):
+        """The publisher's catalogue number is stored and served (issue #479)."""
+        resp = client.patch(
+            f"/api/books/{book.id}", json={"product_code": "PZO9001"}, headers=admin_headers
+        )
+        assert resp.status_code == 200
+        assert client.get(f"/api/books/{book.id}", headers=admin_headers).json()[
+            "product_code"
+        ] == "PZO9001"
+
+        system = client.get(
+            f"/api/systems/{book.game_system_id}", headers=admin_headers
+        ).json()
+        (listed,) = [b for b in system["books"] if b["id"] == book.id]
+        assert listed["product_code"] == "PZO9001"
+
+    def test_product_code_bulk_update(self, client, admin_headers, book):
+        resp = client.post(
+            "/api/books/bulk",
+            json={"items": [{"id": book.id, "product_code": "TSR 9247"}]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert client.get(f"/api/books/{book.id}", headers=admin_headers).json()[
+            "product_code"
+        ] == "TSR 9247"
+
     def test_player_cannot_update(self, client, player_headers, book):
         resp = client.patch(
             f"/api/books/{book.id}",

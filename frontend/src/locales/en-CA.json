@@ -276,7 +276,8 @@
         "tag": "Tags on books, maps, tokens, audio",
         "publisher": "Publisher",
         "year": "Publication year, or a range",
-        "text": "Page content only"
+        "text": "Page content only",
+        "code": "The publisher's product code (SKU)"
       }
     }
   },
@@ -1932,7 +1933,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "License",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Fetch metadata"
+    "fetchMetadata": "Fetch metadata",
+    "productCodeLabel": "Product code"
   },
   "reocr": {
     "button": "Re-OCR",
@@ -2232,7 +2234,12 @@
     "discardTitle": "Discard unsaved changes?",
     "discardHint": "You have unsaved edits in this bulk edit. Closing now will lose them.",
     "keepEditing": "Keep editing",
-    "discardChanges": "Discard changes"
+    "discardChanges": "Discard changes",
+    "readCodes": "Read codes from file names",
+    "readCodesHint": "Fill each empty product code from a code in that book's file name (PZO…, DDAL…, TSR…, CAT…). Codes already set are kept, and nothing is saved until you choose “Save all”.",
+    "readCodesResult_zero": "No product codes found in these file names.",
+    "readCodesResult_one": "Filled in 1 product code. Review it, then choose “Save all”.",
+    "readCodesResult_other": "Filled in {{count}} product codes. Review them, then choose “Save all”."
   },
   "guests": {
     "guests": "Guests",
@@ -2502,7 +2509,10 @@
     "tagGroupAdd": "Add group",
     "tagGroupMode": "Group {{n}} match mode",
     "tagGroupTags": "Group {{n}} tags",
-    "tagGroupRemove": "Remove group {{n}}"
+    "tagGroupRemove": "Remove group {{n}}",
+    "sortProductCode": "Product code",
+    "filterProductCode": "Product code",
+    "allProductCodes": "All product codes"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2627,7 +2637,8 @@
     "pages": "Pages",
     "fileSize": "File size",
     "format": "Format",
-    "path": "Path"
+    "path": "Path",
+    "productCode": "Product code"
   },
   "appearance": {
     "title": "Appearance",

@@ -13,6 +13,7 @@ from .constants import (
     _AUDIO_COVER_STEMS,
     _OPF_BOOK_FIELDS,
     _OPF_NS,
+    PRODUCT_CODE_SCHEMES,
 )
 
 logger = logging.getLogger("grimoire.indexer")
@@ -192,11 +193,30 @@ def _parse_opf_isbn(root: ElementTree.Element) -> str:
     return ""
 
 
+def _parse_opf_product_code(root: ElementTree.Element) -> str:
+    """Return the first ``dc:identifier`` whose scheme names a product code.
+
+    Scoped the same way as the ISBN read and for the same reason: a bare
+    identifier is Calibre's UUID, not a code. No format check - product codes
+    have no shared shape across publishers ("PZO9001", "TSR 9247") - beyond
+    fitting the column (issue #479).
+    """
+    scheme_attr = f"{{{_OPF_NS['opf']}}}scheme"
+    for el in root.findall("opf:metadata/dc:identifier", _OPF_NS):
+        if (el.get(scheme_attr) or "").strip().lower() not in PRODUCT_CODE_SCHEMES:
+            continue
+        code = " ".join((el.text or "").split())
+        if code and len(code) <= 100:
+            return code
+    return ""
+
+
 def parse_opf_metadata(opf_path: str) -> dict:
     """Parse a Calibre/OPF metadata file and return a dict of book fields.
 
     Returns a dict containing any of: title, authors, description, publisher,
-    year, isbn, tags, cover_image_filename. Only keys with actual values are
+    year, isbn, product_code, tags, cover_image_filename. Only keys with actual
+    values are
     included. cover_image_filename is the bare filename (not a path) of the
     cover image referenced in the OPF <guide>, if present.
     """
@@ -250,6 +270,10 @@ def parse_opf_metadata(opf_path: str) -> dict:
     isbn = _parse_opf_isbn(root)
     if isbn:
         meta["isbn"] = isbn
+
+    product_code = _parse_opf_product_code(root)
+    if product_code:
+        meta["product_code"] = product_code
 
     subjects = [
         el.text.strip().lower()

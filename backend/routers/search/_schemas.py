@@ -34,6 +34,8 @@ class SearchBookMatch(BaseModel):
     category: Optional[str] = None
     authors: list[str]
     publisher: str
+    # The publisher's catalogue number (issue #479); "" when unset.
+    product_code: str = ""
     year: Optional[int] = None
     page_count: int
     has_thumbnail: bool
