@@ -44,6 +44,7 @@
     "updateAvailable": "Uppdatering tillgänglig",
     "viewRelease": "Visa version",
     "github": "GitHub-repo",
+    "docs": "Dokumentation",
     "openAbout": "Om Grimoire",
     "changelog": "Ändringslogg",
     "currentVersion": "aktuell"
@@ -275,7 +276,8 @@
         "tag": "Taggar på böcker, kartor, tokens, ljud",
         "publisher": "Förlag",
         "year": "Utgivningsår, eller ett intervall",
-        "text": "Endast sidinnehåll"
+        "text": "Endast sidinnehåll",
+        "code": "Förlagets produktkod (SKU)"
       }
     }
   },
@@ -1041,6 +1043,10 @@
       "title": "Biblioteksinställningar",
       "description": "Visningsinställningar för bibliotekvyerna.",
       "sortOrder": "Sorteringsordning",
+      "folderPlacement": "Mappar i boklistor",
+      "folderPlacementFirst": "Mappar först",
+      "folderPlacementMixed": "Blandat med böcker",
+      "folderPlacementHint": "Blandat sorterar varje mapp bland böckerna bredvid den, efter namn - eller, för andra sorteringar, efter dess första bok.",
       "viewMode": "Standardvy",
       "viewModeSystems": "System",
       "viewModeBooks": "Böcker",
@@ -1927,7 +1933,8 @@
     "createCategory": "Skapa \"{{name}}\"",
     "licenseLabel": "Licens",
     "licensePlaceholder": "Ärv systemets licens",
-    "fetchMetadata": "Hämta metadata"
+    "fetchMetadata": "Hämta metadata",
+    "productCodeLabel": "Produktkod"
   },
   "reocr": {
     "button": "Kör OCR igen",
@@ -2089,6 +2096,7 @@
     "templateCreate": "Skapa mall",
     "templateNameRequired": "Ge mallen ett namn.",
     "chooseFile": "Välj fil",
+    "chooseFolder": "Välj mapp",
     "importing": "Importerar…",
     "imported": "Importerade {{count}} sida",
     "imported_other": "Importerade {{count}} sidor",
@@ -2137,7 +2145,8 @@
     "shareName": "Namn",
     "shareReadFor": "Läsåtkomst för {{name}}",
     "shareWriteFor": "Skrivåtkomst för {{name}}",
-    "shareReadLocked": "Läsning ingår med skrivåtkomst"
+    "shareReadLocked": "Läsning ingår med skrivåtkomst",
+    "importFolderEmpty": "Den mappen innehåller inga Markdown-filer."
   },
   "campaignNotes": {
     "backToOverview": "Tillbaka till översikt"
@@ -2211,6 +2220,7 @@
     "field_explicit": "Explicit innehåll",
     "previous": "Föregående",
     "next": "Nästa",
+    "fetchShortcut": "Hämta metadata för det här objektet (F). Använd ← och → för att flytta mellan objekt.",
     "field_genre": "Genre",
     "field_characterBuilderUrl": "URL för rollpersonsbyggare",
     "applyToAll": "Tillämpa på alla {{count}}",
@@ -2337,8 +2347,6 @@
       "artist": "Artist",
       "album": "Album",
       "duration": "Längd",
-      "chapters": "Kapitel",
-      "untitledChapter": "Kapitel {{number}}",
       "folderTags": "Mapptaggar",
       "trackTags": "Spårtaggar",
       "editTags": "Redigera",
@@ -2355,15 +2363,6 @@
       "emptyQueue": "Kön är tom",
       "previous": "Föregående spår",
       "next": "Nästa spår",
-      "previousChapter": "Föregående kapitel",
-      "nextChapter": "Nästa kapitel",
-      "skipBack15": "Tillbaka 15 sekunder",
-      "skipForward15": "Framåt 15 sekunder",
-      "sleepTimer": "Insomningstimer",
-      "sleepTimerMinutes": "{{minutes}} minuter",
-      "sleepTimerHour": "1 timme",
-      "sleepTimerEndOfChapter": "Slutet av kapitlet",
-      "sleepTimerOff": "Av",
       "repeatOn": "Upprepa aktuellt spår: på",
       "repeatOff": "Upprepa aktuellt spår: av",
       "playNext": "Spela härnäst",
@@ -2372,12 +2371,7 @@
       "close": "Stäng spelaren",
       "seek": "Sök",
       "removeFromQueue": "Ta bort från kön",
-      "reorder": "Dra för att ändra ordning",
-      "volume": "Volym",
-      "mute": "Ljud av",
-      "unmute": "Ljud på",
-      "playbackSpeed": "Uppspelningshastighet",
-      "speedNormal": "Normal"
+      "reorder": "Dra för att ändra ordning"
     },
     "playFolder": "Spela {{folder}}",
     "playGroup": "Spela ljud",
@@ -2511,7 +2505,10 @@
     "tagGroupAdd": "Lägg till grupp",
     "tagGroupMode": "Grupp {{n}} matchningsläge",
     "tagGroupTags": "Grupp {{n}} taggar",
-    "tagGroupRemove": "Ta bort grupp {{n}}"
+    "tagGroupRemove": "Ta bort grupp {{n}}",
+    "sortProductCode": "Produktkod",
+    "filterProductCode": "Produktkod",
+    "allProductCodes": "Alla produktkoder"
   },
   "lookupSettings": {
     "genresTitle": "Genrer",
@@ -2612,6 +2609,11 @@
     "statusSame": "redan inställt",
     "apply": "Tillämpa {{count}} fält",
     "apply_other": "Tillämpa {{count}} fält",
+    "applyAndNext": "Tillämpa {{count}} fält & nästa",
+    "applyAndNext_other": "Tillämpa {{count}} fält & nästa",
+    "skip": "Hoppa över",
+    "keyboardHint": "↑ ↓ för att flytta mellan träffar · Enter för att välja en",
+    "pickedBefore": "valdes förra gången",
     "back": "Tillbaka",
     "viewSource": "Visa källa",
     "pasteToggle": "Vet du exakt vilken? Klistra in en länk eller ID",
@@ -2636,7 +2638,8 @@
     "pages": "Sidor",
     "fileSize": "Filstorlek",
     "format": "Format",
-    "path": "Sökväg"
+    "path": "Sökväg",
+    "productCode": "Produktkod"
   },
   "appearance": {
     "title": "Utseende",
