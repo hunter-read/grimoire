@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { createRef } from 'react'
 import useReaderGestures from './useReaderGestures'
@@ -109,6 +109,65 @@ describe('useReaderGestures — wheel', () => {
     wheel({ deltaY: 100 })
     wheel({ deltaY: 100 })
     expect(opts.goToPage).toHaveBeenCalledTimes(1)
+  })
+
+  describe('wheel gestures', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(10_000)
+    })
+    afterEach(() => vi.useRealTimers())
+
+    /** Fire `count` wheel events `every` ms apart, like a trackpad's momentum tail. */
+    const stream = (wheel, count, every, init = {}) => {
+      for (let i = 0; i < count; i++) {
+        wheel({ deltaY: Math.max(1, 60 - i), ...init })
+        vi.advanceTimersByTime(every)
+      }
+    }
+
+    it('turns one page for a trackpad swipe, momentum included (issue #485)', () => {
+      // ~1.5 s of events at 60 fps: the old 500 ms window turned a second page
+      // partway through the momentum.
+      const { wheel, opts } = setup({ wheelAction: 'page' })
+      stream(wheel, 90, 16)
+      expect(opts.goToPage).toHaveBeenCalledTimes(1)
+    })
+
+    it('turns another page for a fresh swipe once the last one has settled', () => {
+      const { wheel, opts } = setup({ wheelAction: 'page' })
+      stream(wheel, 30, 16)
+      vi.advanceTimersByTime(300)
+      stream(wheel, 30, 16)
+      expect(opts.goToPage).toHaveBeenCalledTimes(2)
+    })
+
+    it('turns another page for a fresh swipe while the last one is still coasting', () => {
+      // Swiping again before the momentum died used to be swallowed entirely.
+      const { wheel, opts } = setup({ wheelAction: 'page' })
+      stream(wheel, 60, 16)
+      for (const deltaY of [3, 8, 20, 45, 70]) {
+        wheel({ deltaY })
+        vi.advanceTimersByTime(16)
+      }
+      expect(opts.goToPage).toHaveBeenCalledTimes(2)
+    })
+
+    it('turns a page per mouse-wheel notch when they are spaced out', () => {
+      const { wheel, opts } = setup({ wheelAction: 'page' })
+      for (let i = 0; i < 3; i++) {
+        wheel({ deltaY: 100 })
+        vi.advanceTimersByTime(300)
+      }
+      expect(opts.goToPage).toHaveBeenCalledTimes(3)
+    })
+
+    it('still swallows mid-gesture events so the page does not scroll natively', () => {
+      const { wheel } = setup({ wheelAction: 'page' })
+      wheel({ deltaY: 100 })
+      vi.advanceTimersByTime(16)
+      expect(wheel({ deltaY: 90 }).defaultPrevented).toBe(true)
+    })
   })
 
   it('caps how far one wheel event can zoom', () => {

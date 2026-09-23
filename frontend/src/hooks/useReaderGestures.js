@@ -1,5 +1,6 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { MIN_ZOOM, MAX_ZOOM } from './useReaderZoom'
+import { createWheelGesture } from './wheelGesture'
 
 // Largest zoom change a single wheel event may cause, so a fast flick on a mouse
 // wheel doesn't jump the whole range at once.
@@ -45,11 +46,11 @@ export default function useReaderGestures({
   const touchStartRef = useRef(null)
   const longPressTimerRef = useRef(null)
   const longPressFiredRef = useRef(false)
-  const lastWheelRef = useRef(0)
+  const [isNewWheelGesture] = useState(createWheelGesture)
 
-  // Wheel: zoom or page, per the user's preference. Paging stays throttled to
-  // 500 ms to avoid skipping several pages per flick; zooming deliberately is
-  // not throttled, since dropping frames there just feels broken.
+  // Wheel: zoom or page, per the user's preference. Paging turns one page per
+  // wheel gesture, so a flick doesn't skip several pages; zooming deliberately
+  // is not throttled, since dropping frames there just feels broken.
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
@@ -80,9 +81,10 @@ export default function useReaderGestures({
       if (wheelAction !== 'page') return
 
       e.preventDefault()
-      const now = Date.now()
-      if (now - lastWheelRef.current < 500) return
-      lastWheelRef.current = now
+      // One turn per swipe: a trackpad's momentum tail is part of the swipe that
+      // started it, not another turn (issue #485).
+      const magnitude = Math.max(Math.abs(e.deltaX), Math.abs(e.deltaY))
+      if (!isNewWheelGesture(magnitude, Date.now())) return
       const wheelStep = mode === 'spread' ? 2 : 1
       const absDx = Math.abs(e.deltaX)
       const absDy = Math.abs(e.deltaY)
@@ -94,7 +96,7 @@ export default function useReaderGestures({
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [mode, currentPage, wheelAction, goToPage, contentRef, zoomAt, zoomRef])
+  }, [mode, currentPage, wheelAction, goToPage, contentRef, zoomAt, zoomRef, isNewWheelGesture])
 
   // Mouse drag-to-pan while zoomed. The touch path already pans; without this
   // a mouse user who zooms in has no way to reach the rest of the page.
