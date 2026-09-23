@@ -2220,6 +2220,7 @@
     "field_explicit": "Explicit content",
     "previous": "Previous",
     "next": "Next",
+    "fetchShortcut": "Fetch metadata for this item (F). Use ← and → to move between items.",
     "field_genre": "Genre",
     "field_characterBuilderUrl": "Character Builder URL",
     "applyToAll": "Apply to all {{count}}",
@@ -2234,12 +2235,7 @@
     "discardTitle": "Discard unsaved changes?",
     "discardHint": "You have unsaved edits in this bulk edit. Closing now will lose them.",
     "keepEditing": "Keep editing",
-    "discardChanges": "Discard changes",
-    "readCodes": "Read codes from file names",
-    "readCodesHint": "Fill each empty product code from a code in that book's file name (PZO…, DDAL…, TSR…, CAT…). Codes already set are kept, and nothing is saved until you choose “Save all”.",
-    "readCodesResult_zero": "No product codes found in these file names.",
-    "readCodesResult_one": "Filled in 1 product code. Review it, then choose “Save all”.",
-    "readCodesResult_other": "Filled in {{count}} product codes. Review them, then choose “Save all”."
+    "discardChanges": "Discard changes"
   },
   "guests": {
     "guests": "Guests",
@@ -2613,6 +2609,11 @@
     "statusSame": "already set",
     "apply": "Apply {{count}} field",
     "apply_other": "Apply {{count}} fields",
+    "applyAndNext": "Apply {{count}} field & next",
+    "applyAndNext_other": "Apply {{count}} fields & next",
+    "skip": "Skip",
+    "keyboardHint": "↑ ↓ to move between matches · Enter to choose one",
+    "pickedBefore": "picked last time",
     "back": "Back",
     "viewSource": "View source",
     "pasteToggle": "Know the exact one? Paste a link or ID",

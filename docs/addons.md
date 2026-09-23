@@ -38,6 +38,21 @@ source (or just its ID) and it goes straight to the review step, no searching.
 That is the quickest route for a big catalogue like DriveThruRPG, where a title
 search returns many near-misses.
 
+**Bulk edit** runs the same dialog as a loop over the selection (issue #466).
+The **Fetch metadata** button sits in the modal's fixed footer (shortcut **F**). The
+dialog searches each item's name on arrival and keeps the last-used source. It
+focuses the first match and then the apply button, so Enter, Enter handles an
+item. The dialog shows the modal's own item navigation bar (the shared
+`ItemCarouselNav`, where the right chevron skips), and together with **Apply &
+next** it moves through the selection without closing the dialog. Each item's search (source, query, results, last pick) is
+kept for the session, so going back shows the earlier matches without asking
+the source again. Fields an earlier fetch wrote to the item, and which still
+hold those values, are pre-ticked even when they show as `differs`, so a
+wrong look-alike can be corrected in one step. Fetched fields are PATCHed as they are applied, so the modal treats them
+as saved: they are not resent by **Save all**, they do not trigger the
+unsaved-changes prompt, and they are passed to `onSaved` however the modal
+closes.
+
 To run a private or in-development add-on, drop its directory into
 `DATA_PATH/add-ons/<id>/` and restart - no index required.
 

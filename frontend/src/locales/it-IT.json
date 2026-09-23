@@ -2220,6 +2220,7 @@
     "field_explicit": "Contenuti espliciti",
     "previous": "Precedente",
     "next": "Successivo",
+    "fetchShortcut": "Recupera i metadati di questo elemento (F). Usa ← e → per spostarti tra gli elementi.",
     "field_genre": "Genere",
     "field_characterBuilderUrl": "URL Character Builder",
     "applyToAll": "Applica a tutti i {{count}}",
@@ -2234,12 +2235,7 @@
     "discardTitle": "Ignorare le modifiche non salvate?",
     "discardHint": "Hai modifiche non salvate in questa modifica in blocco. Chiudendo ora le perderai.",
     "keepEditing": "Continua a modificare",
-    "discardChanges": "Ignora modifiche",
-    "readCodes": "Leggi i codici dai nomi dei file",
-    "readCodesHint": "Compila ogni codice prodotto vuoto con un codice trovato nel nome del file del libro (PZO…, DDAL…, TSR…, CAT…). I codici già impostati restano invariati e nulla viene salvato finché non scegli «Salva tutto».",
-    "readCodesResult_zero": "Nessun codice prodotto trovato in questi nomi di file.",
-    "readCodesResult_one": "Compilato 1 codice prodotto. Controllalo, poi scegli «Salva tutto».",
-    "readCodesResult_other": "Compilati {{count}} codici prodotto. Controllali, poi scegli «Salva tutto»."
+    "discardChanges": "Ignora modifiche"
   },
   "guests": {
     "guests": "Ospiti",
@@ -2613,6 +2609,11 @@
     "statusSame": "già impostato",
     "apply": "Applica {{count}} campo",
     "apply_other": "Applica {{count}} campi",
+    "applyAndNext": "Applica {{count}} campo e avanti",
+    "applyAndNext_other": "Applica {{count}} campi e avanti",
+    "skip": "Salta",
+    "keyboardHint": "↑ ↓ per scorrere i risultati · Invio per sceglierne uno",
+    "pickedBefore": "scelto l’ultima volta",
     "back": "Indietro",
     "viewSource": "Vedi fonte",
     "pasteToggle": "Conosci quello esatto? Incolla un link o un ID",

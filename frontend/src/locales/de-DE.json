@@ -2220,6 +2220,7 @@
     "field_explicit": "Explizite Inhalte",
     "previous": "Zurück",
     "next": "Weiter",
+    "fetchShortcut": "Metadaten für diesen Eintrag abrufen (F). Mit ← und → zwischen Einträgen wechseln.",
     "field_genre": "Genre",
     "field_characterBuilderUrl": "Charaktergenerator-URL",
     "applyToAll": "Auf alle {{count}} anwenden",
@@ -2234,12 +2235,7 @@
     "discardTitle": "Nicht gespeicherte Änderungen verwerfen?",
     "discardHint": "Du hast nicht gespeicherte Änderungen in dieser Sammelbearbeitung. Beim Schließen gehen sie verloren.",
     "keepEditing": "Weiter bearbeiten",
-    "discardChanges": "Änderungen verwerfen",
-    "readCodes": "Codes aus Dateinamen lesen",
-    "readCodesHint": "Füllt jeden leeren Produktcode mit einem Code aus dem Dateinamen des Buchs (PZO…, DDAL…, TSR…, CAT…). Vorhandene Codes bleiben erhalten; gespeichert wird erst mit „Alle speichern“.",
-    "readCodesResult_zero": "In diesen Dateinamen wurden keine Produktcodes gefunden.",
-    "readCodesResult_one": "1 Produktcode eingetragen. Bitte prüfen und dann „Alle speichern“ wählen.",
-    "readCodesResult_other": "{{count}} Produktcodes eingetragen. Bitte prüfen und dann „Alle speichern“ wählen."
+    "discardChanges": "Änderungen verwerfen"
   },
   "guests": {
     "guests": "Gäste",
@@ -2613,6 +2609,11 @@
     "statusSame": "bereits gesetzt",
     "apply": "{{count}} Feld übernehmen",
     "apply_other": "{{count}} Felder übernehmen",
+    "applyAndNext": "{{count}} Feld übernehmen & weiter",
+    "applyAndNext_other": "{{count}} Felder übernehmen & weiter",
+    "skip": "Überspringen",
+    "keyboardHint": "↑ ↓ wechselt zwischen Treffern · Enter wählt einen aus",
+    "pickedBefore": "zuletzt gewählt",
     "back": "Zurück",
     "viewSource": "Quelle ansehen",
     "pasteToggle": "Genau bekannt? Link oder ID einfügen",

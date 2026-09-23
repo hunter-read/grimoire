@@ -2220,6 +2220,7 @@
     "field_explicit": "Conteúdo explícito",
     "previous": "Anterior",
     "next": "Próximo",
+    "fetchShortcut": "Obter metadados deste item (F). Use ← e → para navegar entre os itens.",
     "field_genre": "Gênero",
     "field_characterBuilderUrl": "URL do criador de personagens",
     "applyToAll": "Aplicar a todos os {{count}}",
@@ -2234,12 +2235,7 @@
     "discardTitle": "Descartar alterações não salvas?",
     "discardHint": "Você tem edições não salvas nesta edição em massa. Fechar agora vai perdê-las.",
     "keepEditing": "Continuar editando",
-    "discardChanges": "Descartar alterações",
-    "readCodes": "Ler códigos dos nomes de arquivo",
-    "readCodesHint": "Preenche cada código de produto vazio com um código do nome de arquivo do livro (PZO…, DDAL…, TSR…, CAT…). Códigos já definidos são mantidos e nada é salvo até você escolher «Salvar tudo».",
-    "readCodesResult_zero": "Nenhum código de produto encontrado nesses nomes de arquivo.",
-    "readCodesResult_one": "1 código de produto preenchido. Revise-o e depois escolha «Salvar tudo».",
-    "readCodesResult_other": "{{count}} códigos de produto preenchidos. Revise-os e depois escolha «Salvar tudo»."
+    "discardChanges": "Descartar alterações"
   },
   "guests": {
     "guests": "Convidados",
@@ -2613,6 +2609,11 @@
     "statusSame": "já definido",
     "apply": "Aplicar {{count}} campo",
     "apply_other": "Aplicar {{count}} campos",
+    "applyAndNext": "Aplicar {{count}} campo e avançar",
+    "applyAndNext_other": "Aplicar {{count}} campos e avançar",
+    "skip": "Pular",
+    "keyboardHint": "↑ ↓ para percorrer os resultados · Enter para escolher um",
+    "pickedBefore": "escolhido da última vez",
     "back": "Voltar",
     "viewSource": "Ver fonte",
     "pasteToggle": "Sabe qual é? Cole uma ligação ou ID",

@@ -2220,6 +2220,7 @@
     "field_explicit": "Contenu explicite",
     "previous": "Précédent",
     "next": "Suivant",
+    "fetchShortcut": "Récupérer les métadonnées de cet élément (F). ← et → pour passer d'un élément à l'autre.",
     "field_genre": "Genre",
     "field_characterBuilderUrl": "URL du créateur de personnage",
     "applyToAll": "Appliquer aux {{count}}",
@@ -2234,12 +2235,7 @@
     "discardTitle": "Abandonner les modifications non enregistrées ?",
     "discardHint": "Vous avez des modifications non enregistrées dans cette édition groupée. Les perdre en fermant ?",
     "keepEditing": "Continuer l'édition",
-    "discardChanges": "Abandonner les modifications",
-    "readCodes": "Lire les codes dans les noms de fichier",
-    "readCodesHint": "Remplit chaque code produit vide avec un code trouvé dans le nom de fichier du livre (PZO…, DDAL…, TSR…, CAT…). Les codes déjà saisis sont conservés et rien n'est enregistré avant «Tout enregistrer».",
-    "readCodesResult_zero": "Aucun code produit trouvé dans ces noms de fichier.",
-    "readCodesResult_one": "1 code produit rempli. Vérifiez-le, puis choisissez «Tout enregistrer».",
-    "readCodesResult_other": "{{count}} codes produit remplis. Vérifiez-les, puis choisissez «Tout enregistrer»."
+    "discardChanges": "Abandonner les modifications"
   },
   "guests": {
     "guests": "Invités",
@@ -2613,6 +2609,11 @@
     "statusSame": "déjà défini",
     "apply": "Appliquer {{count}} champ",
     "apply_other": "Appliquer {{count}} champs",
+    "applyAndNext": "Appliquer {{count}} champ et continuer",
+    "applyAndNext_other": "Appliquer {{count}} champs et continuer",
+    "skip": "Passer",
+    "keyboardHint": "↑ ↓ pour parcourir les résultats · Entrée pour en choisir un",
+    "pickedBefore": "choisi la dernière fois",
     "back": "Retour",
     "viewSource": "Voir la source",
     "pasteToggle": "Vous savez lequel ? Collez un lien ou un ID",
