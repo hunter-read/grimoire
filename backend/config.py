@@ -281,6 +281,11 @@ def _bool_env(name: str) -> Optional[bool]:
 # (guest_access_enabled) is used.
 GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 
+# API keys for the whole instance (issue #489). On unless set to "false", which
+# turns them off for everyone, admins included: keys stop authenticating, the
+# /api/api-keys endpoints refuse, and the UI hides them.
+API_KEYS_ENABLED: bool = _bool_env("API_KEYS_ENABLED") is not False
+
 
 # ---------------------------------------------------------------------------
 # Backups (issue #338)

@@ -104,16 +104,46 @@ class TestRateLimiting:
                 break
         assert saw_429
 
-    def test_stats_rate_limited(self, client, rate_limited):
-        """The API-key-guarded /api/stats endpoint is throttled too."""
+    def test_failed_api_keys_rate_limited(self, client, rate_limited):
+        """Guessing API keys is throttled per IP on any endpoint (issue #489)."""
         headers = {"X-Forwarded-For": "203.0.113.50", "X-API-Key": "wrong"}
         saw_429 = False
-        for _ in range(30):
-            resp = client.get("/api/stats", headers=headers)
+        for i in range(30):
+            path = "/api/stats" if i % 2 else "/api/books"
+            resp = client.get(path, headers=headers)
             if resp.status_code == 429:
                 saw_429 = True
                 break
         assert saw_429
+
+    def test_blocked_ip_is_refused_even_with_a_valid_key(
+        self, client, admin_headers, rate_limited
+    ):
+        """Once over the limit a right guess must look like a wrong one."""
+        key = client.post(
+            "/api/api-keys",
+            json={"name": "rate", "permissions": {"stats": "read"}},
+            headers=admin_headers,
+        ).json()["key"]
+        ip = {"X-Forwarded-For": "203.0.113.51"}
+        for _ in range(30):
+            client.get("/api/stats", headers={**ip, "X-API-Key": "wrong"})
+        resp = client.get("/api/stats", headers={**ip, "X-API-Key": key})
+        assert resp.status_code == 429
+        # Another client is unaffected.
+        other = {"X-Forwarded-For": "203.0.113.52", "X-API-Key": key}
+        assert client.get("/api/stats", headers=other).status_code == 200
+
+    def test_working_key_is_never_throttled(self, client, admin_headers, rate_limited):
+        """Only failures count: a dashboard polling often keeps working."""
+        key = client.post(
+            "/api/api-keys",
+            json={"name": "poller", "permissions": {"stats": "read"}},
+            headers=admin_headers,
+        ).json()["key"]
+        headers = {"X-Forwarded-For": "203.0.113.53", "X-API-Key": key}
+        for _ in range(30):
+            assert client.get("/api/stats", headers=headers).status_code == 200
 
     def test_disabled_by_default_under_pytest(self, client, admin_setup):
         """With the limiter disabled, many attempts never 429."""

@@ -118,4 +118,32 @@ describe('UserExpandedEditor', () => {
     fireEvent.click(screen.getByText('Save'))
     await waitFor(() => expect(onEmailChange).toHaveBeenCalledWith('u1', 'new@b.com'))
   })
+
+  describe('API keys toggle', () => {
+    it('is hidden while keys are off for the instance', () => {
+      setup()
+      expect(screen.queryByLabelText('API keys')).toBeNull()
+    })
+
+    it('grants and revokes a user', () => {
+      const props = setup({ apiKeysEnabled: true, onApiKeysChange: vi.fn() })
+      const toggle = screen.getByLabelText('API keys')
+      expect(toggle).not.toBeChecked()
+      fireEvent.click(toggle)
+      expect(props.onApiKeysChange).toHaveBeenCalledWith('u1', true)
+    })
+
+    it('is always on, and locked, for an admin', () => {
+      const props = setup({
+        user: { ...baseUser, role: 'admin' },
+        apiKeysEnabled: true,
+        onApiKeysChange: vi.fn(),
+      })
+      const toggle = screen.getByLabelText('API keys')
+      expect(toggle).toBeChecked()
+      expect(toggle).toBeDisabled()
+      fireEvent.click(toggle)
+      expect(props.onApiKeysChange).not.toHaveBeenCalled()
+    })
+  })
 })

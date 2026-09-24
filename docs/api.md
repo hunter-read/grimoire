@@ -23,7 +23,7 @@ that omits its `response_model=` fails the suite.
 
 ## Authentication
 
-All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, `/api/auth/logout`, `/api/auth/refresh`, and `/api/auth/config` require a JWT.
+All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, `/api/auth/logout`, `/api/auth/refresh`, and `/api/auth/config` require a JWT - or, for external integrations, an [API key](#api-keys).
 
 **Header** (preferred for API clients):
 ```
@@ -67,9 +67,124 @@ Sessions are revoked automatically when:
 
 When an access token expires, the response carries an `X-Token-Expired: 1` header alongside the 401 so clients can distinguish "refresh and retry" from a genuine authentication failure. The web client refreshes and replays the request automatically, sharing one in-flight refresh across concurrent 401s (parallel exchanges would rotate each other into invalidity).
 
+### API keys
+
+Scripts and integrations - a [Homepage](https://gethomepage.dev) widget, a
+command-line tool such as [grimoire-cli](https://github.com/thomaslazar/grimoire-cli),
+a backup script - authenticate with an **API key** instead of a session
+([#489](https://github.com/hunter-read/grimoire/issues/489)):
+
+```
+X-API-Key: grim_...
+```
+
+**Keys are personal.** Every key belongs to a user and acts **as that user** -
+their role, their campaigns, their favourites - narrowed by the key's own
+permissions. A key can never do more than its owner: role guards and handlers
+run exactly as for the owner's session, and use the owner's *current* role, so a
+demoted user's keys lose what the demotion took away. Keys are deleted with
+their owner.
+
+Users create keys under **Settings → Account → Security → API Keys** (or through
+[`/api/api-keys`](#api-keys-1)). Who may:
+
+- **The instance** - API keys are on unless `API_KEYS_ENABLED=false`, which turns
+  them off for everyone, admins included: every key is refused, every
+  `/api/api-keys` endpoint returns `403`, and the UI hides the key menus.
+- **Each user** - admins always may. Anyone else only once an admin ticks
+  **API keys** on their row in **Settings → Users** (`api_keys_enabled`, off by
+  default), or the OIDC [permissions claim](oidc.md) grants `apiKeys`. Taking it
+  away stops that user's existing keys (`403`) without deleting them.
+- **Guests** never hold keys.
+
+`GET /api/auth/me` (and the `user` block of every login response) says whether
+the caller may use keys right now, as `api_keys_allowed`.
+
+Each key has a name, an optional expiry, and a level per **permission**:
+
+| Level | Allows |
+|-------|--------|
+| **No access** (default) | Nothing |
+| **Read** | `GET` requests, plus `POST` routes marked read-only |
+| **Read and write** | Every method |
+
+A permission is an area of the API, taken from each endpoint's OpenAPI tag:
+
+| Permission | Tags | Covers |
+|------------|------|--------|
+| `stats` | `stats` | `/api/stats` - library counts and totals |
+| `library` | `library` | Scan status, rescan and cancel, cleanup of missing items (`/api/maintenance/cleanup-missing`), version and changelog |
+| `books` | `books` | Books, metadata, covers, pages and files |
+| `systems` | `systems` | Game systems, covers and book folders |
+| `search` | `search` | Full-text search |
+| `tags` | `tags` | Tag management and tagged items |
+| `lookups` | `lookups` | Genres, system families, parent systems, licenses, dice/materials |
+| `maps` | `maps` | Maps and map folders |
+| `tokens` | `tokens`, `token-frames` | Tokens, token folders and token frames |
+| `audio` | `audio` | Audio tracks, covers and folders |
+| `models` | `models` | 3D models and model folders |
+| `campaigns` | `campaigns` | The owner's campaigns: members, sessions, wiki, resources, schedule |
+| `downloads` | `downloads` | Zip archive downloads |
+| `files` | `files` | The library file manager |
+| `duplicates` | `duplicates` | Duplicate detection and resolution |
+| `addons` | `addons` | Community metadata add-ons |
+| `maintenance` | `maintenance` | Metadata sidecar settings and export |
+| `backups` | `backups` | Backups and the backup schedule |
+| `logs` | `logs` | Application logs |
+| `settings` | `settings` | App settings, including `/api/settings/ui` |
+| `users` | `users` | User management, and the owner's own preferences |
+| `personal` | `favorites`, `bookmarks`, `saved-filters`, `audio-sets`, `themes` | The owner's favourites, bookmarks, saved filters, saved audio sets and themes |
+
+**All permissions.** A key's permissions may also hold `"*"`, which raises every
+permission - including any added in a later version - to at least that level.
+An explicit entry can still go higher, so `{"*": "read", "books": "write"}` reads
+everything and edits books.
+
+**Levels follow the role.** `GET /api/api-keys/permissions` lists only what the
+caller's role can use, derived from each route's role guard (`require_admin`,
+`require_gm_or_admin`, `require_not_guest`): a player is offered game systems at
+Read only and never sees `logs` or `files`; `stats`, `search`, `downloads` and
+`logs` never offer Read and write because they have no write endpoints. Creating
+or editing a key with a level the role doesn't offer is a `400`. This is about
+what is *offered* - a handler that checks the role itself still refuses as it
+would for the owner.
+
+**Read-only `POST`s.** A few endpoints use `POST` only to carry a request body
+and change nothing; they count as Read. They are marked in the OpenAPI schema
+with `x-api-key-access: read`: `POST /api/books/{id}/metadata-search`,
+`/api/books/{id}/metadata-fetch`, `/api/systems/{id}/metadata-search`, and
+`/api/systems/{id}/metadata-fetch`.
+
+**Never available to a key**, whatever its permissions (these return `403`):
+the `auth` tag (sign-in, sessions, OIDC) and `api-keys` - a key can never create
+or widen keys - plus routes marked `x-api-key-access: none` because they change a
+credential or the account itself: `/api/users/me/password`, `DELETE /api/users/me`,
+`/api/users/me/opds*`, and `/api/campaigns/calendar/subscription`. OPDS and the
+calendar feeds keep their own per-user tokens.
+
+**Responses.** An unknown or expired key gets `401`. A valid key on an excluded
+route, without the level the request needs, or whose owner may no longer hold
+keys gets `403`, as does any key while `API_KEYS_ENABLED=false`; a missing level names the permission and levels,
+e.g. `This API key needs 'write' access to 'books' (it has 'read')`. When a
+request carries both a session and `X-API-Key`, the key is used, so the request
+is held to the key's permissions.
+
+**Storage.** Keys are `grim_` followed by 32 random bytes. Only a SHA-256 hash is
+stored, and the full key is returned exactly once - by create or regenerate.
+After that only its prefix (the first 12 characters) is shown. A lost key cannot
+be recovered, only regenerated. `last_used_at` is updated at most once a minute
+per key.
+
+**Migration from the stats key.** The single stats API key that earlier versions
+kept in plaintext is migrated on upgrade: it keeps working unchanged, named
+`Stats API key (migrated)`, owned by the earliest-created admin, with
+`stats: Read` and nothing else.
+
 ### Rate limiting
 
-The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, and `/api/stats` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](security.md).
+The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](security.md).
+
+Failed `X-API-Key` attempts (unknown or expired keys) count against the same per-IP limit, on every endpoint. Once an IP is over it, every key it presents - even a valid one - gets `429` until the window passes, so a guess can't be confirmed. Requests with a working key never count, so a dashboard can poll as often as it likes.
 
 ### Roles
 
@@ -100,7 +215,7 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 | `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
 | `/api/auth/logout` | POST | - | Revokes the current session (identified by the `grimoire_refresh` cookie) and clears both auth cookies. Requires no auth so a client with an expired access token can still log out. The refresh token dies immediately; the current access token remains valid until it expires. |
 | `/api/auth/refresh` | POST | - | Exchanges the `grimoire_refresh` cookie for a new access token, rotating the refresh token. Returns `{token, user}` and re-sets both cookies. Returns 401 when the refresh token is missing, expired, or revoked; reusing an already-rotated token revokes the whole session. Rate-limited like the other credential endpoints. |
-| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, oidc_linked}`. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
+| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, api_keys_allowed, oidc_linked}`. `api_keys_allowed` says whether they may use [API keys](#api-keys) right now. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
 | `/api/auth/sessions` | GET | any | The caller's own live sessions, newest first: `[{id, origin, user_agent, ip_address, created_at, last_used_at, expires_at, current}]`. `origin` is `password`, `guest`, or `oidc`; `current` marks the session backing this request. |
 | `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else - revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
@@ -112,10 +227,10 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
-| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
+| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
+| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
-| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, or `email` (use `""` to clear the email). `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
+| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, or `email` (use `""` to clear the email). `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
 | `/api/users/:id/merge` | POST | admin | Fold one or more guest accounts into the account at `:id`, so someone invited to several campaigns ends up with a single login. Body: `{source_ids: [...]}` (non-empty, no duplicates, cannot contain `:id`). Moves each source's campaign memberships, notes, characters, and personal rows onto the target, then deletes the emptied sources and ends their sessions. Merged-in memberships have their invite code cleared - campaign access comes from the membership itself, so the person keeps every campaign and uses the surviving account's credentials. Rows that would collide (target is already in that campaign) are dropped in favour of the target's. Sources must be guests; the target may be a guest or a permanent user. Returns `{id, display_name, merged_ids, memberships_moved}`. 400 if a source isn't a guest or `:id` is among the sources, 404 if the target or any source is missing. |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin). Also the way to remove a guest account, including one orphaned by its campaign's deletion (null `campaign_id`/`invited_by`). |
@@ -130,8 +245,8 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/stats` | GET | JWT **or** `X-API-Key` header | Counts, page totals, library size |
-| `/api/about` | GET | any (JWT) | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so these details aren't readable via the `X-API-Key` fallback. |
+| `/api/stats` | GET | any, or an API key with `stats` | Counts, page totals, library size. Tagged `stats` rather than `library`, so a dashboard key needs nothing else. |
+| `/api/about` | GET | any | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so a `stats`-only key can't read these details. |
 | `/api/changelog` | GET | any (JWT) | Parsed `CHANGELOG.md` for the About dialog: `{releases: [{version, date, summary, sections: [{title, entries}]}]}`, newest release first. `date` and `summary` are `null` when the release heading carries neither (an `Unreleased` section has no date). `releases` is empty when the image ships without a changelog, which the dialog renders as no changelog section rather than an error. Parsed once and cached for the process lifetime - the file cannot change under a running container. |
 | `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
 | `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. |
@@ -153,10 +268,11 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, `/api/
 }
 ```
 
-`/api/stats` is the only endpoint that accepts the `X-API-Key` header, so it's
-the safe way to surface library counts on an external dashboard. Generate a key
-as an admin under **Settings → App Settings → Stats API Key** (regenerate or
-revoke it there at any time).
+To surface library counts on an external dashboard, create an [API key](#api-keys)
+under **Settings → Account → Security → API Keys** with **Statistics: Read** and
+nothing else. The counts are the key owner's, so an admin's key sees the whole
+library. The key is shown once, when you create it; regenerate or revoke it there
+at any time.
 
 **Homepage Custom API widget** - add this to your Homepage `services.yaml`
 ([Custom API widget docs](https://gethomepage.dev/widgets/services/customapi/)):
@@ -189,8 +305,8 @@ revoke it there at any time).
 ```
 
 Homepage shows up to four fields per row; pick the counts you care about from the
-available fields below. Use a `refreshInterval` of 60s or higher - `/api/stats`
-is rate limited.
+available fields below. A `refreshInterval` of 60s is plenty - the counts only
+change when the library does.
 
 | Field | Meaning | Suggested `format` |
 |-------|---------|--------------------|
@@ -1384,8 +1500,10 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 | `/api/settings` | GET | Get all application settings |
 | `/api/settings` | PATCH | Update application settings |
 | `/api/settings/ui` | GET | UI visibility flags (any authenticated user) |
-| `/api/settings/api-key/generate` | POST | Generate a stats API key |
-| `/api/settings/api-key` | DELETE | Revoke the stats API key |
+
+The settings response no longer carries a `stats_api_key`, and `PATCH` ignores
+one: API keys moved to [`/api/api-keys`](#api-keys-1), where the key
+itself is never readable back.
 
 `GET /api/settings/ui` also returns `library_writable`: whether the library root
 can be written to at all. It is not a stored setting - it is probed at request
@@ -1439,6 +1557,28 @@ than appearing and failing.
 | `oidc_auto_register` | bool | Auto-create local accounts on first OIDC login. |
 
 GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`.
+
+### API keys
+
+Manage [API keys](#api-keys). These need a **session** - an API key can never
+reach them - and refuse guests. Everyone manages only their own keys; an admin
+can also list and revoke anyone's - including keys whose owner has since lost
+access. A user without access gets `403`, and with `API_KEYS_ENABLED=false`
+every endpoint here does.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/api-keys` | GET | any | Your keys, newest first: `[{id, user_id, username, name, prefix, permissions, created_at, last_used_at, expires_at, expired}]`. Never includes the key itself. `?all=true` (admin only) lists every user's keys. |
+| `/api/api-keys/permissions` | GET | any | The permissions your role can grant a key, group by group: `[{id, tags, description, group, levels}]`. `group` is the key editor's section - `library`, `media`, `campaigns` or `admin`. |
+| `/api/api-keys` | POST | any | Create a key acting as you. Body: `{name, permissions?, expires_at?}` where `permissions` is `{permission \| "*": "none"\|"read"\|"write"}` (omitted = No access) and `expires_at` is an ISO timestamp in the future, or null/omitted for never. Returns `201` with `{api_key, key}` - `key` is the full key, returned **only here and by regenerate**. |
+| `/api/api-keys/{id}` | PATCH | owner | Rename a key or change its permissions or expiry. Body: any of `{name, permissions, expires_at}`; send `expires_at: null` to make it never expire, or omit it to leave it unchanged. |
+| `/api/api-keys/{id}/regenerate` | POST | owner | Issue a new key, keeping the name and permissions. The old key stops working immediately. Returns `{api_key, key}`. |
+| `/api/api-keys/{id}` | DELETE | owner or admin | Revoke (delete) a key. `204`. |
+
+Someone else's key is a `404` for everything but an admin's delete - nobody,
+admins included, can edit or mint a secret for a key that isn't theirs. `400`
+for an unknown permission, a level your role doesn't offer, a blank name, or an
+expiry in the past.
 
 ### Add-ons *(admin only)*
 
@@ -1701,7 +1841,7 @@ identifying the file — `filepath`, `filename`, `relative_path`, `content_hash`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk. Also collects rows that outlived what they described: folder-tag rows whose directory is gone, tag links whose resource is gone, and tags left with no links at all. Returns a per-collection count plus `systems`, `folders`, and `tag_links` |
+| `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk. Also collects rows that outlived what they described: folder-tag rows whose directory is gone, tag links whose resource is gone, and tags left with no links at all. Returns a per-collection count plus `systems`, `folders`, and `tag_links`. Tagged `library`, so an [API key](#api-keys) needs `library: Read and write` to run it; the sidecar endpoints below are under `maintenance`. |
 | `/api/maintenance/sidecars/settings` | GET | Read metadata sidecar export settings |
 | `/api/maintenance/sidecars/settings` | PUT | Configure sidecar export (`formats`, `covers`, `overwrite_foreign`) |
 | `/api/maintenance/sidecars/export` | POST | Write metadata sidecars for the whole library |
@@ -2112,11 +2252,12 @@ All errors follow FastAPI's standard format:
 | Status | Meaning |
 |--------|---------|
 | `400` | Bad request - validation failed or business rule violated |
-| `401` | Not authenticated - missing or invalid token |
-| `403` | Forbidden - insufficient role or not a campaign member |
+| `401` | Not authenticated - missing or invalid token, or an unknown or expired API key |
+| `403` | Forbidden - insufficient role, not a campaign member, or an API key without the needed permission |
 | `404` | Resource not found |
 | `409` | Conflict - duplicate (e.g. duplicate username, resource already linked) |
 | `422` | Unprocessable entity - request body failed schema validation |
+| `429` | Too many requests - see [Rate limiting](#rate-limiting) |
 
 ---
 

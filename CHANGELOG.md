@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Release candidates are omitted; their contents are rolled into the stable release that followed.
 
+## [Unreleased]
+
+### Added
+
+- Personal API keys for scripts and tools such as Homepage or grimoire-cli: each acts as you, with its own No access / Read / Read and write level per area of the API, or one level for everything
+- Admins choose who may use API keys per user (Settings → Users, or the OIDC `apiKeys` permission; admins always may), see and revoke everyone's keys under App Settings, and can turn keys off entirely with `API_KEYS_ENABLED=false`
+
+### Changed
+
+- The stats API key moved to Settings → Account → API Keys. Existing keys keep working, limited to library stats as before
+
+### Security
+
+- API keys are shown once and stored hashed, can expire, and record when they were last used
+- Repeated wrong API keys from one address are rate limited on every endpoint
+
 ## [1.7.2] - 2026-09-24
 
 ### Added

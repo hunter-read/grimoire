@@ -8,7 +8,7 @@ import stat
 from typing import Optional
 
 import jwt
-from fastapi import Cookie, Depends, HTTPException, Query, Response
+from fastapi import Cookie, Depends, Header, HTTPException, Query, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 
@@ -263,20 +263,53 @@ def clear_refresh_cookie(response: Response) -> None:
 
 
 class CurrentUser:
-    def __init__(self, id: str, username: str, role: str, session_id: Optional[str] = None):
+    def __init__(
+        self,
+        id: str,
+        username: str,
+        role: str,
+        session_id: Optional[str] = None,
+        api_key_id: Optional[str] = None,
+    ):
         self.id = id
         self.username = username
         self.role = role
         # The auth_sessions row this token was issued under, when the token
         # carries a "sid" claim. None for tokens minted before sessions existed.
         self.session_id = session_id
+        # Set when the request authenticated with an API key rather than a
+        # session; ``id`` is then the key's owner.
+        self.api_key_id = api_key_id
+
+    @property
+    def is_api_key(self) -> bool:
+        return self.api_key_id is not None
 
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     cookie_token: Optional[str] = Cookie(None, alias=AUTH_COOKIE_NAME),
     token: Optional[str] = Query(None),
+    x_api_key: Optional[str] = Header(
+        None,
+        alias="X-API-Key",
+        description="An API key, for external integrations (instead of a session).",
+    ),
 ) -> CurrentUser:
+    # An explicit X-API-Key wins over any session, so a request is always held
+    # to the key's own permissions rather than silently riding the owner's
+    # ambient cookie (issue #489).
+    if x_api_key:
+        from .api_keys import authenticate
+
+        key = authenticate(x_api_key, request)
+        # The key acts as its owner, so their role guards and handlers apply as
+        # for their own session; the permission check above only narrows that.
+        return CurrentUser(
+            id=key.user_id, username=key.username, role=key.role, api_key_id=key.id
+        )
+
     # Header (normal API calls) → cookie (image/download GETs) → ?token= query
     # param. The query param is a deprecated fallback kept only so pre-existing
     # links/clients keep working; new clients should never put the JWT in a URL.
@@ -302,27 +335,6 @@ def get_current_user(
         )
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
-
-
-def optional_get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    cookie_token: Optional[str] = Cookie(None, alias=AUTH_COOKIE_NAME),
-    token: Optional[str] = Query(None),
-) -> Optional["CurrentUser"]:
-    """Like get_current_user but returns None instead of raising when no/invalid token."""
-    raw = (credentials.credentials if credentials else None) or cookie_token or token
-    if not raw:
-        return None
-    try:
-        payload = decode_token(raw)
-        return CurrentUser(
-            id=payload["sub"],
-            username=payload["username"],
-            role=payload["role"],
-            session_id=payload.get("sid"),
-        )
-    except jwt.InvalidTokenError:
-        return None
 
 
 def require_admin(

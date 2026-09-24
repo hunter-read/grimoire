@@ -1,17 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import AppSettingsTab from './AppSettingsTab'
+import { UISettingsProvider } from '../../context/UISettingsContext'
 
 vi.mock('../../api', () => ({
   settings: {
     get: vi.fn(),
     patch: vi.fn(),
-    generateApiKey: vi.fn(),
-    revokeApiKey: vi.fn(),
+  },
+  apiKeys: {
+    list: vi.fn(),
+    permissions: vi.fn(),
   },
 }))
 
-import { settings as settingsApi } from '../../api'
+import { settings as settingsApi, apiKeys as apiKeysApi } from '../../api'
 
 const defaultSettings = {
   hide_maps: false,
@@ -24,13 +27,14 @@ const defaultSettings = {
   show_stat_tokens: false,
   show_stat_size: true,
   show_stat_library_size: false,
-  stats_api_key: '',
 }
 
 beforeEach(() => {
   vi.resetAllMocks()
   settingsApi.get.mockResolvedValue(defaultSettings)
   settingsApi.patch.mockResolvedValue({})
+  apiKeysApi.list.mockResolvedValue([])
+  apiKeysApi.permissions.mockResolvedValue([])
 })
 
 // ---------------------------------------------------------------------------
@@ -139,58 +143,26 @@ describe('AppSettingsTab — SidebarVisibilitySection', () => {
 })
 
 // ---------------------------------------------------------------------------
-// API Key section
+// API keys section (details covered in ApiKeySection.test.jsx)
 // ---------------------------------------------------------------------------
 
 describe('AppSettingsTab — ApiKeySection', () => {
-  it('renders a Generate API Key button when no key exists', async () => {
-    render(<AppSettingsTab />)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /generate api key/i })).toBeInTheDocument()
-    })
+  it('hides the keys view when keys are off for the instance', async () => {
+    render(
+      <UISettingsProvider value={{ api_keys_enabled: false }}>
+        <AppSettingsTab />
+      </UISettingsProvider>
+    )
+    await waitFor(() => expect(screen.getByLabelText('Systems')).toBeInTheDocument())
+    expect(screen.queryByText('All API Keys')).toBeNull()
+    expect(apiKeysApi.list).not.toHaveBeenCalled()
   })
 
-  it('shows the API key when one is present', async () => {
-    settingsApi.get.mockResolvedValue({ ...defaultSettings, stats_api_key: 'my-secret-key' })
+  it("shows every user's keys, with no create button", async () => {
     render(<AppSettingsTab />)
-    await waitFor(() => {
-      expect(screen.getByText('my-secret-key')).toBeInTheDocument()
-    })
-  })
-
-  it('shows Regenerate and Revoke buttons when a key exists', async () => {
-    settingsApi.get.mockResolvedValue({ ...defaultSettings, stats_api_key: 'my-secret-key' })
-    render(<AppSettingsTab />)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /regenerate/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /revoke/i })).toBeInTheDocument()
-    })
-  })
-
-  it('calls generateApiKey and shows the new key', async () => {
-    settingsApi.generateApiKey.mockResolvedValue({ stats_api_key: 'new-generated-key' })
-    render(<AppSettingsTab />)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /generate api key/i })).toBeInTheDocument()
-    })
-    fireEvent.click(screen.getByRole('button', { name: /generate api key/i }))
-    await waitFor(() => {
-      expect(screen.getByText('new-generated-key')).toBeInTheDocument()
-    })
-  })
-
-  it('calls revokeApiKey and hides the key', async () => {
-    settingsApi.get.mockResolvedValue({ ...defaultSettings, stats_api_key: 'my-secret-key' })
-    settingsApi.revokeApiKey.mockResolvedValue({})
-    render(<AppSettingsTab />)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /revoke/i })).toBeInTheDocument()
-    })
-    fireEvent.click(screen.getByRole('button', { name: /revoke/i }))
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /generate api key/i })).toBeInTheDocument()
-    })
-    expect(screen.queryByText('my-secret-key')).toBeNull()
+    expect(await screen.findByText('All API Keys')).toBeInTheDocument()
+    expect(apiKeysApi.list).toHaveBeenCalledWith(true)
+    expect(screen.queryByRole('button', { name: /create api key/i })).toBeNull()
   })
 })
 

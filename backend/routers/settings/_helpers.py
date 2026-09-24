@@ -21,7 +21,6 @@ _DEFAULTS = {
     "rescan_schedule_minute": "0",
     "rescan_schedule_weekday": "0",  # 0=Mon … 6=Sun
     "cleanup_on_rescan": "false",
-    "stats_api_key": "",
     "hide_maps": "false",
     "hide_tokens": "false",
     "hide_audio": "false",
@@ -115,7 +114,6 @@ def _to_typed(raw: dict) -> dict:
         "rescan_schedule_minute": int(raw.get("rescan_schedule_minute", "0")),
         "rescan_schedule_weekday": int(raw.get("rescan_schedule_weekday", "0")),
         "cleanup_on_rescan": raw.get("cleanup_on_rescan", "false") == "true",
-        "stats_api_key": raw["stats_api_key"],
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
         "hide_audio": raw["hide_audio"] == "true",
@@ -326,9 +324,3 @@ def sanitize_login_message(html: str) -> str:
         return f"<{tag}{(' ' + ' '.join(kept)) if kept else ''}>"
 
     return _TAG_RE.sub(repl, html)
-
-
-def get_stats_api_key(db) -> str:
-    """Return the current stats API key (empty string = disabled)."""
-    row = db.query(AppSetting).filter_by(key="stats_api_key").first()
-    return row.value if row else ""

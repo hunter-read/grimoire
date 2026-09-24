@@ -31,7 +31,7 @@ _USER_SCOPED_TABLES = (
 # the opposite of what a grant is for. Guests cannot hold grants anyway, and
 # merges only ever source from a guest, so this is belt and braces rather than a
 # live path; it is spelled out so a future non-guest merge cannot get it wrong.
-_USER_DELETE_ONLY_TABLES = ("user_access_grants",)
+_USER_DELETE_ONLY_TABLES = ("user_access_grants", "api_keys")
 
 # Nullable FKs that are *attribution*, not ownership: the content lives inside
 # someone else's campaign and must outlive the user, so these are nulled rather

@@ -289,6 +289,8 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
             user.allow_explicit = bool(perms["viewNSFW"])
         if "campaignAccess" in perms:
             user.campaign_access = bool(perms["campaignAccess"])
+        if "apiKeys" in perms:
+            user.api_keys_enabled = bool(perms["apiKeys"])
 
     db.commit()
     db.refresh(user)

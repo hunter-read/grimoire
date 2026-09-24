@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddUserForm from './AddUserForm'
+import { UISettingsProvider } from '../../context/UISettingsContext'
 import api from '../../api'
 
 vi.mock('../../api', () => ({
@@ -58,7 +59,37 @@ describe('AddUserForm', () => {
       role: 'player',
       allow_explicit: true,
       campaign_access: true,
+      api_keys_enabled: false,
     })
+  })
+
+  it('grants API keys when ticked, and leaves them out when keys are off', async () => {
+    api.post.mockResolvedValue({ id: '9', username: 'dee', role: 'player' })
+    const { unmount } = render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.type(screen.getByLabelText('Username'), 'dee')
+    await userEvent.type(screen.getByLabelText('Password'), 'securepassword')
+    fireEvent.click(screen.getByLabelText('API keys'))
+    fireEvent.click(screen.getByText('Create User'))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/users',
+        expect.objectContaining({ api_keys_enabled: true })
+      )
+    )
+    unmount()
+
+    api.post.mockClear()
+    render(
+      <UISettingsProvider value={{ api_keys_enabled: false }}>
+        <AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />
+      </UISettingsProvider>
+    )
+    expect(screen.queryByLabelText('API keys')).toBeNull()
+    await userEvent.type(screen.getByLabelText('Username'), 'eve')
+    await userEvent.type(screen.getByLabelText('Password'), 'securepassword')
+    fireEvent.click(screen.getByText('Create User'))
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty('api_keys_enabled')
   })
 
   it('hides the password field and omits password when password auth is disabled', async () => {

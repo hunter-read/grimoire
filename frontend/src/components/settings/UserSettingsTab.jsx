@@ -10,6 +10,8 @@ import {
 import { ReaderSection, LibrarySection, LanguageSection } from './UserPreferenceSections'
 import AppearanceSection from './AppearanceSection'
 import ActiveSessionsSection from './ActiveSessionsSection'
+import ApiKeySection from './ApiKeySection'
+import { useUISettings } from '../../context/UISettingsContext'
 import CollapsibleSection from './CollapsibleSection'
 import SectionDivider from './SectionDivider'
 
@@ -23,6 +25,10 @@ import SectionDivider from './SectionDivider'
  */
 export default function UserSettingsTab({ user, onLogout }) {
   const { t } = useTranslation()
+  const { api_keys_enabled: keysEnabled } = useUISettings()
+  // `api_keys_allowed` is the server's answer for this user: admins always, anyone
+  // else once an admin grants it, never a guest - and never with keys off.
+  const canHoldKeys = keysEnabled !== false && Boolean(user?.api_keys_allowed)
   return (
     <div>
       <CollapsibleSection
@@ -74,6 +80,12 @@ export default function UserSettingsTab({ user, onLogout }) {
           <SectionDivider />
           <ActiveSessionsSection />
           <SectionDivider />
+          {canHoldKeys && (
+            <>
+              <ApiKeySection />
+              <SectionDivider />
+            </>
+          )}
           <DeleteAccountSection user={user} onLogout={onLogout} />
         </div>
       </CollapsibleSection>

@@ -1099,17 +1099,169 @@
       "title": "Statistiques de la barre latérale",
       "description": "Choisissez quelles statistiques apparaissent dans le pied de page de la barre latérale."
     },
-    "apiKey": {
-      "title": "Clé API des statistiques",
-      "description": "Générez une clé API pour permettre à des applications externes (ex. : Homepage) d'interroger les statistiques de la bibliothèque sans se connecter. Passez la clé dans l'en-tête",
-      "descriptionSuffix": "de la requête.",
-      "endpoint": "Point d'accès :",
-      "set": "— définie",
-      "regenerate": "Régénérer",
-      "revoke": "Révoquer",
-      "generate": "Générer une clé API",
-      "generating": "Génération…",
-      "copyKey": "Copier la clé"
+    "apiKeys": {
+      "title": "Clés API",
+      "description": "Permettez à des scripts et applications (ex. : Homepage ou un outil en ligne de commande) d'utiliser Grimoire en votre nom, sans votre mot de passe. Envoyez une clé dans l'en-tête",
+      "descriptionSuffix": "de la requête. Une clé n'accède qu'aux zones que vous lui accordez, et jamais à plus que votre propre compte.",
+      "allTitle": "Toutes les clés API",
+      "allDescription": "Les clés API de tous les utilisateurs. Révoquez toute clé qui ne devrait plus servir ; chaque utilisateur gère les siennes depuis les paramètres de son compte.",
+      "empty": "Aucune clé API pour l'instant.",
+      "create": "Créer une clé API",
+      "loadFailed": "Impossible de charger les clés API.",
+      "actionFailed": "Cela n'a pas fonctionné. Veuillez réessayer.",
+      "levels": {
+        "none": "Aucun accès",
+        "read": "Lecture",
+        "write": "Lecture et écriture"
+      },
+      "row": {
+        "created": "Créée le {{when}}",
+        "lastUsed": "Dernière utilisation le {{when}}",
+        "neverUsed": "Jamais utilisée",
+        "expires": "Expire le {{when}}",
+        "expired": "Expirée le {{when}}",
+        "noExpiry": "N'expire jamais",
+        "noPermissions": "Aucune autorisation",
+        "edit": "Modifier",
+        "regenerate": "Régénérer",
+        "revoke": "Révoquer",
+        "owner": "Propriétaire : {{name}}"
+      },
+      "dialog": {
+        "createTitle": "Créer une clé API",
+        "editTitle": "Modifier la clé API",
+        "name": "Nom",
+        "namePlaceholder": "ex. : widget Homepage",
+        "nameRequired": "Donnez un nom à la clé.",
+        "expiration": "Expiration",
+        "days_one": "{{count}} jour",
+        "days_other": "{{count}} jours",
+        "never": "Jamais",
+        "keepExpiry": "Conserver l'actuelle ({{when}})",
+        "keepNever": "Conserver l'actuelle (jamais)",
+        "permissions": "Autorisations",
+        "permissionsHint": "Lecture permet de consulter ; Lecture et écriture permet aussi de modifier. Tout ce qui reste sur Aucun accès est refusé.",
+        "save": "Enregistrer",
+        "create": "Créer la clé",
+        "saveFailed": "Impossible d'enregistrer la clé.",
+        "filter": "Filtrer les autorisations",
+        "noMatches": "Aucune autorisation ne correspond à « {{query}} »",
+        "groupCount": "{{granted}} sur {{total}} avec accès"
+      },
+      "reveal": {
+        "title": "Votre nouvelle clé pour « {{name}} »",
+        "warning": "Copiez cette clé maintenant - vous ne pourrez plus la revoir. Si vous la perdez, régénérez-la.",
+        "copy": "Copier la clé",
+        "copied": "Copiée dans le presse-papiers",
+        "example": "Exemple de requête :",
+        "done": "Terminé"
+      },
+      "confirm": {
+        "regenerateTitle": "Régénérer « {{name}} » ?",
+        "regenerateMessage": "Une nouvelle clé est émise avec le même nom et les mêmes autorisations. La clé actuelle cesse de fonctionner immédiatement : tout ce qui l'utilise devra être mis à jour.",
+        "revokeTitle": "Révoquer « {{name}} » ?",
+        "revokeMessage": "La clé est supprimée et cesse de fonctionner immédiatement. Cette action est irréversible."
+      },
+      "groups": {
+        "library": "Bibliothèque",
+        "media": "Médias",
+        "campaigns": "Campagnes et personnel",
+        "admin": "Administration"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Statistiques",
+          "description": "Nombres et totaux de la bibliothèque (ex. : pour des widgets de tableau de bord comme Homepage)"
+        },
+        "library": {
+          "label": "Bibliothèque",
+          "description": "État de l'analyse, lancer ou annuler une réanalyse, nettoyer les éléments manquants, version et journal des modifications"
+        },
+        "books": {
+          "label": "Livres",
+          "description": "Les livres et leurs métadonnées, couvertures, pages et fichiers"
+        },
+        "systems": {
+          "label": "Systèmes de jeu",
+          "description": "Les systèmes de jeu, leurs couvertures et dossiers de livres"
+        },
+        "search": {
+          "label": "Recherche",
+          "description": "Recherche plein texte dans la bibliothèque"
+        },
+        "tags": {
+          "label": "Étiquettes",
+          "description": "Créer, renommer, fusionner et supprimer des étiquettes, et lister les éléments étiquetés"
+        },
+        "lookups": {
+          "label": "Listes de référence",
+          "description": "Genres, familles de systèmes, systèmes parents, licences et dés/matériaux"
+        },
+        "maps": {
+          "label": "Cartes",
+          "description": "Les cartes et dossiers de cartes"
+        },
+        "tokens": {
+          "label": "Jetons",
+          "description": "Les jetons, dossiers de jetons et cadres de jetons"
+        },
+        "audio": {
+          "label": "Audio",
+          "description": "Les pistes audio, leurs couvertures et dossiers"
+        },
+        "models": {
+          "label": "Modèles",
+          "description": "Les modèles 3D et dossiers de modèles"
+        },
+        "downloads": {
+          "label": "Téléchargements",
+          "description": "Télécharger des fichiers et des archives zip"
+        },
+        "files": {
+          "label": "Gestionnaire de fichiers",
+          "description": "Parcourir, téléverser, déplacer, renommer et supprimer des fichiers dans le dossier de la bibliothèque"
+        },
+        "duplicates": {
+          "label": "Doublons",
+          "description": "Trouver, comparer, lier et fusionner les éléments en double"
+        },
+        "backups": {
+          "label": "Sauvegardes",
+          "description": "Lister, créer, télécharger et supprimer des sauvegardes, et leur planification"
+        },
+        "logs": {
+          "label": "Journaux",
+          "description": "Lire les journaux de l'application"
+        },
+        "campaigns": {
+          "label": "Campagnes",
+          "description": "Vos campagnes, membres, séances, pages wiki et ressources liées"
+        },
+        "addons": {
+          "label": "Modules",
+          "description": "Modules de métadonnées communautaires : installer, mettre à jour, activer, exécuter"
+        },
+        "maintenance": {
+          "label": "Maintenance",
+          "description": "Paramètres et export des fichiers sidecar de métadonnées"
+        },
+        "settings": {
+          "label": "Paramètres",
+          "description": "Paramètres de l'application"
+        },
+        "users": {
+          "label": "Utilisateurs",
+          "description": "Comptes utilisateurs, rôles et autorisations d'accès, et vos propres préférences"
+        },
+        "personal": {
+          "label": "Personnel",
+          "description": "Vos favoris, marque-pages, filtres enregistrés, playlists et tables de sons enregistrées, et thèmes"
+        },
+        "all": {
+          "label": "Toutes les autorisations",
+          "description": "Toutes les zones à la fois, y compris celles ajoutées dans de futures versions"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Téléversements de campagne",
@@ -1156,7 +1308,11 @@
     "allowExplicitTitle": "Autoriser le contenu explicite",
     "campaignAccess": "Campagnes",
     "campaignAccessTitle": "Autoriser cet utilisateur à créer, rejoindre et gérer des campagnes (remplacé par votre fournisseur OIDC à la prochaine connexion si une revendication campaignAccess est configurée)",
+    "apiKeys": "Clés API",
+    "apiKeysTitle": "Autoriser cet utilisateur à créer et utiliser des clés API (remplacé par votre fournisseur OIDC à la prochaine connexion si une claim apiKeys est configurée)",
+    "apiKeysAdminTitle": "Les administrateurs peuvent toujours utiliser des clés API",
     "failedUpdateCampaignAccess": "Échec de la mise à jour de l'accès aux campagnes.",
+    "failedUpdateApiKeys": "Impossible de mettre à jour l'accès aux clés API.",
     "setPassword": "Définir le mot de passe",
     "setPasswordTitle": "Définir le mot de passe de cet utilisateur",
     "newPasswordPlaceholder": "Nouveau mot de passe (min. 8)",

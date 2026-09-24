@@ -3,7 +3,7 @@
 A map of Grimoire's database schema - the tables, their foreign-key relationships, and
 the notable constraints. The schema is defined by the SQLAlchemy models in
 [`backend/models/`](../backend/models/) (`library.py`, `media.py`, `users.py`,
-`campaigns.py`, `settings.py`); this document is a companion reference, so **keep it in
+`campaigns.py`, `settings.py`, `api_keys.py`, …); this document is a companion reference, so **keep it in
 sync when you change a model**.
 
 The backend runs on SQLite. All primary keys are 36-char UUID strings (`_uuid()`) except
@@ -37,6 +37,7 @@ erDiagram
     users ||--o{ wiki_templates : "created by"
     users ||--o{ campaign_resource_shares : "shared with"
     users ||--o{ campaign_files : "uploaded by"
+    users ||--o{ api_keys : owns
 
     game_systems ||--o{ books : contains
     books ||--o{ books : "has variant"
@@ -104,6 +105,7 @@ express anyway (two levels only, no self-parenting, no cycles) are enforced in
 | `audio_sets.user_id` | `users.id` | per-user named playlists and soundboards |
 | `user_themes.user_id` | `users.id` | per-user installed colour themes |
 | `auth_sessions.user_id` | `users.id` | one row per login session; deleted with the user |
+| `api_keys.user_id` | `users.id` | the user the key acts as; keys are deleted with the user and never moved by a guest merge |
 | `campaigns.owner_id` | `users.id` | the GM / creator |
 | `campaigns.parent_campaign_id` | `campaigns.id` | self-referential; nullable |
 | `campaigns.system_id` | `game_systems.id` | nullable; falls back to `system_name` |
@@ -184,7 +186,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `users` | An authenticated account. | `username` unique; `email`, `opds_token`, `calendar_token`, `oidc_subject` unique + indexed. `calendar_token` authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from `opds_token` and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. |
+| `users` | An authenticated account. | `username` unique; `email`, `opds_token`, `calendar_token`, `oidc_subject` unique + indexed. `calendar_token` authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from `opds_token` and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `api_keys_enabled` lets a non-admin hold [API keys](api.md#api-keys) (off by default; admins always may). `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. |
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
 | `favorites` | Per-user favorite across books/maps/tokens/audio/models. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 | `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio/models. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
@@ -244,6 +246,12 @@ path-keyed feature.
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
 | `app_settings` | Application-wide key/value settings. | Primary key `key` (string); `value` is text. |
+
+### API keys - [`backend/models/api_keys.py`](../backend/models/api_keys.py)
+
+| Table | Purpose | Key columns / constraints |
+| --- | --- | --- |
+| `api_keys` | A personal key that lets a script or integration call the API as its owner (issue #489). | FK `user_id` (indexed) - the key acts as this user, narrowed by `permissions`. `name` (required, not unique). `key_hash` is a SHA-256 of the full key, unique + indexed - the key itself is never stored, and is returned only by create/regenerate. `prefix` is its first characters (12 for a `grim_` key, 4 for one migrated from the old plaintext `stats_api_key` setting), kept for display. `permissions` JSON is `{permission: "read"\|"write"}`, where `"*"` sets a floor for every permission; an absent permission means no access. `last_used_at` is written at most once a minute per key; `expires_at` null means never. |
 
 ### Full-text search (not an ORM table)
 

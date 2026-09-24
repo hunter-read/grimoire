@@ -1099,17 +1099,169 @@
       "title": "Sidofältsstatistik",
       "description": "Välj vilken statistik som visas i sidofältets sidfot."
     },
-    "apiKey": {
-      "title": "API-nyckel för statistik",
-      "description": "Generera en API-nyckel för att låta externa program (t.ex. Homepage) begära biblioteksstatistik utan att logga in. Sätt API-nyckeln i",
-      "descriptionSuffix": "-headern i förfrågan.",
-      "endpoint": "Slutpunkt:",
-      "set": "— inställd",
-      "regenerate": "Generera om",
-      "revoke": "Återkalla",
-      "generate": "Generera API-nyckel",
-      "generating": "Genererar…",
-      "copyKey": "Kopiera nyckel"
+    "apiKeys": {
+      "title": "API-nycklar",
+      "description": "Låt skript och program (t.ex. Homepage eller ett kommandoradsverktyg) använda Grimoire som dig, utan ditt lösenord. Skicka en nyckel i",
+      "descriptionSuffix": "-headern i förfrågan. En nyckel når bara de delar du ger den, och aldrig mer än ditt eget konto.",
+      "allTitle": "Alla API-nycklar",
+      "allDescription": "Alla användares API-nycklar. Återkalla nycklar som inte ska användas; varje användare hanterar sina egna i kontoinställningarna.",
+      "empty": "Inga API-nycklar ännu.",
+      "create": "Skapa API-nyckel",
+      "loadFailed": "Det gick inte att läsa in API-nycklarna.",
+      "actionFailed": "Det fungerade inte. Försök igen.",
+      "levels": {
+        "none": "Ingen åtkomst",
+        "read": "Läsa",
+        "write": "Läsa och skriva"
+      },
+      "row": {
+        "created": "Skapad {{when}}",
+        "lastUsed": "Senast använd {{when}}",
+        "neverUsed": "Aldrig använd",
+        "expires": "Upphör {{when}}",
+        "expired": "Upphörde {{when}}",
+        "noExpiry": "Upphör aldrig",
+        "noPermissions": "Inga behörigheter",
+        "edit": "Redigera",
+        "regenerate": "Generera om",
+        "revoke": "Återkalla",
+        "owner": "Ägare: {{name}}"
+      },
+      "dialog": {
+        "createTitle": "Skapa API-nyckel",
+        "editTitle": "Redigera API-nyckel",
+        "name": "Namn",
+        "namePlaceholder": "t.ex. Homepage-widget",
+        "nameRequired": "Ge nyckeln ett namn.",
+        "expiration": "Giltighetstid",
+        "days_one": "{{count}} dag",
+        "days_other": "{{count}} dagar",
+        "never": "Aldrig",
+        "keepExpiry": "Behåll nuvarande ({{when}})",
+        "keepNever": "Behåll nuvarande (aldrig)",
+        "permissions": "Behörigheter",
+        "permissionsHint": "Läsa ger visning; Läsa och skriva tillåter även ändringar. Allt som står kvar på Ingen åtkomst nekas.",
+        "save": "Spara",
+        "create": "Skapa nyckel",
+        "saveFailed": "Det gick inte att spara nyckeln.",
+        "filter": "Filtrera behörigheter",
+        "noMatches": "Inga behörigheter matchar ”{{query}}”",
+        "groupCount": "{{granted}} av {{total}} med åtkomst"
+      },
+      "reveal": {
+        "title": "Din nya nyckel för ”{{name}}”",
+        "warning": "Kopiera nyckeln nu - du kommer inte att kunna se den igen. Om du tappar bort den får du generera om den.",
+        "copy": "Kopiera nyckel",
+        "copied": "Kopierad till urklipp",
+        "example": "Exempelförfrågan:",
+        "done": "Klar"
+      },
+      "confirm": {
+        "regenerateTitle": "Generera om ”{{name}}”?",
+        "regenerateMessage": "En ny nyckel utfärdas med samma namn och behörigheter. Den nuvarande nyckeln slutar fungera direkt, så allt som använder den måste uppdateras.",
+        "revokeTitle": "Återkalla ”{{name}}”?",
+        "revokeMessage": "Nyckeln tas bort och slutar fungera direkt. Det går inte att ångra."
+      },
+      "groups": {
+        "library": "Bibliotek",
+        "media": "Media",
+        "campaigns": "Kampanjer & personligt",
+        "admin": "Administration"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Statistik",
+          "description": "Antal och summor för biblioteket (t.ex. för instrumentpanelswidgetar som Homepage)"
+        },
+        "library": {
+          "label": "Bibliotek",
+          "description": "Skanningsstatus, starta eller avbryt en omskanning, rensa saknade objekt, versions- och ändringsloggsinformation"
+        },
+        "books": {
+          "label": "Böcker",
+          "description": "Böcker och deras metadata, omslag, sidor och filer"
+        },
+        "systems": {
+          "label": "Spelsystem",
+          "description": "Spelsystem, deras omslag och bokmappar"
+        },
+        "search": {
+          "label": "Sök",
+          "description": "Fritextsökning i biblioteket"
+        },
+        "tags": {
+          "label": "Taggar",
+          "description": "Skapa, byt namn på, slå ihop och ta bort taggar, och lista taggade objekt"
+        },
+        "lookups": {
+          "label": "Värdelistor",
+          "description": "Genrer, systemfamiljer, överordnade system, licenser och tärningar/material"
+        },
+        "maps": {
+          "label": "Kartor",
+          "description": "Kartor och kartmappar"
+        },
+        "tokens": {
+          "label": "Tokens",
+          "description": "Tokens, tokenmappar och tokenramar"
+        },
+        "audio": {
+          "label": "Ljud",
+          "description": "Ljudspår, deras omslag och mappar"
+        },
+        "models": {
+          "label": "Modeller",
+          "description": "3D-modeller och modellmappar"
+        },
+        "downloads": {
+          "label": "Nedladdningar",
+          "description": "Ladda ner filer och zip-arkiv"
+        },
+        "files": {
+          "label": "Filhanterare",
+          "description": "Bläddra, ladda upp, flytta, byt namn på och ta bort filer i biblioteksmappen"
+        },
+        "duplicates": {
+          "label": "Dubbletter",
+          "description": "Hitta, jämför, länka och slå ihop dubbletter"
+        },
+        "backups": {
+          "label": "Säkerhetskopior",
+          "description": "Lista, skapa, ladda ner och ta bort säkerhetskopior, och schemat för dem"
+        },
+        "logs": {
+          "label": "Loggar",
+          "description": "Läs programloggarna"
+        },
+        "campaigns": {
+          "label": "Kampanjer",
+          "description": "Dina kampanjer, medlemmar, sessioner, wikisidor och länkade resurser"
+        },
+        "addons": {
+          "label": "Tillägg",
+          "description": "Communityns metadatatillägg: installera, uppdatera, aktivera, köra"
+        },
+        "maintenance": {
+          "label": "Underhåll",
+          "description": "Inställningar och export av sidecar-filer med metadata"
+        },
+        "settings": {
+          "label": "Inställningar",
+          "description": "Appinställningar"
+        },
+        "users": {
+          "label": "Användare",
+          "description": "Användarkonton, roller och åtkomstbehörigheter, och dina egna inställningar"
+        },
+        "personal": {
+          "label": "Personligt",
+          "description": "Dina favoriter, bokmärken, sparade filter, sparade spellistor och ljudtavlor, och teman"
+        },
+        "all": {
+          "label": "Alla behörigheter",
+          "description": "Alla delar på en gång, även sådana som läggs till i framtida versioner"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Kampanjuppladdningar",
@@ -1156,7 +1308,11 @@
     "allowExplicitTitle": "Tillåt explicit innehåll",
     "campaignAccess": "Kampanjer",
     "campaignAccessTitle": "Tillåt den här användaren att skapa, ansluta till och hantera kampanjer (åsidosätts av din OIDC-leverantör vid nästa inloggning om en campaignAccess-claim är konfigurerad)",
+    "apiKeys": "API-nycklar",
+    "apiKeysTitle": "Låt den här användaren skapa och använda API-nycklar (skrivs över av din OIDC-leverantör vid nästa inloggning om ett apiKeys-anspråk är konfigurerat)",
+    "apiKeysAdminTitle": "Administratörer kan alltid använda API-nycklar",
     "failedUpdateCampaignAccess": "Det gick inte att uppdatera kampanjåtkomsten.",
+    "failedUpdateApiKeys": "Det gick inte att uppdatera åtkomsten till API-nycklar.",
     "setPassword": "Ange lösenord",
     "setPasswordTitle": "Ange lösenord för den här användaren",
     "newPasswordPlaceholder": "Nytt lösenord (minst 8)",

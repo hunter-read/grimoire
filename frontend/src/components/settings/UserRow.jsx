@@ -15,6 +15,8 @@ export default function UserRow({
   onRoleChange,
   onExplicitChange,
   onCampaignAccessChange,
+  apiKeysEnabled = false,
+  onApiKeysChange,
   onPasswordReset,
   onEmailChange,
   onDelete,
@@ -93,6 +95,9 @@ export default function UserRow({
           <UserPermissionBadges
             allowExplicit={user.allow_explicit ?? true}
             campaignAccess={user.campaign_access ?? true}
+            // Admins always hold keys; anyone else once granted. Nothing to show
+            // while keys are off for the whole instance.
+            apiKeys={apiKeysEnabled && (user.role === 'admin' || Boolean(user.api_keys_enabled))}
           />
         </td>
 
@@ -127,6 +132,8 @@ export default function UserRow({
               onRoleChange={onRoleChange}
               onExplicitChange={onExplicitChange}
               onCampaignAccessChange={onCampaignAccessChange}
+              apiKeysEnabled={apiKeysEnabled}
+              onApiKeysChange={onApiKeysChange}
               onPasswordReset={onPasswordReset}
               onEmailChange={onEmailChange}
               onDelete={onDelete}

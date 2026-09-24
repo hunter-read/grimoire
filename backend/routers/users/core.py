@@ -37,6 +37,7 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
             "role": u.role,
             "allow_explicit": bool(u.allow_explicit) if u.allow_explicit is not None else True,
             "campaign_access": u.campaign_access is None or bool(u.campaign_access),
+            "api_keys_enabled": bool(u.api_keys_enabled),
             "campaign_count": owned_counts.get(u.id, 0),
             "oidc_linked": bool(u.oidc_subject),
             "created_at": u.created_at.isoformat(),
@@ -103,6 +104,8 @@ def create_user(
         user.allow_explicit = data.allow_explicit
     if data.campaign_access is not None:
         user.campaign_access = data.campaign_access
+    if data.api_keys_enabled is not None:
+        user.api_keys_enabled = data.api_keys_enabled
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -113,6 +116,7 @@ def create_user(
         "role": user.role,
         "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
+        "api_keys_enabled": bool(user.api_keys_enabled),
         "campaign_count": 0,
         "oidc_linked": bool(user.oidc_subject),
     }
@@ -156,6 +160,8 @@ def update_user(
         user.allow_explicit = data.allow_explicit
     if data.campaign_access is not None:
         user.campaign_access = data.campaign_access
+    if data.api_keys_enabled is not None:
+        user.api_keys_enabled = data.api_keys_enabled
     if data.email is not None:
         new_email = data.email or None  # "" → clear
         if new_email and new_email != user.email:
@@ -176,6 +182,7 @@ def update_user(
         if user.allow_explicit is not None
         else True,
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
+        "api_keys_enabled": bool(user.api_keys_enabled),
     }
 
 
@@ -231,6 +238,7 @@ def convert_guest(
         "role": user.role,
         "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
+        "api_keys_enabled": bool(user.api_keys_enabled),
         "campaign_count": db.query(Campaign).filter_by(owner_id=user.id).count(),
         "oidc_linked": bool(user.oidc_subject),
         "created_at": user.created_at.isoformat(),

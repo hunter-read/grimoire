@@ -4,6 +4,7 @@ import { LuPlus, LuX } from 'react-icons/lu'
 import api, { auth } from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
+import { useUISettings } from '../../context/UISettingsContext'
 import UserRow from './UserRow'
 import AddUserForm from './AddUserForm'
 import GuestsSection from './GuestsSection'
@@ -13,6 +14,7 @@ const COLUMN_COUNT = 5
 export default function UsersTab() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
+  const { api_keys_enabled: keysEnabled } = useUISettings()
   const [users, setUsers] = useState(null)
   const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -53,6 +55,14 @@ export default function UsersTab() {
       mergeUser(await api.patch(`/users/${userId}`, { campaign_access: allowed }))
     } catch (err) {
       setError(err.message || t('users.failedUpdateCampaignAccess'))
+    }
+  }
+
+  const handleApiKeysChange = async (userId, allowed) => {
+    try {
+      mergeUser(await api.patch(`/users/${userId}`, { api_keys_enabled: allowed }))
+    } catch (err) {
+      setError(err.message || t('users.failedUpdateApiKeys'))
     }
   }
 
@@ -207,6 +217,8 @@ export default function UsersTab() {
                 onRoleChange={handleRoleChange}
                 onExplicitChange={handleExplicitChange}
                 onCampaignAccessChange={handleCampaignAccessChange}
+                apiKeysEnabled={keysEnabled !== false}
+                onApiKeysChange={handleApiKeysChange}
                 onPasswordReset={handlePasswordReset}
                 onEmailChange={handleEmailChange}
                 onDelete={handleDelete}

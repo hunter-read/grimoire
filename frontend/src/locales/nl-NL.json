@@ -1099,17 +1099,169 @@
       "title": "Statistieken in zijbalk",
       "description": "Kies welke statistieken in de voettekst van de zijbalk verschijnen."
     },
-    "apiKey": {
-      "title": "API-sleutel voor statistieken",
-      "description": "Genereer een API-sleutel zodat externe applicaties (bijv. Homepage) bibliotheekstatistieken kunnen opvragen zonder zich aan te melden. Geef de sleutel mee in de",
-      "descriptionSuffix": "aanvraagheader.",
-      "endpoint": "Eindpunt:",
-      "set": "— ingesteld",
-      "regenerate": "Opnieuw genereren",
-      "revoke": "Intrekken",
-      "generate": "API-sleutel genereren",
-      "generating": "Genereren…",
-      "copyKey": "Sleutel kopiëren"
+    "apiKeys": {
+      "title": "API-sleutels",
+      "description": "Laat scripts en apps (bijv. Homepage of een opdrachtregeltool) Grimoire namens jou gebruiken, zonder je wachtwoord. Stuur een sleutel mee in de",
+      "descriptionSuffix": "request-header. Een sleutel bereikt alleen de onderdelen die je hem toekent, en nooit meer dan je eigen account.",
+      "allTitle": "Alle API-sleutels",
+      "allDescription": "De API-sleutels van alle gebruikers. Trek elke sleutel in die niet meer gebruikt hoort te worden; iedere gebruiker beheert zijn eigen sleutels in de accountinstellingen.",
+      "empty": "Nog geen API-sleutels.",
+      "create": "API-sleutel aanmaken",
+      "loadFailed": "Kan de API-sleutels niet laden.",
+      "actionFailed": "Dat is niet gelukt. Probeer het opnieuw.",
+      "levels": {
+        "none": "Geen toegang",
+        "read": "Lezen",
+        "write": "Lezen en schrijven"
+      },
+      "row": {
+        "created": "Aangemaakt op {{when}}",
+        "lastUsed": "Laatst gebruikt op {{when}}",
+        "neverUsed": "Nooit gebruikt",
+        "expires": "Verloopt op {{when}}",
+        "expired": "Verlopen op {{when}}",
+        "noExpiry": "Verloopt nooit",
+        "noPermissions": "Geen rechten",
+        "edit": "Bewerken",
+        "regenerate": "Opnieuw genereren",
+        "revoke": "Intrekken",
+        "owner": "Eigenaar: {{name}}"
+      },
+      "dialog": {
+        "createTitle": "API-sleutel aanmaken",
+        "editTitle": "API-sleutel bewerken",
+        "name": "Naam",
+        "namePlaceholder": "bijv. Homepage-widget",
+        "nameRequired": "Geef de sleutel een naam.",
+        "expiration": "Vervaldatum",
+        "days_one": "{{count}} dag",
+        "days_other": "{{count}} dagen",
+        "never": "Nooit",
+        "keepExpiry": "Huidige behouden ({{when}})",
+        "keepNever": "Huidige behouden (nooit)",
+        "permissions": "Rechten",
+        "permissionsHint": "Lezen staat bekijken toe; Lezen en schrijven staat ook wijzigingen toe. Alles wat op Geen toegang blijft staan, wordt geweigerd.",
+        "save": "Opslaan",
+        "create": "Sleutel aanmaken",
+        "saveFailed": "Kan de sleutel niet opslaan.",
+        "filter": "Rechten filteren",
+        "noMatches": "Geen rechten komen overeen met ‘{{query}}’",
+        "groupCount": "{{granted}} van {{total}} met toegang"
+      },
+      "reveal": {
+        "title": "Je nieuwe sleutel voor ‘{{name}}’",
+        "warning": "Kopieer deze sleutel nu - je kunt hem daarna niet meer zien. Ben je hem kwijt, genereer hem dan opnieuw.",
+        "copy": "Sleutel kopiëren",
+        "copied": "Gekopieerd naar klembord",
+        "example": "Voorbeeldverzoek:",
+        "done": "Klaar"
+      },
+      "confirm": {
+        "regenerateTitle": "‘{{name}}’ opnieuw genereren?",
+        "regenerateMessage": "Er wordt een nieuwe sleutel uitgegeven met dezelfde naam en rechten. De huidige sleutel werkt meteen niet meer, dus alles wat hem gebruikt moet worden bijgewerkt.",
+        "revokeTitle": "‘{{name}}’ intrekken?",
+        "revokeMessage": "De sleutel wordt verwijderd en werkt meteen niet meer. Dit kan niet ongedaan worden gemaakt."
+      },
+      "groups": {
+        "library": "Bibliotheek",
+        "media": "Media",
+        "campaigns": "Campagnes & persoonlijk",
+        "admin": "Beheer"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Statistieken",
+          "description": "Aantallen en totalen van de bibliotheek (bijv. voor dashboardwidgets zoals Homepage)"
+        },
+        "library": {
+          "label": "Bibliotheek",
+          "description": "Scanstatus, een herscan starten of annuleren, ontbrekende items opruimen, versie- en changelog-info"
+        },
+        "books": {
+          "label": "Boeken",
+          "description": "Boeken en hun metadata, covers, pagina's en bestanden"
+        },
+        "systems": {
+          "label": "Spelsystemen",
+          "description": "Spelsystemen, hun covers en boekmappen"
+        },
+        "search": {
+          "label": "Zoeken",
+          "description": "Zoeken in de volledige tekst van de bibliotheek"
+        },
+        "tags": {
+          "label": "Tags",
+          "description": "Tags aanmaken, hernoemen, samenvoegen en verwijderen, en getagde items weergeven"
+        },
+        "lookups": {
+          "label": "Keuzelijsten",
+          "description": "Genres, systeemfamilies, bovenliggende systemen, licenties en dobbelstenen/materialen"
+        },
+        "maps": {
+          "label": "Kaarten",
+          "description": "Kaarten en kaartmappen"
+        },
+        "tokens": {
+          "label": "Tokens",
+          "description": "Tokens, tokenmappen en tokenkaders"
+        },
+        "audio": {
+          "label": "Audio",
+          "description": "Audiotracks, hun covers en mappen"
+        },
+        "models": {
+          "label": "Modellen",
+          "description": "3D-modellen en modelmappen"
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Bestanden en zip-archieven downloaden"
+        },
+        "files": {
+          "label": "Bestandsbeheer",
+          "description": "Bestanden in de bibliotheekmap bekijken, uploaden, verplaatsen, hernoemen en verwijderen"
+        },
+        "duplicates": {
+          "label": "Duplicaten",
+          "description": "Dubbele items zoeken, vergelijken, koppelen en samenvoegen"
+        },
+        "backups": {
+          "label": "Back-ups",
+          "description": "Back-ups weergeven, maken, downloaden en verwijderen, en het back-upschema"
+        },
+        "logs": {
+          "label": "Logboeken",
+          "description": "De applicatielogboeken lezen"
+        },
+        "campaigns": {
+          "label": "Campagnes",
+          "description": "Je campagnes, leden, sessies, wikipagina's en gekoppelde bronnen"
+        },
+        "addons": {
+          "label": "Add-ons",
+          "description": "Community-add-ons voor metadata: installeren, bijwerken, inschakelen, uitvoeren"
+        },
+        "maintenance": {
+          "label": "Onderhoud",
+          "description": "Instellingen en export van metadata-sidecarbestanden"
+        },
+        "settings": {
+          "label": "Instellingen",
+          "description": "App-instellingen"
+        },
+        "users": {
+          "label": "Gebruikers",
+          "description": "Gebruikersaccounts, rollen en toegangsrechten, en je eigen voorkeuren"
+        },
+        "personal": {
+          "label": "Persoonlijk",
+          "description": "Je favorieten, bladwijzers, opgeslagen filters, opgeslagen afspeellijsten en soundboards, en thema's"
+        },
+        "all": {
+          "label": "Alle rechten",
+          "description": "Alle onderdelen tegelijk, ook onderdelen die in toekomstige versies worden toegevoegd"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Campagne-uploads",
@@ -1156,7 +1308,11 @@
     "allowExplicitTitle": "Expliciete inhoud toestaan",
     "campaignAccess": "Campagnes",
     "campaignAccessTitle": "Sta deze gebruiker toe campagnes aan te maken, eraan deel te nemen en te beheren (overschreven door je OIDC-provider bij de volgende aanmelding als een campaignAccess-claim is geconfigureerd)",
+    "apiKeys": "API-sleutels",
+    "apiKeysTitle": "Deze gebruiker API-sleutels laten maken en gebruiken (bij de volgende aanmelding overschreven door je OIDC-provider als er een apiKeys-claim is ingesteld)",
+    "apiKeysAdminTitle": "Beheerders kunnen altijd API-sleutels gebruiken",
     "failedUpdateCampaignAccess": "Bijwerken van campagnetoegang mislukt.",
+    "failedUpdateApiKeys": "Kan de toegang tot API-sleutels niet bijwerken.",
     "setPassword": "Wachtwoord instellen",
     "setPasswordTitle": "Wachtwoord voor deze gebruiker instellen",
     "newPasswordPlaceholder": "Nieuw wachtwoord (min. 8)",
