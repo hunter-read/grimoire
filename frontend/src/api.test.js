@@ -11,6 +11,7 @@ import api, {
   auth,
   opds,
   settings,
+  apiKeys,
   bulk,
   duplicates,
 } from './api'
@@ -551,8 +552,12 @@ describe('api', () => {
         settings.get(),
         settings.getUi(),
         settings.patch({}),
-        settings.generateApiKey(),
-        settings.revokeApiKey(),
+        apiKeys.list(),
+        apiKeys.permissions(),
+        apiKeys.create({ name: 'k' }),
+        apiKeys.update('k1', { name: 'k' }),
+        apiKeys.regenerate('k1'),
+        apiKeys.revoke('k1'),
       ])
       expect(fetch).toHaveBeenCalled()
     })

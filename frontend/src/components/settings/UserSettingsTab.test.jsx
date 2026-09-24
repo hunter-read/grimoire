@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UserSettingsTab from './UserSettingsTab'
+import { UISettingsProvider } from '../../context/UISettingsContext'
 
 // Each section is covered by its own test file; stub them so this one asserts
 // the tab's composition and ordering rather than re-testing their internals.
@@ -24,6 +25,8 @@ vi.mock('./UserPreferenceSections', () => ({
 vi.mock('./AppearanceSection', () => ({ default: () => <div>appearance</div> }))
 
 vi.mock('./SectionDivider', () => ({ default: () => <hr /> }))
+
+vi.mock('./ApiKeySection', () => ({ default: () => <div>api-keys</div> }))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k) => k }),
@@ -100,5 +103,29 @@ describe('UserSettingsTab', () => {
     expect(screen.queryByText('email')).not.toBeInTheDocument()
     expect(screen.getByText('reader')).toBeInTheDocument()
     expect(screen.getByText('password')).toBeInTheDocument()
+  })
+
+  describe('API keys', () => {
+    const renderAs = (user, keysEnabled = true) =>
+      render(
+        <UISettingsProvider value={{ api_keys_enabled: keysEnabled }}>
+          <UserSettingsTab user={{ username: 'ada', ...user }} onLogout={() => {}} />
+        </UISettingsProvider>
+      )
+
+    it('offers keys to a user the server allows', () => {
+      renderAs({ role: 'player', api_keys_allowed: true })
+      expect(screen.getByText('api-keys')).toBeInTheDocument()
+    })
+
+    it('hides them from a user without access', () => {
+      renderAs({ role: 'gm', api_keys_allowed: false })
+      expect(screen.queryByText('api-keys')).toBeNull()
+    })
+
+    it('hides them from everyone when keys are off for the instance', () => {
+      renderAs({ role: 'admin', api_keys_allowed: true }, false)
+      expect(screen.queryByText('api-keys')).toBeNull()
+    })
   })
 })

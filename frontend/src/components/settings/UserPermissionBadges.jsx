@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { LuScroll, LuFlame } from 'react-icons/lu'
+import { LuScroll, LuFlame, LuKey } from 'react-icons/lu'
 
 /** Read-only summary of a user's permission flags, shown in the table row. */
-export default function UserPermissionBadges({ allowExplicit, campaignAccess }) {
+export default function UserPermissionBadges({ allowExplicit, campaignAccess, apiKeys = false }) {
   const { t } = useTranslation()
 
   const badges = []
@@ -14,6 +14,16 @@ export default function UserPermissionBadges({ allowExplicit, campaignAccess }) 
       color: 'var(--gold)',
       bg: 'rgba(200, 160, 80, 0.12)',
       border: 'rgba(200, 160, 80, 0.3)',
+    })
+  }
+  if (apiKeys) {
+    badges.push({
+      key: 'api-keys',
+      label: t('users.apiKeys'),
+      icon: <LuKey size={11} />,
+      color: 'var(--text-dim)',
+      bg: 'var(--bg-card)',
+      border: 'var(--border)',
     })
   }
   if (allowExplicit) {

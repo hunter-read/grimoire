@@ -519,8 +519,18 @@ export const settings = {
   get: () => api.get('/settings'),
   getUi: () => api.get('/settings/ui'),
   patch: (data) => api.patch('/settings', data),
-  generateApiKey: () => api.post('/settings/api-key/generate'),
-  revokeApiKey: () => api.delete('/settings/api-key'),
+}
+
+// Personal API keys (issue #489). A key acts as its owner. The full key is
+// returned once, by create and regenerate; everything else only sees its prefix.
+// `list(true)` is the admin view of every user's keys.
+export const apiKeys = {
+  list: (all = false) => api.get(all ? '/api-keys?all=true' : '/api-keys'),
+  permissions: () => api.get('/api-keys/permissions'),
+  create: (data) => api.post('/api-keys', data),
+  update: (id, data) => api.patch(`/api-keys/${id}`, data),
+  regenerate: (id) => api.post(`/api-keys/${id}/regenerate`),
+  revoke: (id) => api.delete(`/api-keys/${id}`),
 }
 
 // Backups (issue #338). Admin-only. A backup is a timestamped .zip holding the

@@ -1,6 +1,8 @@
 """Users package — registers all user routes on a single router."""
 from fastapi import APIRouter
 
+from ... import api_keys
+
 from .core import (
     list_users,
     list_guests,
@@ -77,9 +79,17 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Change own password",
     response_model=PasswordChangeResponse,
+    # Changes a credential or the account itself: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
-    "/me", delete_own_account, methods=["DELETE"], summary="Delete own account", status_code=204
+    "/me",
+    delete_own_account,
+    methods=["DELETE"],
+    summary="Delete own account",
+    status_code=204,
+    # Changes a credential or the account itself: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 
 # --- OPDS (self-service) ---
@@ -92,6 +102,8 @@ router.add_api_route(
     # The disabled/guest branch returns only {opds_enabled, feed_url}; without
     # this, `has_token` would appear as an explicit null it never sent.
     response_model_exclude_unset=True,
+    # Changes a credential or the account itself: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/me/opds/generate",
@@ -99,6 +111,8 @@ router.add_api_route(
     methods=["POST"],
     summary="Generate/regenerate OPDS token",
     response_model=OpdsStatusResponse,
+    # Changes a credential or the account itself: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/me/opds",
@@ -107,6 +121,8 @@ router.add_api_route(
     summary="Revoke OPDS token",
     status_code=200,
     response_model=OpdsStatusResponse,
+    # Changes a credential or the account itself: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 
 # --- Access grants (issue #258) ---

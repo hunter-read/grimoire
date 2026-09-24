@@ -739,21 +739,26 @@ class TestUiSettings:
         assert client.get("/api/settings/ui").status_code == 401
 
 
-class TestStatsApiKey:
-    def test_generate_then_revoke(self, client, admin_headers):
-        gen = client.post("/api/settings/api-key/generate", headers=admin_headers)
-        assert gen.status_code == 200
-        assert len(gen.json()["stats_api_key"]) > 0
+class TestLegacyStatsApiKeyRemoved:
+    """The single plaintext stats key gave way to /api/api-keys (issue #489)."""
 
-        rev = client.delete("/api/settings/api-key", headers=admin_headers)
-        assert rev.status_code == 200
-        assert rev.json()["stats_api_key"] == ""
+    def test_settings_no_longer_expose_a_key(self, client, admin_headers):
+        body = client.get("/api/settings", headers=admin_headers).json()
+        assert "stats_api_key" not in body
 
-    def test_generate_requires_admin(self, client, player_headers):
-        assert (
-            client.post("/api/settings/api-key/generate", headers=player_headers).status_code
-            == 403
+    def test_patch_cannot_set_a_key(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings", json={"stats_api_key": "chosen"}, headers=admin_headers
         )
+        assert resp.status_code == 200
+        assert "stats_api_key" not in resp.json()
+        assert client.get("/api/stats", headers={"X-API-Key": "chosen"}).status_code == 401
+
+    def test_old_endpoints_are_gone(self, client, admin_headers):
+        gen = client.post("/api/settings/api-key/generate", headers=admin_headers)
+        assert gen.status_code in (404, 405)
+        rev = client.delete("/api/settings/api-key", headers=admin_headers)
+        assert rev.status_code in (404, 405)
 
 
 # ---------------------------------------------------------------------------

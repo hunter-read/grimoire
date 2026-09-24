@@ -857,6 +857,46 @@ class TestResolveUser:
         finally:
             db.close()
 
+    def test_permissions_claim_applies_api_keys(self, client, admin_setup):
+        from backend.config import SessionLocal
+        db = SessionLocal()
+        try:
+            # Off by default: a claim without apiKeys leaves it off.
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "perm-keys-sub",
+                    "preferred_username": "perm_keys",
+                    "perms": {"viewNSFW": True},
+                },
+                self._eff(oidc_permissions_claim="perms", oidc_auto_register=True),
+            )
+            assert not user.api_keys_enabled
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "perm-keys-sub",
+                    "preferred_username": "perm_keys",
+                    "perms": {"apiKeys": True},
+                },
+                self._eff(oidc_permissions_claim="perms"),
+            )
+            assert user.api_keys_enabled is True
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "perm-keys-sub",
+                    "preferred_username": "perm_keys",
+                    "perms": {"apiKeys": False},
+                },
+                self._eff(oidc_permissions_claim="perms"),
+            )
+            assert user.api_keys_enabled is False
+            db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
     def test_permissions_claim_absent_key_leaves_campaign_access_default(
         self, client, admin_setup
     ):

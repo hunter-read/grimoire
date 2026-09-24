@@ -842,3 +842,93 @@ class TestDuplicateGroupsEdgesBackfill:
         assert "edges" in self._columns(path)
         init_db(path)
         assert "edges" in self._columns(path)
+
+
+class TestApiKeysMigration:
+    """0036 moves the single plaintext stats key into api_keys (issue #489)."""
+
+    def _db_before_api_keys(self, stats_key, admins=("first-admin", "second-admin")):
+        """A current DB rewound to just before 0036, holding a stats key row."""
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE api_keys"))
+            conn.execute(text("UPDATE alembic_version SET version_num = 'a3f5c7e9b1d2'"))
+            for i, admin_id in enumerate(admins):
+                conn.execute(
+                    text(
+                        "INSERT INTO users (id, username, role, created_at) "
+                        "VALUES (:id, :id, 'admin', :created)"
+                    ),
+                    {"id": admin_id, "created": f"2026-01-0{i + 1}00:00:00"},
+                )
+            conn.execute(
+                text(
+                    "INSERT INTO users (id, username, role, created_at) "
+                    "VALUES ('early-player', 'early-player', 'player', '2025-01-01 00:00:00')"
+                )
+            )
+            if stats_key is not None:
+                conn.execute(
+                    text("INSERT INTO app_settings (key, value) VALUES ('stats_api_key', :v)"),
+                    {"v": stats_key},
+                )
+        engine.dispose()
+        return path
+
+    def _rows(self, path, sql):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                return conn.execute(text(sql)).fetchall()
+        finally:
+            engine.dispose()
+
+    def test_existing_key_is_hashed_and_granted_stats_read_only(self):
+        import hashlib
+
+        legacy = "legacy-stats-key-value-1234567890"
+        path = self._db_before_api_keys(legacy)
+
+        init_db(path)
+
+        rows = self._rows(
+            path, "SELECT user_id, name, prefix, key_hash, permissions FROM api_keys"
+        )
+        assert len(rows) == 1
+        user_id, name, prefix, key_hash, permissions = rows[0]
+        # Owned by the earliest admin - not the earlier player.
+        assert user_id == "first-admin"
+        assert name == "Stats API key (migrated)"
+        assert key_hash == hashlib.sha256(legacy.encode()).hexdigest()
+        assert prefix == legacy[:4]
+        assert json.loads(permissions) == {"stats": "read"}
+        # The plaintext is gone.
+        assert not self._rows(path, "SELECT 1 FROM app_settings WHERE key = 'stats_api_key'")
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_empty_key_row_is_dropped_without_a_key(self):
+        path = self._db_before_api_keys("")
+        init_db(path)
+        assert not self._rows(path, "SELECT 1 FROM api_keys")
+        assert not self._rows(path, "SELECT 1 FROM app_settings WHERE key = 'stats_api_key'")
+
+    def test_key_is_dropped_when_no_admin_can_own_it(self):
+        path = self._db_before_api_keys("orphan-key", admins=())
+        init_db(path)
+        assert not self._rows(path, "SELECT 1 FROM api_keys")
+        assert not self._rows(path, "SELECT 1 FROM app_settings WHERE key = 'stats_api_key'")
+
+    def test_no_key_row_creates_just_the_table(self):
+        path = self._db_before_api_keys(None)
+        init_db(path)
+        assert not self._rows(path, "SELECT 1 FROM api_keys")
+
+    def test_upgrade_then_downgrade(self):
+        path = self._db_before_api_keys("some-key")
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "a3f5c7e9b1d2")
+        assert not inspect(engine).has_table("api_keys")
+        engine.dispose()

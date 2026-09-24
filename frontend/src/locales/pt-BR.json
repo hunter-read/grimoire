@@ -1099,17 +1099,169 @@
       "title": "Estatísticas da barra lateral",
       "description": "Escolha quais estatísticas aparecem no rodapé da barra lateral."
     },
-    "apiKey": {
-      "title": "Chave de API de estatísticas",
-      "description": "Gere uma chave de API para permitir que aplicativos externos (por ex. Homepage) consultem as estatísticas da biblioteca sem fazer login. Passe a chave no",
-      "descriptionSuffix": "cabeçalho da requisição.",
-      "endpoint": "Endpoint:",
-      "set": "— definida",
-      "regenerate": "Regenerar",
-      "revoke": "Revogar",
-      "generate": "Gerar chave de API",
-      "generating": "Gerando…",
-      "copyKey": "Copiar chave"
+    "apiKeys": {
+      "title": "Chaves de API",
+      "description": "Permita que scripts e aplicativos (ex.: Homepage ou uma ferramenta de linha de comando) usem o Grimoire em seu nome, sem sua senha. Envie uma chave no cabeçalho",
+      "descriptionSuffix": "da requisição. Uma chave só acessa as áreas que você conceder, e nunca mais do que sua própria conta.",
+      "allTitle": "Todas as chaves de API",
+      "allDescription": "As chaves de API de todos os usuários. Revogue qualquer chave que não deva estar em uso; cada usuário gerencia as suas nas configurações da conta.",
+      "empty": "Nenhuma chave de API ainda.",
+      "create": "Criar chave de API",
+      "loadFailed": "Não foi possível carregar as chaves de API.",
+      "actionFailed": "Não deu certo. Tente novamente.",
+      "levels": {
+        "none": "Sem acesso",
+        "read": "Leitura",
+        "write": "Leitura e escrita"
+      },
+      "row": {
+        "created": "Criada em {{when}}",
+        "lastUsed": "Último uso em {{when}}",
+        "neverUsed": "Nunca usada",
+        "expires": "Expira em {{when}}",
+        "expired": "Expirou em {{when}}",
+        "noExpiry": "Nunca expira",
+        "noPermissions": "Sem permissões",
+        "edit": "Editar",
+        "regenerate": "Gerar novamente",
+        "revoke": "Revogar",
+        "owner": "Dono: {{name}}"
+      },
+      "dialog": {
+        "createTitle": "Criar chave de API",
+        "editTitle": "Editar chave de API",
+        "name": "Nome",
+        "namePlaceholder": "ex.: widget do Homepage",
+        "nameRequired": "Dê um nome à chave.",
+        "expiration": "Expiração",
+        "days_one": "{{count}} dia",
+        "days_other": "{{count}} dias",
+        "never": "Nunca",
+        "keepExpiry": "Manter a atual ({{when}})",
+        "keepNever": "Manter a atual (nunca)",
+        "permissions": "Permissões",
+        "permissionsHint": "Leitura permite visualizar; Leitura e escrita também permite alterar. Tudo o que ficar em Sem acesso é recusado.",
+        "save": "Salvar",
+        "create": "Criar chave",
+        "saveFailed": "Não foi possível salvar a chave.",
+        "filter": "Filtrar permissões",
+        "noMatches": "Nenhuma permissão corresponde a “{{query}}”",
+        "groupCount": "{{granted}} de {{total}} com acesso"
+      },
+      "reveal": {
+        "title": "Sua nova chave para “{{name}}”",
+        "warning": "Copie esta chave agora - você não poderá vê-la novamente. Se perdê-la, gere-a novamente.",
+        "copy": "Copiar chave",
+        "copied": "Copiada para a área de transferência",
+        "example": "Exemplo de requisição:",
+        "done": "Concluído"
+      },
+      "confirm": {
+        "regenerateTitle": "Gerar “{{name}}” novamente?",
+        "regenerateMessage": "Uma nova chave é emitida com o mesmo nome e as mesmas permissões. A chave atual para de funcionar imediatamente, então tudo o que a usa precisará ser atualizado.",
+        "revokeTitle": "Revogar “{{name}}”?",
+        "revokeMessage": "A chave é excluída e para de funcionar imediatamente. Isso não pode ser desfeito."
+      },
+      "groups": {
+        "library": "Biblioteca",
+        "media": "Mídia",
+        "campaigns": "Campanhas e pessoal",
+        "admin": "Administração"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Estatísticas",
+          "description": "Contagens e totais da biblioteca (ex.: para widgets de painel como o Homepage)"
+        },
+        "library": {
+          "label": "Biblioteca",
+          "description": "Status da varredura, iniciar ou cancelar uma nova varredura, limpar itens ausentes, versão e changelog"
+        },
+        "books": {
+          "label": "Livros",
+          "description": "Livros e seus metadados, capas, páginas e arquivos"
+        },
+        "systems": {
+          "label": "Sistemas de jogo",
+          "description": "Sistemas de jogo, suas capas e pastas de livros"
+        },
+        "search": {
+          "label": "Pesquisa",
+          "description": "Pesquisa de texto completo na biblioteca"
+        },
+        "tags": {
+          "label": "Tags",
+          "description": "Criar, renomear, mesclar e excluir tags, e listar itens com tags"
+        },
+        "lookups": {
+          "label": "Listas de valores",
+          "description": "Gêneros, famílias de sistemas, sistemas pai, licenças e dados/materiais"
+        },
+        "maps": {
+          "label": "Mapas",
+          "description": "Mapas e pastas de mapas"
+        },
+        "tokens": {
+          "label": "Tokens",
+          "description": "Tokens, pastas de tokens e molduras de tokens"
+        },
+        "audio": {
+          "label": "Áudio",
+          "description": "Faixas de áudio, suas capas e pastas"
+        },
+        "models": {
+          "label": "Modelos",
+          "description": "Modelos 3D e pastas de modelos"
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Baixar arquivos e arquivos zip"
+        },
+        "files": {
+          "label": "Gerenciador de arquivos",
+          "description": "Navegar, enviar, mover, renomear e excluir arquivos na pasta da biblioteca"
+        },
+        "duplicates": {
+          "label": "Duplicados",
+          "description": "Encontrar, comparar, vincular e mesclar itens duplicados"
+        },
+        "backups": {
+          "label": "Backups",
+          "description": "Listar, criar, baixar e excluir backups, e o agendamento de backups"
+        },
+        "logs": {
+          "label": "Logs",
+          "description": "Ler os logs do aplicativo"
+        },
+        "campaigns": {
+          "label": "Campanhas",
+          "description": "Suas campanhas, membros, sessões, páginas wiki e recursos vinculados"
+        },
+        "addons": {
+          "label": "Complementos",
+          "description": "Complementos de metadados da comunidade: instalar, atualizar, ativar, executar"
+        },
+        "maintenance": {
+          "label": "Manutenção",
+          "description": "Configurações e exportação de arquivos sidecar de metadados"
+        },
+        "settings": {
+          "label": "Configurações",
+          "description": "Configurações do aplicativo"
+        },
+        "users": {
+          "label": "Usuários",
+          "description": "Contas de usuário, funções e concessões de acesso, e suas próprias preferências"
+        },
+        "personal": {
+          "label": "Pessoal",
+          "description": "Seus favoritos, marcadores, filtros salvos, playlists e soundboards salvos, e temas"
+        },
+        "all": {
+          "label": "Todas as permissões",
+          "description": "Todas as áreas de uma vez, incluindo as adicionadas em versões futuras"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Uploads de campanha",
@@ -1156,7 +1308,11 @@
     "allowExplicitTitle": "Permitir conteúdo explícito",
     "campaignAccess": "Campanhas",
     "campaignAccessTitle": "Permitir que este usuário crie, participe e gerencie campanhas (substituído pelo seu provedor OIDC no próximo login se um claim campaignAccess estiver configurado)",
+    "apiKeys": "Chaves de API",
+    "apiKeysTitle": "Permitir que este usuário crie e use chaves de API (substituído pelo seu provedor OIDC no próximo login se uma claim apiKeys estiver configurada)",
+    "apiKeysAdminTitle": "Administradores sempre podem usar chaves de API",
     "failedUpdateCampaignAccess": "Falha ao atualizar o acesso a campanhas.",
+    "failedUpdateApiKeys": "Não foi possível atualizar o acesso às chaves de API.",
     "setPassword": "Definir senha",
     "setPasswordTitle": "Definir senha para este usuário",
     "newPasswordPlaceholder": "Nova senha (mín. 8)",

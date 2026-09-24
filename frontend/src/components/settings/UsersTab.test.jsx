@@ -104,6 +104,29 @@ describe('UsersTab', () => {
     )
   })
 
+  it('grants API keys to a user and shows the badge', async () => {
+    api.patch.mockResolvedValue({ id: 'user-2', api_keys_enabled: true })
+    render(<UsersTab />)
+    await screen.findByText('bob')
+    // The admin row carries the badge already; bob's does not until granted.
+    expect(screen.getAllByText('API keys')).toHaveLength(1)
+    fireEvent.click(screen.getByText('bob'))
+    fireEvent.click(screen.getByLabelText('API keys'))
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/users/user-2', { api_keys_enabled: true })
+    )
+    await waitFor(() => expect(screen.getAllByText('API keys').length).toBeGreaterThan(1))
+  })
+
+  it('shows an error when granting API keys fails', async () => {
+    api.patch.mockRejectedValue(new Error('nope'))
+    render(<UsersTab />)
+    await screen.findByText('bob')
+    fireEvent.click(screen.getByText('bob'))
+    fireEvent.click(screen.getByLabelText('API keys'))
+    expect(await screen.findByText('nope')).toBeInTheDocument()
+  })
+
   it('saves an edited email', async () => {
     api.patch.mockResolvedValue({ id: 'user-2', email: 'new@x.com' })
     render(<UsersTab />)

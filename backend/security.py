@@ -3,8 +3,8 @@
 Two pieces of hardening live here:
 
 1. A :class:`slowapi.Limiter` used to throttle the unauthenticated,
-   credential-checking endpoints (login / setup / guest-login and the
-   API-key-guarded ``/api/stats``) against online brute-forcing. It is
+   credential-checking endpoints (login / setup / guest-login, and failed
+   ``X-API-Key`` attempts on any endpoint) against online brute-forcing. It is
    keyed on the real client IP (honoring ``X-Forwarded-For`` when behind a
    reverse proxy) and, when Valkey is configured, backed by a shared store so
    the limit is enforced consistently across replicas — falling back to
@@ -16,6 +16,7 @@ Two pieces of hardening live here:
 import os
 import sys
 
+from limits import parse as parse_limit
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from starlette.requests import Request
@@ -81,6 +82,38 @@ if _RATE_LIMIT_ENABLED:
         f"Auth rate limiting enabled ({AUTH_RATE_LIMIT}), "
         f"store={'valkey' if VALKEY_URL else 'in-memory'}"
     )
+
+
+# Failed API-key attempts share the auth limit, counted per client IP across
+# every endpoint (issue #489). Only failures count, so a working integration is
+# never throttled however often it polls; and once an IP is over the limit even a
+# correct key is refused until the window passes, so a 429 can't be told apart
+# from a hit.
+_API_KEY_FAILURE_LIMIT = parse_limit(AUTH_RATE_LIMIT)
+_API_KEY_FAILURE_SCOPE = "api-key-failure"
+
+
+def api_key_attempts_blocked(request: Request) -> bool:
+    """Whether this client has used up its failed-key allowance."""
+    if not limiter.enabled:
+        return False
+    try:
+        return not limiter.limiter.test(
+            _API_KEY_FAILURE_LIMIT, _API_KEY_FAILURE_SCOPE, client_ip(request)
+        )
+    except Exception:
+        # Match the limiter's own swallow_errors: a broken store fails open
+        # rather than locking every integration out.
+        return False
+
+
+def record_api_key_failure(request: Request) -> None:
+    if not limiter.enabled:
+        return
+    try:
+        limiter.limiter.hit(_API_KEY_FAILURE_LIMIT, _API_KEY_FAILURE_SCOPE, client_ip(request))
+    except Exception:
+        pass
 
 
 # --- Security headers --------------------------------------------------------

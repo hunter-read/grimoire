@@ -10,7 +10,6 @@ class SettingsPatch(BaseModel):
     rescan_schedule_minute: Optional[int] = None
     rescan_schedule_weekday: Optional[int] = None
     cleanup_on_rescan: Optional[bool] = None
-    stats_api_key: Optional[str] = None  # set to "" to clear
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
     hide_audio: Optional[bool] = None
@@ -76,7 +75,6 @@ class SettingsResponse(BaseModel):
     rescan_schedule_minute: int
     rescan_schedule_weekday: int
     cleanup_on_rescan: bool
-    stats_api_key: str
     hide_maps: bool
     hide_tokens: bool
     hide_audio: bool
@@ -140,12 +138,6 @@ class SettingsResponse(BaseModel):
     oidc_client_secret_env_locked: bool
 
 
-class ApiKeyResponse(BaseModel):
-    """The stats API key after generation, or `""` after revocation."""
-
-    stats_api_key: str
-
-
 class UISettingsResponse(BaseModel):
     """The visibility subset any authenticated user may read."""
 
@@ -167,4 +159,5 @@ class UISettingsResponse(BaseModel):
     campaign_upload_max_file_mb: int
     campaign_upload_max_total_mb: int
     guest_access_enabled: bool
+    api_keys_enabled: bool
     library_writable: bool

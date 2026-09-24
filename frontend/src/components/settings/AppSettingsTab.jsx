@@ -4,8 +4,10 @@ import ApiKeySection from './ApiKeySection'
 import CampaignUploadsSection from './CampaignUploadsSection'
 import FolderCategorySection from './FolderCategorySection'
 import CategoryAccessSection from './CategoryAccessSection'
+import { useUISettings } from '../../context/UISettingsContext'
 
 export default function AppSettingsTab() {
+  const { api_keys_enabled: keysEnabled } = useUISettings()
   return (
     <div>
       <SidebarVisibilitySection />
@@ -17,8 +19,12 @@ export default function AppSettingsTab() {
       <FolderCategorySection />
       <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
       <CategoryAccessSection />
-      <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
-      <ApiKeySection />
+      {keysEnabled !== false && (
+        <>
+          <div style={{ borderTop: '1px solid var(--border)', marginBottom: 40 }} />
+          <ApiKeySection scope="all" />
+        </>
+      )}
     </div>
   )
 }

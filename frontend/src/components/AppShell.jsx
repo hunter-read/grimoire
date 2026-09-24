@@ -55,6 +55,10 @@ export default function AppShell() {
     // file actions cannot flash into a menu during the first render and be
     // clicked before the real answer arrives.
     library_writable: false,
+    // Likewise off until the server confirms API keys exist on this instance,
+    // so a server with API_KEYS_ENABLED=false never sees the key views flash
+    // in and fire requests it will refuse.
+    api_keys_enabled: false,
   })
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(

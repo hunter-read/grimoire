@@ -51,6 +51,9 @@ class LoginUser(BaseModel):
     display_name: Optional[str] = None
     # `role` is `default="player"` rather than NOT NULL, so legacy rows can be NULL.
     role: Optional[str] = None
+    # Whether this user may create and use API keys right now (issue #489): the
+    # instance switch and their own, admins always. Drives the Account tab.
+    api_keys_allowed: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -125,4 +128,6 @@ class AuthMeResponse(BaseModel):
     # Both are coalesced by the handler, so they are always concrete booleans.
     allow_explicit: bool
     campaign_access: bool
+    # See LoginUser.api_keys_allowed.
+    api_keys_allowed: bool
     oidc_linked: bool

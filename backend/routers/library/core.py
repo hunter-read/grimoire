@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -16,11 +16,9 @@ from ...config import (
     get_db,
 )
 from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
-from ...auth import require_admin, optional_get_current_user, get_current_user, CurrentUser
+from ...auth import require_admin, get_current_user, CurrentUser
 from ...indexer import resolve_scope
-from ...security import AUTH_RATE_LIMIT, limiter
 from ...services import access_control, changelog, variants
-from ..settings import get_stats_api_key
 from . import _helpers
 from ._schemas import (
     AboutResponse,
@@ -33,7 +31,9 @@ from ._schemas import (
 )
 
 router = APIRouter(tags=["library"])
-public_router = APIRouter(prefix="/api", tags=["library"])
+# /stats has a tag of its own so an API key can be given the counts a dashboard
+# widget needs without also being able to start or cancel a rescan (issue #489).
+stats_router = APIRouter(tags=["stats"])
 
 
 @router.get(
@@ -95,31 +95,24 @@ def _book_bytes(db: Session, scope) -> int:
     return scope(db.query(func.sum(Book.file_size))).scalar() or 0
 
 
-@public_router.get(
+@stats_router.get(
     "/stats",
     summary="Library statistics",
-    description="Returns library counts. Accepts either a valid JWT (Authorization: Bearer) or a configured X-API-Key header for external integrations.",
+    description=(
+        "Returns library counts. Accepts a session, or an `X-API-Key` with the "
+        "`stats` permission for external integrations such as Homepage."
+    ),
     response_model=StatsResponse,
 )
-@limiter.limit(AUTH_RATE_LIMIT)
 def get_stats(
-    request: Request,
-    x_api_key: Optional[str] = Header(default=None),
-    user=Depends(optional_get_current_user),
+    user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if user is None:
-        stored_key = get_stats_api_key(db)
-        if not stored_key or x_api_key != stored_key:
-            raise HTTPException(401, "Authentication required")
-
     # Book counts are scoped to what the caller may actually see (issue #258):
     # a sidebar reading "340 books" over a library showing 320 discloses both
-    # that restricted books exist and exactly how many. The API-key path has no
-    # user and is an admin-configured integration, so it keeps the full totals.
+    # that restricted books exist and exactly how many. An API key counts as its
+    # owner, so an admin's key sees the full totals.
     def _books(q):
-        if user is None:
-            return q
         return access_control.visible_books(db, q, access_control.load_user(db, user))
 
     return {

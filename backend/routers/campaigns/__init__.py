@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 from fastapi.responses import Response
 
+from ... import api_keys
+
 from .core import (
     list_campaigns,
     create_campaign,
@@ -170,7 +172,7 @@ router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 # Calendar subscription feeds authenticate by the per-user token in the path, so
 # they cannot sit under the JWT-guarded /api router — calendar apps have no way
 # to send an Authorization header. Mounted separately in main.py, mirroring the
-# public_router pattern the oidc and library packages already use.
+# public_router pattern the oidc package already uses.
 public_router = APIRouter(prefix="/api/campaigns/calendar", tags=["campaigns"])
 
 # `.ics` is part of the literal path (not a format suffix): several calendar
@@ -668,6 +670,8 @@ router.add_api_route(
     methods=["GET"],
     summary="Get the caller's calendar subscription URLs",
     response_model=CalendarSubscriptionOut,
+    # Mints or revokes a calendar feed credential: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/calendar/subscription",
@@ -675,6 +679,8 @@ router.add_api_route(
     methods=["POST"],
     summary="Mint or rotate the caller's calendar feed token",
     response_model=CalendarSubscriptionOut,
+    # Mints or revokes a calendar feed credential: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/calendar/subscription",
@@ -682,6 +688,8 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Revoke the caller's calendar feed token",
     response_model=CalendarSubscriptionOut,
+    # Mints or revokes a calendar feed credential: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{campaign_id}/calendar.ics",

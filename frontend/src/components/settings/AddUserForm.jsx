@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck, LuX } from 'react-icons/lu'
 import api from '../../api'
+import { useUISettings } from '../../context/UISettingsContext'
 
 export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = true }) {
   const { t } = useTranslation()
+  const { api_keys_enabled: keysEnabled } = useUISettings()
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -12,6 +14,8 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
     role: 'player',
     allow_explicit: true,
     campaign_access: true,
+    // Off by default: an admin grants API keys deliberately, per user.
+    api_keys_enabled: false,
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,6 +34,7 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
         role: form.role,
         allow_explicit: form.allow_explicit,
         campaign_access: form.campaign_access,
+        ...(keysEnabled !== false ? { api_keys_enabled: form.api_keys_enabled } : {}),
         ...(passwordAuthEnabled && form.password ? { password: form.password } : {}),
         ...(form.email.trim() ? { email: form.email.trim() } : {}),
       }
@@ -148,6 +153,22 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
               />
               {t('users.campaignAccess')}
             </label>
+            {keysEnabled !== false && (
+              <label
+                htmlFor="add-user-api-keys"
+                title={t('users.apiKeysTitle')}
+                style={permLabelStyle}
+              >
+                <input
+                  id="add-user-api-keys"
+                  type="checkbox"
+                  checked={form.api_keys_enabled}
+                  onChange={(e) => setForm({ ...form, api_keys_enabled: e.target.checked })}
+                  style={{ width: 14, height: 14, accentColor: 'var(--gold)' }}
+                />
+                {t('users.apiKeys')}
+              </label>
+            )}
             <label
               htmlFor="add-user-allow-explicit"
               title={t('users.allowExplicitTitle')}

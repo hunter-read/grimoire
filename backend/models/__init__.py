@@ -5,6 +5,7 @@ and re-exported here so callers can keep using ``from backend.models import X``.
 """
 
 from .access import UserAccessGrant
+from .api_keys import ApiKey
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
 from .campaigns import (
@@ -110,6 +111,7 @@ __all__ = [
     "SessionAvailability",
     # Settings
     "AppSetting",
+    "ApiKey",
     # Tags
     "Tag",
     "ResourceTag",

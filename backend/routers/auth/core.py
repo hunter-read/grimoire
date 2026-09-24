@@ -5,6 +5,7 @@ from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ...api_keys import user_keys_allowed
 from ...auth import (
     AUTH_COOKIE_NAME,
     CurrentUser,
@@ -178,6 +179,7 @@ def auth_refresh(
             "username": user.username,
             "display_name": user.display_name,
             "role": user.role,
+            "api_keys_allowed": user_keys_allowed(user),
         },
     }
 
@@ -287,5 +289,6 @@ def auth_me(
         "role": u.role,
         "allow_explicit": allow_explicit,
         "campaign_access": campaign_access,
+        "api_keys_allowed": user_keys_allowed(u),
         "oidc_linked": bool(u.oidc_subject),
     }
