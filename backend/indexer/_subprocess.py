@@ -12,6 +12,7 @@ of module boundaries.
 """
 import os
 import pickle
+import signal
 import logging
 import tempfile
 import threading
@@ -173,6 +174,36 @@ def extract_text_from_pdf(
     return pages, used_ocr
 
 
+
+def _kill_worker(proc: Any) -> None:
+    """Kill a spawned worker *and anything it spawned*.
+
+    ``Process.terminate()`` signals only the worker itself.  The OCR workers run
+    the ``tesseract`` binary through pytesseract, so that binary is a grandchild
+    of this process: terminating its parent leaves it running, reparented to
+    init, still holding a core.  Abandoned pages therefore kept consuming CPU
+    indefinitely, which starved the pages still being worked on and caused more
+    of them to overrun the same budget.
+
+    Workers call ``os.setsid()`` on start (see ``pdf_worker._prepare_worker``),
+    so a worker's pid is also its process-group id and signalling that group
+    reaches the grandchild.  Falls back to ``terminate()`` if the group cannot
+    be confirmed, which is the old behaviour rather than a regression.
+    """
+    pid = getattr(proc, "pid", None)
+    if pid and hasattr(os, "killpg") and hasattr(os, "getpgid"):
+        try:
+            if os.getpgid(pid) == pid:  # confirm setsid() took effect
+                os.killpg(pid, signal.SIGKILL)
+                return
+        except (ProcessLookupError, PermissionError, OSError):
+            pass  # gone already, or not ours — fall through
+    try:
+        proc.terminate()
+    except Exception:  # pragma: no cover - the process is already gone
+        pass
+
+
 def extract_text_isolated(
     filepath: str,
     should_stop: Optional[Callable[[], bool]] = None,
@@ -206,13 +237,13 @@ def extract_text_isolated(
             proc.join(poll_interval)
             elapsed += poll_interval
             if should_stop and should_stop():
-                proc.terminate()
+                _kill_worker(proc)
                 proc.join()
                 raise TimeoutError(f"Text extraction aborted by stop request for {filepath}")
 
         if proc.is_alive():
             logger.error(f"Text extraction timed out after {_EXTRACT_TIMEOUT}s for {filepath}")
-            proc.terminate()
+            _kill_worker(proc)
             proc.join()
             raise PdfExtractionCrashError(f"extraction timed out after {_EXTRACT_TIMEOUT}s")
 
@@ -232,7 +263,7 @@ def extract_text_isolated(
             return pickle.load(fh)
     finally:
         if proc.is_alive():
-            proc.terminate()
+            _kill_worker(proc)
             proc.join()
         try:
             os.unlink(result_path)
@@ -281,7 +312,7 @@ def ocr_page_isolated(
             proc.join(poll_interval)
             elapsed += poll_interval
             if should_stop and should_stop():
-                proc.terminate()
+                _kill_worker(proc)
                 proc.join()
                 return ""
         if proc.is_alive():
@@ -289,7 +320,7 @@ def ocr_page_isolated(
                 f"OCR page {page_index + 1} timed out after {budget:g}s for {filepath} - "
                 f"skipping it. Raise OCR_PAGE_TIMEOUT to give slow pages more time."
             )
-            proc.terminate()
+            _kill_worker(proc)
             proc.join()
             return OCR_PAGE_ABANDONED
         if os.path.getsize(result_path) == 0:
@@ -301,7 +332,7 @@ def ocr_page_isolated(
             return pickle.load(fh)
     finally:
         if proc.is_alive():
-            proc.terminate()
+            _kill_worker(proc)
             proc.join()
         try:
             os.unlink(result_path)

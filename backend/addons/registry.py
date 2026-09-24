@@ -159,7 +159,15 @@ def manifest_path(addon_id: str) -> str:
 
 def load_manifest(addon_id: str) -> AddonManifest:
     """Read and validate one installed add-on's manifest."""
-    path = manifest_path(addon_id)
+    return read_manifest_file(manifest_path(addon_id), addon_id)
+
+
+def read_manifest_file(path: str, addon_id: str) -> AddonManifest:
+    """Read and validate the manifest at ``path``, expected to declare ``addon_id``.
+
+    Split from :func:`load_manifest` so an install can validate a staged
+    manifest *before* it replaces the working one (see ``install.install``).
+    """
     try:
         with open(path, "r", encoding="utf-8") as fh:
             raw = yaml.safe_load(fh)

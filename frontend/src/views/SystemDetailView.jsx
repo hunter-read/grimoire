@@ -30,7 +30,8 @@ import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
 import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
-import { categoryDepth } from '../components/system/folderTree'
+import { buildFolderTree, categoryDepth, orderedBooks } from '../components/system/folderTree'
+import { getFolderPlacement } from '../hooks/useUserPrefs'
 import { systemScope, groupScope } from '../components/system/rescanScope'
 import BulkToggleButton from '../components/BulkToggleButton'
 import CollapseExpandButtons from '../components/CollapseExpandButtons'
@@ -40,7 +41,11 @@ import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import SortFilterBar from '../components/library/SortFilterBar'
-import { bookFilterPredicate, bookComparator } from '../components/library/applyBookSortFilter'
+import {
+  bookFilterPredicate,
+  bookComparator,
+  productCodePrefix,
+} from '../components/library/applyBookSortFilter'
 import { queryTags } from '../components/library/tagQuery'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
@@ -243,6 +248,13 @@ export default function SystemDetailView() {
 
   const comparator = bookComparator(bookFilter.sort, bookFilter.order)
   const sortBooks = (books) => [...books].sort(comparator)
+  // How folders are ordered against the books beside them: the active sort plus
+  // the user's folder-placement preference (issue #448).
+  const folderOrder = {
+    sort: bookFilter.sort,
+    order: bookFilter.order,
+    placement: getFolderPlacement(),
+  }
 
   // Books of a system nested in a container sit one folder deeper, so rescan
   // scopes must account for the container segment. Bound here (where the system
@@ -278,7 +290,9 @@ export default function SystemDetailView() {
   // Flat ordered list of visible book ids, for shift-range selection. Matches
   // the on-screen order: grouped → by category; flat → the single sorted list.
   const orderedBookIds = grouped
-    ? orderedCatKeys.flatMap((cat) => sortBooks(categories[cat]).map((b) => b.id))
+    ? orderedCatKeys.flatMap((cat) =>
+        orderedBooks(buildFolderTree(categories[cat], scopeDepth), folderOrder).map((b) => b.id)
+      )
     : flatBooks.map((b) => b.id)
   const toggleBookSelect = (id, mods = {}) =>
     bulk.toggleItem(id, { ...mods, orderedIds: orderedBookIds })
@@ -345,10 +359,18 @@ export default function SystemDetailView() {
     { value: 'year', label: t('sortFilter.sortYear') },
     { value: 'page_count', label: t('sortFilter.sortPageCount') },
     { value: 'size', label: t('sortFilter.sortSize') },
+    { value: 'product_code', label: t('sortFilter.sortProductCode') },
   ]
   const bookGenreOptions = [...new Set((system.books || []).flatMap((b) => b.genres || []))]
     .sort((a, b) => a.localeCompare(b))
     .map((g) => ({ value: g, label: g }))
+  // Product codes are unique per book, so the filter offers their publisher
+  // prefixes ("PZO", "TSR") plus the has/has-no-code sentinels (issue #479).
+  const bookProductCodeOptions = [
+    ...new Set((system.books || []).map((b) => productCodePrefix(b.product_code)).filter(Boolean)),
+  ]
+    .sort((a, b) => a.localeCompare(b))
+    .map((p) => ({ value: p, label: `${p}…` }))
   const bookTagOptions = allTags.map((tg) => ({
     value: tg,
     label: bookTagLabels[tg] || titleCaseTag(tg),
@@ -757,6 +779,12 @@ export default function SystemDetailView() {
                 allLabel: t('sortFilter.allGenres'),
                 options: bookGenreOptions,
               },
+              {
+                key: 'productCode',
+                label: t('sortFilter.filterProductCode'),
+                allLabel: t('sortFilter.allProductCodes'),
+                options: bookProductCodeOptions,
+              },
             ]}
             queryFilters={[
               {
@@ -793,6 +821,7 @@ export default function SystemDetailView() {
               key={cat}
               cat={cat}
               books={sortBooks(categories[cat])}
+              folderOrder={folderOrder}
               system={system}
               isCollapsed={collapsedCats.has(cat)}
               onToggleCat={() =>

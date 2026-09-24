@@ -74,7 +74,7 @@ describe('BookBulkEditFields', () => {
     expect(draft.is_explicit).toBe(true)
   })
 
-  it('edits the description, publisher, isbn, version and language', () => {
+  it('edits the description, publisher, isbn, product code, version and language', () => {
     const draft = { tags: [], genres: [] }
     render(<Harness initialDraft={draft} />)
     fireEvent.change(screen.getByLabelText('bookEditor.descriptionLabel'), {
@@ -84,11 +84,15 @@ describe('BookBulkEditFields', () => {
       target: { value: 'WotC' },
     })
     fireEvent.change(screen.getByLabelText('bookEditor.isbnLabel'), { target: { value: '123' } })
+    fireEvent.change(screen.getByLabelText('bookEditor.productCodeLabel'), {
+      target: { value: 'PZO9001' },
+    })
     fireEvent.change(screen.getByLabelText('bookEditor.versionLabel'), { target: { value: '2e' } })
     fireEvent.change(screen.getByLabelText('bookEditor.languageLabel'), { target: { value: 'en' } })
     expect(draft.description).toBe('Desc')
     expect(draft.publisher).toBe('WotC')
     expect(draft.isbn).toBe('123')
+    expect(draft.product_code).toBe('PZO9001')
     expect(draft.version).toBe('2e')
     expect(draft.language).toBe('en')
   })

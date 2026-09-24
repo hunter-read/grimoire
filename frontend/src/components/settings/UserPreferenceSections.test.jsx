@@ -134,3 +134,26 @@ describe('LibrarySection — recently opened limit', () => {
     expect(getUserPrefs().recentLimit).toBe(RECENT_DEFAULT)
   })
 })
+
+// ---------------------------------------------------------------------------
+// LibrarySection — folder placement (issue #448)
+// ---------------------------------------------------------------------------
+
+describe('LibrarySection — folder placement', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('saves "mixed" when the mixed option is chosen', () => {
+    render(<LibrarySection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Mixed with books' }))
+    expect(getUserPrefs().folderPlacement).toBe('mixed')
+  })
+
+  it('saves "first" when switching back to folders first', () => {
+    localStorage.setItem('grimoire:user-prefs', JSON.stringify({ folderPlacement: 'mixed' }))
+    render(<LibrarySection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Folders first' }))
+    expect(getUserPrefs().folderPlacement).toBe('first')
+  })
+})

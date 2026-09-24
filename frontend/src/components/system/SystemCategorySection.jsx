@@ -5,7 +5,7 @@ import { toTitleCase } from '../../utils'
 import RescanButton from '../RescanButton'
 import BookFolderGroup from './BookFolderGroup'
 import CategoryBookItem from './CategoryBookItem'
-import { buildFolderTree, categoryDepth } from './folderTree'
+import { buildFolderTree, categoryDepth, entryRuns, orderedEntries } from './folderTree'
 
 /** The original (non-slugified) category folder name from a book's relative_path.
  *  Path structure: books/{SystemName}/{categoryDir}/.../book.pdf → parts[2], or
@@ -23,6 +23,8 @@ function getCategoryFolderName(book, depth = 2) {
  *
  * Props:
  *   cat, books           – category slug and its sorted book list
+ *   folderOrder          – { sort, order, placement } for ordering folders among
+ *                          books (see folderTree's orderedEntries)
  *   system               – system object (for id/name in downloads + rescan scope)
  *   isCollapsed          – whether this category is collapsed
  *   onToggleCat          – () => void
@@ -40,6 +42,7 @@ function getCategoryFolderName(book, depth = 2) {
 export default function SystemCategorySection({
   cat,
   books,
+  folderOrder,
   system,
   isCollapsed,
   onToggleCat,
@@ -105,10 +108,11 @@ export default function SystemCategorySection({
   }
 
   // Build a nested folder tree from relative_path (supports arbitrary depth).
-  // Books sitting directly in the category dir collect at the tree root.
+  // Books sitting directly in the category dir collect at the tree root, and
+  // folders take their place among them the same way at every level.
   const tree = buildFolderTree(books, depth)
-  const folderNames = Object.keys(tree.folders).sort((a, b) => a.localeCompare(b))
-  const hasFolders = folderNames.length > 0
+  const hasFolders = Object.keys(tree.folders).length > 0
+  const runs = entryRuns(orderedEntries(tree, folderOrder))
 
   let body = null
   if (!isCollapsed) {
@@ -124,45 +128,51 @@ export default function SystemCategorySection({
     } else {
       body = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* Ungrouped books (directly in the category dir) — flat above folders */}
-          {tree.books.length > 0 && (
-            <div key="__ungrouped__" style={{ ...booksContainerStyle, marginBottom: 4 }}>
-              {tree.books.map((book) => (
-                <CategoryBookItem key={book.id} book={book} {...bookItemProps} />
-              ))}
-            </div>
+          {runs.map((run) =>
+            run.type === 'books' ? (
+              // A stretch of loose books (directly in the category dir).
+              <div
+                key={`books:${run.books[0].id}`}
+                style={{ ...booksContainerStyle, marginBottom: 4 }}
+              >
+                {run.books.map((book) => (
+                  <CategoryBookItem key={book.id} book={book} {...bookItemProps} />
+                ))}
+              </div>
+            ) : (
+              <BookFolderGroup
+                key={`folder:${run.name}`}
+                folder={run.name}
+                path={[run.name]}
+                node={run.node}
+                folderOrder={folderOrder}
+                systemId={system.id}
+                category={cat}
+                card={card}
+                compact={compact}
+                list={list}
+                booksContainerStyle={booksContainerStyle}
+                collapsed={collapsedSubfolders}
+                onToggle={onToggleSubfolder}
+                editingBookId={editingBookId}
+                setEditingBookId={setEditingBookId}
+                isEditor={isEditor}
+                onSaveBook={onSaveBook}
+                onDownload={onDownload}
+                bulkMode={bulkMode}
+                selectedBookIds={selectedBookIds}
+                onToggleBook={onToggleBook}
+                onVariantsChanged={onVariantsChanged}
+                allTags={allTags}
+                existingCategories={existingCategories}
+                systemGenres={systemGenres}
+                bookFolderTags={bookFolderTags}
+                editingFolderKey={editingFolderKey}
+                onEditFolder={onEditFolder}
+                onSaveBookFolderTags={onSaveBookFolderTags}
+              />
+            )
           )}
-          {folderNames.map((name) => (
-            <BookFolderGroup
-              key={name}
-              folder={name}
-              path={[name]}
-              node={tree.folders[name]}
-              systemId={system.id}
-              category={cat}
-              card={card}
-              compact={compact}
-              list={list}
-              booksContainerStyle={booksContainerStyle}
-              collapsed={collapsedSubfolders}
-              onToggle={onToggleSubfolder}
-              editingBookId={editingBookId}
-              setEditingBookId={setEditingBookId}
-              isEditor={isEditor}
-              onSaveBook={onSaveBook}
-              onDownload={onDownload}
-              bulkMode={bulkMode}
-              selectedBookIds={selectedBookIds}
-              onToggleBook={onToggleBook}
-              allTags={allTags}
-              existingCategories={existingCategories}
-              systemGenres={systemGenres}
-              bookFolderTags={bookFolderTags}
-              editingFolderKey={editingFolderKey}
-              onEditFolder={onEditFolder}
-              onSaveBookFolderTags={onSaveBookFolderTags}
-            />
-          ))}
         </div>
       )
     }

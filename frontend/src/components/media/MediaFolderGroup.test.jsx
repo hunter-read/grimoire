@@ -10,7 +10,9 @@ vi.mock('../../context/AudioPlayerContext', () => ({
 }))
 vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
 vi.mock('./MediaCard', () => ({ default: ({ item }) => <div>{item.filename}</div> }))
-vi.mock('../LazyGrid', () => ({ default: ({ children }) => <>{children}</> }))
+vi.mock('./VirtualGrid', () => ({
+  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+}))
 vi.mock('../RescanButton', () => ({ default: () => <span data-testid="rescan" /> }))
 // Real-ish FolderTagRow: exposes its edit + save affordances so the editing
 // branches of the folder group are exercised.

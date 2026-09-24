@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -20,6 +20,7 @@ import {
 import { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
+import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
 import ReaderVariantItems from './ReaderVariantItems'
 
@@ -65,7 +66,6 @@ export default function ReaderMoreMenu({
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0 })
   const [addToCampaign, setAddToCampaign] = useState(false)
   const fileActions = useFileActions({ onChanged: onFileChanged })
   const knowsFile = Boolean(book?.relative_path)
@@ -73,41 +73,28 @@ export default function ReaderMoreMenu({
   // Offered on a read-only library too: the default remove drops only the
   // record, which is the one form of cleanup a read-only mount still allows.
   const showRemove = fileActions.canRemove && knowsFile
-  const triggerRef = useRef(null)
-  const menuRef = useRef(null)
-
-  const place = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const margin = 8
-    let left = r.right - MENU_WIDTH
-    left = Math.max(margin, Math.min(left, window.innerWidth - margin - MENU_WIDTH))
-    setCoords({ top: r.bottom + 4, left })
-  }, [])
+  const {
+    triggerRef,
+    panelRef: menuRef,
+    style: menuStyle,
+  } = useAnchoredMenu(open, { width: MENU_WIDTH })
 
   useEffect(() => {
     if (!open) return
-    place()
     const onDoc = (e) => {
       if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
       setOpen(false)
     }
-    const onReposition = () => place()
     const onKey = (e) => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
     return () => {
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
     }
-  }, [open, place])
+  }, [open, triggerRef, menuRef])
 
   const itemStyle = {
     display: 'flex',
@@ -164,17 +151,17 @@ export default function ReaderMoreMenu({
             role="menu"
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: 'fixed',
-              top: coords.top,
-              left: coords.left,
+              ...menuStyle,
               zIndex: 2000,
-              width: MENU_WIDTH,
               padding: '4px 0',
               borderRadius: 8,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               boxShadow: '0 6px 20px var(--shadow)',
-              overflow: 'hidden',
+              // Clips the square-cornered first/last items to the panel's
+              // radius. Horizontal only: `overflow: hidden` would override the
+              // vertical scrolling the hook sets on an over-tall menu.
+              overflowX: 'hidden',
             }}
           >
             {!hide_campaigns && (

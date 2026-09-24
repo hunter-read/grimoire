@@ -194,6 +194,36 @@ class TestListAddons:
         body = client.get("/api/addons", headers=admin_headers).json()
         assert body["available"][0]["update_available"] is True
 
+    def test_an_update_needing_a_newer_grimoire_is_not_flagged(
+        self, client, admin_headers, installed, monkeypatch
+    ):
+        """The Update button would only ever fail, so it is not shown (issue #479)."""
+        from backend import config
+
+        monkeypatch.setattr(config, "VERSION", "1.7.1")
+        session = SessionLocal()
+        registry.save_cached_index(
+            session,
+            {
+                "addons": [
+                    {
+                        "id": "ttrpg-wiki",
+                        "name": "TTRPG Wiki",
+                        "version": "2.0.0",
+                        "path": "scrapers/ttrpg-wiki/ttrpg-wiki.yml",
+                        "sha256": "x" * 64,
+                        "grimoire_min_version": "1.7.2",
+                    }
+                ]
+            },
+        )
+        session.commit()
+        session.close()
+        body = client.get("/api/addons", headers=admin_headers).json()
+        assert body["available"][0]["update_available"] is False
+        (row,) = [a for a in body["installed"] if a["id"] == "ttrpg-wiki"]
+        assert row["update_available"] is False
+
 
     def test_surfaces_source_url(self, client, admin_headers):
         session = SessionLocal()

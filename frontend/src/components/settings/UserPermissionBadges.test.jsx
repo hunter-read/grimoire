@@ -25,4 +25,14 @@ describe('UserPermissionBadges', () => {
     render(<UserPermissionBadges allowExplicit={false} campaignAccess={false} />)
     expect(screen.getByText('None')).toBeInTheDocument()
   })
+
+  it('shows an API keys badge only when the user can hold keys', () => {
+    const { unmount } = render(
+      <UserPermissionBadges allowExplicit={false} campaignAccess={false} apiKeys />
+    )
+    expect(screen.getByText('API keys')).toBeInTheDocument()
+    unmount()
+    render(<UserPermissionBadges allowExplicit={false} campaignAccess={false} />)
+    expect(screen.queryByText('API keys')).toBeNull()
+  })
 })

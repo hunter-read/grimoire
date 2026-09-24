@@ -99,6 +99,17 @@ function browseResult(entries, path = 'books', extra = {}) {
   return { path, parent: '', writable: true, entries, singletons_taken: {}, ...extra }
 }
 
+// Move the primary pane off the library root by opening a folder in it. The
+// root offers no upload or new-folder button — every write API refuses the
+// empty path it is represented by — so a case about those actions has to stand
+// somewhere they can work. The pane tracks its own path, so this navigates for
+// real rather than faking the listing's `path`.
+async function openFolderInPane(name = 'core') {
+  const pane = await screen.findByTestId('file-pane-primary')
+  fireEvent.doubleClick(within(pane).getByTestId(`entry-${name}`))
+  await screen.findByTestId('upload-primary')
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   uploadQueue.items = []
@@ -295,27 +306,33 @@ describe('FileManagerView', () => {
   describe('the pane toolbar', () => {
     it('uploads files into the folder the pane is showing', async () => {
       render(<FileManagerView />)
+      await openFolderInPane()
       await userEvent.click(await screen.findByTestId('upload-primary'))
       await userEvent.click(await screen.findByTestId('upload-files-primary'))
       const f = new File(['x'], 'a.pdf', { type: 'application/pdf' })
       fireEvent.change(screen.getByTestId('file-input'), { target: { files: [f] } })
 
-      // The pane is anchored on the library root, so that is where it lands.
-      await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), ''))
+      // The folder the pane is showing, not a guess and not the root.
+      await waitFor(() =>
+        expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), 'books/core')
+      )
     })
 
     it('uploads a folder into the folder the pane is showing', async () => {
       render(<FileManagerView />)
+      await openFolderInPane()
       await userEvent.click(await screen.findByTestId('upload-primary'))
       await userEvent.click(await screen.findByTestId('upload-folder-primary'))
       const f = new File(['x'], 'a.pdf', { type: 'application/pdf' })
       fireEvent.change(screen.getByTestId('folder-input'), { target: { files: [f] } })
-      await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), ''))
+      await waitFor(() =>
+        expect(uploadQueue.enqueue).toHaveBeenCalledWith(expect.any(Array), 'books/core')
+      )
     })
 
     it('keeps the two upload choices behind one button', async () => {
       render(<FileManagerView />)
-      await screen.findByTestId('file-pane-primary')
+      await openFolderInPane()
       // Closed, the toolbar spends one button's width on the verb rather than
       // two on its variants.
       expect(screen.queryByTestId('upload-files-primary')).not.toBeInTheDocument()
@@ -385,8 +402,9 @@ describe('FileManagerView', () => {
   it('creates a folder in the pane\u2019s own folder from the breadcrumb button', async () => {
     // The right-click route needs a folder to click on, which an empty folder
     // does not have — so the pane carries its own "new folder here" button.
-    filesApi.createFolder.mockResolvedValue({ path: 'books/New' })
+    filesApi.createFolder.mockResolvedValue({ path: 'books/core/New' })
     render(<FileManagerView />)
+    await openFolderInPane()
 
     await userEvent.click(await screen.findByTestId('new-folder-primary'))
     const input = await screen.findByLabelText('files.folderName')
@@ -394,10 +412,21 @@ describe('FileManagerView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'files.create' }))
 
     await waitFor(() =>
-      // The pane is anchored on the library root, so that is where the folder
-      // lands — the button always means "here", whatever "here" happens to be.
-      expect(filesApi.createFolder).toHaveBeenCalledWith('', 'Homebrew', expect.anything())
+      // The button always means "here" — the folder the pane is showing.
+      expect(filesApi.createFolder).toHaveBeenCalledWith(
+        'books/core',
+        'Homebrew',
+        expect.anything()
+      )
     )
+  })
+
+  it('hides the new-folder button at the library root', async () => {
+    // The root already holds the collections, and `create_folder` refuses the
+    // empty parent path, so the button would only ever produce an error.
+    render(<FileManagerView />)
+    await screen.findByTestId('file-pane-primary')
+    expect(screen.queryByTestId('new-folder-primary')).not.toBeInTheDocument()
   })
 
   it('hides the new-folder button on a read-only mount', async () => {
@@ -1022,7 +1051,8 @@ describe('FileManagerView', () => {
 
   it('uploads files dragged in from the desktop', async () => {
     render(<FileManagerView />)
-    const pane = await screen.findByTestId('file-pane-primary')
+    await openFolderInPane()
+    const pane = screen.getByTestId('file-pane-primary')
 
     const dropped = [new File(['x'], 'new.pdf', { type: 'application/pdf' })]
     fireEvent.drop(pane, {
@@ -1038,8 +1068,23 @@ describe('FileManagerView', () => {
     await waitFor(() => expect(uploadQueue.enqueue).toHaveBeenCalled())
     const [entries, destination] = uploadQueue.enqueue.mock.calls[0]
     expect(entries[0].file.name).toBe('new.pdf')
-    expect(destination).toBe('')
+    expect(destination).toBe('books/core')
     expect(filesApi.move).not.toHaveBeenCalled()
+  })
+
+  it('ignores a desktop drop on the library root, where an upload cannot land', async () => {
+    // Nothing is queued rather than a request being sent to fail: the root is
+    // not a folder an upload can target.
+    render(<FileManagerView />)
+    const pane = await screen.findByTestId('file-pane-primary')
+    fireEvent.drop(pane, {
+      dataTransfer: {
+        types: ['Files'],
+        files: [new File(['x'], 'new.pdf', { type: 'application/pdf' })],
+        getData: () => '',
+      },
+    })
+    expect(uploadQueue.enqueue).not.toHaveBeenCalled()
   })
 
   it('queues files chosen from the picker into the right-clicked folder', async () => {

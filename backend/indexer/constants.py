@@ -275,7 +275,21 @@ METADATA_MODES = ("new", "missing", "replace")
 # Book fields that can be sourced from an OPF sidecar.
 # Note: OPF ``tags`` are applied separately via the shared-tag service (issue
 # #235); they are intentionally NOT in this setattr list (no column to set).
-_OPF_BOOK_FIELDS = ("title", "authors", "description", "publisher", "year", "isbn")
+_OPF_BOOK_FIELDS = (
+    "title",
+    "authors",
+    "description",
+    "publisher",
+    "year",
+    "isbn",
+    "product_code",
+)
+
+# The ``dc:identifier opf:scheme`` Grimoire writes a product code under (issue
+# #479). Reading also accepts the aliases below, compared case-insensitively,
+# because an OPF written by hand or by another tool may say "SKU" instead.
+PRODUCT_CODE_SCHEME = "PRODUCT_CODE"
+PRODUCT_CODE_SCHEMES = frozenset({"product_code", "productcode", "sku"})
 
 # Ceiling on a "text" book we will decode and paginate (.txt/.md/.rtf, issue
 # #200). Well above any real homebrew document, but low enough that a stray

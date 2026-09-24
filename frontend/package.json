@@ -16,6 +16,7 @@
     "format:check": "prettier --check \"src/**/*.{js,jsx,json}\""
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.13",
     "i18next": "^26.0.4",
     "pdfjs-dist": "^6.2.108",
     "react": "^18.3.1",

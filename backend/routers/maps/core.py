@@ -1,5 +1,6 @@
 """Map CRUD, file-serving, and folder-tagging endpoints."""
 import base64
+import glob
 import hashlib
 import io
 import json
@@ -29,6 +30,7 @@ from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access
+from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
 from ._helpers import (
     _is_pdf,
     _map_image_info,
@@ -83,6 +85,7 @@ def list_maps(
     folder: Optional[str] = None,
     limit: int = Query(100000),
     offset: int = 0,
+    sort: str = Query("path", pattern="^(path|name)$"),
     db: Session = Depends(get_db),
 ):
     # Applied before the folder branch below — a variant must never reach the
@@ -90,12 +93,15 @@ def list_maps(
     q = variants.parents_only(db.query(GenericMap), GenericMap)
     if map_type:
         q = q.filter_by(map_type=map_type)
-    # Ordered by path, not filename: the gallery groups by folder and sorts the
-    # folders by name, so ordering the query this way makes the first page the
-    # first folders as they will actually be displayed. Paging by filename
-    # instead scattered each page across the whole tree, and every later page
-    # then inserted rows *above* what the user was already looking at.
-    q = q.order_by(GenericMap.relative_path)
+    # Ordered by path by default, not filename: the gallery groups by folder and
+    # sorts the folders by name, so ordering the query this way makes the first
+    # page the first folders as they will actually be displayed. Paging by
+    # filename instead scattered each page across the whole tree, and every
+    # later page then inserted rows *above* what the user was already looking at.
+    #
+    # With grouping turned off the gallery sorts by filename, so there the same
+    # argument runs the other way and the caller asks for `name`.
+    q = q.order_by(GenericMap.filename if sort == "name" else GenericMap.relative_path)
     if folder is not None:
         # Folder is derived from relative_path rather than stored as a column, so
         # it cannot be compared directly. Narrowing on the path prefix in SQL
@@ -614,6 +620,12 @@ def serve_map_thumbnail(
     thumb_path = os.path.join(THUMB_DIR, "maps", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
         return FileResponse(thumb_path, media_type="image/webp", headers=headers)
+    # See the token route: a file renamed since it was indexed has its thumbnail
+    # under the old filename stem, and the path hash is what still finds it.
+    matches = glob.glob(os.path.join(THUMB_DIR, "maps", f"*_{fhash}.webp"))
+    if matches:
+        return FileResponse(matches[0], media_type="image/webp", headers=headers)
+    _clear_stale_thumbnail_flag(db, m)
     raise HTTPException(404)
 
 

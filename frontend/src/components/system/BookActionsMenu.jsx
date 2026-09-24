@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -18,6 +18,7 @@ import api, { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
 import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
+import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
 import VariantMenuItems from './VariantMenuItems'
 import DownloadVariantItems from './DownloadVariantItems'
@@ -56,13 +57,16 @@ const MENU_WIDTH = 220
  * only for an admin on a writable library — see `useFileActions`.
  *
  * The menu is portalled to document.body at fixed coordinates so it isn't
- * clipped by the book row's `overflow: hidden`.
+ * clipped by the book row's `overflow: hidden`. `useAnchoredMenu` keeps those
+ * coordinates on screen: this menu's height swings widely with the role and the
+ * book (re-OCR, file actions and reset-progress all come and go), so a book near
+ * the bottom of a long system page used to open a menu whose lower items ran off
+ * the window — see issue #465.
  */
 export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFileChanged }) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0 })
   const [addToCampaign, setAddToCampaign] = useState(false)
   const [showDpi, setShowDpi] = useState(false)
   const [dpi, setDpi] = useState(book.ocr_dpi ? String(book.ocr_dpi) : '')
@@ -71,8 +75,14 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
   // keeps it visible (as a confirmation) after the page is cleared.
   const [progressReset, setProgressReset] = useState(false)
   const hasProgress = open && (!!getBookPrefs(book.id).page || progressReset)
-  const triggerRef = useRef(null)
-  const menuRef = useRef(null)
+  const {
+    triggerRef,
+    panelRef: menuRef,
+    style: menuStyle,
+    place,
+  } = useAnchoredMenu(open, {
+    width: MENU_WIDTH,
+  })
   const fileActions = useFileActions({ onChanged: onFileChanged })
   // A book only has file actions once we know where its file lives; rows served
   // by an older payload without `relative_path` simply do not offer them.
@@ -93,33 +103,22 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
   // A never-scanned / still-pending book has nothing to re-do yet.
   const canReindex = Boolean(onEdit) && isPdf && (book.indexed || book.index_failed)
 
-  const place = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const margin = 8
-    let left = r.right - MENU_WIDTH
-    left = Math.max(margin, Math.min(left, window.innerWidth - margin - MENU_WIDTH))
-    setCoords({ top: r.bottom + 4, left })
-  }, [])
+  // The menu grows and shrinks while it is open — the DPI field unfolds, the
+  // rescan item swaps in a status line — so re-place it whenever that happens,
+  // or an item added near the bottom of the window lands off screen.
+  useEffect(() => {
+    if (open) place()
+  }, [open, showDpi, state, hasProgress, place])
 
   useEffect(() => {
     if (!open) return
-    place()
     const onDoc = (e) => {
       if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
       setOpen(false)
     }
-    const onReposition = () => place()
     document.addEventListener('mousedown', onDoc)
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
-    }
-  }, [open, place])
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open, triggerRef, menuRef])
 
   const close = () => {
     setOpen(false)
@@ -201,17 +200,17 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
             role="menu"
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: 'fixed',
-              top: coords.top,
-              left: coords.left,
+              ...menuStyle,
               zIndex: 2000,
-              width: MENU_WIDTH,
               padding: '4px 0',
               borderRadius: 8,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               boxShadow: '0 6px 20px var(--shadow)',
-              overflow: 'hidden',
+              // Clips the square-cornered first/last items to the panel's
+              // radius. Horizontal only: `overflow: hidden` would override the
+              // vertical scrolling the hook sets on an over-tall menu.
+              overflowX: 'hidden',
             }}
           >
             {onDetails && (

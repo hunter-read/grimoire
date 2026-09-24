@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
-import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
+import { getUserPrefs, saveUserPref, getFolderPlacement } from '../../hooks/useUserPrefs'
 import { getDefaultViewMode, saveDefaultViewMode, CONTENT_TYPES } from '../../hooks/useViewMode'
 import { MODE_ICON } from '../ViewModeToggle'
 import { RECENT_DEFAULT, RECENT_MAX } from '../../hooks/useBookPrefs'
@@ -11,6 +11,7 @@ export default function LibrarySection() {
   const { t } = useTranslation()
   const prefs = getUserPrefs()
   const [sort, setSort] = useState(prefs.librarySort || 'az')
+  const [folderPlacement, setFolderPlacement] = useState(() => getFolderPlacement(prefs))
   const [viewModes, setViewModes] = useState(() =>
     Object.fromEntries(CONTENT_TYPES.map((type) => [type, getDefaultViewMode(type)]))
   )
@@ -22,6 +23,11 @@ export default function LibrarySection() {
   const SORT_OPTIONS = [
     { value: 'az', label: 'A → Z' },
     { value: 'za', label: 'Z → A' },
+  ]
+
+  const FOLDER_PLACEMENT_OPTIONS = [
+    { value: 'first', label: t('userSettings.library.folderPlacementFirst') },
+    { value: 'mixed', label: t('userSettings.library.folderPlacementMixed') },
   ]
 
   const VIEW_MODE_OPTIONS = [
@@ -47,6 +53,11 @@ export default function LibrarySection() {
   const handleSort = (v) => {
     setSort(v)
     saveUserPref('librarySort', v)
+    flash()
+  }
+  const handleFolderPlacement = (v) => {
+    setFolderPlacement(v)
+    saveUserPref('folderPlacement', v)
     flash()
   }
   const handleViewMode = (type, v) => {
@@ -99,6 +110,19 @@ export default function LibrarySection() {
             {t('userSettings.library.sortOrder')}
           </div>
           <SegmentedControl options={SORT_OPTIONS} value={sort} onChange={handleSort} />
+        </div>
+        <div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+            {t('userSettings.library.folderPlacement')}
+          </div>
+          <SegmentedControl
+            options={FOLDER_PLACEMENT_OPTIONS}
+            value={folderPlacement}
+            onChange={handleFolderPlacement}
+          />
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+            {t('userSettings.library.folderPlacementHint')}
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>

@@ -10,13 +10,51 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- Personal API keys for scripts and tools such as Homepage or grimoire-cli: each acts as you, with its own No access / Read / Read and write level per area of the API, or one level for everything
+- Admins choose who may use API keys per user (Settings → Users, or the OIDC `apiKeys` permission; admins always may), see and revoke everyone's keys under App Settings, and can turn keys off entirely with `API_KEYS_ENABLED=false`
+
+### Changed
+
+- The stats API key moved to Settings → Account → API Keys. Existing keys keep working, limited to library stats as before
+
+### Security
+
+- API keys are shown once and stored hashed, can expire, and record when they were last used
+- Repeated wrong API keys from one address are rate limited on every endpoint
+
+## [1.7.2] - 2026-09-24
+
+### Added
+
 - Italian (it-IT) localization
+- Swedish (sv-SE) localization
 - Link to the documentation site from the About dialog
+- Reach a book's details in one click from its row
+- Choose whether folders in a book list sort ahead of the books or in among them by name
+- Product code field for a publisher's catalogue number (SKU), read from sidecars and metadata add-ons, searchable, and sortable and filterable in book lists
+
+### Changed
+
+- Keep folder structure when importing campaign notes as a folder or a zip
+- Work through a bulk selection's metadata from one dialog, applying each match and moving on to the next item or skipping it
 
 ### Fixed
 
 - Non-Docker installs report their real version instead of `1.0.0` in the About dialog
 - Return keyboard focus to the file list after a dialog closes
+- The file manager no longer offers upload and new folder at the library root, where they could only fail
+- Large map, token, audio, and model galleries no longer grow to gigabytes of memory, and scroll smoothly
+- Ungrouped galleries load in the order they display, so cards no longer pop in among those already on screen
+- Renamed maps and tokens keep their thumbnails, and a thumbnail that has gone missing is re-rendered by the next scan
+- Quoted searches match the words together as a phrase, instead of returning every page that mentions each word somewhere
+- Keep the reader's zoom controls from shifting under the cursor
+- Folders in a book list sit in the same place at every level, instead of after the books in a category but before them inside a folder
+- Keep row action menus inside the visible window
+- Restore the reader's panel controls on phones and improve the header bar on mobile
+- Scanned books are read much faster, and pages no longer go missing from the search index when several are processed at once
+- A trackpad swipe in the reader turns one page instead of several
+- The active tab in the Token Editor has readable text
+- Editor button labels in the map, token, and audio galleries stay inside their buttons
 
 ## [1.7.1] - 2026-09-16
 
@@ -471,7 +509,7 @@ Initial release. A self-hosted library manager for your TTRPG PDFs, battlemaps, 
 - Explicit content controls with per-user opt-in
 - Docker-first deployment
 
-[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.7.1...HEAD
+[1.7.2]: https://github.com/hunter-read/grimoire/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/hunter-read/grimoire/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/hunter-read/grimoire/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/hunter-read/grimoire/compare/v1.6.1...v1.6.2

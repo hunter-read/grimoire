@@ -34,6 +34,7 @@ The full list, with the alternative spellings each one accepts:
 | `tag` | `tags` | Tags on books, maps, tokens, and audio |
 | `year` | | Publication year, or a range |
 | `isbn` | | ISBN |
+| `code` | `sku`, `product_code` | The publisher's product code (`code:PZO9001`). Spaces and hyphens are ignored, so `TSR9247` finds `TSR 9247` |
 | `language` | `lang` | Language |
 | `description` | `desc` | Book description |
 | `album` | | Audio album |

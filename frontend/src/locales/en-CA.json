@@ -277,7 +277,8 @@
         "tag": "Tags on books, maps, tokens, audio",
         "publisher": "Publisher",
         "year": "Publication year, or a range",
-        "text": "Page content only"
+        "text": "Page content only",
+        "code": "The publisher's product code (SKU)"
       }
     }
   },
@@ -1043,6 +1044,10 @@
       "title": "Library Browsing",
       "description": "Display preferences for the library, maps, and tokens views.",
       "sortOrder": "Sort order",
+      "folderPlacement": "Folders in book lists",
+      "folderPlacementFirst": "Folders first",
+      "folderPlacementMixed": "Mixed with books",
+      "folderPlacementHint": "Mixed sorts each folder among the books beside it, by its name - or, for other sorts, by its first book.",
       "viewMode": "Default view",
       "viewModeSystems": "Systems",
       "viewModeBooks": "Books",
@@ -1095,17 +1100,169 @@
       "title": "Sidebar Stats",
       "description": "Choose which stats appear in the sidebar footer."
     },
-    "apiKey": {
-      "title": "Stats API Key",
-      "description": "Generate an API key to allow external applications (e.g. Homepage) to query library stats without logging in. Pass the key in the",
-      "descriptionSuffix": "request header.",
-      "endpoint": "Endpoint:",
-      "set": "— set",
-      "regenerate": "Regenerate",
-      "revoke": "Revoke",
-      "generate": "Generate API Key",
-      "generating": "Generating…",
-      "copyKey": "Copy key"
+    "apiKeys": {
+      "title": "API Keys",
+      "description": "Let scripts and apps (e.g. Homepage or a command-line tool) use Grimoire as you, without your password. Send a key in the",
+      "descriptionSuffix": "request header. A key only reaches the areas you grant it, and never more than your own account can.",
+      "allTitle": "All API Keys",
+      "allDescription": "Every user's API keys. Revoke any key that shouldn't be in use; each user manages their own from their account settings.",
+      "empty": "No API keys yet.",
+      "create": "Create API key",
+      "loadFailed": "Could not load API keys.",
+      "actionFailed": "That didn't work. Please try again.",
+      "levels": {
+        "none": "No access",
+        "read": "Read",
+        "write": "Read and write"
+      },
+      "row": {
+        "created": "Created {{when}}",
+        "lastUsed": "Last used {{when}}",
+        "neverUsed": "Never used",
+        "expires": "Expires {{when}}",
+        "expired": "Expired {{when}}",
+        "noExpiry": "Never expires",
+        "noPermissions": "No permissions",
+        "edit": "Edit",
+        "regenerate": "Regenerate",
+        "revoke": "Revoke",
+        "owner": "Owner: {{name}}"
+      },
+      "dialog": {
+        "createTitle": "Create API key",
+        "editTitle": "Edit API key",
+        "name": "Name",
+        "namePlaceholder": "e.g. Homepage widget",
+        "nameRequired": "Give the key a name.",
+        "expiration": "Expiration",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "never": "Never",
+        "keepExpiry": "Keep current ({{when}})",
+        "keepNever": "Keep current (never)",
+        "permissions": "Permissions",
+        "permissionsHint": "Read allows viewing; Read and write also allows changes. Anything left at No access is refused.",
+        "save": "Save",
+        "create": "Create key",
+        "saveFailed": "Could not save the key.",
+        "filter": "Filter permissions",
+        "noMatches": "No permissions match “{{query}}”",
+        "groupCount": "{{granted}} of {{total}} with access"
+      },
+      "reveal": {
+        "title": "Your new key for “{{name}}”",
+        "warning": "Copy this key now - you won't be able to see it again. If you lose it, regenerate it.",
+        "copy": "Copy key",
+        "copied": "Copied to clipboard",
+        "example": "Example request:",
+        "done": "Done"
+      },
+      "confirm": {
+        "regenerateTitle": "Regenerate “{{name}}”?",
+        "regenerateMessage": "A new key is issued with the same name and permissions. The current key stops working immediately, so anything using it must be updated.",
+        "revokeTitle": "Revoke “{{name}}”?",
+        "revokeMessage": "The key is deleted and stops working immediately. This can't be undone."
+      },
+      "groups": {
+        "library": "Library",
+        "media": "Media",
+        "campaigns": "Campaigns & personal",
+        "admin": "Administration"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Statistics",
+          "description": "Library counts and totals (e.g. for dashboard widgets like Homepage)"
+        },
+        "library": {
+          "label": "Library",
+          "description": "Scan status, start or cancel a rescan, clean up missing items, version and changelog info"
+        },
+        "books": {
+          "label": "Books",
+          "description": "Books and their metadata, covers, pages and files"
+        },
+        "systems": {
+          "label": "Game systems",
+          "description": "Game systems, their covers and book folders"
+        },
+        "search": {
+          "label": "Search",
+          "description": "Full-text search across the library"
+        },
+        "tags": {
+          "label": "Tags",
+          "description": "Create, rename, merge and delete tags, and list tagged items"
+        },
+        "lookups": {
+          "label": "Lookup lists",
+          "description": "Genres, system families, parent systems, licences and dice/materials"
+        },
+        "maps": {
+          "label": "Maps",
+          "description": "Maps and map folders"
+        },
+        "tokens": {
+          "label": "Tokens",
+          "description": "Tokens, token folders and token frames"
+        },
+        "audio": {
+          "label": "Audio",
+          "description": "Audio tracks, their covers and folders"
+        },
+        "models": {
+          "label": "Models",
+          "description": "3D models and model folders"
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Download files and zip archives"
+        },
+        "files": {
+          "label": "File manager",
+          "description": "Browse, upload, move, rename and delete files in the library folder"
+        },
+        "duplicates": {
+          "label": "Duplicates",
+          "description": "Find, compare, link and merge duplicate items"
+        },
+        "backups": {
+          "label": "Backups",
+          "description": "List, create, download and delete backups, and the backup schedule"
+        },
+        "logs": {
+          "label": "Logs",
+          "description": "Read the application logs"
+        },
+        "campaigns": {
+          "label": "Campaigns",
+          "description": "Your campaigns, members, sessions, wiki pages and linked resources"
+        },
+        "addons": {
+          "label": "Add-ons",
+          "description": "Community metadata add-ons: install, update, enable, run"
+        },
+        "maintenance": {
+          "label": "Maintenance",
+          "description": "Metadata sidecar settings and export"
+        },
+        "settings": {
+          "label": "Settings",
+          "description": "App settings"
+        },
+        "users": {
+          "label": "Users",
+          "description": "User accounts, roles and access grants, and your own preferences"
+        },
+        "personal": {
+          "label": "Personal",
+          "description": "Your favourites, bookmarks, saved filters, saved playlists and soundboards, and themes"
+        },
+        "all": {
+          "label": "All permissions",
+          "description": "Every area at once, including any added in future versions"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Campaign Uploads",
@@ -1152,7 +1309,11 @@
     "allowExplicitTitle": "Allow explicit content",
     "campaignAccess": "Campaigns",
     "campaignAccessTitle": "Allow this user to create, join, and manage campaigns (overridden by your OIDC provider on next login if a campaignAccess claim is configured)",
+    "apiKeys": "API keys",
+    "apiKeysTitle": "Allow this user to create and use API keys (overridden by your OIDC provider on next login if an apiKeys claim is configured)",
+    "apiKeysAdminTitle": "Admins can always use API keys",
     "failedUpdateCampaignAccess": "Failed to update campaign access.",
+    "failedUpdateApiKeys": "Failed to update API key access.",
     "setPassword": "Set Password",
     "setPasswordTitle": "Set password for this user",
     "newPasswordPlaceholder": "New password (min 8)",
@@ -1929,7 +2090,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "License",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Fetch metadata"
+    "fetchMetadata": "Fetch metadata",
+    "productCodeLabel": "Product code"
   },
   "reocr": {
     "button": "Re-OCR",
@@ -2050,8 +2212,8 @@
     "exportJsonHint": "The full wiki as Grimoire JSON. Re-importable.",
     "import": "Import",
     "importTitle": "Import wiki pages",
-    "importHint": "Add pages from Markdown, a Grimoire JSON bundle, or a LegendKeeper export. Page nesting is preserved. Existing pages are never overwritten.",
-    "importFormats": "Accepts .zip, .json, .lk, .md, .markdown, or .txt.",
+    "importHint": "Add pages from Markdown, a Grimoire JSON bundle, or a LegendKeeper export. Page nesting is preserved, and folders become parent pages - in a zip or a picked folder. Existing pages are never overwritten.",
+    "importFormats": "Accepts .zip, .json, .lk, .md, .markdown, or .txt - or pick a folder of Markdown.",
     "templates": "Templates",
     "templatesTitle": "Note templates",
     "templatesNone": "No templates yet. Browse the community catalogue, write your own, or upload a Markdown file.",
@@ -2091,6 +2253,7 @@
     "templateCreate": "Create template",
     "templateNameRequired": "Give the template a name.",
     "chooseFile": "Choose file",
+    "chooseFolder": "Choose folder",
     "importing": "Importing…",
     "imported": "Imported {{count}} page",
     "imported_other": "Imported {{count}} pages",
@@ -2139,7 +2302,8 @@
     "shareName": "Name",
     "shareReadFor": "Read access for {{name}}",
     "shareWriteFor": "Write access for {{name}}",
-    "shareReadLocked": "Read is included with write access"
+    "shareReadLocked": "Read is included with write access",
+    "importFolderEmpty": "That folder has no Markdown files in it."
   },
   "campaignNotes": {
     "backToOverview": "Back to overview"
@@ -2213,6 +2377,7 @@
     "field_explicit": "Explicit content",
     "previous": "Previous",
     "next": "Next",
+    "fetchShortcut": "Fetch metadata for this item (F). Use ← and → to move between items.",
     "field_genre": "Genre",
     "field_characterBuilderUrl": "Character Builder URL",
     "applyToAll": "Apply to all {{count}}",
@@ -2497,7 +2662,10 @@
     "tagGroupAdd": "Add group",
     "tagGroupMode": "Group {{n}} match mode",
     "tagGroupTags": "Group {{n}} tags",
-    "tagGroupRemove": "Remove group {{n}}"
+    "tagGroupRemove": "Remove group {{n}}",
+    "sortProductCode": "Product code",
+    "filterProductCode": "Product code",
+    "allProductCodes": "All product codes"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2598,6 +2766,11 @@
     "statusSame": "already set",
     "apply": "Apply {{count}} field",
     "apply_other": "Apply {{count}} fields",
+    "applyAndNext": "Apply {{count}} field & next",
+    "applyAndNext_other": "Apply {{count}} fields & next",
+    "skip": "Skip",
+    "keyboardHint": "↑ ↓ to move between matches · Enter to choose one",
+    "pickedBefore": "picked last time",
     "back": "Back",
     "viewSource": "View source",
     "pasteToggle": "Know the exact one? Paste a link or ID",
@@ -2622,7 +2795,8 @@
     "pages": "Pages",
     "fileSize": "File size",
     "format": "Format",
-    "path": "Path"
+    "path": "Path",
+    "productCode": "Product code"
   },
   "appearance": {
     "title": "Appearance",

@@ -54,7 +54,16 @@ def safe_join(relative: str, *, must_exist: bool = False) -> Path:
     root = library_root()
     cleaned = (relative or "").strip().replace("\\", "/")
     if not cleaned.strip("/"):
-        raise LibraryFSError("Path is empty", code="invalid")
+        # The library root itself. Worth naming, because the empty path is how
+        # the browse API represents the root, so this is reached by asking to
+        # write *there* rather than by sending a malformed path — and "Path is
+        # empty" left the user staring at a valid file wondering what was wrong
+        # with it.
+        raise LibraryFSError(
+            "The library root cannot hold files directly - choose a collection "
+            "folder such as books/ or maps/, or a folder inside one.",
+            code="invalid",
+        )
     if "\x00" in cleaned:
         raise LibraryFSError("Path contains an invalid character", code="invalid")
     # An absolute path is never a valid library-relative path. Silently

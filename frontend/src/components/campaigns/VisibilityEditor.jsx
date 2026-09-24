@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuCheck } from 'react-icons/lu'
@@ -11,6 +11,7 @@ import {
   visLabelKey,
 } from './wikiShared'
 import ShareAccessTable from './ShareAccessTable'
+import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 
 // Editable visibility badge: a pill that opens a popover for changing the page's
 // visibility level. For "members" (Private), the popover lists campaign members
@@ -30,9 +31,6 @@ export default function VisibilityEditor({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef(null)
-  const popoverRef = useRef(null)
 
   const meta = VIS_META[page.visibility] || VIS_META.gm
   const { Icon } = meta
@@ -49,35 +47,21 @@ export default function VisibilityEditor({
   // and stays narrow when it is just the three levels.
   const width = page.visibility === 'members' ? SHARE_POPOVER_WIDTH : POPOVER_WIDTH
 
-  const place = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const margin = 8
-    let left = r.left
-    if (left + width > window.innerWidth - margin) {
-      left = Math.max(margin, window.innerWidth - margin - width)
-    }
-    setCoords({ top: r.bottom + 4, left })
-  }, [width])
+  const {
+    triggerRef,
+    panelRef: popoverRef,
+    style: popoverStyle,
+  } = useAnchoredMenu(open, { width, align: 'left' })
 
   useEffect(() => {
     if (!open) return
-    place()
     const onDoc = (e) => {
       if (triggerRef.current?.contains(e.target) || popoverRef.current?.contains(e.target)) return
       setOpen(false)
     }
-    const onReposition = () => place()
     document.addEventListener('mousedown', onDoc)
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
-    }
-  }, [open, place])
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open, triggerRef, popoverRef])
 
   return (
     <span style={{ display: 'inline-flex' }}>
@@ -101,11 +85,8 @@ export default function VisibilityEditor({
             ref={popoverRef}
             role="menu"
             style={{
-              position: 'fixed',
-              top: coords.top,
-              left: coords.left,
+              ...popoverStyle,
               zIndex: 2000,
-              width,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               borderRadius: 10,

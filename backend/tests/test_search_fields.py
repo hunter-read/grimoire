@@ -40,11 +40,41 @@ class TestParseQuery:
         assert parse_query('title:"Avatar Legends"').filters == {"title": ["Avatar Legends"]}
         assert parse_query("title:'Avatar Legends'").filters == {"title": ["Avatar Legends"]}
 
+    def test_quoted_free_text_reaches_fts_as_a_phrase(self):
+        # Issue #473. The test above only ever covered a *field* filter, so it
+        # passed while free-text phrases were flattened: the tokenizer consumed
+        # the quotes, the value was joined into free_text, and to_fts_query
+        # re-split it into two barewords — an implicit AND.
+        assert parse_query('"lucky feat"').content_query == '"lucky feat"'
+        assert parse_query("'lucky feat'").content_query == '"lucky feat"'
+
+    def test_unquoted_words_still_and(self):
+        # The counterpart the fix must not break: no quotes typed, no phrase.
+        assert parse_query("lucky feat").content_query == "lucky feat"
+
+    def test_phrase_keeps_its_boundary_alongside_barewords(self):
+        parsed = parse_query('"opportunity attack" wizard')
+        assert parsed.free_terms == ["opportunity attack", "wizard"]
+        assert parsed.content_query == '"opportunity attack" wizard'
+
+    def test_free_text_still_joins_terms(self):
+        # free_text feeds the SQL LIKE branches in _books.py and _helpers.py,
+        # which want the flat string. Only FTS5 needs the boundaries.
+        assert parse_query('"lucky feat"').free_text == "lucky feat"
+
+    def test_text_filter_phrase_reaches_fts_as_a_phrase(self):
+        # text:/content:/page: is skipped by _apply_field_filters and routed to
+        # FTS5, so it shared the defect. The LIKE-based filters did not.
+        assert parse_query('text:"lucky feat"').content_query == '"lucky feat"'
+        assert parse_query('content:"lucky feat" wizard').content_query == '"lucky feat" wizard'
+
     def test_repeated_field_collects_values(self):
         assert parse_query("tag:forest tag:swamp").filters == {"tag": ["forest", "swamp"]}
 
     def test_aliases_map_to_canonical_field(self):
         assert parse_query("name:x").filters == {"title": ["x"]}
+        assert parse_query("sku:x").filters == {"code": ["x"]}
+        assert parse_query("product_code:x").filters == {"code": ["x"]}
         assert parse_query("game:x").filters == {"system": ["x"]}
         assert parse_query("authors:x").filters == {"author": ["x"]}
 
@@ -59,6 +89,14 @@ class TestParseQuery:
 
     def test_unknown_prefix_with_value_is_preserved_verbatim(self):
         assert parse_query("foo:bar").free_text == "foo:bar"
+
+    def test_unknown_prefix_with_quoted_value_stays_one_literal(self):
+        # Behaviour change from #473, pinned deliberately. The token keeps its
+        # quotes and its spaces, so FTS5 gets one literal; the old whitespace
+        # re-split tore it into 'foo:"bar' and 'baz"' and ANDed the halves.
+        parsed = parse_query('foo:"bar baz"')
+        assert parsed.free_terms == ['foo:"bar baz"']
+        assert parsed.content_query == '"foo:""bar baz"""'
 
     def test_empty_value_after_prefix_is_ignored(self):
         assert parse_query('title:"" dragon').filters == {}
@@ -411,6 +449,29 @@ class TestFtsSafety:
         assert to_fts_query("AND leading") == '"AND" leading'
         assert to_fts_query("a AND OR b") == 'a "AND" "OR" b'
 
+    # Every case above passes a single token. Issue #473 turned on what the
+    # function does with multi-word input, which it had never been asked.
+
+    def test_multi_word_token_becomes_a_phrase(self):
+        assert to_fts_query(["lucky feat"]) == '"lucky feat"'
+        assert to_fts_query(["opportunity attack", "wizard"]) == '"opportunity attack" wizard'
+
+    def test_string_input_still_splits_on_whitespace(self):
+        # The str form keeps its old meaning, so a caller that has no token
+        # boundaries to offer behaves exactly as it did before.
+        assert to_fts_query("lucky feat") == "lucky feat"
+
+    def test_operators_survive_a_token_sequence(self):
+        assert to_fts_query(["fireball", "OR", "lightning"]) == "fireball OR lightning"
+        assert to_fts_query(["trailing", "AND"]) == 'trailing "AND"'
+
+    def test_operator_inside_a_phrase_is_not_an_operator(self):
+        # "AND" is an operator only as a whole token. Inside a phrase it is text.
+        assert to_fts_query(["hold the line AND wait"]) == '"hold the line AND wait"'
+
+    def test_embedded_quote_inside_a_phrase_is_doubled(self):
+        assert to_fts_query(['say "hi" now']) == '"say ""hi"" now"'
+
     @pytest.mark.parametrize(
         "query",
         [
@@ -438,3 +499,125 @@ class TestFtsSafety:
         resp = client.get("/api/search", params={"q": "edge-of-the-empire"}, headers=admin_headers)
         assert resp.status_code == 200
         assert book.id in [b["id"] for b in resp.json()["book_matches"]]
+
+
+@pytest.fixture(scope="module")
+def phrase_library():
+    """Pages that tell a real phrase match apart from a mere co-occurrence.
+
+    Page 1 has the words adjacent; pages 2 and 3 have both words far apart. A
+    phrase query must return only page 1, an unquoted query all three. That gap
+    is what issue #473 measured against a live library — the endpoint returned
+    the co-occurrence count every time.
+    """
+    system = make_game_system(name="Phrase Probe System", slug="phrase-probe")
+    book = make_book(
+        system_id=system.id,
+        title="Phrase Probe",
+        filename="phrase-probe.pdf",
+    )
+    db = SessionLocal()
+    try:
+        pages = (
+            (1, "you may reroll once per rest using the lucky feat"),
+            (2, "a lucky roll can beat almost any feat of strength"),
+            (3, "the feat list is lucky to be as short as it is"),
+        )
+        for page, content in pages:
+            db.execute(
+                text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:bid, :pn, :content)"
+                ),
+                {"bid": book.id, "pn": page, "content": content},
+            )
+        db.commit()
+    finally:
+        db.close()
+    return {"system": system, "book": book}
+
+
+class TestQuotedPhraseSearch:
+    """Phrase matching end to end against real FTS5 (issue #473).
+
+    The parser tests prove the right query string is built; these prove SQLite
+    agrees. Both existing layers of coverage asserted on parser output alone,
+    which is how a builder that never asked FTS5 for a phrase went unnoticed.
+    """
+
+    def _pages(self, client, headers, q):
+        resp = client.get("/api/search", params={"q": q}, headers=headers)
+        assert resp.status_code == 200
+        return sorted(r["page_number"] for r in resp.json()["results"])
+
+    def test_quoted_phrase_matches_only_adjacent_words(self, client, admin_headers, phrase_library):
+        assert self._pages(client, admin_headers, '"lucky feat"') == [1]
+
+    def test_single_quoted_phrase_behaves_the_same(self, client, admin_headers, phrase_library):
+        assert self._pages(client, admin_headers, "'lucky feat'") == [1]
+
+    def test_unquoted_words_still_match_co_occurrence(self, client, admin_headers, phrase_library):
+        # The AND is correct when nobody asked for a phrase. It was only wrong
+        # as a silent substitute for one.
+        assert self._pages(client, admin_headers, "lucky feat") == [1, 2, 3]
+
+    def test_text_filter_phrase_matches_only_adjacent_words(
+        self, client, admin_headers, phrase_library
+    ):
+        assert self._pages(client, admin_headers, 'text:"lucky feat"') == [1]
+
+
+class TestProductCodeSearch:
+    """The publisher's catalogue number is searchable (issue #479)."""
+
+    @pytest.fixture(scope="class")
+    def coded(self, title_library):
+        system_id = title_library["system"].id
+        return {
+            "paizo": make_book(
+                system_id=system_id,
+                title="Monster Compendium Volume",
+                filename="monsters.pdf",
+                product_code="PZO9001",
+            ),
+            "tsr": make_book(
+                system_id=system_id,
+                title="Castle on the Hill",
+                filename="castle.pdf",
+                product_code="TSR 9247",
+            ),
+        }
+
+    def _ids(self, client, headers, q):
+        resp = client.get("/api/search", params={"q": q}, headers=headers)
+        assert resp.status_code == 200
+        return {b["id"] for b in resp.json()["book_matches"]}
+
+    def test_code_filter(self, client, admin_headers, coded):
+        ids = self._ids(client, admin_headers, "code:pzo9001")
+        assert ids == {coded["paizo"].id}
+
+    def test_sku_alias(self, client, admin_headers, coded):
+        assert coded["paizo"].id in self._ids(client, admin_headers, "sku:PZO9001")
+
+    def test_bare_query_finds_the_code(self, client, admin_headers, coded):
+        # Searching the code printed on a cover finds the book, not just titles.
+        assert coded["paizo"].id in self._ids(client, admin_headers, "PZO9001")
+
+    def test_separators_are_ignored(self, client, admin_headers, coded):
+        # "TSR 9247" on the cover, "TSR9247" in a store listing: one code.
+        assert coded["tsr"].id in self._ids(client, admin_headers, "code:TSR9247")
+        assert coded["tsr"].id in self._ids(client, admin_headers, "TSR-9247")
+
+    def test_match_carries_the_code(self, client, admin_headers, coded):
+        resp = client.get("/api/search", params={"q": "code:PZO9001"}, headers=admin_headers)
+        (match,) = resp.json()["book_matches"]
+        assert match["product_code"] == "PZO9001"
+
+    def test_separator_only_term_does_not_match_everything(
+        self, client, admin_headers, coded
+    ):
+        assert self._ids(client, admin_headers, 'code:"-"') == set()
+
+    def test_code_is_a_book_only_field(self):
+        assert parse_query("code:PZO9001").books_only

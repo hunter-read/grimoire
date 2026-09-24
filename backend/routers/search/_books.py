@@ -2,8 +2,8 @@
 
 Complements the FTS5 page-text search in ``core.py``. Where that answers "which
 page mentions this?", this answers "do I own this?" — matching a book's own
-title, authors, publisher, system, category, tags, and identifiers rather than
-the text inside it.
+title, authors, publisher, system, category, tags, and identifiers (ISBN,
+product code) rather than the text inside it.
 
 The two run side by side on every unscoped search: a bare query matches titles
 *and* page text, and title matches are returned separately so the client can pin
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sqlalchemy import String, cast, or_
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session
 
 from ...models import Book, GameSystem, ResourceTag, Tag
@@ -81,6 +81,8 @@ def _apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Option
             query = query.filter(_any_of(lambda t: Book.category.ilike(f"%{t}%"), values))
         elif field_name == "isbn":
             query = query.filter(_any_of(lambda t: Book.isbn.ilike(f"%{t}%"), values))
+        elif field_name == "code":
+            query = query.filter(_any_of(_product_code_clause, values))
         elif field_name == "language":
             query = query.filter(_any_of(lambda t: Book.language.ilike(f"%{t}%"), values))
         elif field_name == "description":
@@ -114,15 +116,38 @@ def _apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Option
     return query
 
 
+def _compact(column: Any) -> Any:
+    """``column`` with spaces and hyphens removed, for separator-blind matching."""
+    return func.replace(func.replace(column, " ", ""), "-", "")
+
+
+def _product_code_clause(term: str) -> Any:
+    """Substring match on the product code, ignoring spaces and hyphens.
+
+    Publishers print one code several ways - "TSR 9247" on the cover, "TSR9247"
+    in a store listing, "DDAL05-01" beside "DDAL0501" - so both sides are
+    compacted before comparing (issue #479). A term that is nothing but
+    separators compacts to "" and would match every coded book, so it is kept
+    as typed instead.
+    """
+    compact = term.replace(" ", "").replace("-", "") or term
+    return _compact(Book.product_code).ilike(f"%{compact}%")
+
+
 def _free_text_clause(term: str) -> Any:
     """What a bare (unprefixed) query matches on a book row.
 
     Title first and foremost — that is what someone typing "Avatar" means — plus
     the filename, so a book whose title never got cleaned up is still findable
-    by the name on disk.
+    by the name on disk, and the product code, so the code printed on a cover
+    finds the book it belongs to (issue #479).
     """
     like = f"%{term}%"
-    return or_(Book.title.ilike(like), Book.filename.ilike(like))
+    return or_(
+        Book.title.ilike(like),
+        Book.filename.ilike(like),
+        _product_code_clause(term),
+    )
 
 
 def search_book_metadata(
@@ -209,6 +234,7 @@ def _serialize(db: Session, books: list[Book]) -> list[dict]:
             "category": b.category,
             "authors": list(b.authors or []),
             "publisher": b.publisher or "",
+            "product_code": b.product_code or "",
             "year": b.year,
             "page_count": b.page_count or 0,
             "has_thumbnail": bool(b.has_thumbnail),

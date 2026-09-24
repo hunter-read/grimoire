@@ -55,6 +55,7 @@ def book_fields(
         "publisher": (book.publisher or "").strip(),
         "genres": _list(book.genres),
         "isbn": (book.isbn or "").strip(),
+        "product_code": (book.product_code or "").strip(),
         "version": (book.version or "").strip(),
         "language": (book.language or "").strip(),
         "license": (book.license or "").strip(),

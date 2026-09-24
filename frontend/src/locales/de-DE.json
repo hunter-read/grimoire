@@ -277,7 +277,8 @@
         "tag": "Tags an Büchern, Karten, Tokens, Audio",
         "publisher": "Verlag",
         "year": "Erscheinungsjahr oder Zeitraum",
-        "text": "Nur Seiteninhalt"
+        "text": "Nur Seiteninhalt",
+        "code": "Produktcode des Verlags (SKU)"
       }
     }
   },
@@ -1043,6 +1044,10 @@
       "title": "Bibliotheksansicht",
       "description": "Anzeigeeinstellungen für Bibliothek, Karten und Tokens.",
       "sortOrder": "Sortierreihenfolge",
+      "folderPlacement": "Ordner in Buchlisten",
+      "folderPlacementFirst": "Ordner zuerst",
+      "folderPlacementMixed": "Mit Büchern gemischt",
+      "folderPlacementHint": "Gemischt sortiert jeden Ordner zwischen die Bücher daneben - nach seinem Namen oder, bei anderen Sortierungen, nach seinem ersten Buch.",
       "viewMode": "Standardansicht",
       "viewModeSystems": "Systeme",
       "viewModeBooks": "Bücher",
@@ -1095,17 +1100,169 @@
       "title": "Seitenleisten-Statistiken",
       "description": "Wähle, welche Statistiken in der Seitenleiste angezeigt werden."
     },
-    "apiKey": {
-      "title": "Statistik-API-Schlüssel",
-      "description": "Generiere einen API-Schlüssel, damit externe Anwendungen (z. B. Homepage) Bibliotheksstatistiken ohne Anmeldung abfragen können. Den Schlüssel im",
-      "descriptionSuffix": "Request-Header übergeben.",
-      "endpoint": "Endpunkt:",
-      "set": "— gesetzt",
-      "regenerate": "Neu generieren",
-      "revoke": "Widerrufen",
-      "generate": "API-Schlüssel generieren",
-      "generating": "Wird generiert…",
-      "copyKey": "Schlüssel kopieren"
+    "apiKeys": {
+      "title": "API-Schlüssel",
+      "description": "Erlaube Skripten und Apps (z. B. Homepage oder einem Kommandozeilen-Tool), Grimoire in deinem Namen zu nutzen, ohne dein Passwort. Sende einen Schlüssel im",
+      "descriptionSuffix": "Request-Header. Ein Schlüssel erreicht nur die Bereiche, die du ihm freigibst, und nie mehr als dein eigenes Konto.",
+      "allTitle": "Alle API-Schlüssel",
+      "allDescription": "Die API-Schlüssel aller Benutzer. Widerrufe jeden Schlüssel, der nicht mehr verwendet werden soll; jeder Benutzer verwaltet seine eigenen in den Kontoeinstellungen.",
+      "empty": "Noch keine API-Schlüssel.",
+      "create": "API-Schlüssel erstellen",
+      "loadFailed": "API-Schlüssel konnten nicht geladen werden.",
+      "actionFailed": "Das hat nicht geklappt. Bitte versuche es erneut.",
+      "levels": {
+        "none": "Kein Zugriff",
+        "read": "Lesen",
+        "write": "Lesen und Schreiben"
+      },
+      "row": {
+        "created": "Erstellt am {{when}}",
+        "lastUsed": "Zuletzt verwendet am {{when}}",
+        "neverUsed": "Nie verwendet",
+        "expires": "Läuft ab am {{when}}",
+        "expired": "Abgelaufen am {{when}}",
+        "noExpiry": "Läuft nie ab",
+        "noPermissions": "Keine Berechtigungen",
+        "edit": "Bearbeiten",
+        "regenerate": "Neu generieren",
+        "revoke": "Widerrufen",
+        "owner": "Besitzer: {{name}}"
+      },
+      "dialog": {
+        "createTitle": "API-Schlüssel erstellen",
+        "editTitle": "API-Schlüssel bearbeiten",
+        "name": "Name",
+        "namePlaceholder": "z. B. Homepage-Widget",
+        "nameRequired": "Gib dem Schlüssel einen Namen.",
+        "expiration": "Ablauf",
+        "days_one": "{{count}} Tag",
+        "days_other": "{{count}} Tage",
+        "never": "Nie",
+        "keepExpiry": "Aktuellen beibehalten ({{when}})",
+        "keepNever": "Aktuellen beibehalten (nie)",
+        "permissions": "Berechtigungen",
+        "permissionsHint": "Lesen erlaubt das Ansehen; Lesen und Schreiben erlaubt auch Änderungen. Alles auf „Kein Zugriff“ wird abgelehnt.",
+        "save": "Speichern",
+        "create": "Schlüssel erstellen",
+        "saveFailed": "Der Schlüssel konnte nicht gespeichert werden.",
+        "filter": "Berechtigungen filtern",
+        "noMatches": "Keine Berechtigungen passen zu „{{query}}“",
+        "groupCount": "{{granted}} von {{total}} mit Zugriff"
+      },
+      "reveal": {
+        "title": "Dein neuer Schlüssel für „{{name}}“",
+        "warning": "Kopiere diesen Schlüssel jetzt - du wirst ihn nicht noch einmal sehen können. Wenn du ihn verlierst, generiere ihn neu.",
+        "copy": "Schlüssel kopieren",
+        "copied": "In die Zwischenablage kopiert",
+        "example": "Beispielanfrage:",
+        "done": "Fertig"
+      },
+      "confirm": {
+        "regenerateTitle": "„{{name}}“ neu generieren?",
+        "regenerateMessage": "Es wird ein neuer Schlüssel mit demselben Namen und denselben Berechtigungen ausgestellt. Der aktuelle Schlüssel funktioniert sofort nicht mehr - alles, was ihn verwendet, muss aktualisiert werden.",
+        "revokeTitle": "„{{name}}“ widerrufen?",
+        "revokeMessage": "Der Schlüssel wird gelöscht und funktioniert sofort nicht mehr. Das kann nicht rückgängig gemacht werden."
+      },
+      "groups": {
+        "library": "Bibliothek",
+        "media": "Medien",
+        "campaigns": "Kampagnen & Persönliches",
+        "admin": "Verwaltung"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Statistik",
+          "description": "Anzahlen und Summen der Bibliothek (z. B. für Dashboard-Widgets wie Homepage)"
+        },
+        "library": {
+          "label": "Bibliothek",
+          "description": "Scan-Status, Neuscan starten oder abbrechen, fehlende Einträge bereinigen, Versions- und Changelog-Infos"
+        },
+        "books": {
+          "label": "Bücher",
+          "description": "Bücher und ihre Metadaten, Cover, Seiten und Dateien"
+        },
+        "systems": {
+          "label": "Spielsysteme",
+          "description": "Spielsysteme, ihre Cover und Buchordner"
+        },
+        "search": {
+          "label": "Suche",
+          "description": "Volltextsuche in der Bibliothek"
+        },
+        "tags": {
+          "label": "Tags",
+          "description": "Tags erstellen, umbenennen, zusammenführen und löschen sowie getaggte Einträge auflisten"
+        },
+        "lookups": {
+          "label": "Auswahllisten",
+          "description": "Genres, Systemfamilien, übergeordnete Systeme, Lizenzen und Würfel/Materialien"
+        },
+        "maps": {
+          "label": "Karten",
+          "description": "Karten und Kartenordner"
+        },
+        "tokens": {
+          "label": "Token",
+          "description": "Token, Tokenordner und Tokenrahmen"
+        },
+        "audio": {
+          "label": "Audio",
+          "description": "Audiotitel, ihre Cover und Ordner"
+        },
+        "models": {
+          "label": "Modelle",
+          "description": "3D-Modelle und Modellordner"
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Dateien und ZIP-Archive herunterladen"
+        },
+        "files": {
+          "label": "Dateiverwaltung",
+          "description": "Dateien im Bibliotheksordner durchsuchen, hochladen, verschieben, umbenennen und löschen"
+        },
+        "duplicates": {
+          "label": "Duplikate",
+          "description": "Doppelte Einträge finden, vergleichen, verknüpfen und zusammenführen"
+        },
+        "backups": {
+          "label": "Backups",
+          "description": "Backups auflisten, erstellen, herunterladen und löschen sowie der Backup-Zeitplan"
+        },
+        "logs": {
+          "label": "Protokolle",
+          "description": "Die Anwendungsprotokolle lesen"
+        },
+        "campaigns": {
+          "label": "Kampagnen",
+          "description": "Deine Kampagnen, Mitglieder, Sitzungen, Wiki-Seiten und verknüpften Ressourcen"
+        },
+        "addons": {
+          "label": "Add-ons",
+          "description": "Community-Metadaten-Add-ons: installieren, aktualisieren, aktivieren, ausführen"
+        },
+        "maintenance": {
+          "label": "Wartung",
+          "description": "Einstellungen und Export von Metadaten-Sidecar-Dateien"
+        },
+        "settings": {
+          "label": "Einstellungen",
+          "description": "App-Einstellungen"
+        },
+        "users": {
+          "label": "Benutzer",
+          "description": "Benutzerkonten, Rollen und Zugriffsfreigaben sowie deine eigenen Einstellungen"
+        },
+        "personal": {
+          "label": "Persönlich",
+          "description": "Deine Favoriten, Lesezeichen, gespeicherten Filter, gespeicherten Playlists und Soundboards sowie Designs"
+        },
+        "all": {
+          "label": "Alle Berechtigungen",
+          "description": "Alle Bereiche auf einmal, auch solche, die in künftigen Versionen hinzukommen"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Kampagnen-Uploads",
@@ -1152,7 +1309,11 @@
     "allowExplicitTitle": "Explizite Inhalte erlauben",
     "campaignAccess": "Kampagnen",
     "campaignAccessTitle": "Diesem Benutzer erlauben, Kampagnen zu erstellen, beizutreten und zu verwalten (wird bei der nächsten Anmeldung von Ihrem OIDC-Anbieter überschrieben, wenn ein campaignAccess-Claim konfiguriert ist)",
+    "apiKeys": "API-Schlüssel",
+    "apiKeysTitle": "Diesem Benutzer erlauben, API-Schlüssel zu erstellen und zu verwenden (wird bei der nächsten Anmeldung von deinem OIDC-Anbieter überschrieben, falls ein apiKeys-Claim konfiguriert ist)",
+    "apiKeysAdminTitle": "Admins können API-Schlüssel immer verwenden",
     "failedUpdateCampaignAccess": "Aktualisierung des Kampagnenzugriffs fehlgeschlagen.",
+    "failedUpdateApiKeys": "API-Schlüssel-Zugriff konnte nicht aktualisiert werden.",
     "setPassword": "Passwort setzen",
     "setPasswordTitle": "Passwort für diesen Benutzer setzen",
     "newPasswordPlaceholder": "Neues Passwort (min. 8)",
@@ -1929,7 +2090,8 @@
     "createCategory": "Create \"{{name}}\"",
     "licenseLabel": "Lizenz",
     "licensePlaceholder": "Inherit system license",
-    "fetchMetadata": "Metadaten abrufen"
+    "fetchMetadata": "Metadaten abrufen",
+    "productCodeLabel": "Produktcode"
   },
   "reocr": {
     "button": "OCR wiederholen",
@@ -2050,8 +2212,8 @@
     "exportJsonHint": "Das gesamte Wiki als Grimoire-JSON. Reimportierbar.",
     "import": "Importieren",
     "importTitle": "Wiki-Seiten importieren",
-    "importHint": "Füge Seiten aus Markdown, einem Grimoire-JSON-Bundle oder einem LegendKeeper-Export hinzu. Die Verschachtelung der Seiten bleibt erhalten. Vorhandene Seiten werden nie überschrieben.",
-    "importFormats": "Akzeptiert .zip, .json, .lk, .md, .markdown oder .txt.",
+    "importHint": "Füge Seiten aus Markdown, einem Grimoire-JSON-Bundle oder einem LegendKeeper-Export hinzu. Die Verschachtelung der Seiten bleibt erhalten, und Ordner werden zu übergeordneten Seiten - im ZIP-Archiv wie im gewählten Ordner. Vorhandene Seiten werden nie überschrieben.",
+    "importFormats": "Akzeptiert .zip, .json, .lk, .md, .markdown oder .txt - oder wähle einen Ordner mit Markdown-Dateien.",
     "templates": "Vorlagen",
     "templatesTitle": "Notizvorlagen",
     "templatesNone": "Noch keine Vorlagen. Durchsuche den Community-Katalog, schreibe eine eigene oder lade eine Markdown-Datei hoch.",
@@ -2091,6 +2253,7 @@
     "templateCreate": "Vorlage erstellen",
     "templateNameRequired": "Gib der Vorlage einen Namen.",
     "chooseFile": "Datei auswählen",
+    "chooseFolder": "Ordner wählen",
     "importing": "Wird importiert…",
     "imported": "{{count}} Seite importiert",
     "imported_other": "{{count}} Seiten importiert",
@@ -2139,7 +2302,8 @@
     "shareName": "Name",
     "shareReadFor": "Lesezugriff für {{name}}",
     "shareWriteFor": "Schreibzugriff für {{name}}",
-    "shareReadLocked": "Lesen ist im Schreibzugriff enthalten"
+    "shareReadLocked": "Lesen ist im Schreibzugriff enthalten",
+    "importFolderEmpty": "In diesem Ordner sind keine Markdown-Dateien."
   },
   "campaignNotes": {
     "backToOverview": "Zurück zur Übersicht"
@@ -2213,6 +2377,7 @@
     "field_explicit": "Explizite Inhalte",
     "previous": "Zurück",
     "next": "Weiter",
+    "fetchShortcut": "Metadaten für diesen Eintrag abrufen (F). Mit ← und → zwischen Einträgen wechseln.",
     "field_genre": "Genre",
     "field_characterBuilderUrl": "Charaktergenerator-URL",
     "applyToAll": "Auf alle {{count}} anwenden",
@@ -2497,7 +2662,10 @@
     "tagGroupAdd": "Gruppe hinzufügen",
     "tagGroupMode": "Gruppe {{n}} Modus",
     "tagGroupTags": "Gruppe {{n}} Tags",
-    "tagGroupRemove": "Gruppe {{n}} entfernen"
+    "tagGroupRemove": "Gruppe {{n}} entfernen",
+    "sortProductCode": "Produktcode",
+    "filterProductCode": "Produktcode",
+    "allProductCodes": "Alle Produktcodes"
   },
   "lookupSettings": {
     "genresTitle": "Genres",
@@ -2598,6 +2766,11 @@
     "statusSame": "bereits gesetzt",
     "apply": "{{count}} Feld übernehmen",
     "apply_other": "{{count}} Felder übernehmen",
+    "applyAndNext": "{{count}} Feld übernehmen & weiter",
+    "applyAndNext_other": "{{count}} Felder übernehmen & weiter",
+    "skip": "Überspringen",
+    "keyboardHint": "↑ ↓ wechselt zwischen Treffern · Enter wählt einen aus",
+    "pickedBefore": "zuletzt gewählt",
     "back": "Zurück",
     "viewSource": "Quelle ansehen",
     "pasteToggle": "Genau bekannt? Link oder ID einfügen",
@@ -2622,7 +2795,8 @@
     "pages": "Seiten",
     "fileSize": "Dateigröße",
     "format": "Format",
-    "path": "Pfad"
+    "path": "Pfad",
+    "productCode": "Produktcode"
   },
   "appearance": {
     "title": "Appearance",

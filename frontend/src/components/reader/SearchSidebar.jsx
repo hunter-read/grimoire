@@ -4,6 +4,7 @@ import { LuSearch, LuX } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import SnippetText from './SnippetText'
+import ReaderSidebarShell from './ReaderSidebarShell'
 
 export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
   const { t } = useTranslation()
@@ -43,18 +44,7 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
   }
 
   return (
-    <div
-      style={{
-        width: 280,
-        flexShrink: 0,
-        borderLeft: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    >
+    <ReaderSidebarShell overflowHidden>
       <div
         style={{
           display: 'flex',
@@ -141,6 +131,6 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </ReaderSidebarShell>
   )
 }

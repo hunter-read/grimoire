@@ -45,6 +45,9 @@ export default function useMediaGallery(config) {
   const [frameFolders, setFrameFolders] = useState(() => new Set())
   const [grouped, setGrouped] = useSessionState(`${sessionKey}:grouped`, true)
   const [viewMode, cycleViewMode] = useViewMode(type)
+  // The grouping in force when the load started, for the page ordering below.
+  // A ref, not a dep: changing grouping later must not refetch.
+  const groupedAtLoadRef = useRef(grouped)
   const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [bulkApplying, setBulkApplying] = useState(false)
@@ -94,8 +97,20 @@ export default function useMediaGallery(config) {
     // folder grouping still see the whole library once loading settles.
     let cancelled = false
 
+    // Pages are ordered the way this view will display them, so an arriving
+    // page appends below what is already on screen instead of scattering
+    // through it. Grouped shows folders in path order; ungrouped is one flat
+    // list sorted by filename, and paging that by path made later pages insert
+    // items throughout the alphabet — cards visibly popping in among the ones
+    // the user was already looking at.
+    //
+    // Read from a ref so toggling grouping does not refetch the library: the
+    // order only matters while pages are still arriving, and by then the whole
+    // set is client-side and sorted there anyway.
+    const sort = groupedAtLoadRef.current ? 'path' : 'name'
+
     const fetchPage = async (offset) => {
-      const page = await api.get(`${listUrl}?limit=${PAGE_SIZE}&offset=${offset}`)
+      const page = await api.get(`${listUrl}?limit=${PAGE_SIZE}&offset=${offset}&sort=${sort}`)
       return { page, rows: page[collection] || [] }
     }
 

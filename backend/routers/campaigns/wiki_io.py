@@ -7,6 +7,10 @@ Grimoire), or a single Grimoire JSON bundle. Import is the inverse of the zip an
 JSON forms, and additionally understands several foreign shapes:
 
   * A single markdown file (or a `.zip` of markdown files / Obsidian vault).
+  * A whole folder picked in the browser, which arrives as loose files each
+    carrying its `webkitRelativePath`. There is no archive step in a browser
+    folder pick, so the paths come alongside the files and the set is imported
+    in one request - see `import_wiki` and `_parse_folder_upload`.
   * A legacy LegendKeeper per-page JSON export — either a single page JSON or a
     `.zip` of the per-page JSON files. Those store page bodies as HTML, which we
     convert to markdown on the way in.
@@ -19,7 +23,13 @@ The conversion is lossy for LegendKeeper-only block types (secrets, embeds),
 matching LegendKeeper's own export caveats.
 
 Page nesting is preserved on import: a record may name a `parent_key`, and we
-reparent the created page under whichever record produced that key.
+reparent the created page under whichever record produced that key. A zip's
+folder structure is nesting too - `Places/Cities/Waterdeep.md` becomes a
+Waterdeep page under Cities under Places, synthesizing a page per folder unless
+a file already stands for it (`Places/Places.md` or `Places/index.md`). Explicit
+`parent:` frontmatter outranks the folder, so our own flat zip export - which
+puts every file at the root and names parents in frontmatter - round-trips its
+tree unchanged.
 
 Import is always non-destructive: every record becomes a new page with a unique
 slug; existing pages are never overwritten. Internal links are remapped to the
@@ -31,7 +41,7 @@ import json
 import re
 import zipfile
 
-from fastapi import Depends, File, HTTPException, Query, UploadFile
+from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
@@ -56,6 +66,10 @@ from .wikilinks import build_target, parse_target
 
 BUNDLE_VERSION = 1
 _MAX_IMPORT_BYTES = 25 * 1024 * 1024  # 25 MB — bounds a single in-memory read.
+# A folder pick arrives as loose files, so the count needs its own ceiling:
+# 25 MB of markdown is a lot of notes, but a vault can still hold more files
+# than we want to open in one request.
+_MAX_IMPORT_FILES = 2000
 
 # LegendKeeper wraps page bodies in <div class='lk-tab' id='...'>...</div> and
 # emits secret/special blocks as <div data-node-type=...>...</div>. Internal page
@@ -335,22 +349,38 @@ def _split_frontmatter(text: str) -> tuple:
     return fm, m.group(2)
 
 
-def parse_markdown_file(name: str, text: str) -> dict:
-    """A single markdown file → one record. Title: frontmatter → first `#` → filename."""
+def parse_markdown_file(
+    name: str, text: str, folder_key: str | None = None, folder_title: str | None = None
+) -> dict:
+    """A single markdown file → one record. Title: frontmatter → first `#` → filename.
+
+    `folder_key` is the key of the folder page this file sits in (see
+    `_folder_records`), used as the parent when the file's own frontmatter
+    doesn't name one. Explicit `parent:` frontmatter always wins, so Grimoire's
+    own flat zip export still round-trips its nesting exactly.
+
+    `folder_title` names the folder a generic `index.md` / `_index.md` stands
+    for, and is used as a last-resort title so such a page reads as "Places"
+    rather than "index".
+    """
     fm, body = _split_frontmatter(text)
     title = fm.get("title")
     if not title:
         heading = re.search(r"^#\s+(.+)$", body, re.MULTILINE)
         if heading:
             title = heading.group(1).strip()
+    if not title and folder_title:
+        title = folder_title
     if not title:
         title = re.sub(r"\.(md|markdown|txt)$", "", name, flags=re.IGNORECASE)
-        title = title.rsplit("/", 1)[-1]
+        # Both separators, so a hand-built Windows archive doesn't leave the
+        # folder path sitting in the page title.
+        title = title.replace("\\", "/").rsplit("/", 1)[-1]
     return _record(
         title,
         body,
         visibility=fm.get("visibility", "gm"),
-        parent_key=fm.get("parent"),
+        parent_key=fm.get("parent") or folder_key,
         icon=fm.get("icon"),
         icon_color=fm.get("icon_color"),
         page_type=fm.get("page_type", "note"),
@@ -637,25 +667,139 @@ def _records_from_json_obj(obj) -> tuple:
     raise HTTPException(400, "Unrecognised JSON format")
 
 
+def _folder_key(path: str) -> str:
+    """The source_key of the page standing for the zip folder at `path`.
+
+    The `folder:` prefix keeps it out of the title namespace `_remap_links`
+    matches [[wikilinks]] against, so a folder can share a name with a page
+    without hijacking links to it.
+    """
+    return f"folder:{path}"
+
+
+def _md_folder(filename: str) -> str:
+    """The zip-relative folder holding `filename`, without a trailing slash.
+
+    Zip entries always use `/`, but an archive built on Windows by hand can carry
+    `\\` separators, so both are normalised. A leading `./` and any `..` segment
+    are dropped: folder names only ever become page titles here, never paths, but
+    normalising keeps a crafted archive from producing pages titled `..`.
+    """
+    parts = [
+        seg.strip()
+        for seg in filename.replace("\\", "/").split("/")[:-1]
+        if seg.strip() not in ("", ".", "..")
+    ]
+    return "/".join(parts)
+
+
+def _is_folder_index(filename: str, folder: str) -> bool:
+    """Whether `filename` is the page that stands for its own folder.
+
+    Two conventions are honoured: Obsidian's folder note (`Places/Places.md`) and
+    the web's `index.md` / `_index.md` (Hugo). Such a file becomes the folder page
+    itself rather than a child of a near-duplicate.
+    """
+    if not folder:
+        return False
+    base = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    stem = re.sub(r"\.(md|markdown|txt)$", "", base, flags=re.IGNORECASE)
+    return stem.lower() in ("index", "_index", folder.rsplit("/", 1)[-1].lower())
+
+
+def _folder_records(folders: set, claimed: set) -> list:
+    """Placeholder records for the folders that no file already stands for.
+
+    Each is an empty page titled after its folder, parented to the record for its
+    own parent folder, so `Places/Cities/Waterdeep.md` nests three deep. Every
+    ancestor is included even when the archive has no file directly inside it
+    (`Places/Cities/` with nothing in `Places/`), since a missing rung would
+    otherwise flatten the branch. Folders in `claimed` already have a real page
+    holding their key, so they're skipped - including when they turn up only as
+    an ancestor of a deeper folder.
+    """
+    needed: set = set()
+    for folder in folders:
+        parts = folder.split("/")
+        for i in range(1, len(parts) + 1):
+            needed.add("/".join(parts[:i]))
+    needed -= claimed
+    return [
+        _record(
+            path.rsplit("/", 1)[-1],
+            "",
+            source_key=_folder_key(path),
+            parent_key=_folder_key(path.rsplit("/", 1)[0]) if "/" in path else None,
+        )
+        for path in sorted(needed)
+    ]
+
+
+class _Foldered:
+    """Collects markdown records that carry a path, deriving nesting from it.
+
+    Shared by the two sources that know where a file sat: a zip's entry names
+    and a browser folder upload's `webkitRelativePath`. Both hand paths to `add`
+    in whatever order they arrive; `records` then prefixes the folder pages the
+    set needs, so nesting comes out the same either way.
+    """
+
+    def __init__(self) -> None:
+        self.md: list = []
+        # Folders a markdown file lives in, and those a file already stands for.
+        self.folders: set = set()
+        self.claimed: dict = {}
+
+    def add(self, path: str, text: str) -> dict:
+        folder = _md_folder(path)
+        # A folder note stands in for its own folder, so it hangs off the folder
+        # above instead. First one wins if a folder has several.
+        is_index = _is_folder_index(path, folder) and folder not in self.claimed
+        own = folder.rsplit("/", 1)[0] if is_index and "/" in folder else folder
+        if is_index and "/" not in folder:
+            own = ""
+        rec = parse_markdown_file(
+            path,
+            text,
+            folder_key=_folder_key(own) if own else None,
+            folder_title=folder.rsplit("/", 1)[-1] if is_index else None,
+        )
+        if is_index:
+            self.claimed[folder] = rec
+        if folder:
+            self.folders.add(folder)
+        self.md.append(rec)
+        return rec
+
+    def records(self) -> list:
+        """The collected records, with a folder page ahead of each set needing one."""
+        # A folder note answers to its folder's key, so that folder's other files
+        # nest under it and no placeholder is synthesized for it.
+        for folder, rec in self.claimed.items():
+            rec["source_key"] = _folder_key(folder)
+        return _folder_records(self.folders, set(self.claimed)) + self.md
+
+
 def _records_from_zip(data: bytes) -> tuple:
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
         raise HTTPException(400, "File is not a valid zip archive")
 
-    md_records, lk_objs = [], []
+    foldered = _Foldered()
+    lk_objs: list = []
     bundle = None
     with zf:
         for info in zf.infolist():
             if info.is_dir():
                 continue
             fn = info.filename
-            base = fn.rsplit("/", 1)[-1].lower()
+            base = fn.replace("\\", "/").rsplit("/", 1)[-1].lower()
             if base.startswith(".") or base == "index.json":
                 continue
             raw = zf.read(info)
             if base.endswith((".md", ".markdown", ".txt")):
-                md_records.append(parse_markdown_file(fn, raw.decode("utf-8", "replace")))
+                foldered.add(fn, raw.decode("utf-8", "replace"))
             elif base.endswith(".json"):
                 try:
                     obj = json.loads(raw.decode("utf-8", "replace"))
@@ -668,8 +812,8 @@ def _records_from_zip(data: bytes) -> tuple:
                 elif _looks_like_lk_page(obj):
                     lk_objs.append(obj)
 
-    if md_records:
-        return md_records, "markdown"
+    if foldered.md:
+        return foldered.records(), "markdown"
     if lk_objs:
         return parse_lk_pages(lk_objs), "legendkeeper"
     if bundle is not None:
@@ -689,6 +833,34 @@ def _parse_upload(filename: str, data: bytes) -> tuple:
     except json.JSONDecodeError:
         raise HTTPException(400, "File is not valid JSON, markdown, or a zip archive")
     return _records_from_json_obj(obj)
+
+
+def _parse_folder_upload(uploads: list) -> tuple:
+    """Records for a picked folder: `[(path, bytes)]` → the same shape a zip gives.
+
+    A browser folder pick hands us each file separately with its path in
+    `webkitRelativePath`, so the archive step a zip would provide is missing but
+    the paths are identical in meaning. Only markdown is taken: a folder is a
+    vault, and a stray `.json` in one is far more likely to be a settings file
+    (`.obsidian/app.json`) than a wiki bundle someone meant to merge in.
+
+    The whole pick lands in one request so links and nesting resolve in a single
+    pass, exactly as they do for a zip.
+    """
+    foldered = _Foldered()
+    for path, raw in uploads:
+        segments = (path or "").replace("\\", "/").split("/")
+        base = segments[-1].lower()
+        if not base.endswith((".md", ".markdown", ".txt")):
+            continue
+        # Any dot segment, not just a dotfile: a picked vault brings its whole
+        # `.obsidian/` along, and its templates are markdown too.
+        if any(seg.startswith(".") for seg in segments):
+            continue
+        foldered.add(path, raw.decode("utf-8", "replace"))
+    if not foldered.md:
+        raise HTTPException(400, "Folder contains no markdown files to import")
+    return foldered.records(), "markdown"
 
 
 # [[target]] / [[target|label]] for link remapping (embeds left untouched).
@@ -727,6 +899,24 @@ def _remap_links(body: str, key_to_title: dict) -> str:
     return _WIKILINK_RE.sub(repl, body or "")
 
 
+def _parent_index(records: list) -> dict:
+    """Map every key a `parent_key` might name to the record that owns it.
+
+    A record's own `source_key` is the primary key. The markdown zip export
+    writes `parent: <slug>` in frontmatter while keying records by title, so a
+    record is also reachable by its slugified title - without that alias, nesting
+    was lost on a zip round trip. Real keys win over slug aliases, and the first
+    record to claim an alias keeps it.
+    """
+    index: dict = {}
+    for rec in records:
+        index.setdefault(slugify(rec["title"] or ""), rec)
+    for rec in records:
+        index[rec["source_key"]] = rec
+    index.pop("", None)
+    return index
+
+
 def _order_parents_first(records: list) -> list:
     """Return records sorted so a record's parent precedes it.
 
@@ -735,7 +925,7 @@ def _order_parents_first(records: list) -> list:
     they pointed at wasn't exported). Any cycle is broken by falling back to input
     order for the records left over.
     """
-    by_key = {r["source_key"]: r for r in records}
+    by_key = _parent_index(records)
     ordered = []
     placed = set()
 
@@ -757,21 +947,57 @@ def _order_parents_first(records: list) -> list:
 
 def import_wiki(
     campaign_id: str,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] = File([]),
+    paths: list[str] = Form([]),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Import wiki pages from a markdown / JSON / LegendKeeper file (owner only)."""
+    """Import wiki pages from a file, or from a whole picked folder (owner only).
+
+    Two shapes, one endpoint. `file` is a single upload - markdown, a Grimoire or
+    LegendKeeper JSON, or a zip. `files` (with a `paths` entry per file, the
+    browser's `webkitRelativePath`) is a folder pick, which arrives as loose
+    files because a browser has no archive step: the whole set is imported in one
+    request so nesting and cross-links resolve together, the same as for a zip.
+    """
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
 
-    data = file.file.read(_MAX_IMPORT_BYTES + 1)
-    if len(data) > _MAX_IMPORT_BYTES:
-        raise HTTPException(413, "File is too large")
-    if not data:
-        raise HTTPException(400, "Empty file")
+    if files and file is not None:
+        raise HTTPException(400, "Send either a single file or a folder, not both")
 
-    records, fmt = _parse_upload(file.filename, data)
+    if files:
+        if paths and len(paths) != len(files):
+            raise HTTPException(400, "paths must have one entry per file")
+        if len(files) > _MAX_IMPORT_FILES:
+            raise HTTPException(413, f"Too many files (limit {_MAX_IMPORT_FILES})")
+        uploads: list = []
+        total = 0
+        for i, f in enumerate(files):
+            # The cap is on the whole pick, not each file: a vault is many small
+            # notes, and per-file limits would let the sum run unbounded.
+            raw = f.file.read(_MAX_IMPORT_BYTES + 1 - total)
+            total += len(raw)
+            if total > _MAX_IMPORT_BYTES:
+                raise HTTPException(413, "Folder is too large")
+            # Prefer the browser-reported path; fall back to the filename, which
+            # is all a client that sent no paths can offer.
+            uploads.append((paths[i] if paths else (f.filename or ""), raw))
+        # No "empty folder" check here: a non-empty `files` always yields an
+        # upload, and a pick with no markdown in it is `_parse_folder_upload`'s
+        # to reject, with a message that says so.
+        records, fmt = _parse_folder_upload(uploads)
+    else:
+        if file is None:
+            raise HTTPException(400, "No file uploaded")
+        data = file.file.read(_MAX_IMPORT_BYTES + 1)
+        if len(data) > _MAX_IMPORT_BYTES:
+            raise HTTPException(413, "File is too large")
+        if not data:
+            raise HTTPException(400, "Empty file")
+        records, fmt = _parse_upload(file.filename, data)
+
     if not records:
         raise HTTPException(400, "No pages found to import")
 
@@ -782,10 +1008,19 @@ def import_wiki(
         key_to_title[rec["source_key"]] = rec["title"]
 
     # Create parents before children so each child can reference its parent's id.
+    # Resolve through the same index the ordering used, so a frontmatter
+    # `parent: <slug>` finds the record it names.
+    by_key = _parent_index(records)
     key_to_id: dict = {}
     created = []
     for rec in _order_parents_first(records):
-        parent_id = key_to_id.get(rec["parent_key"]) if rec["parent_key"] else None
+        parent = by_key.get(rec["parent_key"]) if rec["parent_key"] else None
+        # A page naming its own slug as its parent must not parent itself.
+        parent_id = (
+            key_to_id.get(parent["source_key"])
+            if parent is not None and parent is not rec
+            else None
+        )
         page = WikiPage(
             campaign_id=campaign_id,
             title=rec["title"],

@@ -11,6 +11,7 @@ import api, {
   auth,
   opds,
   settings,
+  apiKeys,
   bulk,
   duplicates,
   characters,
@@ -277,6 +278,32 @@ describe('api', () => {
     })
   })
 
+  describe('api.uploadFolder', () => {
+    it('sends every file with a matching path part, in order', async () => {
+      global.fetch = mockFetch(201, { imported: 2 })
+      const a = new File(['a'], 'a.md', { type: 'text/markdown' })
+      const b = new File(['b'], 'b.md', { type: 'text/markdown' })
+      await api.uploadFolder('/campaigns/c1/wiki/import', [
+        { file: a, path: 'V/Places/a.md' },
+        { file: b, path: 'V/b.md' },
+      ])
+
+      const [url, options] = fetch.mock.calls[0]
+      expect(url).toBe('/api/campaigns/c1/wiki/import')
+      expect(options.headers).not.toHaveProperty('Content-Type')
+      // The server pairs files to paths by position, so both lists must align.
+      expect(options.body.getAll('files')).toEqual([a, b])
+      expect(options.body.getAll('paths')).toEqual(['V/Places/a.md', 'V/b.md'])
+    })
+
+    it('falls back to the file name when an entry has no path', async () => {
+      global.fetch = mockFetch(201, { imported: 1 })
+      const a = new File(['a'], 'solo.md', { type: 'text/markdown' })
+      await api.uploadFolder('/campaigns/c1/wiki/import', [{ file: a }])
+      expect(fetch.mock.calls[0][1].body.getAll('paths')).toEqual(['solo.md'])
+    })
+  })
+
   describe('api.download', () => {
     beforeEach(() => {
       global.URL.createObjectURL = vi.fn(() => 'blob:x')
@@ -486,6 +513,7 @@ describe('api', () => {
         campaigns.reorderWikiPages('c1', ['p1']),
         campaigns.exportWiki('c1', 'zip'),
         campaigns.importWiki('c1', file),
+        campaigns.importWikiFolder('c1', [{ file, path: 'V/a.md' }]),
         campaigns.listCategories('c1', 'note'),
         campaigns.listCategories('c1'),
         campaigns.createCategory('c1', 'n', 'note', 'icon'),
@@ -527,8 +555,12 @@ describe('api', () => {
         settings.get(),
         settings.getUi(),
         settings.patch({}),
-        settings.generateApiKey(),
-        settings.revokeApiKey(),
+        apiKeys.list(),
+        apiKeys.permissions(),
+        apiKeys.create({ name: 'k' }),
+        apiKeys.update('k1', { name: 'k' }),
+        apiKeys.regenerate('k1'),
+        apiKeys.revoke('k1'),
       ])
       expect(fetch).toHaveBeenCalled()
     })
@@ -689,6 +721,23 @@ describe('api', () => {
       const retryBody = fetch.mock.calls[2][1].body
       expect(retryBody).toBeInstanceOf(FormData)
       expect(retryBody).not.toBe(firstBody)
+    })
+
+    it('rebuilds the form body when retrying a folder upload', async () => {
+      localStorage.setItem('grimoire_token', 'stale')
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce(res(401))
+        .mockResolvedValueOnce(res(200, { token: 'fresh' }))
+        .mockResolvedValueOnce(res(200, { imported: 1 }))
+
+      const file = new File(['a'], 'a.md', { type: 'text/markdown' })
+      await api.uploadFolder('/campaigns/c1/wiki/import', [{ file, path: 'V/a.md' }])
+
+      const firstBody = fetch.mock.calls[0][1].body
+      const retryBody = fetch.mock.calls[2][1].body
+      expect(retryBody).not.toBe(firstBody)
+      expect(retryBody.getAll('paths')).toEqual(['V/a.md'])
     })
   })
 

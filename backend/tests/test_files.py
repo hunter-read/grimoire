@@ -14,12 +14,12 @@ from pathlib import Path
 import pytest
 
 from backend.config import SessionLocal, LIBRARY_PATH
-from backend.models import Book, GenericMap
+from backend.models import Book, GenericMap, Token
 from backend.indexer.categories import prettify_collection_name
 from backend.services import library_fs as fs
 from backend.services import tag_service
 
-from .conftest import make_book, make_game_system, make_map
+from .conftest import make_book, make_game_system, make_map, make_token
 
 
 LIB = LIBRARY_PATH
@@ -82,6 +82,16 @@ class TestSafeJoin:
         with pytest.raises(fs.LibraryFSError) as exc:
             fs.safe_join("")
         assert exc.value.code == "invalid"
+
+    def test_empty_path_names_the_library_root(self):
+        # The empty path is how the browse API represents the root, so this is
+        # reached by asking to write *there* — not by sending junk. The message
+        # has to say which folder to pick instead, or the user is left looking
+        # at a perfectly good file wondering what is wrong with it.
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.safe_join("")
+        assert "library root" in str(exc.value)
+        assert "books/" in str(exc.value)
 
     def test_rejects_null_byte(self):
         with pytest.raises(fs.LibraryFSError):
@@ -3722,3 +3732,74 @@ class TestCategoryRelocationEdges:
             db.close()
         finally:
             os.path.exists(src) and os.unlink(src)
+
+
+class TestRenamedThumbnailsKeyedByFilename:
+    """A rename changes the very thing these thumbnails are keyed by.
+
+    Maps, tokens and models name their thumbnail from the filename stem, so
+    unlike a book's title-derived name it was assumed never to go stale. A
+    rename is exactly the case that breaks the assumption: the row carries the
+    new name before the cache fixup runs, so composing the name looks for a file
+    that was never written and the cover is dropped for one that is sitting
+    right there under the old stem.
+    """
+
+    def _thumb(self, section: str, filename: str, filepath: str) -> Path:
+        import hashlib
+
+        from backend.config import THUMB_DIR
+        from backend.indexer.categories import slugify
+
+        title = Path(filename).stem.replace("_", " ").replace("-", " ")
+        return Path(THUMB_DIR) / section / (
+            f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp"
+        )
+
+    def test_a_renamed_token_keeps_its_thumbnail(self, library_tree):
+        src = _write(f"tokens/Frames-{library_tree}/zone-51-frame-1.png")
+        rel = f"tokens/Frames-{library_tree}/zone-51-frame-1.png"
+        t = make_token(filename="zone-51-frame-1.png", filepath=src, relative_path=rel,
+                       has_thumbnail=True)
+        thumb = self._thumb("tokens", "zone-51-frame-1.png", src)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        thumb.write_bytes(b"webp")
+
+        db = SessionLocal()
+        try:
+            fs.rename_path(db, rel, "area-51-frame-1.png")
+        finally:
+            db.close()
+
+        db = SessionLocal()
+        refreshed = db.query(Token).filter(Token.id == t.id).first()
+        new_path, still_has = refreshed.filepath, refreshed.has_thumbnail
+        db.close()
+
+        assert still_has is True, "a rename must not drop a thumbnail that is on disk"
+        assert not thumb.exists(), "the thumbnail must not be left under the old name"
+        assert os.path.exists(
+            self._thumb("tokens", "zone-51-frame-1.png", new_path)
+        ), "re-homed under its existing slug, where the serving route's fallback finds it"
+
+    def test_a_renamed_map_keeps_its_thumbnail(self, library_tree):
+        src = _write(f"maps/Battlemaps-{library_tree}/old-swamp.png")
+        rel = f"maps/Battlemaps-{library_tree}/old-swamp.png"
+        m = make_map(filename="old-swamp.png", filepath=src, relative_path=rel,
+                     has_thumbnail=True)
+        thumb = self._thumb("maps", "old-swamp.png", src)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        thumb.write_bytes(b"webp")
+
+        db = SessionLocal()
+        try:
+            fs.rename_path(db, rel, "new-swamp.png")
+        finally:
+            db.close()
+
+        db = SessionLocal()
+        refreshed = db.query(GenericMap).filter(GenericMap.id == m.id).first()
+        still_has = refreshed.has_thumbnail
+        db.close()
+
+        assert still_has is True, "a rename must not drop a thumbnail that is on disk"

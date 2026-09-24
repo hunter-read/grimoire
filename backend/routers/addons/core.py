@@ -41,7 +41,12 @@ def list_addons(
 
         available_in = []
         for e in entries:
-            is_newer = bool(current and addons.is_newer(e.version, current["version"]))
+            # An update this build cannot install is not offered (issue #479).
+            is_newer = bool(
+                current
+                and addons.is_newer(e.version, current["version"])
+                and not addons.needs_newer_grimoire(e)
+            )
             available_in.append({
                 "index_url": e.index_url,
                 "version": e.version,
@@ -63,7 +68,10 @@ def list_addons(
         if current is not None:
             current_index_url = current.get("index_url") or primary.index_url
             matching_entry = next((e for e in entries if e.index_url == current_index_url), primary)
-            current_is_newer = bool(addons.is_newer(matching_entry.version, current["version"]))
+            current_is_newer = bool(
+                addons.is_newer(matching_entry.version, current["version"])
+                and not addons.needs_newer_grimoire(matching_entry)
+            )
 
             current["available_version"] = matching_entry.version
             current["update_available"] = current_is_newer

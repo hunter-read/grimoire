@@ -388,6 +388,62 @@ class TestIsbnRefreshModes:
         assert book.isbn == "9780786965601"
 
 
+class TestParseOpfProductCode:
+    """``dc:identifier`` scoped to a product-code scheme (issue #479)."""
+
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def _parse(self, *identifiers: str) -> dict:
+        path = _write_opf(self.tmp, "test.opf", _isbn_opf(*identifiers))
+        return parse_opf_metadata(path)
+
+    def test_grimoire_scheme_read(self):
+        meta = self._parse('<dc:identifier opf:scheme="PRODUCT_CODE">PZO9001</dc:identifier>')
+        assert meta["product_code"] == "PZO9001"
+
+    def test_sku_scheme_read_case_insensitively(self):
+        meta = self._parse('<dc:identifier opf:scheme="Sku">TSR 9247</dc:identifier>')
+        assert meta["product_code"] == "TSR 9247"
+
+    def test_internal_whitespace_collapsed(self):
+        meta = self._parse(
+            '<dc:identifier opf:scheme="product_code">  TSR\n   9247 </dc:identifier>'
+        )
+        assert meta["product_code"] == "TSR 9247"
+
+    def test_sits_alongside_an_isbn(self):
+        meta = self._parse(
+            '<dc:identifier opf:scheme="ISBN">9780786965502</dc:identifier>',
+            '<dc:identifier opf:scheme="PRODUCT_CODE">WTC 39380</dc:identifier>',
+        )
+        assert meta["isbn"] == "9780786965502"
+        assert meta["product_code"] == "WTC 39380"
+
+    def test_unscoped_identifier_ignored(self):
+        # Calibre's bare UUID identifier must not become a product code.
+        meta = self._parse("<dc:identifier>1c2f8f0e-6b0e-4f2d-9a1b-8c7d6e5f4a3b</dc:identifier>")
+        assert "product_code" not in meta
+
+    def test_empty_and_oversized_values_skipped(self):
+        meta = self._parse(
+            '<dc:identifier opf:scheme="PRODUCT_CODE">   </dc:identifier>',
+            f'<dc:identifier opf:scheme="PRODUCT_CODE">{"X" * 101}</dc:identifier>',
+            '<dc:identifier opf:scheme="PRODUCT_CODE">PZO9001</dc:identifier>',
+        )
+        assert meta["product_code"] == "PZO9001"
+
+    def test_missing_mode_fills_an_empty_code(self):
+        book = Book(title="T", product_code="")
+        assert _apply_opf_to_book(book, {"product_code": "PZO9001"}, "missing") is True
+        assert book.product_code == "PZO9001"
+
+    def test_missing_mode_protects_a_user_entered_code(self):
+        book = Book(title="T", product_code="PZO9001E")
+        assert _apply_opf_to_book(book, {"product_code": "PZO9001"}, "missing") is False
+        assert book.product_code == "PZO9001E"
+
+
 # ---------------------------------------------------------------------------
 # Calibre per-book-folder structure — scan_library integration
 # ---------------------------------------------------------------------------

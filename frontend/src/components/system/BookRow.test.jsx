@@ -453,6 +453,11 @@ describe('BookRow', () => {
     expect(screen.getByText('Errata')).toBeInTheDocument()
   })
 
+  it('shows the product code in the list layout', () => {
+    render(<BookRow book={makeBook({ product_code: 'PZO9001' })} />)
+    expect(screen.getByText('PZO9001')).toBeInTheDocument()
+  })
+
   // Issue #313 — cards are now real anchors (CardLink), so the browser handles
   // middle-click and ctrl/cmd-click natively. Tests verify the href.
   describe('real link row (issue #313)', () => {
@@ -481,6 +486,32 @@ describe('BookRow', () => {
         screen.queryByRole('link', { name: /open player's handbook/i })
       ).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: /open player's handbook/i })).toBeInTheDocument()
+    })
+  })
+
+  // --- details button (issue #447) ---
+
+  describe('details button (issue #447)', () => {
+    it('offers a one-click details button in the list layout', () => {
+      const onDetails = vi.fn()
+      render(<BookRow book={makeBook()} onDetails={onDetails} />)
+      fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+      expect(onDetails).toHaveBeenCalledTimes(1)
+    })
+
+    it('offers the details button in the card layout too', () => {
+      const onDetails = vi.fn()
+      render(<BookRow book={makeBook()} onDetails={onDetails} card />)
+      fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+      expect(onDetails).toHaveBeenCalledTimes(1)
+    })
+
+    it('has no details button without onDetails, or in bulk mode', () => {
+      const { unmount } = render(<BookRow book={makeBook()} />)
+      expect(screen.queryByRole('button', { name: 'View details' })).not.toBeInTheDocument()
+      unmount()
+      render(<BookRow book={makeBook()} onDetails={() => {}} bulkMode onToggle={() => {}} />)
+      expect(screen.queryByRole('button', { name: 'View details' })).not.toBeInTheDocument()
     })
   })
 })

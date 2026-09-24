@@ -24,6 +24,7 @@ const BOOK = {
   genres: ['Fantasy'],
   license: 'CC BY 3.0',
   isbn: '123',
+  product_code: 'PZO9001',
   page_count: 328,
   file_size: 1024 * 1024,
   mime_type: 'application/pdf',
@@ -46,6 +47,7 @@ describe('BookDetailsModal', () => {
     expect(screen.getAllByText('John Harper', { selector: 'dd' })).toHaveLength(2)
     expect(screen.getByText('Evil Hat')).toBeInTheDocument()
     expect(screen.getByText('328')).toBeInTheDocument()
+    expect(screen.getByText('PZO9001')).toBeInTheDocument()
     expect(screen.getByText('books/Blades/core/blades.pdf')).toBeInTheDocument()
   })
 
@@ -59,6 +61,7 @@ describe('BookDetailsModal', () => {
     render(<BookDetailsModal book={{ id: 'b', title: 'Bare' }} onClose={vi.fn()} />)
     expect(screen.queryByText('bookDetails.publisher')).toBeNull()
     expect(screen.queryByText('bookDetails.isbn')).toBeNull()
+    expect(screen.queryByText('bookDetails.productCode')).toBeNull()
   })
 
   it('shows tags and links', () => {

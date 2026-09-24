@@ -74,6 +74,20 @@ describe('SystemSearchResults', () => {
     expect(link.getAttribute('href')).toBe(`/library/book/${book.id}`)
   })
 
+  it("opens a matching book's details from its row", () => {
+    const book = makeBook({ title: 'Curse of Strahd', description: 'Gothic horror.' })
+    renderResults({
+      ...baseProps,
+      searchResults: { query: 'strahd', results: [] },
+      matchedBooks: [book],
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'bookActions.details' }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('Gothic horror.')
+    fireEvent.click(screen.getByRole('button', { name: 'common.close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('renders the empty state when nothing matched', () => {
     renderResults({
       ...baseProps,

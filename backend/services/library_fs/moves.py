@@ -175,12 +175,17 @@ def _thumb_files_for(
 ) -> list[Path]:
     """The thumbnails belonging to ``record`` at ``filepath``, best first.
 
-    The exact title-derived name when it is on disk, otherwise whatever the path
-    hash turns up. Only ``Book`` carries a ``title`` column, so it is the only
-    collection whose key can drift: the others are named from the filename stem,
-    which travels with the file and can never go stale. Globbing for them would
-    scan a directory of thousands of files to confirm what the composed name
-    already says, so they skip it.
+    The exact composed name when it is on disk, otherwise whatever the path hash
+    turns up. Both halves of a thumbnail's name can go stale, so both need the
+    fallback: a book's is keyed by ``title``, which an edit changes (issue
+    #421), and every other collection's is keyed by the filename stem, which a
+    *rename* changes. The row carries its new name before this runs, so the
+    composed name then points at a file that was never written while the real
+    one sits beside it under the old stem — and the cover is dropped for an
+    image that is right there.
+
+    The glob costs a directory listing, taken only when the composed name misses,
+    which is the case that would otherwise re-render.
 
     ``every`` returns all hash matches instead of stopping at the first hit, for
     the one caller that must not leave a straggler: a delete, where a stale
@@ -192,9 +197,6 @@ def _thumb_files_for(
     for when nothing is on disk.
     """
     exact = _thumb_file(section, _thumb_key(record), filepath)
-    drifts = hasattr(type(record), "title")
-    if not drifts:
-        return [exact]
     if every:
         found = _thumb_glob(section, filepath)
         # The composed name may be absent from the glob only when it is absent

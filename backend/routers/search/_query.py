@@ -22,6 +22,7 @@ Two rules drive everything downstream:
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -44,6 +45,11 @@ FIELD_ALIASES: dict[str, str] = {
     "tags": "tag",
     "year": "year",
     "isbn": "isbn",
+    # The publisher's catalogue number (issue #479). "sku" and "code" are the
+    # words a store listing and a cover actually use.
+    "code": "code",
+    "sku": "code",
+    "product_code": "code",
     "language": "language",
     "lang": "language",
     "description": "description",
@@ -61,7 +67,17 @@ FIELD_ALIASES: dict[str, str] = {
 # saying "author:gygax" is asking about books, and a full list of every map
 # would read as though the filter had been ignored.
 BOOK_ONLY_FIELDS = frozenset(
-    {"author", "publisher", "category", "year", "isbn", "language", "description", "text"}
+    {
+        "author",
+        "publisher",
+        "category",
+        "year",
+        "isbn",
+        "code",
+        "language",
+        "description",
+        "text",
+    }
 )
 
 # Fields a book row can match. The complement of the media-only fields
@@ -78,6 +94,7 @@ BOOK_FIELDS = frozenset(
         "tag",
         "year",
         "isbn",
+        "code",
         "language",
         "description",
         "filename",
@@ -120,18 +137,28 @@ _FTS_BAREWORD = re.compile(r"^[A-Za-z0-9_]+$")
 _FTS_OPERATORS = frozenset({"AND", "OR", "NOT", "NEAR"})
 
 
-def to_fts_query(raw: str) -> str:
+def to_fts_query(raw: str | Sequence[str]) -> str:
     """Turn user text into an FTS5 expression that cannot be a syntax error.
 
-    Each whitespace-separated token becomes a quoted phrase unless it is a plain
-    bareword, which is left alone so FTS5 prefix search (``fire*``) keeps
-    working. Embedded double quotes are doubled, per FTS5 string escaping.
+    Each token becomes a quoted phrase unless it is a plain bareword, which is
+    left alone so FTS5 prefix search (``fire*``) keeps working. Embedded double
+    quotes are doubled, per FTS5 string escaping.
+
+    Pass a sequence to state the token boundaries yourself; a plain string is
+    split on whitespace, which cannot represent a phrase. That distinction is
+    the fix for issue #473: a quoted ``"lucky feat"`` survives the parse as one
+    token, and re-splitting it here turned it back into an implicit AND. A token
+    holding whitespace can only have come from a quoted phrase — a bare one is
+    ``\\S+`` by construction — so it fails the bareword test and is quoted into
+    an FTS5 phrase by the same branch that already handles ``D&D``.
 
     Quoting loses the boolean operators, which is the right trade: a search box
     that 500s on "D&D" is broken in a way that a search box which takes "AND"
     literally is not.
     """
-    raw_tokens = (raw or "").split()
+    if not raw:
+        return ""
+    raw_tokens = raw.split() if isinstance(raw, str) else [t for t in raw if t]
     operator_at = [t.upper() in _FTS_OPERATORS for t in raw_tokens]
 
     tokens = []
@@ -156,13 +183,25 @@ class ParsedQuery:
     """The result of parsing a raw search box string.
 
     ``filters`` maps a canonical field name to the list of values given for it.
-    ``free_text`` is everything that carried no recognised prefix, rejoined with
-    spaces — the part that reaches FTS5 when no metadata filter is present.
+    ``free_terms`` is everything that carried no recognised prefix, one entry per
+    token the user typed — so a quoted phrase stays a single entry. That is the
+    part which reaches FTS5 when no metadata filter is present.
     """
 
     raw: str
     filters: dict[str, list[str]] = field(default_factory=dict)
-    free_text: str = ""
+    free_terms: list[str] = field(default_factory=list)
+
+    @property
+    def free_text(self) -> str:
+        """The free terms as one string, for the SQL ``LIKE`` search paths.
+
+        ``_books.py`` and ``_helpers.py`` match free text with ``ilike`` on whole
+        columns, where a substring comparison is already a phrase match and the
+        token boundaries carry no meaning. Only FTS5 needs them, so this stays
+        derived rather than stored alongside them.
+        """
+        return " ".join(self.free_terms)
 
     @property
     def has_filters(self) -> bool:
@@ -182,14 +221,17 @@ class ParsedQuery:
         text. A metadata filter with neither suppresses content search — the
         heart of issue #343.
         """
-        explicit = " ".join(self.filters.get("text", []))
-        if explicit and self.free_text:
-            return to_fts_query(f"{explicit} {self.free_text}")
+        # Passed as token lists, never joined into a string: a ``text:"lucky
+        # feat"`` value is one token for the same reason a free-text phrase is,
+        # and joining here would flatten it exactly as issue #473 describes.
+        explicit = self.filters.get("text", [])
+        if explicit and self.free_terms:
+            return to_fts_query([*explicit, *self.free_terms])
         if explicit:
             return to_fts_query(explicit)
         if self.metadata_fields:
             return ""
-        return to_fts_query(self.free_text)
+        return to_fts_query(self.free_terms)
 
     @property
     def books_only(self) -> bool:
@@ -230,7 +272,7 @@ def parse_query(raw: str) -> ParsedQuery:
         elif value.strip():
             free.append(value)
 
-    parsed.free_text = " ".join(free)
+    parsed.free_terms = free
     return parsed
 
 

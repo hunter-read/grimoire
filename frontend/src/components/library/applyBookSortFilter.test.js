@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bookFilterPredicate, bookComparator } from './applyBookSortFilter'
+import { bookFilterPredicate, bookComparator, productCodePrefix } from './applyBookSortFilter'
 import { FILTER_NONE, FILTER_ANY } from './specialFilters'
 
 const books = [
@@ -136,5 +136,41 @@ describe('bookComparator', () => {
   it('sorts null years last (ascending)', () => {
     const out = [...books].sort(bookComparator('year', 'asc')).map((b) => b.id)
     expect(out[out.length - 1]).toBe('c')
+  })
+})
+
+describe('product code (issue #479)', () => {
+  const coded = [
+    { id: 'p2', title: 'Bestiary 2', product_code: 'PZO10000' },
+    { id: 'none', title: 'Aardvark', product_code: '' },
+    { id: 'p1', title: 'Bestiary', product_code: 'PZO9001' },
+    { id: 't', title: 'Castle Greyhawk', product_code: 'TSR 9247' },
+    { id: 'none2', title: 'Zebra' },
+  ]
+
+  it('takes the leading letters as the prefix', () => {
+    expect(productCodePrefix('PZO9001')).toBe('PZO')
+    expect(productCodePrefix('tsr 9247')).toBe('TSR')
+    expect(productCodePrefix('35000')).toBe('')
+    expect(productCodePrefix(undefined)).toBe('')
+  })
+
+  it('filters by prefix, case-insensitively', () => {
+    const p = bookFilterPredicate({ productCode: 'pzo' })
+    expect(coded.filter(p).map((b) => b.id)).toEqual(['p2', 'p1'])
+  })
+
+  it('filters by presence', () => {
+    expect(coded.filter(bookFilterPredicate({ productCode: FILTER_ANY })).map((b) => b.id)).toEqual(
+      ['p2', 'p1', 't']
+    )
+    expect(
+      coded.filter(bookFilterPredicate({ productCode: FILTER_NONE })).map((b) => b.id)
+    ).toEqual(['none', 'none2'])
+  })
+
+  it('sorts naturally, with uncoded books last by title', () => {
+    const sorted = [...coded].sort(bookComparator('product_code', 'asc'))
+    expect(sorted.map((b) => b.id)).toEqual(['p1', 'p2', 't', 'none', 'none2'])
   })
 })

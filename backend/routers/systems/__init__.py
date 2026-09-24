@@ -1,6 +1,7 @@
 """Systems package — registers all game system routes on a single router."""
 from fastapi import APIRouter, Depends
 
+from ... import api_keys
 from ...auth import require_not_guest
 from .core import (
     delete_book_folder,
@@ -209,6 +210,8 @@ router.add_api_route(
         "empty query defaults to the system's name. GM or admin role required."
     ),
     response_model=MetadataSearchResponse,
+    # POST only to carry a body; changes nothing, so an API key's Read covers it.
+    openapi_extra=api_keys.READ_ONLY,
 )
 router.add_api_route(
     "/{system_id}/metadata-fetch",
@@ -220,4 +223,6 @@ router.add_api_route(
         "current values. Writes nothing. GM or admin role required."
     ),
     response_model=MetadataFetchResponse,
+    # POST only to carry a body; changes nothing, so an API key's Read covers it.
+    openapi_extra=api_keys.READ_ONLY,
 )

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuCheck } from 'react-icons/lu'
 import { VIS_META, POPOVER_WIDTH, VIS_OPTIONS, visLabelKey } from './wikiShared'
+import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 
 // The per-row visibility indicator in the campaign tree.
 //
@@ -26,9 +27,11 @@ export default function RowVisibilityControl({
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef(null)
-  const popoverRef = useRef(null)
+  const {
+    triggerRef,
+    panelRef: popoverRef,
+    style: popoverStyle,
+  } = useAnchoredMenu(open, { width: POPOVER_WIDTH })
 
   const meta = VIS_META[visibility] || VIS_META.gm
   const { Icon } = meta
@@ -38,22 +41,8 @@ export default function RowVisibilityControl({
   const visible = isRestricted || rowHovered || focused || open
   const options = VIS_OPTIONS
 
-  const place = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const margin = 8
-    let left = r.right - POPOVER_WIDTH
-    if (left < margin) left = margin
-    if (left + POPOVER_WIDTH > window.innerWidth - margin) {
-      left = Math.max(margin, window.innerWidth - margin - POPOVER_WIDTH)
-    }
-    setCoords({ top: r.bottom + 4, left })
-  }, [])
-
   useEffect(() => {
     if (!open) return
-    place()
     const onDoc = (e) => {
       if (triggerRef.current?.contains(e.target) || popoverRef.current?.contains(e.target)) return
       setOpen(false)
@@ -64,18 +53,13 @@ export default function RowVisibilityControl({
         triggerRef.current?.focus()
       }
     }
-    const onReposition = () => place()
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
     return () => {
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
     }
-  }, [open, place])
+  }, [open, triggerRef, popoverRef])
 
   const label = t('wiki.visibilityIs', { level: t(visLabelKey(meta.key, authorIsGm)) })
 
@@ -142,11 +126,8 @@ export default function RowVisibilityControl({
             ref={popoverRef}
             role="menu"
             style={{
-              position: 'fixed',
-              top: coords.top,
-              left: coords.left,
+              ...popoverStyle,
               zIndex: 2000,
-              width: POPOVER_WIDTH,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               borderRadius: 10,

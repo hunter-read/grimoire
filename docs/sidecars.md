@@ -46,6 +46,7 @@ a human will read or edit the file, JSON if a program will parse it.
 | `publisher` | `dc:publisher` | `<publisher>` | ✅ |
 | `year` / `month` / `day` | `dc:date` | `<year>`, `<premiered>` | ✅ |
 | `isbn` | `dc:identifier opf:scheme="ISBN"` | `<isbn>` | ✅ |
+| `product_code` | `dc:identifier opf:scheme="PRODUCT_CODE"` | — | ✅ |
 | `language` | `dc:language` | `<language>` | ✅ |
 | `tags` | `dc:subject` (repeated) | `<tag>` (repeated) | ✅ |
 | `genres` | — | `<genre>` (repeated) | ✅ |
@@ -190,6 +191,10 @@ writes. Unscoped identifiers stay ignored, so Calibre's internal UUID never
 lands in the ISBN field. The value is normalised (hyphens and spaces stripped)
 and its check digit validated; an ISBN that fails the check is dropped rather
 than imported.
+
+The product code travels the same way, under `opf:scheme="PRODUCT_CODE"`. The
+importer also accepts `SKU` (any case), for an OPF written by another tool.
+Product codes have no shared format, so no check is applied beyond trimming.
 
 Precedence is set by the **metadata refresh mode** used when scanning:
 

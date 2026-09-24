@@ -59,7 +59,6 @@ export default function MapsView() {
               onClick={() => navigate('/maps/editor')}
               style={{
                 flex: 1,
-                minWidth: 0,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',

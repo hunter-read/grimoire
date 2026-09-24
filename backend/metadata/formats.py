@@ -17,7 +17,7 @@ from xml.etree import ElementTree
 
 import yaml
 
-from ..indexer.constants import _OPF_NS
+from ..indexer.constants import _OPF_NS, PRODUCT_CODE_SCHEME
 
 FORMAT_OPF = "opf"
 FORMAT_NFO = "nfo"
@@ -145,6 +145,14 @@ def render_opf(fields: dict) -> str:
     _add("date", _date_string(fields))
     _add("language", _clean(fields.get("language")))
     _add("identifier", _clean(fields.get("isbn")), {f"{{{opf}}}scheme": "ISBN"})
+    # OPF has no product-code element, but dc:identifier takes any scheme and
+    # Calibre keeps unknown schemes as custom identifiers, so the code survives
+    # a trip through Calibre as well as a rescan here (issue #479).
+    _add(
+        "identifier",
+        _clean(fields.get("product_code")),
+        {f"{{{opf}}}scheme": PRODUCT_CODE_SCHEME},
+    )
     for tag in fields.get("tags") or []:
         _add("subject", _clean(tag))
 

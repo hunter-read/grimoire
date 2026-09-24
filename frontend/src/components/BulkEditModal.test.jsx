@@ -4,7 +4,8 @@ import BulkEditModal from './BulkEditModal'
 import { clearMetadataSourcesCache } from './system/useMetadataSources'
 
 const patch = vi.fn(() => Promise.resolve({}))
-const post = vi.fn(() => Promise.resolve({ id: 'g1', name: 'Fantasy' }))
+const defaultPost = () => Promise.resolve({ id: 'g1', name: 'Fantasy' })
+const post = vi.fn(defaultPost)
 // useLookups fetches /genres and /system-families; return empty lookup lists.
 const defaultGet = (path) => {
   if (path?.includes('metadata-sources')) return Promise.resolve({ sources: [] })
@@ -57,6 +58,8 @@ describe('BulkEditModal', () => {
     bulkUpdate.mockClear()
     bulkUpdate.mockResolvedValue({ updated: [], errors: [] })
     get.mockImplementation(defaultGet)
+    post.mockClear()
+    post.mockImplementation(defaultPost)
   })
 
   it('shows the first item and a position indicator', () => {
@@ -320,6 +323,7 @@ describe('BulkEditModal', () => {
       openDialog()
       // An ISBN identifies one specific book, so it is never offered.
       expect(screen.queryByRole('checkbox', { name: 'ISBN' })).toBeNull()
+      expect(screen.queryByRole('checkbox', { name: 'Product code' })).toBeNull()
       expect(screen.getByRole('checkbox', { name: 'Category' })).toBeInTheDocument()
     })
 
@@ -427,6 +431,295 @@ describe('BulkEditModal', () => {
 
       expect(onClose).not.toHaveBeenCalled()
       expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument()
+    })
+  })
+
+  // Issue #466: working metadata through a large selection took a scroll, three
+  // clicks in the fetch dialog and a trip back to the carousel per item. The
+  // fetch now sits beside the item and runs as a loop across the selection.
+  describe('batch metadata fetch (issue #466)', () => {
+    const FETCHED = { authors: ['Ann', 'Bo'], year: 2001 }
+    const withSources = () => {
+      get.mockImplementation((path) => {
+        if (path?.includes('metadata-sources')) {
+          return Promise.resolve({ sources: [{ id: 'wiki', name: 'TTRPG Wiki' }] })
+        }
+        return defaultGet(path)
+      })
+      post.mockImplementation((url, body) =>
+        Promise.resolve(
+          url.endsWith('metadata-search')
+            ? { results: [{ identity: 'hit', label: `Match for ${body.query}` }] }
+            : {
+                fields: [
+                  {
+                    field: 'authors',
+                    current: [],
+                    incoming: FETCHED.authors,
+                    status: 'only_incoming',
+                  },
+                  { field: 'year', current: null, incoming: FETCHED.year, status: 'only_incoming' },
+                ],
+              }
+        )
+      )
+    }
+    const renderBooks = (props = {}) =>
+      render(
+        <BulkEditModal type="book" items={books} onClose={vi.fn()} onSaved={vi.fn()} {...props} />
+      )
+    const fetchDialog = () => within(screen.getByRole('dialog', { name: 'Fetch metadata' }))
+    // The dialog carries the bulk editor's own navigation bar: name and position.
+    const expectDialogOn = (name, position) => {
+      expect(fetchDialog().getByText(name)).toBeInTheDocument()
+      expect(fetchDialog().getByText(position)).toBeInTheDocument()
+    }
+    const openFetch = async () =>
+      fireEvent.click(await screen.findByRole('button', { name: 'Fetch metadata' }))
+    const pickMatch = async (title) => {
+      fireEvent.click(await screen.findByRole('button', { name: `Match for ${title}` }))
+      return screen.findByRole('button', { name: 'Apply 2 fields & next' })
+    }
+
+    beforeEach(withSources)
+
+    it('opens from the item header and searches straight away', async () => {
+      renderBooks()
+      await openFetch()
+      expect(await screen.findByRole('button', { name: 'Match for Alpha' })).toBeInTheDocument()
+      expect(post).toHaveBeenCalledWith('/books/b1/metadata-search', {
+        source_id: 'wiki',
+        query: 'Alpha',
+      })
+      expectDialogOn('Alpha', '1 of 3')
+    })
+
+    it('applies and moves the whole run on to the next item', async () => {
+      renderBooks()
+      await openFetch()
+      fireEvent.click(await pickMatch('Alpha'))
+
+      // The dialog stays open, now searching for the second book.
+      expect(await screen.findByRole('button', { name: 'Match for Beta' })).toBeInTheDocument()
+      expect(patch).toHaveBeenCalledWith('/books/b1', FETCHED)
+      expectDialogOn('Beta', '2 of 3')
+    })
+
+    it('skips an item without writing to it', async () => {
+      renderBooks()
+      await openFetch()
+      await screen.findByRole('button', { name: 'Match for Alpha' })
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+
+      expect(await screen.findByRole('button', { name: 'Match for Beta' })).toBeInTheDocument()
+      expect(patch).not.toHaveBeenCalled()
+    })
+
+    it('reuses the chosen source for the next item', async () => {
+      get.mockImplementation((path) => {
+        if (path?.includes('metadata-sources')) {
+          return Promise.resolve({
+            sources: [
+              { id: 'wiki', name: 'TTRPG Wiki' },
+              { id: 'geek', name: 'RPGGeek' },
+            ],
+          })
+        }
+        return defaultGet(path)
+      })
+      renderBooks()
+      await openFetch()
+      await screen.findByRole('button', { name: 'Match for Alpha' })
+      fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'geek' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+
+      await screen.findByRole('button', { name: 'Match for Beta' })
+      expect(post).toHaveBeenLastCalledWith('/books/b2/metadata-search', {
+        source_id: 'geek',
+        query: 'Beta',
+      })
+    })
+
+    it('goes back to an item and shows its matches without searching again', async () => {
+      renderBooks()
+      await openFetch()
+      await screen.findByRole('button', { name: 'Match for Alpha' })
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+      await screen.findByRole('button', { name: 'Match for Beta' })
+
+      fireEvent.click(fetchDialog().getByRole('button', { name: 'Previous' }))
+      expect(await screen.findByRole('button', { name: 'Match for Alpha' })).toBeInTheDocument()
+      expectDialogOn('Alpha', '1 of 3')
+      const searches = post.mock.calls.filter(([url]) => url === '/books/b1/metadata-search')
+      expect(searches).toHaveLength(1)
+    })
+
+    // The look-alike case: the wrong match was applied, so coming back should
+    // show which one that was and let the right one replace its values.
+    it('marks the last pick and pre-ticks the fields it filled in', async () => {
+      renderBooks()
+      await openFetch()
+      fireEvent.click(await pickMatch('Alpha'))
+      await screen.findByRole('button', { name: 'Match for Beta' })
+
+      fireEvent.click(fetchDialog().getByRole('button', { name: 'Previous' }))
+      const earlier = await screen.findByRole('button', {
+        name: 'Match for Alpha picked last time',
+      })
+      post.mockImplementation(() =>
+        Promise.resolve({
+          fields: [
+            { field: 'authors', current: FETCHED.authors, incoming: ['Cy'], status: 'differs' },
+            { field: 'year', current: FETCHED.year, incoming: 2004, status: 'differs' },
+          ],
+        })
+      )
+      fireEvent.click(earlier)
+
+      expect(await screen.findByLabelText('authors')).toBeChecked()
+      expect(screen.getByLabelText('year')).toBeChecked()
+    })
+
+    it('ends the run on the last item with a plain apply', async () => {
+      renderBooks()
+      fireEvent.click(screen.getByLabelText('Next'))
+      fireEvent.click(screen.getByLabelText('Next'))
+      await openFetch()
+      await screen.findByRole('button', { name: 'Match for Gamma' })
+
+      expect(screen.getByRole('button', { name: 'Skip' })).toBeDisabled()
+      fireEvent.click(screen.getByRole('button', { name: 'Match for Gamma' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Apply 2 fields' }))
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Fetch metadata' })).toBeNull()
+      )
+    })
+
+    // Fetched authors used to be flattened to "Ann, Bo" text for the single-book
+    // editor's form, which the bulk body (arrays) then rendered as empty.
+    it('keeps fetched authors as a list the bulk form can show', async () => {
+      const { container } = renderBooks()
+      await openFetch()
+      fireEvent.click(await pickMatch('Alpha'))
+      await screen.findByRole('button', { name: 'Match for Beta' })
+      fireEvent.keyDown(window, { key: 'Escape' })
+      fireEvent.click(screen.getByLabelText('Previous'))
+
+      expect(container.querySelector('#book-bulk-authors')).toHaveValue('Ann, Bo')
+    })
+
+    it('does not resend fetched fields, but reports them as saved', async () => {
+      const onSaved = vi.fn()
+      renderBooks({ onSaved })
+      await openFetch()
+      fireEvent.click(await pickMatch('Alpha'))
+      await screen.findByRole('button', { name: 'Match for Beta' })
+      fireEvent.keyDown(window, { key: 'Escape' })
+
+      fireEvent.click(screen.getByText('Save all'))
+      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      // Already PATCHed by the dialog, so nothing is left for the bulk request.
+      expect(bulkUpdate).not.toHaveBeenCalled()
+      expect(onSaved).toHaveBeenCalledWith({ b1: FETCHED })
+    })
+
+    it('merges a fetch with later hand edits when saving', async () => {
+      const onSaved = vi.fn()
+      renderBooks({ onSaved })
+      await openFetch()
+      fireEvent.click(await screen.findByRole('button', { name: 'Match for Alpha' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Apply 2 fields' }))
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Fetch metadata' })).toBeNull()
+      )
+      fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Alpha Revised' } })
+
+      fireEvent.click(screen.getByText('Save all'))
+      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      expect(bulkUpdate).toHaveBeenCalledWith('book', [{ id: 'b1', title: 'Alpha Revised' }])
+      expect(onSaved).toHaveBeenCalledWith({ b1: { ...FETCHED, title: 'Alpha Revised' } })
+    })
+
+    it('closes without asking when only fetched (already saved) fields changed', async () => {
+      const onSaved = vi.fn()
+      const onClose = vi.fn()
+      renderBooks({ onSaved, onClose })
+      await openFetch()
+      fireEvent.click(await pickMatch('Alpha'))
+      await screen.findByRole('button', { name: 'Match for Beta' })
+      fireEvent.keyDown(window, { key: 'Escape' })
+
+      fireEvent.click(screen.getByText('Cancel'))
+      expect(screen.queryByText('Discard unsaved changes?')).toBeNull()
+      // The parent still needs the new values, so this is a save, not a cancel.
+      expect(onSaved).toHaveBeenCalledWith({ b1: FETCHED })
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('still reports fetched fields when other edits are discarded', async () => {
+      const onSaved = vi.fn()
+      renderBooks({ onSaved })
+      await openFetch()
+      fireEvent.click(await pickMatch('Alpha'))
+      await screen.findByRole('button', { name: 'Match for Beta' })
+      fireEvent.keyDown(window, { key: 'Escape' })
+      fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Beta Revised' } })
+
+      fireEvent.click(screen.getByText('Cancel'))
+      fireEvent.click(screen.getByText('Discard changes'))
+      expect(onSaved).toHaveBeenCalledWith({ b1: FETCHED })
+    })
+  })
+
+  describe('keyboard paging (issue #466)', () => {
+    it('moves between items with the arrow keys', () => {
+      renderModal()
+      fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+      expect(screen.getByText('2 of 2')).toBeInTheDocument()
+      fireEvent.keyDown(document.body, { key: 'ArrowLeft' })
+      expect(screen.getByText('1 of 2')).toBeInTheDocument()
+    })
+
+    it('leaves arrow keys alone while typing in a field', () => {
+      renderModal()
+      fireEvent.keyDown(screen.getByPlaceholderText('Comma-separated tags'), { key: 'ArrowRight' })
+      expect(screen.getByText('1 of 2')).toBeInTheDocument()
+    })
+
+    it('ignores arrows with a modifier held', () => {
+      renderModal()
+      fireEvent.keyDown(document.body, { key: 'ArrowRight', altKey: true })
+      expect(screen.getByText('1 of 2')).toBeInTheDocument()
+    })
+
+    it('opens the fetch with F when a source exists', async () => {
+      get.mockImplementation((path) =>
+        path?.includes('metadata-sources')
+          ? Promise.resolve({ sources: [{ id: 'wiki', name: 'TTRPG Wiki' }] })
+          : defaultGet(path)
+      )
+      post.mockImplementation(() => Promise.resolve({ results: [] }))
+      render(<BulkEditModal type="book" items={books} onClose={vi.fn()} onSaved={vi.fn()} />)
+      await screen.findByRole('button', { name: 'Fetch metadata' })
+
+      fireEvent.keyDown(document.body, { key: 'f' })
+      expect(await screen.findByRole('dialog', { name: 'Fetch metadata' })).toBeInTheDocument()
+    })
+
+    it('does nothing on F where there is nothing to fetch from', () => {
+      renderModal()
+      fireEvent.keyDown(document.body, { key: 'f' })
+      expect(screen.queryByRole('dialog', { name: 'Fetch metadata' })).toBeNull()
+    })
+
+    it('starts each item at the top of the form', () => {
+      renderModal()
+      const body = screen
+        .getByPlaceholderText('Comma-separated tags')
+        .closest('[style*="overflow-y: auto"]')
+      body.scrollTop = 300
+      fireEvent.click(screen.getByLabelText('Next'))
+      expect(body.scrollTop).toBe(0)
     })
   })
 })

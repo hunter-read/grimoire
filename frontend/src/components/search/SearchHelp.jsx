@@ -13,6 +13,7 @@ const FIELD_EXAMPLES = [
   { field: 'category', example: 'category:adventure' },
   { field: 'tag', example: 'tag:dungeon' },
   { field: 'publisher', example: 'publisher:Wizards' },
+  { field: 'code', example: 'code:PZO9001' },
   { field: 'year', example: 'year:2015-2020' },
   { field: 'text', example: 'text:fireball' },
 ]

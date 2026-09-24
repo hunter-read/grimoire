@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck } from 'react-icons/lu'
+import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck, LuInfo } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { CATEGORY_ICONS, isArchiveBook } from '../../constants'
 import { useFavorites } from '../../context/FavoritesContext'
@@ -16,6 +16,9 @@ import BookActionsMenu from './BookActionsMenu'
  * `compact` for the grid layouts used by the books page view-mode toggle.
  *
  * `bulkMode` shows a selection checkbox and suppresses the per-item actions.
+ *
+ * A click opens the book, so when `onDetails` is passed its details get an
+ * always-visible ⓘ button rather than living only in the ⋮ menu (issue #447).
  */
 export default function BookRow({
   book,
@@ -77,6 +80,28 @@ export default function BookRow({
       />
     ))
 
+  // One click to the details view, beside the favorite heart.
+  const detailsButton = onDetails && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        onDetails()
+      }}
+      aria-label={t('bookActions.details')}
+      title={t('bookActions.details')}
+      style={{
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        padding: '6px',
+        color: 'var(--text-muted)',
+      }}
+    >
+      <LuInfo size={16} aria-hidden="true" />
+    </button>
+  )
+
   // Overlaid checkbox shown over thumbnails in the grid layouts.
   const overlayCheckbox = bulkMode && (
     <div
@@ -101,9 +126,10 @@ export default function BookRow({
     </div>
   )
 
-  // List-layout end actions: the always-visible favorite heart, followed by the
-  // consolidated actions menu (edit / download / re-scan · re-OCR). The favorite
-  // is deliberately prominent; the rest live in the kebab menu (issue #217).
+  // List-layout end actions: the always-visible favorite heart and details
+  // button, followed by the consolidated actions menu (edit / download /
+  // re-scan · re-OCR). Those two are deliberately prominent; the rest live in
+  // the kebab menu (issues #217, #447).
   const listActions = () => (
     // Positioned so the action buttons paint above the CardLink overlay.
     <div
@@ -130,6 +156,7 @@ export default function BookRow({
           fill={fav ? 'var(--gold)' : 'none'}
         />
       </button>
+      {detailsButton}
       <BookActionsMenu book={book} onEdit={onEdit} onDetails={onDetails} editing={editing} />
     </div>
   )
@@ -257,6 +284,7 @@ export default function BookRow({
             {!bulkMode && (
               // Positioned so the menu trigger paints above the CardLink overlay.
               <div style={{ position: 'relative', display: 'flex' }}>
+                {detailsButton}
                 <BookActionsMenu
                   book={book}
                   onEdit={onEdit}
@@ -400,6 +428,9 @@ export default function BookRow({
           {progress > 0 && <span style={{ color: 'var(--gold-dim)' }}>p. {lastPage}</span>}
           {book.year && <span>{book.year}</span>}
           {book.publisher && <span>{book.publisher}</span>}
+          {book.product_code && (
+            <span title={t('bookDetails.productCode')}>{book.product_code}</span>
+          )}
           {(book.genres || []).length > 0 && (
             <span style={{ color: 'var(--green, #5a9a5a)' }}>
               {(book.genres || []).slice(0, 3).join(', ')}

@@ -442,4 +442,243 @@ describe('MetadataFetchDialog', () => {
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalled()
   })
+
+  // Issue #466: bulk edit runs the dialog as a loop over the selection, so it
+  // searches on open, hands focus along the flow and offers Skip / Apply & next.
+  describe('batch mode', () => {
+    const renderBatch = (props = {}) =>
+      render(
+        <MetadataFetchDialog
+          resource={SYSTEM}
+          onApply={vi.fn()}
+          onClose={vi.fn()}
+          autoSearch
+          position="1 of 40"
+          itemName="Blades in the Dark"
+          {...props}
+        />
+      )
+
+    it('searches for the name as soon as a source is known', async () => {
+      mockHappyPath()
+      renderBatch()
+      expect(await screen.findByText('Blades in the Dark (1st Edition)')).toBeInTheDocument()
+      expect(api.post).toHaveBeenCalledWith('/systems/sys-1/metadata-search', {
+        source_id: 'ttrpg-wiki',
+        query: 'Blades in the Dark',
+      })
+    })
+
+    it('does not search on open without autoSearch', async () => {
+      mockHappyPath()
+      render(<MetadataFetchDialog resource={SYSTEM} onApply={vi.fn()} onClose={vi.fn()} />)
+      await screen.findByDisplayValue('Blades in the Dark')
+      expect(api.post).not.toHaveBeenCalled()
+    })
+
+    it('puts focus on the first match, and arrows move between them', async () => {
+      mockHappyPath()
+      const user = userEvent.setup()
+      renderBatch()
+      const first = await screen.findByRole('button', { name: 'Blades in the Dark (1st Edition)' })
+      await waitFor(() => expect(first).toHaveFocus())
+
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getByRole('button', { name: 'Band of Blades (1st Edition)' })).toHaveFocus()
+      // Down from the last match stays put rather than falling off the list.
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getByRole('button', { name: 'Band of Blades (1st Edition)' })).toHaveFocus()
+      await user.keyboard('{ArrowUp}')
+      expect(first).toHaveFocus()
+      // Up from the first match returns to the query, to refine it.
+      await user.keyboard('{ArrowUp}')
+      expect(screen.getByLabelText('metadataFetch.searchPlaceholder')).toHaveFocus()
+    })
+
+    it('returns focus to the query when nothing matches', async () => {
+      api.get.mockResolvedValue(SOURCES)
+      api.post.mockResolvedValue({ query: 'x', results: [] })
+      renderBatch()
+      await screen.findByText('metadataFetch.noMatches')
+      expect(screen.getByLabelText('metadataFetch.searchPlaceholder')).toHaveFocus()
+    })
+
+    it('can be worked from the keyboard: Enter picks, Enter applies and moves on', async () => {
+      mockHappyPath()
+      const onApply = vi.fn()
+      const onNext = vi.fn()
+      const onClose = vi.fn()
+      const user = userEvent.setup()
+      renderBatch({ onApply, onNext, onClose })
+      const first = await screen.findByRole('button', { name: 'Blades in the Dark (1st Edition)' })
+      await waitFor(() => expect(first).toHaveFocus())
+
+      await user.keyboard('{Enter}')
+      const applyNext = await screen.findByRole('button', {
+        name: 'metadataFetch.applyAndNext:2',
+      })
+      await waitFor(() => expect(applyNext).toHaveFocus())
+      await user.keyboard('{Enter}')
+
+      await waitFor(() => expect(onNext).toHaveBeenCalled())
+      expect(api.patch).toHaveBeenCalledWith('/systems/sys-1', {
+        year: 2017,
+        system_family: 'Forged in the Dark',
+      })
+      expect(onApply).toHaveBeenCalledWith({ year: 2017, system_family: 'Forged in the Dark' })
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('still offers a plain apply that closes instead of moving on', async () => {
+      mockHappyPath()
+      const onNext = vi.fn()
+      const onClose = vi.fn()
+      const user = userEvent.setup()
+      renderBatch({ onNext, onClose })
+      await user.click(await screen.findByText('Blades in the Dark (1st Edition)'))
+      await user.click(await screen.findByRole('button', { name: 'metadataFetch.apply:2' }))
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled())
+      expect(onNext).not.toHaveBeenCalled()
+    })
+
+    it('skips an item without writing anything', async () => {
+      mockHappyPath()
+      const onNext = vi.fn()
+      const user = userEvent.setup()
+      renderBatch({ onNext, position: '3 of 40', itemName: 'Cairn' })
+      // The bulk editor's navigation bar: the item's name and position.
+      expect(screen.getByText('Cairn')).toBeInTheDocument()
+      expect(screen.getByText('3 of 40')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'metadataFetch.skip' }))
+      expect(onNext).toHaveBeenCalled()
+      expect(api.patch).not.toHaveBeenCalled()
+    })
+
+    it('lands on Skip when the match has nothing new to apply', async () => {
+      api.get.mockResolvedValue(SOURCES)
+      api.post.mockImplementation((url) =>
+        Promise.resolve(
+          url.endsWith('metadata-search') ? RESULTS : { ...DETAIL, fields: [DETAIL.fields[3]] } // only an "already set" row
+        )
+      )
+      const user = userEvent.setup()
+      renderBatch({ onNext: vi.fn() })
+      await user.click(await screen.findByText('Blades in the Dark (1st Edition)'))
+      await screen.findByLabelText('edition')
+
+      expect(screen.getByRole('button', { name: 'metadataFetch.applyAndNext:0' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'metadataFetch.skip' })).toHaveFocus()
+    })
+
+    it('lands on the apply button outside batch mode too', async () => {
+      mockHappyPath()
+      const user = userEvent.setup()
+      render(<MetadataFetchDialog resource={SYSTEM} onApply={vi.fn()} onClose={vi.fn()} />)
+      await screen.findByDisplayValue('Blades in the Dark')
+      await openDiff(user)
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'metadataFetch.apply:2' })).toHaveFocus()
+      )
+      expect(screen.queryByRole('button', { name: 'metadataFetch.skip' })).toBeNull()
+    })
+
+    it('steps back to the previous item', async () => {
+      mockHappyPath()
+      const onPrev = vi.fn()
+      const user = userEvent.setup()
+      renderBatch({ onPrev })
+      await user.click(screen.getByRole('button', { name: 'bulkEdit.previous' }))
+      expect(onPrev).toHaveBeenCalled()
+    })
+
+    it('disables the way back on the first item', async () => {
+      mockHappyPath()
+      renderBatch({ onNext: vi.fn() })
+      await screen.findByText('Blades in the Dark (1st Edition)')
+      expect(screen.getByRole('button', { name: 'bulkEdit.previous' })).toBeDisabled()
+    })
+
+    it('shows no navigation bar outside a batch', async () => {
+      mockHappyPath()
+      render(<MetadataFetchDialog resource={SYSTEM} onApply={vi.fn()} onClose={vi.fn()} />)
+      await screen.findByDisplayValue('Blades in the Dark')
+      expect(screen.queryByRole('button', { name: 'metadataFetch.skip' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'bulkEdit.previous' })).toBeNull()
+    })
+
+    it('restores a remembered search instead of searching again', async () => {
+      mockHappyPath()
+      renderBatch({
+        remembered: {
+          sourceId: 'ttrpg-wiki',
+          query: 'Blades',
+          results: RESULTS.results,
+          picked: 'band-of-blades',
+        },
+      })
+      expect(await screen.findByDisplayValue('Blades')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /Band of Blades.*pickedBefore/ })
+      ).toBeInTheDocument()
+      expect(api.post).not.toHaveBeenCalled()
+    })
+
+    it('reports its search so it can be restored later', async () => {
+      mockHappyPath()
+      const onRemember = vi.fn()
+      const user = userEvent.setup()
+      renderBatch({ onRemember })
+      await user.click(await screen.findByText('Blades in the Dark (1st Edition)'))
+      await waitFor(() =>
+        expect(onRemember).toHaveBeenLastCalledWith({
+          sourceId: 'ttrpg-wiki',
+          query: 'Blades in the Dark',
+          results: RESULTS.results,
+          picked: 'blades-in-the-dark',
+        })
+      )
+    })
+
+    describe('source memory', () => {
+      const TWO_SOURCES = {
+        sources: [
+          { id: 'ttrpg-wiki', name: 'TTRPG Wiki' },
+          { id: 'rpggeek', name: 'RPGGeek' },
+        ],
+      }
+
+      it('starts on the source it was given', async () => {
+        api.get.mockResolvedValue(TWO_SOURCES)
+        api.post.mockResolvedValue(RESULTS)
+        renderBatch({ initialSourceId: 'rpggeek' })
+        await screen.findByText('Blades in the Dark (1st Edition)')
+        expect(api.post).toHaveBeenCalledWith('/systems/sys-1/metadata-search', {
+          source_id: 'rpggeek',
+          query: 'Blades in the Dark',
+        })
+      })
+
+      it('falls back to the first source when the remembered one is gone', async () => {
+        api.get.mockResolvedValue(SOURCES)
+        api.post.mockResolvedValue(RESULTS)
+        renderBatch({ initialSourceId: 'uninstalled' })
+        await screen.findByText('Blades in the Dark (1st Edition)')
+        expect(api.post).toHaveBeenCalledTimes(1)
+        expect(api.post.mock.calls[0][1].source_id).toBe('ttrpg-wiki')
+      })
+
+      it('reports a source the user picks', async () => {
+        api.get.mockResolvedValue(TWO_SOURCES)
+        api.post.mockResolvedValue(RESULTS)
+        const onSourceChange = vi.fn()
+        const user = userEvent.setup()
+        renderBatch({ onSourceChange })
+        await screen.findByText('Blades in the Dark (1st Edition)')
+        await user.selectOptions(screen.getByLabelText('metadataFetch.source'), 'rpggeek')
+        expect(onSourceChange).toHaveBeenCalledWith('rpggeek')
+      })
+    })
+  })
 })

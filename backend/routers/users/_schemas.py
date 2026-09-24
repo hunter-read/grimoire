@@ -32,6 +32,8 @@ class UserCreate(BaseModel):
     email: Optional[str] = None
     allow_explicit: Optional[bool] = None
     campaign_access: Optional[bool] = None
+    # Whether the user may hold API keys (issue #489). Admins always may.
+    api_keys_enabled: Optional[bool] = None
 
     @field_validator("role")
     @classmethod
@@ -58,6 +60,8 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     allow_explicit: Optional[bool] = None
     campaign_access: Optional[bool] = None
+    # Whether the user may hold API keys (issue #489). Admins always may.
+    api_keys_enabled: Optional[bool] = None
     email: Optional[str] = None  # "" clears the value
 
     @field_validator("role")
@@ -188,6 +192,8 @@ class UserOut(BaseModel):
     # Both are coalesced by the handlers, so they are always concrete booleans.
     allow_explicit: bool
     campaign_access: bool
+    # The per-user API key switch as stored; admins may hold keys regardless.
+    api_keys_enabled: bool
     campaign_count: int
     oidc_linked: bool
     # `created_at` is `default=...` rather than NOT NULL, and `create_user` omits
@@ -204,6 +210,7 @@ class UserUpdateResponse(BaseModel):
     role: Optional[str] = None
     allow_explicit: bool
     campaign_access: bool
+    api_keys_enabled: bool
 
 
 class GuestOut(BaseModel):

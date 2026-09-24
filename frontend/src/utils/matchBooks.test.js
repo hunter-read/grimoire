@@ -13,6 +13,11 @@ describe('matchBooks', () => {
     expect(matchBooks(books, '   ')).toEqual([])
   })
 
+  it('matches on the product code', () => {
+    const coded = [...books, { id: '4', title: 'Bestiary', tags: [], product_code: 'PZO9001' }]
+    expect(matchBooks(coded, 'pzo9001').map((b) => b.id)).toEqual(['4'])
+  })
+
   it('matches on title', () => {
     const r = matchBooks(books, 'strahd')
     expect(r.map((b) => b.id)).toContain('1')

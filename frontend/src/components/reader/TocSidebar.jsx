@@ -4,6 +4,7 @@ import { LuList, LuX, LuChevronDown } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import TocEntry from './TocEntry'
+import ReaderSidebarShell from './ReaderSidebarShell'
 
 export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose }) {
   const { t } = useTranslation()
@@ -24,17 +25,7 @@ export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose })
   }, [bookId])
 
   return (
-    <div
-      style={{
-        width: 280,
-        flexShrink: 0,
-        borderLeft: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-      }}
-    >
+    <ReaderSidebarShell>
       <div
         style={{
           display: 'flex',
@@ -87,6 +78,6 @@ export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose })
             />
           ))}
       </div>
-    </div>
+    </ReaderSidebarShell>
   )
 }

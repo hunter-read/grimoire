@@ -1,15 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuExternalLink, LuLink, LuSearch, LuTriangleAlert, LuX } from 'react-icons/lu'
+import { LuLink, LuSearch, LuTriangleAlert, LuX } from 'react-icons/lu'
 import api from '../../api'
+import ItemCarouselNav from '../ItemCarouselNav'
 import Spinner from '../Spinner'
-import {
-  addedLinks,
-  defaultSelection,
-  formatValue,
-  isMergedField,
-  labelKey,
-} from './metadataFieldValue'
+import { defaultSelection } from './metadataFieldValue'
+import MetadataFieldReview from './MetadataFieldReview'
+import MetadataResultList from './MetadataResultList'
 import useMetadataSources from './useMetadataSources'
 
 /**
@@ -24,23 +21,61 @@ import useMetadataSources from './useMetadataSources'
  * Serves both game systems and books; `resource` and `kind` decide which API
  * path is used and what the search defaults to.
  *
+ * Bulk edit drives it as a loop over the selection (issue #466): it searches on
+ * open, remembers the chosen source between items, and offers "Skip" and
+ * "Apply & next" so a whole selection can be worked through without leaving
+ * the dialog. Focus follows the flow — the first match after a search, then
+ * the apply button — so each item can be Enter, Enter. "Previous" steps back,
+ * and each item's search is handed out through `onRemember` and back in through
+ * `remembered`, so returning to an item shows its results as they were (with
+ * the match picked last time marked) instead of searching again.
+ *
  * Props:
- *   resource – the game system or book being edited
- *   kind     – 'systems' | 'books' (the API collection)
- *   onApply  – (fields) => void, called after a successful PATCH. The caller
- *              owns merging them into its own form state.
- *   onClose  – () => void
+ *   resource        – the game system or book being edited
+ *   kind            – 'systems' | 'books' (the API collection)
+ *   onApply         – (fields) => void, called after a successful PATCH. The
+ *                     caller owns merging them into its own form state.
+ *   onClose         – () => void
+ *   autoSearch      – search for the resource's name as soon as a source is known
+ *   initialSourceId – the source to start on, when it is still installed
+ *   onSourceChange  – (sourceId) => void, so a caller can carry the choice over
+ *   position        – where this item sits in a batch, e.g. "3 of 40"; when
+ *                     given, the bulk editor's item navigation bar is shown
+ *   itemName        – the item's name, shown in that bar
+ *   onNext          – () => void; skips forward, and offers "Apply & next"
+ *   onPrev          – () => void; steps back to the previous item
+ *   remembered      – { sourceId, query, results, picked } saved for this item
+ *   onRemember      – (state) => void, called as that state changes
+ *   applied         – fields an earlier fetch wrote to this item, which a new
+ *                     match may replace without the usual "differs" caution
  */
-export default function MetadataFetchDialog({ resource, kind = 'systems', onApply, onClose }) {
+export default function MetadataFetchDialog({
+  resource,
+  kind = 'systems',
+  onApply,
+  onClose,
+  autoSearch = false,
+  initialSourceId = '',
+  onSourceChange,
+  position,
+  itemName,
+  onNext,
+  onPrev,
+  remembered,
+  onRemember,
+  applied,
+}) {
   const { t } = useTranslation()
   const {
     sources,
     loading: loadingSources,
     error: sourcesError,
   } = useMetadataSources(kind, resource.id)
-  const [sourceId, setSourceId] = useState('')
-  const [query, setQuery] = useState(resource.name || resource.title || '')
-  const [results, setResults] = useState(null)
+  const [sourceId, setSourceId] = useState(remembered?.sourceId || initialSourceId)
+  const [query, setQuery] = useState(remembered?.query ?? (resource.name || resource.title || ''))
+  const [results, setResults] = useState(remembered?.results ?? null)
+  // The match chosen last time on this item, marked in the list on return.
+  const [picked, setPicked] = useState(remembered?.picked ?? null)
   const [detail, setDetail] = useState(null)
   const [selected, setSelected] = useState([])
   const [busy, setBusy] = useState(false)
@@ -49,6 +84,20 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
   // skips searching entirely. Only offered by sources that can parse one.
   const [paste, setPaste] = useState('')
   const [pasting, setPasting] = useState(false)
+
+  const searchRef = useRef(null)
+  const primaryRef = useRef(null)
+  const fallbackRef = useRef(null)
+  // Returning to an item with results already in hand counts as searched.
+  const autoSearched = useRef(!!remembered?.results)
+
+  // Hand the search back to the caller as it changes. Kept in a ref so a new
+  // callback identity each parent render does not re-fire the effect.
+  const rememberRef = useRef(onRemember)
+  rememberRef.current = onRemember
+  useEffect(() => {
+    rememberRef.current?.({ sourceId, query, results, picked })
+  }, [sourceId, query, results, picked])
 
   const activeSource = sources.find((s) => s.id === sourceId)
   const supportsPaste = !!activeSource?.supports_paste
@@ -67,6 +116,11 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
     if (sources.length && !sources.some((s) => s.id === sourceId)) setSourceId(sources[0].id)
   }, [sources, sourceId])
 
+  const pickSource = (id) => {
+    setSourceId(id)
+    onSourceChange?.(id)
+  }
+
   const runSearch = useCallback(() => {
     if (!sourceId) return
     setBusy(true)
@@ -74,13 +128,40 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
     setDetail(null)
     api
       .post(`/${kind}/${resource.id}/metadata-search`, { source_id: sourceId, query })
-      .then((data) => setResults(data.results || []))
+      .then((data) => {
+        const found = data.results || []
+        setResults(found)
+        // Nothing to pick, so the next useful keystroke is a better query.
+        if (!found.length) searchRef.current?.focus()
+      })
       .catch((e) => {
         setError(e.message)
         setResults(null)
+        searchRef.current?.focus()
       })
       .finally(() => setBusy(false))
   }, [kind, sourceId, query, resource.id])
+
+  // One search per open, and only once there is an installed source to ask —
+  // the list may still be loading, and a remembered source may since have been
+  // removed (the effect above then swaps in the first one).
+  const hasActiveSource = !!activeSource
+  useEffect(() => {
+    if (!autoSearch || autoSearched.current || !hasActiveSource || !query.trim()) return
+    autoSearched.current = true
+    runSearch()
+  }, [autoSearch, hasActiveSource, query, runSearch])
+
+  // Land on the apply button once a match's fields are in, so Enter applies.
+  // When there is nothing to apply it is disabled and cannot take focus, so
+  // fall back to moving on (or back).
+  useEffect(() => {
+    if (!detail) return
+    ;(primaryRef.current && !primaryRef.current.disabled
+      ? primaryRef.current
+      : fallbackRef.current
+    )?.focus()
+  }, [detail])
 
   // Both entry points — picking a search result, and pasting a link/ID — land
   // on the same review step, so they share one fetch.
@@ -95,15 +176,24 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
         query,
         ...body,
       })
+      // `busy` is cleared alongside the result rather than in a `finally`, so
+      // the review step's first render already has an enabled apply button
+      // for the focus effect to land on.
       .then((data) => {
+        setBusy(false)
+        setSelected(defaultSelection(data.fields || [], applied))
         setDetail(data)
-        setSelected(defaultSelection(data.fields || []))
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setBusy(false))
+      .catch((e) => {
+        setBusy(false)
+        setError(e.message)
+      })
   }
 
-  const choose = (identity) => fetchCandidate({ identity })
+  const choose = (identity) => {
+    setPicked(identity)
+    fetchCandidate({ identity })
+  }
 
   const submitPaste = () => {
     if (!paste.trim()) return
@@ -115,7 +205,7 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
     )
 
-  const apply = () => {
+  const apply = (advance) => {
     const payload = {}
     for (const row of detail.fields) {
       if (selected.includes(row.field)) payload[row.field] = row.incoming
@@ -125,54 +215,26 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
       .patch(`/${kind}/${resource.id}`, payload)
       .then(() => {
         onApply(payload)
-        onClose()
+        if (advance) onNext()
+        else onClose()
       })
       .catch((e) => setError(e.message))
       .finally(() => setBusy(false))
   }
 
-  const statusLabel = {
-    only_incoming: t('metadataFetch.statusNew'),
-    differs: t('metadataFetch.statusDiffers'),
-    same: t('metadataFetch.statusSame'),
-  }
-  const statusColor = {
-    only_incoming: 'var(--gold-dim)',
-    differs: 'var(--warning, #d98324)',
-    same: 'var(--text-muted)',
-  }
+  const canApply = !busy && selected.length > 0
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="metadata-fetch-title"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1200,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--scrim)',
-      }}
+      style={overlay}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div
-        style={{
-          background: 'var(--bg-panel)',
-          border: '1px solid var(--border)',
-          borderRadius: 10,
-          padding: 24,
-          width: 640,
-          maxWidth: '94vw',
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          boxSizing: 'border-box',
-        }}
-      >
+      <div style={panel}>
         <div
           style={{
             display: 'flex',
@@ -184,21 +246,28 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
           <span id="metadata-fetch-title" style={{ fontSize: 16, fontWeight: 600 }}>
             {t('metadataFetch.title')}
           </span>
-          <button
-            onClick={onClose}
-            aria-label={t('common.close')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              padding: 2,
-            }}
-          >
+          <button onClick={onClose} aria-label={t('common.close')} style={closeBtn}>
             <LuX size={16} />
           </button>
         </div>
+
+        {/* Which item of the batch this is, and a way back or past it that
+            works at every step — a search with no good match is the commonest
+            reason to move on, a wrong match on a look-alike to go back. */}
+        {position && (
+          <div style={{ marginBottom: 12 }}>
+            <ItemCarouselNav
+              title={itemName}
+              subtitle={position}
+              onPrev={onPrev}
+              onNext={onNext}
+              prevLabel={t('bulkEdit.previous')}
+              // Moving on from here applies nothing, so it says so.
+              nextLabel={t('metadataFetch.skip')}
+              nextRef={onNext ? fallbackRef : undefined}
+            />
+          </div>
+        )}
 
         {/* Only claim there are no sources once we actually know — showing this
             while the list is still loading reads as "no scrapers installed"
@@ -213,15 +282,9 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
             <select
               value={sourceId}
-              onChange={(e) => setSourceId(e.target.value)}
+              onChange={(e) => pickSource(e.target.value)}
               aria-label={t('metadataFetch.source')}
-              style={{
-                padding: '8px 10px',
-                borderRadius: 6,
-                background: 'var(--bg-deep)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-              }}
+              style={field}
             >
               {sources.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -230,20 +293,15 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
               ))}
             </select>
             <input
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') runSearch()
+              }}
               placeholder={t('metadataFetch.searchPlaceholder')}
               aria-label={t('metadataFetch.searchPlaceholder')}
-              style={{
-                flex: 1,
-                minWidth: 180,
-                padding: '8px 10px',
-                borderRadius: 6,
-                background: 'var(--bg-deep)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-              }}
+              style={{ ...field, flex: 1, minWidth: 180 }}
             />
             <button
               onClick={runSearch}
@@ -297,15 +355,7 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
                     placeholder={t('metadataFetch.pastePlaceholder')}
                     aria-label={t('metadataFetch.pasteLabel')}
                     autoFocus
-                    style={{
-                      flex: 1,
-                      minWidth: 200,
-                      padding: '8px 10px',
-                      borderRadius: 6,
-                      background: 'var(--bg-deep)',
-                      color: 'var(--text)',
-                      border: '1px solid var(--border)',
-                    }}
+                    style={{ ...field, flex: 1, minWidth: 200 }}
                   />
                   <button
                     onClick={submitPaste}
@@ -354,155 +404,52 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
         )}
 
         {!detail && results?.length > 0 && (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {results.map((r) => (
-              <li key={r.identity} style={{ marginBottom: 6 }}>
-                <button
-                  onClick={() => choose(r.identity)}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '10px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-deep)',
-                    color: 'var(--text)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {r.label}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <MetadataResultList
+              results={results}
+              picked={picked}
+              onChoose={choose}
+              onExitTop={() => searchRef.current?.focus()}
+            />
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '8px 0 0' }}>
+              {t('metadataFetch.keyboardHint')}
+            </p>
+          </>
         )}
 
         {detail && (
           <div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
-              {detail.fields.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-                  {t('metadataFetch.nothingToApply')}
-                </p>
+            <MetadataFieldReview detail={detail} selected={selected} onToggle={toggle} />
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {onNext ? (
+                <>
+                  <button
+                    ref={primaryRef}
+                    onClick={() => apply(true)}
+                    disabled={!canApply}
+                    style={primaryBtn(canApply)}
+                  >
+                    {t('metadataFetch.applyAndNext', { count: selected.length })}
+                  </button>
+                  <button onClick={() => apply(false)} disabled={!canApply} style={secondaryBtn}>
+                    {t('metadataFetch.apply', { count: selected.length })}
+                  </button>
+                </>
+              ) : (
+                <button
+                  ref={primaryRef}
+                  onClick={() => apply(false)}
+                  disabled={!canApply}
+                  style={primaryBtn(canApply)}
+                >
+                  {t('metadataFetch.apply', { count: selected.length })}
+                </button>
               )}
-              {detail.fields.map((row) => {
-                const disabled = row.status === 'same'
-                return (
-                  <label
-                    key={row.field}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'auto 1fr',
-                      gap: 10,
-                      alignItems: 'start',
-                      padding: '8px 10px',
-                      borderRadius: 6,
-                      background: 'var(--bg-deep)',
-                      opacity: disabled ? 0.6 : 1,
-                      cursor: disabled ? 'default' : 'pointer',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(row.field)}
-                      disabled={disabled}
-                      onChange={() => toggle(row.field)}
-                      aria-label={row.field}
-                      style={{ marginTop: 3 }}
-                    />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>
-                          {t(labelKey(row.field), row.field)}
-                        </span>
-                        <span style={{ fontSize: 11, color: statusColor[row.status] }}>
-                          {statusLabel[row.status]}
-                        </span>
-                      </div>
-                      {row.status === 'differs' && (
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: 'var(--text-muted)',
-                            textDecoration: 'line-through',
-                            wordBreak: 'break-word',
-                          }}
-                        >
-                          {formatValue(row.current)}
-                        </div>
-                      )}
-                      <div style={{ fontSize: 13, wordBreak: 'break-word' }}>
-                        {isMergedField(row.field)
-                          ? formatValue(addedLinks(row.current, row.incoming))
-                          : formatValue(row.incoming)}
-                      </div>
-                      {isMergedField(row.field) && row.current?.length > 0 && (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                          {t('metadataFetch.keepsExisting', { count: row.current.length })}
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
-
-            {detail.attribution && (
-              <p
-                style={{
-                  fontSize: 11,
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  marginBottom: 12,
-                }}
-              >
-                {detail.attribution}
-                {detail.url && (
-                  <a
-                    href={detail.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 3,
-                      color: 'var(--gold-dim)',
-                    }}
-                  >
-                    {t('metadataFetch.viewSource')}
-                    <LuExternalLink size={11} />
-                  </a>
-                )}
-              </p>
-            )}
-
-            <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={apply}
-                disabled={busy || selected.length === 0}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: 6,
-                  background: selected.length ? 'var(--gold-dim)' : 'var(--bg-deep)',
-                  color: selected.length ? 'var(--bg-deep)' : 'var(--text-muted)',
-                  fontWeight: 600,
-                  cursor: selected.length ? 'pointer' : 'default',
-                }}
-              >
-                {t('metadataFetch.apply', { count: selected.length })}
-              </button>
-              <button
+                ref={onNext ? undefined : fallbackRef}
                 onClick={() => setDetail(null)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 6,
-                  background: 'none',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                }}
+                style={secondaryBtn}
               >
                 {t('metadataFetch.back')}
               </button>
@@ -512,4 +459,56 @@ export default function MetadataFetchDialog({ resource, kind = 'systems', onAppl
       </div>
     </div>
   )
+}
+
+const overlay = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 1200,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'var(--scrim)',
+}
+const panel = {
+  background: 'var(--bg-panel)',
+  border: '1px solid var(--border)',
+  borderRadius: 10,
+  padding: 24,
+  width: 640,
+  maxWidth: '94vw',
+  maxHeight: '88vh',
+  overflowY: 'auto',
+  boxSizing: 'border-box',
+}
+const closeBtn = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--text-muted)',
+  display: 'flex',
+  padding: 2,
+}
+const field = {
+  padding: '8px 10px',
+  borderRadius: 6,
+  background: 'var(--bg-deep)',
+  color: 'var(--text)',
+  border: '1px solid var(--border)',
+}
+const primaryBtn = (enabled) => ({
+  padding: '10px 24px',
+  borderRadius: 6,
+  background: enabled ? 'var(--gold-dim)' : 'var(--bg-deep)',
+  color: enabled ? 'var(--bg-deep)' : 'var(--text-muted)',
+  fontWeight: 600,
+  cursor: enabled ? 'pointer' : 'default',
+})
+const secondaryBtn = {
+  padding: '10px 16px',
+  borderRadius: 6,
+  background: 'none',
+  border: '1px solid var(--border)',
+  color: 'var(--text)',
+  cursor: 'pointer',
 }

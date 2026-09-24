@@ -1,119 +1,14 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuChevronLeft, LuChevronRight, LuDownload, LuCopy } from 'react-icons/lu'
-import api, { bulk as bulkApi } from '../api'
+import { LuX, LuDownload, LuCopy } from 'react-icons/lu'
+import ItemCarouselNav from './ItemCarouselNav'
+import { bulk as bulkApi } from '../api'
 import SystemBulkEditFields from './system/SystemBulkEditFields'
 import BookBulkEditFields from './system/BookBulkEditFields'
 import ApplyToAllDialog from './system/ApplyToAllDialog'
 import MetadataFetchDialog from './system/MetadataFetchDialog'
 import useMetadataSources from './system/useMetadataSources'
-import { intoBookForm } from './system/metadataFieldValue'
-import { cleanLinks } from './metadata/metadataUtils'
-
-// Per-type editable fields. Saving goes through the shared bulk endpoint for
-// this type (see `bulk` in api.js). Tags are edited as a comma-separated string
-// and split on save.
-const CONFIG = {
-  map: {
-    fields: ['tags', 'grid_size'],
-  },
-  token: {
-    fields: ['tags', 'is_explicit'],
-  },
-  audio: {
-    fields: ['tags'],
-  },
-  model: {
-    fields: ['tags', 'is_explicit'],
-  },
-  book: {
-    // Metadata add-ons serve books and systems; the carousel offers the same
-    // "Fetch metadata" step the single-item editors do (issue #260).
-    metadataKind: 'books',
-    // Books use a bespoke editor body (BookBulkEditFields) mirroring the full
-    // single-book editor, so genres/tags/authors/artists/links stay native
-    // arrays and category uses the shared combobox.
-    fields: [
-      'title',
-      'description',
-      'category',
-      'genres',
-      'tags',
-      'urls',
-      'authors',
-      'artists',
-      'publisher',
-      'isbn',
-      'version',
-      'language',
-      // BookBulkEditFields renders a license combobox; without it here the
-      // draft was built and edited but never diffed, so the edit was dropped.
-      'license',
-      'year',
-      'month',
-      'day',
-      'is_explicit',
-    ],
-    custom: true,
-  },
-  system: {
-    metadataKind: 'systems',
-    // Systems use a bespoke editor body (SystemBulkEditFields) that mirrors the
-    // full single-system editor, so tags/publishers/genres/links stay native
-    // arrays and the cover image can be picked from each system's own books.
-    fields: [
-      'description',
-      'tags',
-      'genres',
-      'dice_materials',
-      'system_family',
-      // Rendered by SystemBulkEditFields; without them here the edits were
-      // built into the draft but never diffed, so they were silently dropped.
-      'parent_system',
-      'edition',
-      'license',
-      'year',
-      'publishers',
-      'urls',
-      'character_builder_urls',
-      'is_explicit',
-      'cover_book_id',
-    ],
-    custom: true,
-  },
-}
-
-// Fields that are stored as arrays/objects rather than strings — kept as native
-// values in the draft (not stringified) and compared by JSON on save.
-const STRUCTURED_FIELDS = new Set([
-  'publishers',
-  'genres',
-  'dice_materials',
-  'urls',
-  'character_builder_urls',
-  'authors',
-  'artists',
-])
-
-// Pull a grid size like "22x22" out of a map's filename or folder, e.g.
-// "Sunken Temple (22x22)" → "22x22". Used to pre-fill an empty grid size.
-const GRID_RE = /(\d+\s*[x×]\s*\d+)/i
-const inferGridSize = (item) => {
-  for (const src of [item.filename, item.folder_path, item.relative_path]) {
-    const m = typeof src === 'string' && src.match(GRID_RE)
-    if (m) return m[1].replace(/\s*[x×]\s*/i, 'x')
-  }
-  return ''
-}
-
-// Normalize a structured field's draft value before compare/save.
-const cleanStructured = (field, value) => {
-  const list = value || []
-  if (field === 'publishers') return list.filter((p) => p.name?.trim())
-  if (field === 'urls' || field === 'character_builder_urls') return cleanLinks(list)
-  // genres / dice_materials are plain string arrays, already trimmed in the UI.
-  return list
-}
+import { CONFIG, diffDrafts, seedDrafts } from './bulkEditDrafts'
 
 // i18n keys for the "apply to all" checklist. The single-item editors already
 // label every one of these fields, so their keys are reused rather than adding
@@ -129,6 +24,7 @@ const BOOK_LABEL_KEYS = {
   artists: 'artistsLabel',
   publisher: 'publisherLabel',
   isbn: 'isbnLabel',
+  product_code: 'productCodeLabel',
   version: 'versionLabel',
   language: 'languageLabel',
   license: 'licenseLabel',
@@ -153,8 +49,8 @@ const SYSTEM_LABEL_KEYS = {
 
 // Fields excluded from "apply to all" because copying them across the selection
 // is never meaningful: a cover book id only belongs to its own system, and an
-// ISBN identifies one specific book.
-const NOT_COPYABLE = new Set(['cover_book_id', 'isbn'])
+// ISBN or product code identifies one specific book.
+const NOT_COPYABLE = new Set(['cover_book_id', 'isbn', 'product_code'])
 
 // One entry of a list-valued field, flattened for the checklist preview.
 // Publishers are {name, url}; link lists are {label, url}.
@@ -164,47 +60,6 @@ const previewEntry = (entry) => {
   if (entry.name) return String(entry.name)
   if (entry.label && entry.url) return `${entry.label}: ${entry.url}`
   return String(entry.url || entry.label || '')
-}
-
-const tagsToString = (tags) => (Array.isArray(tags) ? tags.join(', ') : '')
-const stringToTags = (s) =>
-  s
-    .split(',')
-    .map((tag) => tag.trim().toLowerCase())
-    .filter(Boolean)
-
-/**
- * Build the { id: changedFields } patch map for a set of drafts — every field
- * whose draft value differs from the item's current value. Shared by the save
- * path and the unsaved-changes check behind Cancel (issue #256).
- */
-const diffDrafts = (items, drafts, cfg) => {
-  const changedById = {}
-  for (const it of items) {
-    const d = drafts[it.id]
-    const patch = {}
-    for (const f of cfg.fields) {
-      if (f === 'tags') {
-        const next = cfg.custom ? d.tags : stringToTags(d.tags)
-        if (tagsToString(next) !== tagsToString(it.tags)) patch.tags = next
-      } else if (STRUCTURED_FIELDS.has(f)) {
-        const next = cleanStructured(f, d[f])
-        if (JSON.stringify(next) !== JSON.stringify(it[f] || [])) patch[f] = next
-      } else if (f === 'is_explicit') {
-        if (!!d.is_explicit !== !!it.is_explicit) patch.is_explicit = !!d.is_explicit
-      } else if (f === 'cover_book_id') {
-        if ((d.cover_book_id ?? null) !== (it.cover_book_id ?? null))
-          patch.cover_book_id = d.cover_book_id ?? null
-      } else if (f === 'year' || f === 'month' || f === 'day') {
-        const next = d[f] === '' || d[f] == null ? null : Number(d[f])
-        if (next !== (it[f] ?? null)) patch[f] = next
-      } else if ((d[f] ?? '') !== (it[f] ?? '')) {
-        patch[f] = d[f]
-      }
-    }
-    if (Object.keys(patch).length) changedById[it.id] = patch
-  }
-  return changedById
 }
 
 /**
@@ -227,26 +82,21 @@ export default function BulkEditModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  // Working drafts keyed by item id, seeded from the items' current values.
-  // Custom bodies (systems) keep structured fields as native arrays/objects;
-  // the generic body stores everything as strings.
-  const [drafts, setDrafts] = useState(() => {
-    const out = {}
-    for (const it of items) {
-      const d = {}
-      for (const f of cfg.fields) {
-        if (f === 'tags') d[f] = cfg.custom ? it.tags || [] : tagsToString(it.tags)
-        else if (STRUCTURED_FIELDS.has(f)) d[f] = it[f] || []
-        else if (f === 'grid_size') d[f] = it.grid_size || inferGridSize(it)
-        else if (f === 'cover_book_id') d[f] = it[f] ?? null
-        else d[f] = it[f] ?? ''
-      }
-      out[it.id] = d
-    }
-    return out
-  })
+  const [drafts, setDrafts] = useState(() => seedDrafts(items, cfg))
 
-  const current = items[index]
+  // Fields the metadata fetch has already written to the server, keyed by item
+  // id. The fetch dialog PATCHes as it applies, so these are the items' new
+  // saved values: diffing against them keeps "Save all" and the unsaved-changes
+  // guard from treating a fetched field as a pending edit, and they are handed
+  // to `onSaved` however the modal closes so the parent's list is not left
+  // showing the pre-fetch values (issue #466).
+  const [fetched, setFetched] = useState({})
+  const savedItems = useMemo(
+    () => items.map((it) => (fetched[it.id] ? { ...it, ...fetched[it.id] } : it)),
+    [items, fetched]
+  )
+
+  const current = savedItems[index]
   const draft = drafts[current.id]
   const fieldLabels = useMemo(
     () => ({
@@ -316,6 +166,19 @@ export default function BulkEditModal({
   }, [copyableFields, draft, t])
 
   const go = (delta) => setIndex((i) => Math.min(items.length - 1, Math.max(0, i + delta)))
+  const isLast = index === items.length - 1
+  // Undefined at either end, which the navigation bars render as disabled.
+  const goPrev = index === 0 ? undefined : () => go(-1)
+  const goNext = isLast ? undefined : () => go(1)
+  const position = t('bulkEdit.position', { current: index + 1, total: items.length })
+
+  // Each item opens at the top of its form. Without this, paging through the
+  // selection kept the scroll offset of the previous item's (differently sized)
+  // form, so every step started with a scroll back up.
+  const bodyRef = useRef(null)
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0
+  }, [index])
 
   // "Fetch metadata", mirroring the single-item editors. Only offered when the
   // current item actually has an add-on source, so the button never promises
@@ -326,29 +189,60 @@ export default function BulkEditModal({
   const { sources: metadataSources } = useMetadataSources(metadataKind, current.id)
   const hasSources = metadataSources.length > 0
   const [fetching, setFetching] = useState(false)
+  // The source picked in the fetch dialog, carried from item to item so a
+  // batch is not a dropdown change per item.
+  const [fetchSourceId, setFetchSourceId] = useState('')
+  // Each item's search (query, source, results, last pick), so stepping back
+  // to an item shows the same matches — handy when two look-alike books were
+  // mixed up — without asking the source again.
+  const [fetchMemory, setFetchMemory] = useState({})
+  const rememberFetch = (id) => (state) => setFetchMemory((prev) => ({ ...prev, [id]: state }))
   const [applyingAll, setApplyingAll] = useState(false)
 
   // Dismissing the modal throws the drafts away, which is punishing after
   // editing a large selection — so a dirty modal asks first (issue #256).
   // Checked lazily on dismiss rather than tracked per keystroke.
   const [confirmingClose, setConfirmingClose] = useState(false)
+  // Closing still reports fetched fields, which are already saved.
+  const close = () => (Object.keys(fetched).length ? onSaved(fetched) : onClose())
   const requestClose = () => {
-    if (Object.keys(diffDrafts(items, drafts, cfg)).length) setConfirmingClose(true)
-    else onClose()
+    if (Object.keys(diffDrafts(savedItems, drafts, cfg)).length) setConfirmingClose(true)
+    else close()
   }
+
+  // Keyboard paging for working through a selection (issue #466): ← / → move
+  // between items and F opens the fetch. Ignored while typing — these are all
+  // keys a text field needs — and while a dialog is open on top.
+  const overlayOpen = fetching || applyingAll || confirmingClose
+  useEffect(() => {
+    if (overlayOpen) return undefined
+    const onKey = (e) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+      if (isTextEntry(e.target)) return
+      if (e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 'ArrowRight') go(1)
+      else if ((e.key === 'f' || e.key === 'F') && hasSources) setFetching(true)
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // The fetch dialog PATCHes the fields it applies, so the draft is refreshed
   // to match rather than left holding pre-fetch values that "Save all" would
-  // then write back over the top.
+  // then write back over the top. Values arrive in API shape, which is also the
+  // shape the bulk bodies keep (authors and artists as arrays) — the single-book
+  // editor's comma-joined form would blank them here.
   const handleFetched = (fields) => {
-    const applied = type === 'book' ? intoBookForm(fields) : fields
+    const id = current.id
+    setFetched((prev) => ({ ...prev, [id]: { ...prev[id], ...fields } }))
     setDrafts((prev) => {
-      const d = { ...prev[current.id] }
-      for (const [key, value] of Object.entries(applied)) {
-        if (!cfg.fields.includes(key)) continue
-        d[key] = key === 'tags' && !cfg.custom ? tagsToString(value) : value
+      const d = { ...prev[id] }
+      for (const [key, value] of Object.entries(fields)) {
+        if (cfg.fields.includes(key)) d[key] = value
       }
-      return { ...prev, [current.id]: d }
+      return { ...prev, [id]: d }
     })
   }
 
@@ -357,7 +251,7 @@ export default function BulkEditModal({
     setSaving(true)
     setError(null)
     try {
-      const changedById = diffDrafts(items, drafts, cfg)
+      const changedById = diffDrafts(savedItems, drafts, cfg)
 
       const changes = Object.entries(changedById).map(([id, patch]) => ({ id, ...patch }))
       if (changes.length) {
@@ -372,7 +266,11 @@ export default function BulkEditModal({
           return
         }
       }
-      onSaved(changedById)
+      const edited = { ...fetched }
+      for (const [id, patch] of Object.entries(changedById)) {
+        edited[id] = { ...edited[id], ...patch }
+      }
+      onSaved(edited)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -390,106 +288,87 @@ export default function BulkEditModal({
       onClick={(e) => e.target === e.currentTarget && requestClose()}
     >
       <div style={panel}>
-        <div style={header}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>
-            {t('bulkEdit.title', { count: items.length })}
-          </span>
-          <button onClick={requestClose} style={closeBtn} aria-label={t('common.close')}>
-            <LuX size={16} />
-          </button>
-        </div>
-
-        {/* Carousel header */}
-        <div style={carouselNav}>
-          <button
-            onClick={() => go(-1)}
-            disabled={index === 0}
-            aria-label={t('bulkEdit.previous')}
-            style={navBtn(index === 0)}
-          >
-            <LuChevronLeft size={16} />
-          </button>
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, ...ellipsis }}>
-              {current.filename || current.title || current.name}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {t('bulkEdit.position', { current: index + 1, total: items.length })}
-            </div>
+        {/* Fixed header: the title and the item navigation stay put while the
+            form scrolls, mirroring the footer below. */}
+        <header style={header}>
+          <div style={titleRow}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>
+              {t('bulkEdit.title', { count: items.length })}
+            </span>
+            <button onClick={requestClose} style={closeBtn} aria-label={t('common.close')}>
+              <LuX size={16} />
+            </button>
           </div>
-          <button
-            onClick={() => go(1)}
-            disabled={index === items.length - 1}
-            aria-label={t('bulkEdit.next')}
-            style={navBtn(index === items.length - 1)}
-          >
-            <LuChevronRight size={16} />
-          </button>
-        </div>
 
-        {cfg.custom && type === 'system' ? (
-          <SystemBulkEditFields system={current} draft={draft} setField={setField} />
-        ) : cfg.custom && type === 'book' ? (
-          <BookBulkEditFields
-            draft={draft}
-            setField={setField}
-            existingCategories={existingCategories}
-            systemGenres={systemGenres}
+          <ItemCarouselNav
+            title={itemName(current)}
+            subtitle={position}
+            onPrev={goPrev}
+            onNext={goNext}
+            prevLabel={t('bulkEdit.previous')}
+            nextLabel={t('bulkEdit.next')}
+            shortcuts
           />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {cfg.fields.map((f) => {
-              if (f === 'is_explicit') {
+        </header>
+
+        {/* Only the form scrolls, between the fixed header and footer. */}
+        <div ref={bodyRef} style={body}>
+          {cfg.custom && type === 'system' ? (
+            <SystemBulkEditFields system={current} draft={draft} setField={setField} />
+          ) : cfg.custom && type === 'book' ? (
+            <BookBulkEditFields
+              draft={draft}
+              setField={setField}
+              existingCategories={existingCategories}
+              systemGenres={systemGenres}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {cfg.fields.map((f) => {
+                if (f === 'is_explicit') {
+                  return (
+                    <label key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!draft[f]}
+                        onChange={(e) => setField(f, e.target.checked)}
+                        style={{ width: 16, height: 16, cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: 13 }}>{fieldLabels[f]}</span>
+                    </label>
+                  )
+                }
+                const multiline = f === 'description'
                 return (
-                  <label key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={!!draft[f]}
-                      onChange={(e) => setField(f, e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 13 }}>{fieldLabels[f]}</span>
-                  </label>
+                  <div key={f}>
+                    <label style={label}>{fieldLabels[f]}</label>
+                    {multiline ? (
+                      <textarea
+                        value={draft[f]}
+                        onChange={(e) => setField(f, e.target.value)}
+                        rows={3}
+                        style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
+                      />
+                    ) : (
+                      <input
+                        value={draft[f]}
+                        onChange={(e) => setField(f, e.target.value)}
+                        placeholder={f === 'tags' ? t('bulkEdit.tagsPlaceholder') : ''}
+                        style={input}
+                      />
+                    )}
+                  </div>
                 )
-              }
-              const multiline = f === 'description'
-              return (
-                <div key={f}>
-                  <label style={label}>{fieldLabels[f]}</label>
-                  {multiline ? (
-                    <textarea
-                      value={draft[f]}
-                      onChange={(e) => setField(f, e.target.value)}
-                      rows={3}
-                      style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
-                    />
-                  ) : (
-                    <input
-                      value={draft[f]}
-                      onChange={(e) => setField(f, e.target.value)}
-                      placeholder={f === 'tags' ? t('bulkEdit.tagsPlaceholder') : ''}
-                      style={input}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+              })}
+            </div>
+          )}
 
-        {error && (
-          <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</div>
-        )}
+          {error && (
+            <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</div>
+          )}
+        </div>
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            marginTop: 20,
-          }}
-        >
+        <div style={footer}>
           {items.length > 1 && (
             <button onClick={() => setApplyingAll(true)} style={fetchBtn}>
               <LuCopy size={13} />
@@ -497,7 +376,12 @@ export default function BulkEditModal({
             </button>
           )}
           {hasSources && (
-            <button onClick={() => setFetching(true)} style={fetchBtn}>
+            <button
+              onClick={() => setFetching(true)}
+              aria-keyshortcuts="F"
+              title={t('bulkEdit.fetchShortcut')}
+              style={fetchBtn}
+            >
               <LuDownload size={13} />
               {t('bookEditor.fetchMetadata')}
             </button>
@@ -525,12 +409,25 @@ export default function BulkEditModal({
         />
       )}
 
+      {/* Keyed per item so moving on starts the next item's search fresh,
+          while the dialog itself stays open for the whole run. */}
       {fetching && (
         <MetadataFetchDialog
+          key={current.id}
           resource={current}
           kind={metadataKind}
           onApply={handleFetched}
           onClose={() => setFetching(false)}
+          autoSearch
+          initialSourceId={fetchSourceId}
+          onSourceChange={setFetchSourceId}
+          position={position}
+          itemName={itemName(current)}
+          onNext={goNext}
+          onPrev={goPrev}
+          remembered={fetchMemory[current.id]}
+          onRemember={rememberFetch(current.id)}
+          applied={fetched[current.id]}
         />
       )}
 
@@ -553,7 +450,7 @@ export default function BulkEditModal({
               <button onClick={() => setConfirmingClose(false)} style={cancelBtn}>
                 {t('bulkEdit.keepEditing')}
               </button>
-              <button onClick={onClose} style={dangerBtn}>
+              <button onClick={close} style={dangerBtn}>
                 {t('bulkEdit.discardChanges')}
               </button>
             </div>
@@ -564,11 +461,16 @@ export default function BulkEditModal({
   )
 }
 
-const ellipsis = {
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+const itemName = (item) => item.filename || item.title || item.name
+
+// Keys typed into these belong to the field, not to the carousel.
+const NON_TEXT_INPUTS = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range'])
+const isTextEntry = (el) => {
+  if (!el?.tagName) return false
+  if (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
+  return el.tagName === 'INPUT' && !NON_TEXT_INPUTS.has(el.type)
 }
+
 const overlay = {
   position: 'fixed',
   inset: 0,
@@ -589,14 +491,33 @@ const panel = {
   width: 640,
   maxWidth: '94vw',
   maxHeight: '90vh',
-  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
   boxSizing: 'border-box',
 }
+// The scrolling middle of the panel. The small side padding, cancelled by the
+// negative margin, leaves room for focus rings that overflow would clip.
+const body = {
+  flex: 1,
+  minHeight: 0,
+  overflowY: 'auto',
+  margin: '0 -4px',
+  padding: '0 4px 4px',
+}
+// Outside the scrolling body, like the footer, so the item navigation is
+// always in reach.
 const header = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
+  marginBottom: 16,
+  paddingBottom: 16,
+  borderBottom: '1px solid var(--border)',
+}
+const titleRow = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  marginBottom: 14,
 }
 const closeBtn = {
   background: 'none',
@@ -606,26 +527,17 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const carouselNav = {
+// Outside the scrolling body, like the header, so "Save all" and "Fetch
+// metadata" are always in reach without scrolling.
+const footer = {
   display: 'flex',
+  gap: 8,
   alignItems: 'center',
-  gap: 10,
-  padding: '10px 12px',
-  marginBottom: 16,
-  background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
+  flexWrap: 'wrap',
+  marginTop: 16,
+  paddingTop: 16,
+  borderTop: '1px solid var(--border)',
 }
-const navBtn = (disabled) => ({
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  color: disabled ? 'var(--text-muted)' : 'var(--text-dim)',
-  cursor: disabled ? 'default' : 'pointer',
-  display: 'flex',
-  padding: 6,
-  opacity: disabled ? 0.5 : 1,
-})
 const label = {
   display: 'block',
   fontSize: 12,

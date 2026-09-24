@@ -2,7 +2,7 @@
 
 A developer-facing map of how Grimoire fits together: what lives where, how a request
 flows end-to-end, how authentication and OIDC work, and how schema changes are applied at
-startup. It complements the high-level overview in [`CLAUDE.md`](../CLAUDE.md) and the
+startup. It complements the high-level overview in the [README](../README.md) and the
 schema reference in [`docs/data-model.md`](data-model.md).
 
 All `file_path` references point at the current code - if you change a module's shape,
@@ -11,7 +11,8 @@ update the matching section here.
 ## Stack
 
 - **Frontend** - React 18 + Vite 6 SPA, React Router v6, React Context (no Redux/Zustand),
-  i18next (EN/DE/FR), Vitest + React Testing Library.
+  i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales),
+  Vitest + React Testing Library.
 - **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search,
   PyMuPDF (`fitz`) for PDF→WebP rendering, PyJWT auth.
 - **Optional** - Valkey/Redis for in-memory page-image caching (falls back to disk).
@@ -30,6 +31,7 @@ backend on port 9481.
 | [`backend/config.py`](../backend/config.py) | Environment loading, `DATA_PATH`/`LIBRARY_PATH` and cache dirs, logging setup (incl. the in-memory ring buffer for `/api/logs`), the SQLAlchemy `engine` + `SessionLocal`, the `get_db` dependency, and the optional `_valkey` client. |
 | [`backend/models/`](../backend/models/) | ORM models split by domain (`library.py`, `media.py`, `users.py`, `campaigns.py`, `settings.py`); `db.py` holds `init_db`, runtime migrations, and FTS5 setup. See [`docs/data-model.md`](data-model.md). |
 | [`backend/auth.py`](../backend/auth.py) | JWT creation/validation, password hashing (`bcrypt_sha256`), the `get_current_user` dependency, and the role-guard dependencies (`require_admin`, `require_gm_or_admin`, `require_not_guest`). |
+| [`backend/api_keys.py`](../backend/api_keys.py) | Personal API keys: the tag → permission table, the read-only / excluded route markers, the role-derived levels each user is offered, key hashing, and the per-request check `get_current_user` runs when an `X-API-Key` is presented. See [API keys](api.md#api-keys). |
 | [`backend/indexer/`](../backend/indexer/) | Library scanning, PDF FTS5 indexing, thumbnail generation, and OPF/metadata parsing. PDF text extraction runs in an isolated subprocess (see below). |
 | [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs - never `backend.config` - so a throwaway extraction child does not open the DB or run migrations. |
 | [`backend/addons/`](../backend/addons/) | Community add-ons: installable metadata scrapers. Manifest validation, on-disk discovery and install state, integrity-verified installation, HTTP fetching with a response cache, the declarative interpreter (records → ranked search → mapped fields), the isolated script runner, and the fetched-vs-current diff. See [`docs/addons.md`](addons.md). |
@@ -99,8 +101,8 @@ Key points:
 - **Auth boundary** - the authenticated API is a single parent router built with
   `APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])` in
   [`main.py`](../backend/main.py#L203). Every sub-router mounted under it inherits the JWT
-  requirement. Truly public endpoints (`/api/auth/status|setup|login`, OIDC, health, some
-  library routes) are registered as separate `public_router`s mounted directly on the app.
+  requirement. Truly public endpoints (`/api/auth/status|setup|login`, OIDC, health, the
+  calendar feeds) are registered as separate `public_router`s mounted directly on the app.
 - **Handler → DB** - handlers open a session via `SessionLocal()` (or the `get_db`
   dependency) and return dicts/Pydantic models that FastAPI serializes to JSON.
 - **Static assets** - the Vite build's hashed assets are mounted at `/assets` via
@@ -175,6 +177,16 @@ Two things fall out of storing the hash:
   a `?token=` query param, so browser-embedded images and downloads authenticate without a
   header. Role guards (`require_admin`, `require_gm_or_admin`, `require_not_guest`) layer on
   top per-route.
+- An `X-API-Key` header takes precedence over any session. `get_current_user` hands it to
+  [`api_keys.authenticate`](../backend/api_keys.py), which finds the key by hash, then maps
+  the matched route's OpenAPI tag to a permission and its method to a level (Read or Read
+  and write). A key that passes becomes a `CurrentUser` for its **owner**, with their
+  current role and `api_key_id` set, so role guards and handlers run exactly as for the
+  owner's session - the key can only narrow that. Because the check keys off the route's
+  tag, every router under `/api` is covered automatically. A new router tag must be added
+  to the permission table or to `EXCLUDED_TAGS` - `backend/tests/test_api_keys.py` fails
+  until it is. The levels a user is *offered* come from the same routes: each route's role
+  guard says which roles can call it (`api_keys.available_levels`).
 
 ### Password / guest login
 

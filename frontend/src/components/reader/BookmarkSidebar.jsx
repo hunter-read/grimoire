@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuBookmark, LuX, LuTrash2, LuPencil, LuCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
+import ReaderSidebarShell from './ReaderSidebarShell'
 
 export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClose, refreshKey }) {
   const { t } = useTranslation()
@@ -48,17 +49,7 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
   const cancelEdit = () => setEditingId(null)
 
   return (
-    <div
-      style={{
-        width: 280,
-        flexShrink: 0,
-        borderLeft: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-      }}
-    >
+    <ReaderSidebarShell>
       <div
         style={{
           display: 'flex',
@@ -289,6 +280,6 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
             )
           })}
       </div>
-    </div>
+    </ReaderSidebarShell>
   )
 }

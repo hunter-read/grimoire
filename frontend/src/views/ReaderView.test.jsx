@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -32,6 +32,10 @@ vi.mock('../context/FavoritesContext', () => ({
 vi.mock('../components/campaigns/AddToCampaignButton', () => ({
   default: () => null,
 }))
+
+// Defaults to a desktop viewport; the mobile-layout tests flip it.
+const mockIsMobile = { value: false }
+vi.mock('../hooks/useIsMobile', () => ({ default: () => mockIsMobile.value }))
 
 // Capture setSearchParams and navigate calls so we can assert behaviour.
 const mockSetSearchParams = vi.fn()
@@ -486,5 +490,73 @@ describe('ReaderView — zoom (issue #249)', () => {
     await press('+')
     await press('+')
     await waitFor(() => expect(src()).toContain('width=2800'))
+  })
+})
+
+describe('ReaderView — mobile panel layout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setupApiMocks()
+    vi.stubGlobal('requestAnimationFrame', (cb) => {
+      cb()
+      return 0
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    mockIsMobile.value = true
+  })
+
+  afterEach(() => {
+    mockIsMobile.value = false
+  })
+
+  /** The scroll/zoom container the page images render into. */
+  function pageContainer() {
+    return document.querySelector('[style*="--bg-deep"]')
+  }
+
+  it('shows the page when no panel is open', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    expect(pageContainer()).toHaveStyle({ display: 'flex' })
+  })
+
+  // A 280px panel beside the page leaves neither usable on a phone, so the
+  // panel takes the viewport and the page steps aside entirely.
+  it('hides the page while a panel is open, giving the panel the viewport', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    await userEvent.click(screen.getByTitle('Contents'))
+
+    await waitFor(() => expect(pageContainer()).toHaveStyle({ display: 'none' }))
+    expect(screen.getByTestId('reader-sidebar')).toBeInTheDocument()
+  })
+
+  it('brings the page back when the panel closes', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    await userEvent.click(screen.getByTitle('Contents'))
+    await waitFor(() => expect(pageContainer()).toHaveStyle({ display: 'none' }))
+
+    // Toggling the same panel button closes it.
+    await userEvent.click(screen.getByTitle('Contents'))
+    await waitFor(() => expect(pageContainer()).toHaveStyle({ display: 'flex' }))
+  })
+
+  it('keeps the page beside the panel on a desktop', async () => {
+    mockIsMobile.value = false
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    await userEvent.click(screen.getByTitle('Contents'))
+
+    await waitFor(() => expect(screen.getByTestId('reader-sidebar')).toBeInTheDocument())
+    expect(pageContainer()).toHaveStyle({ display: 'flex' })
   })
 })

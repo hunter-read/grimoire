@@ -27,6 +27,7 @@ from .config import (
 )
 from .routers import (
     addons as addons_router,
+    api_keys as api_keys_router,
     audio as audio_router,
     audio_sets as audio_sets_router,
     auth as auth_router,
@@ -72,6 +73,15 @@ Roles:
 - **admin** - full access including user management
 - **gm** - can edit metadata, rescan, and manage maps/books
 - **player** - read-only access
+
+Scripts and integrations authenticate with an **API key** instead, sent as
+`X-API-Key: <key>`. Any user except a guest can create keys under Settings (an
+admin can turn this off for non-admins). A key acts as its owner, narrowed to a
+No access / Read / Read and Write level per area - an endpoint's tag - plus an
+optional "all permissions" level covering every area, including ones added
+later. Read covers `GET` plus `POST` routes marked `x-api-key-access: read`.
+Routes marked `x-api-key-access: none`, and the auth and api-keys tags, never
+accept a key.
 """
 
 _TAGS = [
@@ -80,7 +90,11 @@ _TAGS = [
         "description": "Authentication - first-run setup, login, and token validation.",
     },
     {"name": "users", "description": "User management. **Admin only.**"},
-    {"name": "library", "description": "Library-wide statistics and rescanning."},
+    {
+        "name": "library",
+        "description": "Rescanning, cleanup of missing items, and version information.",
+    },
+    {"name": "stats", "description": "Library-wide counts, e.g. for dashboard widgets."},
     {
         "name": "systems",
         "description": "Game system catalog - browse and edit game system metadata.",
@@ -123,6 +137,13 @@ _TAGS = [
         ),
     },
     {"name": "logs", "description": "Application log retrieval. **Admin only.**"},
+    {
+        "name": "api-keys",
+        "description": (
+            "Personal API keys for scripts and integrations. Never reachable with "
+            "an API key."
+        ),
+    },
 ]
 
 
@@ -317,7 +338,6 @@ def health():
 
 app.include_router(auth_router.public_router)
 app.include_router(oidc_router.public_router)
-app.include_router(library_router.public_router)
 # Calendar feeds carry their credential in the path; see campaigns/calendar.py.
 app.include_router(campaigns_router.public_router)
 if OPDS_ENABLED:
@@ -337,6 +357,7 @@ api.include_router(token_frames_router.router)
 api.include_router(audio_router.router)
 api.include_router(models_router.router)
 api.include_router(library_router.router)
+api.include_router(library_router.stats_router)
 api.include_router(search_router.router)
 api.include_router(campaigns_router.router)
 api.include_router(favorites_router.router)
@@ -346,6 +367,7 @@ api.include_router(saved_filters_router.router)
 api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
 api.include_router(settings_router.router)
+api.include_router(api_keys_router.router)
 api.include_router(addons_router.router)
 api.include_router(themes_router.router)
 api.include_router(characters_router.router)

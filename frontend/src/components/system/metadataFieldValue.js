@@ -29,9 +29,22 @@ function formatEntry(entry) {
  * Only `only_incoming` — where the system has nothing yet — is safe to check by
  * default. A `differs` row would overwrite something the user entered, so it
  * stays unchecked until they say otherwise; `same` has nothing to apply.
+ *
+ * The exception is `applied`: values an earlier fetch in this session wrote
+ * (issue #466). A `differs` row whose current value is still exactly what was
+ * fetched came from the wrong match, not from the user, so replacing it is the
+ * point of coming back — those are pre-selected too.
  */
-export function defaultSelection(fields) {
-  return fields.filter((f) => f.status === 'only_incoming').map((f) => f.field)
+export function defaultSelection(fields, applied = {}) {
+  return fields
+    .filter(
+      (f) =>
+        f.status === 'only_incoming' ||
+        (f.status === 'differs' &&
+          f.field in applied &&
+          JSON.stringify(f.current) === JSON.stringify(applied[f.field]))
+    )
+    .map((f) => f.field)
 }
 
 /**

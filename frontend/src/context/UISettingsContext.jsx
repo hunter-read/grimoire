@@ -10,6 +10,8 @@ const UISettingsContext = createContext({
   campaign_upload_max_file_mb: 0,
   campaign_upload_max_total_mb: 0,
   guest_access_enabled: false,
+  // Whether API keys exist on this instance at all (API_KEYS_ENABLED).
+  api_keys_enabled: true,
   // Whether the library can be written to at all. Gates the move / rename /
   // delete actions everywhere outside the file manager, which asks per folder.
   library_writable: false,

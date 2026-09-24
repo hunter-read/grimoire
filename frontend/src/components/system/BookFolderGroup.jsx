@@ -3,7 +3,7 @@ import { toTitleCase } from '../../utils'
 import CategoryBookItem from './CategoryBookItem'
 import RescanButton from '../RescanButton'
 import FolderTagRow from '../media/FolderTagRow'
-import { countBooks, allBooks } from './folderTree'
+import { countBooks, allBooks, entryRuns, orderedEntries } from './folderTree'
 
 /** The library-root-relative folder a group of books shares (relative_path minus filename). */
 function folderScope(books) {
@@ -30,6 +30,8 @@ function folderScope(books) {
  *   path              – segments from the category dir, e.g. ["monsters","spelljammer"]
  *   node              – folder-tree node: { books: [], folders: { name -> node } }
  *   depth             – nesting depth (0 = category's direct subfolder)
+ *   folderOrder       – { sort, order, placement } for ordering subfolders among
+ *                       books (see folderTree's orderedEntries)
  *   bookFolderTags    – { fullPath -> string[] } tag map
  *   editingFolderKey  – full path of the folder currently being tag-edited
  *   onEditFolder      – (fullPath | null) => void
@@ -40,6 +42,7 @@ export default function BookFolderGroup({
   path,
   node,
   depth = 0,
+  folderOrder,
   systemId,
   category,
   collapsed,
@@ -69,7 +72,7 @@ export default function BookFolderGroup({
   const toggleKey = `${category}::${folderPath}`
   const isCollapsed = collapsed.has(toggleKey)
   const total = countBooks(node)
-  const childNames = Object.keys(node.folders).sort((a, b) => a.localeCompare(b))
+  const runs = entryRuns(orderedEntries(node, folderOrder))
   const containerStyle = booksContainerStyle || {
     display: 'flex',
     flexDirection: 'column',
@@ -83,6 +86,7 @@ export default function BookFolderGroup({
 
   // Shared props threaded down to nested BookFolderGroup instances.
   const childProps = {
+    folderOrder,
     systemId,
     category,
     collapsed,
@@ -200,42 +204,43 @@ export default function BookFolderGroup({
         gap: 4,
       }}
     >
-      {childNames.map((name) => (
-        <BookFolderGroup
-          key={name}
-          folder={name}
-          path={[...path, name]}
-          node={node.folders[name]}
-          depth={depth + 1}
-          {...childProps}
-        />
-      ))}
-      {node.books.length > 0 && (
-        <div style={containerStyle}>
-          {node.books.map((book) => (
-            // Same row+editor+details block as the ungrouped layouts. Sharing
-            // CategoryBookItem is what keeps a book in a subfolder from
-            // silently losing the "View details" action.
-            <CategoryBookItem
-              key={book.id}
-              book={book}
-              card={card}
-              compact={compact}
-              list={list}
-              editingBookId={editingBookId}
-              setEditingBookId={setEditingBookId}
-              allTags={allTags}
-              existingCategories={existingCategories}
-              systemGenres={systemGenres}
-              isEditor={isEditor}
-              onSaveBook={onSaveBook}
-              bulkMode={bulkMode}
-              selectedBookIds={selectedBookIds}
-              onToggleBook={onToggleBook}
-              onVariantsChanged={onVariantsChanged}
-            />
-          ))}
-        </div>
+      {runs.map((run) =>
+        run.type === 'folder' ? (
+          <BookFolderGroup
+            key={`folder:${run.name}`}
+            folder={run.name}
+            path={[...path, run.name]}
+            node={run.node}
+            depth={depth + 1}
+            {...childProps}
+          />
+        ) : (
+          <div key={`books:${run.books[0].id}`} style={containerStyle}>
+            {run.books.map((book) => (
+              // Same row+editor+details block as the ungrouped layouts. Sharing
+              // CategoryBookItem is what keeps a book in a subfolder from
+              // silently losing the "View details" action.
+              <CategoryBookItem
+                key={book.id}
+                book={book}
+                card={card}
+                compact={compact}
+                list={list}
+                editingBookId={editingBookId}
+                setEditingBookId={setEditingBookId}
+                allTags={allTags}
+                existingCategories={existingCategories}
+                systemGenres={systemGenres}
+                isEditor={isEditor}
+                onSaveBook={onSaveBook}
+                bulkMode={bulkMode}
+                selectedBookIds={selectedBookIds}
+                onToggleBook={onToggleBook}
+                onVariantsChanged={onVariantsChanged}
+              />
+            ))}
+          </div>
+        )
       )}
     </div>
   )

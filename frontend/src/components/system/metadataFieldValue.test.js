@@ -60,6 +60,20 @@ describe('defaultSelection', () => {
     expect(defaultSelection([{ field: 'edition', status: 'same' }])).toEqual([])
   })
 
+  // Issue #466: coming back to an item after applying the wrong look-alike.
+  it('also selects a differing field that still holds what an earlier fetch wrote', () => {
+    const fields = [
+      { field: 'authors', status: 'differs', current: ['Ann'], incoming: ['Bo'] },
+      { field: 'license', status: 'differs', current: 'ORC', incoming: 'OGL' },
+    ]
+    expect(defaultSelection(fields, { authors: ['Ann'] })).toEqual(['authors'])
+  })
+
+  it('leaves a fetched field alone once it has been changed since', () => {
+    const fields = [{ field: 'year', status: 'differs', current: 2002, incoming: 2003 }]
+    expect(defaultSelection(fields, { year: 2001 })).toEqual([])
+  })
+
   it('handles an empty field list', () => {
     expect(defaultSelection([])).toEqual([])
   })

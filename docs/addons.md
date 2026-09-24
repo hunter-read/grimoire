@@ -38,6 +38,21 @@ source (or just its ID) and it goes straight to the review step, no searching.
 That is the quickest route for a big catalogue like DriveThruRPG, where a title
 search returns many near-misses.
 
+**Bulk edit** runs the same dialog as a loop over the selection (issue #466).
+The **Fetch metadata** button sits in the modal's fixed footer (shortcut **F**). The
+dialog searches each item's name on arrival and keeps the last-used source. It
+focuses the first match and then the apply button, so Enter, Enter handles an
+item. The dialog shows the modal's own item navigation bar (the shared
+`ItemCarouselNav`, where the right chevron skips), and together with **Apply &
+next** it moves through the selection without closing the dialog. Each item's search (source, query, results, last pick) is
+kept for the session, so going back shows the earlier matches without asking
+the source again. Fields an earlier fetch wrote to the item, and which still
+hold those values, are pre-ticked even when they show as `differs`, so a
+wrong look-alike can be corrected in one step. Fetched fields are PATCHed as they are applied, so the modal treats them
+as saved: they are not resent by **Save all**, they do not trigger the
+unsaved-changes prompt, and they are passed to `onSaved` however the modal
+closes.
+
 To run a private or in-development add-on, drop its directory into
 `DATA_PATH/add-ons/<id>/` and restart - no index required.
 
@@ -59,6 +74,13 @@ Two deliberate behaviours:
 - **A changed script drops back to unapproved.** Consent was given to specific
   code; if the code changed, Grimoire asks again before running it. `Update all`
   is no exception.
+- **An update that needs a newer Grimoire is held back.** A version whose
+  `grimoire_min_version` is above the running build is not offered as an
+  update, and installing it directly is refused with a message naming the
+  version it needs. Update Grimoire, and the update appears.
+
+An update that fails for any other reason - a download error, or a definition
+this build cannot load - leaves the installed version in place and working.
 
 An add-on you placed by hand has no index entry, so it never reports an update -
 update it the way you installed it.
@@ -68,7 +90,7 @@ update it the way you installed it.
 | Add-on | Target | Source | Fills in |
 | --- | --- | --- | --- |
 | TTRPG Wiki | game system | [ttrpgwiki.com](https://ttrpgwiki.com) | description, publisher, year, licence, system family, edition, genres, dice, tags, links |
-| DriveThruRPG | book | [drivethrurpg.com](https://www.drivethrurpg.com) | title, description, authors, artists, publisher, genres, ISBN, year, links |
+| DriveThruRPG | book | [drivethrurpg.com](https://www.drivethrurpg.com) | title, description, authors, artists, publisher, genres, ISBN, product code, year, links |
 
 **A note on DriveThruRPG:** its web storefront is behind a Cloudflare bot
 challenge, so the scraper does not touch it. It uses the OneBookShelf JSON API

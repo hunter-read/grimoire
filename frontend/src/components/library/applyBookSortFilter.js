@@ -4,7 +4,8 @@
 // flat filtered/sorted list).
 //
 // `genre` is a single-select, matching the systems list's genre filter; `tags`
-// is the grouped AND/OR expression from ./tagQuery.
+// is the grouped AND/OR expression from ./tagQuery. `productCode` holds a code
+// prefix ("PZO") or a presence sentinel, and matches the start of the code.
 
 import { firstValue, matchSpecial } from './specialFilters'
 import { matchesTagQuery } from './tagQuery'
@@ -18,9 +19,21 @@ const matchValue = (field, wanted) => {
 // `has` also handles the special "no value" / "any value" sentinels.
 const has = (field, wanted) => (wanted ? matchSpecial(field, wanted, matchValue) : true)
 
+const matchPrefix = (field, wanted) =>
+  String(field || '')
+    .toUpperCase()
+    .startsWith(String(wanted).toUpperCase())
+
+/**
+ * The leading letters of a product code - "PZO" for "PZO9001", "TSR" for
+ * "TSR 9247" - which is how a publisher's product line reads in a code, so it
+ * is what the product-code filter offers. '' for a code with no letter prefix.
+ */
+export const productCodePrefix = (code) => (/^[A-Za-z]+/.exec(code || '')?.[0] || '').toUpperCase()
+
 /**
  * Build a `book => boolean` predicate from the filter state.
- * @param filters { favorites, explicit, genres, tags }
+ * @param filters { favorites, explicit, genres, tags, productCode }
  * @param opts { isFavorite: (id) => bool }
  */
 export function bookFilterPredicate(filters = {}, opts = {}) {
@@ -35,6 +48,8 @@ export function bookFilterPredicate(filters = {}, opts = {}) {
     if (filters.explicit !== undefined && Boolean(book.is_explicit) !== filters.explicit)
       return false
     if (wantGenre && !has(book.genres, wantGenre)) return false
+    if (filters.productCode && !matchSpecial(book.product_code, filters.productCode, matchPrefix))
+      return false
     if (!matchesTagQuery(filters.tags, book.tags)) return false
     return true
   }
@@ -48,6 +63,17 @@ export function bookComparator(sort = 'title', order = 'asc') {
     year: (a, b) => (a.year == null ? Infinity : a.year) - (b.year == null ? Infinity : b.year),
     page_count: (a, b) => (a.page_count || 0) - (b.page_count || 0),
     size: (a, b) => (a.file_size || 0) - (b.file_size || 0),
+    // Natural order, so PZO10000 follows PZO9001 rather than landing before it.
+    // Books without a code sort after those with one, alphabetically.
+    product_code: (a, b) => {
+      const ca = a.product_code || ''
+      const cb = b.product_code || ''
+      if (!ca !== !cb) return ca ? -1 : 1
+      return (
+        ca.localeCompare(cb, undefined, { numeric: true, sensitivity: 'base' }) ||
+        a.title.localeCompare(b.title)
+      )
+    },
   }
   const fn = cmp[sort] || cmp.title
   return (a, b) => dir * fn(a, b)

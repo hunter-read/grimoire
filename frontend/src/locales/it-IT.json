@@ -277,7 +277,8 @@
         "tag": "Tag su libri, mappe, token, audio",
         "publisher": "Editore",
         "year": "Anno di pubblicazione, o un intervallo",
-        "text": "Solo il contenuto delle pagine"
+        "text": "Solo il contenuto delle pagine",
+        "code": "Codice prodotto dell'editore (SKU)"
       }
     }
   },
@@ -1043,6 +1044,10 @@
       "title": "Sfogliare la libreria",
       "description": "Preferenze di visualizzazione per libreria, mappe e token.",
       "sortOrder": "Ordinamento",
+      "folderPlacement": "Cartelle negli elenchi di libri",
+      "folderPlacementFirst": "Prima le cartelle",
+      "folderPlacementMixed": "Mescolate ai libri",
+      "folderPlacementHint": "Mescolate ordina ogni cartella tra i libri accanto, per nome - o, con altri ordinamenti, in base al suo primo libro.",
       "viewMode": "Vista predefinita",
       "viewModeSystems": "Sistemi",
       "viewModeBooks": "Libri",
@@ -1095,17 +1100,169 @@
       "title": "Statistiche barra laterale",
       "description": "Scegli quali statistiche mostrare nel piè di pagina della barra laterale."
     },
-    "apiKey": {
-      "title": "Chiave API statistiche",
-      "description": "Genera una chiave API per consentire ad applicazioni esterne (es. Homepage) di interrogare le statistiche della libreria senza accedere. Passa la chiave nell'header",
-      "descriptionSuffix": "della richiesta.",
-      "endpoint": "Endpoint:",
-      "set": "— impostata",
-      "regenerate": "Rigenera",
-      "revoke": "Revoca",
-      "generate": "Genera chiave API",
-      "generating": "Generazione…",
-      "copyKey": "Copia chiave"
+    "apiKeys": {
+      "title": "Chiavi API",
+      "description": "Consenti a script e app (ad es. Homepage o uno strumento da riga di comando) di usare Grimoire a nome tuo, senza la tua password. Invia una chiave nell'intestazione",
+      "descriptionSuffix": "della richiesta. Una chiave raggiunge solo le aree che le concedi, e mai più di quanto possa il tuo account.",
+      "allTitle": "Tutte le chiavi API",
+      "allDescription": "Le chiavi API di tutti gli utenti. Revoca qualsiasi chiave che non dovrebbe essere in uso; ogni utente gestisce le proprie dalle impostazioni del suo account.",
+      "empty": "Ancora nessuna chiave API.",
+      "create": "Crea chiave API",
+      "loadFailed": "Impossibile caricare le chiavi API.",
+      "actionFailed": "Non ha funzionato. Riprova.",
+      "levels": {
+        "none": "Nessun accesso",
+        "read": "Lettura",
+        "write": "Lettura e scrittura"
+      },
+      "row": {
+        "created": "Creata il {{when}}",
+        "lastUsed": "Ultimo uso il {{when}}",
+        "neverUsed": "Mai usata",
+        "expires": "Scade il {{when}}",
+        "expired": "Scaduta il {{when}}",
+        "noExpiry": "Non scade mai",
+        "noPermissions": "Nessuna autorizzazione",
+        "edit": "Modifica",
+        "regenerate": "Rigenera",
+        "revoke": "Revoca",
+        "owner": "Proprietario: {{name}}"
+      },
+      "dialog": {
+        "createTitle": "Crea chiave API",
+        "editTitle": "Modifica chiave API",
+        "name": "Nome",
+        "namePlaceholder": "ad es. widget di Homepage",
+        "nameRequired": "Dai un nome alla chiave.",
+        "expiration": "Scadenza",
+        "days_one": "{{count}} giorno",
+        "days_other": "{{count}} giorni",
+        "never": "Mai",
+        "keepExpiry": "Mantieni l'attuale ({{when}})",
+        "keepNever": "Mantieni l'attuale (mai)",
+        "permissions": "Autorizzazioni",
+        "permissionsHint": "Lettura consente di visualizzare; Lettura e scrittura consente anche di modificare. Tutto ciò che resta su Nessun accesso viene rifiutato.",
+        "save": "Salva",
+        "create": "Crea chiave",
+        "saveFailed": "Impossibile salvare la chiave.",
+        "filter": "Filtra le autorizzazioni",
+        "noMatches": "Nessuna autorizzazione corrisponde a «{{query}}»",
+        "groupCount": "{{granted}} su {{total}} con accesso"
+      },
+      "reveal": {
+        "title": "La tua nuova chiave per «{{name}}»",
+        "warning": "Copia questa chiave ora - non potrai più vederla. Se la perdi, rigenerala.",
+        "copy": "Copia chiave",
+        "copied": "Copiata negli appunti",
+        "example": "Richiesta di esempio:",
+        "done": "Fatto"
+      },
+      "confirm": {
+        "regenerateTitle": "Rigenerare «{{name}}»?",
+        "regenerateMessage": "Viene emessa una nuova chiave con lo stesso nome e le stesse autorizzazioni. La chiave attuale smette subito di funzionare, quindi tutto ciò che la usa andrà aggiornato.",
+        "revokeTitle": "Revocare «{{name}}»?",
+        "revokeMessage": "La chiave viene eliminata e smette subito di funzionare. L'operazione non può essere annullata."
+      },
+      "groups": {
+        "library": "Libreria",
+        "media": "Contenuti multimediali",
+        "campaigns": "Campagne e personale",
+        "admin": "Amministrazione"
+      },
+      "permissions": {
+        "stats": {
+          "label": "Statistiche",
+          "description": "Conteggi e totali della libreria (ad es. per widget di dashboard come Homepage)"
+        },
+        "library": {
+          "label": "Libreria",
+          "description": "Stato della scansione, avvio o annullamento di una nuova scansione, pulizia degli elementi mancanti, versione e changelog"
+        },
+        "books": {
+          "label": "Libri",
+          "description": "I libri e i relativi metadati, copertine, pagine e file"
+        },
+        "systems": {
+          "label": "Sistemi di gioco",
+          "description": "I sistemi di gioco, le loro copertine e cartelle dei libri"
+        },
+        "search": {
+          "label": "Ricerca",
+          "description": "Ricerca a testo completo nella libreria"
+        },
+        "tags": {
+          "label": "Tag",
+          "description": "Creare, rinominare, unire ed eliminare tag, ed elencare gli elementi con tag"
+        },
+        "lookups": {
+          "label": "Elenchi di valori",
+          "description": "Generi, famiglie di sistemi, sistemi padre, licenze e dadi/materiali"
+        },
+        "maps": {
+          "label": "Mappe",
+          "description": "Le mappe e le cartelle delle mappe"
+        },
+        "tokens": {
+          "label": "Token",
+          "description": "I token, le cartelle dei token e le cornici dei token"
+        },
+        "audio": {
+          "label": "Audio",
+          "description": "Le tracce audio, le loro copertine e cartelle"
+        },
+        "models": {
+          "label": "Modelli",
+          "description": "I modelli 3D e le cartelle dei modelli"
+        },
+        "downloads": {
+          "label": "Download",
+          "description": "Scaricare file e archivi zip"
+        },
+        "files": {
+          "label": "Gestione file",
+          "description": "Sfogliare, caricare, spostare, rinominare ed eliminare file nella cartella della libreria"
+        },
+        "duplicates": {
+          "label": "Duplicati",
+          "description": "Trovare, confrontare, collegare e unire elementi duplicati"
+        },
+        "backups": {
+          "label": "Backup",
+          "description": "Elencare, creare, scaricare ed eliminare backup, e la loro pianificazione"
+        },
+        "logs": {
+          "label": "Log",
+          "description": "Leggere i log dell'applicazione"
+        },
+        "campaigns": {
+          "label": "Campagne",
+          "description": "Le tue campagne, membri, sessioni, pagine wiki e risorse collegate"
+        },
+        "addons": {
+          "label": "Componenti aggiuntivi",
+          "description": "Componenti aggiuntivi per i metadati della community: installare, aggiornare, attivare, eseguire"
+        },
+        "maintenance": {
+          "label": "Manutenzione",
+          "description": "Impostazioni ed esportazione dei file sidecar dei metadati"
+        },
+        "settings": {
+          "label": "Impostazioni",
+          "description": "Impostazioni dell'app"
+        },
+        "users": {
+          "label": "Utenti",
+          "description": "Account utente, ruoli e autorizzazioni di accesso, e le tue preferenze"
+        },
+        "personal": {
+          "label": "Personale",
+          "description": "I tuoi preferiti, segnalibri, filtri salvati, playlist e soundboard salvate, e temi"
+        },
+        "all": {
+          "label": "Tutte le autorizzazioni",
+          "description": "Tutte le aree insieme, comprese quelle aggiunte nelle versioni future"
+        }
+      }
     },
     "campaignUploads": {
       "title": "Caricamenti nelle campagne",
@@ -1152,7 +1309,11 @@
     "allowExplicitTitle": "Consenti contenuti espliciti",
     "campaignAccess": "Campagne",
     "campaignAccessTitle": "Consenti a questo utente di creare, unirsi e gestire campagne (sovrascritto dal provider OIDC al prossimo accesso se è configurato un claim campaignAccess)",
+    "apiKeys": "Chiavi API",
+    "apiKeysTitle": "Consenti a questo utente di creare e usare chiavi API (sovrascritto dal tuo provider OIDC al prossimo accesso se è configurato un claim apiKeys)",
+    "apiKeysAdminTitle": "Gli amministratori possono sempre usare le chiavi API",
     "failedUpdateCampaignAccess": "Aggiornamento dell'accesso alle campagne non riuscito.",
+    "failedUpdateApiKeys": "Impossibile aggiornare l'accesso alle chiavi API.",
     "setPassword": "Imposta password",
     "setPasswordTitle": "Imposta la password per questo utente",
     "newPasswordPlaceholder": "Nuova password (min 8)",
@@ -1929,7 +2090,8 @@
     "createCategory": "Crea \"{{name}}\"",
     "licenseLabel": "Licenza",
     "licensePlaceholder": "Eredita la licenza del sistema",
-    "fetchMetadata": "Recupera metadati"
+    "fetchMetadata": "Recupera metadati",
+    "productCodeLabel": "Codice prodotto"
   },
   "reocr": {
     "button": "Riesegui OCR",
@@ -2050,8 +2212,8 @@
     "exportJsonHint": "L'intera wiki come JSON di Grimoire. Reimportabile.",
     "import": "Importa",
     "importTitle": "Importa pagine della wiki",
-    "importHint": "Aggiungi pagine da Markdown, da un bundle JSON di Grimoire o da un'esportazione LegendKeeper. L'annidamento delle pagine viene preservato. Le pagine esistenti non vengono mai sovrascritte.",
-    "importFormats": "Accetta .zip, .json, .lk, .md, .markdown o .txt.",
+    "importHint": "Aggiungi pagine da Markdown, da un bundle JSON di Grimoire o da un'esportazione LegendKeeper. L'annidamento delle pagine viene preservato e le cartelle diventano pagine principali, sia in un archivio zip sia in una cartella scelta. Le pagine esistenti non vengono mai sovrascritte.",
+    "importFormats": "Accetta .zip, .json, .lk, .md, .markdown o .txt - oppure scegli una cartella di file Markdown.",
     "templates": "Modelli",
     "templatesTitle": "Modelli di note",
     "templatesNone": "Nessun modello per ora. Sfoglia il catalogo della community, scrivi il tuo oppure carica un file Markdown.",
@@ -2091,6 +2253,7 @@
     "templateCreate": "Crea modello",
     "templateNameRequired": "Dai un nome al modello.",
     "chooseFile": "Scegli file",
+    "chooseFolder": "Scegli cartella",
     "importing": "Importazione…",
     "imported": "Importata {{count}} pagina",
     "imported_other": "Importate {{count}} pagine",
@@ -2139,7 +2302,8 @@
     "shareName": "Nome",
     "shareReadFor": "Accesso in lettura per {{name}}",
     "shareWriteFor": "Accesso in scrittura per {{name}}",
-    "shareReadLocked": "La lettura è inclusa nell'accesso in scrittura"
+    "shareReadLocked": "La lettura è inclusa nell'accesso in scrittura",
+    "importFolderEmpty": "Quella cartella non contiene file Markdown."
   },
   "campaignNotes": {
     "backToOverview": "Torna alla panoramica"
@@ -2213,6 +2377,7 @@
     "field_explicit": "Contenuti espliciti",
     "previous": "Precedente",
     "next": "Successivo",
+    "fetchShortcut": "Recupera i metadati di questo elemento (F). Usa ← e → per spostarti tra gli elementi.",
     "field_genre": "Genere",
     "field_characterBuilderUrl": "URL Character Builder",
     "applyToAll": "Applica a tutti i {{count}}",
@@ -2497,7 +2662,10 @@
     "tagGroupAdd": "Aggiungi gruppo",
     "tagGroupMode": "Modalità di corrispondenza del gruppo {{n}}",
     "tagGroupTags": "Tag del gruppo {{n}}",
-    "tagGroupRemove": "Rimuovi gruppo {{n}}"
+    "tagGroupRemove": "Rimuovi gruppo {{n}}",
+    "sortProductCode": "Codice prodotto",
+    "filterProductCode": "Codice prodotto",
+    "allProductCodes": "Tutti i codici prodotto"
   },
   "lookupSettings": {
     "genresTitle": "Generi",
@@ -2598,6 +2766,11 @@
     "statusSame": "già impostato",
     "apply": "Applica {{count}} campo",
     "apply_other": "Applica {{count}} campi",
+    "applyAndNext": "Applica {{count}} campo e avanti",
+    "applyAndNext_other": "Applica {{count}} campi e avanti",
+    "skip": "Salta",
+    "keyboardHint": "↑ ↓ per scorrere i risultati · Invio per sceglierne uno",
+    "pickedBefore": "scelto l’ultima volta",
     "back": "Indietro",
     "viewSource": "Vedi fonte",
     "pasteToggle": "Conosci quello esatto? Incolla un link o un ID",
@@ -2622,7 +2795,8 @@
     "pages": "Pagine",
     "fileSize": "Dimensione file",
     "format": "Formato",
-    "path": "Percorso"
+    "path": "Percorso",
+    "productCode": "Codice prodotto"
   },
   "appearance": {
     "title": "Aspetto",

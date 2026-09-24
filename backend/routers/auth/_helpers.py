@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import Request, Response
 from sqlalchemy.orm import Session
 
+from ...api_keys import user_keys_allowed
 from ...auth import create_token, set_auth_cookie, set_refresh_cookie
 from ...models import User
 from ...sessions import create_session
@@ -63,5 +64,6 @@ def issue_login(
             "username": user.username,
             "display_name": user.display_name,
             "role": user.role,
+            "api_keys_allowed": user_keys_allowed(user),
         },
     }

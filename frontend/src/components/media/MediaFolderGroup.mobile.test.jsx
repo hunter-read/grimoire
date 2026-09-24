@@ -10,7 +10,9 @@ vi.mock('../../context/AudioPlayerContext', () => ({
 }))
 vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
 vi.mock('./MediaCard', () => ({ default: ({ item }) => <div>{item.filename}</div> }))
-vi.mock('../LazyGrid', () => ({ default: ({ children }) => <>{children}</> }))
+vi.mock('./VirtualGrid', () => ({
+  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+}))
 vi.mock('../RescanButton', () => ({ default: () => null }))
 // Fire the tag-row callbacks so the inline arrow handlers are exercised.
 vi.mock('./FolderTagRow', () => ({

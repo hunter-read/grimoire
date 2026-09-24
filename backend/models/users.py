@@ -35,6 +35,9 @@ class User(Base):
     # campaign content. Disabling it preserves existing campaigns but locks the user
     # out of all campaign writes. NULL is treated as enabled.
     campaign_access = Column(Boolean, default=True)
+    # Whether the user may create and use API keys (issue #489). Off unless an
+    # admin (or the OIDC permissions claim) turns it on; admins always may.
+    api_keys_enabled = Column(Boolean, default=False)
     opds_token = Column(String(64), nullable=True, unique=True, index=True)
     # Revocable per-user token authenticating the campaign calendar (ICS) feeds.
     # Deliberately separate from opds_token and from the JWT: calendar apps can

@@ -17,6 +17,8 @@ export default function UserExpandedEditor({
   onRoleChange,
   onExplicitChange,
   onCampaignAccessChange,
+  apiKeysEnabled = false,
+  onApiKeysChange,
   onPasswordReset,
   onEmailChange,
   onDelete,
@@ -94,6 +96,22 @@ export default function UserExpandedEditor({
               accent="var(--gold)"
               onChange={() => onCampaignAccessChange(user.id, !(user.campaign_access ?? true))}
             />
+            {apiKeysEnabled && (
+              <PermissionToggle
+                id={`api-keys-${user.id}`}
+                label={t('users.apiKeys')}
+                // Admins always hold keys, so theirs isn't a switch.
+                title={
+                  user.role === 'admin' ? t('users.apiKeysAdminTitle') : t('users.apiKeysTitle')
+                }
+                checked={user.role === 'admin' || Boolean(user.api_keys_enabled)}
+                accent="var(--gold)"
+                disabled={user.role === 'admin'}
+                onChange={() =>
+                  user.role !== 'admin' && onApiKeysChange(user.id, !user.api_keys_enabled)
+                }
+              />
+            )}
             <PermissionToggle
               id={`explicit-${user.id}`}
               label={t('users.explicit')}

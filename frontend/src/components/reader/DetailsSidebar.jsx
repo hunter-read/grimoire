@@ -6,6 +6,7 @@ import { formatSize } from '../../utils'
 import Tag from '../Tag'
 import { publicationDate } from '../system/bookDetails'
 import DetailsSidebarEditor from './DetailsSidebarEditor'
+import ReaderSidebarShell from './ReaderSidebarShell'
 
 /**
  * The book's metadata, shown in the same right-hand sidebar as contents,
@@ -35,6 +36,7 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
     [t('bookDetails.genres'), (book.genres || []).join(', ')],
     [t('bookDetails.license'), book.license],
     [t('bookDetails.isbn'), book.isbn],
+    [t('bookDetails.productCode'), book.product_code],
     [t('bookDetails.version'), book.version],
     [t('bookDetails.language'), book.language],
     [t('bookDetails.pages'), book.page_count ? String(book.page_count) : ''],
@@ -44,17 +46,7 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
   ].filter(([, value]) => value)
 
   return (
-    <div
-      style={{
-        width: 320,
-        flexShrink: 0,
-        borderLeft: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-      }}
-    >
+    <ReaderSidebarShell width={320}>
       <div
         style={{
           display: 'flex',
@@ -155,6 +147,6 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
           </>
         )}
       </div>
-    </div>
+    </ReaderSidebarShell>
   )
 }

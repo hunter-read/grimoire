@@ -217,6 +217,72 @@ class TestInstall:
         assert not any(n.endswith(".incoming") for n in os.listdir(addons_dir))
 
 
+class TestCompatibility:
+    """Installing never swaps a working add-on for one this build cannot run.
+
+    The case that matters is a scraper updated to map a field added in a later
+    Grimoire (``product_code``, issue #479): an older build rejects the map, and
+    before this the swap had already happened, so the load check deleted the
+    add-on the user had working.
+    """
+
+    def _install_v1(self, db, files):
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body)])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+        install.install(db, "demo")
+
+    def test_an_update_that_fails_validation_keeps_the_installed_version(
+        self, db, addons_dir, files
+    ):
+        self._install_v1(db, files)
+        newer = _yaml_bytes(
+            {**MANIFEST, "version": "2.0.0", "map": {"not_a_field": {"from": "x"}}}
+        )
+        _seed_index(db, [_index_entry(newer, version="2.0.0")])
+        files["https://example.com/scrapers/demo/demo.yml"] = newer
+
+        with pytest.raises(AddonError, match="not_a_field"):
+            install.install(db, "demo")
+        assert registry.load_manifest("demo").version == "1.0.0"
+        assert not any(n.endswith(".incoming") for n in os.listdir(addons_dir))
+
+    def test_a_newer_min_version_is_refused_before_download(
+        self, db, addons_dir, files, monkeypatch
+    ):
+        monkeypatch.setattr(config, "VERSION", "1.7.1")
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body, grimoire_min_version="1.7.2")])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+
+        with pytest.raises(AddonError, match="needs Grimoire 1.7.2"):
+            install.install(db, "demo")
+        assert not os.path.isdir(addons_dir / "demo")
+
+    @pytest.mark.parametrize("version", ["1.7.2", "1.10.0", "unknown"])
+    def test_a_met_or_unknowable_min_version_installs(
+        self, db, addons_dir, files, monkeypatch, version
+    ):
+        monkeypatch.setattr(config, "VERSION", version)
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body, grimoire_min_version="1.7.2")])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+
+        install.install(db, "demo")
+        assert registry.load_manifest("demo").version == "1.0.0"
+
+    def test_an_incompatible_update_is_not_offered(self, db, addons_dir, files, monkeypatch):
+        monkeypatch.setattr(config, "VERSION", "1.7.1")
+        self._install_v1(db, files)
+        newer = _yaml_bytes({**MANIFEST, "version": "2.0.0"})
+        _seed_index(
+            db, [_index_entry(newer, version="2.0.0", grimoire_min_version="1.7.2")]
+        )
+        assert install.pending_updates(db) == []
+
+        monkeypatch.setattr(config, "VERSION", "1.7.2")
+        assert [u[0] for u in install.pending_updates(db)] == ["demo"]
+
 class TestScriptInstall:
     @pytest.fixture
     def scripted(self, db, files):

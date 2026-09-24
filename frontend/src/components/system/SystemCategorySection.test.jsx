@@ -221,6 +221,30 @@ describe('SystemCategorySection', () => {
     expect(groups[0]).toHaveAttribute('data-children', 'Spelljammer')
   })
 
+  // Issue #448: folders go first by default and sort in by name when mixed.
+  it('renders folders before loose books by default', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({ books: [flatBook('a'), flatBook('c'), subfolderBook('x', 'b')] })}
+      />
+    )
+    const order = screen.getAllByTestId(/book-item|folder-group/).map((el) => el.textContent)
+    expect(order).toEqual(['b', 'a', 'c'])
+  })
+
+  it('sorts folders in among the loose books when placement is mixed', () => {
+    render(
+      <SystemCategorySection
+        {...baseProps({
+          books: [flatBook('a'), flatBook('c'), subfolderBook('x', 'b')],
+          folderOrder: { sort: 'title', order: 'asc', placement: 'mixed' },
+        })}
+      />
+    )
+    const order = screen.getAllByTestId(/book-item|folder-group/).map((el) => el.textContent)
+    expect(order).toEqual(['a', 'b', 'c'])
+  })
+
   it('hides the body when collapsed', () => {
     render(<SystemCategorySection {...baseProps({ isCollapsed: true })} />)
     expect(screen.queryByTestId('book-item')).not.toBeInTheDocument()

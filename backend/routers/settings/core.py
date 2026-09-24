@@ -1,10 +1,10 @@
 """App settings endpoints."""
 import json
-import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ... import config
 from ...config import (
     get_db,
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
@@ -62,8 +62,6 @@ def update_settings(
         _set(db, "rescan_schedule_weekday", str(max(0, min(6, data.rescan_schedule_weekday))))
     if data.cleanup_on_rescan is not None:
         _set(db, "cleanup_on_rescan", "true" if data.cleanup_on_rescan else "false")
-    if data.stats_api_key is not None:
-        _set(db, "stats_api_key", data.stats_api_key)
     if data.hide_maps is not None:
         _set(db, "hide_maps", "true" if data.hide_maps else "false")
     if data.hide_tokens is not None:
@@ -193,19 +191,6 @@ def update_settings(
     return _to_typed(_get_raw(db))
 
 
-def generate_api_key(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
-    key = secrets.token_urlsafe(32)
-    _set(db, "stats_api_key", key)
-    db.commit()
-    return {"stats_api_key": key}
-
-
-def revoke_api_key(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
-    _set(db, "stats_api_key", "")
-    db.commit()
-    return {"stats_api_key": ""}
-
-
 def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
     """Returns the subset of settings that affect UI visibility for all users."""
     raw = _get_raw(db)
@@ -228,6 +213,9 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
         "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),
         "guest_access_enabled": guest_access_effective(raw),
+        # Whether API keys exist on this instance at all (API_KEYS_ENABLED);
+        # the UI hides every API key menu when they don't.
+        "api_keys_enabled": config.API_KEYS_ENABLED,
         # Whether the library can be modified at all. The file-management actions
         # (move / rename / delete) are hidden rather than shown-and-failing when
         # the library is mounted read-only, and every view outside the file

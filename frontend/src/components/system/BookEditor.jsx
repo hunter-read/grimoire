@@ -40,6 +40,7 @@ export default function BookEditor({
     genres: book.genres || [],
     publisher: book.publisher || '',
     isbn: book.isbn || '',
+    product_code: book.product_code || '',
     version: book.version || '',
     language: book.language || '',
     license: book.license || '',
@@ -235,6 +236,7 @@ export default function BookEditor({
           {field(t('bookEditor.artistsLabel'), 'artists')}
           {field(t('bookEditor.publisherLabel'), 'publisher')}
           {field(t('bookEditor.isbnLabel'), 'isbn')}
+          {field(t('bookEditor.productCodeLabel'), 'product_code')}
           {field(t('bookEditor.versionLabel'), 'version')}
           {field(t('bookEditor.languageLabel'), 'language')}
           {/* Per-book license override (blank = inherit the system license). */}

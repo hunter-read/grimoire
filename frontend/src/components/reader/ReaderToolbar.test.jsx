@@ -195,6 +195,90 @@ describe('ReaderToolbar — panel selector', () => {
     renderToolbar({ panel: 'toc' })
     expect(screen.getByTitle('Contents')).toHaveStyle({ color: 'var(--gold)' })
   })
+
+  it('keeps the panel buttons on a phone, where they are the only way in', () => {
+    renderToolbar({ isMobilePhone: true })
+    expect(screen.getByTitle('Contents')).toBeInTheDocument()
+    expect(screen.getByTitle('Bookmarks')).toBeInTheDocument()
+    expect(screen.getByTitle('Search')).toBeInTheDocument()
+  })
+
+  // A long title used to hold its full width and push the panel buttons and
+  // the kebab off a phone-width row, which left no way to reach contents,
+  // bookmarks or details. The right zone must never shrink, and the title
+  // must be allowed to ellipsize instead.
+  it('does not let the right-hand controls be squeezed out by the title', () => {
+    const { container } = renderToolbar({
+      isMobilePhone: true,
+      book: {
+        ...BOOK_PDF,
+        title: 'A Very Long Book Title That Would Otherwise Take The Whole Row',
+      },
+    })
+
+    const rightZone = screen.getByTitle('Contents').closest('div').parentElement
+    expect(rightZone).toHaveStyle({ flex: '0 0 auto' })
+
+    const title = container.querySelector('span[style*="ellipsis"]')
+    expect(title).toHaveStyle({ minWidth: '0px', textOverflow: 'ellipsis' })
+  })
+
+  // Two rows on a phone: the title claims the first outright, and the panel
+  // buttons and page navigation share the second.
+  it('gives the title a row of its own on a phone', () => {
+    const { container } = renderToolbar({ isMobilePhone: true })
+
+    const leftZone = container.firstChild.children[0]
+    expect(leftZone).toHaveStyle({ minWidth: '100%' })
+  })
+
+  it('puts the page navigation after the panel buttons on that second row', () => {
+    renderToolbar({ isMobilePhone: true })
+
+    const pageNav = screen.getByLabelText('Current page number').parentElement
+    expect(pageNav).toHaveStyle({ order: '1', marginLeft: 'auto' })
+  })
+
+  it('keeps everything on one row on a desktop', () => {
+    const { container } = renderToolbar({ isMobilePhone: false })
+
+    expect(container.firstChild.children[0]).toHaveStyle({ minWidth: '160px' })
+    const pageNav = screen.getByLabelText('Current page number').parentElement
+    expect(pageNav).not.toHaveStyle({ order: '1' })
+  })
+})
+
+describe('ReaderToolbar — overflow menu placement', () => {
+  /** The kebab and the back button share the title's zone on a phone. */
+  function titleZone(container) {
+    return container.firstChild.children[0]
+  }
+
+  // On a phone the kebab rides with the title, leaving the controls row for
+  // the panel buttons and the page navigation.
+  it('sits beside the title on a phone', () => {
+    const { container } = renderToolbar({ isMobilePhone: true })
+
+    expect(titleZone(container)).toContainElement(screen.getByLabelText('More actions'))
+  })
+
+  it('sits with the reading controls on a desktop', () => {
+    const { container } = renderToolbar({ isMobilePhone: false })
+
+    expect(titleZone(container)).not.toContainElement(screen.getByLabelText('More actions'))
+  })
+
+  it('is rendered exactly once either way', () => {
+    const { rerender } = renderToolbar({ isMobilePhone: true })
+    expect(screen.getAllByLabelText('More actions')).toHaveLength(1)
+
+    rerender(
+      <MemoryRouter>
+        <ReaderToolbar {...defaultProps({ isMobilePhone: false })} />
+      </MemoryRouter>
+    )
+    expect(screen.getAllByLabelText('More actions')).toHaveLength(1)
+  })
 })
 
 describe('ReaderToolbar — actions', () => {
@@ -283,14 +367,40 @@ describe('ReaderToolbar — zoom controls', () => {
     expect(screen.getAllByLabelText('Zoom in').at(-1)).toBeDisabled()
   })
 
-  it('offers reset only once zoomed', async () => {
+  it('keeps reset in place, inert until zoomed, so the cluster never resizes', async () => {
     const onResetZoom = vi.fn()
-    renderToolbar({ isZoomed: false })
-    expect(screen.queryByLabelText('Reset zoom')).not.toBeInTheDocument()
+    // Rendered from the start: mounting it on the first zoom would shift the
+    // buttons beside it out from under the cursor (#472).
+    renderToolbar({ isZoomed: false, onResetZoom })
+    const reset = screen.getByLabelText('Reset zoom')
+    expect(reset).toBeDisabled()
+    await userEvent.click(reset)
+    expect(onResetZoom).not.toHaveBeenCalled()
+  })
 
+  it('resets the zoom once zoomed', async () => {
+    const onResetZoom = vi.fn()
     renderToolbar({ zoom: 1.75, isZoomed: true, canZoomOut: true, onResetZoom })
-    await userEvent.click(screen.getByLabelText('Reset zoom'))
+    const reset = screen.getByLabelText('Reset zoom')
+    expect(reset).not.toBeDisabled()
+    await userEvent.click(reset)
     expect(onResetZoom).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the zoom buttons in the same order as zoom changes', () => {
+    const labels = () =>
+      screen
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+        .filter((l) => ['Zoom out', 'Zoom in', 'Reset zoom'].includes(l))
+
+    const { unmount } = renderToolbar({ isZoomed: false })
+    const atDefault = labels()
+    unmount()
+
+    renderToolbar({ zoom: 1.75, isZoomed: true, canZoomOut: true })
+    expect(labels()).toEqual(atDefault)
+    expect(atDefault).toEqual(['Zoom out', 'Zoom in', 'Reset zoom'])
   })
 
   it('hides the cluster in pdf mode, where the native viewer zooms itself', () => {

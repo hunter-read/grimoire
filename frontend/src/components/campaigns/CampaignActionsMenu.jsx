@@ -1,14 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuEllipsisVertical, LuSettings, LuUsers, LuArchive } from 'react-icons/lu'
+import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 
 const MENU_WIDTH = 240
 
 /**
  * Consolidated campaign management actions (kebab): Edit, Convert to group, and
  * Archive/Unarchive. Follows BookActionsMenu's shape — a portalled, fixed-position
- * menu that repositions on scroll/resize so it can't be clipped by an ancestor.
+ * menu that repositions on scroll/resize so it can't be clipped by an ancestor,
+ * and that `useAnchoredMenu` keeps inside the viewport when the trigger sits low
+ * on the page.
  *
  * Deliberately excluded:
  *  - **Open notes** stays a standalone primary button; it's the main thing you
@@ -26,40 +29,26 @@ const MENU_WIDTH = 240
 export default function CampaignActionsMenu({ onEdit, onConvert, onArchive, isArchived }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef(null)
-  const menuRef = useRef(null)
-
-  const place = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const margin = 8
-    let left = r.right - MENU_WIDTH
-    left = Math.max(margin, Math.min(left, window.innerWidth - margin - MENU_WIDTH))
-    setCoords({ top: r.bottom + 4, left })
-  }, [])
+  const {
+    triggerRef,
+    panelRef: menuRef,
+    style: menuStyle,
+  } = useAnchoredMenu(open, { width: MENU_WIDTH })
 
   useEffect(() => {
     if (!open) return
-    place()
     const onDoc = (e) => {
       if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
       setOpen(false)
     }
     const onKey = (e) => e.key === 'Escape' && setOpen(false)
-    const onReposition = () => place()
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
     return () => {
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
     }
-  }, [open, place])
+  }, [open, triggerRef, menuRef])
 
   // Nothing this user can do — render no trigger at all rather than an empty menu.
   if (!onEdit && !onConvert && !onArchive) return null
@@ -118,17 +107,17 @@ export default function CampaignActionsMenu({ onEdit, onConvert, onArchive, isAr
             role="menu"
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: 'fixed',
-              top: coords.top,
-              left: coords.left,
+              ...menuStyle,
               zIndex: 2000,
-              width: MENU_WIDTH,
               padding: '4px 0',
               borderRadius: 8,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               boxShadow: '0 6px 20px var(--shadow)',
-              overflow: 'hidden',
+              // Clips the square-cornered first/last items to the panel's
+              // radius. Horizontal only: `overflow: hidden` would override the
+              // vertical scrolling the hook sets on an over-tall menu.
+              overflowX: 'hidden',
             }}
           >
             {onEdit && (

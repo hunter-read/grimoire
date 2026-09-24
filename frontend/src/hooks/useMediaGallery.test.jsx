@@ -29,10 +29,14 @@ vi.mock('../context/FavoritesContext', () => ({
 // Deterministic session state (start expanded / grouped true). Real useState
 // underneath, because the sort/filter state now lives here too and a no-op
 // setter would silently swallow every filter change under test.
+//
+// `groupedDefault` lets a test start ungrouped, which changes how the hook pages
+// the library (see the ordering tests).
+let groupedDefault = true
 vi.mock('./useSessionState', () => ({
   default: (key, init) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [val, setVal] = useState(key.endsWith(':grouped') ? true : init)
+    const [val, setVal] = useState(key.endsWith(':grouped') ? groupedDefault : init)
     return [val, setVal]
   },
 }))
@@ -296,6 +300,33 @@ describe('useMediaGallery', () => {
       })
       return all
     }
+
+    it('pages in path order while grouping is on', async () => {
+      // Grouped, the gallery renders folders in path order, so a page has to be
+      // a contiguous run of folders or later pages insert rows above what is
+      // already on screen.
+      pagedSetup(10)
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
+      expect(listCalls[0][0]).toContain('sort=path')
+    })
+
+    it('pages in filename order while grouping is off', async () => {
+      // Ungrouped the gallery is one flat list sorted by filename, so paging by
+      // path scattered each arriving page through the alphabet and the cards
+      // visibly popped in among the ones already on screen.
+      groupedDefault = false
+      try {
+        pagedSetup(10)
+        const { result } = renderGallery()
+        await waitFor(() => expect(result.current.data).not.toBeNull())
+        const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
+        expect(listCalls[0][0]).toContain('sort=name')
+      } finally {
+        groupedDefault = true
+      }
+    })
 
     it('requests a bounded page rather than the whole library', async () => {
       pagedSetup(10)
