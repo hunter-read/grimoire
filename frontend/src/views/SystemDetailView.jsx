@@ -211,17 +211,16 @@ export default function SystemDetailView() {
   // its categories into systems and emptied the collection page).
   if (system.container_kind && !system.is_system_agnostic && (system.children || []).length > 0) {
     return (
-      <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
-        <SystemContainerView
-          system={system}
-          viewMode={systemViewMode}
-          canEdit={isEditor}
-          backLabel={backTarget.label}
-          onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
-          onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
-          headerExtra={<ViewModeToggle mode={systemViewMode} onCycle={cycleSystemViewMode} />}
-        />
-      </div>
+      <SystemContainerView
+        system={system}
+        viewMode={systemViewMode}
+        onCycleViewMode={cycleSystemViewMode}
+        canEdit={isEditor}
+        backLabel={backTarget.label}
+        onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
+        onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
+        onChildrenChange={(update) => setSystem((s) => ({ ...s, children: update(s.children) }))}
+      />
     )
   }
 

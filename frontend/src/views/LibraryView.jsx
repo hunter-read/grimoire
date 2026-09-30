@@ -5,8 +5,6 @@ import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import api, { mediaUrl } from '../api'
 import Spinner from '../components/Spinner'
 import useViewMode from '../hooks/useViewMode'
-import ViewModeToggle from '../components/ViewModeToggle'
-import BulkToggleButton from '../components/BulkToggleButton'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import { getRecentBooks, getBookPrefs, removeRecentBook } from '../hooks/useBookPrefs'
 import { useFavorites } from '../context/FavoritesContext'
@@ -14,11 +12,10 @@ import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
 import useSavedFilters from '../hooks/useSavedFilters'
 import useSortFilterState from '../hooks/useSortFilterState'
-import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import SystemCard from '../components/library/SystemCard'
 import SystemGroupToggle from '../components/library/SystemGroupToggle'
 import AgnosticChip from '../components/library/AgnosticChip'
-import SortFilterBar from '../components/library/SortFilterBar'
+import SystemSortFilterBar from '../components/library/SystemSortFilterBar'
 import { applySystemSortFilter } from '../components/library/applySystemSortFilter'
 import { queryTags } from '../components/library/tagQuery'
 import BulkActionBar from '../components/BulkActionBar'
@@ -44,15 +41,7 @@ export default function LibraryView() {
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const library = useSystemLibrary(systems, setSystems)
   const { bulk, allTags } = library
-  // Shared-tag display labels for system tags (values still match on internal key).
-  const systemTagLabels = useTagLabels('system')
   const systemFilters = useSavedFilters('systems')
-  const {
-    saved: savedFilters,
-    save: savePreset,
-    setDefault: setPresetDefault,
-    remove: removePreset,
-  } = systemFilters
   // Session-persisted, so coming back from a system keeps the user's filters
   // instead of re-applying their saved default over them.
   const [sortFilter, setSortFilter] = useSortFilterState(
@@ -65,12 +54,6 @@ export default function LibraryView() {
   useEffect(() => {
     api.get('/systems?include_children=true').then(setSystems)
   }, [])
-
-  const updateSortFilter = (next) => {
-    setSortFilter(next)
-  }
-
-  const handleSavePreset = (name, opts) => savePreset(name, sortFilter, opts)
 
   if (!systems)
     return (
@@ -139,25 +122,6 @@ export default function LibraryView() {
   const specialSystems = systems
     .filter((s) => visible(s) && isSpecial(s))
     .sort((a, b) => a.name.localeCompare(b.name))
-
-  // Filter dropdown options are derived from the rows actually in the grid, so
-  // flattening a container surfaces its children's families/genres and grouping
-  // hides them again — an option that can never match is worse than a missing
-  // one. (Edition is deliberately not offered: it isn't recorded consistently
-  // enough across systems to filter on.)
-  const optionsFrom = (pick) =>
-    [...new Set(gridSystems.flatMap((s) => [pick(s)].flat().filter(Boolean)))]
-      .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({ value: v, label: v }))
-
-  const genreOptions = optionsFrom((s) => s.genres || [])
-  const familyOptions = optionsFrom((s) => s.system_family)
-  const parentSystemOptions = optionsFrom((s) => s.parent_system)
-  const diceOptions = optionsFrom((s) => s.dice_materials || [])
-  const tagOptions = allTags.map((tg) => ({
-    value: tg,
-    label: systemTagLabels[tg] || titleCaseTag(tg),
-  }))
 
   const tagFiltered = selectedTags.size > 0
   // Whether the library holds any browsable regular (non-special) systems at
@@ -429,78 +393,16 @@ export default function LibraryView() {
               </p>
             </div>
 
-            <SortFilterBar
-              sticky
-              scope="systems"
-              trailing={
-                <>
-                  {canEdit && (
-                    <BulkToggleButton
-                      active={bulk.bulkMode}
-                      onToggle={() => (bulk.bulkMode ? bulk.exit() : bulk.enter())}
-                    />
-                  )}
-                  <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} />
-                </>
-              }
+            <SystemSortFilterBar
+              systems={gridSystems}
+              tags={allTags}
               state={sortFilter}
-              onChange={updateSortFilter}
-              sortOptions={[
-                { value: 'name', label: t('sortFilter.sortName') },
-                { value: 'book_count', label: t('sortFilter.sortBookCount') },
-                { value: 'page_count', label: t('sortFilter.sortPageCount') },
-                { value: 'year', label: t('sortFilter.sortYear') },
-              ]}
-              selectFilters={[
-                {
-                  key: 'genre',
-                  label: t('sortFilter.filterGenre'),
-                  allLabel: t('sortFilter.allGenres'),
-                  options: genreOptions,
-                },
-                {
-                  key: 'family',
-                  label: t('sortFilter.filterFamily'),
-                  allLabel: t('sortFilter.allFamilies'),
-                  options: familyOptions,
-                },
-                ...(parentSystemOptions.length
-                  ? [
-                      {
-                        key: 'parent_system',
-                        label: t('sortFilter.filterParentSystem'),
-                        allLabel: t('sortFilter.allParentSystems'),
-                        options: parentSystemOptions,
-                      },
-                    ]
-                  : []),
-                {
-                  key: 'dice',
-                  label: t('sortFilter.filterDice'),
-                  allLabel: t('sortFilter.allDice'),
-                  options: diceOptions,
-                },
-              ]}
-              queryFilters={[
-                {
-                  key: 'tags',
-                  label: t('sortFilter.filterTags'),
-                  emptyLabel: t('sortFilter.noTags'),
-                  options: tagOptions,
-                },
-              ]}
-              toggleFilters={[
-                {
-                  key: 'favorites',
-                  label: t('sortFilter.filterFavorites'),
-                  boolean: true,
-                },
-                { key: 'explicit', label: t('sortFilter.filterExplicit') },
-              ]}
-              saved={savedFilters}
-              onSavePreset={handleSavePreset}
-              onSetDefault={setPresetDefault}
-              onDeletePreset={removePreset}
+              onChange={setSortFilter}
+              saved={systemFilters}
+              bulk={bulk}
+              canEdit={canEdit}
+              viewMode={viewMode}
+              onCycleViewMode={cycleViewMode}
             />
 
             {normalSystems.length > 0 ? (

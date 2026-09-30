@@ -164,6 +164,7 @@
     "subtitle_one": "{{count}} system in this collection",
     "subtitle_other": "{{count}} systems in this collection",
     "empty": "No systems found in this collection yet.",
+    "noMatch": "No systems in this collection match the current filters.",
     "count_one": "{{count}} system",
     "count_other": "{{count}} systems"
   },

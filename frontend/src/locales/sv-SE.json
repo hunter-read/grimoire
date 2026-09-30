@@ -164,6 +164,7 @@
     "subtitle_one": "{{count}} system i den här samlingen",
     "subtitle_other": "{{count}} system i den här samlingen",
     "empty": "Inga system hittades i den här samlingen än.",
+    "noMatch": "Inga system i den här samlingen matchar de aktuella filtren.",
     "count_one": "{{count}} system",
     "count_other": "{{count}} system"
   },

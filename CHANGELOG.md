@@ -24,6 +24,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Rescanning a single book whose file was replaced now records the new file's size, instead of keeping the old one until the next library rescan
 - The back button in a container nested inside another container returns to the parent container, instead of the top of the library
+- Collections that hold other systems, such as One Page RPGs, have the library's search, sort, filters, saved presets and multi-select for the systems inside them
 
 ### Security
 

@@ -983,6 +983,28 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     expect(link).toHaveAttribute('href', '/library/system/c1')
   })
 
+  // Issue #500: the container grid carries the library toolbar, and a bulk tag
+  // lands on the children shown without a refetch.
+  it('bulk tags container children in place', async () => {
+    api.get.mockResolvedValue(makeContainer())
+    bulk.addTags.mockResolvedValue({ tags: { c1: ['fresh'] } })
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+    await userEvent.click(screen.getByText('Honey Heist'))
+    await userEvent.click(screen.getByText('bulk-apply-tags'))
+
+    await waitFor(() => expect(bulk.addTags).toHaveBeenCalledWith('system', ['c1'], ['fresh']))
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /fresh/i })).toHaveAttribute(
+        'href',
+        expect.stringContaining('tag=fresh')
+      )
+    )
+  })
+
   it('navigates back to the library from a container', async () => {
     api.get.mockResolvedValue(makeContainer())
     renderView()
