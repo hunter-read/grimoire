@@ -62,9 +62,30 @@ def hash_file(
     caller has no digest and must leave the stored hash alone rather than record
     a wrong one.
     """
+    hashed = hash_file_signature(path, should_stop=should_stop, chunk_size=chunk_size)
+    return hashed[0] if hashed is not None else None
+
+
+def hash_file_signature(
+    path: str,
+    should_stop: Optional[Callable[[], bool]] = None,
+    chunk_size: int = _CHUNK_SIZE,
+) -> Optional[tuple[str, float, int]]:
+    """Hash ``path`` and return ``(digest, mtime, size)`` of the bytes actually read.
+
+    Same contract as ``hash_file`` (None on I/O error or cancellation), but the
+    signature comes from the open descriptor rather than a separate ``stat`` of
+    the path taken beforehand. That separate stat can describe a different file
+    than the one hashed: a file replaced in between, or a network/FUSE mount
+    still serving the replaced file's cached attributes while ``open`` already
+    sees the new bytes (issue #496). ``size`` is the byte count hashed, so it
+    always matches the digest stored beside it.
+    """
     digest = hashlib.sha256()
+    size = 0
     try:
         with open(path, "rb") as f:
+            mtime = os.fstat(f.fileno()).st_mtime
             chunks = 0
             while True:
                 if should_stop and chunks % _STOP_CHECK_INTERVAL == 0 and should_stop():
@@ -74,11 +95,12 @@ def hash_file(
                 if not block:
                     break
                 digest.update(block)
+                size += len(block)
                 chunks += 1
     except OSError as e:
         logger.warning(f"Cannot hash file: {path} ({e})")
         return None
-    return digest.hexdigest()
+    return digest.hexdigest(), mtime, size
 
 
 def signature_matches(record: Any, mtime: float, size: int) -> bool:

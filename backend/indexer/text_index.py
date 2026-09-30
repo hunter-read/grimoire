@@ -33,7 +33,7 @@ from ._subprocess import (
 from .categories import slugify
 from .constants import _DB_TIMEOUT
 from .formats import TEXT_MIMES, can_index
-from .hashing import apply_signature, file_signature, hash_file
+from .hashing import apply_signature, file_signature, hash_file_signature
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -230,11 +230,17 @@ def reindex_single_book(
     invalidate_book_content(book.id, book.filepath, db=session)
 
     # Record the current contents so a later library scan doesn't see this file as
-    # changed all over again — and so a move of it can be recognised.
-    signature = file_signature(book.filepath)
-    if signature is not None:
-        mtime, size = signature
-        apply_signature(book, mtime, size, hash_file(book.filepath, should_stop=should_stop))
+    # changed all over again — and so a move of it can be recognised. The size and
+    # mtime come from the bytes hashed, not a prior stat that a network mount may
+    # still answer with the replaced file's cached attributes (issue #496).
+    hashed = hash_file_signature(book.filepath, should_stop=should_stop)
+    if hashed is not None:
+        content_hash, mtime, size = hashed
+        apply_signature(book, mtime, size, content_hash)
+    else:
+        signature = file_signature(book.filepath)
+        if signature is not None:
+            apply_signature(book, signature[0], signature[1], None)
 
     # Refresh page count — the file may have gained or lost pages since last scan.
     try:

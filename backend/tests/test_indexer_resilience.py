@@ -1038,6 +1038,51 @@ class TestReindexSingleBook:
         # only the fresh row remains; the stale one was deleted
         assert self._search_count(book.id) == 1
 
+    def _reindex_text_book(self, book_id: str) -> Book:
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book_id).first()
+            with patch.object(indexer, "_book_page_count", return_value=5), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer,
+                "extract_text_isolated",
+                return_value=([{"page": 1, "content": "fresh text"}], False),
+            ):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            db.expunge(book)
+            return book
+        finally:
+            db.close()
+
+    def test_replaced_file_refreshes_size(self, tmp_path):
+        """Issue #496: a file replaced in place gets its new size, even when the
+        path's ``stat`` still reports the replaced file's cached attributes."""
+        f = tmp_path / "book.pdf"
+        f.write_bytes(b"n" * 2048)
+        book = self._seed_book(
+            filepath=str(f), file_size=3521572, file_mtime=1.0, content_hash="old"
+        )
+        with patch(
+            "backend.indexer.text_index.file_signature", return_value=(1.0, 3521572)
+        ):
+            book = self._reindex_text_book(book.id)
+        assert book.file_size == 2048
+        assert book.file_mtime == os.stat(f).st_mtime
+        assert book.content_hash == indexer.hash_file(str(f))
+
+    def test_unhashable_file_keeps_hash_but_refreshes_stat(self, tmp_path):
+        """If hashing fails, the stat signature is still recorded and the stored
+        digest is left alone rather than nulled."""
+        f = tmp_path / "book.pdf"
+        f.write_bytes(b"n" * 100)
+        book = self._seed_book(filepath=str(f), file_size=1, content_hash="old")
+        with patch("backend.indexer.text_index.hash_file_signature", return_value=None):
+            book = self._reindex_text_book(book.id)
+        assert book.file_size == 100
+        assert book.content_hash == "old"
+
     def test_image_only_book_requeued_for_ocr(self):
         """A PDF that extracts no text is left ocr_pending for the OCR queue."""
         book = self._seed_book(index_error="ocr")

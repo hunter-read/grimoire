@@ -115,6 +115,7 @@ from .hashing import (  # noqa: E402,F401
     changed_content,
     file_signature,
     hash_file,
+    hash_file_signature,
     signature_matches,
 )
 

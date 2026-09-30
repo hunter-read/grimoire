@@ -112,6 +112,41 @@ class TestHashFile:
         assert hashing.file_signature("/nonexistent/nope.bin") is None
 
 
+class TestHashFileSignature:
+    """hash_file_signature — the digest plus the signature of the bytes it read."""
+
+    def test_returns_digest_mtime_and_bytes_read(self):
+        tmp, lib = _mk_lib()
+        f = lib / "a.bin"
+        f.write_bytes(b"abcdefghij" * 50)
+        digest, mtime, size = hashing.hash_file_signature(str(f), chunk_size=7)
+        assert digest == hashing.hash_file(str(f))
+        assert size == 500
+        assert mtime == os.stat(f).st_mtime
+
+    def test_size_ignores_a_stale_path_stat(self):
+        """A mount answering ``stat`` from cached attributes must not leak into the size.
+
+        Issue #496: the replaced file's old size was stored beside the new digest.
+        """
+        tmp, lib = _mk_lib()
+        f = lib / "a.bin"
+        f.write_bytes(b"new bytes")
+        stale = os.stat_result((0o100644, 0, 0, 1, 0, 0, 3521572, 0, 1.0, 1.0))
+        with patch("backend.indexer.hashing.os.stat", return_value=stale):
+            _, _, size = hashing.hash_file_signature(str(f))
+        assert size == len(b"new bytes")
+
+    def test_returns_none_for_unreadable_file(self):
+        assert hashing.hash_file_signature("/nonexistent/nope.bin") is None
+
+    def test_returns_none_when_cancelled(self):
+        tmp, lib = _mk_lib()
+        f = lib / "big.bin"
+        f.write_bytes(b"x" * 4096)
+        assert hashing.hash_file_signature(str(f), should_stop=lambda: True, chunk_size=8) is None
+
+
 class TestBackfillIsNotAChange:
     """A row with no stored hash must not be treated as replaced.
 
