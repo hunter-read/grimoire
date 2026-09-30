@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useRef } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import BookActionsMenu from './BookActionsMenu'
@@ -28,6 +29,15 @@ vi.mock('../../context/UISettingsContext', () => ({
   useUISettings: () => ({
     hide_campaigns: mockHideCampaigns,
     library_writable: mockLibraryWritable,
+  }),
+}))
+
+let mockFavorite = false
+const mockToggleFavorite = vi.fn()
+vi.mock('../../context/FavoritesContext', () => ({
+  useFavorites: () => ({
+    isFavorite: () => mockFavorite,
+    toggleFavorite: (...args) => mockToggleFavorite(...args),
   }),
 }))
 
@@ -70,6 +80,43 @@ describe('BookActionsMenu', () => {
     mockRole = 'gm'
     mockGetBookPrefs.mockReturnValue({})
     mockSaveBookPrefs.mockClear()
+    mockFavorite = false
+    mockToggleFavorite.mockClear()
+  })
+
+  describe('favorite', () => {
+    const item = () => screen.getByTestId('book-toggle-favorite')
+    const heart = () => item().querySelector('svg')
+
+    it('offers to add a book that is not a favorite, with an empty heart', () => {
+      renderMenu()
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      expect(item()).toHaveTextContent('common.addToFavorites')
+      expect(heart()).toHaveAttribute('fill', 'none')
+    })
+
+    it('offers to remove a favorite, with a filled heart', () => {
+      mockFavorite = true
+      renderMenu()
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      expect(item()).toHaveTextContent('common.removeFromFavorites')
+      expect(heart()).toHaveAttribute('fill', 'var(--gold)')
+    })
+
+    it('toggles this book and closes the menu', () => {
+      renderMenu({ id: 'b5' })
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(item())
+      expect(mockToggleFavorite).toHaveBeenCalledWith('book', 'b5')
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('is offered to a player too', () => {
+      mockRole = 'player'
+      renderMenu({}, { onEdit: undefined })
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      expect(item()).toBeInTheDocument()
+    })
   })
 
   it('is collapsed until the trigger is clicked', () => {
@@ -372,6 +419,94 @@ const renderVersionMenu = (book) =>
       <BookActionsMenu book={makeBook(book)} onEdit={() => {}} />
     </MemoryRouter>
   )
+
+// Issue #487: right-clicking the book opens the same menu the kebab does. The
+// kebab is kept; this is a second way in.
+describe('BookActionsMenu right-click', () => {
+  function Row(props) {
+    const ref = useRef(null)
+    return (
+      <div ref={ref} data-testid="row">
+        <span>Player's Handbook</span>
+        <BookActionsMenu book={makeBook()} onEdit={() => {}} contextTarget={ref} {...props} />
+      </div>
+    )
+  }
+
+  beforeEach(() => {
+    mockCampaignList.mockResolvedValue([])
+    mockHideCampaigns = false
+    mockGetBookPrefs.mockReturnValue({})
+  })
+
+  it('opens the menu in place of the browser menu', () => {
+    render(<Row />)
+    // fireEvent returns false when the default (the native menu) was prevented.
+    expect(fireEvent.contextMenu(screen.getByText("Player's Handbook"))).toBe(false)
+    expect(screen.getByRole('menuitem', { name: 'bookActions.edit' })).toBeInTheDocument()
+  })
+
+  it('offers the same items as the kebab', () => {
+    render(<Row />)
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    const fromKebab = screen.getAllByRole('menuitem').map((el) => el.textContent)
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+    fireEvent.contextMenu(screen.getByTestId('row'))
+    expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual(fromKebab)
+  })
+
+  it('leaves shift+right-click to the browser', () => {
+    render(<Row />)
+    expect(fireEvent.contextMenu(screen.getByTestId('row'), { shiftKey: true })).toBe(true)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('closes on a click outside, like the kebab menu', () => {
+    render(<Row />)
+    fireEvent.contextMenu(screen.getByTestId('row'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('is closed by the kebab when it is already open', () => {
+    render(<Row />)
+    fireEvent.contextMenu(screen.getByTestId('row'))
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('does not hijack right-clicks inside the menu', () => {
+    // The menu is portalled out of the row, so it is not the row's DOM child
+    // even though React bubbles its events through the row.
+    render(<Row />)
+    fireEvent.contextMenu(screen.getByTestId('row'))
+    expect(fireEvent.contextMenu(screen.getByRole('menu'))).toBe(true)
+  })
+
+  it('does not hijack right-clicks inside a modal the menu opened', async () => {
+    // A text field in the campaign picker should keep the browser's
+    // cut / copy / paste menu.
+    render(<Row />)
+    fireEvent.contextMenu(screen.getByTestId('row'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(fireEvent.contextMenu(dialog)).toBe(true)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('does nothing without a context target', () => {
+    const { container } = render(
+      <div>
+        <BookActionsMenu book={makeBook()} onEdit={() => {}} />
+      </div>
+    )
+    expect(fireEvent.contextMenu(container.firstChild)).toBe(true)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
 
 describe('BookActionsMenu version actions', () => {
   beforeEach(() => {

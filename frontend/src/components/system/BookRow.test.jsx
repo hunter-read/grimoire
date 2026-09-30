@@ -447,6 +447,40 @@ describe('BookRow', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
+  // Issue #487: a right-click anywhere on the book opens its actions menu.
+  it.each([
+    ['list', {}],
+    ['card', { card: true }],
+    ['compact', { compact: true }],
+  ])('opens the actions menu on right-click in the %s layout', (_name, layout) => {
+    const onEdit = vi.fn()
+    render(<BookRow book={makeBook()} onEdit={onEdit} {...layout} />)
+    fireEvent.contextMenu(screen.getByRole('link', { name: /open player's handbook/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit/i }))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [false, 'add to favorites'],
+    [true, 'remove from favorites'],
+  ])(
+    'offers a favorite toggle on right-click that matches the row (favorite: %s)',
+    (fav, label) => {
+      const toggleFavorite = vi.fn()
+      FavCtx.useFavorites.mockReturnValue({ isFavorite: () => fav, toggleFavorite })
+      render(<BookRow book={makeBook()} />)
+      fireEvent.contextMenu(screen.getByRole('link', { name: /open player's handbook/i }))
+      fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(label, 'i') }))
+      expect(toggleFavorite).toHaveBeenCalledWith('book', 'book-1')
+    }
+  )
+
+  it('keeps the browser menu in bulk mode, which has no actions menu', () => {
+    render(<BookRow book={makeBook()} bulkMode onToggle={() => {}} />)
+    expect(fireEvent.contextMenu(screen.getByText("Player's Handbook"))).toBe(true)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
   it('renders book tags in the list layout', () => {
     render(<BookRow book={makeBook({ tags: ['official', 'errata'] })} />)
     expect(screen.getByText('Official')).toBeInTheDocument()

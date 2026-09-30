@@ -149,6 +149,10 @@ file manager. They sit at the bottom of the menu behind a divider, apart from th
 everyday items, and behave exactly as they do in the file manager: the same
 metadata-preserving move, the same typed-name guard on a folder with content.
 
+In the library views, right-clicking anywhere on a book opens the same menu at
+the cursor - a bigger target than the ⋮ button. Hold **Shift** while
+right-clicking to get the browser's own menu (open in new tab, copy link) instead.
+
 Moving from here opens a small folder picker rather than asking you to drag - the
 file manager can show both ends of a move at once, and a book's own page cannot.
 

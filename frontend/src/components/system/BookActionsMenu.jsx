@@ -13,12 +13,14 @@ import {
   LuFilePen,
   LuTrash2,
   LuBookmarkX,
+  LuHeart,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
+import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
-import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useAnchoredMenu, { pointFromEvent } from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
 import VariantMenuItems from './VariantMenuItems'
 import DownloadVariantItems from './DownloadVariantItems'
@@ -29,8 +31,11 @@ const MENU_WIDTH = 220
  * Consolidated per-book actions dropdown (kebab): View details, Edit, Add to
  * campaign, Download, and a context-aware re-index item. Details, Add to
  * campaign, and Download are available to every user; Edit and re-index are
- * gm/admin only. Favorite is deliberately left out — it stays a standalone
- * always-visible control on the row.
+ * gm/admin only.
+ *
+ * Favorite is here too, for the right-click route below, but the row keeps its
+ * always-visible heart as well. The item reads "Add to" or "Remove from
+ * favorites" and fills its heart to match the book's current state.
  *
  * "Reset reading progress" clears this book's saved page. Reading progress is
  * per-user browser state, so — unlike the metadata editor it used to live in —
@@ -62,10 +67,27 @@ const MENU_WIDTH = 220
  * book (re-OCR, file actions and reset-progress all come and go), so a book near
  * the bottom of a long system page used to open a menu whose lower items ran off
  * the window — see issue #465.
+ *
+ * Right-clicking anywhere on the book (`contextTarget`, the row or card element)
+ * opens this same menu at the cursor, as a bigger target than the kebab (issue
+ * #487). The kebab stays; this is only a second way in. It goes through the same
+ * `useAnchoredMenu` placement, so a right-click near the bottom or top of the
+ * window flips or clamps the menu onto the screen just as the kebab does.
+ * Shift+right-click is left alone, so the browser's own menu — open in new tab,
+ * copy link — is still one modifier away.
  */
-export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFileChanged }) {
+export default function BookActionsMenu({
+  book,
+  onEdit,
+  onDetails,
+  editing,
+  onFileChanged,
+  contextTarget,
+}) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
+  const { isFavorite, toggleFavorite } = useFavorites()
+  const fav = isFavorite('book', book.id)
   const [open, setOpen] = useState(false)
   const [addToCampaign, setAddToCampaign] = useState(false)
   const [showDpi, setShowDpi] = useState(false)
@@ -74,6 +96,8 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
   // Read once per open so the item doesn't vanish mid-interaction; `reset`
   // keeps it visible (as a confirmation) after the page is cleared.
   const [progressReset, setProgressReset] = useState(false)
+  // Where a right-click opened the menu; null when it hangs off the kebab.
+  const [at, setAt] = useState(null)
   const hasProgress = open && (!!getBookPrefs(book.id).page || progressReset)
   const {
     triggerRef,
@@ -82,6 +106,7 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
     place,
   } = useAnchoredMenu(open, {
     width: MENU_WIDTH,
+    at,
   })
   const fileActions = useFileActions({ onChanged: onFileChanged })
   // A book only has file actions once we know where its file lives; rows served
@@ -109,6 +134,27 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
   useEffect(() => {
     if (open) place()
   }, [open, showDpi, state, hasProgress, place])
+
+  // A native listener rather than an `onContextMenu` prop on the row: React
+  // bubbles events out of portals along the component tree, so a prop would
+  // also catch right-clicks inside this menu and the modals it opens — hijacking
+  // the browser menu in, say, the campaign picker's search box. A DOM listener
+  // only hears the row's real descendants.
+  useEffect(() => {
+    const el = contextTarget?.current
+    if (!el) return
+    const onContext = (e) => {
+      if (e.shiftKey) return
+      e.preventDefault()
+      setShowDpi(false)
+      setState('idle')
+      setProgressReset(false)
+      setAt(pointFromEvent(e))
+      setOpen(true)
+    }
+    el.addEventListener('contextmenu', onContext)
+    return () => el.removeEventListener('contextmenu', onContext)
+  }, [contextTarget])
 
   useEffect(() => {
     if (!open) return
@@ -173,6 +219,7 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
         onClick={(e) => {
           e.stopPropagation()
           setOpen((o) => !o)
+          setAt(null)
           setShowDpi(false)
           setState('idle')
           setProgressReset(false)
@@ -244,6 +291,25 @@ export default function BookActionsMenu({ book, onEdit, onDetails, editing, onFi
                 {t('bookActions.edit')}
               </button>
             )}
+
+            <button
+              role="menuitem"
+              data-testid="book-toggle-favorite"
+              onClick={(e) => {
+                e.stopPropagation()
+                close()
+                toggleFavorite('book', book.id)
+              }}
+              style={itemStyle}
+            >
+              <LuHeart
+                size={15}
+                aria-hidden="true"
+                color={fav ? 'var(--gold)' : 'currentColor'}
+                fill={fav ? 'var(--gold)' : 'none'}
+              />
+              {fav ? t('common.removeFromFavorites') : t('common.addToFavorites')}
+            </button>
 
             {!hide_campaigns && (
               <button

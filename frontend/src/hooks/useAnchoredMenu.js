@@ -37,8 +37,16 @@ const MARGIN = 8
  * @param {object}  [options.anchorRef]  Anchor owned by the caller, for the
  *   components whose trigger is rendered somewhere else; defaults to the
  *   `triggerRef` returned here.
+ * @param {object}  [options.at]  Open at a point instead of beside the trigger —
+ *   a right-click. Build it with `pointFromEvent`. The panel then opens at the
+ *   cursor the way a native context menu does (right of and below it, flipping
+ *   left or above when that would overflow) under the same clamping rules as a
+ *   trigger-anchored panel. `null` goes back to the trigger.
  */
-export default function useAnchoredMenu(open, { width, align = 'right', gap = 4, anchorRef } = {}) {
+export default function useAnchoredMenu(
+  open,
+  { width, align = 'right', gap = 4, anchorRef, at = null } = {}
+) {
   const ownTriggerRef = useRef(null)
   const triggerRef = anchorRef ?? ownTriggerRef
   // Held in a ref so `place` keeps a stable identity: a caller that passes a
@@ -46,6 +54,8 @@ export default function useAnchoredMenu(open, { width, align = 'right', gap = 4,
   // re-run the layout effect, and spin.
   const anchor = useRef(triggerRef)
   anchor.current = triggerRef
+  const point = useRef(at)
+  point.current = at
   const panelRef = useRef(null)
   // null until measured; the panel stays invisible (but laid out, so it has a
   // box to read) for that first pass.
@@ -53,11 +63,15 @@ export default function useAnchoredMenu(open, { width, align = 'right', gap = 4,
   const [maxHeight, setMaxHeight] = useState(null)
 
   const place = useCallback(() => {
-    const trigger = anchor.current.current
+    const pt = point.current
+    const trigger = pt ? pt.element : anchor.current.current
     const panel = panelRef.current
     if (!trigger || !panel) return
 
-    const r = trigger.getBoundingClientRect()
+    // A point is treated as a zero-sized trigger with no gap, so it goes through
+    // exactly the same below / above / clamp decision as a real one.
+    const r = pt ? pointRect(pt) : trigger.getBoundingClientRect()
+    const space = pt ? 0 : gap
     const box = panel.getBoundingClientRect()
     const panelWidth = width ?? box.width
     // The panel may already be clamped to a scrolling maxHeight from an earlier
@@ -73,15 +87,21 @@ export default function useAnchoredMenu(open, { width, align = 'right', gap = 4,
       // Taller than the window: it has to scroll, so anchor it at the top.
       top = MARGIN
       limit = room
-    } else if (r.bottom + gap + height + MARGIN <= vh) {
-      top = r.bottom + gap // fits below the trigger, the normal case
-    } else if (r.top - gap - height - MARGIN >= 0) {
-      top = r.top - gap - height // flip above the trigger
+    } else if (r.bottom + space + height + MARGIN <= vh) {
+      top = r.bottom + space // fits below the trigger, the normal case
+    } else if (r.top - space - height - MARGIN >= 0) {
+      top = r.top - space - height // flip above the trigger
     } else {
       top = vh - height - MARGIN // clamp to the bottom edge
     }
 
-    const preferred = align === 'left' ? r.left : r.right - panelWidth
+    let preferred
+    if (pt) {
+      // Right of the cursor, or flipped to its left near the right-hand edge.
+      preferred = r.left + panelWidth + MARGIN <= vw ? r.left : r.left - panelWidth
+    } else {
+      preferred = align === 'left' ? r.left : r.right - panelWidth
+    }
     const left = Math.max(MARGIN, Math.min(preferred, vw - MARGIN - panelWidth))
 
     // Scroll fires constantly; skip the re-render when the placement is
@@ -90,6 +110,8 @@ export default function useAnchoredMenu(open, { width, align = 'right', gap = 4,
     setMaxHeight(limit)
   }, [width, align, gap])
 
+  // Re-runs on a new point too, so a second right-click while the panel is open
+  // moves it rather than leaving it where the first one put it.
   useLayoutEffect(() => {
     if (!open) {
       // Drop the stale placement so the next open measures from scratch rather
@@ -106,7 +128,7 @@ export default function useAnchoredMenu(open, { width, align = 'right', gap = 4,
       window.removeEventListener('resize', onReposition)
       window.removeEventListener('scroll', onReposition, true)
     }
-  }, [open, place])
+  }, [open, place, at])
 
   const style = {
     position: 'fixed',
@@ -120,4 +142,33 @@ export default function useAnchoredMenu(open, { width, align = 'right', gap = 4,
   }
 
   return { triggerRef, panelRef, style, place }
+}
+
+/**
+ * The point a `contextmenu` event opened at, for `useAnchoredMenu`'s `at`.
+ *
+ * Stored as an offset into the element that caught the event rather than as raw
+ * viewport coordinates, so an open menu follows its row when the page scrolls,
+ * the same way a trigger-anchored one follows its button.
+ *
+ * Returns null when the point falls outside the element. That is a keyboard
+ * context menu (the Menu key, Shift+F10): browsers report coordinates for those
+ * that need not be anywhere near the focused row, so the caller should anchor
+ * to its trigger instead.
+ */
+export function pointFromEvent(e) {
+  const element = e.currentTarget
+  const r = element.getBoundingClientRect()
+  const dx = e.clientX - r.left
+  const dy = e.clientY - r.top
+  if (dx < 0 || dy < 0 || dx > r.width || dy > r.height) return null
+  return { element, dx, dy }
+}
+
+// The zero-sized box a stored point currently sits at.
+function pointRect({ element, dx, dy }) {
+  const r = element.getBoundingClientRect()
+  const x = r.left + dx
+  const y = r.top + dy
+  return { top: y, bottom: y, left: x, right: x }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useRef } from 'react'
-import { render, screen, act } from '@testing-library/react'
-import useAnchoredMenu from './useAnchoredMenu'
+import { useRef, useState } from 'react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
+import useAnchoredMenu, { pointFromEvent } from './useAnchoredMenu'
 
 // jsdom gives every element a zero-sized box, so the measuring layout effect has
 // nothing to work with unless the geometry is stubbed. The trigger and the panel
@@ -218,5 +218,126 @@ describe('useAnchoredMenu', () => {
     })
     render(<Harness width={220} gap={6} />)
     expect(panel()).toHaveStyle({ top: '126px' })
+  })
+
+  // A right-click (issue #487): the panel opens at the cursor rather than beside
+  // a trigger, under the same keep-it-on-screen rules. The "trigger" box here is
+  // the row that was right-clicked.
+  describe('at a point', () => {
+    function PointHarness() {
+      const [at, setAt] = useState(null)
+      const { panelRef, style } = useAnchoredMenu(at != null, { width: 220, at })
+      return (
+        <>
+          <div
+            data-role="trigger"
+            data-testid="row"
+            onContextMenu={(e) => setAt(pointFromEvent(e))}
+          />
+          {at && (
+            <div ref={panelRef} data-role="panel" data-testid="panel" style={style}>
+              menu
+            </div>
+          )}
+        </>
+      )
+    }
+
+    const row = { top: 100, left: 100, width: 800, height: 60 }
+    const rightClick = (clientX, clientY) =>
+      fireEvent.contextMenu(screen.getByTestId('row'), { clientX, clientY })
+
+    it('opens below and to the right of the cursor', () => {
+      mockGeometry({ trigger: row, panel: { width: 220, height: 300 } })
+      render(<PointHarness />)
+      rightClick(300, 130)
+      // No gap: the cursor sits on the menu's corner, like a native menu.
+      expect(panel()).toHaveStyle({ top: '130px', left: '300px' })
+    })
+
+    it('flips above the cursor near the bottom of the window', () => {
+      mockGeometry({
+        trigger: { ...row, top: 700 },
+        panel: { width: 220, height: 300 },
+      })
+      render(<PointHarness />)
+      rightClick(300, 730)
+      // 730 - 300: the menu's bottom edge meets the cursor.
+      expect(panel()).toHaveStyle({ top: '430px' })
+    })
+
+    it('clamps to the bottom edge when it fits neither below nor above the cursor', () => {
+      mockGeometry({ trigger: row, panel: { width: 220, height: 700 } })
+      render(<PointHarness />)
+      rightClick(300, 150)
+      // Below would run off the bottom and above off the top: clamp to the
+      // bottom edge, 800 - 700 - 8.
+      expect(panel()).toHaveStyle({ top: '92px' })
+    })
+
+    it('scrolls internally when taller than the whole viewport', () => {
+      mockGeometry({ trigger: row, panel: { width: 220, height: 900 } })
+      render(<PointHarness />)
+      rightClick(300, 130)
+      expect(panel()).toHaveStyle({ top: '8px', overflowY: 'auto', maxHeight: '784px' })
+    })
+
+    it('flips left of the cursor near the right-hand edge', () => {
+      mockGeometry({ trigger: row, panel: { width: 220, height: 300 } })
+      render(<PointHarness />)
+      rightClick(850, 130)
+      // 850 + 220 would pass the 1000px window, so the menu ends at the cursor.
+      expect(panel()).toHaveStyle({ left: '630px' })
+    })
+
+    it('clamps to the left margin when it fits neither side', () => {
+      window.innerWidth = 300
+      mockGeometry({ trigger: { ...row, left: 0, width: 300 }, panel: { width: 220, height: 300 } })
+      render(<PointHarness />)
+      rightClick(150, 130)
+      // Right overflows (150 + 220), left would be -70: pin to the margin.
+      expect(panel()).toHaveStyle({ left: '8px' })
+    })
+
+    it('follows the row when the page scrolls', () => {
+      mockGeometry({ trigger: row, panel: { width: 220, height: 300 } })
+      render(<PointHarness />)
+      rightClick(300, 130)
+      expect(panel()).toHaveStyle({ top: '130px' })
+
+      // The row scrolls up 50px; the menu keeps its spot on the row.
+      mockGeometry({ trigger: { ...row, top: 50 }, panel: { width: 220, height: 300 } })
+      act(() => {
+        window.dispatchEvent(new Event('scroll'))
+      })
+      expect(panel()).toHaveStyle({ top: '80px' })
+    })
+
+    it('moves to a second right-click while already open', () => {
+      mockGeometry({ trigger: row, panel: { width: 220, height: 300 } })
+      render(<PointHarness />)
+      rightClick(300, 130)
+      rightClick(500, 140)
+      expect(panel()).toHaveStyle({ top: '140px', left: '500px' })
+    })
+  })
+
+  describe('pointFromEvent', () => {
+    const eventAt = (clientX, clientY) => {
+      const element = document.createElement('div')
+      element.dataset.role = 'trigger'
+      return { currentTarget: element, clientX, clientY }
+    }
+
+    it('records the point as an offset into the element', () => {
+      mockGeometry({ trigger: { top: 100, left: 100, width: 800, height: 60 }, panel: {} })
+      const e = eventAt(300, 130)
+      expect(pointFromEvent(e)).toEqual({ element: e.currentTarget, dx: 200, dy: 30 })
+    })
+
+    it('is null for a point off the element, as a keyboard context menu can report', () => {
+      mockGeometry({ trigger: { top: 100, left: 100, width: 800, height: 60 }, panel: {} })
+      expect(pointFromEvent(eventAt(0, 0))).toBeNull()
+    })
   })
 })

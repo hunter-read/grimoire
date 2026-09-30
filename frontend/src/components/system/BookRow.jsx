@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck, LuInfo } from 'react-icons/lu'
@@ -19,6 +19,9 @@ import BookActionsMenu from './BookActionsMenu'
  *
  * A click opens the book, so when `onDetails` is passed its details get an
  * always-visible ⓘ button rather than living only in the ⋮ menu (issue #447).
+ *
+ * Right-clicking the row or card opens that same ⋮ menu at the cursor (issue
+ * #487); `rowRef` is what the menu listens on.
  */
 export default function BookRow({
   book,
@@ -34,6 +37,7 @@ export default function BookRow({
   const { t } = useTranslation()
   const location = useLocation()
   const [hovered, setHovered] = useState(false)
+  const rowRef = useRef(null)
   const { isFavorite, toggleFavorite } = useFavorites()
   const isArchive = isArchiveBook(book)
   const CatIcon = isArchive ? LuFileArchive : CATEGORY_ICONS[book.category] || LuFileText
@@ -157,7 +161,13 @@ export default function BookRow({
         />
       </button>
       {detailsButton}
-      <BookActionsMenu book={book} onEdit={onEdit} onDetails={onDetails} editing={editing} />
+      <BookActionsMenu
+        book={book}
+        onEdit={onEdit}
+        onDetails={onDetails}
+        editing={editing}
+        contextTarget={rowRef}
+      />
     </div>
   )
 
@@ -166,6 +176,7 @@ export default function BookRow({
     const thumbHeight = compact ? 110 : 160
     return (
       <div
+        ref={rowRef}
         {...buttonProps}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -290,6 +301,7 @@ export default function BookRow({
                   onEdit={onEdit}
                   onDetails={onDetails}
                   editing={editing}
+                  contextTarget={rowRef}
                 />
               </div>
             )}
@@ -317,6 +329,7 @@ export default function BookRow({
   // ----- List layout (default) -----
   return (
     <div
+      ref={rowRef}
       {...buttonProps}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
