@@ -23,6 +23,7 @@ export default function SystemContainerView({
   system,
   viewMode,
   canEdit = false,
+  backLabel,
   onBack,
   onCoverChange,
   headerExtra,
@@ -53,7 +54,7 @@ export default function SystemContainerView({
         }}
       >
         <LuArrowLeft size={16} />
-        {t('systemDetail.backToLibrary')}
+        {backLabel || t('systemDetail.backToLibrary')}
       </button>
 
       <div

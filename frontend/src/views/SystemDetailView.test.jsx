@@ -991,6 +991,28 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/library', { state: { restoreView: true } })
   })
 
+  // Issue #498: a container inside another container goes back to its parent,
+  // not the library root.
+  it('navigates back to the parent from a nested container', async () => {
+    api.get.mockResolvedValue(
+      makeContainer({
+        name: '5e',
+        is_one_page: false,
+        container_kind: 'parent',
+        parent_id: 'container-dnd',
+        parent_name: 'Dungeons & Dragons',
+        parent_is_one_page: false,
+      })
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+    expect(screen.queryByText('Back to Library')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByText('Back to Dungeons & Dragons'))
+    expect(mockNavigate).toHaveBeenCalledWith('/library/system/container-dnd', {
+      state: { restoreView: true },
+    })
+  })
+
   it('counts the nested systems rather than books', async () => {
     api.get.mockResolvedValue(makeContainer())
     renderView()

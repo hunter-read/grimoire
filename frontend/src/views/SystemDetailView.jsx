@@ -185,6 +185,22 @@ export default function SystemDetailView() {
       </div>
     )
 
+  // A system nested in a container (issues #261, #262) was reached *through* that
+  // container, so going "back" returns there rather than skipping to the library
+  // root. The same holds for a container nested in another container (issue #498).
+  // Container names may be raw folder slugs, hence the prettified label.
+  const backTarget = system.parent_id
+    ? {
+        to: `/library/system/${system.parent_id}`,
+        label: t('systemDetail.backTo', {
+          name: systemDisplayName({
+            name: system.parent_name || '',
+            is_one_page: system.parent_is_one_page,
+          }),
+        }),
+      }
+    : { to: '/library', label: t('systemDetail.backToLibrary') }
+
   // Container folders hold systems, not categories (issues #261, #262), so they
   // render their children as a system grid instead of a book list. A container
   // with no children yet falls through to the normal view rather than showing an
@@ -200,7 +216,8 @@ export default function SystemDetailView() {
           system={system}
           viewMode={systemViewMode}
           canEdit={isEditor}
-          onBack={() => navigate('/library', { state: { restoreView: true } })}
+          backLabel={backTarget.label}
+          onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
           onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
           headerExtra={<ViewModeToggle mode={systemViewMode} onCycle={cycleSystemViewMode} />}
         />
@@ -212,21 +229,6 @@ export default function SystemDetailView() {
   // game systems, so they don't expose editable system metadata.
   const isSpecialCollection = system.is_system_agnostic || system.is_one_page
   const canEditSystemMeta = isEditor && !isSpecialCollection
-
-  // A system nested in a container (issues #261, #262) was reached *through* that
-  // container, so going "back" returns there rather than skipping to the library
-  // root. Container names may be raw folder slugs, hence the prettified label.
-  const backTarget = system.parent_id
-    ? {
-        to: `/library/system/${system.parent_id}`,
-        label: t('systemDetail.backTo', {
-          name: systemDisplayName({
-            name: system.parent_name || '',
-            is_one_page: system.parent_is_one_page,
-          }),
-        }),
-      }
-    : { to: '/library', label: t('systemDetail.backToLibrary') }
 
   const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
 

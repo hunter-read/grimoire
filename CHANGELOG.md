@@ -20,6 +20,11 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - The stats API key moved to Settings → Account → API Keys. Existing keys keep working, limited to library stats as before
 
+### Fixed
+
+- Rescanning a single book whose file was replaced now records the new file's size, instead of keeping the old one until the next library rescan
+- The back button in a container nested inside another container returns to the parent container, instead of the top of the library
+
 ### Security
 
 - API keys are shown once and stored hashed, can expire, and record when they were last used

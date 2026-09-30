@@ -96,6 +96,18 @@ describe('SystemContainerView', () => {
     expect(onBack).toHaveBeenCalled()
   })
 
+  it('labels the back button with the given target', () => {
+    render(
+      <SystemContainerView
+        system={makeContainer()}
+        backLabel="Back to Dungeons & Dragons"
+        onBack={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Back to Dungeons & Dragons')).toBeInTheDocument()
+    expect(screen.queryByText('systemDetail.backToLibrary')).not.toBeInTheDocument()
+  })
+
   it('shows an empty state when the container has no children', () => {
     render(<SystemContainerView system={makeContainer({ children: [] })} onBack={vi.fn()} />)
     expect(screen.getByText('systemContainer.empty')).toBeInTheDocument()
