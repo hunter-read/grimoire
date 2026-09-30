@@ -24,10 +24,23 @@ from .constants import (
     _COMIC_ARCHIVE_EXTS,
     _THUMBNAIL_TIMEOUT,
 )
+from .. import config
 from .formats import FITZ_EXTS, open_document
 from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 
 logger = logging.getLogger("grimoire.indexer")
+
+
+# Pillow refuses to decode an image above twice ``MAX_IMAGE_PIXELS`` as a
+# possible decompression bomb, a ceiling sized for untrusted web uploads. A
+# 60x60in battlemap scanned at 300 DPI is 324 MP and entirely legitimate, so
+# maps that size index with no thumbnail and only an error in the log.
+#
+# Applied only when the operator sets it: unset leaves Pillow's own default in
+# place, so this changes nothing for anyone who has not opted in. See
+# ``config.MAX_IMAGE_PIXELS`` for why it is off by default.
+if config.MAX_IMAGE_PIXELS:
+    Image.MAX_IMAGE_PIXELS = config.MAX_IMAGE_PIXELS
 
 
 def archive_ext(filename: str) -> str:
@@ -241,6 +254,17 @@ def generate_thumbnail(
         logger.error(f"Thumbnail generation timed out after {budget}s for {filepath}")
         return False
     if exc[0] is not None:
+        if isinstance(exc[0], Image.DecompressionBombError):
+            # Not a corrupt file: a legitimate image larger than Pillow's guard
+            # allows. Say so, and name the setting — a limit nobody knows to
+            # raise is indistinguishable from a thumbnail that simply failed.
+            current = config.MAX_IMAGE_PIXELS or "Pillow's default"
+            logger.error(
+                f"Thumbnail skipped for {filepath}: {exc[0]} "
+                f"This is the decompression-bomb guard, not a damaged file. "
+                f"Raise MAX_IMAGE_PIXELS (currently {current}) to index images this large."
+            )
+            return False
         logger.error(f"Thumbnail generation failed for {filepath}: {exc[0]}")
         return False
     return bool(result[0])

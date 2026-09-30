@@ -1,6 +1,7 @@
 """Tests for indexer resilience: fitz timeout, getsize guard, index_failed, scan_failed, and is_missing logic."""
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import tempfile
@@ -10,7 +11,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PIL import Image
 
+from backend import config
 from backend.config import SessionLocal
 from backend import indexer, pdf_worker
 from backend.indexer import _subprocess
@@ -1132,3 +1135,70 @@ class TestWorkerThreadingAndOrphans:
         proc = MagicMock(pid=4242)
         _subprocess._kill_worker(proc)
         proc.terminate.assert_called_once()
+
+
+class TestMaxImagePixelsConfig:
+    """`MAX_IMAGE_PIXELS` lets a library opt into decoding very large images.
+
+    A 60x60in battlemap scanned at 300 DPI is 18000x18000 = 324 MP, well past
+    Pillow's guard, so it indexes with no thumbnail and only an error in the
+    log. Unset leaves Pillow's own default alone, so nothing changes for anyone
+    who has not opted in.
+    """
+
+    def test_unset_means_do_not_touch_pillow(self, monkeypatch):
+        monkeypatch.delenv("MAX_IMAGE_PIXELS", raising=False)
+        assert config._read_max_image_pixels() == 0
+
+    def test_reads_env(self, monkeypatch):
+        monkeypatch.setenv("MAX_IMAGE_PIXELS", "400000000")
+        assert config._read_max_image_pixels() == 400_000_000
+
+    def test_floors_at_one_megapixel(self, monkeypatch):
+        # A stray small value would otherwise reject every thumbnail in the
+        # library, which is a worse failure than the one this setting fixes.
+        monkeypatch.setenv("MAX_IMAGE_PIXELS", "10")
+        assert config._read_max_image_pixels() == 1_000_000
+
+    def test_zero_and_negative_mean_unset(self, monkeypatch):
+        for raw in ("0", "-1"):
+            monkeypatch.setenv("MAX_IMAGE_PIXELS", raw)
+            assert config._read_max_image_pixels() == 0
+
+    def test_invalid_falls_back_to_unset(self, monkeypatch):
+        monkeypatch.setenv("MAX_IMAGE_PIXELS", "lots")
+        assert config._read_max_image_pixels() == 0
+
+
+class TestDecompressionBombMessage:
+    """A rejected oversized image must name the setting that would allow it.
+
+    #450 showed the cost of the opposite: the per-page OCR budget was already
+    tunable, and the reporter still lost 93% of a book's text because nothing
+    told them the limit had fired. A limit nobody knows to raise is
+    indistinguishable from a thumbnail that simply failed.
+    """
+
+    def test_names_the_setting_instead_of_looking_like_a_broken_file(
+        self, monkeypatch, tmp_path, caplog
+    ):
+        src = tmp_path / "huge.png"
+        Image.new("RGB", (40, 30), "red").save(src, "PNG")
+        # 1200 px is over twice a 1-pixel ceiling, so Pillow raises exactly as
+        # it does for a real battlemap - without needing a 324 MP fixture.
+        monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1)
+        with caplog.at_level(logging.ERROR, logger="grimoire.indexer"):
+            ok = indexer.generate_thumbnail(str(src), str(tmp_path / "out.webp"))
+        assert ok is False
+        assert "MAX_IMAGE_PIXELS" in caplog.text
+        assert "decompression-bomb guard" in caplog.text
+
+    def test_an_ordinary_failure_keeps_the_plain_message(
+        self, monkeypatch, tmp_path, caplog
+    ):
+        src = tmp_path / "not-an-image.png"
+        src.write_bytes(b"definitely not a png")
+        with caplog.at_level(logging.ERROR, logger="grimoire.indexer"):
+            assert indexer.generate_thumbnail(str(src), str(tmp_path / "out.webp")) is False
+        assert "Thumbnail generation failed" in caplog.text
+        assert "MAX_IMAGE_PIXELS" not in caplog.text

@@ -161,6 +161,40 @@ def _read_ocr_dpi() -> float:
 OCR_DPI = _read_ocr_dpi()
 
 
+#   MAX_IMAGE_PIXELS — ceiling for how large an image may be before Pillow
+#             refuses to decode it as a possible decompression bomb. Pillow
+#             warns above this and raises above twice it; its own default
+#             (~89 MP) is sized for untrusted web uploads.
+#
+#             A library is not a web form. A 60x60in battlemap scanned at
+#             300 DPI is 18000x18000 = 324 MP and entirely legitimate, and maps
+#             that size index with no thumbnail and only an error in the log.
+#             The decode is also far cheaper than the ceiling assumes, because
+#             ``Image.thumbnail`` calls ``draft`` and a JPEG is decoded at a
+#             reduced scale: a 324 MP map measures about 2s and 42 MB, not the
+#             ~1 GB a full decode would cost.
+#
+#             Unset (0) leaves Pillow's own default untouched, so nothing
+#             changes for anyone who does not set it. Set it only if you have
+#             images this large and trust their source: PNG gets no ``draft``
+#             benefit and would decode in full, and uploaded files reach the
+#             same thumbnail path.
+def _read_max_image_pixels() -> int:
+    """Pixel ceiling for thumbnail decoding, or 0 to leave Pillow's default.
+
+    Floored at 1 MP when set, so a stray small value cannot silently turn every
+    thumbnail in the library into a decompression-bomb error.
+    """
+    try:
+        value = int(os.environ.get("MAX_IMAGE_PIXELS", "0"))
+    except ValueError:
+        return 0
+    return 0 if value <= 0 else max(1_000_000, value)
+
+
+MAX_IMAGE_PIXELS = _read_max_image_pixels()
+
+
 #   OCR_PAGE_TIMEOUT — wall-clock budget for OCR'ing a single page, in seconds.
 #             A page that exceeds it is abandoned and the book continues to the
 #             next one, so a pathological page can't stall a book forever. The
