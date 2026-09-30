@@ -13,6 +13,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Personal API keys for scripts and tools such as Homepage or grimoire-cli: each acts as you, with its own No access / Read / Read and write level per area of the API, or one level for everything
 - Admins choose who may use API keys per user (Settings → Users, or the OIDC `apiKeys` permission; admins always may), see and revoke everyone's keys under App Settings, and can turn keys off entirely with `API_KEYS_ENABLED=false`
 - `MAX_IMAGE_PIXELS` raises the ceiling on how large an image may be before it is refused as a possible decompression bomb, so very large scanned battlemaps get thumbnails. Unset by default, which leaves today's behaviour unchanged
+- Right-click a book to open its actions menu at the cursor, as well as from the ⋮ button. Shift+right-click still gives the browser's own menu
+- Add or remove a book from favorites from its actions menu
 
 ### Changed
 
