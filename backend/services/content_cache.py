@@ -84,6 +84,12 @@ def invalidate_book_content(
     an in-place replacement found by the scan, a manual per-book rescan, or a
     detected move (where the *old* path's artifacts must go).
 
+    Search rows are dropped only when ``db`` is given, and a caller that passes it
+    must also reset the book's ``indexed`` / OCR flags, or the scan skips the book
+    and its text is gone for good. A move passes no ``db``: ``book_search`` is
+    keyed by the book's id, which a move keeps, and the bytes are unchanged, so
+    the text is still right (issue #503).
+
     Each layer is best-effort and independent — a Valkey outage must not prevent
     the disk cache from being cleared, so failures are logged, not raised.
     """
@@ -111,7 +117,7 @@ def invalidate_book_content(
         logger.warning(f"Could not evict cached PDF handle for {filepath}: {e}")
 
     # FTS rows: search would otherwise return the old book's text. The scan
-    # re-indexes because the caller also resets ``indexed``.
+    # re-indexes because the caller also resets ``indexed`` (see the docstring).
     if db is not None:
         try:
             db.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book_id})

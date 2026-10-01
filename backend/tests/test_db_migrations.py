@@ -932,3 +932,92 @@ class TestApiKeysMigration:
             command.downgrade(_alembic_config(conn), "a3f5c7e9b1d2")
         assert not inspect(engine).has_table("api_keys")
         engine.dispose()
+
+
+class TestReindexMovedBooks:
+    """Migration 7d2e9b4f1a63: re-queue books a move left with no search text (#503)."""
+
+    # (id, indexed, ocr_pending, index_failed, index_error, has_rows)
+    _BOOKS = [
+        # Emptied by a move: native text, and OCR-read text.
+        ("moved-native", 1, 0, 0, "", False),
+        ("moved-ocr", 1, 0, 0, "ocr", False),
+        # Healthy: indexed with text.
+        ("healthy", 1, 0, 0, "", True),
+        # Legitimately empty, so re-reading would change nothing.
+        ("image-only", 1, 0, 0, "image-only", False),
+        ("no-text", 1, 0, 0, "no-text", False),
+        # Work already outstanding or failed - not this migration's to touch.
+        ("queued", 0, 1, 0, "", False),
+        ("failed", 0, 0, 1, "extraction crashed", False),
+    ]
+
+    def _seed(self):
+        """A DB one revision behind, holding books in every indexing state."""
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            for bid, indexed, pending, failed, error, has_rows in self._BOOKS:
+                conn.execute(
+                    text(
+                        "INSERT INTO books (id, title, filename, filepath, relative_path, "
+                        "indexed, ocr_pending, index_failed, index_error, "
+                        "ocr_pages_done, ocr_pages_skipped) "
+                        "VALUES (:id, :id, :f, :p, :r, :ix, :pend, :fail, :err, 12, 3)"
+                    ),
+                    {
+                        "id": bid,
+                        "f": f"{bid}.pdf",
+                        "p": f"/lib/books/{bid}.pdf",
+                        "r": f"books/{bid}.pdf",
+                        "ix": indexed,
+                        "pend": pending,
+                        "fail": failed,
+                        "err": error,
+                    },
+                )
+                if has_rows:
+                    conn.execute(
+                        text(
+                            "INSERT INTO book_search (book_id, page_number, content) "
+                            "VALUES (:id, 1, 'some text')"
+                        ),
+                        {"id": bid},
+                    )
+            conn.execute(text("UPDATE alembic_version SET version_num = 'c4e8a2f6d913'"))
+        engine.dispose()
+        return path
+
+    def _books(self, path):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text(
+                        "SELECT id, indexed, ocr_pending, index_failed, index_error, "
+                        "ocr_pages_done, ocr_pages_skipped FROM books"
+                    )
+                ).fetchall()
+            return {row[0]: tuple(row[1:]) for row in rows}
+        finally:
+            engine.dispose()
+
+    def test_books_emptied_by_a_move_are_handed_back_to_the_indexer(self):
+        path = self._seed()
+        init_db(path)
+
+        books = self._books(path)
+        assert books["moved-native"] == (0, 0, 0, "", 0, 0)
+        assert books["moved-ocr"] == (0, 0, 0, "", 0, 0)
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_books_with_text_or_nothing_to_read_are_left_alone(self):
+        path = self._seed()
+        init_db(path)
+
+        books = self._books(path)
+        assert books["healthy"] == (1, 0, 0, "", 12, 3)
+        assert books["image-only"] == (1, 0, 0, "image-only", 12, 3)
+        assert books["no-text"] == (1, 0, 0, "no-text", 12, 3)
+        assert books["queued"] == (0, 1, 0, "", 12, 3)
+        assert books["failed"] == (0, 0, 1, "extraction crashed", 12, 3)

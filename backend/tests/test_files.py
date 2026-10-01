@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 
 from backend.config import SessionLocal, LIBRARY_PATH
 from backend.models import Book, GenericMap, Token
@@ -166,6 +167,50 @@ class TestMovePreservesMetadata:
             os.path.join(LIB, f"books/System-{library_tree}/adventures/bestiary.pdf")
         )
         assert not os.path.exists(src)
+
+    def test_move_keeps_search_text(self, library_tree):
+        """Issue #503 - a moved book is still found by full-text search.
+
+        Its FTS rows are keyed by the record id the move keeps and the bytes
+        are unchanged, so dropping them only left an ``indexed`` book that no
+        scan would ever re-read.
+        """
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/lexicon.pdf")
+        book = make_book(
+            system.id,
+            filename="lexicon.pdf",
+            filepath=src,
+            relative_path=f"books/System-{library_tree}/core/lexicon.pdf",
+            indexed=True,
+        )
+        db = SessionLocal()
+        db.execute(
+            text(
+                "INSERT INTO book_search (book_id, page_number, content) "
+                "VALUES (:bid, 1, 'quixotic thaumaturgy')"
+            ),
+            {"bid": book.id},
+        )
+        db.commit()
+        db.close()
+
+        db = SessionLocal()
+        result = fs.move_paths(
+            db, [f"books/System-{library_tree}/core/lexicon.pdf"],
+            f"books/System-{library_tree}/adventures",
+        )
+        db.close()
+        assert result.count == 1
+
+        db = SessionLocal()
+        refreshed = db.query(Book).filter(Book.id == book.id).first()
+        hits = db.execute(
+            text("SELECT book_id FROM book_search WHERE book_search MATCH 'thaumaturgy'")
+        ).fetchall()
+        db.close()
+        assert refreshed.indexed is True
+        assert [row[0] for row in hits] == [book.id]
 
     def test_move_recategorises_book(self, library_tree):
         """Category is re-derived from the destination, as a rescan would."""

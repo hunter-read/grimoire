@@ -248,14 +248,15 @@ def _rehome_thumbnail(record: Any, section: str, old_path: str, new_path: str) -
         return False
 
 
-def _fix_caches(db: Session, model: Any, record: Any, old_path: str, new_path: str) -> None:
+def _fix_caches(model: Any, record: Any, old_path: str, new_path: str) -> None:
     """Re-point every path-keyed cache after a record's file moved.
 
-    Books carry the most derived state: rendered pages (disk + Valkey), an open
-    document handle, and FTS rows, all keyed by the old path. Those are dropped
-    outright — pages re-render on demand and the FTS text is re-indexed by the
-    next scan — while the thumbnail is renamed rather than discarded, since
-    nothing would regenerate it until a rescan.
+    Books carry the most derived state: rendered pages (disk + Valkey) and an
+    open document handle, keyed by the old path. Those are dropped outright -
+    pages re-render on demand - while the thumbnail is renamed rather than
+    discarded, since nothing would regenerate it until a rescan. The FTS rows are
+    kept: they are keyed by the record's id, which survives the move, and the
+    file's bytes have not changed (issue #503).
     """
     section = _THUMB_SECTIONS.get(_section_for_model(model))
     if section:
@@ -265,8 +266,10 @@ def _fix_caches(db: Session, model: Any, record: Any, old_path: str, new_path: s
         from ..content_cache import invalidate_book_content
 
         # The thumbnail was just re-homed under the new key, so it must not be
-        # deleted here — pass no thumb_path and let the rename stand.
-        invalidate_book_content(record.id, old_path, db=db, thumb_path=None)
+        # deleted here — pass no thumb_path and let the rename stand. No ``db``
+        # either: that would delete the search rows while the book stays marked
+        # indexed, and nothing would ever rebuild them.
+        invalidate_book_content(record.id, old_path, thumb_path=None)
 
 
 def _section_for_model(model: Any) -> str:
@@ -336,7 +339,7 @@ def _relink(db: Session, model: Any, record: Any, dest: Path) -> None:
             record.game_system_id = system_id
         record.category = category
 
-    _fix_caches(db, model, record, old_path, str(dest))
+    _fix_caches(model, record, old_path, str(dest))
 
 
 def _carry_sidecars(src: Path, dest: Path, *, is_dir: bool) -> list[tuple[Path, Path]]:

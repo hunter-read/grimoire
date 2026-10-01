@@ -140,12 +140,16 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
         old, new = old_rows[0], new_rows[0]
 
         # The old row's caches are keyed by its former path; the file's bytes now
-        # live somewhere else, so those entries are unreachable garbage.
+        # live somewhere else, so those entries are unreachable garbage. Its search
+        # rows are not: they are keyed by the id the old row keeps, and a move is
+        # only matched on identical bytes, so the text is still right. Passing no
+        # ``db`` keeps them - dropping them while the row stayed ``indexed`` left
+        # the book unsearchable for good (issue #503).
         if model is Book:
             from ..services.content_cache import invalidate_book_content
 
             thumb = ctx.thumb_path("books", old.title, old.filepath) if old.has_thumbnail else None
-            invalidate_book_content(old.id, old.filepath, db=session, thumb_path=thumb)
+            invalidate_book_content(old.id, old.filepath, thumb_path=thumb)
         else:
             # Maps and tokens have no page renders or search rows to drop, but
             # their thumbnail is path-keyed just like a book's, so the file at the

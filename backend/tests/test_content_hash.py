@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlalchemy import text
+
 from backend.config import SessionLocal
 from backend.indexer import hashing, scan_library
 from backend.indexer.categories import slugify
@@ -363,6 +365,51 @@ class TestMoveDetection:
             assert survivor.content_hash == original_hash
             # Exactly one row for this content — the duplicate was removed.
             assert db.query(Book).filter_by(content_hash=original_hash).count() == 1
+        finally:
+            db.close()
+
+    def test_moved_book_stays_searchable(self):
+        """Issue #503 - a move must not throw away the book's search text.
+
+        The rows are keyed by the book id the move keeps, and a move is only
+        matched on identical bytes. Deleting them while the row stayed
+        ``indexed`` meant no scan ever rebuilt them.
+        """
+        tmp, lib = _mk_lib()
+        src = lib / "books" / "OldSystem" / "core"
+        src.mkdir(parents=True)
+        f = src / "tome.pdf"
+        f.write_bytes(b"%PDF-1.4 a searchable book that will be filed elsewhere")
+
+        db = SessionLocal()
+        try:
+            _scan(lib, tmp, db)
+            book = db.query(Book).filter_by(filepath=str(f)).first()
+            original_id = book.id
+            db.execute(
+                text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:bid, 1, 'xylophonic grimoire incantation')"
+                ),
+                {"bid": original_id},
+            )
+            book.indexed = True
+            db.commit()
+
+            dest = lib / "books" / "NewSystem" / "core"
+            dest.mkdir(parents=True)
+            f.rename(dest / "tome.pdf")
+
+            stats = _scan(lib, tmp, db)
+            assert stats.get("moved_books", 0) == 1
+
+            db.expire_all()
+            survivor = db.query(Book).filter_by(id=original_id).first()
+            assert survivor.indexed is True
+            hits = db.execute(
+                text("SELECT book_id FROM book_search WHERE book_search MATCH 'xylophonic'")
+            ).fetchall()
+            assert [row[0] for row in hits] == [original_id]
         finally:
             db.close()
 
