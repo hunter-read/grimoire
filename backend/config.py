@@ -4,6 +4,7 @@ import logging
 import collections
 import threading
 import datetime
+import urllib.parse
 from typing import Iterator, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -319,6 +320,45 @@ GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 # turns them off for everyone, admins included: keys stop authenticating, the
 # /api/api-keys endpoints refuse, and the UI hides them.
 API_KEYS_ENABLED: bool = _bool_env("API_KEYS_ENABLED") is not False
+
+
+#   CORS_ALLOWED_ORIGINS — comma-separated origins (scheme://host[:port]) whose
+#             pages may call the API from the browser, e.g. a Foundry VTT module
+#             (issue #502). Unset means no CORS headers at all, as before.
+#             Entries must be exact origins: a wildcard, a path, or anything
+#             that is not http(s) is ignored with a warning, so a typo cannot
+#             open the API to every site. A trailing slash is tolerated, since
+#             that is how an origin usually gets pasted from the address bar.
+def _read_cors_allowed_origins() -> list[str]:
+    """The configured CORS origins, normalized, in order, without duplicates."""
+    origins: list[str] = []
+    for entry in (os.environ.get("CORS_ALLOWED_ORIGINS") or "").split(","):
+        raw = entry.strip()
+        if not raw:
+            continue
+        parsed = urllib.parse.urlsplit(raw.rstrip("/"))
+        if (
+            parsed.scheme.lower() not in ("http", "https")
+            or not parsed.hostname
+            or "*" in parsed.netloc
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.username is not None
+        ):
+            logging.getLogger("grimoire").warning(
+                "CORS_ALLOWED_ORIGINS entry %r is not an origin like "
+                "https://foundry.example.com - ignoring it.",
+                raw,
+            )
+            continue
+        origin = f"{parsed.scheme}://{parsed.netloc}".lower()
+        if origin not in origins:
+            origins.append(origin)
+    return origins
+
+
+CORS_ALLOWED_ORIGINS = _read_cors_allowed_origins()
 
 
 # ---------------------------------------------------------------------------

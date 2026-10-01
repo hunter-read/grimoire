@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from slowapi import _rate_limit_exceeded_handler
@@ -14,8 +15,14 @@ from slowapi import _rate_limit_exceeded_handler
 from . import backup_scheduler, scheduler, session_creator, session_purger
 from ._health_schemas import HealthResponse
 from .auth import get_current_user
-from .security import RateLimitExceeded, SecurityHeadersMiddleware, limiter
+from .security import (
+    RateLimitExceeded,
+    SecurityHeadersMiddleware,
+    cors_middleware_options,
+    limiter,
+)
 from .config import (
+    CORS_ALLOWED_ORIGINS,
     DATA_PATH,
     LIBRARY_PATH,
     OPDS_ENABLED,
@@ -269,6 +276,12 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)
+# Optional CORS allowlist for browser-based integrations (issue #502). Added
+# last so it wraps everything above: preflights are answered before auth runs,
+# and error responses (401/403/429) carry the headers too.
+if CORS_ALLOWED_ORIGINS:
+    app.add_middleware(CORSMiddleware, **cors_middleware_options(CORS_ALLOWED_ORIGINS))
+    logger.info("CORS enabled for: %s", ", ".join(CORS_ALLOWED_ORIGINS))
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 _assets_dir = os.path.join(FRONTEND_DIR, "assets")

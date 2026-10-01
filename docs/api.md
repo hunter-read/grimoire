@@ -186,6 +186,32 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/
 
 Failed `X-API-Key` attempts (unknown or expired keys) count against the same per-IP limit, on every endpoint. Once an IP is over it, every key it presents - even a valid one - gets `429` until the window passes, so a guess can't be confirmed. Requests with a working key never count, so a dashboard can poll as often as it likes.
 
+### Calling the API from a browser (CORS)
+
+Server-side tools (Homepage, grimoire-cli, scripts) need nothing extra. Code that
+runs in a web page on another origin - a Foundry VTT module, a browser extension,
+a dashboard - is blocked by the browser unless Grimoire sends CORS headers, which
+it does only for the origins listed in `CORS_ALLOWED_ORIGINS`:
+
+```yaml
+environment:
+  CORS_ALLOWED_ORIGINS: "https://foundry.example.com,http://localhost:30000"
+```
+
+- **Off by default.** Unset, no CORS headers are sent and preflights are not answered.
+- **Exact origins only** - `scheme://host[:port]`, comma-separated. A wildcard, a
+  path, or a non-`http(s)` entry is ignored with a warning in the log.
+- **Allowed request headers:** `Authorization`, `Content-Type`, `X-API-Key`.
+  Methods: `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`.
+- **Exposed response header:** `X-Token-Expired`, so a bearer-token client can tell
+  an expired token from a bad one.
+- **No credentials.** `Access-Control-Allow-Credentials` is never sent, so the
+  browser does not send Grimoire's cookies cross-origin and another site cannot use
+  a signed-in user's session. Authenticate with an [API key](#api-keys) or a bearer
+  token, which the key's permissions already scope.
+- Error responses (`401`, `403`, `429`) carry the headers too, so the client can
+  read what went wrong.
+
 ### Roles
 
 | Role | Permissions |

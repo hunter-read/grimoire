@@ -15,6 +15,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - `MAX_IMAGE_PIXELS` raises the ceiling on how large an image may be before it is refused as a possible decompression bomb, so very large scanned battlemaps get thumbnails. Unset by default, which leaves today's behaviour unchanged
 - Right-click a book to open its actions menu at the cursor, as well as from the ⋮ button. Shift+right-click still gives the browser's own menu
 - Add or remove a book from favorites from its actions menu
+- `CORS_ALLOWED_ORIGINS` lets web pages on the origins you list call the API from the browser, so a Foundry VTT module, browser extension or dashboard can use an API key without a CORS-handling reverse proxy. Off by default, and cookies are never allowed cross-origin
 
 ### Changed
 

@@ -15,6 +15,7 @@ Two pieces of hardening live here:
 """
 import os
 import sys
+from typing import Any
 
 from limits import parse as parse_limit
 from slowapi import Limiter
@@ -203,11 +204,35 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
+# --- CORS ---------------------------------------------------------------------
+
+# Options for Starlette's CORSMiddleware when CORS_ALLOWED_ORIGINS is set (issue
+# #502), so browser-based integrations such as a Foundry VTT module can call the
+# API from their own origin.
+#   - No allow_credentials: browsers then never send cookies cross-origin, so
+#     another site cannot ride a user's logged-in session (the refresh cookie).
+#     Integrations authenticate with an X-API-Key or bearer token instead, which
+#     the key's own permissions already scope.
+#   - X-Token-Expired is exposed so a bearer-token client can tell an expired
+#     token (refresh and retry) from a bad one.
+# Installed outermost, so preflights are answered before any auth dependency
+# runs and 401/403/429 responses carry the headers too.
+def cors_middleware_options(origins: list[str]) -> dict[str, Any]:
+    return {
+        "allow_origins": origins,
+        "allow_methods": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
+        "allow_headers": ["Authorization", "Content-Type", "X-API-Key"],
+        "expose_headers": ["X-Token-Expired"],
+        "allow_credentials": False,
+    }
+
+
 __all__ = [
     "AUTH_RATE_LIMIT",
     "RateLimitExceeded",
     "Response",
     "SAME_ORIGIN_FRAME_HEADERS",
     "SecurityHeadersMiddleware",
+    "cors_middleware_options",
     "limiter",
 ]
