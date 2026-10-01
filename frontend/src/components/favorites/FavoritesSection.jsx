@@ -9,10 +9,18 @@ const PREFS_KEY = 'favoritesCollapsed'
 /**
  * A favorites section with a collapsible header. Items render using the user's
  * preferred view style for the section's content type (card/compact → grid,
- * list → rows). Collapse state persists per content type in user prefs.
+ * list → rows). Collapse state persists per content type in user prefs; until
+ * the user toggles it, the section follows `defaultCollapsed`.
  */
-export default function FavoritesSection({ type, title, items, renderItem }) {
-  const [collapsed, setCollapsed] = useState(() => Boolean(getUserPrefs()[PREFS_KEY]?.[type]))
+export default function FavoritesSection({
+  type,
+  title,
+  items,
+  renderItem,
+  defaultCollapsed = false,
+}) {
+  const [chosen, setCollapsed] = useState(() => getUserPrefs()[PREFS_KEY]?.[type])
+  const collapsed = chosen ?? defaultCollapsed
   const mode = getDefaultViewMode(type)
   const grid = mode !== 'list'
 

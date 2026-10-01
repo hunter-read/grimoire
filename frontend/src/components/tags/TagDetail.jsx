@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { LuPencil, LuTrash2, LuCheck, LuX, LuHeart, LuDownload } from 'react-icons/lu'
 import TagTypeSection from './TagTypeSection'
 import { canDownloadTagType } from './tagDownload'
+import { shouldAutoCollapse } from '../../utils/autoCollapse'
 import BookFavorite from '../favorites/BookFavorite'
 import MapFavorite from '../favorites/MapFavorite'
 import TokenFavorite from '../favorites/TokenFavorite'
@@ -58,6 +59,11 @@ export default function TagDetail({
   const directCount = detail.items.length
   const folderCount = (detail.folders || []).reduce((n, g) => n + g.items.length, 0)
   const total = directCount + folderCount
+  const sectionCount = TYPE_ORDER.filter(
+    (type) =>
+      byType(type).length > 0 || (detail.folders || []).some((g) => g.resource_type === type)
+  ).length
+  const autoCollapse = shouldAutoCollapse(total, sectionCount)
   // Only offer the whole-tag download when the tag actually covers something
   // archivable: a tag used only on game systems has no files of its own.
   const hasDownloadable =
@@ -226,6 +232,7 @@ export default function TagDetail({
               renderItem={(item, grid) => <Card key={item.item_id} item={item} grid={grid} />}
               tag={detail.internal}
               onDownload={onDownload}
+              defaultCollapsed={autoCollapse}
             />
           )
         })

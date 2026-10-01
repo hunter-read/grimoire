@@ -5,6 +5,11 @@ import api from '../../api'
 import Spinner from '../Spinner'
 import TocEntry from './TocEntry'
 import ReaderSidebarShell from './ReaderSidebarShell'
+import { shouldAutoCollapse } from '../../utils/autoCollapse'
+
+function countEntries(nodes) {
+  return nodes.reduce((n, node) => n + 1 + countEntries(node.children || []), 0)
+}
 
 export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose }) {
   const { t } = useTranslation()
@@ -23,6 +28,10 @@ export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose })
         setLoading(false)
       })
   }, [bookId])
+
+  // A long TOC starts with every entry collapsed, leaving the top-level
+  // chapters as the overview.
+  const startCollapsed = !!toc && shouldAutoCollapse(countEntries(toc), toc.length)
 
   return (
     <ReaderSidebarShell>
@@ -75,6 +84,7 @@ export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose })
               currentPage={currentPage}
               onGoToPage={onGoToPage}
               depth={0}
+              startCollapsed={startCollapsed}
             />
           ))}
       </div>

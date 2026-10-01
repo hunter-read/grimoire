@@ -1,4 +1,5 @@
 import { LuShield, LuUsers, LuLock } from 'react-icons/lu'
+import { shouldAutoCollapse } from '../../utils/autoCollapse'
 
 // Return the ids of `pageId` and all its descendants, so a parent picker can
 // exclude them (a page may not nest under itself or its own subtree).
@@ -16,6 +17,22 @@ export function descendantIds(pageId, pages) {
     }
   }
   return out
+}
+
+// The parent pages a long wiki's tree starts with collapsed: every page with
+// children, except the ancestors of the open note (`selectedId`) so it is still
+// on screen. Empty for a short wiki, or one with a single top-level page.
+export function defaultCollapsedParents(pages, selectedId) {
+  if (!pages) return new Set()
+  const byId = new Map(pages.map((p) => [p.id, p]))
+  const roots = pages.filter((p) => !p.parent_id || !byId.has(p.parent_id))
+  if (!shouldAutoCollapse(pages.length, roots.length)) return new Set()
+  const collapsed = new Set(pages.filter((p) => p.parent_id).map((p) => p.parent_id))
+  // Stops at the root, or on revisiting an ancestor if the data has a cycle.
+  for (let p = byId.get(selectedId); p?.parent_id; p = byId.get(p.parent_id)) {
+    if (!collapsed.delete(p.parent_id)) break
+  }
+  return collapsed
 }
 
 // Visibility colour coding: author-only is the app's red, Private uses the same

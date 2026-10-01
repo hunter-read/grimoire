@@ -12,6 +12,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Rescan and File manager buttons in the top-right corner of every Settings tab, so admins no longer have to go to Maintenance and scroll to reach them. Rescan shows the scan's progress and a stop button while it runs, like the one on the Maintenance tab
 
+### Changed
+
+- Long grouped pages open collapsed: a game system with more than 25 books starts with its categories closed, keeping Core Rulebooks open when it holds five books or fewer. The same applies past 25 items to favorites, the tags list and a tag's items, search results, campaign resources, the notes page tree, and a book's table of contents. A page with only one group stays open, and anything you open or close yourself keeps your choice
+
 ### Fixed
 
 - A rescan started from one rescan button now shows as running on every other one on screen at once, instead of up to 30 seconds later

@@ -18,6 +18,7 @@ import BookGroup from '../components/search/BookGroup'
 import BookMatchCard from '../components/search/BookMatchCard'
 import ResultCard from '../components/search/ResultCard'
 import SearchHelp from '../components/search/SearchHelp'
+import { shouldAutoCollapse } from '../utils/autoCollapse'
 import { sectionHeadStyle, controlStyle } from '../components/search/searchStyles'
 
 export default function SearchView() {
@@ -34,8 +35,6 @@ export default function SearchView() {
   const timerRef = useRef(null)
   const inputRef = useRef(null)
   const helpButtonRef = useRef(null)
-
-  const toggleSection = (key) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
   const doSearch = useCallback((q) => {
     if (q.length < 2) {
@@ -130,6 +129,29 @@ export default function SearchView() {
     (results?.maps?.length ?? 0) +
     (results?.tokens?.length ?? 0) +
     (results?.audio?.length ?? 0)
+
+  // A long result list starts with its sections and book groups collapsed, so
+  // the headers (with their counts) are the overview; anything the user has
+  // toggled keeps their choice. See autoCollapse.js.
+  const pageHitCount = groupedBooks.reduce((n, g) => n + g.pages.length, 0)
+  const sectionCounts = [
+    matchedBookCount + groupedBooks.length,
+    results?.maps?.length ?? 0,
+    results?.tokens?.length ?? 0,
+    results?.audio?.length ?? 0,
+    results?.models?.length ?? 0,
+  ].filter((n) => n > 0)
+  const resultCount =
+    matchedBookCount + pageHitCount + sectionCounts.slice(1).reduce((n, c) => n + c, 0)
+  const autoCollapsed = {}
+  if (shouldAutoCollapse(resultCount, sectionCounts.length)) {
+    for (const key of ['books', 'maps', 'tokens', 'audio', 'models']) autoCollapsed[key] = true
+  }
+  if (shouldAutoCollapse(pageHitCount, groupedBooks.length)) {
+    for (const g of groupedBooks) autoCollapsed[`book-${g.id}`] = true
+  }
+  const shownCollapsed = { ...autoCollapsed, ...collapsed }
+  const toggleSection = (key) => setCollapsed((prev) => ({ ...prev, [key]: !shownCollapsed[key] }))
 
   return (
     <div
@@ -268,13 +290,17 @@ export default function SearchView() {
               {(bookMatches.length > 0 || groupedBooks.length > 0) && (
                 <div style={{ marginBottom: 24 }}>
                   <button onClick={() => toggleSection('books')} style={sectionHeadStyle}>
-                    {collapsed.books ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                    {shownCollapsed.books ? (
+                      <LuChevronRight size={14} />
+                    ) : (
+                      <LuChevronDown size={14} />
+                    )}
                     <LuBookOpen size={14} /> {t('search.books')}
                     <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
                       {bookMatches.length + groupedBooks.length}
                     </span>
                   </button>
-                  {!collapsed.books && (
+                  {!shownCollapsed.books && (
                     <>
                       {bookMatches.map((book) => (
                         <BookMatchCard key={`match-${book.id}`} book={book} />
@@ -283,7 +309,7 @@ export default function SearchView() {
                         <BookGroup
                           key={group.id}
                           group={group}
-                          collapsed={collapsed}
+                          collapsed={shownCollapsed}
                           onToggle={toggleSection}
                         />
                       ))}
@@ -301,13 +327,17 @@ export default function SearchView() {
                 items.length > 0 ? (
                   <div key={key} style={{ marginBottom: 24 }}>
                     <button onClick={() => toggleSection(key)} style={sectionHeadStyle}>
-                      {collapsed[key] ? <LuChevronRight size={14} /> : <LuChevronDown size={14} />}
+                      {shownCollapsed[key] ? (
+                        <LuChevronRight size={14} />
+                      ) : (
+                        <LuChevronDown size={14} />
+                      )}
                       <Icon size={14} /> {t(`search.${key}`)}
                       <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
                         {items.length}
                       </span>
                     </button>
-                    {!collapsed[key] &&
+                    {!shownCollapsed[key] &&
                       items.map((item) => (
                         <ResultCard
                           key={item.id}

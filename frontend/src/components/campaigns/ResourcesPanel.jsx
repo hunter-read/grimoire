@@ -21,6 +21,8 @@ import { resolveIconColor } from './iconColors'
 import ResourceRow from './ResourceRow'
 import ResourcePickerModal from './ResourcePickerModal'
 import { TYPE_ICONS } from './resourcesShared'
+import useCollapsedSet from '../../hooks/useCollapsedSet'
+import { shouldAutoCollapse } from '../../utils/autoCollapse'
 
 export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
   const { t } = useTranslation()
@@ -51,26 +53,31 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
 
   // Which group sections are collapsed, persisted per campaign so the choice
   // survives navigation. Keyed by group key (category id or built-in type).
-  const collapseKey = `grimoire_resource_collapsed_${campaign.id}`
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(collapseKey) || '[]'))
-    } catch {
-      return new Set()
-    }
-  })
-  const toggleCollapse = (key) => {
+  // Until the GM toggles one, a long list starts with every group collapsed.
+  const groupKeyOf = (r) =>
+    r.category_id && categories.some((c) => c.id === r.category_id)
+      ? `cat:${r.category_id}`
+      : `type:${r.resource_type}`
+  const autoCollapse = shouldAutoCollapse(
+    resources?.length ?? 0,
+    new Set((resources || []).map(groupKeyOf)).size
+  )
+  const [collapsed, setCollapsed] = useCollapsedSet(
+    `grimoire_resource_collapsed_${campaign.id}`,
+    autoCollapse
+      ? new Set([
+          ...categories.map((c) => `cat:${c.id}`),
+          ...Object.keys(TYPE_ICONS).map((type) => `type:${type}`),
+        ])
+      : undefined,
+    { storage: 'local' }
+  )
+  const toggleCollapse = (key) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
       next.has(key) ? next.delete(key) : next.add(key)
-      try {
-        localStorage.setItem(collapseKey, JSON.stringify([...next]))
-      } catch {
-        // localStorage unavailable (private mode); collapse state stays in memory only.
-      }
       return next
     })
-  }
 
   const load = () => {
     campaigns

@@ -22,6 +22,7 @@ import {
 import { campaigns } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import useCollapsedSet from '../../hooks/useCollapsedSet'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
@@ -38,7 +39,7 @@ import WikiBulkActionDialog from './WikiBulkActionDialog'
 import useFillViewport from './useFillViewport'
 import useResizableWidth from './useResizableWidth'
 import { headingDomId } from './wikiHeadings'
-import { descendantIds, ghostBtn, goldBtn } from './wikiShared'
+import { defaultCollapsedParents, descendantIds, ghostBtn, goldBtn } from './wikiShared'
 
 // Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
 const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
@@ -114,14 +115,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const [pendingHeading, setPendingHeading] = useState(null)
   // Ids of parent pages whose children are collapsed in the sidebar tree,
   // persisted per campaign (per browser) so the choice survives navigation.
-  const collapseKey = `grimoire_wiki_collapsed_${campaign.id}`
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(collapseKey) || '[]'))
-    } catch {
-      return new Set()
-    }
-  })
+  // Until the user toggles one, a long wiki starts with every parent collapsed
+  // except the open note's ancestors, so the note stays visible in the tree.
+  const [collapsed, setCollapsed] = useCollapsedSet(
+    `grimoire_wiki_collapsed_${campaign.id}`,
+    defaultCollapsedParents(pages, selectedId),
+    { storage: 'local' }
+  )
   const dragId = useRef(null)
   // Size the two-pane row to the viewport so the page tree scrolls in its own
   // container instead of riding the window scroll with the note (#288). On
@@ -181,11 +181,6 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     setCollapsed((prev) => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
-      try {
-        localStorage.setItem(collapseKey, JSON.stringify([...next]))
-      } catch {
-        // localStorage unavailable (private mode); collapse state stays in memory only.
-      }
       return next
     })
 

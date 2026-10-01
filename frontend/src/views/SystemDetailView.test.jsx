@@ -1298,3 +1298,59 @@ describe('SystemDetailView variant promotion', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/systems/system-1'))
   })
 })
+
+describe('SystemDetailView — long systems start collapsed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockIsFavorite.mockReturnValue(false)
+  })
+
+  const longSystem = (coreCount) =>
+    makeSystem([
+      ...Array.from({ length: coreCount }, (_, i) =>
+        makeBook({ id: `core-${i}`, title: `Core ${i}`, category: 'core' })
+      ),
+      ...Array.from({ length: 26 }, (_, i) =>
+        makeBook({ id: `adv-${i}`, title: `Adventure ${i}`, category: 'adventure' })
+      ),
+    ])
+
+  it('keeps a small core open and collapses the other categories', async () => {
+    api.get.mockResolvedValue(longSystem(3))
+    renderView()
+    await waitFor(() => expect(screen.getByText('Core 0')).toBeInTheDocument())
+    expect(screen.queryByText('Adventure 0')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /adventures & modules/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+
+    // The user's toggle wins over the default and is remembered.
+    await userEvent.click(screen.getByRole('button', { name: /adventures & modules/i }))
+    expect(screen.getByText('Adventure 0')).toBeInTheDocument()
+    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:collapsed'))).toEqual([])
+  })
+
+  it('collapses core too when it holds more than a few books', async () => {
+    api.get.mockResolvedValue(longSystem(6))
+    renderView()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /core rulebooks/i })).toBeInTheDocument()
+    )
+    expect(screen.queryByText('Core 0')).not.toBeInTheDocument()
+    expect(screen.queryByText('Adventure 0')).not.toBeInTheDocument()
+  })
+
+  it('opens the categories again when a filter narrows the list', async () => {
+    mockIsFavorite.mockImplementation((type, id) => id === 'adv-4')
+    api.get.mockResolvedValue(longSystem(3))
+    renderView()
+    await waitFor(() => expect(screen.getByText('Core 0')).toBeInTheDocument())
+    expect(screen.queryByText('Adventure 4')).not.toBeInTheDocument()
+
+    await openBookFilters()
+    await userEvent.click(screen.getByRole('checkbox', { name: /Favorites/ }))
+    await waitFor(() => expect(screen.getByText('Adventure 4')).toBeInTheDocument())
+  })
+})

@@ -204,3 +204,44 @@ describe('ResourcesPanel', () => {
     await waitFor(() => expect(campaigns.reorderResources).toHaveBeenCalled())
   })
 })
+
+describe('ResourcesPanel — long lists start collapsed', () => {
+  beforeEach(() => localStorage.clear())
+
+  // 20 maps and 6 audio tracks: past the threshold, across two groups.
+  const many = [
+    ...Array.from({ length: 20 }, (_, i) => ({
+      id: `m${i}`,
+      resource_type: 'map',
+      resource_id: `map${i}`,
+      name: `Map ${i}`,
+    })),
+    ...Array.from({ length: 6 }, (_, i) => ({
+      id: `a${i}`,
+      resource_type: 'audio',
+      resource_id: `aud${i}`,
+      name: `Track ${i}`,
+    })),
+  ]
+
+  it('collapses every group until the GM opens one', async () => {
+    campaigns.listResources.mockResolvedValue(many)
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    const mapsHeader = await screen.findByRole('button', { name: /maps/i })
+    expect(mapsHeader).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Map 0')).not.toBeInTheDocument()
+    expect(screen.queryByText('Track 0')).not.toBeInTheDocument()
+
+    await userEvent.click(mapsHeader)
+    expect(screen.getByText('Map 0')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('grimoire_resource_collapsed_c1'))).not.toContain(
+      'type:map'
+    )
+  })
+
+  it('leaves a short list open', async () => {
+    campaigns.listResources.mockResolvedValue(many.slice(0, 25))
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    expect(await screen.findByText('Map 0')).toBeInTheDocument()
+  })
+})

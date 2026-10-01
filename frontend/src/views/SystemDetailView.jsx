@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
+import useCollapsedSet from '../hooks/useCollapsedSet'
 import useSystemSearch from '../hooks/useSystemSearch'
 import useRestoredView from '../hooks/useRestoredView'
 import { useTranslation } from 'react-i18next'
@@ -49,6 +50,7 @@ import {
 import { queryTags } from '../components/library/tagQuery'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
+import { defaultCollapsedCategories } from '../utils/autoCollapse'
 import matchBooks from '../utils/matchBooks'
 import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
@@ -75,10 +77,6 @@ export default function SystemDetailView() {
   // inline on each folder group header (issue #235 follow-up).
   const [bookFolderTags, setBookFolderTags] = useState({})
   const [editingFolderKey, setEditingFolderKey] = useState(null)
-  const [collapsedCats, setCollapsedCats] = useSessionState(
-    `grimoire:system:${systemId}:collapsed`,
-    new Set()
-  )
   const [collapsedSubfolders, setCollapsedSubfolders] = useSessionState(
     `grimoire:system:${systemId}:subfolders`,
     new Set()
@@ -99,6 +97,16 @@ export default function SystemDetailView() {
     { restore: restoreView }
   )
   const [defaultApplied, setDefaultApplied] = useState(restoreView)
+  const bookMatchesFilters = bookFilterPredicate(bookFilter.filters || {}, {
+    isFavorite: (id) => isFavorite('book', id),
+  })
+  // A long system starts with its categories collapsed (a small core stays
+  // open) until the user opens or closes one; see autoCollapse.js. Counted on
+  // the filtered books, so narrowing the list opens the categories it leaves.
+  const [collapsedCats, setCollapsedCats] = useCollapsedSet(
+    `grimoire:system:${systemId}:collapsed`,
+    defaultCollapsedCategories((system?.books || []).filter(bookMatchesFilters))
+  )
   // Two independent view modes: the book list below uses the "book" preference,
   // while a container system's child-system grid uses the "system" one — the same
   // setting the main library grid uses (issue #296). Sharing one mode made
@@ -263,10 +271,6 @@ export default function SystemDetailView() {
   const scopeDepth = categoryDepth(system)
   const systemRescanScope = (books) => systemScope(books, scopeDepth)
   const categoryRescanScope = (books) => groupScope(books, scopeDepth)
-
-  const bookMatchesFilters = bookFilterPredicate(bookFilters, {
-    isFavorite: (id) => isFavorite('book', id),
-  })
 
   const categories = {}
   ;(system.books || []).filter(bookMatchesFilters).forEach((book) => {

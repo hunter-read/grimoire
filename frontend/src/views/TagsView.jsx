@@ -18,6 +18,7 @@ import Spinner from '../components/Spinner'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import TagDetail from '../components/tags/TagDetail'
 import TagListButton from '../components/tags/TagListButton'
+import { shouldAutoCollapse } from '../utils/autoCollapse'
 
 const CATS_COLLAPSED_KEY = 'tagsCategoryCollapsed'
 
@@ -56,25 +57,12 @@ export default function TagsView() {
   // galleries use, so the shared modal is reused as-is (issue #401).
   const [downloadModal, setDownloadModal] = useState(null)
   // Per-category collapse state for the left list, persisted in user prefs.
-  const [collapsedCats, setCollapsedCats] = useState(
-    () =>
-      new Set(
-        Object.keys(getUserPrefs()[CATS_COLLAPSED_KEY] || {}).filter(
-          (c) => getUserPrefs()[CATS_COLLAPSED_KEY][c]
-        )
-      )
-  )
-
-  const toggleCat = (cat) => {
-    setCollapsedCats((prev) => {
-      const next = new Set(prev)
-      next.has(cat) ? next.delete(cat) : next.add(cat)
-      const map = {}
-      for (const c of next) map[c] = true
-      saveUserPref(CATS_COLLAPSED_KEY, map)
-      return next
-    })
-  }
+  // Null until the user toggles a category; the list then follows the default
+  // below (collapsed when it is long).
+  const [chosenCollapsedCats, setCollapsedCats] = useState(() => {
+    const saved = getUserPrefs()[CATS_COLLAPSED_KEY]
+    return saved ? new Set(Object.keys(saved).filter((c) => saved[c])) : null
+  })
 
   const loadTags = useCallback(() => {
     tagsApi.list().then((r) => setAllTags(r.tags))
@@ -140,6 +128,27 @@ export default function TagsView() {
   }, [allTags, filter, favOnly, sort, order, tagFavorited])
 
   const totalVisible = useMemo(() => groups.reduce((n, g) => n + g.tags.length, 0), [groups])
+
+  // Counted on what is visible, so narrowing the list with the filter opens
+  // the groups holding the matches. The selected tag's group stays open.
+  const activeCategory = useMemo(() => {
+    const cat = allTags?.find((tg) => tg.internal === activeTag)?.category
+    return CATEGORY_ORDER.includes(cat) ? cat : cat && 'shared'
+  }, [allTags, activeTag])
+  const collapsedCats = useMemo(() => {
+    if (chosenCollapsedCats) return chosenCollapsedCats
+    if (!shouldAutoCollapse(totalVisible, groups.length)) return new Set()
+    return new Set(CATEGORY_ORDER.filter((c) => c !== activeCategory))
+  }, [chosenCollapsedCats, totalVisible, groups, activeCategory])
+
+  const toggleCat = (cat) => {
+    const next = new Set(collapsedCats)
+    next.has(cat) ? next.delete(cat) : next.add(cat)
+    const map = {}
+    for (const c of next) map[c] = true
+    saveUserPref(CATS_COLLAPSED_KEY, map)
+    setCollapsedCats(next)
+  }
 
   const toggleTagFavorite = (tg, e) => {
     e?.stopPropagation()

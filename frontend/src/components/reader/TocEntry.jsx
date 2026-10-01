@@ -2,10 +2,19 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown } from 'react-icons/lu'
 
-/** A single (recursive) table-of-contents node with collapsible children. */
-export default function TocEntry({ node, currentPage, onGoToPage, depth = 0 }) {
+/**
+ * A single (recursive) table-of-contents node with collapsible children. The
+ * top two levels start open, unless `startCollapsed` (a long TOC) closes them.
+ */
+export default function TocEntry({
+  node,
+  currentPage,
+  onGoToPage,
+  depth = 0,
+  startCollapsed = false,
+}) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(depth < 2)
+  const [open, setOpen] = useState(!startCollapsed && depth < 2)
   const hasChildren = node.children && node.children.length > 0
   const isActive = currentPage === node.page
 
@@ -83,6 +92,7 @@ export default function TocEntry({ node, currentPage, onGoToPage, depth = 0 }) {
             currentPage={currentPage}
             onGoToPage={onGoToPage}
             depth={depth + 1}
+            startCollapsed={startCollapsed}
           />
         ))}
     </div>

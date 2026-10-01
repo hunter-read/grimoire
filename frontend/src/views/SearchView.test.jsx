@@ -551,3 +551,52 @@ describe('SearchView — URL query param persistence', () => {
     })
   })
 })
+
+describe('SearchView — long result lists start collapsed', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // 28 page hits across two books, plus a map: past the threshold, two sections.
+  const longResponse = () =>
+    makeResponse(
+      [
+        ...Array.from({ length: 14 }, (_, i) =>
+          makeBookResult({ id: 'b1', title: 'Spell Guide', page_number: i, snippet: `spell ${i}` })
+        ),
+        ...Array.from({ length: 14 }, (_, i) =>
+          makeBookResult({ id: 'b2', title: 'Monster Book', page_number: i, snippet: `beast ${i}` })
+        ),
+      ],
+      [{ id: 'm1', filename: 'Fire Cave.png', relative_path: 'maps/fire.png', tags: [] }]
+    )
+
+  it('collapses the sections, then the book groups inside them', async () => {
+    api.get.mockResolvedValue(longResponse())
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fi')
+
+    const booksHeader = await screen.findByRole('button', { name: /books/i })
+    expect(screen.queryByText('Spell Guide')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fire Cave.png')).not.toBeInTheDocument()
+
+    // Opening Books shows the book groups, themselves collapsed to their titles.
+    await userEvent.click(booksHeader)
+    expect(screen.getByText('Spell Guide')).toBeInTheDocument()
+    expect(screen.queryByText('spell 0')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Spell Guide'))
+    expect(screen.getByText('spell 0')).toBeInTheDocument()
+    expect(screen.queryByText('beast 0')).not.toBeInTheDocument()
+  })
+
+  it('leaves a single long section open', async () => {
+    const response = longResponse()
+    response.maps = []
+    api.get.mockResolvedValue(response)
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fi')
+
+    // Books is the only section, so it stays open; its two book groups collapse.
+    expect(await screen.findByText('Spell Guide')).toBeInTheDocument()
+    expect(screen.queryByText('spell 0')).not.toBeInTheDocument()
+  })
+})

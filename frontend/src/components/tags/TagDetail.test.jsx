@@ -168,3 +168,23 @@ describe('TagDetail section headings (issue #445)', () => {
     expect(screen.queryByText(/^tags\./)).not.toBeInTheDocument()
   })
 })
+
+describe('TagDetail — long tags start collapsed', () => {
+  it('collapses each type section once the tag covers more than 25 items', () => {
+    renderDetail({
+      items: [
+        ...Array.from({ length: 20 }, (_, i) => ({ item_type: 'book', item_id: `b${i}` })),
+        ...Array.from({ length: 6 }, (_, i) => ({ item_type: 'map', item_id: `m${i}` })),
+      ],
+    })
+    expect(screen.queryByTestId('book-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('map-card')).not.toBeInTheDocument()
+  })
+
+  it('leaves a single long section open', () => {
+    renderDetail({
+      items: Array.from({ length: 30 }, (_, i) => ({ item_type: 'book', item_id: `b${i}` })),
+    })
+    expect(screen.getAllByTestId('book-card')).toHaveLength(30)
+  })
+})

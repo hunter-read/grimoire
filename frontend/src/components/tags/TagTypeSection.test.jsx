@@ -148,4 +148,19 @@ describe('TagTypeSection download (issue #401)', () => {
       })
     )
   })
+
+  it('follows defaultCollapsed until the user toggles it', async () => {
+    const props = { type: 'map', title: 'Maps', items: [{ item_id: 'm1' }], folders: [] }
+    const { rerender } = render(
+      <TagTypeSection {...props} renderItem={renderItem} defaultCollapsed />
+    )
+    expect(screen.queryByTestId('item')).not.toBeInTheDocument()
+    rerender(<TagTypeSection {...props} renderItem={renderItem} defaultCollapsed={false} />)
+    expect(screen.getByTestId('item')).toBeInTheDocument()
+
+    rerender(<TagTypeSection {...props} renderItem={renderItem} defaultCollapsed />)
+    await userEvent.click(screen.getByRole('button', { name: /Maps/ }))
+    expect(screen.getByTestId('item')).toBeInTheDocument()
+    expect(prefs.tagsSectionCollapsed).toEqual({ map: false })
+  })
 })

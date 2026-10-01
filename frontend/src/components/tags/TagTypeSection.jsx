@@ -13,7 +13,8 @@ const PREFS_KEY = 'tagsSectionCollapsed'
  * One collapsible section on the tags detail pane for a single resource type
  * (Maps/Tokens/Audio/…): its directly-tagged items first, then each folder-tag
  * group nested beneath — so map/token/audio folders live under their main type
- * heading. Collapse state persists per type in user prefs.
+ * heading. Collapse state persists per type in user prefs; until the user
+ * toggles a type, its section follows `defaultCollapsed`.
  *
  * The heading carries a download button for the whole section (issue #401).
  * Systems are the one type without one: a tagged system is a shelf rather than
@@ -27,9 +28,11 @@ export default function TagTypeSection({
   renderItem,
   tag,
   onDownload,
+  defaultCollapsed = false,
 }) {
   const { t } = useTranslation()
-  const [collapsed, setCollapsed] = useState(() => Boolean(getUserPrefs()[PREFS_KEY]?.[type]))
+  const [chosen, setCollapsed] = useState(() => getUserPrefs()[PREFS_KEY]?.[type])
+  const collapsed = chosen ?? defaultCollapsed
   const mode = getDefaultViewMode(type)
   const grid = mode !== 'list'
   const containerStyle = grid ? gridStyle(mode) : ROW_LIST_STYLE

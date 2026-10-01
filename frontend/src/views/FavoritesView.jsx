@@ -9,6 +9,7 @@ import AudioFavorite from '../components/favorites/AudioFavorite'
 import ModelFavorite from '../components/favorites/ModelFavorite'
 import SystemFavorite from '../components/favorites/SystemFavorite'
 import Tag from '../components/Tag'
+import { shouldAutoCollapse } from '../utils/autoCollapse'
 
 export default function FavoritesView() {
   const { t } = useTranslation()
@@ -21,6 +22,13 @@ export default function FavoritesView() {
   const audio = items.filter((i) => i.item_type === 'audio')
   const models = items.filter((i) => i.item_type === 'model')
   const tags = items.filter((i) => i.item_type === 'tag')
+  // Tags render as a chip row rather than a collapsible section, so only the
+  // other sections count towards a long page.
+  const sections = [systems, books, maps, tokens, audio, models].filter((l) => l.length > 0)
+  const autoCollapse = shouldAutoCollapse(
+    sections.reduce((n, l) => n + l.length, 0),
+    sections.length
+  )
 
   if (items.length === 0) {
     return (
@@ -74,6 +82,7 @@ export default function FavoritesView() {
 
       {systems.length > 0 && (
         <FavoritesSection
+          defaultCollapsed={autoCollapse}
           type="system"
           title={t('favorites.systems', { count: systems.length })}
           items={systems}
@@ -83,6 +92,7 @@ export default function FavoritesView() {
 
       {books.length > 0 && (
         <FavoritesSection
+          defaultCollapsed={autoCollapse}
           type="book"
           title={t('favorites.books', { count: books.length })}
           items={books}
@@ -92,6 +102,7 @@ export default function FavoritesView() {
 
       {maps.length > 0 && (
         <FavoritesSection
+          defaultCollapsed={autoCollapse}
           type="map"
           title={t('favorites.maps', { count: maps.length })}
           items={maps}
@@ -101,6 +112,7 @@ export default function FavoritesView() {
 
       {tokens.length > 0 && (
         <FavoritesSection
+          defaultCollapsed={autoCollapse}
           type="token"
           title={t('favorites.tokens', { count: tokens.length })}
           items={tokens}
@@ -110,6 +122,7 @@ export default function FavoritesView() {
 
       {audio.length > 0 && (
         <FavoritesSection
+          defaultCollapsed={autoCollapse}
           type="audio"
           title={t('favorites.audio', { count: audio.length })}
           items={audio}
@@ -119,6 +132,7 @@ export default function FavoritesView() {
 
       {models.length > 0 && (
         <FavoritesSection
+          defaultCollapsed={autoCollapse}
           type="models"
           title={t('favorites.models', { count: models.length })}
           items={models}

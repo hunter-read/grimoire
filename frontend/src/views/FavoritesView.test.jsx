@@ -102,4 +102,27 @@ describe('FavoritesView', () => {
     expect(link).toBeInTheDocument()
     expect(link).toHaveAttribute('href', '/tags?tag=draw%20steel')
   })
+
+  it('starts every section collapsed once there are more than 25 favorites', () => {
+    const maps = Array.from({ length: 20 }, (_, i) => ({ ...aMap, item_id: `m${i}` }))
+    const books = Array.from({ length: 6 }, (_, i) => ({ ...aBook, item_id: `b${i}` }))
+    renderWith([...maps, ...books])
+    expect(screen.getByRole('button', { name: /Maps \(20\)/ })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.queryByText('Core Rules')).not.toBeInTheDocument()
+
+    // A section the user opened stays open.
+    fireEvent.click(screen.getByRole('button', { name: /Books \(6\)/ }))
+    expect(screen.getAllByText('Core Rules')).toHaveLength(6)
+  })
+
+  it('leaves a single long section open', () => {
+    renderWith(Array.from({ length: 30 }, (_, i) => ({ ...aMap, item_id: `m${i}` })))
+    expect(screen.getByRole('button', { name: /Maps \(30\)/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+  })
 })

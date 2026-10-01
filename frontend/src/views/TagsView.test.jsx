@@ -286,3 +286,65 @@ describe('TagsView', () => {
     })
   })
 })
+
+describe('TagsView — long tag lists start collapsed', () => {
+  // 20 map tags and 10 shared ones: past the threshold, across two groups.
+  const manyTags = () => ({
+    tags: [
+      ...Array.from({ length: 20 }, (_, i) => ({
+        internal: `map${i}`,
+        display: `Map Tag ${i}`,
+        category: 'map',
+        count: 1,
+        is_favorite: false,
+      })),
+      ...Array.from({ length: 10 }, (_, i) => ({
+        internal: `shared${i}`,
+        display: `Shared Tag ${i}`,
+        category: 'shared',
+        count: 1,
+        is_favorite: false,
+      })),
+    ],
+  })
+
+  beforeEach(() => {
+    localStorage.clear()
+    mockList.mockResolvedValue(manyTags())
+  })
+
+  it('collapses every category group', async () => {
+    renderView()
+    await screen.findByRole('button', { name: /^map/i })
+    expect(screen.getByRole('button', { name: /^map/i })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Map Tag 0')).not.toBeInTheDocument()
+    expect(screen.queryByText('Shared Tag 0')).not.toBeInTheDocument()
+
+    // Opening one is remembered as the user's choice.
+    await userEvent.click(screen.getByRole('button', { name: /^map/i }))
+    expect(screen.getByText('Map Tag 0')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('grimoire:user-prefs')).tagsCategoryCollapsed).toEqual({
+      shared: true,
+      system: true,
+      book: true,
+      token: true,
+      audio: true,
+      model: true,
+    })
+  })
+
+  it("keeps the selected tag's group open", async () => {
+    mockItems.mockResolvedValue({ internal: 'map3', display: 'Map Tag 3', items: [], folders: [] })
+    renderView('/tags?tag=map3')
+    expect(await screen.findByText('Map Tag 0')).toBeInTheDocument()
+    expect(screen.queryByText('Shared Tag 0')).not.toBeInTheDocument()
+  })
+
+  it('opens the groups when the filter narrows the list', async () => {
+    renderView()
+    await screen.findByRole('button', { name: /^map/i })
+    await userEvent.type(screen.getByLabelText(/filter tags/i), 'tag 1')
+    expect(screen.getByText('Map Tag 1')).toBeInTheDocument()
+    expect(screen.getByText('Shared Tag 1')).toBeInTheDocument()
+  })
+})
