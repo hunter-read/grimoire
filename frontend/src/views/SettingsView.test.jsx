@@ -16,6 +16,9 @@ vi.mock('../components/settings/AuthenticationTab', () => ({ default: () => <div
 vi.mock('../components/settings/LogsTab', () => ({ default: () => <div>logs-tab</div> }))
 vi.mock('../components/settings/MetadataTab', () => ({ default: () => <div>metadata-tab</div> }))
 vi.mock('../components/settings/AddonsTab', () => ({ default: () => <div>addons-tab</div> }))
+vi.mock('../components/settings/SettingsQuickActions', () => ({
+  default: () => <div>quick-actions</div>,
+}))
 
 function renderAt(tab, user) {
   return render(
@@ -72,5 +75,15 @@ describe('SettingsView', () => {
     renderAt('account', { role: 'admin' })
     expect(screen.getByText('settings.tabs.account')).toBeInTheDocument()
     expect(screen.getByText('settings.tabs.users')).toBeInTheDocument()
+  })
+
+  it('pins the rescan / file manager quick actions to the header for admins', () => {
+    renderAt('users', { role: 'admin' })
+    expect(screen.getByText('quick-actions')).toBeInTheDocument()
+  })
+
+  it('keeps the quick actions away from non-admins', () => {
+    renderAt('account', { role: 'gm' })
+    expect(screen.queryByText('quick-actions')).not.toBeInTheDocument()
   })
 })

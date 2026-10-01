@@ -9,6 +9,7 @@ import AuthenticationTab from '../components/settings/AuthenticationTab'
 import LogsTab from '../components/settings/LogsTab'
 import MetadataTab from '../components/settings/MetadataTab'
 import AddonsTab from '../components/settings/AddonsTab'
+import SettingsQuickActions from '../components/settings/SettingsQuickActions'
 
 export default function SettingsView({ user, onLogout }) {
   const { t } = useTranslation()
@@ -41,7 +42,19 @@ export default function SettingsView({ user, onLogout }) {
         boxSizing: 'border-box',
       }}
     >
-      <h2 style={{ fontSize: 28, marginBottom: 28 }}>{t('settings.title')}</h2>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 16,
+          marginBottom: 28,
+        }}
+      >
+        <h2 style={{ fontSize: 28, margin: 0 }}>{t('settings.title')}</h2>
+        {isAdmin && <SettingsQuickActions />}
+      </div>
 
       {/* A single tab is not a choice — players and GMs only ever see Account,
           so the bar would just be a label above the page title. */}

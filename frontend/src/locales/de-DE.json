@@ -895,6 +895,11 @@
       "logs": "Protokoll",
       "metadata": "Metadata",
       "addons": "Add-ons"
+    },
+    "quickActions": {
+      "label": "Schnellaktionen",
+      "rescan": "Neu einlesen",
+      "fileManager": "Dateimanager"
     }
   },
   "authSettings": {

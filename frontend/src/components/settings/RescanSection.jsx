@@ -4,6 +4,7 @@ import { LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import Spinner from '../Spinner'
 import RescanModal from '../RescanModal'
 import useScanStatus from '../../hooks/useScanStatus'
+import scanPhaseLabel, { scanPercent, scanTotals } from './scanPhaseLabel'
 
 export default function RescanSection() {
   const { t } = useTranslation()
@@ -37,35 +38,13 @@ export default function RescanSection() {
     ocr_current,
   } = status
 
-  // Coalesced because a status payload from a backend that predates a
-  // collection omits its counters entirely, and a single undefined would turn
-  // the whole sum into NaN — blanking the progress bar rather than just that
-  // one row.
-  const n = (v) => v || 0
-  const totalScan =
-    n(total_books) + n(total_maps) + n(total_tokens) + n(total_audio) + n(total_models)
-  const scannedScan =
-    n(scanned_books) + n(scanned_maps) + n(scanned_tokens) + n(scanned_audio) + n(scanned_models)
-  const scanPct = totalScan > 0 ? Math.round((scannedScan / totalScan) * 100) : null
+  const { total: totalScan, scanned: scannedScan } = scanTotals(status)
+  const scanPct = scanPercent(status)
   const indexPct = to_index > 0 ? Math.round((indexed / to_index) * 100) : 0
   const ocrPct = total_ocr > 0 ? Math.round((ocr_done / total_ocr) * 100) : 0
   const thumbsPct = total_thumbs > 0 ? Math.round((thumbs_done / total_thumbs) * 100) : 0
 
-  const phaseLabel =
-    phase === 'scanning'
-      ? scanPct !== null
-        ? t('maintenance.rescan.scanningPercent', { pct: scanPct })
-        : t('maintenance.rescan.scanning')
-      : phase === 'indexing'
-        ? t('maintenance.rescan.indexing', { indexed, total: to_index })
-        : phase === 'ocr'
-          ? t('maintenance.rescan.ocr', { done: ocr_done, total: total_ocr })
-          : phase === 'thumbnails'
-            ? t('maintenance.rescan.thumbnails', {
-                done: thumbs_done,
-                total: total_thumbs,
-              })
-            : t('maintenance.rescan.scanning')
+  const phaseLabel = scanPhaseLabel(t, status)
 
   return (
     <div>

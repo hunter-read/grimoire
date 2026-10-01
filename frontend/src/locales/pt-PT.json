@@ -895,6 +895,11 @@
       "logs": "Registos",
       "metadata": "Metadata",
       "addons": "Extras"
+    },
+    "quickActions": {
+      "label": "Ações rápidas",
+      "rescan": "Reanalisar",
+      "fileManager": "Gerenciador de arquivos"
     }
   },
   "authSettings": {

@@ -895,6 +895,11 @@
       "logs": "Loggar",
       "metadata": "Metadata",
       "addons": "Tillägg"
+    },
+    "quickActions": {
+      "label": "Snabbåtgärder",
+      "rescan": "Skanna om",
+      "fileManager": "Filhanterare"
     }
   },
   "authSettings": {

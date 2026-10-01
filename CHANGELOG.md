@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Release candidates are omitted; their contents are rolled into the stable release that followed.
 
+## [Unreleased]
+
+### Added
+
+- Rescan and File manager buttons in the top-right corner of every Settings tab, so admins no longer have to go to Maintenance and scroll to reach them. Rescan shows the scan's progress and a stop button while it runs, like the one on the Maintenance tab
+
+### Fixed
+
+- A rescan started from one rescan button now shows as running on every other one on screen at once, instead of up to 30 seconds later
+
 ## [1.7.3] - 2026-10-01
 
 ### Added

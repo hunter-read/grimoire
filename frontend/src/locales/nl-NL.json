@@ -895,6 +895,11 @@
       "logs": "Logboeken",
       "metadata": "Metadata",
       "addons": "Add-ons"
+    },
+    "quickActions": {
+      "label": "Snelle acties",
+      "rescan": "Opnieuw scannen",
+      "fileManager": "Bestandsbeheer"
     }
   },
   "authSettings": {

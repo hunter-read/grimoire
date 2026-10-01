@@ -895,6 +895,11 @@
       "logs": "Journaux",
       "metadata": "Metadata",
       "addons": "Modules"
+    },
+    "quickActions": {
+      "label": "Actions rapides",
+      "rescan": "Réanalyser",
+      "fileManager": "Gestionnaire de fichiers"
     }
   },
   "authSettings": {

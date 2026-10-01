@@ -27,6 +27,11 @@ const EMPTY = {
   updated_books: 0,
 }
 
+// Fired when any instance starts a scan, so the others on screen (the settings
+// header quick action and the Maintenance section, say) switch to fast polling
+// at once instead of looking idle until their next 30s poll.
+const SCAN_STARTED = 'grimoire:scan-started'
+
 /**
  * Polls /scan-status and exposes the current scan state plus a helper to start a
  * (optionally scoped) rescan. Shared by the Settings maintenance panel and the
@@ -69,6 +74,15 @@ export default function useScanStatus() {
     }
   }, [status.running])
 
+  useEffect(() => {
+    const onStarted = () => {
+      setLastResult(null)
+      setStatus((s) => (s.running ? s : { ...s, running: true, phase: 'scanning' }))
+    }
+    window.addEventListener(SCAN_STARTED, onStarted)
+    return () => window.removeEventListener(SCAN_STARTED, onStarted)
+  }, [])
+
   const startRescan = useCallback(
     async ({ scope = null, metadata_mode = 'new' } = {}) => {
       if (status.running) return
@@ -77,6 +91,7 @@ export default function useScanStatus() {
       setStatus((s) => ({ ...s, running: true, phase: 'scanning' }))
       try {
         await api.post('/rescan', { scope, metadata_mode })
+        window.dispatchEvent(new Event(SCAN_STARTED))
       } catch (_) {
         setStatus((s) => ({ ...s, running: false, phase: null }))
         throw _
