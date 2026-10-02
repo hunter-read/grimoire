@@ -9,14 +9,18 @@ import { tagStyle, displayLabel } from './tagStyle'
  *
  * Tags usually sit inside a card covered by a CardLink overlay; being
  * positioned keeps the chip painted above the overlay so it stays clickable.
+ *
+ * `style` overrides the shared chip look for callers that need a denser chip
+ * (e.g. the book list row).
  */
-export default function LinkableTag({ label, color }) {
+export default function LinkableTag({ label, color, style }) {
   const internal = String(label).trim().toLowerCase()
   return (
     <Link
       to={`/tags?tag=${encodeURIComponent(internal)}`}
       style={{
         ...tagStyle(color),
+        ...style,
         position: 'relative',
         cursor: 'pointer',
         textDecoration: 'none',

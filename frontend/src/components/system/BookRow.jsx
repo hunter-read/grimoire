@@ -9,7 +9,21 @@ import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
+import LinkableTag from '../LinkableTag'
+import { displayLabel } from '../tagStyle'
 import BookActionsMenu from './BookActionsMenu'
+
+// The list row's compact gold tag chip.
+const rowTagStyle = {
+  fontSize: 11,
+  fontWeight: 'normal',
+  padding: '1px 7px',
+  borderRadius: 8,
+  margin: 0,
+  background: 'rgba(201,168,76,0.12)',
+  border: '1px solid var(--gold-dim)',
+  color: 'var(--gold)',
+}
 
 /**
  * A single book entry. Renders as a list row by default; pass `card` or
@@ -585,21 +599,18 @@ export default function BookRow({
               {t('variants.badge', { count: book.variant_count + 1 })}
             </span>
           )}
-          {(book.tags || []).map((tag) => (
-            <span
-              key={tag}
-              style={{
-                fontSize: 11,
-                padding: '1px 7px',
-                borderRadius: 8,
-                background: 'rgba(201,168,76,0.12)',
-                border: '1px solid var(--gold-dim)',
-                color: 'var(--gold)',
-              }}
-            >
-              {tag.charAt(0).toUpperCase() + tag.slice(1)}
-            </span>
-          ))}
+          {/* Tags link to the tags page (issue #517); LinkableTag is positioned,
+              so it paints above the CardLink overlay instead of opening the book.
+              Bulk mode keeps plain chips so a click still toggles selection. */}
+          {(book.tags || []).map((tag) =>
+            bulkMode ? (
+              <span key={tag} style={rowTagStyle}>
+                {displayLabel(tag)}
+              </span>
+            ) : (
+              <LinkableTag key={tag} label={tag} style={rowTagStyle} />
+            )
+          )}
         </div>
       </div>
 

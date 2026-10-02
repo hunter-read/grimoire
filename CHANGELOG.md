@@ -19,6 +19,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Fixed
 
 - A rescan started from one rescan button now shows as running on every other one on screen at once, instead of up to 30 seconds later
+- Clicking a tag on a book in a game system's book list opens the Tags page filtered to that tag, instead of opening the book
 
 ## [1.7.3] - 2026-10-01
 
