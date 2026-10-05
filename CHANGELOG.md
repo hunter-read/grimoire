@@ -18,6 +18,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- A game system with many character builder and other links no longer squeezes its title into a narrow column. The header shows up to three link buttons, always including at least one character builder and one other link when the system has both, and the rest open from a "More" menu grouped under Character Builders and Links. Each link is marked by kind with its own icon and tooltip, and an unlabelled link shows its site name instead of a bare "Link"
 - A rescan started from one rescan button now shows as running on every other one on screen at once, instead of up to 30 seconds later
 - Clicking a tag on a book in a game system's book list opens the Tags page filtered to that tag, instead of opening the book
 - Guests now see only what their campaign shares with them (#519). Tags and a tag's items, archive downloads, library stats, system book folders and covers, and the genre, license and similar lists are closed to guests like the rest of the library; a book opened by id shows its details only when it is shared into their campaign; and the other versions listed on a book, map, token, audio or model page, and their favorites, are limited to what is shared with them

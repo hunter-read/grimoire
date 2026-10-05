@@ -5,15 +5,7 @@ import useCollapsedSet from '../hooks/useCollapsedSet'
 import useSystemSearch from '../hooks/useSystemSearch'
 import useRestoredView from '../hooks/useRestoredView'
 import { useTranslation } from 'react-i18next'
-import {
-  LuArrowLeft,
-  LuPencil,
-  LuClipboard,
-  LuFolderOpen,
-  LuSearch,
-  LuX,
-  LuDownload,
-} from 'react-icons/lu'
+import { LuArrowLeft, LuPencil, LuFolderOpen, LuSearch, LuX, LuDownload } from 'react-icons/lu'
 import api, { bulk as bulkApi } from '../api'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import BulkActionBar from '../components/BulkActionBar'
@@ -26,6 +18,7 @@ import { useFavorites } from '../context/FavoritesContext'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
+import SystemLinks from '../components/system/SystemLinks'
 import SystemSearchResults from '../components/system/SystemSearchResults'
 import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
@@ -566,57 +559,7 @@ export default function SystemDetailView() {
                 minWidth: 0,
               }}
             >
-              {(() => {
-                // Prefer the multi-value lists; fall back to the legacy single
-                // character_builder_url for older data.
-                const builderLinks =
-                  system.character_builder_urls && system.character_builder_urls.length
-                    ? system.character_builder_urls
-                    : system.character_builder_url
-                      ? [{ label: '', url: system.character_builder_url }]
-                      : []
-                const genericLinks = system.urls || []
-                const allLinks = [
-                  ...builderLinks.map((l) => ({ ...l, builder: true })),
-                  ...genericLinks.map((l) => ({ ...l, builder: false })),
-                ].filter((l) => l.url)
-                if (allLinks.length === 0) return null
-                return (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      justifyContent: 'flex-end',
-                    }}
-                  >
-                    {allLinks.map((l, i) => (
-                      <a
-                        key={`${l.url}-${i}`}
-                        href={l.url}
-                        target="_blank"
-                        rel="noopener"
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: 6,
-                          fontSize: 15,
-                          background: 'var(--bg-card)',
-                          border: '1px solid var(--border)',
-                          color: 'var(--gold)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        {l.builder && <LuClipboard size={14} />}
-                        {l.label ||
-                          (l.builder ? t('systemDetail.characterBuilder') : t('systemDetail.link'))}
-                      </a>
-                    ))}
-                  </div>
-                )
-              })()}
+              <SystemLinks system={system} />
               {/* Search bar */}
               <div style={{ position: 'relative' }}>
                 <LuSearch
