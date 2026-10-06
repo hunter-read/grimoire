@@ -26,6 +26,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A campaign's guest invite codes are shown only to its GM, so a guest or player can no longer read another guest's code and sign in as them
 - Copying a blank character sheet is limited to sheets the member can already open, so it can no longer pull any book in the library, or a GM-only campaign file, into a downloadable sheet
 - A library scan left stuck at "running" - because the server was restarted or ran out of memory mid-scan - can now be cleared with **Stop** instead of only by restarting the container, which also started a full rescan (#524). A running scan now records a heartbeat, and one that has been silent for five minutes is treated as abandoned, so it no longer blocks rescans, scheduled scans, cleanup, sidecar export, or duplicate detection either
+- A PDF's table of contents now shows when one of its bookmarks points past the last page. Previously that one bad bookmark hid the whole table of contents, even though other PDF readers list the rest; now only the broken bookmark is affected, and one pointing just past the end opens the last page
 
 ## [1.7.3] - 2026-10-01
 

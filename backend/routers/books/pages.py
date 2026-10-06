@@ -29,6 +29,7 @@ from ...indexer.formats import (
     is_fitz_mime,
     open_document,
 )
+from ...indexer.outline import read_toc
 from ...indexer.thumbnails import archive_ext
 from ...models import Book
 from ...services.content_cache import content_token, page_cache_prefix
@@ -73,7 +74,9 @@ def get_book_toc(
         raise HTTPException(404)
     _assert_book_access(db, book, current_user)
     doc = open_document(book.filepath)
-    raw = doc.get_toc(simple=True)
+    # Not `get_toc` directly: MuPDF drops the whole outline over one bookmark
+    # it can't resolve, which left books with a perfectly usable TOC showing none.
+    raw = read_toc(doc)
     doc.close()
 
     def build_tree(items, min_level):
