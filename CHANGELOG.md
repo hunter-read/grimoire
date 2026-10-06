@@ -24,6 +24,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Guests now see only what their campaign shares with them (#519). Tags and a tag's items, archive downloads, library stats, system book folders and covers, and the genre, license and similar lists are closed to guests like the rest of the library; a book opened by id shows its details only when it is shared into their campaign; and the other versions listed on a book, map, token, audio or model page, and their favorites, are limited to what is shared with them
 - A campaign's guest invite codes are shown only to its GM, so a guest or player can no longer read another guest's code and sign in as them
 - Copying a blank character sheet is limited to sheets the member can already open, so it can no longer pull any book in the library, or a GM-only campaign file, into a downloadable sheet
+- A PDF's table of contents now shows when one of its bookmarks points past the last page. Previously that one bad bookmark hid the whole table of contents, even though other PDF readers list the rest; now only the broken bookmark is affected, and one pointing just past the end opens the last page
 
 ## [1.7.3] - 2026-10-01
 
