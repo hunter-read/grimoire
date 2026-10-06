@@ -1,6 +1,9 @@
 """Background indexer and rescan helpers for the library."""
 import json
 import os
+import threading
+from datetime import datetime, timezone
+from typing import Optional
 
 from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey
@@ -21,6 +24,20 @@ except ImportError:  # redis not installed → _valkey is always None, never use
 
 _SCAN_KEY = "grimoire:scan_status"
 _STOP_KEY = "grimoire:scan_stop"
+# The heartbeat has its own key rather than living in the status blob. The
+# blob is written read-modify-write, so a second writer (the heartbeat thread)
+# racing the scan's own updates could put back a stale copy - including
+# `running: true` over the scan's final `running: false`.
+_HEARTBEAT_KEY = "grimoire:scan_heartbeat"
+
+# How long a running scan's heartbeat may go unrefreshed before it is treated
+# as abandoned (issue #524). Mirrors the duplicate scanner's threshold.
+STALE_AFTER_SECONDS = 300
+# How often a running scan refreshes its heartbeat, independent of progress.
+# Progress alone is too coarse: OCR of one long scanned book or a single large
+# model preview can go far longer than STALE_AFTER_SECONDS between status
+# writes, and mistaking that for a dead scan would let a second one start.
+HEARTBEAT_INTERVAL_SECONDS = 30
 
 _DEFAULT_STATUS: dict = {
     "running": False,
@@ -62,6 +79,7 @@ _DEFAULT_STATUS: dict = {
 # In-process fallback when Valkey is unavailable (single-worker or no cache)
 _scan_status: dict = dict(_DEFAULT_STATUS)
 _stop_requested: bool = False
+_heartbeat: Optional[str] = None
 
 
 def request_stop() -> None:
@@ -93,7 +111,35 @@ def is_stop_requested() -> bool:
     return _stop_requested
 
 
-def _get_status() -> dict:
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _beat() -> None:
+    """Record that the scan owning the status is still alive."""
+    global _heartbeat
+    now = _now()
+    if _valkey:
+        try:
+            _valkey.set(_HEARTBEAT_KEY, now, ex=86400)
+            return
+        except _VALKEY_ERRORS as e:
+            logger.warning("Valkey set(heartbeat) failed, using in-process heartbeat: %s", e)
+    _heartbeat = now
+
+
+def _get_heartbeat() -> Optional[str]:
+    if _valkey:
+        try:
+            raw = _valkey.get(_HEARTBEAT_KEY)
+            if raw:
+                return raw.decode() if isinstance(raw, bytes) else str(raw)
+        except _VALKEY_ERRORS as e:
+            logger.warning("Valkey get(heartbeat) failed, using in-process heartbeat: %s", e)
+    return _heartbeat
+
+
+def _read_status() -> dict:
     if _valkey:
         try:
             raw = _valkey.get(_SCAN_KEY)
@@ -105,17 +151,85 @@ def _get_status() -> dict:
     return dict(_scan_status)
 
 
+def _get_status() -> dict:
+    return {**_read_status(), "heartbeat": _get_heartbeat()}
+
+
 def _set_status(updates: dict) -> None:
     global _scan_status
+    # Every write is a sign of life, so the heartbeat starts with the scan
+    # rather than one HEARTBEAT_INTERVAL_SECONDS later.
+    _beat()
     if _valkey:
         try:
-            current = _get_status()
+            current = _read_status()
             current.update(updates)
             _valkey.set(_SCAN_KEY, json.dumps(current), ex=86400)
             return
         except _VALKEY_ERRORS as e:
             logger.warning("Valkey set(status) failed, using in-process status: %s", e)
     _scan_status.update(updates)
+
+
+def _start_heartbeat() -> threading.Event:
+    """Keep the heartbeat fresh while a scan runs; set the returned event to stop.
+
+    A daemon thread, so it dies with the process - which is exactly the case the
+    heartbeat exists to detect. A scan that ends normally stops it from its
+    ``finally``.
+    """
+    done = threading.Event()
+
+    def tick() -> None:
+        while not done.wait(HEARTBEAT_INTERVAL_SECONDS):
+            try:
+                _beat()
+            except Exception:  # noqa: BLE001 - a dead ticker would fake a dead scan
+                logger.exception("Scan heartbeat failed")
+
+    threading.Thread(target=tick, name="scan-heartbeat", daemon=True).start()
+    return done
+
+
+def is_stale(status: Optional[dict] = None) -> bool:
+    """Whether a status claiming to run has actually been abandoned (issue #524).
+
+    A scan whose process died mid-run never reaches the ``finally`` that clears
+    ``running``, and Valkey keeps that status for a day, refusing every later
+    scan. True when the heartbeat stopped advancing. A running status with no
+    heartbeat at all is stale too: it was written by a build that predates the
+    field, so it survived a restart and cannot be live.
+    """
+    current = _get_status() if status is None else status
+    if not current.get("running"):
+        return False
+    beat = current.get("heartbeat")
+    if not beat:
+        return True
+    try:
+        last = datetime.fromisoformat(beat)
+    except (TypeError, ValueError):
+        return True
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - last).total_seconds() > STALE_AFTER_SECONDS
+
+
+def scan_in_progress() -> bool:
+    """Whether a library scan is really running - a stale status does not count."""
+    status = _get_status()
+    return bool(status.get("running")) and not is_stale(status)
+
+
+def force_clear() -> dict:
+    """Drop an abandoned scan's status so the UI unblocks and a new scan can start.
+
+    Only for a scan nothing is running any more: a live one must be asked to
+    stop via ``request_stop``, so it winds down at a safe checkpoint.
+    """
+    clear_stop()
+    _set_status({**_DEFAULT_STATUS})
+    return _get_status()
 
 
 def _ocr_one_book(book_id: str) -> str:
@@ -370,13 +484,15 @@ def trigger_ocr_queue():
     the next one), since the queue lives in the DB. Clears the running/phase flags
     on completion when this call owns the OCR phase.
     """
-    if _get_status()["running"]:
+    if scan_in_progress():
         return
+    heartbeat = _start_heartbeat()
     try:
         run_ocr_queue()
     finally:
         if _get_status()["phase"] == "ocr":
             _set_status({"running": False, "phase": None})
+        heartbeat.set()
 
 
 def rescan_single_book(book_id: str) -> None:
@@ -389,12 +505,13 @@ def rescan_single_book(book_id: str) -> None:
     re-read changed files on its own; the user can also re-trigger once it
     finishes). Progress is observable via GET /scan-status.
     """
-    if _get_status()["running"]:
+    if scan_in_progress():
         logger.info("A library scan is already running - skipping this single-book re-index.")
         return
 
     clear_stop()
     _set_status({**_DEFAULT_STATUS, "running": True, "phase": "indexing", "to_index": 1, "indexed": 0})
+    heartbeat = _start_heartbeat()
     try:
         _invalidate_book_cache()
         db = SessionLocal()
@@ -423,6 +540,7 @@ def rescan_single_book(book_id: str) -> None:
             run_ocr_queue()
     finally:
         _set_status({"running": False, "phase": None})
+        heartbeat.set()
 
 
 def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:
@@ -436,12 +554,17 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     scope_path restricts the scan to a single subtree (e.g. "books/D&D 5e/adventure");
     metadata_mode ("new"|"missing"|"replace") controls sidecar metadata re-application.
     """
-    if _get_status()["running"]:
+    if scan_in_progress():
         logger.info("A library scan is already running - ignoring this request.")
         return
+    if _get_status()["running"]:
+        # The previous scan's process died before it could clear its status
+        # (issue #524). Nothing is competing with this one, so start anyway.
+        logger.warning("The previous library scan was left stuck; starting a new one anyway.")
 
     clear_stop()
     _set_status({**_DEFAULT_STATUS, "running": True, "phase": "scanning"})
+    heartbeat = _start_heartbeat()
     try:
         _invalidate_book_cache()
         db = SessionLocal()
@@ -587,3 +710,4 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
 
         sweep_page_cache()
         _set_status({"running": False, "phase": None})
+        heartbeat.set()

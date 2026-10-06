@@ -288,6 +288,7 @@ class TestCancelScan:
     def test_cancel_while_running_returns_stop_requested(self, client, admin_headers):
         from backend.routers.library import _helpers
         _helpers._scan_status["running"] = True
+        _helpers._beat()  # a live scan, not an abandoned one (issue #524)
         try:
             resp = client.post("/api/cancel-scan", headers=admin_headers)
             assert resp.status_code == 200

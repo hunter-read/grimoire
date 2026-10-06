@@ -17,7 +17,7 @@ def cleanup_missing(
     from ..library import _helpers as _lib
 
     logger.debug("Cleanup: manual trigger received")
-    if _lib._get_status()["running"]:
+    if _lib.scan_in_progress():
         logger.debug("Cleanup: blocked - library scan is currently running")
         raise HTTPException(
             status_code=409,
@@ -85,7 +85,7 @@ def export_sidecars(
     """
     from ..library import _helpers as _lib
 
-    if _lib._get_status()["running"]:
+    if _lib.scan_in_progress():
         # A scan rewrites the very rows being exported, so the sidecars would
         # capture a moving target.
         raise HTTPException(

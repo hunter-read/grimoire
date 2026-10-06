@@ -17,7 +17,7 @@ from backend.indexer import stl_render
 from backend.indexer.stl_render import INLINE_TRIANGLE_BUDGET, MAX_TRIANGLES
 from backend.models import Model3D
 from backend.routers.library import _helpers
-from backend.tests.conftest import make_model3d
+from backend.tests.conftest import live_scan_status, make_model3d
 
 
 class _Row:
@@ -266,7 +266,7 @@ class TestStartupRecovery:
         called = []
         monkeypatch.setattr(_helpers, "run_model_thumbnail_queue", lambda: called.append(1))
         monkeypatch.setattr(
-            _helpers, "_get_status", lambda: {"running": True, "phase": "scanning"}
+            _helpers, "_get_status", lambda: live_scan_status(phase="scanning")
         )
         _helpers.run_rescan_sync()
         assert called == []

@@ -133,6 +133,14 @@ Older versions cached rendered pages under a key derived from the file's *path*,
 
 ---
 
+## A library scan is stuck at "running" and Rescan does nothing
+
+If the server process dies in the middle of a scan - the container is restarted or runs out of memory, say - the scan never gets to mark itself finished. Older versions then showed it as running indefinitely: every later rescan was refused as "already running", **Stop** appeared to do nothing, and only restarting the container (which starts a full scan) cleared it.
+
+A running scan now records a heartbeat every 30 seconds. Once that heartbeat has been silent for five minutes the scan is treated as abandoned: press **Stop** and it is cleared at once, after which you can start a new scan normally. Rescans, scheduled scans, and maintenance jobs also stop waiting on it. A scan that is genuinely still working - even one spending a long time on a single scanned book - keeps its heartbeat going and is only ever asked to stop.
+
+---
+
 ## How do I zoom in on a page?
 
 In the reader's **Page** and **Spread** modes, the toolbar has a zoom cluster - minus, the current level, and plus - with a reset button that appears once you are zoomed in. Zoom runs from 100% to 200% in 25% steps.

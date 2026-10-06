@@ -33,7 +33,7 @@ def start_scan(
     """
     from ..library import _helpers as _lib
 
-    if _lib._get_status()["running"]:
+    if _lib.scan_in_progress():
         raise HTTPException(
             status_code=409,
             detail="A library scan is already running; retry after it completes.",

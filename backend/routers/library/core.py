@@ -14,6 +14,7 @@ from ...config import (
     COMMIT_HASH,
     DISABLE_VERSION_CHECKING,
     get_db,
+    logger,
 )
 from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, require_not_guest, get_current_user, CurrentUser
@@ -67,7 +68,7 @@ def rescan_library(
             resolve_scope(LIBRARY_PATH, req.scope)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-    if _helpers._get_status()["running"]:
+    if _helpers.scan_in_progress():
         return {"status": "already_running"}
     background_tasks.add_task(
         _helpers.run_rescan_sync,
@@ -80,12 +81,31 @@ def rescan_library(
 @router.post(
     "/cancel-scan",
     summary="Cancel running scan",
-    description="Requests a graceful stop of the currently running library scan or indexing job. Admin role required.",
+    description=(
+        "Requests a graceful stop of the currently running library scan or indexing job "
+        "(`stop_requested`). A scan whose process died - its heartbeat has not moved for "
+        "five minutes - is cleared outright instead (`cleared_stale`). Admin role required."
+    ),
     response_model=StatusResponse,
 )
 def cancel_scan(_: CurrentUser = Depends(require_admin)):
-    if not _helpers._get_status()["running"]:
+    """Stop a running scan, or clear one that is no longer running at all.
+
+    Asking a live scan to stop only sets a flag for its thread to notice. A scan
+    whose process died leaves that flag pointing at nothing and the status
+    ``running`` until Valkey expires it a day later, refusing every rescan in
+    the meantime (issue #524). A status whose heartbeat has gone stale is
+    cleared here directly - the only recovery the UI has short of a restart.
+    """
+    status = _helpers._get_status()
+    if not status["running"]:
         return {"status": "not_running"}
+    if _helpers.is_stale(status):
+        _helpers.force_clear()
+        logger.warning(
+            "Cleared a stuck library scan (no sign of life since %s).", status.get("heartbeat")
+        )
+        return {"status": "cleared_stale"}
     _helpers.request_stop()
     return {"status": "stop_requested"}
 

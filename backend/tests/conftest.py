@@ -188,6 +188,17 @@ def player_id(player_setup):
 # ---------------------------------------------------------------------------
 
 
+def live_scan_status(**extra) -> dict:
+    """A library scan status that reads as genuinely running.
+
+    A running status needs a fresh heartbeat to count as live - without one it
+    is an abandoned scan (issue #524), which nothing should defer to.
+    """
+    from datetime import datetime, timezone
+
+    return {"running": True, "heartbeat": datetime.now(timezone.utc).isoformat(), **extra}
+
+
 def make_game_system(**kwargs) -> GameSystem:
     """Insert a GameSystem row directly and return it (caller must close db)."""
     uid = str(uuid.uuid4())[:8]

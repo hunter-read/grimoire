@@ -100,10 +100,18 @@ export default function useScanStatus() {
     [status.running]
   )
 
+  // A scan whose process died is cleared outright rather than asked to stop
+  // (issue #524), and one that already finished has nothing to stop. Either way
+  // nothing is running, so drop back to idle now instead of showing "Stopping…"
+  // until the next poll.
   const stopScan = useCallback(async () => {
     setStopping(true)
     try {
-      await api.post('/cancel-scan')
+      const result = await api.post('/cancel-scan')
+      if (result?.status === 'cleared_stale' || result?.status === 'not_running') {
+        setStopping(false)
+        setStatus((s) => ({ ...s, running: false, phase: null }))
+      }
     } catch (_) {}
   }, [])
 

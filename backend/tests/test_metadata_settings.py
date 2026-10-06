@@ -8,6 +8,7 @@ from backend.config import SessionLocal
 from backend.metadata import settings as export_settings
 from backend.metadata.formats import sidecar_path
 from backend.models import AppSetting, Book
+from backend.tests.conftest import live_scan_status
 
 
 @pytest.fixture
@@ -229,7 +230,7 @@ class TestBackfillEndpoint:
     ):
         """A scan rewrites the rows being exported, so sidecars would be a moving target."""
         monkeypatch.setattr(
-            "backend.routers.library._helpers._get_status", lambda: {"running": True}
+            "backend.routers.library._helpers._get_status", lambda: live_scan_status()
         )
         resp = client.post("/api/maintenance/sidecars/export", headers=admin_headers)
 

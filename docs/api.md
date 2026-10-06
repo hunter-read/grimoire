@@ -275,9 +275,9 @@ environment:
 | `/api/about` | GET | any | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so a `stats`-only key can't read these details. |
 | `/api/changelog` | GET | any (JWT) | Parsed `CHANGELOG.md` for the About dialog: `{releases: [{version, date, summary, sections: [{title, entries}]}]}`, newest release first. `date` and `summary` are `null` when the release heading carries neither (an `Unreleased` section has no date). `releases` is empty when the image ships without a changelog, which the dialog renders as no changelog section rather than an error. Parsed once and cached for the process lifetime - the file cannot change under a running container. |
 | `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
-| `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. |
-| `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode) |
-| `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job |
+| `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. `heartbeat` is the last time the running scan showed signs of life (ISO 8601, UTC) - it advances at least every 30 seconds while the scan is alive and stops when its process dies |
+| `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode). A scan left stuck by a dead process does not block it |
+| `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job, or clear one whose process died (`cleared_stale`) |
 
 **Stats response:**
 ```json
@@ -391,6 +391,8 @@ Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a sc
 {"status": "stop_requested"}
 ```
 Returns `{"status": "not_running"}` if no scan is in progress. Cancellation is cooperative - the running scan checks for the stop signal after each file and exits at the next safe checkpoint. Poll `/api/scan-status` until `running` is `false` to confirm it has stopped.
+
+Returns `{"status": "cleared_stale"}` when the status claimed a scan was running but its `heartbeat` had not moved for five minutes: the process behind it died before it could clear its own status (issue #524), so there is no thread left to notice a stop request. The status is reset on the spot and `running` is `false` immediately. Rescans, single-book rescans, the OCR trigger, cleanup, sidecar export, and duplicate detection likewise treat such a status as not running rather than refusing.
 
 ### Bulk operations
 

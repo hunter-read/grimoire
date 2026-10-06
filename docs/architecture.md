@@ -311,6 +311,21 @@ about OCR timeouts on large scanned books).
    to the pixmap render, so a specific faint scan can be re-read at higher
    resolution without re-OCRing the whole library.
 
+**Stuck-status recovery (issue #524).** Only the thread running a scan clears
+its own `running` flag, in a `finally`, so a process killed mid-scan left the
+status running - in Valkey, for a day - and every later scan refused to start.
+Each scan entry point (`run_rescan_sync`, `rescan_single_book`,
+`trigger_ocr_queue`) now starts a daemon heartbeat thread that stamps a separate
+`grimoire:scan_heartbeat` key every 30 seconds, independent of progress (a
+multi-hour OCR book reports progress far less often). The heartbeat dies with the
+process, so `is_stale()` - running, with no heartbeat for five minutes - means
+nothing is behind the status. `/cancel-scan` then clears it (`cleared_stale`)
+instead of setting a stop flag nobody will read, and every "is a scan running?"
+guard goes through `scan_in_progress()`, which ignores a stale status. The
+heartbeat has its own key because the status blob is written read-modify-write:
+a second writer racing the scan could restore `running: true` over its final
+`running: false`.
+
 ### Schema migrations
 
 Schema changes are managed by **Alembic** (revisions in

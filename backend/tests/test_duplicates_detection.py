@@ -9,7 +9,7 @@ from backend.models.duplicates import DuplicateGroup
 from backend.services import duplicates, variants
 from backend.services.duplicates import signals
 from backend.services.duplicates.grouping import Edge, build_groups, group_key
-from backend.tests.conftest import make_book, make_game_system, make_map
+from backend.tests.conftest import live_scan_status, make_book, make_game_system, make_map
 
 API = "/api/duplicates"
 
@@ -325,7 +325,7 @@ class TestDetectionRun:
     def test_scan_is_refused_during_a_library_scan(self, client, admin_headers, monkeypatch):
         from backend.routers.library import _helpers as lib
 
-        monkeypatch.setattr(lib, "_get_status", lambda: {"running": True})
+        monkeypatch.setattr(lib, "_get_status", lambda: live_scan_status())
         resp = client.post(f"{API}/scan", headers=admin_headers, json={})
         assert resp.status_code == 409
         assert "library scan" in resp.json()["detail"]

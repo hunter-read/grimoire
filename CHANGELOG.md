@@ -24,6 +24,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Guests now see only what their campaign shares with them (#519). Tags and a tag's items, archive downloads, library stats, system book folders and covers, and the genre, license and similar lists are closed to guests like the rest of the library; a book opened by id shows its details only when it is shared into their campaign; and the other versions listed on a book, map, token, audio or model page, and their favorites, are limited to what is shared with them
 - A campaign's guest invite codes are shown only to its GM, so a guest or player can no longer read another guest's code and sign in as them
 - Copying a blank character sheet is limited to sheets the member can already open, so it can no longer pull any book in the library, or a GM-only campaign file, into a downloadable sheet
+- A library scan left stuck at "running" - because the server was restarted or ran out of memory mid-scan - can now be cleared with **Stop** instead of only by restarting the container, which also started a full rescan (#524). A running scan now records a heartbeat, and one that has been silent for five minutes is treated as abandoned, so it no longer blocks rescans, scheduled scans, cleanup, sidecar export, or duplicate detection either
 
 ## [1.7.3] - 2026-10-01
 

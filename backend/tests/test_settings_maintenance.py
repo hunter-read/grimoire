@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 
 from backend.tests.conftest import (
+    live_scan_status,
     make_audio,
     make_book,
     make_campaign,
@@ -341,7 +342,7 @@ class TestCleanupMissingBehavior:
     def test_returns_409_when_scan_running(self, client, admin_headers):
         with patch(
             "backend.routers.library._helpers._get_status",
-            return_value={"running": True},
+            return_value=live_scan_status(),
         ):
             resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
         assert resp.status_code == 409

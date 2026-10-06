@@ -65,4 +65,39 @@ describe('useScanStatus', () => {
     expect(api.post).toHaveBeenCalledWith('/cancel-scan')
     expect(result.current.stopping).toBe(true)
   })
+
+  // A scan whose process died is cleared rather than asked to stop (issue #524),
+  // so the controls unblock immediately instead of waiting on the next poll.
+  it.each(['cleared_stale', 'not_running'])(
+    'returns to idle at once when the backend reports %s',
+    async (outcome) => {
+      api.get.mockResolvedValue({ running: true, phase: 'scanning' })
+      const { result } = renderHook(() => useScanStatus())
+      await waitFor(() => expect(result.current.status.running).toBe(true))
+      // The backend reports idle from here on, but the hook would not poll it
+      // again for another second without the immediate reset.
+      api.post.mockImplementation(async () => {
+        api.get.mockResolvedValue({ running: false, phase: null })
+        return { status: outcome }
+      })
+
+      await act(() => result.current.stopScan())
+
+      expect(result.current.stopping).toBe(false)
+      expect(result.current.status.running).toBe(false)
+      expect(result.current.status.phase).toBe(null)
+    }
+  )
+
+  it('keeps showing the scan while a live one winds down', async () => {
+    api.get.mockResolvedValue({ running: true, phase: 'scanning' })
+    const { result } = renderHook(() => useScanStatus())
+    await waitFor(() => expect(result.current.status.running).toBe(true))
+    api.post.mockResolvedValue({ status: 'stop_requested' })
+
+    await act(() => result.current.stopScan())
+
+    expect(result.current.stopping).toBe(true)
+    expect(result.current.status.running).toBe(true)
+  })
 })
