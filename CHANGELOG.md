@@ -10,50 +10,50 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
-- Rescan and File manager buttons in the top-right corner of every Settings tab, so admins no longer have to go to Maintenance and scroll to reach them. Rescan shows the scan's progress and a stop button while it runs, like the one on the Maintenance tab
+- Rescan and File manager buttons on every Settings tab, with scan progress and a stop button
 
 ### Changed
 
-- Long grouped pages open collapsed: a game system with more than 25 books starts with its categories closed, keeping Core Rulebooks open when it holds five books or fewer. The same applies past 25 items to favorites, the tags list and a tag's items, search results, campaign resources, the notes page tree, and a book's table of contents. A page with only one group stays open, and anything you open or close yourself keeps your choice
+- Groups with more than 25 items open collapsed; your own open/close choices are kept
 
 ### Fixed
 
-- On a phone, a book page zoomed all the way out now fits above the bottom navigation bar instead of running behind it (#520). The app now sizes itself to the part of the screen the browser's toolbar leaves visible, and the reader no longer gets pushed down when the pending campaign invites banner is showing
-- A game system with many character builder and other links no longer squeezes its title into a narrow column. The header shows up to three link buttons, always including at least one character builder and one other link when the system has both, and the rest open from a "More" menu grouped under Character Builders and Links. Each link is marked by kind with its own icon and tooltip, and an unlabelled link shows its site name instead of a bare "Link"
-- A rescan started from one rescan button now shows as running on every other one on screen at once, instead of up to 30 seconds later
-- Clicking a tag on a book in a game system's book list opens the Tags page filtered to that tag, instead of opening the book
-- Guests now see only what their campaign shares with them (#519). Tags and a tag's items, archive downloads, library stats, system book folders and covers, and the genre, license and similar lists are closed to guests like the rest of the library; a book opened by id shows its details only when it is shared into their campaign; and the other versions listed on a book, map, token, audio or model page, and their favorites, are limited to what is shared with them
-- A campaign's guest invite codes are shown only to its GM, so a guest or player can no longer read another guest's code and sign in as them
-- Copying a blank character sheet is limited to sheets the member can already open, so it can no longer pull any book in the library, or a GM-only campaign file, into a downloadable sheet
-- A library scan left stuck at "running" - because the server was restarted or ran out of memory mid-scan - can now be cleared with **Stop** instead of only by restarting the container, which also started a full rescan (#524). A running scan now records a heartbeat, and one that has been silent for five minutes is treated as abandoned, so it no longer blocks rescans, scheduled scans, cleanup, sidecar export, or duplicate detection either
-- A PDF's table of contents now shows when one of its bookmarks points past the last page. Previously that one bad bookmark hid the whole table of contents, even though other PDF readers list the rest; now only the broken bookmark is affected, and one pointing just past the end opens the last page
+- A fully zoomed-out book page fits above the phone's bottom navigation bar (#520)
+- Game system headers show up to three links, with the rest in a "More" menu
+- A rescan shows as running on every rescan button at once
+- Clicking a tag in a system's book list opens the Tags page instead of the book
+- Guests see only what their campaign shares with them (#519)
+- Guest invite codes are visible only to the campaign's GM
+- Copying a blank character sheet is limited to sheets the member can open
+- A scan stuck at "running" after a restart or crash can be cleared with **Stop** (#524)
+- A PDF's table of contents still shows when one bookmark points past the last page
 
 ## [1.7.3] - 2026-10-01
 
 ### Added
 
-- Personal API keys for scripts and tools such as Homepage or grimoire-cli: each acts as you, with its own No access / Read / Read and write level per area of the API, or one level for everything
-- Admins choose who may use API keys per user (Settings → Users, or the OIDC `apiKeys` permission; admins always may), see and revoke everyone's keys under App Settings, and can turn keys off entirely with `API_KEYS_ENABLED=false`
-- `MAX_IMAGE_PIXELS` raises the ceiling on how large an image may be before it is refused as a possible decompression bomb, so very large scanned battlemaps get thumbnails. Unset by default, which leaves today's behaviour unchanged
-- Right-click a book to open its actions menu at the cursor, as well as from the ⋮ button. Shift+right-click still gives the browser's own menu
-- Add or remove a book from favorites from its actions menu
-- `CORS_ALLOWED_ORIGINS` lets web pages on the origins you list call the API from the browser, so a Foundry VTT module, browser extension or dashboard can use an API key without a CORS-handling reverse proxy. Off by default, and cookies are never allowed cross-origin
+- Personal API keys with per-area access levels, for scripts and tools like Homepage or grimoire-cli
+- Admins control who may use API keys, can revoke any key, and can turn keys off with `API_KEYS_ENABLED=false`
+- `MAX_IMAGE_PIXELS` raises the size limit so very large images get thumbnails
+- Right-click a book to open its actions menu
+- Add or remove a book from favorites in its actions menu
+- `CORS_ALLOWED_ORIGINS` lets listed origins call the API from the browser
 
 ### Changed
 
-- The stats API key moved to Settings → Account → API Keys. Existing keys keep working, limited to library stats as before
+- The stats API key moved to Settings → Account → API Keys
 
 ### Fixed
 
-- Rescanning a single book whose file was replaced now records the new file's size, instead of keeping the old one until the next library rescan
-- The back button in a container nested inside another container returns to the parent container, instead of the top of the library
-- Collections that hold other systems, such as One Page RPGs, have the library's search, sort, filters, saved presets and multi-select for the systems inside them
-- Moving a book, in the app or on disk, no longer drops it from full-text search. Books an earlier move left unsearchable are read again on the next scan, and scanned books are queued for OCR
+- Rescanning a replaced book records the new file size
+- The back button in a nested container returns to its parent container
+- Collections like One Page RPGs get search, sort, filters, presets, and multi-select
+- Moved books stay in full-text search
 
 ### Security
 
-- API keys are shown once and stored hashed, can expire, and record when they were last used
-- Repeated wrong API keys from one address are rate limited on every endpoint
+- API keys are shown once, stored hashed, can expire, and record last use
+- Repeated wrong API keys are rate limited
 
 ## [1.7.2] - 2026-09-24
 
@@ -62,32 +62,32 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Italian (it-IT) localization
 - Swedish (sv-SE) localization
 - Link to the documentation site from the About dialog
-- Reach a book's details in one click from its row
-- Choose whether folders in a book list sort ahead of the books or in among them by name
-- Product code field for a publisher's catalogue number (SKU), read from sidecars and metadata add-ons, searchable, and sortable and filterable in book lists
+- Open a book's details in one click from its row
+- Choose whether folders sort before books or among them by name
+- Product code (SKU) field, searchable, sortable, and filterable
 
 ### Changed
 
-- Keep folder structure when importing campaign notes as a folder or a zip
-- Work through a bulk selection's metadata from one dialog, applying each match and moving on to the next item or skipping it
+- Importing campaign notes from a folder or zip keeps the folder structure
+- Bulk metadata matching steps through each item in one dialog
 
 ### Fixed
 
-- Non-Docker installs report their real version instead of `1.0.0` in the About dialog
-- Return keyboard focus to the file list after a dialog closes
-- The file manager no longer offers upload and new folder at the library root, where they could only fail
-- Large map, token, audio, and model galleries no longer grow to gigabytes of memory, and scroll smoothly
-- Ungrouped galleries load in the order they display, so cards no longer pop in among those already on screen
-- Renamed maps and tokens keep their thumbnails, and a thumbnail that has gone missing is re-rendered by the next scan
-- Quoted searches match the words together as a phrase, instead of returning every page that mentions each word somewhere
-- Keep the reader's zoom controls from shifting under the cursor
-- Folders in a book list sit in the same place at every level, instead of after the books in a category but before them inside a folder
-- Keep row action menus inside the visible window
-- Restore the reader's panel controls on phones and improve the header bar on mobile
-- Scanned books are read much faster, and pages no longer go missing from the search index when several are processed at once
-- A trackpad swipe in the reader turns one page instead of several
-- The active tab in the Token Editor has readable text
-- Editor button labels in the map, token, and audio galleries stay inside their buttons
+- Non-Docker installs report their real version in the About dialog
+- Keyboard focus returns to the file list after a dialog closes
+- File manager hides upload and new folder at the library root
+- Large media galleries use far less memory and scroll smoothly
+- Ungrouped galleries load in display order
+- Renamed maps and tokens keep their thumbnails; missing ones are rebuilt on the next scan
+- Quoted searches match the exact phrase
+- The reader's zoom controls no longer shift under the cursor
+- Folders in book lists sort consistently at every level
+- Row action menus stay inside the window
+- Reader panel controls are back on phones; better mobile header bar
+- Faster OCR for scanned books, with no pages dropped from search
+- A trackpad swipe in the reader turns one page
+- The Token Editor's active tab has readable text
+- Editor button labels stay inside their buttons in the media galleries
 
 ## [1.7.1] - 2026-09-16
 
@@ -108,7 +108,6 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Token editor for making VTT tokens from any image, including Grimoire library assets
 - Universal VTT map editor for adding walls, doors, and lights to an image
 - Process umask can be set from a `UMASK` environment variable
-- Added changelog to the about dialog
 
 ### Changed
 
@@ -140,18 +139,18 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Changed
 
-- Duplicate manager: better defaults for scans, clearer version labels, and a way out when a duplicate is already marked as a variant
+- Duplicate manager has better scan defaults and clearer version labels
 - Thumbnails for animated maps no longer inflate the base image
 - Map and token galleries load noticeably faster on large libraries
 
 ### Fixed
 
-- Touch gestures and accessibility in the file manager on mobile; menus reachable from empty space
-- File manager menu now respects page location, and category scaffolding is scoped to system folders (file manager opens at the library root)
+- File manager touch gestures and accessibility on mobile
+- File manager menu matches the current page and opens at the library root
 - Map version handling no longer blocks thumbnail generation
 - A duplicate scan stuck at 0% after a crash or restart now recovers
 - Special collections left stranded after their folder was deleted are cleared
-- Every category folder is scaffolded for a system nested in a container, and system/category are preserved when renaming inside one
+- Systems nested in a container get every category folder and keep their system on rename
 - A book keeps its cover when the title was edited before a move
 
 ## [1.6.1] - 2026-09-03
@@ -185,7 +184,7 @@ Library management is the headline: an in-app file manager for creating folders,
 ### ⚠ Breaking
 
 - Grimoire now fails closed on a missing `SECRET_KEY`. Set it or the application will not start.
-- The read-only library recommendation no longer applies. Library management features require write access to the library volume. Read-only mounts are still supported, with those features disabled.
+- Library management needs write access to the library; read-only mounts still work with it disabled.
 
 ### Added
 
@@ -390,7 +389,7 @@ Campaigns reworked: expanded notes and a single consolidated campaign overview p
 
 ### Added
 
-- Card, compact, and list views for Library, System, Maps, and Token views, with per-user preferences that also apply to Favorites
+- Card, compact, and list views, saved per user
 - Multiselect mode: add tags, add to campaign, and bulk edit books
 - Collapsible sidebar and collapsible Recently Opened Books section
 - Spread offset toggle in the reader
@@ -440,7 +439,7 @@ Campaigns reworked: expanded notes and a single consolidated campaign overview p
 - Tags normalized to lowercase across all write paths and existing data (#58)
 - Admin user deletion blocked by foreign key constraints (#60)
 - Ungrouped items displayed above grouped folder sections (#68)
-- Cleanup guarded against hung mounts, blocked during active scans, with cascading bookmark deletion (#70)
+- Safer database cleanup during scans and on hung mounts (#70)
 - Thumbnail 404 after a book rename (#85)
 - Image files within books are viewable (#86)
 - Image-only PDFs are no longer marked as index failed (#89)
@@ -492,7 +491,7 @@ Campaigns reworked: expanded notes and a single consolidated campaign overview p
 
 ### Fixed
 
-- Infinite scan loop caused by problematic files hanging the worker during thumbnail generation (#21)
+- Infinite scan loop when a file hung thumbnail generation (#21)
 - `is_missing` flag tracks library items whose files no longer exist on disk (#29)
 
 ## [1.1.1] - 2026-04-12
@@ -524,7 +523,7 @@ Campaigns reworked: expanded notes and a single consolidated campaign overview p
 
 ### Fixed
 
-- Library scan/index progress could stall permanently; added timeouts to scanning and indexing so a hung file no longer blocks the rest of the library, plus visibility into books that fail to scan or index
+- A hung file no longer stalls the library scan; failed books are now listed
 
 ## [1.0.0] - 2026-04-06
 
