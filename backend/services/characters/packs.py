@@ -24,6 +24,7 @@ schema's declared shape for its content type and stored as JSON.
 import json
 import logging
 import os
+import shutil
 from typing import Any, Iterator, Optional
 
 from sqlalchemy import text
@@ -42,6 +43,8 @@ __all__ = [
     "load_all_packs",
     "discover_packs",
     "reindex_entry_search",
+    "prune_removed_packs",
+    "uninstall_pack",
     "schema_documents_for_packs",
     "sync_packs",
 ]
@@ -350,13 +353,22 @@ def schema_documents_for_packs(db: Session) -> dict:
     return documents
 
 
-def sync_packs(db: Session) -> list[ContentPack]:
-    """Load every installed pack, and drop rows for packs removed from disk.
+def _forget(db: Session, pack: ContentPack) -> None:
+    """Drop a pack's rows. Its entries go with it (the foreign key cascades)."""
+    db.execute(
+        text("DELETE FROM content_search WHERE pack_row = :pack_row"),
+        {"pack_row": pack.id},
+    )
+    db.delete(pack)
 
-    Called at startup and on rescan. The directory is the source of truth, so a
-    pack whose directory is gone loses its rows — characters referencing its
-    entries are unaffected, since a reference is soft and resolves to a
-    "missing" marker the sheet can explain.
+
+def prune_removed_packs(db: Session) -> list[str]:
+    """Drop the rows of every pack whose directory is gone from disk.
+
+    The directory is the source of truth, so a pack deleted by hand is not
+    installed, whatever the rows still say. Cheap - a directory listing - so it
+    runs before anything reports what is installed, not only at startup. Returns
+    the ids forgotten.
     """
     present = {os.path.basename(directory) for directory in discover_packs()}
     removed = [
@@ -365,13 +377,44 @@ def sync_packs(db: Session) -> list[ContentPack]:
         if pack.directory and pack.directory not in present
     ]
     for pack in removed:
-        db.execute(
-            text("DELETE FROM content_search WHERE pack_row = :pack_row"),
-            {"pack_row": pack.id},
-        )
-        db.delete(pack)
+        _forget(db, pack)
         logger.info("Content pack %s was removed from disk", pack.pack_id)
     if removed:
         db.commit()
+    return [pack.pack_id for pack in removed]
 
+
+def uninstall_pack(db: Session, pack_id: str) -> bool:
+    """Remove an installed pack: its directory and its rows.
+
+    Characters referencing its entries are unaffected - a reference is soft and
+    reads as "not installed" - and a ruleset that imported the pack keeps its
+    own copy of the entries, which is what importing is for. Returns False when
+    no such pack is installed.
+    """
+    pack = db.query(ContentPack).filter_by(pack_id=pack_id).first()
+    if not pack:
+        return False
+    # `directory` is a basename written by the loader; refused outright if it
+    # could name anything outside the content directory.
+    name = pack.directory or ""
+    if name and os.path.basename(name) == name and not name.startswith("."):
+        target = os.path.join(CONTENT_DIR, name)
+        if os.path.isdir(target):
+            shutil.rmtree(target)
+    _forget(db, pack)
+    db.commit()
+    logger.info("Uninstalled content pack %s", pack_id)
+    return True
+
+
+def sync_packs(db: Session) -> list[ContentPack]:
+    """Load every installed pack, and drop rows for packs removed from disk.
+
+    Called at startup and on rescan. The directory is the source of truth, so a
+    pack whose directory is gone loses its rows — characters referencing its
+    entries are unaffected, since a reference is soft and resolves to a
+    "missing" marker the sheet can explain.
+    """
+    prune_removed_packs(db)
     return load_all_packs(db, schemas=schema_documents_for_packs(db))

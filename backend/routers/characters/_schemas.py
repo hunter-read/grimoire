@@ -31,9 +31,30 @@ class SchemaListResponse(BaseModel):
 
 
 class SchemaImport(BaseModel):
-    """A pasted or uploaded schema document."""
+    """A pasted or uploaded sheet.
 
-    document: dict[str, Any]
+    Three ways to give the sheet itself, in order of preference:
+
+    * ``document`` — already-parsed JSON, which is what the catalogue installer
+      and older clients send.
+    * ``text`` — the sheet as typed, parsed as JSON and then as YAML. A sheet is
+      a document people hand-write, and YAML is far kinder to write by hand than
+      JSON: no quoting every key, no trailing-comma errors, and comments.
+
+    ``layout`` and ``styles`` carry a custom sheet's HTML and CSS as their own
+    fields. A layout inlined into JSON has to be escaped, which turns a readable
+    template into one unbroken line of ``\\"`` and ``\\n`` — the community repo
+    keeps them in sibling files for exactly that reason, and pasting one should
+    not be worse than installing one. Given here, they override whatever the
+    document holds.
+    """
+
+    document: dict[str, Any] = Field(default_factory=dict)
+    # The sheet as text, parsed as JSON then YAML. Bounded so a paste cannot
+    # hand the parser something enormous.
+    text: str = Field(default="", max_length=512 * 1024)
+    layout: str = Field(default="", max_length=256 * 1024)
+    styles: str = Field(default="", max_length=128 * 1024)
     source_id: Optional[str] = None
     source_url: Optional[str] = None
     source_version: Optional[str] = None
@@ -156,6 +177,12 @@ class CharacterCreate(BaseModel):
 class CharacterUpdate(BaseModel):
     name: Optional[str] = None
     data: Optional[dict[str, Any]] = None
+    # Field names to remove from the stored data. Removing a field is what hands
+    # it back to its `default_from`: a value the player typed over a derived one
+    # is theirs until they reset it, and this is the reset. Separate from `data`
+    # because a null there already means "cleared" mid-edit, and snapping a
+    # half-typed number back to its default would fight the player.
+    unset: list[str] = Field(default_factory=list, max_length=100)
     # "" clears the campaign; a real id must be one the owner belongs to.
     campaign_id: Optional[str] = None
 

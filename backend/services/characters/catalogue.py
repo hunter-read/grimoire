@@ -122,10 +122,14 @@ def _derive_sheet_url(url: str) -> str:
     once — including to a branch — and every catalogue follows it.
 
     The last path segment is read as a directory name, matching how the theme
-    catalogue resolves the same question. A branch literally named
-    ``character-sheets`` is therefore read as the catalogue directory and
-    returned unchanged; point such a branch at its full
-    ``character-sheets/index.json`` path if you hit that.
+    catalogue resolves the same question. That reading is ambiguous when a
+    *branch* is named after a sibling directory: in
+    ``.../community-add-ons/feat/character-sheets/index.json`` the
+    ``character-sheets`` segment is half a branch name, not the catalogue
+    directory, and the sheets actually sit one level deeper. Derivation cannot
+    tell the two apart from the URL alone, so it does not try — it always
+    returns the *derived* path, and the caller fetches the configured URL
+    directly as well. Whichever of the two answers with a sheet document wins.
     """
     # A trailing slash would otherwise read the filename as a directory and
     # append the catalogue path to it, turning `.../index.json/` into
@@ -144,11 +148,46 @@ def _derive_sheet_url(url: str) -> str:
 
     directory = base.rsplit("/", 1)[-1]
     if filename == "index.json" and directory in _SIBLING_DIRECTORIES:
-        if directory == "character-sheets":
-            return url
+        # A sibling catalogue directory is stepped out of, so `themes/` and
+        # `character-sheets/` resolve to the same place. `character-sheets` is
+        # stepped out of too and then back into, which is a no-op for a URL
+        # that really is our catalogue — and the thing that finds the sheets
+        # under a *branch* of that name, where the segment is part of the
+        # branch and the catalogue sits one level deeper.
         base = base[: -len(directory) - 1]
 
     return f"{base}/{_SHEET_INDEX_PATH}"
+
+
+def _candidate_urls(configured: str) -> list[str]:
+    """The URLs worth trying for one configured source, in order.
+
+    Three, de-duplicated:
+
+    1. The configured URL **directly**, since a source may point straight at a
+       sheet catalogue.
+    2. The derived path, which is the ordinary case — an admin configures the
+       add-on index once and every catalogue follows it.
+    3. The catalogue path *nested under* the configured URL's own directory.
+       This is what reaches a branch named after a sibling directory: in
+       ``.../community-add-ons/feat/character-sheets/index.json`` the
+       ``character-sheets`` segment belongs to the branch name, and the real
+       catalogue is at ``.../feat/character-sheets/character-sheets/index.json``.
+       Indistinguishable from the ordinary case by inspection, so it is tried
+       rather than guessed at.
+    """
+    direct = configured.strip().rstrip("/")
+    candidates = [direct] if direct else []
+    candidates.append(_derive_sheet_url(configured))
+
+    if direct:
+        base, _, filename = direct.rpartition("/")
+        nested = f"{base}/{_SHEET_INDEX_PATH}" if filename.endswith(".json") else None
+        if nested:
+            candidates.append(nested)
+
+    # Order preserved: the first candidate holding sheets is the one used.
+    return list(dict.fromkeys(candidates))
 
 
 def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[str, Any]:
@@ -163,11 +202,71 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
 
     sheets: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
+    empty: list[dict[str, str]] = []
     seen: set = set()
+    resolved: list[str] = []
     urls = get_index_urls(db)
 
     for configured in urls:
-        index_url = _derive_sheet_url(configured)
+        index_url, document, failures = _read_source(configured)
+        if document is None:
+            # A source that could not be *reached* is reported straight away:
+            # with several configured, a silently missing one looks like a
+            # catalogue with fewer sheets in it, which is a confusing way to
+            # learn a URL is wrong.
+            #
+            # A source that answered but held no sheets is held back instead.
+            # The configured list is shared with add-ons and themes, so a
+            # non-sheet index among several is ordinary rather than a mistake —
+            # but if *nothing* yields sheets, saying so beats an empty dialog
+            # with no explanation in it.
+            reachable = [f for f in failures if "no character sheets" not in f["error"]]
+            errors.extend(reachable)
+            empty.extend(f for f in failures if f not in reachable)
+            resolved.append(index_url)
+            continue
+
+        resolved.append(index_url)
+        for entry in document["sheets"]:
+            if not isinstance(entry, dict) or not entry.get("id"):
+                continue
+            summary = _summarise(entry, index_url, installed)
+            # Keyed on the namespaced id, so this only drops a sheet one source
+            # lists twice. Two sources offering the same sheet both survive,
+            # which is the point of namespacing them.
+            if summary["id"] in seen:
+                continue
+            seen.add(summary["id"])
+            sheets.append(summary)
+
+    # Nothing anywhere: now the sources that answered without sheets are the
+    # explanation, so they are surfaced rather than kept quiet.
+    if not sheets and not errors:
+        errors = empty
+
+    return {
+        "sheets": sorted(sheets, key=lambda sheet: sheet["name"].lower()),
+        "index_url": resolved[0] if resolved else _default_index_url(),
+        "sources": resolved or [_default_index_url()],
+        "errors": errors,
+        "downloads_enabled": True,
+    }
+
+
+def _read_source(
+    configured: str,
+) -> tuple[str, Optional[dict[str, Any]], list[dict[str, str]]]:
+    """Read one configured source, returning the URL that actually held sheets.
+
+    Tries the configured URL directly before the derived one, so a source
+    pointing straight at a sheet catalogue works and so does one whose branch
+    is named after a sibling directory. Returns the failures rather than
+    raising: a source that cannot be read must not hide the ones that can.
+    """
+    failures: list[dict[str, str]] = []
+    candidates = _candidate_urls(configured)
+
+    for index_url in candidates:
         try:
             document = fetch_document(
                 index_url,
@@ -176,34 +275,28 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
                 user_agent=f"Grimoire/{config.VERSION}",
             )
         except AddonFetchError as exc:
-            # Reported rather than swallowed: with several sources configured,
-            # a silently missing one looks like a catalogue with fewer sheets
-            # in it, which is a confusing way to learn a URL is wrong.
-            logger.warning("Could not read the sheet catalogue at %s: %s", index_url, exc)
-            errors.append({"url": index_url, "error": str(exc)})
+            logger.debug("Could not read a sheet catalogue at %s: %s", index_url, exc)
+            failures.append({"url": index_url, "error": str(exc)})
             continue
 
-        if not isinstance(document, dict) or not isinstance(document.get("sheets"), list):
-            # Not a sheet catalogue — most likely a themes or add-on index
-            # sharing the configured list. Not an error worth reporting.
-            continue
+        if isinstance(document, dict) and isinstance(document.get("sheets"), list):
+            return index_url, document, []
 
-        for entry in document["sheets"]:
-            if not isinstance(entry, dict) or not entry.get("id"):
-                continue
-            summary = _summarise(entry, index_url, installed)
-            if summary["id"] in seen:
-                continue
-            seen.add(summary["id"])
-            sheets.append(summary)
+        # An add-on or themes index, most likely: the right repo, the wrong
+        # document. Recorded, but only reported if nothing else answers.
+        logger.debug("No sheet catalogue in the document at %s", index_url)
+        failures.append({"url": index_url, "error": "no character sheets in that index"})
 
-    return {
-        "sheets": sorted(sheets, key=lambda sheet: sheet["name"].lower()),
-        "index_url": urls[0] if urls else _default_index_url(),
-        "sources": [_derive_sheet_url(url) for url in urls],
-        "errors": errors,
-        "downloads_enabled": True,
-    }
+    logger.warning(
+        "No sheet catalogue found for %s (tried %s)", configured, ", ".join(candidates)
+    )
+    # One error per configured source, naming the source as the admin wrote it.
+    # The candidates are how the lookup works, not URLs they chose, so citing
+    # `.../character-sheets/character-sheets/index.json` back at them would
+    # describe a mistake they did not make. The first candidate's message is
+    # the relevant one: it is the URL they configured.
+    reason = failures[0]["error"] if failures else "no character sheets in that index"
+    return candidates[0], None, [{"url": candidates[0], "error": reason}]
 
 
 def _summarise(entry: dict, index_url: str, installed: set) -> dict:
@@ -275,7 +368,7 @@ def _resolve_sheet_url(index_url: str, path: str) -> str:
     # into a relative path under our own host, which lands somewhere harmless
     # but hides what the catalogue actually asked for.
     if urlparse(path).scheme or path.startswith("//"):
-        raise CatalogueError("That sheet's file is on an unexpected host")
+        raise CatalogueError("That catalogue entry's file is on an unexpected host")
 
     base = index_url.rsplit("/", 1)[0] + "/"
     # A catalogue entry's `path` is repo-relative (`character-sheets/cairn/...`)
@@ -294,22 +387,26 @@ def _resolve_sheet_url(index_url: str, path: str) -> str:
 
     url = urljoin(base, "/".join(path_parts[overlap:]))
     if urlparse(url).netloc != urlparse(index_url).netloc:
-        raise CatalogueError("That sheet's file is on an unexpected host")
+        raise CatalogueError("That catalogue entry's file is on an unexpected host")
     return url
 
 
-def verify_digest(body: bytes, expected: str) -> None:
+def verify_digest(body: bytes, expected: str, *, what: str = "sheet") -> None:
     """Reject a download whose digest does not match the catalogue.
 
     The catalogue is what the user chose to trust; a file disagreeing with it
     has been altered in transit or at rest, and is refused either way. An
     absent digest cannot be checked, which is not the same as failing.
+
+    ``what`` names the thing in the message, since content packs verify their
+    files through here too and "that sheet failed" would be wrong for them.
     """
     if not expected:
         return
     if hashlib.sha256(body).hexdigest() != expected:
         raise CatalogueError(
-            "That sheet failed its integrity check - the catalogue and the file disagree"
+            f"That {what} failed its integrity check - "
+            "the catalogue and the file disagree"
         )
 
 

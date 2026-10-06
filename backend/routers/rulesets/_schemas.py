@@ -92,12 +92,66 @@ class DeletedResponse(BaseModel):
     id: str
 
 
+class CataloguePackFile(BaseModel):
+    name: str
+    path: str
+    sha256: str
+    bytes: int = 0
+
+
+class CataloguePack(BaseModel):
+    """One content pack the community catalogue offers.
+
+    ``id`` is namespaced by its source so two catalogues offering the same pack
+    stay distinct; ``pack_id`` is what the pack calls itself, and what it
+    installs as.
+    """
+
+    id: str
+    pack_id: str
+    schema_id: str = ""
+    name: str
+    version: str = ""
+    description: str = ""
+    license: str = ""
+    license_url: str = ""
+    # Rendered verbatim: several open licences mandate exact wording.
+    attribution: str = ""
+    source_url: str = ""
+    entry_count: int = 0
+    content_types: list[str] = Field(default_factory=list)
+    total_bytes: int = 0
+    files: list[CataloguePackFile] = Field(default_factory=list)
+    index_url: str = ""
+    installed: bool = False
+    installed_version: str = ""
+    update_available: bool = False
+
+
+class PackCatalogueResponse(BaseModel):
+    packs: list[CataloguePack] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    errors: list[dict[str, Any]] = Field(default_factory=list)
+    downloads_enabled: bool = True
+    # Whether this caller may install, so the UI need not ask twice.
+    can_install: bool = False
+
+
+class InstalledPack(BaseModel):
+    pack_id: str
+    schema_id: str = ""
+    name: str = ""
+    entry_count: int = 0
+
+
 class ImportRequest(BaseModel):
     """Add entries to a ruleset, from a pack document or an installed pack."""
 
-    # One of the two: a document to read entries from, or the id of a
-    # filesystem content pack to copy.
+    # One of three: a parsed document, that document as text (JSON or YAML), or
+    # the id of a filesystem content pack to copy.
     document: Optional[dict[str, Any]] = None
+    # Bounded so a paste cannot hand the parser something enormous.
+    text: str = Field(default="", max_length=512 * 1024)
     pack_id: str = ""
     conflict: str = "skip"
 

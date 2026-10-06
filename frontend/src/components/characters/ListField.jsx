@@ -15,7 +15,14 @@ import { ghostBtn, iconBtn, fieldLabel } from './characterStyles'
  * character's data that the schema never declared — which the server would
  * strip on the way in anyway.
  */
-export default function ListField({ name, definition = {}, value, onChange, readOnly = false }) {
+export default function ListField({
+  name,
+  definition = {},
+  value,
+  onChange,
+  readOnly = false,
+  hideLabel = false,
+}) {
   const { t } = useTranslation()
   const columns = definition.columns || []
   const rows = Array.isArray(value) ? value : []
@@ -45,7 +52,7 @@ export default function ListField({ name, definition = {}, value, onChange, read
 
   return (
     <div className="gc-list">
-      {definition.label ? <div style={fieldLabel}>{definition.label}</div> : null}
+      {definition.label && !hideLabel ? <div style={fieldLabel}>{definition.label}</div> : null}
 
       {rows.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 8px' }}>

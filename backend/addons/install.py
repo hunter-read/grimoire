@@ -141,7 +141,7 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
 
 
 def get_source_contents(db: Session, index_urls: list[str]) -> dict[str, list[str]]:
-    """Determine available content types (plugins, themes, templates) for each configured index URL."""
+    """Determine available content types (plugins, themes, templates, sheets) for each configured index URL."""
     from .constants import DEFAULT_INDEX_URL
 
     result: dict[str, list[str]] = {}
@@ -157,6 +157,10 @@ def get_source_contents(db: Session, index_urls: list[str]) -> dict[str, list[st
         if norm_url.endswith("templates/index.json"):
             result[url] = ["templates"]
             continue
+        # Note this cannot claim a URL ending `character-sheets/index.json` for
+        # sheets alone: that is equally the repo-root index of a *branch* named
+        # `character-sheets`, which offers everything. Sheets are reported
+        # below, beside themes and templates.
 
         # 1. Plugins
         has_plugins = False
@@ -171,12 +175,13 @@ def get_source_contents(db: Session, index_urls: list[str]) -> dict[str, list[st
         if has_plugins:
             contents.append("plugins")
 
-        # 2. Themes & 3. Templates (supported on official default repository and general repos)
+        # 2. Themes, 3. Templates & 4. Character sheets (supported on official default repository and general repos)
         is_community_repo = norm_url == DEFAULT_INDEX_URL.strip().rstrip("/") or "community-add-ons" in norm_url
         if is_community_repo or not norm_url.endswith(("/themes/index.json", "/templates/index.json")):
             contents.append("themes")
         if is_community_repo:
             contents.append("templates")
+            contents.append("character-sheets")
 
         result[url] = contents
 

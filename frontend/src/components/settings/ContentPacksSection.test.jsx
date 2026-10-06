@@ -5,9 +5,11 @@ import ContentPacksSection from './ContentPacksSection'
 
 const mockPacks = vi.fn()
 const mockReload = vi.fn()
+const mockUninstall = vi.fn()
 vi.mock('../../api', () => ({
   content: { packs: (...a) => mockPacks(...a) },
   contentAdmin: { reloadPacks: (...a) => mockReload(...a) },
+  rulesets: { uninstallPack: (...a) => mockUninstall(...a) },
 }))
 
 const PACK = {
@@ -75,5 +77,32 @@ describe('ContentPacksSection', () => {
     await screen.findByText('D&D 5e SRD')
     await userEvent.click(screen.getByText(/Reload from disk/i))
     expect(await screen.findByRole('alert')).toHaveTextContent('reload broke')
+  })
+})
+
+describe('ContentPacksSection — uninstalling', () => {
+  it('removes a pack after confirming', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockUninstall.mockResolvedValue({ deleted: true })
+    render(<ContentPacksSection />)
+    await userEvent.click(await screen.findByLabelText('Uninstall D&D 5e SRD'))
+    await waitFor(() => expect(mockUninstall).toHaveBeenCalledWith('dnd-5e-srd'))
+    expect(screen.queryByText('D&D 5e SRD')).not.toBeInTheDocument()
+  })
+
+  it('keeps it when the confirmation is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<ContentPacksSection />)
+    await userEvent.click(await screen.findByLabelText('Uninstall D&D 5e SRD'))
+    expect(mockUninstall).not.toHaveBeenCalled()
+    expect(screen.getByText('D&D 5e SRD')).toBeInTheDocument()
+  })
+
+  it('surfaces a failure', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockUninstall.mockRejectedValue(new Error('Only an admin can uninstall a content pack'))
+    render(<ContentPacksSection />)
+    await userEvent.click(await screen.findByLabelText('Uninstall D&D 5e SRD'))
+    expect(await screen.findByText(/Only an admin/)).toBeInTheDocument()
   })
 })

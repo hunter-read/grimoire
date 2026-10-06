@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuRefreshCw, LuExternalLink } from 'react-icons/lu'
-import { content as contentApi, contentAdmin } from '../../api'
+import { LuRefreshCw, LuExternalLink, LuTrash2 } from 'react-icons/lu'
+import { content as contentApi, contentAdmin, rulesets as rulesetsApi } from '../../api'
 import Spinner from '../Spinner'
-import { ghostBtn, card } from '../characters/characterStyles'
+import { ghostBtn, iconBtn, card } from '../characters/characterStyles'
 
 /**
  * Installed character content packs, and the credit each is published under.
@@ -38,6 +38,17 @@ export default function ContentPacksSection() {
   useEffect(() => {
     load()
   }, [load])
+
+  const uninstall = async (pack) => {
+    if (!window.confirm(t('contentPacks.confirmUninstall', { name: pack.name }))) return
+    try {
+      await rulesetsApi.uninstallPack(pack.pack_id)
+      setPacks((prev) => prev.filter((row) => row.pack_id !== pack.pack_id))
+      setError('')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   const reload = async () => {
     setReloading(true)
@@ -86,6 +97,15 @@ export default function ContentPacksSection() {
                   v{pack.version} · {pack.schema_id} ·{' '}
                   {t('contentPacks.entries', { count: pack.entry_count })}
                 </span>
+                <span style={{ flex: 1 }} />
+                <button
+                  onClick={() => uninstall(pack)}
+                  aria-label={t('contentPacks.uninstall', { name: pack.name })}
+                  title={t('contentPacks.uninstall', { name: pack.name })}
+                  style={iconBtn}
+                >
+                  <LuTrash2 size={14} />
+                </button>
               </div>
               {pack.description ? (
                 <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-dim)' }}>

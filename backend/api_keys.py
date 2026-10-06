@@ -100,6 +100,12 @@ PERMISSIONS: dict[str, Permission] = {
         "Campaigns, members, sessions, wiki pages and linked resources",
         "campaigns",
     ),
+    "characters": Permission(
+        ("characters", "content", "rulesets"),
+        "Character sheets and the characters built on them, the content catalogue, "
+        "and the rulesets a table plays with",
+        "campaigns",
+    ),
     "personal": Permission(
         ("favorites", "bookmarks", "saved-filters", "audio-sets", "themes"),
         "Your favorites, bookmarks, saved filters, saved playlists and soundboards, and themes",

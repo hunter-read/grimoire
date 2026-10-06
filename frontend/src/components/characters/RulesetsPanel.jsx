@@ -1,23 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft,
-  LuBookOpen,
   LuPlus,
   LuTrash2,
   LuPencil,
   LuDownload,
   LuPackagePlus,
+  LuClipboardPaste,
+  LuStore,
 } from 'react-icons/lu'
 import {
   rulesets as rulesetsApi,
   characters as charactersApi,
   content as contentApi,
   campaigns as campaignsApi,
-} from '../api'
-import Spinner from '../components/Spinner'
-import RulesetEntryDialog from '../components/characters/RulesetEntryDialog'
+} from '../../api'
+import Spinner from '../Spinner'
+import RulesetEntryDialog from './RulesetEntryDialog'
+import PackCatalogue from './PackCatalogue'
 import {
   goldBtn,
   ghostBtn,
@@ -25,7 +26,9 @@ import {
   fieldInput,
   fieldLabel,
   card,
-} from '../components/characters/characterStyles'
+  codeArea,
+  helpText,
+} from './characterStyles'
 
 /**
  * Rulesets: the content a table plays with.
@@ -34,10 +37,14 @@ import {
  * or to the server, which every game can use. This is what lets two games in
  * the same system allow different content, so the list leads with which
  * campaign each one is for.
+ *
+ * Rendered inside the sheet manager's Rulesets tab, so it draws no page
+ * chrome of its own — no page padding, no page heading. Managing sheets and
+ * managing the content those sheets draw on are one job, and splitting them
+ * across a modal and a route made the user hunt for half of it.
  */
-export default function RulesetsView() {
+export default function RulesetsPanel() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [rulesets, setRulesets] = useState([])
@@ -50,6 +57,12 @@ export default function RulesetsView() {
   const [newName, setNewName] = useState('')
   const [newSchema, setNewSchema] = useState('')
   const [newCampaign, setNewCampaign] = useState('')
+
+  const [browsingPacks, setBrowsingPacks] = useState(false)
+  const [pasting, setPasting] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const [pasteTarget, setPasteTarget] = useState('')
+  const [pasteConflict, setPasteConflict] = useState('skip')
 
   const [open, setOpen] = useState(null)
   const [entries, setEntries] = useState([])
@@ -145,6 +158,26 @@ export default function RulesetsView() {
     }
   }
 
+  // Importing a document into a ruleset the user picks. Separate from the
+  // pack import inside an open ruleset: this is "I was sent a file", which is
+  // reached before choosing which ruleset it belongs in.
+  const importDocument = async (event) => {
+    event.preventDefault()
+    try {
+      const result = await rulesetsApi.import(pasteTarget, {
+        text: pasteText,
+        conflict: pasteConflict,
+      })
+      setPasting(false)
+      setPasteText('')
+      setError('')
+      load()
+      window.alert(t('rulesets.importResult', result))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   const removeEntry = async (entry) => {
     if (!window.confirm(t('rulesets.confirmDeleteEntry', { name: entry.name }))) return
     try {
@@ -167,13 +200,13 @@ export default function RulesetsView() {
   if (open) {
     const current = rulesets.find((row) => row.id === open.id) || open
     return (
-      <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
+      <div>
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <button onClick={() => setOpen(null)} aria-label={t('common.back')} style={iconBtn}>
             <LuArrowLeft size={18} />
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 20 }}>{current.name}</h1>
+            <h3 style={{ margin: 0, fontSize: 16 }}>{current.name}</h3>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {current.campaign_name || t('rulesets.serverWide')} · {current.schema_id}
             </div>
@@ -291,25 +324,8 @@ export default function RulesetsView() {
 
   // --- the list -----------------------------------------------------------
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          onClick={() => navigate('/characters')}
-          aria-label={t('common.back')}
-          style={iconBtn}
-        >
-          <LuArrowLeft size={18} />
-        </button>
-        <LuBookOpen size={20} color="var(--gold)" style={{ flexShrink: 0 }} />
-        <h1 style={{ margin: 0, fontSize: 22, flex: 1 }}>{t('rulesets.title')}</h1>
+    <div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <button
           onClick={() => setCreating((value) => !value)}
           disabled={!schemas.length}
@@ -319,7 +335,20 @@ export default function RulesetsView() {
           <LuPlus size={14} />
           {t('rulesets.create')}
         </button>
-      </header>
+        <button onClick={() => setBrowsingPacks(true)} style={ghostBtn}>
+          <LuStore size={14} />
+          {t('contentPacks.browse')}
+        </button>
+        <button
+          onClick={() => setPasting((value) => !value)}
+          disabled={!rulesets.some((row) => row.editable)}
+          title={rulesets.some((row) => row.editable) ? undefined : t('rulesets.needRulesetFirst')}
+          style={rulesets.some((row) => row.editable) ? ghostBtn : { ...ghostBtn, opacity: 0.55 }}
+        >
+          <LuClipboardPaste size={14} />
+          {t('rulesets.importDocument')}
+        </button>
+      </div>
 
       <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0 }}>{t('rulesets.help')}</p>
 
@@ -394,6 +423,89 @@ export default function RulesetsView() {
             {t('rulesets.create')}
           </button>
         </form>
+      ) : null}
+
+      {pasting ? (
+        <form
+          onSubmit={importDocument}
+          style={{ ...card, marginBottom: 20, display: 'grid', gap: 12 }}
+        >
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 200px' }}>
+              <label htmlFor="rs-target" style={fieldLabel}>
+                {t('rulesets.importInto')}
+              </label>
+              <select
+                id="rs-target"
+                value={pasteTarget}
+                onChange={(event) => setPasteTarget(event.target.value)}
+                style={fieldInput}
+                required
+              >
+                <option value="">—</option>
+                {rulesets
+                  .filter((row) => row.editable)
+                  .map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name} ({row.campaign_name || t('rulesets.serverWide')})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 140px' }}>
+              <label htmlFor="rs-conflict" style={fieldLabel}>
+                {t('rulesets.onConflict')}
+              </label>
+              <select
+                id="rs-conflict"
+                value={pasteConflict}
+                onChange={(event) => setPasteConflict(event.target.value)}
+                style={fieldInput}
+              >
+                <option value="skip">{t('rulesets.conflictSkip')}</option>
+                <option value="rename">{t('rulesets.conflictRename')}</option>
+                <option value="overwrite">{t('rulesets.conflictOverwrite')}</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="rs-document" style={fieldLabel}>
+              {t('rulesets.document')}
+            </label>
+            <textarea
+              id="rs-document"
+              value={pasteText}
+              onChange={(event) => setPasteText(event.target.value)}
+              rows={10}
+              required
+              spellCheck={false}
+              style={codeArea}
+            />
+            <p style={helpText}>{t('rulesets.documentHelp')}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" disabled={!pasteText.trim() || !pasteTarget} style={goldBtn}>
+              {t('rulesets.import')}
+            </button>
+            <button type="button" onClick={() => setPasting(false)} style={ghostBtn}>
+              {t('common.cancel')}
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {browsingPacks ? (
+        <PackCatalogue
+          onInstalled={load}
+          onClose={() => {
+            setBrowsingPacks(false)
+            // The installable-packs list is fetched when a ruleset is opened,
+            // and browsing happens from the list view - so opening one after
+            // this picks up the new pack without anything further here. This
+            // refresh is for the ruleset list itself.
+            load()
+          }}
+        />
       ) : null}
 
       {rulesets.length === 0 ? (

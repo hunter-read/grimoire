@@ -418,13 +418,16 @@ SRD_SPELLS = [
 
 
 @pytest.fixture
-def srd_pack(tmp_path):
+def srd_pack(tmp_path, monkeypatch):
     """A filesystem content pack, loaded the way startup loads the real ones.
 
     This is the route the 5.5e SRD takes: an admin installs the pack once and
     each table imports it into a ruleset of its own.
     """
     directory = tmp_path / "packs" / "rs-srd"
+    # Where the loader looks, so the pack counts as installed: a pack whose
+    # directory is not there is pruned as removed.
+    monkeypatch.setattr(packs, "CONTENT_DIR", str(tmp_path / "packs"))
     os.makedirs(directory, exist_ok=True)
     (directory / "_meta.json").write_text(
         json.dumps(
@@ -693,3 +696,103 @@ class TestSingleEntry:
         assert client.get(base, headers=gm_headers).status_code == 404
         assert client.put(base, json={"data": {}}, headers=gm_headers).status_code == 404
         assert client.delete(base, headers=gm_headers).status_code == 404
+
+
+class TestPastingARuleset:
+    """Importing a ruleset from pasted text, as JSON or as YAML."""
+
+    def test_imports_entries_written_as_yaml(self, client, gm_headers, schemas, gm_campaign):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        result = client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={
+                "text": (
+                    "name: Table spells\n"
+                    "entries:\n"
+                    "  spell:\n"
+                    "    - _id: hellfire\n"
+                    "      name: Hellfire\n"
+                    "      level: 3\n"
+                )
+            },
+            headers=gm_headers,
+        ).json()
+        assert result["imported"] == 1
+
+        entries = client.get(
+            f"/api/rulesets/{ruleset['id']}/entries", headers=gm_headers
+        ).json()["entries"]
+        assert [entry["name"] for entry in entries] == ["Hellfire"]
+
+    def test_imports_entries_written_as_json(self, client, gm_headers, schemas, gm_campaign):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        result = client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={
+                "text": json.dumps(
+                    {"entries": {"spell": [{"_id": "icebolt", "name": "Icebolt", "level": 1}]}}
+                )
+            },
+            headers=gm_headers,
+        ).json()
+        assert result["imported"] == 1
+
+    def test_a_pasted_ruleset_carries_its_credit(
+        self, client, gm_headers, schemas, gm_campaign
+    ):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={
+                "text": (
+                    "license: CC-BY-4.0\n"
+                    "attribution: Someone else's work, CC BY 4.0.\n"
+                    "entries:\n"
+                    "  spell:\n"
+                    "    - _id: borrowed\n"
+                    "      name: Borrowed\n"
+                )
+            },
+            headers=gm_headers,
+        )
+        body = client.get(f"/api/rulesets/{ruleset['id']}", headers=gm_headers).json()
+        assert body["attribution"] == "Someone else's work, CC BY 4.0."
+        assert body["license"] == "CC-BY-4.0"
+
+    def test_unparseable_text_says_so(self, client, gm_headers, schemas, gm_campaign):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        resp = client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={"text": "entries: [unclosed"},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "JSON or YAML" in resp.json()["detail"]
+
+    def test_text_without_entries_is_refused(self, client, gm_headers, schemas, gm_campaign):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        resp = client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={"text": "name: No entries here\n"},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "entries" in resp.json()["detail"]
+
+    def test_an_exported_ruleset_can_be_pasted_back(
+        self, client, gm_headers, schemas, gm_campaign
+    ):
+        """Export and paste-import are the two halves of moving a ruleset."""
+        source = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        _add_entry(client, gm_headers, source["id"])
+        document = client.get(
+            f"/api/rulesets/{source['id']}/export", headers=gm_headers
+        ).json()
+
+        target = _create(client, gm_headers, campaign_id=gm_campaign, name="Pasted").json()
+        result = client.post(
+            f"/api/rulesets/{target['id']}/import",
+            json={"text": json.dumps(document)},
+            headers=gm_headers,
+        ).json()
+        assert result["imported"] == 1

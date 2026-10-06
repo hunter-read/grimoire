@@ -1,19 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  LuUsers,
-  LuPlus,
-  LuTrash2,
-  LuUpload,
-  LuTriangleAlert,
-  LuFileUp,
-  LuStore,
-  LuBookOpen,
-} from 'react-icons/lu'
+import { LuUsers, LuPlus, LuTrash2, LuTriangleAlert, LuFileUp, LuSettings } from 'react-icons/lu'
 import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
-import SheetCatalogue from '../components/characters/SheetCatalogue'
+import SheetManager from '../components/characters/SheetManager'
 import {
   goldBtn,
   ghostBtn,
@@ -35,15 +26,17 @@ import {
 export default function CharactersView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  // `?manage=rulesets` opens the manager straight onto that tab, which is where
+  // the old /characters/rulesets route now lands.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const manageParam = searchParams.get('manage')
 
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState([])
   const [schemas, setSchemas] = useState([])
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [browsing, setBrowsing] = useState(false)
-  const [importText, setImportText] = useState('')
+  const [managing, setManaging] = useState(Boolean(manageParam))
   const [newName, setNewName] = useState('')
   const [newSchema, setNewSchema] = useState('')
 
@@ -79,26 +72,6 @@ export default function CharactersView() {
       setCreating(false)
       setNewName('')
       navigate(`/characters/${created.id}`)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const importSchema = async (e) => {
-    e.preventDefault()
-    let parsed
-    try {
-      parsed = JSON.parse(importText)
-    } catch {
-      setError(t('characters.importInvalidJson'))
-      return
-    }
-    try {
-      await charactersApi.importSchema({ document: parsed })
-      setImporting(false)
-      setImportText('')
-      setError('')
-      load()
     } catch (err) {
       setError(err.message)
     }
@@ -141,29 +114,29 @@ export default function CharactersView() {
       >
         <LuUsers size={22} color="var(--gold)" style={{ flexShrink: 0 }} />
         <h1 style={{ margin: 0, fontSize: 22, flex: 1 }}>{t('characters.title')}</h1>
+
+        {/* Two groups, separated by a rule: setup on the left, then the
+            actions that make a character. Five equal-weight ghost buttons in a
+            row gave no clue which one to reach for. */}
+        <button onClick={() => setManaging(true)} style={ghostBtn}>
+          <LuSettings size={14} />
+          {t('characters.manageSheets')}
+        </button>
+        <span
+          aria-hidden="true"
+          style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)', margin: '0 2px' }}
+        />
         <label title={t('characters.importCharacter')} style={{ ...ghostBtn, cursor: 'pointer' }}>
           <LuFileUp size={14} />
           {t('characters.importCharacter')}
           <input
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,.yaml,.yml"
             aria-label={t('characters.importCharacter')}
             onChange={(e) => importCharacter(e.target.files?.[0])}
             style={{ display: 'none' }}
           />
         </label>
-        <button onClick={() => navigate('/characters/rulesets')} style={ghostBtn}>
-          <LuBookOpen size={14} />
-          {t('rulesets.title')}
-        </button>
-        <button onClick={() => setBrowsing(true)} style={ghostBtn}>
-          <LuStore size={14} />
-          {t('characters.browseSheets')}
-        </button>
-        <button onClick={() => setImporting((v) => !v)} style={ghostBtn}>
-          <LuUpload size={14} />
-          {t('characters.importSchema')}
-        </button>
         <button
           onClick={() => setCreating((v) => !v)}
           disabled={!schemas.length}
@@ -179,24 +152,6 @@ export default function CharactersView() {
         <div role="alert" style={{ color: 'var(--danger)', marginBottom: 16 }}>
           {error}
         </div>
-      ) : null}
-
-      {importing ? (
-        <form onSubmit={importSchema} style={{ ...card, marginBottom: 24 }}>
-          <label htmlFor="schema-json" style={fieldLabel}>
-            {t('characters.pasteSchema')}
-          </label>
-          <textarea
-            id="schema-json"
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            rows={8}
-            style={{ ...fieldInput, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
-          />
-          <button type="submit" style={{ ...goldBtn, marginTop: 12 }}>
-            {t('characters.install')}
-          </button>
-        </form>
       ) : null}
 
       {creating ? (
@@ -311,7 +266,19 @@ export default function CharactersView() {
         </ul>
       )}
 
-      {browsing ? <SheetCatalogue onInstalled={load} onClose={() => setBrowsing(false)} /> : null}
+      {managing ? (
+        <SheetManager
+          schemas={schemas}
+          onChanged={load}
+          initialTab={manageParam === 'rulesets' ? 'rulesets' : 'sheets'}
+          onClose={() => {
+            setManaging(false)
+            // Drop the param so closing and reopening does not jump back to
+            // the tab a stale URL named.
+            if (manageParam) setSearchParams({}, { replace: true })
+          }}
+        />
+      ) : null}
 
       {schemas.length > 0 ? (
         <section style={{ marginTop: 40 }}>

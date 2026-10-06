@@ -80,7 +80,13 @@ export default function ContentBrowser({
   const pages = Math.max(1, Math.ceil(total / pageSize))
 
   const choose = (entry) => {
-    onChoose?.({ _ref: entry.entry_id, _source: entry.source })
+    // The entry's own properties ride along beside the reference, so a pick
+    // with `on_pick` rules can act on it straight away rather than waiting for
+    // the sheet to resolve it.
+    onChoose?.(
+      { _ref: entry.entry_id, _source: entry.source },
+      { ...(entry.data || {}), name: entry.name }
+    )
     if (!multiple) onClose?.()
   }
 

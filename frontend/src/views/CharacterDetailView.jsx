@@ -1,10 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuTriangleAlert, LuCheck, LuDownload, LuImage } from 'react-icons/lu'
-import { characters as charactersApi } from '../api'
+import {
+  LuArrowLeft,
+  LuTriangleAlert,
+  LuCheck,
+  LuDownload,
+  LuImage,
+  LuListTree,
+} from 'react-icons/lu'
+import { characters as charactersApi, content as contentApi } from '../api'
 import Spinner from '../components/Spinner'
 import CharacterSheet from '../components/characters/CharacterSheet'
+import ChoiceDialog from '../components/characters/ChoiceDialog'
+import AllValuesDialog from '../components/characters/AllValuesDialog'
+import { planPick, applyChoice } from '../components/characters/onPick'
+import { OVERRIDES_KEY } from '../components/characters/expressions'
 import RawCharacterData from '../components/characters/RawCharacterData'
 import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 
@@ -35,8 +46,25 @@ export default function CharacterDetailView() {
   const [savedAt, setSavedAt] = useState(null)
   const [portraitKey, setPortraitKey] = useState(0)
 
+  // Choices a pick asked for - "choose 2 skills" - shown one at a time.
+  const [choices, setChoices] = useState([])
+  // Entries the player just picked, overlaid on the resolved ones until the
+  // next save brings them back from the server. Without it a derived value -
+  // "a wizard casts spells" - would lag the pick by a round trip.
+  const [pickedEntries, setPickedEntries] = useState({})
+  // Every value, whatever the sheet's layout chooses to show.
+  const [showingAll, setShowingAll] = useState(false)
+
   const timerRef = useRef(null)
   const pendingRef = useRef({})
+  // Fields to hand back to their automatic value on the next save.
+  const unsetRef = useRef(new Set())
+  // The latest data, for the pick planner: it runs after an await, when the
+  // `data` a callback closed over may already be stale.
+  const dataRef = useRef({})
+  useEffect(() => {
+    dataRef.current = data
+  }, [data])
 
   useEffect(() => {
     let cancelled = false
@@ -69,8 +97,10 @@ export default function CharacterDetailView() {
   useEffect(
     () => () => {
       if (timerRef.current) clearTimeout(timerRef.current)
-      if (Object.keys(pendingRef.current).length) {
-        charactersApi.update(characterId, { data: pendingRef.current }).catch(() => {})
+      if (Object.keys(pendingRef.current).length || unsetRef.current.size) {
+        charactersApi
+          .update(characterId, { data: pendingRef.current, unset: [...unsetRef.current] })
+          .catch(() => {})
       }
     },
     [characterId]
@@ -78,11 +108,16 @@ export default function CharacterDetailView() {
 
   const flush = useCallback(async () => {
     const payload = pendingRef.current
+    const unset = [...unsetRef.current]
     pendingRef.current = {}
-    if (!Object.keys(payload).length) return
+    unsetRef.current = new Set()
+    if (!Object.keys(payload).length && !unset.length) return
     setSaving(true)
     try {
-      const updated = await charactersApi.update(characterId, { data: payload })
+      const updated = await charactersApi.update(characterId, {
+        data: payload,
+        ...(unset.length ? { unset } : {}),
+      })
       // The server is the authority on both coercion and computed values, so
       // take its version of the data back rather than keeping the local guess.
       setCharacter(updated)
@@ -96,15 +131,103 @@ export default function CharacterDetailView() {
     }
   }, [characterId])
 
-  const onChange = useCallback(
-    (name, value) => {
-      setData((prev) => ({ ...prev, [name]: value }))
-      pendingRef.current = { ...pendingRef.current, [name]: value }
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(flush, SAVE_DELAY_MS)
+  const schedule = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(flush, SAVE_DELAY_MS)
+  }, [flush])
+
+  const applyPatch = useCallback(
+    (patch) => {
+      dataRef.current = { ...dataRef.current, ...patch }
+      setData((prev) => ({ ...prev, ...patch }))
+      pendingRef.current = { ...pendingRef.current, ...patch }
+      // Setting a field again cancels a reset still waiting to be saved.
+      for (const name of Object.keys(patch)) unsetRef.current.delete(name)
+      schedule()
     },
-    [flush]
+    [schedule]
   )
+
+  // Resolve entry ids against the catalog, for a grant that should become a
+  // reference only when the content is really installed.
+  const lookup = useCallback(
+    async (ids) => (await contentApi.resolve(character?.schema_ref, ids))?.entries || {},
+    [character?.schema_ref]
+  )
+
+  const onChange = useCallback(
+    async (name, value, meta) => {
+      applyPatch({ [name]: value })
+
+      const definition = document?.fields?.[name]
+      if (definition?.type !== 'content_ref') return
+
+      // The picked entry's own properties: from the browser that picked it,
+      // from the value itself for a freeform entry, or fetched as a last resort.
+      let entry = meta && 'entry' in meta ? meta.entry : undefined
+      if (entry === undefined) {
+        if (!value) entry = null
+        else if (value._inline) entry = value
+        else if (value._ref) {
+          const found = (await lookup([value._ref]).catch(() => ({})))[value._ref]
+          entry = found && !found.missing ? { ...(found.data || {}), name: found.name } : null
+        }
+      }
+      if (entry && value?._ref) setPickedEntries((prev) => ({ ...prev, [value._ref]: entry }))
+
+      if (!definition.on_pick?.length) return
+      try {
+        const plan = await planPick({
+          document,
+          data: dataRef.current,
+          field: name,
+          entry,
+          lookup,
+        })
+        if (Object.keys(plan.patch).length) applyPatch(plan.patch)
+        if (plan.choices.length) setChoices((prev) => [...prev, ...plan.choices])
+      } catch (e) {
+        // A pick that could not be followed up is still a pick: the value is
+        // saved, and the player can add what it would have granted by hand.
+        setError(e.message)
+      }
+    },
+    [applyPatch, document, lookup]
+  )
+
+  // Hand a field back to its `default_from` value.
+  const onReset = useCallback(
+    (name) => {
+      const next = { ...dataRef.current }
+      delete next[name]
+      dataRef.current = next
+      setData(next)
+      const pending = { ...pendingRef.current }
+      delete pending[name]
+      pendingRef.current = pending
+      unsetRef.current.add(name)
+      schedule()
+    },
+    [schedule]
+  )
+
+  // Overrule a computed value, or with `undefined` return it to its formula.
+  // Saved whole, the way the server expects it: leaving a name out is the reset.
+  const onOverride = useCallback(
+    (name, value) => {
+      const overrides = { ...(dataRef.current?.[OVERRIDES_KEY] || {}) }
+      if (value === undefined || value === null || value === '') delete overrides[name]
+      else overrides[name] = value
+      applyPatch({ [OVERRIDES_KEY]: overrides })
+    },
+    [applyPatch]
+  )
+
+  const confirmChoice = (picked) => {
+    const [choice, ...rest] = choices
+    applyPatch(applyChoice({ data: dataRef.current, choice, picked }))
+    setChoices(rest)
+  }
 
   const uploadPortrait = async (file) => {
     if (!file) return
@@ -146,6 +269,9 @@ export default function CharacterDetailView() {
   }
 
   if (loading) return <Spinner />
+
+  // `owned` is false only for a sheet shared through a campaign.
+  const readOnly = character?.owned === false
   if (!character) {
     return (
       <div style={{ padding: 24 }}>
@@ -193,6 +319,16 @@ export default function CharacterDetailView() {
             style={{ display: 'none' }}
           />
         </label>
+        {document ? (
+          <button
+            onClick={() => setShowingAll(true)}
+            aria-label={t('characters.allValues')}
+            title={t('characters.allValues')}
+            style={{ ...ghostBtn, padding: '6px 10px' }}
+          >
+            <LuListTree size={14} />
+          </button>
+        ) : null}
         <button
           onClick={exportCharacter}
           aria-label={t('characters.export')}
@@ -260,13 +396,44 @@ export default function CharacterDetailView() {
         <CharacterSheet
           document={document}
           data={data}
+          // A party member may read another player's sheet but not edit it; the
+          // server refuses the write, so the controls should not be offered.
+          readOnly={readOnly}
           onChange={onChange}
-          entries={character.entries || {}}
+          onReset={onReset}
+          onOverride={onOverride}
+          entries={{ ...(character.entries || {}), ...pickedEntries }}
           schemaId={character.schema_ref}
         />
       ) : (
         <RawCharacterData data={data} />
       )}
+
+      {showingAll ? (
+        <AllValuesDialog
+          document={document}
+          data={data}
+          entries={{ ...(character.entries || {}), ...pickedEntries }}
+          schemaId={character.schema_ref}
+          onChange={onChange}
+          onReset={onReset}
+          onOverride={onOverride}
+          readOnly={readOnly}
+          onClose={() => setShowingAll(false)}
+        />
+      ) : null}
+
+      {choices.length ? (
+        <ChoiceDialog
+          // Keyed so a second choice starts with nothing ticked.
+          key={`${choices[0].source}:${choices[0].target}:${choices.length}`}
+          choice={choices[0]}
+          have={Array.isArray(data?.[choices[0].target]) ? data[choices[0].target] : []}
+          sourceLabel={document?.fields?.[choices[0].source]?.label || choices[0].source}
+          onConfirm={confirmChoice}
+          onSkip={() => setChoices((prev) => prev.slice(1))}
+        />
+      ) : null}
     </div>
   )
 }

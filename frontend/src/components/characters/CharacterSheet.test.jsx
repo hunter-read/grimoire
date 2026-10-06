@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import CharacterSheet from './CharacterSheet'
 
 // A schema describes its sheet either as a JSON `layout` tree or as HTML
@@ -190,5 +191,97 @@ describe('CharacterSheet — Phase 2', () => {
     )
     // One equipped item, shown in the derived block.
     expect(screen.getByText('1')).toBeInTheDocument()
+  })
+})
+
+describe('CharacterSheet — derived defaults', () => {
+  const DERIVED = {
+    id: 'derived',
+    fields: {
+      species: { type: 'content_ref', content_type: 'species', label: 'Species' },
+      speed: {
+        type: 'number',
+        label: 'Speed',
+        default: 30,
+        default_from: "ref(species, 'speed')",
+      },
+      is_caster: { type: 'checkbox', label: 'Caster', default_from: "ref(species, 'speed') > 20" },
+    },
+    content_types: { species: { identity_field: 'name', fields: { name: { type: 'text' } } } },
+    layout: [{ title: 'Basics', fields: ['speed'] }],
+  }
+  const ENTRIES = { dwarf: { name: 'Dwarf', speed: 25 } }
+
+  it('shows the derived value, marked as automatic', () => {
+    render(
+      <CharacterSheet
+        document={DERIVED}
+        data={{ species: { _ref: 'dwarf' } }}
+        entries={ENTRIES}
+        onChange={vi.fn()}
+        onReset={vi.fn()}
+      />
+    )
+    expect(screen.getByLabelText('Speed')).toHaveValue(25)
+    // A quiet icon rather than a word, named for assistive technology.
+    expect(screen.getByRole('img', { name: /Set from your choices/ })).toBeInTheDocument()
+  })
+
+  it("shows the player's own value with a way back", async () => {
+    const onReset = vi.fn()
+    render(
+      <CharacterSheet
+        document={DERIVED}
+        data={{ species: { _ref: 'dwarf' }, speed: 40 }}
+        entries={ENTRIES}
+        onChange={vi.fn()}
+        onReset={onReset}
+      />
+    )
+    expect(screen.getByLabelText('Speed')).toHaveValue(40)
+    await userEvent.click(screen.getByLabelText('Use the automatic value'))
+    expect(onReset).toHaveBeenCalledWith('speed')
+  })
+
+  it('lets a layout condition see a derived value', () => {
+    // The bug this guards: layouts built their context from raw data, so a
+    // Spellcasting panel gated on a class-derived flag never appeared.
+    render(
+      <CharacterSheet
+        document={{
+          ...DERIVED,
+          layout_ast: [
+            {
+              tag: 'g-if',
+              attrs: { test: 'is_caster' },
+              children: [{ tag: 'p', children: [{ text: 'Spellcasting' }] }],
+            },
+          ],
+        }}
+        data={{ species: { _ref: 'dwarf' } }}
+        entries={ENTRIES}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Spellcasting')).toBeInTheDocument()
+  })
+})
+
+describe('CharacterSheet — defaults', () => {
+  it("shows a field's default rather than an empty box", () => {
+    // Formulas used the default already, so a score read as 10 in every
+    // modifier while its own box sat empty.
+    render(
+      <CharacterSheet
+        document={{
+          id: 'd',
+          fields: { strength: { type: 'number', label: 'Strength', default: 10 } },
+          layout: [{ title: 'A', fields: ['strength'] }],
+        }}
+        data={{}}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByLabelText('Strength')).toHaveValue(10)
   })
 })

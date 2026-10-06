@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX } from 'react-icons/lu'
 import ContentBrowser from './ContentBrowser'
-import { ghostBtn, iconBtn, fieldLabel } from './characterStyles'
+import { iconBtn, fieldLabel } from './characterStyles'
 
 /**
  * A single pick from the catalog — a class, an ancestry, a kit.
@@ -36,50 +36,68 @@ export default function ContentRefField({
     <div className="gc-field">
       {hideLabel ? null : <div style={fieldLabel}>{definition.label || name}</div>}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {/* The box itself opens the picker. A separate search button beside it
+            cost ~40px, and in a row of pickers that squeezed each name until it
+            wrapped - "Dragonborn" over two lines. It stays on one line now, and
+            the full name is in the tooltip if it has to be cut short. */}
+        <button
+          type="button"
+          onClick={readOnly ? undefined : () => setBrowsing(true)}
+          disabled={readOnly}
+          aria-label={
+            readOnly
+              ? display || definition.label || name
+              : t('characters.chooseEntry', { label: definition.label || name })
+          }
+          title={display || undefined}
           style={{
             flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
             padding: '6px 9px',
             border: '1px solid var(--border)',
             borderRadius: 6,
             background: 'var(--bg-deep)',
             color: display ? 'var(--text)' : 'var(--text-muted)',
             fontSize: 13,
-            minHeight: 18,
+            minHeight: 32,
+            textAlign: 'left',
+            cursor: readOnly ? 'default' : 'pointer',
+            font: 'inherit',
           }}
         >
-          {display || '—'}
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {display || '—'}
+          </span>
           {missing ? (
-            <span style={{ color: 'var(--warning)', fontSize: 11, marginLeft: 6 }}>
+            <span style={{ color: 'var(--warning)', fontSize: 11, whiteSpace: 'nowrap' }}>
               {t('characters.entryMissing')}
             </span>
           ) : null}
-        </div>
+          {readOnly ? null : <LuSearch size={13} style={{ flexShrink: 0, opacity: 0.6 }} />}
+        </button>
 
-        {readOnly ? null : (
-          <>
-            <button
-              type="button"
-              onClick={() => setBrowsing(true)}
-              aria-label={t('characters.browseCatalog')}
-              title={t('characters.browseCatalog')}
-              style={{ ...ghostBtn, padding: '6px 10px' }}
-            >
-              <LuSearch size={14} />
-            </button>
-            {ref ? (
-              <button
-                type="button"
-                onClick={() => onChange?.(null)}
-                aria-label={t('characters.clearChoice')}
-                title={t('characters.clearChoice')}
-                style={iconBtn}
-              >
-                <LuX size={14} />
-              </button>
-            ) : null}
-          </>
+        {readOnly || !ref ? null : (
+          <button
+            type="button"
+            onClick={() => onChange?.(null, { entry: null })}
+            aria-label={t('characters.clearChoice')}
+            title={t('characters.clearChoice')}
+            style={{ ...iconBtn, padding: 3 }}
+          >
+            <LuX size={14} />
+          </button>
         )}
       </div>
 
@@ -89,7 +107,7 @@ export default function ContentRefField({
           contentType={definition.content_type}
           typeDefinition={typeDefinition}
           chosen={ref ? [ref] : []}
-          onChoose={(picked) => onChange?.(picked)}
+          onChoose={(picked, entry) => onChange?.(picked, { entry })}
           onClose={() => setBrowsing(false)}
         />
       ) : null}

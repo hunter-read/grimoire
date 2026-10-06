@@ -1738,7 +1738,7 @@ campaign, which is exactly who wants a character sheet.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/characters/schemas` | GET | user | The user's installed schemas, each with a `character_count` |
-| `/api/characters/schemas` | POST | user | Install a pasted schema. Body is `{document, source_id?, source_url?, source_version?}`. 400 with a message naming the problem if it does not validate |
+| `/api/characters/schemas` | POST | user | Install a pasted sheet (see below). 400 with a message naming the problem if it does not validate |
 | `/api/characters/schemas/browse` | GET | user | The community catalogue of sheets, each marked `installed` |
 | `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue |
 | `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document` |
@@ -1746,13 +1746,50 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters` | GET | user | The user's characters, newest first. `?schema_ref=` filters by schema |
 | `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?}`. 400 if that schema is not installed |
 | `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
-| `/api/characters/:id` | PUT | user | Update `name` and/or `data`. `data` is a **partial patch** - only the fields it names are touched |
+| `/api/characters/:id` | PUT | user | Update `name`, `data` and/or `unset`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
 | `/api/characters/:id` | DELETE | user | Delete a character |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
 | `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |
 | `/api/characters/:id/portrait` | DELETE | user | Remove the portrait |
+
+**Installing a pasted sheet** takes the sheet either already parsed, as
+`document`, or as text:
+
+```json
+{ "text": "id: cairn\nname: Cairn\nfields: {...}",
+  "layout": "<div class=\"sheet\">...</div>",
+  "styles": ".sheet { display: grid; }" }
+```
+
+`text` is parsed as **JSON and then as YAML**, the same rule add-on indexes
+follow. YAML is the friendlier of the two for a hand-written sheet: no quoting
+every key, no trailing-comma errors, and comments are allowed.
+
+`layout` and `styles` carry a custom sheet's HTML and CSS as their own fields
+rather than escaped into the document, which is how the community repository
+keeps them too. Given here they **override** whatever the document holds, and
+`layout_file`/`styles_file` pointers are dropped — what gets stored is one
+self-contained document, so the sheet still renders if its catalogue moves.
+
+A pasted layout goes through the same tag allowlist as a downloaded one, and a
+pasted stylesheet through the same property filter. Pasting is not a way around
+either.
+
+**Updating a character.** `data` is merged into what is stored; a value the
+schema does not declare is dropped rather than stored. `unset` is a list of
+field names to remove, which is how a field goes back to its `default_from`
+value after the player typed over it - separate from `data`, because a `null`
+there already means "cleared" mid-edit.
+
+Two reserved keys may ride in `data` beside the fields, each checked strictly
+rather than stored as sent:
+
+| Key | Shape | Purpose |
+|---|---|---|
+| `_overrides` | `{computed name: value}` | The player's own value for a computed value. It replaces the formula, and everything depending on it follows. Names must be computed values; values must be short scalars. Sent whole - leaving a name out resets it |
+| `_granted` | `{picking field: {target field: [value, ...]}}` | What each `on_pick` rule added, so changing the pick can take it back off. The source must carry `on_pick` and each target must be a declared field |
 
 **Schema fields:** `id`, `schema_id`, `name`, `system`, `description`,
 `version`, `source_id`, `source_url`, `source_version`, `is_community`,
@@ -2148,12 +2185,15 @@ requires owning the campaign.
 |----------|--------|------|-------------|
 | `/api/rulesets` | GET | user | Rulesets this user can read. `schema_id`, `campaign_id` filter |
 | `/api/rulesets` | POST | user | Create one. `campaign_id` null asks for a server ruleset (**admin**) |
-| `/api/rulesets/installable` | GET | user | Filesystem content packs that can be imported |
+| `/api/rulesets/packs/browse` | GET | user | The community catalogue of content packs, each with `installed`, `installed_version` and `update_available`. Also returns `can_install` for this caller |
+| `/api/rulesets/packs/install/:pack_id` | POST | **admin** | Download and install one pack, then load it into the catalog. Replaces an installed copy, which is how a pack is reinstalled or updated |
+| `/api/rulesets/packs/:pack_id` | DELETE | **admin** | Uninstall a pack: its directory and its rows. Rulesets that imported it keep their copies |
+| `/api/rulesets/installable` | GET | user | Installed content packs that can be imported into a ruleset |
 | `/api/rulesets/:id` | GET | user | One ruleset, if they may read it |
 | `/api/rulesets/:id` | PUT | editor | Rename it or change its credit |
 | `/api/rulesets/:id` | DELETE | editor | Delete it and its entries |
 | `/api/rulesets/:id/export` | GET | user | The whole ruleset as a portable document |
-| `/api/rulesets/:id/import` | POST | editor | Import a `pack_id` or a `document`. `conflict` is `skip` (default), `overwrite`, or `rename` |
+| `/api/rulesets/:id/import` | POST | editor | Import a `pack_id`, a `document`, or that document as `text` (JSON or YAML). `conflict` is `skip` (default), `overwrite`, or `rename` |
 | `/api/rulesets/:id/fork` | POST | editor | Copy a catalogue or readable ruleset entry into this one |
 | `/api/rulesets/:id/entries` | GET | user | Its entries. `content_type` filters |
 | `/api/rulesets/:id/entries` | POST | editor | Write an entry |
@@ -2176,10 +2216,23 @@ player at the table without a second request.
 
 #### Installing the SRD
 
-Core content reaches a table in two steps. An admin drops a content pack into
-`DATA_PATH/character-content/` and it is loaded at startup; `GET
-/api/rulesets/installable` then lists it, and a GM imports it into their
-campaign's ruleset with `POST /api/rulesets/:id/import` and `{"pack_id": "..."}`.
+Core content reaches a table in two steps.
+
+First an admin installs the **pack**, either from the community catalogue
+(`GET /api/rulesets/packs/browse`, then `POST /api/rulesets/packs/install/:id`)
+or by dropping a directory into `DATA_PATH/character-content/`, which is loaded
+at startup. Installing from the catalogue writes the same directory, so the two
+routes converge - the filesystem stays the source of truth. Every file is
+verified against its own digest, and the whole pack is staged and swapped into
+place, so a failed download leaves the previous copy standing.
+
+Browsing needs only an account; **installing needs an admin**, because a pack is
+server-wide. `browse` returns `can_install` for the caller so a GM's UI can show
+what a pack offers without offering a button that would 403.
+
+Then `GET /api/rulesets/installable` lists what is installed, and a GM imports it
+into their campaign's ruleset with `POST /api/rulesets/:id/import` and
+`{"pack_id": "..."}`.
 
 An import **copies the pack's credit onto the ruleset** — `license`,
 `license_url`, `attribution` and `source_pack_id` — so content taken from the

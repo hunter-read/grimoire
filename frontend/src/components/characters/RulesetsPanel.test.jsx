@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
-import RulesetsView from './RulesetsView'
+import RulesetsPanel from './RulesetsPanel'
 
 const mockList = vi.fn()
 const mockCreate = vi.fn()
@@ -10,13 +9,12 @@ const mockRemove = vi.fn()
 const mockEntries = vi.fn()
 const mockRemoveEntry = vi.fn()
 const mockInstallable = vi.fn()
+const mockBrowsePacks = vi.fn()
 const mockImport = vi.fn()
 const mockSchemas = vi.fn()
 const mockTypes = vi.fn()
 const mockCampaigns = vi.fn()
-const mockNavigate = vi.fn()
-
-vi.mock('../api', () => ({
+vi.mock('../../api', () => ({
   rulesets: {
     list: (...a) => mockList(...a),
     create: (...a) => mockCreate(...a),
@@ -24,17 +22,14 @@ vi.mock('../api', () => ({
     entries: (...a) => mockEntries(...a),
     removeEntry: (...a) => mockRemoveEntry(...a),
     installable: (...a) => mockInstallable(...a),
+    browsePacks: (...a) => mockBrowsePacks(...a),
+    installPack: vi.fn(),
     import: (...a) => mockImport(...a),
   },
   characters: { listSchemas: (...a) => mockSchemas(...a) },
   content: { types: (...a) => mockTypes(...a) },
   campaigns: { list: (...a) => mockCampaigns(...a) },
 }))
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
-  return { ...actual, useNavigate: () => mockNavigate }
-})
 
 const MINE = {
   id: 'r1',
@@ -58,12 +53,7 @@ const SERVER = {
   attribution: 'Includes material from the SRD 5.2, CC BY 4.0.',
 }
 
-const renderView = () =>
-  render(
-    <MemoryRouter>
-      <RulesetsView />
-    </MemoryRouter>
-  )
+const renderView = () => render(<RulesetsPanel />)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -77,9 +67,10 @@ beforeEach(() => {
   })
   mockTypes.mockResolvedValue({ content_types: [{ name: 'spell', label_plural: 'Spells' }] })
   mockInstallable.mockResolvedValue({ packs: [] })
+  mockBrowsePacks.mockResolvedValue({ packs: [], sources: [], errors: [], can_install: true })
 })
 
-describe('RulesetsView', () => {
+describe('RulesetsPanel', () => {
   it('lists rulesets with the campaign each is for', async () => {
     renderView()
     expect(await screen.findByText('Strahd house rules')).toBeInTheDocument()
@@ -191,11 +182,13 @@ describe('RulesetsView', () => {
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('r1'))
   })
 
-  it('goes back to characters', async () => {
+  it('backs out of an opened ruleset to the list', async () => {
     renderView()
-    await screen.findByText('Strahd house rules')
+    await userEvent.click(await screen.findByText('Strahd house rules'))
+    await screen.findByText('Hellfire')
     await userEvent.click(screen.getByLabelText('Back'))
-    expect(mockNavigate).toHaveBeenCalledWith('/characters')
+    // The list, not the page: the panel is embedded and draws no page chrome.
+    expect(await screen.findByText('New ruleset')).toBeInTheDocument()
   })
 
   it('shows an empty state', async () => {
@@ -208,5 +201,124 @@ describe('RulesetsView', () => {
     mockList.mockRejectedValue(new Error('boom'))
     renderView()
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+  })
+})
+
+describe('RulesetsPanel — importing a document', () => {
+  it('pastes a ruleset into a chosen ruleset', async () => {
+    mockImport.mockResolvedValue({
+      imported: 2,
+      skipped: 0,
+      renamed: 0,
+      overwritten: 0,
+      failed: [],
+    })
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    renderView()
+    await screen.findByText('Strahd house rules')
+
+    await userEvent.click(screen.getByText('Import a document'))
+    await userEvent.selectOptions(screen.getByLabelText('Import into'), 'r1')
+    await userEvent.type(screen.getByLabelText(/Ruleset \(JSON or YAML\)/i), 'entries: {{}')
+    await userEvent.click(screen.getByText('Import'))
+
+    // Sent as text so the server reads JSON or YAML with one parser.
+    await waitFor(() =>
+      expect(mockImport).toHaveBeenCalledWith('r1', { text: 'entries: {}', conflict: 'skip' })
+    )
+  })
+
+  it('only offers rulesets the user may edit', async () => {
+    renderView()
+    await screen.findByText('Strahd house rules')
+    await userEvent.click(screen.getByText('Import a document'))
+
+    const options = [...screen.getByLabelText('Import into').querySelectorAll('option')].map(
+      (option) => option.value
+    )
+    // The server ruleset is read-only for this user, so importing into it would
+    // only fail at the API.
+    expect(options).toContain('r1')
+    expect(options).not.toContain('r2')
+  })
+
+  it('passes the chosen conflict rule through', async () => {
+    mockImport.mockResolvedValue({
+      imported: 0,
+      skipped: 0,
+      renamed: 1,
+      overwritten: 0,
+      failed: [],
+    })
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    renderView()
+    await screen.findByText('Strahd house rules')
+
+    await userEvent.click(screen.getByText('Import a document'))
+    await userEvent.selectOptions(screen.getByLabelText('Import into'), 'r1')
+    await userEvent.selectOptions(screen.getByLabelText(/If it already exists/i), 'rename')
+    await userEvent.type(screen.getByLabelText(/Ruleset \(JSON or YAML\)/i), 'entries: {{}')
+    await userEvent.click(screen.getByText('Import'))
+
+    await waitFor(() =>
+      expect(mockImport).toHaveBeenCalledWith('r1', { text: 'entries: {}', conflict: 'rename' })
+    )
+  })
+
+  it('reports a parse failure from the server', async () => {
+    mockImport.mockRejectedValue(new Error('That ruleset is not valid JSON or YAML'))
+    renderView()
+    await screen.findByText('Strahd house rules')
+
+    await userEvent.click(screen.getByText('Import a document'))
+    await userEvent.selectOptions(screen.getByLabelText('Import into'), 'r1')
+    await userEvent.type(screen.getByLabelText(/Ruleset \(JSON or YAML\)/i), 'nope')
+    await userEvent.click(screen.getByText('Import'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not valid JSON or YAML/i)
+  })
+
+  it('cannot import with nothing to import into', async () => {
+    mockList.mockResolvedValue({ rulesets: [SERVER] })
+    renderView()
+    await screen.findByText('D&D 5e SRD')
+    // Nothing editable, so the action is disabled rather than failing later.
+    expect(screen.getByText('Import a document').closest('button')).toBeDisabled()
+  })
+})
+
+describe('RulesetsPanel — browsing content packs', () => {
+  it('opens the pack catalogue from the list', async () => {
+    // The gap this closes: the SRD was published in the community repo with no
+    // way to reach a server, so "browse rulesets" had nothing behind it.
+    mockBrowsePacks.mockResolvedValue({
+      packs: [
+        {
+          id: 'srd-abc',
+          pack_id: 'dnd-5e-srd',
+          name: 'D&D 5e SRD 5.2',
+          entry_count: 109,
+          content_types: ['spell'],
+          installed: false,
+        },
+      ],
+      sources: [],
+      errors: [],
+      can_install: true,
+    })
+    renderView()
+    await screen.findByText('Strahd house rules')
+
+    await userEvent.click(screen.getByText('Browse content packs'))
+    expect(await screen.findByText('D&D 5e SRD 5.2')).toBeInTheDocument()
+  })
+
+  it('is reachable without any ruleset existing yet', async () => {
+    // Otherwise getting started is circular: you need a pack to fill a ruleset,
+    // and the only way to a pack was through a ruleset.
+    mockList.mockResolvedValue({ rulesets: [] })
+    renderView()
+    await screen.findByText(/No rulesets yet/i)
+    expect(screen.getByText('Browse content packs').closest('button')).not.toBeDisabled()
   })
 })

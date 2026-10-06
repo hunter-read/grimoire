@@ -6,9 +6,11 @@ Split by concern so no one file carries both the parsing and the policy:
 * ``layout_html`` — the allowlisted HTML layout parser
 * ``styles`` — the scoped, property-filtered stylesheet filter
 * ``schema`` — schema validation and character evaluation, tying the three together
+* ``documents`` — parsing a hand-written sheet or ruleset, as JSON or YAML
 
 ``from backend.services import characters`` gets the whole public surface.
 """
+from .documents import DocumentError, parse_document
 from .expressions import ExpressionError, evaluate, parse, referenced_names
 from .layout_html import (
     ALLOWED_TAGS,
@@ -23,7 +25,9 @@ from .schema import (
     SCHEMA_VERSION,
     SchemaError,
     coerce_value,
+    OVERRIDES_KEY,
     compute_values,
+    computed_overrides,
     run_validators,
     validate_schema,
     visible_fields,
@@ -31,6 +35,8 @@ from .schema import (
 from .styles import ALLOWED_PROPERTIES, StylesError, scope_styles
 
 __all__ = [
+    "DocumentError",
+    "parse_document",
     "ExpressionError",
     "evaluate",
     "parse",
@@ -45,6 +51,8 @@ __all__ = [
     "SchemaError",
     "validate_schema",
     "compute_values",
+    "computed_overrides",
+    "OVERRIDES_KEY",
     "coerce_value",
     "run_validators",
     "visible_fields",

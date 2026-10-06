@@ -129,29 +129,25 @@ describe('CharactersView', () => {
     expect(await screen.findByText(/is not installed/i)).toBeInTheDocument()
   })
 
-  it('imports a pasted schema', async () => {
-    mockImportSchema.mockResolvedValue({})
+  it('opens the sheet manager from one button', async () => {
+    // Sheets, rulesets, browsing and pasting were four separate buttons here.
+    // They are one now, so the header does not make the user guess.
     renderView()
     await screen.findByText('Vex')
-
-    await userEvent.click(screen.getByText(/Import a sheet/i))
-    const textarea = screen.getByLabelText(/Paste a character sheet schema/i)
-    await userEvent.type(textarea, '{{"id":"x","name":"X"}')
-    await userEvent.click(screen.getByText('Install'))
-
-    await waitFor(() => expect(mockImportSchema).toHaveBeenCalled())
+    await userEvent.click(screen.getByText('Manage sheets'))
+    expect(await screen.findByRole('dialog', { name: 'Manage sheets' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Sheets' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Rulesets' })).toBeInTheDocument()
   })
 
-  it('rejects invalid JSON without calling the API', async () => {
+  it('closes the sheet manager again', async () => {
     renderView()
     await screen.findByText('Vex')
-
-    await userEvent.click(screen.getByText(/Import a sheet/i))
-    await userEvent.type(screen.getByLabelText(/Paste a character sheet schema/i), 'not json')
-    await userEvent.click(screen.getByText('Install'))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not valid JSON/i)
-    expect(mockImportSchema).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByText('Manage sheets'))
+    await userEvent.click(screen.getByLabelText('Close'))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Manage sheets' })).not.toBeInTheDocument()
+    )
   })
 
   it('surfaces a load failure', async () => {
@@ -219,7 +215,7 @@ describe('CharactersView', () => {
     it('styles the secondary action as a bordered card', async () => {
       renderView()
       await screen.findByText('Vex')
-      const button = screen.getByText(/Import a sheet/i).closest('button')
+      const button = screen.getByText('Manage sheets').closest('button')
       expect(button.style.background).toBe('var(--bg-card)')
       expect(button.className).toBe('')
     })

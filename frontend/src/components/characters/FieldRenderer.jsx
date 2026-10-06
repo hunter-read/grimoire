@@ -1,5 +1,9 @@
 import { useId } from 'react'
-import { fieldInput, fieldLabel } from './characterStyles'
+import { useTranslation } from 'react-i18next'
+import { LuRotateCcw, LuLink } from 'react-icons/lu'
+import { fieldInput, fieldLabel, iconBtn } from './characterStyles'
+import OverridableValue from './OverridableValue'
+import CompactNumber from './CompactNumber'
 import ListField from './ListField'
 import MultiSelectField from './MultiSelectField'
 import ContentRefField from './ContentRefField'
@@ -16,6 +20,11 @@ import ContentListField from './ContentListField'
  * `readOnly` is a real mode, not a disabled input: a computed value and a
  * content-browser preview both render as text rather than as a greyed-out box
  * you can focus but not change.
+ *
+ * A field with `default_from` is still an ordinary editable field. `derived`
+ * says the value shown was worked out from the player's choices; `onReset`,
+ * once they have typed over it, hands it back to that automatic value. Neither
+ * is set for a plain field, which renders exactly as it always did.
  */
 export default function FieldRenderer({
   name,
@@ -30,7 +39,15 @@ export default function FieldRenderer({
   entries = {},
   schemaId,
   contentTypes = {},
+  derived = false,
+  onReset,
+  // For a read-only computed value: lets the player overrule it anyway.
+  onOverride,
+  overridden = false,
+  // `compact` draws a number without its spinner, for tight boxes.
+  variant,
 }) {
+  const { t } = useTranslation()
   const inputId = useId()
   const type = definition.type || 'text'
   const label = definition.label || name
@@ -45,6 +62,7 @@ export default function FieldRenderer({
         value={value}
         onChange={onChange}
         readOnly={readOnly}
+        hideLabel={hideLabel}
       />
     )
   }
@@ -86,6 +104,7 @@ export default function FieldRenderer({
         typeDefinition={contentTypes[definition.content_type] || {}}
         onChange={onChange}
         readOnly={readOnly}
+        hideLabel={hideLabel}
       />
     )
   }
@@ -110,25 +129,97 @@ export default function FieldRenderer({
             minHeight: 20,
           }}
         >
-          {formatDisplay(type, value, definition)}
+          {onOverride ? (
+            <OverridableValue
+              label={label}
+              display={formatDisplay(type, value, definition)}
+              raw={value}
+              overridden={overridden}
+              onOverride={onOverride}
+            />
+          ) : (
+            formatDisplay(type, value, definition)
+          )}
         </div>
       </div>
     )
   }
 
+  const control = renderControl({
+    inputId,
+    type,
+    definition,
+    value,
+    onChange,
+    autoFocus,
+    label,
+    variant,
+  })
+  if (!derived && !onReset) {
+    return (
+      <div className="gc-field">
+        {label_el}
+        {control}
+      </div>
+    )
+  }
+
+  // Beside the control rather than in the label, so it survives a layout that
+  // hides labels - the HTML sheets mostly do.
+  // A small linked-chain icon rather than a word: on a sheet with a dozen
+  // derived values, "AUTO" beside each one - every saving throw box - was more
+  // prominent than the values themselves. The meaning is in the tooltip and
+  // the accessible name.
+  const marker = derived ? (
+    <span
+      role="img"
+      title={t('characters.autoValueHint')}
+      aria-label={t('characters.autoValueHint')}
+      style={{ display: 'inline-flex', color: 'var(--text-muted)', opacity: 0.55, flexShrink: 0 }}
+    >
+      <LuLink size={11} />
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={onReset}
+      aria-label={t('characters.resetToAuto')}
+      title={t('characters.resetToAuto')}
+      style={{ ...iconBtn, padding: 2 }}
+    >
+      <LuRotateCcw size={12} />
+    </button>
+  )
+
   return (
     <div className="gc-field">
       {label_el}
-      {renderControl({ inputId, type, definition, value, onChange, autoFocus, label })}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>{control}</div>
+        {marker}
+      </div>
     </div>
   )
 }
 
-function renderControl({ inputId, type, definition, value, onChange, autoFocus, label }) {
+function renderControl({ inputId, type, definition, value, onChange, autoFocus, label, variant }) {
   const commonStyle = fieldInput
 
   switch (type) {
     case 'number':
+      if (variant === 'compact') {
+        return (
+          <CompactNumber
+            id={inputId}
+            value={value}
+            min={definition.min}
+            max={definition.max}
+            autoFocus={autoFocus}
+            onChange={onChange}
+            style={commonStyle}
+          />
+        )
+      }
       return (
         <input
           id={inputId}

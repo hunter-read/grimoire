@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import get_db
 from ...models import ContentEntry, ContentPack, Ruleset, RulesetEntry
+from ...services.characters import packs as pack_service
 from ...services.characters import rulesets as rs
 from . import _helpers as helpers
 
@@ -106,6 +107,9 @@ def list_packs(
     db: Session = Depends(get_db),
 ):
     """Every installed content pack, with its licence and credit."""
+    # Installed means on disk: a pack whose directory was removed by hand is
+    # dropped here rather than listed until the next restart.
+    pack_service.prune_removed_packs(db)
     query = db.query(ContentPack)
     if schema_id:
         query = query.filter_by(schema_id=schema_id)
@@ -362,8 +366,6 @@ def reload_packs(
     source of truth, so this is a re-read rather than a merge: a pack whose
     files changed is replaced, and one whose directory is gone loses its rows.
     """
-    from ...services.characters import packs as pack_service
-
     try:
         loaded = pack_service.sync_packs(db)
     except Exception as exc:  # a bad pack must not 500 the admin page

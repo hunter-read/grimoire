@@ -598,3 +598,52 @@ class TestAddonFetchYamlAndMultiSource:
         # Only addons from source4 should be returned in result
         assert len(result["addons"]) == 1
         assert result["addons"][0]["id"] == "addon-1"
+
+
+class TestSourceContents:
+    """What each configured source is advertised as offering, in the settings UI.
+
+    A source's contents are inferred from its URL, so this is about labelling
+    rather than fetching: nothing here goes to the network.
+    """
+
+    def test_the_community_repo_offers_character_sheets(self, db):
+        contents = install.get_source_contents(
+            db, ["https://raw.githubusercontent.com/x/community-add-ons/main/index.json"]
+        )
+        offered = next(iter(contents.values()))
+        assert "character-sheets" in offered
+        # Beside the others, not instead of them.
+        assert {"plugins", "themes", "templates"} <= set(offered)
+
+    def test_a_themes_url_offers_only_themes(self, db):
+        contents = install.get_source_contents(
+            db, ["https://example.test/themes/index.json"]
+        )
+        assert contents == {"https://example.test/themes/index.json": ["themes"]}
+
+    def test_a_templates_url_offers_only_templates(self, db):
+        contents = install.get_source_contents(
+            db, ["https://example.test/templates/index.json"]
+        )
+        assert contents == {"https://example.test/templates/index.json": ["templates"]}
+
+    def test_a_general_repo_is_not_claimed_for_sheets(self, db):
+        """Sheets are only advertised where they are known to live.
+
+        A third-party add-on repo has no `character-sheets/` directory, and
+        offering to browse one there would be a dead end.
+        """
+        contents = install.get_source_contents(db, ["https://example.test/index.json"])
+        offered = next(iter(contents.values()))
+        assert "character-sheets" not in offered
+
+    def test_each_source_is_labelled_independently(self, db):
+        urls = [
+            "https://raw.githubusercontent.com/x/community-add-ons/main/index.json",
+            "https://example.test/themes/index.json",
+        ]
+        contents = install.get_source_contents(db, urls)
+        assert len(contents) == 2
+        assert "character-sheets" in contents[urls[0]]
+        assert contents[urls[1]] == ["themes"]

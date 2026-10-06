@@ -732,3 +732,344 @@ class TestListExpressions:
 
     def test_list_functions_tolerate_a_non_list(self):
         assert svc.evaluate("count_where(kit, 'equipped')", {"kit": "nonsense"}) == 0
+
+
+# --- derived defaults and picks ----------------------------------------------
+
+from backend.services.characters.schema import _build_context  # noqa: E402
+
+PICK_SCHEMA = {
+    "id": "pick-demo",
+    "name": "Pick Demo",
+    "fields": {
+        "klass": {
+            "type": "content_ref",
+            "content_type": "class",
+            "on_pick": [
+                {"choose": "skills", "count": "skill_choices", "from": "skill_options"}
+            ],
+        },
+        "background": {
+            "type": "content_ref",
+            "content_type": "background",
+            "on_pick": [
+                {"grant": "skills", "from": "skill_proficiencies"},
+                {"grant": "feats", "ref": "feat_id", "name": "feat"},
+            ],
+        },
+        "species": {"type": "content_ref", "content_type": "species"},
+        "skills": {"type": "multiselect", "options": ["Arcana", "History", "Insight"]},
+        "feats": {"type": "content_list", "content_type": "feat"},
+        "constitution": {"type": "number", "default": 10},
+        "is_caster": {
+            "type": "checkbox",
+            "label": "Spellcaster",
+            "default_from": "ref(klass, 'spellcasting') != ''",
+        },
+        "speed": {"type": "number", "default": 30, "default_from": "ref(species, 'speed')"},
+    },
+    "content_types": {
+        "class": {
+            "identity_field": "name",
+            "fields": {
+                "name": {"type": "text"},
+                "spellcasting": {"type": "text"},
+                "skill_choices": {"type": "number"},
+                "skill_options": {
+                    "type": "multiselect",
+                    "options": ["Arcana", "History", "Insight"],
+                },
+            },
+        },
+        "background": {
+            "identity_field": "name",
+            "fields": {
+                "name": {"type": "text"},
+                "feat": {"type": "text"},
+                "feat_id": {"type": "text"},
+                "skill_proficiencies": {
+                    "type": "multiselect",
+                    "options": ["Arcana", "History", "Insight"],
+                },
+            },
+        },
+        "species": {
+            "identity_field": "name",
+            "fields": {"name": {"type": "text"}, "speed": {"type": "number"}},
+        },
+        "feat": {"identity_field": "name", "fields": {"name": {"type": "text"}}},
+    },
+    "computed": {"con_mod": {"formula": "floor((constitution - 10) / 2)"}},
+}
+
+ENTRIES = {
+    "wizard": {"name": "Wizard", "spellcasting": "intelligence"},
+    "fighter": {"name": "Fighter", "spellcasting": ""},
+    "dwarf": {"name": "Dwarf", "speed": 25},
+    "snail": {"name": "Snail", "speed": 0},
+}
+
+
+def _pick_schema(**field_overrides):
+    document = {**PICK_SCHEMA, "fields": {**PICK_SCHEMA["fields"], **field_overrides}}
+    return svc.validate_schema(document)
+
+
+class TestDefaultFrom:
+    """A value derived from a choice is a starting point, never a lock."""
+
+    def test_derives_from_the_picked_entry(self):
+        context = _build_context(_pick_schema(), {"klass": {"_ref": "wizard"}}, ENTRIES)
+        assert context["is_caster"] is True
+
+    def test_a_class_without_spellcasting_derives_false(self):
+        context = _build_context(_pick_schema(), {"klass": {"_ref": "fighter"}}, ENTRIES)
+        assert context["is_caster"] is False
+
+    def test_nothing_picked_falls_back_to_the_plain_default(self):
+        context = _build_context(_pick_schema(), {}, ENTRIES)
+        assert context["is_caster"] is False
+        assert context["speed"] == 30
+
+    def test_a_derived_zero_is_kept_rather_than_replaced_by_the_default(self):
+        """0 is a real answer; only an empty one falls back."""
+        context = _build_context(_pick_schema(), {"species": {"_ref": "snail"}}, ENTRIES)
+        assert context["speed"] == 0
+
+    def test_the_players_own_value_wins(self):
+        """The point of the feature: a fighter can still be a caster."""
+        context = _build_context(
+            _pick_schema(), {"klass": {"_ref": "fighter"}, "is_caster": True}, ENTRIES
+        )
+        assert context["is_caster"] is True
+
+    def test_the_player_can_turn_a_derived_value_off(self):
+        context = _build_context(
+            _pick_schema(), {"klass": {"_ref": "wizard"}, "is_caster": False}, ENTRIES
+        )
+        assert context["is_caster"] is False
+
+    def test_works_with_no_content_installed(self):
+        """Homebrew never loaded into Grimoire must still be fully playable."""
+        context = _build_context(_pick_schema(), {"is_caster": True, "speed": 35}, {})
+        assert context["is_caster"] is True
+        assert context["speed"] == 35
+
+    def test_reads_a_freeform_entry_the_player_typed(self):
+        """An inline homebrew class derives exactly as an installed one does."""
+        context = _build_context(
+            _pick_schema(),
+            {"klass": {"_inline": True, "name": "Warden", "spellcasting": "wisdom"}},
+            {},
+        )
+        assert context["is_caster"] is True
+
+    def test_computed_values_see_the_derived_value(self):
+        document = _pick_schema()
+        document["computed"]["caster_bonus"] = {"formula": "is_caster ? 2 : 0"}
+        document = svc.validate_schema(document)
+        computed = svc.compute_values(document, {"klass": {"_ref": "wizard"}}, ENTRIES)
+        assert computed["caster_bonus"] == 2
+
+    def test_is_validated_like_any_formula(self):
+        with pytest.raises(svc.SchemaError, match="default_from"):
+            _pick_schema(speed={"type": "number", "default_from": "ref(species,"})
+
+    def test_may_not_read_a_computed_value(self):
+        """Defaults are worked out before computed values exist."""
+        with pytest.raises(svc.SchemaError, match="computed values"):
+            _pick_schema(speed={"type": "number", "default_from": "con_mod + 30"})
+
+
+class TestRefReadsEmptyWhenMissing:
+    """`ref()` used to return 0 for a missing entry, and 0 != '' is true."""
+
+    def test_an_unpicked_reference_reads_as_empty(self):
+        assert svc.evaluate("ref(klass, 'spellcasting')", {"klass": None}) == ""
+
+    def test_a_missing_property_reads_as_empty(self):
+        context = {"klass": {"_ref": "wizard"}, "_entries": ENTRIES}
+        assert svc.evaluate("ref(klass, 'nonexistent')", context) == ""
+
+    def test_empty_still_counts_as_zero_in_arithmetic(self):
+        assert svc.evaluate("ref(klass, 'hit_die') + 2", {"klass": None}) == 2
+
+    def test_an_unpicked_reference_does_not_compare_as_text(self):
+        assert svc.evaluate("ref(klass, 'spellcasting') != ''", {"klass": None}) is False
+
+
+class TestConcat:
+    def test_joins_values_as_text(self):
+        assert svc.evaluate("concat(level, 'd', 8)", {"level": 5}) == "5d8"
+
+    def test_prints_a_whole_float_without_a_decimal(self):
+        assert svc.evaluate("concat(10 / 2, 'd6')", {}) == "5d6"
+
+    def test_skips_empty_values(self):
+        assert svc.evaluate("concat('d', ref(klass, 'hit_die'))", {"klass": None}) == "d"
+
+    def test_leaves_plus_as_arithmetic(self):
+        assert svc.evaluate("'2' + 3", {}) == 5
+
+
+class TestOnPickValidation:
+    """A typo in a rule would otherwise grant nothing with no sign of why."""
+
+    def test_accepts_the_rules_a_real_sheet_uses(self):
+        assert _pick_schema()["fields"]["background"]["on_pick"]
+
+    def test_only_a_content_ref_may_carry_rules(self):
+        with pytest.raises(svc.SchemaError, match="only applies to a content_ref"):
+            _pick_schema(
+                feats={
+                    "type": "content_list",
+                    "content_type": "feat",
+                    "on_pick": [{"grant": "skills", "from": "name"}],
+                }
+            )
+
+    @pytest.mark.parametrize(
+        "rule, message",
+        [
+            ({"grant": "nowhere", "from": "skill_proficiencies"}, "unknown field"),
+            ({"grant": "skills", "from": "not_a_property"}, "does not declare"),
+            ({"grant": "constitution", "from": "feat"}, "multiselect or a content_list"),
+            ({"grant": "skills", "choose": "skills", "from": "feat"}, "exactly one"),
+            ({"from": "feat"}, "exactly one"),
+            ({"grant": "background", "from": "feat"}, "its own field"),
+            ({"grant": "feats"}, "property name"),
+            ({"choose": "feats", "from": "skill_proficiencies"}, "must be a multiselect"),
+            ({"choose": "skills", "from": "skill_proficiencies", "count": 0}, "count"),
+            ({"choose": "skills", "from": "skill_proficiencies", "count": 99}, "count"),
+            ({"choose": "skills", "from": "skill_proficiencies", "count": True}, "count"),
+            ({"choose": "skills", "from": "skill_proficiencies", "count": "nope"}, "declare"),
+            ({"choose": "skills", "from": "skill_proficiencies", "label": 5}, "label"),
+            ("not a rule", "must be an object"),
+        ],
+    )
+    def test_rejects_a_malformed_rule(self, rule, message):
+        with pytest.raises(svc.SchemaError, match=message):
+            _pick_schema(
+                background={
+                    "type": "content_ref",
+                    "content_type": "background",
+                    "on_pick": [rule],
+                }
+            )
+
+    def test_rules_must_be_a_list(self):
+        with pytest.raises(svc.SchemaError, match="list of rules"):
+            _pick_schema(
+                background={
+                    "type": "content_ref",
+                    "content_type": "background",
+                    "on_pick": {"grant": "skills"},
+                }
+            )
+
+    def test_a_content_list_grant_may_use_a_name_alone(self):
+        """For a catalog with no ids, a named entry is still worth granting."""
+        document = _pick_schema(
+            background={
+                "type": "content_ref",
+                "content_type": "background",
+                "on_pick": [{"grant": "feats", "name": "feat"}],
+            }
+        )
+        assert document["fields"]["background"]["on_pick"]
+
+
+class TestOverridingComputedValues:
+    """The player can override any value, calculated ones included."""
+
+    DOC = {
+        "id": "override-demo",
+        "name": "Override Demo",
+        "fields": {"dexterity": {"type": "number", "default": 14}},
+        "computed": {
+            "dex_mod": {"formula": "floor((dexterity - 10) / 2)"},
+            "armor_class": {"formula": "10 + dex_mod"},
+            "initiative": {"formula": "dex_mod"},
+        },
+    }
+
+    def _compute(self, data):
+        return svc.compute_values(svc.validate_schema(self.DOC), data)
+
+    def test_an_override_replaces_the_formula(self):
+        assert self._compute({"_overrides": {"armor_class": 18}})["armor_class"] == 18
+
+    def test_what_depends_on_an_override_follows_it(self):
+        """Override the modifier and everything built on it moves with it."""
+        computed = self._compute({"_overrides": {"dex_mod": 5}})
+        assert computed["armor_class"] == 15
+        assert computed["initiative"] == 5
+
+    def test_the_rest_still_calculates(self):
+        computed = self._compute({"_overrides": {"armor_class": 18}})
+        assert computed["initiative"] == 2
+
+    def test_no_override_is_the_formula(self):
+        assert self._compute({})["armor_class"] == 12
+
+    def test_an_override_of_something_not_computed_is_ignored(self):
+        """A stale override must not resurrect a name that shadows a field."""
+        overrides = svc.computed_overrides(
+            svc.validate_schema(self.DOC), {"_overrides": {"dexterity": 99, "gone": 1}}
+        )
+        assert overrides == {}
+
+    def test_validators_see_the_override(self):
+        doc = {**self.DOC, "validators": [{"rule": "armor_class < 20", "message": "High AC"}]}
+        results = svc.run_validators(svc.validate_schema(doc), {"_overrides": {"armor_class": 25}})
+        assert [r["message"] for r in results] == ["High AC"]
+
+
+class TestGrantingSeveralEntries:
+    """A species granting its traits: several entries, with a carried source."""
+
+    def _schema(self, rule):
+        document = {
+            "id": "multi-demo",
+            "name": "Multi",
+            "fields": {
+                "species": {"type": "content_ref", "content_type": "species", "on_pick": [rule]},
+                "traits": {"type": "content_list", "content_type": "trait"},
+                "skills": {"type": "multiselect", "options": ["A"]},
+            },
+            "content_types": {
+                "species": {
+                    "identity_field": "name",
+                    "fields": {
+                        "name": {"type": "text"},
+                        "trait_ids": {"type": "text"},
+                        "traits": {"type": "text"},
+                    },
+                },
+                "trait": {
+                    "identity_field": "name",
+                    "fields": {"name": {"type": "text"}, "species": {"type": "text"}},
+                },
+            },
+        }
+        return svc.validate_schema(document)
+
+    def test_accepts_ids_names_and_a_carried_source(self):
+        assert self._schema(
+            {"grant": "traits", "from": "trait_ids", "names": "traits", "carry": {"species": "name"}}
+        )
+
+    @pytest.mark.parametrize(
+        "rule, message",
+        [
+            ({"grant": "traits", "from": "nope"}, "does not declare"),
+            ({"grant": "traits", "from": "trait_ids", "names": "nope"}, "does not declare"),
+            ({"grant": "traits", "from": "trait_ids", "carry": {"nowhere": "name"}}, "carries into"),
+            ({"grant": "traits", "from": "trait_ids", "carry": {"species": "nope"}}, "carries 'nope'"),
+            ({"grant": "traits", "from": "trait_ids", "carry": "name"}, "carry needs"),
+            ({"grant": "skills", "from": "traits", "carry": {"species": "name"}}, "carry needs"),
+        ],
+    )
+    def test_rejects_a_malformed_rule(self, rule, message):
+        with pytest.raises(svc.SchemaError, match=message):
+            self._schema(rule)

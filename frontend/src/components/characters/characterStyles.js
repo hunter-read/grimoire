@@ -94,3 +94,84 @@ export const sectionHeading = {
   borderBottom: '1px solid var(--border)',
   paddingBottom: 6,
 }
+
+// --- the sheet & ruleset manager ------------------------------------------
+// One modal with two tabs, so "manage the content my characters draw on" is a
+// single place rather than four buttons that each do a slice of it.
+
+export const scrim = {
+  position: 'fixed',
+  inset: 0,
+  background: 'var(--scrim-strong)',
+  zIndex: 1100,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 16,
+}
+
+export const modalPanel = {
+  background: 'var(--bg-panel)',
+  border: '1px solid var(--border)',
+  borderRadius: 16,
+  width: '100%',
+  maxWidth: 860,
+  maxHeight: '88vh',
+  display: 'flex',
+  flexDirection: 'column',
+}
+
+export const modalHeader = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '16px 20px 0',
+}
+
+export const modalBody = {
+  flex: 1,
+  overflowY: 'auto',
+  padding: '16px 20px 20px',
+}
+
+export const tabList = {
+  display: 'flex',
+  gap: 4,
+  padding: '12px 20px 0',
+  borderBottom: '1px solid var(--border)',
+}
+
+// An underlined active tab rather than a filled one: the panel below is already
+// a card, and two filled surfaces butting together reads as one shape.
+export const tabBtn = (active) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '8px 14px',
+  background: 'transparent',
+  border: 'none',
+  borderBottom: `2px solid ${active ? 'var(--gold)' : 'transparent'}`,
+  color: active ? 'var(--text)' : 'var(--text-muted)',
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: active ? 600 : 400,
+  marginBottom: -1,
+})
+
+export const codeArea = {
+  width: '100%',
+  padding: '8px 10px',
+  borderRadius: 6,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-deep)',
+  color: 'var(--text)',
+  fontFamily: 'monospace',
+  fontSize: 12,
+  resize: 'vertical',
+}
+
+export const helpText = {
+  margin: '4px 0 0',
+  fontSize: 11,
+  color: 'var(--text-muted)',
+}

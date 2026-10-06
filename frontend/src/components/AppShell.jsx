@@ -34,7 +34,6 @@ import DuplicateCompareView from '../views/DuplicateCompareView'
 import CampaignsView from '../views/CampaignsView'
 import CharactersView from '../views/CharactersView'
 import CharacterDetailView from '../views/CharacterDetailView'
-import RulesetsView from '../views/RulesetsView'
 import CampaignDetailView from '../views/CampaignDetailView'
 import CampaignNotesView from '../views/CampaignNotesView'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
@@ -179,8 +178,13 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
               <Route path="/characters" element={<CharactersView />} />
-              {/* Before :characterId, which would otherwise swallow it. */}
-              <Route path="/characters/rulesets" element={<RulesetsView />} />
+              {/* Rulesets moved into the sheet manager. Kept as a redirect so
+                  a bookmarked link still lands somewhere useful, and before
+                  :characterId, which would otherwise swallow it. */}
+              <Route
+                path="/characters/rulesets"
+                element={<Navigate to="/characters?manage=rulesets" replace />}
+              />
               <Route path="/characters/:characterId" element={<CharacterDetailView />} />
               <Route path="/library/book/:bookId" element={<BookReader />} />
               <Route path="/maps/:mapId" element={<MapDetailView />} />
@@ -228,8 +232,13 @@ export default function AppShell() {
               <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
               <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
               <Route path="/characters" element={<CharactersView />} />
-              {/* Before :characterId, which would otherwise swallow it. */}
-              <Route path="/characters/rulesets" element={<RulesetsView />} />
+              {/* Rulesets moved into the sheet manager. Kept as a redirect so
+                  a bookmarked link still lands somewhere useful, and before
+                  :characterId, which would otherwise swallow it. */}
+              <Route
+                path="/characters/rulesets"
+                element={<Navigate to="/characters?manage=rulesets" replace />}
+              />
               <Route path="/characters/:characterId" element={<CharacterDetailView />} />
               {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}

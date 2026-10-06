@@ -7,6 +7,7 @@ import {
   visibleFields,
   isVisible,
   ExpressionError,
+  computedOverrides,
 } from './expressions'
 
 // These mirror backend/tests/test_character_engine.py::TestExpressions. The two
@@ -320,9 +321,10 @@ describe('catalog functions', () => {
     expect(evaluate("count_refs(spells, 'prepared')", context)).toBe(1)
   })
 
-  it('reads 0 before the catalog has resolved', () => {
-    // A sheet renders before its entries arrive; it must not throw.
-    expect(evaluate("ref(klass, 'name')", { klass: { _ref: 'fireball' } })).toBe(0)
+  it('reads empty before the catalog has resolved', () => {
+    // A sheet renders before its entries arrive; it must not throw. Empty
+    // rather than 0, so `ref(klass, 'x') != ''` is false for an unpicked one.
+    expect(evaluate("ref(klass, 'name')", { klass: { _ref: 'fireball' } })).toBe('')
     expect(evaluate("sum_refs(spells, 'level')", { spells: context.spells })).toBe(0)
   })
 
@@ -334,5 +336,27 @@ describe('catalog functions', () => {
   it('tolerates a reference field that is not a list', () => {
     expect(evaluate("sum_refs(klass, 'level')", context)).toBe(3)
     expect(evaluate('count_refs(nothing)', context)).toBe(0)
+  })
+})
+
+describe('overriding computed values', () => {
+  const DOC = {
+    fields: { dexterity: { type: 'number', default: 14 } },
+    computed: {
+      dex_mod: 'floor((dexterity - 10) / 2)',
+      armor_class: '10 + dex_mod',
+    },
+  }
+
+  it('matches the server: an override replaces its formula', () => {
+    expect(computeValues(DOC, { _overrides: { armor_class: 18 } }).armor_class).toBe(18)
+  })
+
+  it('and what depends on it follows', () => {
+    expect(computeValues(DOC, { _overrides: { dex_mod: 5 } }).armor_class).toBe(15)
+  })
+
+  it('ignores an override of something not computed', () => {
+    expect(computedOverrides(DOC, { _overrides: { dexterity: 1 } })).toEqual({})
   })
 })

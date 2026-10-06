@@ -114,6 +114,16 @@ const FUNCTIONS = {
     return number >= 0 ? `+${number}` : String(number)
   },
 
+  // Join values as text: concat(level, 'd', ref(klass, 'hit_die')) is "5d8".
+  // `+` stays arithmetic; building a string is this function's job alone.
+  // Capped to match the server, which is the authority on stored values.
+  concat: (...values) =>
+    values
+      .filter((value) => value !== null && value !== undefined && value !== false)
+      .map((value) => String(value))
+      .join('')
+      .slice(0, 1000),
+
   // --- list functions -----------------------------------------------------
   // A `list` field is a list of row objects, so these read a column out of
   // every row. The column name arrives as a *string* — count_where(equipment,
@@ -143,9 +153,14 @@ const FUNCTIONS = {
   // resolved entry, which arrives in the context as `_entries` and is passed to
   // these behind the scenes, so an author writes `ref(klass, 'hit_die')`.
 
+  // Missing reads as '' rather than 0, for an unpicked reference and for a
+  // property the entry lacks alike. '' coerces to 0 in arithmetic, so a sum is
+  // unaffected, while `ref(klass, 'x') != ''` answers correctly — a 0 default
+  // made every empty reference compare as a non-empty string.
   ref: (value, prop, entries) => {
     const found = resolveRefs(value, entries)
-    return found.length ? (found[0][String(prop)] ?? 0) : 0
+    if (!found.length) return ''
+    return found[0][String(prop)] ?? ''
   },
 
   sum_refs: (value, prop, entries) =>
@@ -492,12 +507,27 @@ const EMPTY_BY_TYPE = {
 }
 
 // The value of every field, for evaluating formulas and conditions against.
+// Mirrors `_build_context` in backend/services/characters/schema.py. A field
+// with a `default_from` formula and no stored value takes the formula's result;
+// presence in `data` is what marks a field as the player's, so once they set it
+// their value wins and the formula stops applying. Deriving a value from the
+// class or species is therefore a starting point, never a lock.
 export function buildContext(document, data) {
   const fields = document?.fields || {}
   const context = {}
+  const deferred = {}
   for (const [name, definition] of Object.entries(fields)) {
-    if (Object.prototype.hasOwnProperty.call(data || {}, name)) context[name] = data[name]
-    else if (definition && 'default' in definition) context[name] = definition.default
+    if (Object.prototype.hasOwnProperty.call(data || {}, name)) {
+      context[name] = data[name]
+      continue
+    }
+    if (definition?.default_from) {
+      // Held back: the formula may read another field, so it cannot run until
+      // every plain value is in the context.
+      deferred[name] = definition
+      continue
+    }
+    if (definition && 'default' in definition) context[name] = definition.default
     else {
       const type = definition?.type || 'text'
       context[name] = type in EMPTY_BY_TYPE ? EMPTY_BY_TYPE[type] : 0
@@ -508,19 +538,55 @@ export function buildContext(document, data) {
   for (const [key, value] of Object.entries(data || {})) {
     if (!(key in context)) context[key] = value
   }
+
+  // Seeded empty first, so a `default_from` naming another deferred field reads
+  // a defined value rather than an undefined one.
+  for (const [name, definition] of Object.entries(deferred)) {
+    const type = definition?.type || 'text'
+    if (!(name in context)) context[name] = type in EMPTY_BY_TYPE ? EMPTY_BY_TYPE[type] : 0
+  }
+  for (const [name, definition] of Object.entries(deferred)) {
+    let derived = evaluate(definition.default_from, context)
+    if (derived === null || derived === undefined || derived === '') {
+      const type = definition?.type || 'text'
+      derived =
+        'default' in definition
+          ? definition.default
+          : type in EMPTY_BY_TYPE
+            ? EMPTY_BY_TYPE[type]
+            : 0
+    }
+    context[name] = derived
+  }
   return context
 }
 
+export const OVERRIDES_KEY = '_overrides'
+
+// Mirrors `computed_overrides` in backend/services/characters/schema.py: the
+// player's overrides of computed values, limited to names the schema computes.
+export function computedOverrides(document, data) {
+  const computed = document?.computed
+  const stored = data?.[OVERRIDES_KEY]
+  if (!computed || typeof computed !== 'object' || !stored || typeof stored !== 'object') return {}
+  return Object.fromEntries(Object.entries(stored).filter(([name]) => name in computed))
+}
+
+// An overridden value is used as-is and its formula never runs. It is in the
+// context from the first pass, so everything depending on it follows.
 export function computeValues(document, data) {
   const computed = document?.computed
   if (!computed || typeof computed !== 'object') return {}
 
   const context = buildContext(document, data)
+  const overrides = computedOverrides(document, data)
 
-  const results = {}
+  const results = { ...overrides }
+  Object.assign(context, overrides)
   for (let pass = 0; pass < MAX_PASSES; pass += 1) {
     let changed = false
     for (const [name, definition] of Object.entries(computed)) {
+      if (name in overrides) continue
       const formula = typeof definition === 'string' ? definition : definition?.formula
       const value = evaluate(formula, context)
       if (results[name] !== value) {

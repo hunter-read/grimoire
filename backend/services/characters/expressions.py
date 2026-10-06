@@ -190,6 +190,28 @@ def _fn_signed(value: Any) -> str:
     return f"+{number}" if number >= 0 else str(number)
 
 
+#: A joined string is capped, so a formula cannot build something enormous out
+#: of a long list field.
+MAX_CONCAT_LENGTH = 1000
+
+
+def _fn_concat(*values: Any) -> str:
+    """Join values as text — `concat(level, 'd', ref(klass, 'hit_die'))` is "5d8".
+
+    `+` stays arithmetic, so a sheet adding two text-typed numbers still gets a
+    sum; building a string is this function's job and nothing else's. A whole
+    number prints without a trailing `.0`, and an empty value prints as nothing.
+    """
+    parts = []
+    for value in values:
+        if value is None or value is False:
+            continue
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+        parts.append(str(value))
+    return "".join(parts)[:MAX_CONCAT_LENGTH]
+
+
 # --- list functions ------------------------------------------------------
 # A `list` field is a list of row dicts, so these read a column out of every
 # row. The column name arrives as a *string* — `count_where(equipment,
@@ -267,9 +289,19 @@ def _resolved(value: Any, entries: Any) -> list[dict]:
 
 
 def _fn_ref(value: Any, prop: Any, entries: Any = None) -> Any:
-    """One property of a single reference — `ref(klass, 'hit_die')`."""
+    """One property of a single reference — `ref(klass, 'hit_die')`.
+
+    Missing reads as ``""`` rather than 0, for both an unpicked reference and a
+    property the entry does not carry. Empty string coerces to 0 in arithmetic,
+    so `ref(klass, 'hit_die') + 1` is unaffected — but `ref(klass, 'x') != ''`
+    now answers correctly, where a 0 default made every empty reference look
+    like a non-empty string.
+    """
     found = _resolved(value, entries)
-    return found[0].get(str(prop), 0) if found else 0
+    if not found:
+        return ""
+    value_found = found[0].get(str(prop), "")
+    return "" if value_found is None else value_found
 
 
 def _fn_sum_refs(value: Any, prop: Any, entries: Any = None) -> Union[int, float]:
@@ -311,6 +343,7 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "if": _fn_if,
     "clamp": _fn_clamp,
     "signed": _fn_signed,
+    "concat": _fn_concat,
     "count_where": _fn_count_where,
     "sum_where": _fn_sum_where,
     "any_where": _fn_any_where,

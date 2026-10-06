@@ -72,16 +72,22 @@ describe('ContentRefField', () => {
   it('stores a reference when one is picked', async () => {
     const onChange = vi.fn()
     renderRef({ value: null, onChange })
-    await userEvent.click(screen.getByLabelText(/Browse catalog/i))
+    // The box itself opens the picker now, rather than a button beside it.
+    await userEvent.click(screen.getByRole('button', { name: /^Choose / }))
     await userEvent.click(await screen.findByLabelText(/Add to sheet/i))
-    expect(onChange).toHaveBeenCalledWith({ _ref: 'fireball', _source: 'srd' })
+    expect(onChange).toHaveBeenCalledWith(
+      { _ref: 'fireball', _source: 'srd' },
+      { entry: expect.objectContaining({ name: 'Fireball' }) }
+    )
   })
 
   it('clears a choice', async () => {
     const onChange = vi.fn()
     renderRef({ value: { _ref: 'fireball' }, onChange })
     await userEvent.click(screen.getByLabelText(/Clear/i))
-    expect(onChange).toHaveBeenCalledWith(null)
+    // Cleared with an explicit empty entry, so the grants of the previous pick
+    // are taken back without a lookup.
+    expect(onChange).toHaveBeenCalledWith(null, { entry: null })
   })
 
   it('offers no controls when read-only', () => {
@@ -161,6 +167,8 @@ describe('ContentListField', () => {
   it('edits a freeform entry in place', async () => {
     const onChange = vi.fn()
     renderList({ value: [{ _inline: true, name: 'My' }], onChange })
+    // It reads like any other row until opened, then edits in place.
+    await userEvent.click(screen.getByRole('button', { name: 'Show My' }))
     await userEvent.type(screen.getByDisplayValue('My'), '!')
     expect(onChange).toHaveBeenCalledWith([{ _inline: true, name: 'My!' }])
   })
@@ -180,5 +188,133 @@ describe('ContentListField', () => {
   it('shows an empty state', () => {
     renderList({ value: [] })
     expect(screen.getByText(/Nothing here yet/i)).toBeInTheDocument()
+  })
+})
+
+describe('ContentListField — rows you can open', () => {
+  const FEAT_TYPE = {
+    identity_field: 'name',
+    compact_display: '{category}',
+    fields: {
+      name: { type: 'text', label: 'Name' },
+      category: { type: 'text', label: 'Category' },
+      description: { type: 'textarea', label: 'Description' },
+    },
+  }
+  const ENTRIES = {
+    alert: {
+      name: 'Alert',
+      category: 'Origin',
+      description: 'Add your proficiency to initiative.',
+    },
+  }
+  const renderList = (props = {}) =>
+    render(
+      <ContentListField
+        name="feats"
+        definition={{ label: 'Feats', content_type: 'feat' }}
+        value={[{ _ref: 'alert' }]}
+        entries={ENTRIES}
+        typeDefinition={FEAT_TYPE}
+        onChange={vi.fn()}
+        {...props}
+      />
+    )
+
+  it("opens to show the entry's description", async () => {
+    // There was no way to read what a feat did once it was on the sheet.
+    renderList()
+    expect(screen.queryByText('Add your proficiency to initiative.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show Alert' }))
+    expect(screen.getByText('Add your proficiency to initiative.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Hide Alert' }))
+    expect(screen.queryByText('Add your proficiency to initiative.')).not.toBeInTheDocument()
+  })
+
+  it('hides its own heading when the layout draws one', () => {
+    // "Feats" above "FEATS": the panel's title and the field's label both.
+    renderList({ hideLabel: true })
+    expect(screen.queryByText('Feats')).not.toBeInTheDocument()
+  })
+
+  it('draws a table of the properties it is asked for', () => {
+    renderList({
+      definition: { label: 'Feats', content_type: 'feat', display_columns: ['category'] },
+    })
+    expect(screen.getByRole('columnheader', { name: 'Category' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'Origin' })).toBeInTheDocument()
+  })
+
+  it('shows a dash for a column the entry lacks', () => {
+    renderList({
+      definition: {
+        label: 'Feats',
+        content_type: 'feat',
+        display_columns: [{ key: 'prerequisite', label: 'Prereq' }],
+      },
+    })
+    expect(screen.getByRole('cell', { name: '—' })).toBeInTheDocument()
+  })
+})
+
+describe('ContentListField — freeform entries read like catalog ones', () => {
+  const TRAIT_TYPE = {
+    identity_field: 'name',
+    compact_display: '{species}',
+    fields: {
+      name: { type: 'text', label: 'Name' },
+      species: { type: 'text', label: 'Species' },
+      description: { type: 'textarea', label: 'Description' },
+    },
+  }
+  const renderTraits = (props = {}) =>
+    render(
+      <ContentListField
+        name="species_traits"
+        definition={{ label: 'Species Traits', content_type: 'trait', allow_freeform: true }}
+        value={[{ _inline: true, name: 'Darkvision', species: 'Dwarf' }]}
+        typeDefinition={TRAIT_TYPE}
+        onChange={vi.fn()}
+        {...props}
+      />
+    )
+
+  it('shows its name with its source underneath', () => {
+    renderTraits()
+    expect(screen.getByText('Darkvision')).toBeInTheDocument()
+    expect(screen.getByText('Dwarf')).toBeInTheDocument()
+  })
+
+  it("opens to the content type's fields, so it can be given a description", async () => {
+    const onChange = vi.fn()
+    renderTraits({ onChange })
+    await userEvent.click(screen.getByRole('button', { name: 'Show Darkvision' }))
+    await userEvent.type(screen.getByLabelText('Description'), 'S')
+    expect(onChange).toHaveBeenLastCalledWith([
+      { _inline: true, name: 'Darkvision', species: 'Dwarf', description: 'S' },
+    ])
+  })
+
+  it('opens a new custom entry straight away', async () => {
+    const onChange = vi.fn()
+    const { rerender } = renderTraits({ value: [], onChange })
+    await userEvent.click(screen.getByText('Add custom'))
+    expect(onChange).toHaveBeenCalledWith([{ _inline: true, name: '' }])
+    rerender(
+      <ContentListField
+        name="species_traits"
+        definition={{ label: 'Species Traits', content_type: 'trait', allow_freeform: true }}
+        value={[{ _inline: true, name: '' }]}
+        typeDefinition={TRAIT_TYPE}
+        onChange={onChange}
+      />
+    )
+    expect(screen.getByLabelText('Name')).toBeInTheDocument()
+  })
+
+  it('is read-only on a read-only sheet', async () => {
+    renderTraits({ readOnly: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Show Darkvision' }))
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 })

@@ -27,6 +27,8 @@ __all__ = [
     "COLUMN_TYPES",
     "validate_schema",
     "compute_values",
+    "computed_overrides",
+    "OVERRIDES_KEY",
     "coerce_value",
     "run_validators",
     "visible_fields",
@@ -208,6 +210,128 @@ def _validate_definition(what: str, name: str, definition: Any) -> None:
             if key in seen:
                 raise SchemaError(f"{what} has two columns keyed {key!r}")
             seen.add(key)
+
+
+#: Rules one pick may carry. A pick is one player action, so this is generous.
+MAX_ON_PICK_RULES = 20
+#: The most a `choose` rule may ask for in one go.
+MAX_CHOOSE_COUNT = 20
+#: Where each `on_pick` verb may write. `grant` adds to a multiselect or a
+#: content list; `choose` asks the player to pick from options, so it needs a
+#: target with options to check the picks against.
+_GRANT_TARGETS: frozenset = frozenset({"multiselect", "content_list"})
+_CHOOSE_TARGETS: frozenset = frozenset({"multiselect"})
+
+
+def _validate_on_pick(
+    field_name: str, definition: dict, fields: dict, content_types: dict
+) -> None:
+    """Check a content_ref's `on_pick` rules.
+
+    `on_pick` is what makes a choice *do* something: picking a background
+    grants its skills and origin feat, picking a class asks for its skill
+    choices. The rules are data - a target field and the picked entry's
+    property to read - so they are checked here the way formulas are: a typo in
+    a property name would otherwise grant nothing, with no sign of why.
+    """
+    what = f"Field {field_name!r} on_pick"
+    if definition.get("type") != "content_ref":
+        raise SchemaError(f"{what} only applies to a content_ref field")
+    rules = definition["on_pick"]
+    if not isinstance(rules, list):
+        raise SchemaError(f"{what} must be a list of rules")
+    if len(rules) > MAX_ON_PICK_RULES:
+        raise SchemaError(f"{what} has more than {MAX_ON_PICK_RULES} rules")
+
+    picked = content_types.get(definition.get("content_type")) or {}
+    properties = set((picked.get("fields") or {}))
+
+    def _property(rule: dict, key: str, index: int, required: bool = True) -> None:
+        value = rule.get(key)
+        if value is None and not required:
+            return
+        if not isinstance(value, str) or not value:
+            raise SchemaError(f"{what} rule {index} needs a {key!r} property name")
+        if value not in properties:
+            raise SchemaError(
+                f"{what} rule {index} reads {value!r}, which the "
+                f"{definition.get('content_type')!r} content type does not declare"
+            )
+
+    for index, rule in enumerate(rules):
+        if not isinstance(rule, dict):
+            raise SchemaError(f"{what} rule {index} must be an object")
+        verbs = [verb for verb in ("grant", "choose") if verb in rule]
+        if len(verbs) != 1:
+            raise SchemaError(f"{what} rule {index} needs exactly one of 'grant' or 'choose'")
+        verb = verbs[0]
+        target = rule[verb]
+        if not isinstance(target, str) or target not in fields:
+            raise SchemaError(f"{what} rule {index} targets unknown field {target!r}")
+        if target == field_name:
+            raise SchemaError(f"{what} rule {index} cannot target its own field")
+        target_type = (fields[target] or {}).get("type", "text")
+
+        if verb == "grant":
+            if target_type not in _GRANT_TARGETS:
+                raise SchemaError(
+                    f"{what} rule {index} grants into {target!r}, a {target_type}; "
+                    "it must be a multiselect or a content_list"
+                )
+            if target_type == "multiselect":
+                _property(rule, "from", index)
+            elif "from" in rule:
+                # Several entries at once - a species' traits. `from` lists
+                # entry ids; `names`, a list in the same order, is what each
+                # falls back to when the catalog has no such id.
+                _property(rule, "from", index)
+                _property(rule, "names", index, required=False)
+            else:
+                # A content list is granted a reference by id, falling back to
+                # a named entry when the catalog has no such id.
+                _property(rule, "ref", index, required="name" not in rule)
+                _property(rule, "name", index, required="ref" not in rule)
+            carry = rule.get("carry")
+            if carry is not None:
+                # Values copied from the picked entry onto a granted freeform
+                # entry - the species' name as each trait's source.
+                target_fields = set(
+                    (content_types.get((fields[target] or {}).get("content_type")) or {})
+                    .get("fields") or {}
+                )
+                if target_type != "content_list" or not isinstance(carry, dict):
+                    raise SchemaError(f"{what} rule {index} carry needs a content_list target")
+                for to_key, from_key in carry.items():
+                    if to_key not in target_fields:
+                        raise SchemaError(
+                            f"{what} rule {index} carries into {to_key!r}, which the "
+                            "target's content type does not declare"
+                        )
+                    if from_key not in properties:
+                        raise SchemaError(
+                            f"{what} rule {index} carries {from_key!r}, which the "
+                            f"{definition.get('content_type')!r} content type does not declare"
+                        )
+            continue
+
+        if target_type not in _CHOOSE_TARGETS:
+            raise SchemaError(
+                f"{what} rule {index} asks for a choice into {target!r}, a "
+                f"{target_type}; it must be a multiselect"
+            )
+        _property(rule, "from", index)
+        count = rule.get("count", 1)
+        if isinstance(count, str):
+            _property(rule, "count", index)
+        elif isinstance(count, bool) or not isinstance(count, int) or not (
+            1 <= count <= MAX_CHOOSE_COUNT
+        ):
+            raise SchemaError(
+                f"{what} rule {index} count must be 1-{MAX_CHOOSE_COUNT} or a property name"
+            )
+        label = rule.get("label")
+        if label is not None and (not isinstance(label, str) or len(label) > 200):
+            raise SchemaError(f"{what} rule {index} label must be text under 200 characters")
 
 
 def _validate_computed(name: str, definition: Any) -> tuple:
@@ -400,11 +524,29 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
             )
 
     # `visible_if` on a field, and on a layout section, is checked with the same
-    # rules as a formula: it is the same expression language.
+    # rules as a formula: it is the same expression language. So is
+    # `default_from`, which derives a field's starting value from the others.
     for field_name, definition in fields.items():
         _validate_condition(
             definition.get("visible_if"), f"Field {field_name!r} visible_if", known
         )
+        if isinstance(definition, dict) and definition.get("default_from"):
+            # Fields only, not computed values: a default is worked out while
+            # the field values are being assembled, before anything is computed,
+            # so a computed name here would silently read as nothing.
+            try:
+                _validate_condition(
+                    definition["default_from"],
+                    f"Field {field_name!r} default_from",
+                    set(fields),
+                )
+            except SchemaError as exc:
+                if any(name in str(exc) for name in computed):
+                    raise SchemaError(
+                        f"{exc} - default_from can read fields but not computed "
+                        "values, which are worked out after it"
+                    ) from exc
+                raise
 
     content_types = _require_dict(document.get("content_types", {}), "'content_types'")
     if len(content_types) > MAX_CONTENT_TYPES:
@@ -425,6 +567,18 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
                     f"Field {field_name!r} picks from content type {wanted!r}, "
                     f"which the schema does not define (has: {known})"
                 )
+
+    for field_name, definition in fields.items():
+        if isinstance(definition, dict) and "on_pick" in definition:
+            _validate_on_pick(field_name, definition, fields, content_types)
+
+    # The field that holds the character's name, kept in step with it.
+    name_field = document.get("name_field")
+    if name_field is not None:
+        if not isinstance(name_field, str) or name_field not in fields:
+            raise SchemaError(f"'name_field' names unknown field {name_field!r}")
+        if (fields[name_field] or {}).get("type", "text") != "text":
+            raise SchemaError(f"'name_field' {name_field!r} must be a text field")
 
     validators = document.get("validators", [])
     if not isinstance(validators, list):
@@ -649,15 +803,27 @@ def _build_context(document: dict, data: dict, entries: Optional[dict] = None) -
 
     ``entries`` maps a catalog entry id to the entry itself. It rides in the
     context under ``_entries`` so `ref()` and friends can read a referenced
-    entry's own properties; without it those functions return 0, which is what a
+    entry's own properties; without it `ref()` reads as empty, which is what a
     sheet shows before its catalog has loaded.
+
+    A field with a ``default_from`` formula and no stored value takes the
+    formula's result. Presence in ``data`` is what marks a field as the
+    player's: once they set it, their value is used and the formula stops
+    applying, so deriving a value never takes the choice away.
     """
     fields = document.get("fields") or {}
     context: dict[str, Any] = {}
+    deferred: dict[str, dict] = {}
     for field_name, definition in fields.items():
         if field_name in data:
             context[field_name] = data[field_name]
-        elif isinstance(definition, dict) and "default" in definition:
+            continue
+        if isinstance(definition, dict) and definition.get("default_from"):
+            # Held back: the formula may read another field, so it cannot be
+            # evaluated until every plain value is in the context.
+            deferred[field_name] = definition
+            continue
+        if isinstance(definition, dict) and "default" in definition:
             context[field_name] = definition["default"]
         else:
             field_type = (definition or {}).get("type", "text")
@@ -669,7 +835,37 @@ def _build_context(document: dict, data: dict, entries: Optional[dict] = None) -
         context.setdefault(key, value)
     if entries:
         context["_entries"] = entries
+
+    for field_name, definition in deferred.items():
+        field_type = definition.get("type", "text")
+        empty = _EMPTY_BY_TYPE.get(field_type, 0)
+        # Seeded empty first so a `default_from` naming another deferred field
+        # reads a defined value rather than tripping the evaluator.
+        context.setdefault(field_name, empty)
+    for field_name, definition in deferred.items():
+        derived = evaluate(definition["default_from"], context, default=None)
+        if derived is None or derived == "":
+            field_type = definition.get("type", "text")
+            derived = definition.get("default", _EMPTY_BY_TYPE.get(field_type, 0))
+        context[field_name] = coerce_value(definition, derived)
     return context
+
+
+#: Where a character's overrides of computed values are stored in its data.
+OVERRIDES_KEY = "_overrides"
+
+
+def computed_overrides(document: dict, data: dict) -> dict:
+    """The player's overrides of computed values, limited to names that exist.
+
+    An override of a computed value the schema has since dropped is ignored
+    rather than resurrected as a name, so a stale one cannot shadow a field.
+    """
+    computed = document.get("computed") or {}
+    stored = (data or {}).get(OVERRIDES_KEY)
+    if not isinstance(stored, dict) or not isinstance(computed, dict):
+        return {}
+    return {name: value for name, value in stored.items() if name in computed}
 
 
 def compute_values(document: dict, data: dict, entries: Optional[dict] = None) -> dict:
@@ -679,17 +875,28 @@ def compute_values(document: dict, data: dict, entries: Optional[dict] = None) -
     have to declare them in dependency order. Rather than topologically sorting,
     this runs repeated passes until the results stop changing — simpler, and it
     degrades gracefully on a cyclic schema instead of failing to load one.
+
+    The player can override any computed value: `data["_overrides"]` maps a
+    computed name to the value they set. An overridden value is used as-is and
+    its formula never runs, and it is in the context from the first pass, so
+    everything that depends on it follows — override proficiency and the save
+    DC built on it changes too. A sheet's formulas are a starting point, never
+    the last word.
     """
     computed = document.get("computed") or {}
     if not isinstance(computed, dict) or not computed:
         return {}
 
     context = _build_context(document, data, entries)
+    overrides = computed_overrides(document, data)
 
-    results: dict[str, Any] = {}
+    results: dict[str, Any] = dict(overrides)
+    context.update(overrides)
     for _ in range(MAX_COMPUTE_PASSES):
         changed = False
         for computed_name, definition in computed.items():
+            if computed_name in overrides:
+                continue
             formula = (
                 definition.get("formula") if isinstance(definition, dict) else definition
             )

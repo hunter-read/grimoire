@@ -155,3 +155,42 @@ describe('FieldRenderer', () => {
     })
   })
 })
+
+describe('FieldRenderer — derived values', () => {
+  it('marks a value worked out from the player’s choices', () => {
+    render(
+      <FieldRenderer
+        name="speed"
+        definition={{ type: 'number' }}
+        value={25}
+        derived
+        onChange={vi.fn()}
+      />
+    )
+    // A quiet icon rather than a word, named for assistive technology.
+    expect(screen.getByRole('img', { name: /Set from your choices/ })).toBeInTheDocument()
+    // Still an ordinary editable field.
+    expect(screen.getByRole('spinbutton')).not.toBeDisabled()
+  })
+
+  it('offers a way back once the player has typed over it', async () => {
+    const onReset = vi.fn()
+    render(
+      <FieldRenderer
+        name="speed"
+        definition={{ type: 'number' }}
+        value={40}
+        onReset={onReset}
+        onChange={vi.fn()}
+      />
+    )
+    await userEvent.click(screen.getByLabelText('Use the automatic value'))
+    expect(onReset).toHaveBeenCalled()
+  })
+
+  it('draws a plain field exactly as before', () => {
+    render(<FieldRenderer name="hp" definition={{ type: 'number' }} value={7} onChange={vi.fn()} />)
+    expect(screen.queryByRole('img', { name: /Set from your choices/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Use the automatic value')).not.toBeInTheDocument()
+  })
+})

@@ -102,3 +102,17 @@ describe('ListField', () => {
     expect(screen.getByText('Travelling light.')).toBeInTheDocument()
   })
 })
+
+describe('ListField — heading', () => {
+  it('hides its own heading when the layout draws one', () => {
+    render(
+      <ListField
+        name="attacks"
+        definition={{ label: 'Attacks', columns: [{ key: 'name', type: 'text' }] }}
+        value={[]}
+        hideLabel
+      />
+    )
+    expect(screen.queryByText('Attacks')).not.toBeInTheDocument()
+  })
+})

@@ -122,8 +122,34 @@ def import_schema(
     unknown field type or hides a script in its layout is rejected with a
     message saying so, which is far better than a sheet that draws nothing
     later.
+
+    The sheet arrives either already parsed (``document``) or as text, which is
+    read as JSON and then as YAML. A custom sheet's HTML and CSS may come as
+    their own fields rather than escaped into the document, matching how the
+    community repo keeps them in sibling files.
     """
-    document = dict(data.document or {})
+    if data.text.strip():
+        try:
+            document = svc.parse_document(data.text, what="sheet")
+        except svc.DocumentError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    else:
+        document = dict(data.document or {})
+
+    if not document:
+        raise HTTPException(status_code=400, detail="There is no sheet here")
+
+    # Naming a sibling file is a repository convention; what gets stored is one
+    # self-contained document, so drop the pointers and keep the content.
+    document.pop("layout_file", None)
+    document.pop("styles_file", None)
+    # Pasted alongside the sheet, these win over anything inlined in it: they
+    # are the more specific thing the user just provided.
+    if data.layout.strip():
+        document["layout_html"] = data.layout
+    if data.styles.strip():
+        document["styles"] = data.styles
+
     if not document.get("id") and isinstance(document.get("name"), str):
         document["id"] = _slugify(document["name"])
 
@@ -371,11 +397,31 @@ def create_character(
     helpers.assert_in_campaign(db, current_user.id, data.campaign_id)
 
     document = _validated_document(schema)
+    initial = _coerce_all(document, data.data or {})
+    # A new character starts with the sheet's starting values recorded - level
+    # 1, scores of 10 - so everything that reads its data sees them, not only a
+    # sheet that knows to display a default. A field whose value is derived
+    # from a choice (`default_from`) is left out: storing it would make it the
+    # player's own value, and it would stop following the choice.
+    for field_name, definition in (document.get("fields") or {}).items():
+        if (
+            isinstance(definition, dict)
+            and "default" in definition
+            and not definition.get("default_from")
+            and field_name not in initial
+        ):
+            initial[field_name] = svc.coerce_value(definition, definition["default"])
+    # A sheet whose `name_field` names one of its own fields starts that field
+    # as the name the player gave at creation, rather than blank beside it.
+    name_field = _name_field(document)
+    if name_field and name_field not in initial and (data.name or "").strip():
+        initial[name_field] = (data.name or "").strip()[:200]
+
     row = Character(
         user_id=current_user.id,
         schema_ref=data.schema_ref,
         name=(data.name or "").strip()[:200],
-        data=_coerce_all(document, data.data or {}),
+        data=initial,
         campaign_id=data.campaign_id,
     )
     db.add(row)
@@ -400,6 +446,8 @@ def update_character(
         raise HTTPException(status_code=404, detail="Character not found")
 
     schema = _schema_for(db, current_user.id, row.schema_ref)
+    document = _validated_document(schema) if schema else {"fields": {}}
+    name_field = _name_field(document)
     if data.name is not None:
         row.name = data.name.strip()[:200]
 
@@ -409,10 +457,25 @@ def update_character(
         helpers.assert_in_campaign(db, current_user.id, campaign_id)
         row.campaign_id = campaign_id
 
-    if data.data is not None:
-        document = _validated_document(schema) if schema else {"fields": {}}
+    merged: Optional[dict] = None
+    if data.data is not None or data.unset:
         merged = dict(row.data if isinstance(row.data, dict) else {})
-        merged.update(_coerce_all(document, data.data))
+        for name in data.unset:
+            merged.pop(name, None)
+        merged.update(_coerce_all(document, data.data or {}))
+
+    # The character's name and its sheet's name field are one value: editing
+    # either updates the other, so the list and the sheet never disagree.
+    if name_field:
+        submitted = data.data or {}
+        if name_field in submitted and isinstance(submitted[name_field], str):
+            row.name = submitted[name_field].strip()[:200]
+        elif data.name is not None:
+            if merged is None:
+                merged = dict(row.data if isinstance(row.data, dict) else {})
+            merged[name_field] = row.name
+
+    if merged is not None:
         # Reassign rather than mutate: SQLAlchemy does not track in-place edits
         # to a JSON column, so an in-place update would silently not persist.
         row.data = merged
@@ -436,6 +499,13 @@ def delete_character(
     return {"deleted": True, "id": character_id}
 
 
+def _name_field(document: dict) -> Optional[str]:
+    """The field a sheet keeps the character's name in, if it names one."""
+    name = document.get("name_field")
+    fields = document.get("fields") or {}
+    return name if isinstance(name, str) and name in fields else None
+
+
 def _coerce_all(document: dict, submitted: dict) -> dict:
     """Coerce every submitted value to its declared type.
 
@@ -444,11 +514,77 @@ def _coerce_all(document: dict, submitted: dict) -> dict:
     arbitrary JSON into the row.
     """
     fields = document.get("fields") or {}
-    return {
+    cleaned = {
         name: svc.coerce_value(fields[name], value)
         for name, value in submitted.items()
         if name in fields
     }
+    if GRANTED_KEY in submitted:
+        cleaned[GRANTED_KEY] = _coerce_granted(fields, submitted[GRANTED_KEY])
+    if svc.OVERRIDES_KEY in submitted:
+        cleaned[svc.OVERRIDES_KEY] = _coerce_overrides(document, submitted[svc.OVERRIDES_KEY])
+    return cleaned
+
+
+def _coerce_overrides(document: dict, value: Any) -> dict:
+    """Clean the player's overrides of computed values.
+
+    Any computed value may be overridden - Armour Class from a magic item the
+    sheet does not model, a proficiency a feature raised - so the check is only
+    that each name is something the schema computes and each value is a short
+    scalar. Sent whole rather than merged: removing a name is how an override
+    is reset to the formula.
+    """
+    computed = document.get("computed") or {}
+    if not isinstance(value, dict) or not isinstance(computed, dict):
+        return {}
+    cleaned: dict = {}
+    for name, override in value.items():
+        if name not in computed:
+            continue
+        if isinstance(override, bool) or isinstance(override, (int, float)):
+            cleaned[name] = override
+        elif isinstance(override, str) and override.strip():
+            cleaned[name] = override.strip()[:200]
+    return cleaned
+
+
+#: The one reserved key character data may carry beside its fields.
+GRANTED_KEY = "_granted"
+_MAX_GRANTED_VALUES = 200
+
+
+def _coerce_granted(fields: dict, value: Any) -> dict:
+    """Clean the record of what each pick granted.
+
+    Shaped `{picking field: {target field: [value, ...]}}` — "the background
+    added Insight and Religion to skill_profs". It is what lets re-picking a
+    background take the old one's grants back off, rather than the sheet
+    silently accumulating every background ever tried.
+
+    Allowed through only because it is this narrow: source fields must carry
+    `on_pick`, targets must be declared fields, and values are short strings.
+    Anything else is dropped, so it is not a way to write arbitrary JSON.
+    """
+    if not isinstance(value, dict):
+        return {}
+    cleaned: dict = {}
+    for source, targets in value.items():
+        definition = fields.get(source)
+        if not isinstance(definition, dict) or not definition.get("on_pick"):
+            continue
+        if not isinstance(targets, dict):
+            continue
+        kept: dict = {}
+        for target, values in targets.items():
+            if target not in fields or not isinstance(values, list):
+                continue
+            strings = [str(item)[:200] for item in values if isinstance(item, (str, int))]
+            if strings:
+                kept[target] = strings[:_MAX_GRANTED_VALUES]
+        if kept:
+            cleaned[source] = kept
+    return cleaned
 
 
 def export_character(

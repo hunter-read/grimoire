@@ -30,6 +30,35 @@ describe('PluginSourceRow', () => {
     expect(screen.getByText('Templates')).toBeInTheDocument()
   })
 
+  it('labels character sheets rather than falling through to Templates', () => {
+    // The old chain of ternaries ended in Templates, so any type it did not
+    // recognise rendered as the wrong label.
+    render(
+      <PluginSourceRow
+        url={url}
+        index={0}
+        data={{ ...data, source_contents: { [url]: ['character-sheets'] } }}
+        busy={false}
+        onRemove={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Character sheets')).toBeInTheDocument()
+    expect(screen.queryByText('Templates')).not.toBeInTheDocument()
+  })
+
+  it('shows an unrecognised content type as itself', () => {
+    render(
+      <PluginSourceRow
+        url={url}
+        index={0}
+        data={{ ...data, source_contents: { [url]: ['something-new'] } }}
+        busy={false}
+        onRemove={vi.fn()}
+      />
+    )
+    expect(screen.getByText('something-new')).toBeInTheDocument()
+  })
+
   it('triggers onRemove callback with item index when remove button is clicked', () => {
     const onRemove = vi.fn()
     render(<PluginSourceRow url={url} index={2} data={data} busy={false} onRemove={onRemove} />)

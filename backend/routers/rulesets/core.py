@@ -14,10 +14,12 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ...addons.constants import external_installs_enabled
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Campaign, ContentEntry, ContentPack, Ruleset, RulesetEntry
 from ...services import characters as svc
+from ...services.characters import pack_catalogue, packs as pack_service
 from ...services.characters import rulesets as rs
 from ..content._helpers import user_schema_document
 from ._schemas import (
@@ -487,6 +489,9 @@ def list_installable_packs(
     This is how the 5.5e SRD reaches a table: an admin installs the pack once,
     and any GM imports it into their campaign's ruleset in a click.
     """
+    # Only packs actually on disk; importing one that is gone would copy
+    # entries from rows that no longer describe anything installed.
+    pack_service.prune_removed_packs(db)
     query = db.query(ContentPack)
     if schema_id:
         query = query.filter(ContentPack.schema_id == schema_id)
@@ -507,6 +512,109 @@ def list_installable_packs(
             for pack in packs
         ]
     }
+
+
+def browse_packs(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The community catalogue of content packs.
+
+    Any account may browse, so a GM can see what the SRD would give their table
+    before asking an admin for it. Installing is the admin-only step, because a
+    pack is server-wide.
+    """
+    # A pack deleted from disk by hand is not installed, whatever its rows say;
+    # without this the catalogue hid the Install button for a pack that was gone.
+    pack_service.prune_removed_packs(db)
+    installed = {
+        row.pack_id: row.version or "" for row in db.query(ContentPack.pack_id, ContentPack.version)
+    }
+    try:
+        listing = pack_catalogue.fetch_pack_catalogue(db, installed=installed)
+    except pack_catalogue.PackCatalogueError as exc:
+        if not external_installs_enabled():
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    # So the UI can offer or withhold the install button without a second call.
+    listing["can_install"] = _is_admin(current_user)
+    return listing
+
+
+def install_pack(
+    pack_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download one pack from the catalogue and load it into the catalog.
+
+    Admin only: a pack is server-wide, so installing one changes what every
+    table on this instance can reach.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=403, detail="Only an admin can install a content pack"
+        )
+
+    try:
+        listing = pack_catalogue.fetch_pack_catalogue(db)
+    except pack_catalogue.PackCatalogueError as exc:
+        status = 403 if not external_installs_enabled() else 502
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+    # The namespaced id names one source's copy exactly; a bare id is accepted
+    # too and resolves to the first source offering it.
+    entry = next((row for row in listing["packs"] if row["id"] == pack_id), None)
+    if not entry:
+        entry = next(
+            (row for row in listing["packs"] if row["pack_id"] == pack_id), None
+        )
+    if not entry:
+        raise HTTPException(status_code=404, detail="That pack is not in the catalogue")
+
+    try:
+        directory = pack_catalogue.install_pack(db, entry)
+    except pack_catalogue.PackCatalogueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Loaded straight away, so it is importable without a separate reload step.
+    document = user_schema_document(db, current_user.id, entry["schema_id"])
+    try:
+        pack = pack_service.load_pack(db, directory, schema_document=document)
+        pack_service.reindex_entry_search(db, pack, document)
+        db.commit()
+    except (pack_service.PackError, svc.SchemaError) as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, detail=f"That pack downloaded but would not load: {exc}"
+        ) from exc
+
+    return {
+        "pack_id": pack.pack_id,
+        "schema_id": pack.schema_id,
+        "name": pack.name,
+        "entry_count": pack.entry_count or 0,
+    }
+
+
+def uninstall_pack(
+    pack_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove an installed content pack, its directory and its rows. Admin only.
+
+    Characters referencing its entries keep their references, which read as
+    "not installed" until it comes back. A ruleset that imported the pack keeps
+    its own copy of the entries - that is what importing is for.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=403, detail="Only an admin can uninstall a content pack"
+        )
+    if not pack_service.uninstall_pack(db, pack_id):
+        raise HTTPException(status_code=404, detail="That pack is not installed")
+    return {"deleted": True, "id": pack_id}
 
 
 def import_into_ruleset(
@@ -541,11 +649,20 @@ def import_into_ruleset(
             ruleset.attribution = pack.attribution
             ruleset.source_pack_id = pack.pack_id
     else:
-        payload = data.document or {}
+        if data.text.strip():
+            # Pasted by hand, so read as JSON and then as YAML: a ruleset is a
+            # document someone writes, and YAML is kinder to write.
+            try:
+                payload = svc.parse_document(data.text, what="ruleset")
+            except svc.DocumentError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        else:
+            payload = data.document or {}
         grouped = payload.get("entries") if isinstance(payload, dict) else None
         if grouped is None:
             raise HTTPException(
-                status_code=400, detail="Provide either a pack_id or a document to import"
+                status_code=400,
+                detail="Provide a pack to install, or a document with an 'entries' section",
             )
         if isinstance(payload, dict) and payload.get("attribution") and not ruleset.attribution:
             ruleset.license = str(payload.get("license") or "")[:200]

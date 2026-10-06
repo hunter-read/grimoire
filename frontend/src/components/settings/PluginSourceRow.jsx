@@ -72,12 +72,16 @@ export default function PluginSourceRow({ url, index, data, busy, onRemove }) {
             }}
           >
             {contents.map((type, idx) => {
-              const label =
-                type === 'plugins'
-                  ? t('addons.contentPlugins', 'Plugins')
-                  : type === 'themes'
-                    ? t('addons.contentThemes', 'Themes')
-                    : t('addons.contentTemplates', 'Templates')
+              // A lookup rather than a chain of ternaries: the chain labelled
+              // every unrecognised type as "Templates", so a new content type
+              // silently rendered as the wrong one.
+              const labels = {
+                plugins: t('addons.contentPlugins', 'Plugins'),
+                themes: t('addons.contentThemes', 'Themes'),
+                templates: t('addons.contentTemplates', 'Templates'),
+                'character-sheets': t('addons.contentCharacterSheets', 'Character sheets'),
+              }
+              const label = labels[type] || type
               return (
                 <span key={type} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {idx > 0 && <span style={{ opacity: 0.4 }}>•</span>}

@@ -5,6 +5,8 @@ from ._schemas import (
     DeletedResponse,
     ImportResponse,
     InstallablePackListResponse,
+    InstalledPack,
+    PackCatalogueResponse,
     RulesetEntryDetail,
     RulesetEntryListResponse,
     RulesetExport,
@@ -12,6 +14,7 @@ from ._schemas import (
     RulesetSummary,
 )
 from .core import (
+    browse_packs,
     create_entry,
     create_ruleset,
     delete_entry,
@@ -21,7 +24,9 @@ from .core import (
     get_entry,
     get_ruleset,
     import_into_ruleset,
+    install_pack,
     list_entries,
+    uninstall_pack,
     list_installable_packs,
     list_rulesets,
     update_entry,
@@ -46,6 +51,27 @@ router.add_api_route(
     methods=["POST"],
     summary="Create a ruleset for a campaign, or for the server",
     response_model=RulesetSummary,
+)
+router.add_api_route(
+    "/packs/browse",
+    browse_packs,
+    methods=["GET"],
+    summary="Browse the community catalogue of content packs",
+    response_model=PackCatalogueResponse,
+)
+router.add_api_route(
+    "/packs/install/{pack_id}",
+    install_pack,
+    methods=["POST"],
+    summary="Install a content pack from the catalogue (admin)",
+    response_model=InstalledPack,
+)
+router.add_api_route(
+    "/packs/{pack_id}",
+    uninstall_pack,
+    methods=["DELETE"],
+    summary="Uninstall a content pack (admin)",
+    response_model=DeletedResponse,
 )
 router.add_api_route(
     "/installable",

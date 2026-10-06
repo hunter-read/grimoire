@@ -1,6 +1,11 @@
 import { createElement, Fragment, useEffect, useMemo } from 'react'
 import FieldRenderer from './FieldRenderer'
-import { evaluate, isVisible } from './expressions'
+import { evaluate, isVisible, computedOverrides } from './expressions'
+import OverridableValue from './OverridableValue'
+import LayoutTabs from './LayoutTabs'
+import TierSelect from './TierSelect'
+import Pips from './Pips'
+import { fieldState } from './onPick'
 
 /**
  * Renders a schema's `layout_ast` — the parsed, allowlisted form of its
@@ -69,6 +74,11 @@ const ALLOWED_TAGS = new Set([
   'fieldset',
   'legend',
   'label',
+  // Collapsible sections. The server allowed these long before this list did,
+  // so a sheet's "Other details" was flattened open - its contents drawn with
+  // no box and no way to fold them away.
+  'details',
+  'summary',
 ])
 
 const DIRECTIVES = new Set([
@@ -79,6 +89,11 @@ const DIRECTIVES = new Set([
   'g-repeat',
   'g-if',
   'g-section',
+  'g-tabs',
+  'g-tab',
+  'g-option',
+  'g-tier',
+  'g-pips',
 ])
 
 // HTML attribute → React prop, for the few that differ.
@@ -96,6 +111,12 @@ function toProps(attrs = {}, key) {
       props[name] = value
       continue
     }
+    // A boolean attribute: present means open, whatever its value. React would
+    // read `open=""` as false and draw the section closed.
+    if (name === 'open') {
+      props.open = true
+      continue
+    }
     props[PROP_NAMES[name] || name] = value
   }
   return props
@@ -106,7 +127,17 @@ export default function LayoutRenderer({
   document: schemaDocument,
   data,
   computed,
+  // The sheet's evaluation context: field values with their `default_from`
+  // defaults applied, computed values, and the resolved entries. Built from
+  // raw data alone, a layout condition would never see a derived value - a
+  // Spellcasting panel gated on a class-derived `is_caster` would stay hidden
+  // for every wizard.
+  context: sheetContext,
   onChange,
+  onReset,
+  // Overrules a computed value, or with `undefined` hands it back to its
+  // formula. The player can override any value on the sheet.
+  onOverride,
   readOnly = false,
   scope = 'gc-sheet',
   entries = {},
@@ -126,7 +157,10 @@ export default function LayoutRenderer({
     return () => element.remove()
   }, [css, scope])
 
-  const context = useMemo(() => ({ ...(data || {}), ...(computed || {}) }), [data, computed])
+  const context = useMemo(
+    () => sheetContext || { ...(data || {}), ...(computed || {}) },
+    [sheetContext, data, computed]
+  )
 
   if (!Array.isArray(ast)) return null
 
@@ -139,6 +173,9 @@ export default function LayoutRenderer({
           data,
           context,
           onChange,
+          onReset,
+          onOverride,
+          overrides: computedOverrides(schemaDocument, data),
           readOnly,
           entries,
           schemaId,
@@ -177,7 +214,19 @@ function renderNode(node, ctx) {
 }
 
 function renderDirective(node, ctx) {
-  const { schemaDocument, data, context, onChange, readOnly, key, entries, schemaId } = ctx
+  const {
+    schemaDocument,
+    data,
+    context,
+    onChange,
+    onReset,
+    onOverride,
+    overrides = {},
+    readOnly,
+    key,
+    entries,
+    schemaId,
+  } = ctx
   const attrs = node.attrs || {}
   const fields = schemaDocument?.fields || {}
   const name = attrs.name
@@ -214,15 +263,20 @@ function renderDirective(node, ctx) {
       // A field declaring its own condition honours it wherever it is drawn, so
       // a schema does not have to repeat the condition in every layout.
       if (!isVisible(definition.visible_if, context)) return null
+      const state = fieldState(name, definition, data, context)
+      const editable = !readOnly && attrs.readonly === undefined
       return (
         <FieldRenderer
           key={key}
           name={name}
           definition={{ ...definition, ...(attrs.label ? { label: attrs.label } : {}) }}
-          value={data?.[name]}
-          onChange={readOnly ? undefined : (value) => onChange?.(name, value)}
+          value={state.value}
+          derived={editable && state.derived}
+          onReset={editable && state.overridden && onReset ? () => onReset(name) : undefined}
+          onChange={readOnly ? undefined : (...args) => onChange?.(name, ...args)}
           readOnly={readOnly || attrs.readonly !== undefined}
           hideLabel={attrs.label === ''}
+          variant={attrs.variant}
           entries={entries}
           schemaId={schemaId || schemaDocument?.id}
           contentTypes={schemaDocument?.content_types || {}}
@@ -243,6 +297,12 @@ function renderDirective(node, ctx) {
           value={context?.[name]}
           readOnly
           hideLabel={attrs.label === ''}
+          overridden={name in overrides}
+          onOverride={
+            !readOnly && attrs.readonly === undefined && onOverride && definition
+              ? (value) => onOverride(name, value)
+              : undefined
+          }
         />
       )
     }
@@ -252,13 +312,177 @@ function renderDirective(node, ctx) {
       return <span key={key}>{text}</span>
     }
 
-    case 'g-value':
-      return <span key={key}>{formatValue(context?.[name])}</span>
+    case 'g-value': {
+      const value = context?.[name]
+      const editable = !readOnly && attrs.readonly === undefined
+      const computedDefinition = schemaDocument?.computed?.[name]
+      // A computed value is overridden; a plain text or number field is simply
+      // edited in place. Anything else - a list, a reference - stays a display.
+      if (editable && computedDefinition && onOverride) {
+        return (
+          <OverridableValue
+            key={key}
+            label={computedDefinition.label || name}
+            display={formatValue(value)}
+            raw={value}
+            overridden={name in overrides}
+            onOverride={(next) => onOverride(name, next)}
+          />
+        )
+      }
+      const field = fields[name]
+      if (editable && field && ['text', 'number'].includes(field.type || 'text') && onChange) {
+        const state = fieldState(name, field, data, context)
+        return (
+          <OverridableValue
+            key={key}
+            label={field.label || name}
+            display={formatValue(value)}
+            raw={value}
+            overridden={state.overridden}
+            onOverride={(next) => {
+              // Clearing a derived field hands it back to its default; clearing
+              // a plain one empties it.
+              if (next === undefined && state.overridden && onReset) onReset(name)
+              else onChange(name, next === undefined ? null : next)
+            }}
+          />
+        )
+      }
+      return <span key={key}>{formatValue(value)}</span>
+    }
 
     case 'g-if':
       return evaluate(attrs.test, context) ? (
         <Fragment key={key}>{renderChildren(node.children, ctx)}</Fragment>
       ) : null
+
+    case 'g-tabs': {
+      // Each child <g-tab> is a page; anything else inside is ignored, as a
+      // stray node between pages has nowhere sensible to go.
+      const tabs = (node.children || [])
+        .filter((child) => child?.tag === 'g-tab')
+        .filter((child) => isVisible(child.attrs?.visible_if, context))
+        .map((child, index) => ({
+          title: child.attrs?.title || String(index + 1),
+          content: renderChildren(child.children, { ...ctx, key: `${key}-p${index}` }),
+        }))
+      return <LayoutTabs key={key} tabs={tabs} scope={key} />
+    }
+
+    case 'g-tab':
+      // Outside a <g-tabs> a page is just its contents.
+      return <Fragment key={key}>{renderChildren(node.children, ctx)}</Fragment>
+
+    case 'g-option': {
+      // One option of a multiselect as its own checkbox, so a skill's box can
+      // sit beside that skill. The field is still one list.
+      const field = fields[attrs.field]
+      if (!field || field.type !== 'multiselect' || attrs.value === undefined) return null
+      const state = fieldState(attrs.field, field, data, context)
+      const list = Array.isArray(state.value) ? state.value : []
+      const checked = list.includes(attrs.value)
+      const editable = !readOnly && onChange
+      const order = (field.options || []).map((option) =>
+        option && typeof option === 'object' ? option.value : option
+      )
+      const toggle = () => {
+        const next = checked ? list.filter((v) => v !== attrs.value) : [...list, attrs.value]
+        // Kept in the field's own option order, as the multiselect would.
+        onChange(
+          attrs.field,
+          order.filter((option) => next.includes(option))
+        )
+      }
+      return (
+        <input
+          key={key}
+          type="checkbox"
+          // The author's class rides along, so a sheet can tell a proficiency box
+          // from an expertise box in its stylesheet.
+          className={['gc-option', attrs.class].filter(Boolean).join(' ')}
+          title={attrs.label || attrs.value}
+          // Matched to the app's other checkboxes; without it an option box
+          // was the browser's default blue among gold ones.
+          style={{ width: 14, height: 14, margin: 0, accentColor: 'var(--gold)' }}
+          checked={checked}
+          disabled={!editable}
+          onChange={editable ? toggle : undefined}
+          aria-label={attrs.label || attrs.value}
+        />
+      )
+    }
+
+    case 'g-tier': {
+      const ladder = String(attrs.fields || '')
+        .split(/\s+/)
+        .filter((name) => fields[name]?.type === 'multiselect')
+      if (!ladder.length || attrs.value === undefined) return null
+      const lists = ladder.map((name) => {
+        const current = fieldState(name, fields[name], data, context).value
+        return Array.isArray(current) ? current : []
+      })
+      // The highest rung holding the value; expertise alone still reads as
+      // expertise, whatever the proficiency list says.
+      let level = 0
+      lists.forEach((list, index) => {
+        if (list.includes(attrs.value)) level = index + 1
+      })
+      const labels = String(attrs.labels || '').split('|')
+      const titles = String(attrs.titles || '').split('|')
+      while (labels.length < ladder.length + 1) labels.push(String(labels.length))
+      const editable = !readOnly && onChange
+      const choose = (next) => {
+        ladder.forEach((name, index) => {
+          const order = (fields[name].options || []).map((option) =>
+            option && typeof option === 'object' ? option.value : option
+          )
+          const has = lists[index].includes(attrs.value)
+          const want = index < next
+          if (has === want) return
+          const updated = want
+            ? [...lists[index], attrs.value]
+            : lists[index].filter((v) => v !== attrs.value)
+          onChange(
+            name,
+            order.filter((option) => updated.includes(option))
+          )
+        })
+      }
+      return (
+        <TierSelect
+          key={key}
+          level={level}
+          labels={labels}
+          titles={titles}
+          label={attrs.label || attrs.value}
+          disabled={!editable}
+          onChange={editable ? choose : undefined}
+        />
+      )
+    }
+
+    case 'g-pips': {
+      // `count` is a number, or a field or computed value holding one.
+      const count = /^\d+$/.test(String(attrs.count || ''))
+        ? Number(attrs.count)
+        : Number(context?.[attrs.count]) || 0
+      const usedField = fields[attrs.value]
+      const used = usedField
+        ? Number(fieldState(attrs.value, usedField, data, context).value) || 0
+        : 0
+      const editable = !readOnly && onChange && usedField
+      return (
+        <Pips
+          key={key}
+          count={count}
+          used={used}
+          label={attrs.label || attrs.value || ''}
+          disabled={!editable}
+          onChange={editable ? (next) => onChange(attrs.value, next) : undefined}
+        />
+      )
+    }
 
     case 'g-section':
       return (

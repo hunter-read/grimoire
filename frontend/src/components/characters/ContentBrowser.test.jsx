@@ -110,7 +110,11 @@ describe('ContentBrowser', () => {
     renderBrowser({ onChoose })
     await screen.findByText('Fireball')
     await userEvent.click(screen.getAllByLabelText(/Add to sheet/i)[0])
-    expect(onChoose).toHaveBeenCalledWith({ _ref: 'fireball', _source: 'srd' })
+    const [ref, entry] = onChoose.mock.calls[0]
+    expect(ref).toEqual({ _ref: 'fireball', _source: 'srd' })
+    // The entry's own properties ride alongside, so a pick with on_pick rules
+    // can act on it without waiting for the sheet to resolve it.
+    expect(entry.name).toBe('Fireball')
   })
 
   it('closes after a single pick but stays open for a multi-pick', async () => {

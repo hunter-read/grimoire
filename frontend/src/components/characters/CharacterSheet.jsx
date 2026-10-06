@@ -2,9 +2,16 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import FieldRenderer from './FieldRenderer'
 import LayoutRenderer from './LayoutRenderer'
-import { computeValues, runValidators, buildContext, isVisible } from './expressions'
+import {
+  computeValues,
+  runValidators,
+  buildContext,
+  isVisible,
+  computedOverrides,
+} from './expressions'
 import { sectionHeading } from './characterStyles'
 import ValidatorMessages from './ValidatorMessages'
+import { fieldState } from './onPick'
 
 /**
  * Draws a character against its schema.
@@ -23,6 +30,15 @@ export default function CharacterSheet({
   document: schemaDocument,
   data,
   onChange,
+  // Hands a field back to its `default_from` value after the player typed over
+  // it. Only fields with a `default_from` ever offer it.
+  onReset,
+  // Overrules a computed value, or with `undefined` returns it to its formula.
+  // The player can override any value on the sheet.
+  onOverride,
+  // Whether computed values the layout does not place get a section of their
+  // own. The all-values view places exactly the ones it means to show.
+  showUnplacedComputed = true,
   readOnly,
   // Catalog entries this character's references point at, resolved once by the
   // detail view so no field has to fetch its own.
@@ -55,6 +71,12 @@ export default function CharacterSheet({
 
   if (!schemaDocument) return null
 
+  const overrides = computedOverrides(schemaDocument, data)
+  const overrideProps = (name) =>
+    !readOnly && onOverride
+      ? { overridden: name in overrides, onOverride: (value) => onOverride(name, value) }
+      : {}
+
   if (Array.isArray(schemaDocument.layout_ast) && schemaDocument.layout_ast.length) {
     return (
       <>
@@ -64,7 +86,10 @@ export default function CharacterSheet({
           document={schemaDocument}
           data={data}
           computed={computed}
+          context={context}
           onChange={onChange}
+          onReset={onReset}
+          onOverride={onOverride}
           readOnly={readOnly}
           entries={entries}
           schemaId={schemaId}
@@ -105,13 +130,18 @@ export default function CharacterSheet({
                     definition.type === 'list' ||
                     definition.type === 'textarea' ||
                     definition.type === 'content_list'
+                  const state = fieldState(name, definition, data, context)
                   return (
                     <div key={name} style={spanAll ? { gridColumn: '1 / -1' } : undefined}>
                       <FieldRenderer
                         name={name}
                         definition={definition}
-                        value={data?.[name]}
-                        onChange={readOnly ? undefined : (value) => onChange?.(name, value)}
+                        value={state.value}
+                        derived={!readOnly && state.derived}
+                        onReset={
+                          !readOnly && state.overridden && onReset ? () => onReset(name) : undefined
+                        }
+                        onChange={readOnly ? undefined : (...args) => onChange?.(name, ...args)}
                         readOnly={readOnly}
                         entries={entries}
                         schemaId={schemaId || schemaDocument.id}
@@ -129,6 +159,7 @@ export default function CharacterSheet({
                       definition={{ type: 'text', label: computedDefs[name].label || name }}
                       value={computed[name]}
                       readOnly
+                      {...overrideProps(name)}
                     />
                   )
                 }
@@ -139,7 +170,9 @@ export default function CharacterSheet({
         )
       })}
 
-      {Object.keys(computedDefs).length > 0 && !layoutMentionsComputed(layout, computedDefs) ? (
+      {showUnplacedComputed &&
+      Object.keys(computedDefs).length > 0 &&
+      !layoutMentionsComputed(layout, computedDefs) ? (
         <section>
           <h3 style={sectionHeading}>{t('characters.derived')}</h3>
           <div
@@ -156,6 +189,7 @@ export default function CharacterSheet({
                 definition={{ type: 'text', label: definition.label || name }}
                 value={computed[name]}
                 readOnly
+                {...overrideProps(name)}
               />
             ))}
           </div>

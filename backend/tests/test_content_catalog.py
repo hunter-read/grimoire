@@ -81,8 +81,12 @@ def _write_pack(root, *, pack_id="demo-srd", schema_id="catalog-demo", spells=No
 
 
 @pytest.fixture
-def pack_root(tmp_path):
-    return str(tmp_path / "character-content")
+def pack_root(tmp_path, monkeypatch):
+    # The loader's own directory, so a pack loaded from here counts as on disk:
+    # listing prunes any pack whose directory is gone.
+    root = str(tmp_path / "character-content")
+    monkeypatch.setattr(packs, "CONTENT_DIR", root)
+    return root
 
 
 @pytest.fixture(autouse=True)

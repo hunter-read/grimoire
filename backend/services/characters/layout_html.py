@@ -72,6 +72,11 @@ DIRECTIVE_TAGS: frozenset = frozenset(
         "g-repeat",     # iterate a list field
         "g-if",         # conditional subtree
         "g-section",    # a titled group, for styling hooks
+        "g-tabs",       # pages of a sheet - the second page of a printed one
+        "g-tab",        # one page, titled; only the chosen one is drawn
+        "g-option",     # one checkbox bound to one option of a multiselect
+        "g-tier",       # one value's rung on a ladder of multiselects
+        "g-pips",       # a count drawn as boxes, ticked off as it is used
     }
 )
 
@@ -99,6 +104,19 @@ _TAG_ATTRS: dict[str, frozenset] = {
     "g-repeat": frozenset({"over", "as"}),
     "g-if": frozenset({"test"}),
     "g-section": frozenset({"title", "name", "visible_if"}),
+    "g-tabs": frozenset(),
+    "g-tab": frozenset({"title", "visible_if"}),
+    # A skill's proficiency box beside the skill, rather than every skill in
+    # one checkbox group: the value is still one list, which on_pick rules
+    # grant into, but each box can sit where the printed sheet puts it.
+    "g-option": frozenset({"field", "value", "label"}),
+    # A skill's none / proficient / expertise as one dropdown: `fields` lists
+    # the multiselects lowest rung first, `labels` the short text shown when
+    # closed and `titles` the full names in the list, both "|"-separated.
+    "g-tier": frozenset({"value", "fields", "labels", "titles", "label"}),
+    # `count` is a number or a field/computed name; `value` the number field
+    # holding how many are used.
+    "g-pips": frozenset({"count", "value", "label"}),
 }
 
 #: Tags dropped with their contents rather than unwrapped. Keeping a <script>'s
