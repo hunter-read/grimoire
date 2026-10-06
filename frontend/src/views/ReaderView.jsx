@@ -460,8 +460,14 @@ export default function ReaderView() {
     return text || `${t('reader.page')} ${p} — ${book.title}`
   }
 
+  // `flex: 1` rather than `height: 100%`: `main` is a flex column that may also
+  // hold the pending-invites banner, and a 100%-tall reader under it overflows
+  // the bottom, hiding the foot of the page behind the mobile nav (issue #520).
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div
+      className="fade-in"
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+    >
       <ReaderToolbar
         book={book}
         bookId={bookId}

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import AppShell from './AppShell'
 
 vi.mock('../api', () => ({
@@ -132,6 +134,33 @@ describe('AppShell', () => {
       renderAt('/maps')
       await waitFor(() => expect(screen.getByText('maps')).toBeInTheDocument())
       expect(main()).toHaveStyle({ overflow: 'auto' })
+    })
+  })
+
+  // On mobile `100vh` is the height with the browser toolbar hidden, so while
+  // it shows the bottom of the layout - the foot of a reader page - sat under
+  // the fixed nav bar (issue #520). The shell's height lives in index.css so it
+  // can declare `100dvh` with a `100vh` fallback; jsdom doesn't load that
+  // stylesheet, so check the class contract and the rule separately.
+  describe('viewport height (issue #520)', () => {
+    it('sizes the shell through the .app-shell class, not an inline 100vh', async () => {
+      renderAt('/library/book/1')
+      await waitFor(() => expect(screen.getByText('reader')).toBeInTheDocument())
+      const shell = document.querySelector('.app-shell')
+      expect(shell).toBeTruthy()
+      expect(shell.style.height).toBe('')
+      expect(shell).toContainElement(document.querySelector('main'))
+    })
+
+    it('gives .app-shell the dynamic viewport height with a 100vh fallback', () => {
+      const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+      const rule = css.match(/\.app-shell\s*{([^}]*)}/)
+      expect(rule).toBeTruthy()
+      const body = rule[1]
+      expect(body).toMatch(/display:\s*flex/)
+      // Order matters: the fallback must come first so dvh wins where supported.
+      expect(body.indexOf('height: 100vh')).toBeGreaterThan(-1)
+      expect(body.indexOf('height: 100dvh')).toBeGreaterThan(body.indexOf('height: 100vh'))
     })
   })
 })

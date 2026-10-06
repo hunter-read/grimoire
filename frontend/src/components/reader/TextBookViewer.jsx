@@ -74,7 +74,10 @@ export default function TextBookViewer({ book, bookId, backPath }) {
   const fav = isFavorite('book', bookId)
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div
+      className="fade-in"
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+    >
       <div
         style={{
           display: 'flex',

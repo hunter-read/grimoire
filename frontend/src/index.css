@@ -465,6 +465,17 @@ a:focus-visible {
   }
 }
 
+/* Root layout: sidebar(s) + main, exactly as tall as the visible viewport.
+   On mobile, `100vh` is the height with the browser toolbar *hidden*, so while
+   the toolbar shows the bottom of the layout sits under the fixed nav bar and
+   the reader page is cropped (issue #520). `100dvh` tracks the toolbar; the
+   `100vh` line is the fallback for browsers without dynamic viewport units. */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* SystemDetailView — responsive header panel */
 .system-btn-row {
   justify-content: flex-end;

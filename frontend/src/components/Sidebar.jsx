@@ -152,7 +152,7 @@ export default function Sidebar({
         borderRight: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
+        height: '100%',
         position: 'sticky',
         top: 0,
         transition: 'width 0.15s ease, min-width 0.15s ease',
