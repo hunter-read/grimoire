@@ -18,6 +18,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- On a phone, a book page zoomed all the way out now fits above the bottom navigation bar instead of running behind it (#520). The app now sizes itself to the part of the screen the browser's toolbar leaves visible, and the reader no longer gets pushed down when the pending campaign invites banner is showing
 - A game system with many character builder and other links no longer squeezes its title into a narrow column. The header shows up to three link buttons, always including at least one character builder and one other link when the system has both, and the rest open from a "More" menu grouped under Character Builders and Links. Each link is marked by kind with its own icon and tooltip, and an unlabelled link shows its site name instead of a bare "Link"
 - A rescan started from one rescan button now shows as running on every other one on screen at once, instead of up to 30 seconds later
 - Clicking a tag on a book in a game system's book list opens the Tags page filtered to that tag, instead of opening the book

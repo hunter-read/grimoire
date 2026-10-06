@@ -548,6 +548,19 @@ describe('ReaderView — mobile panel layout', () => {
     await waitFor(() => expect(pageContainer()).toHaveStyle({ display: 'flex' }))
   })
 
+  // `main` is a flex column that can also hold the pending-invites banner, so a
+  // reader sized `height: 100%` overflowed it and the foot of the page slid
+  // under the mobile nav (issue #520). It takes the space left over instead.
+  it('sizes the reader to the space left in main rather than 100% of it', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    const root = document.querySelector('.fade-in')
+    expect(root).toHaveStyle({ flex: '1', minHeight: '0' })
+    expect(root.style.height).toBe('')
+  })
+
   it('keeps the page beside the panel on a desktop', async () => {
     mockIsMobile.value = false
     renderReader()

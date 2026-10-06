@@ -134,7 +134,7 @@ export default function AppShell() {
 
   return (
     <UISettingsProvider value={uiSettings}>
-      <div style={{ display: 'flex', height: '100vh' }}>
+      <div className="app-shell">
         {!isMobile && (
           <Sidebar
             stats={stats}
