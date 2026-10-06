@@ -87,7 +87,10 @@ def upload_portrait(
 
     character.portrait_path = filename
     db.commit()
-    return {"portrait_path": filename}
+    # The version the character's own payload reports, so the client can show
+    # the new image straight away under a URL no cache has seen.
+    version = os.stat(os.path.join(CHARACTER_PORTRAIT_DIR, filename)).st_mtime_ns
+    return {"portrait_path": filename, "portrait_version": version}
 
 
 def get_portrait(

@@ -53,6 +53,16 @@ const SERVER = {
   attribution: 'Includes material from the SRD 5.2, CC BY 4.0.',
 }
 
+// The installed packs have their own tests; here they are stubbed, so these are
+// about the rulesets half of the tab. The stub shows which sheets it was given.
+vi.mock('./InstalledPacks', () => ({
+  default: ({ schemas }) => (
+    <section aria-label="installed packs">
+      packs for {schemas.map((s) => s.name).join(', ')}
+    </section>
+  ),
+}))
+
 const renderView = () => render(<RulesetsPanel />)
 
 beforeEach(() => {
@@ -288,37 +298,20 @@ describe('RulesetsPanel — importing a document', () => {
 })
 
 describe('RulesetsPanel — browsing content packs', () => {
-  it('opens the pack catalogue from the list', async () => {
-    // The gap this closes: the SRD was published in the community repo with no
-    // way to reach a server, so "browse rulesets" had nothing behind it.
-    mockBrowsePacks.mockResolvedValue({
-      packs: [
-        {
-          id: 'srd-abc',
-          pack_id: 'dnd-5e-srd',
-          name: 'D&D 5e SRD 5.2',
-          entry_count: 109,
-          content_types: ['spell'],
-          installed: false,
-        },
-      ],
-      sources: [],
-      errors: [],
-      can_install: true,
-    })
+  it('shows the installed content packs above the rulesets', async () => {
     renderView()
     await screen.findByText('Strahd house rules')
-
-    await userEvent.click(screen.getByText('Browse content packs'))
-    expect(await screen.findByText('D&D 5e SRD 5.2')).toBeInTheDocument()
+    // Packs are usable by every character as soon as they are installed, so
+    // the tab leads with them - and they get the sheet names to label them by.
+    expect(screen.getByRole('region', { name: 'installed packs' })).toHaveTextContent(
+      'packs for D&D 5e'
+    )
   })
 
-  it('is reachable without any ruleset existing yet', async () => {
-    // Otherwise getting started is circular: you need a pack to fill a ruleset,
-    // and the only way to a pack was through a ruleset.
-    mockList.mockResolvedValue({ rulesets: [] })
+  it('names a ruleset\u2019s sheet rather than its internal id', async () => {
     renderView()
-    await screen.findByText(/No rulesets yet/i)
-    expect(screen.getByText('Browse content packs').closest('button')).not.toBeDisabled()
+    await screen.findByText('Strahd house rules')
+    expect(screen.getAllByText(/D&D 5e ·/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/dnd-5e-2024/)).not.toBeInTheDocument()
   })
 })

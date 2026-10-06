@@ -244,3 +244,31 @@ class TestDrawSteelWarnings:
     def test_dead_is_flagged(self, ds):
         warnings = self._warnings(ds, klass={"_ref": "censor"}, stamina_current=-10)
         assert any("dead" in w for w in warnings)
+
+    def test_a_fourth_leveled_treasure_warns(self, ds):
+        three = [{"name": f"Treasure {n}"} for n in range(3)]
+        assert not any("three" in w for w in self._warnings(ds, leveled_treasures=three))
+        four = three + [{"name": "One too many"}]
+        assert any("three" in w for w in self._warnings(ds, leveled_treasures=four))
+
+
+class TestDrawSteelKitModifiers:
+    """The printed sheet's Equipment and Modifiers box: the kit's own bonuses,
+    filled in from the kit and editable, feeding the totals."""
+
+    def test_the_kit_fills_its_boxes(self, ds):
+        context = _context(ds, kit={"_ref": "mountain"})
+        assert context["kit_speed"] == 0
+        assert context["kit_stability"] == 2
+        assert context["kit_weapon"]
+
+    def test_an_edited_kit_bonus_reaches_the_total(self, ds):
+        context = _context(ds, kit={"_ref": "martial-artist"}, kit_speed=1)
+        assert context["speed"] == 6
+        context = _context(ds, klass={"_ref": "fury"}, kit={"_ref": "mountain"}, level=4,
+                           kit_stamina=0)
+        # The fury's 21 + 9 per level after the first, and no kit stamina.
+        assert context["stamina_max"] == 48
+
+    def test_surge_damage_is_the_highest_characteristic(self, ds):
+        assert _computed(ds, might=2, agility=3)["surge_damage"] == 3

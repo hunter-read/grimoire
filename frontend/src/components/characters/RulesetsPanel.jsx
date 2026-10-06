@@ -8,7 +8,6 @@ import {
   LuDownload,
   LuPackagePlus,
   LuClipboardPaste,
-  LuStore,
 } from 'react-icons/lu'
 import {
   rulesets as rulesetsApi,
@@ -18,30 +17,34 @@ import {
 } from '../../api'
 import Spinner from '../Spinner'
 import RulesetEntryDialog from './RulesetEntryDialog'
-import PackCatalogue from './PackCatalogue'
+import InstalledPacks from './InstalledPacks'
 import {
   goldBtn,
   ghostBtn,
+  disabledBtn,
   iconBtn,
   fieldInput,
   fieldLabel,
   card,
   codeArea,
   helpText,
+  emptyState,
+  sectionBar,
+  sectionTitle,
 } from './characterStyles'
 
 /**
- * Rulesets: the content a table plays with.
+ * The sheet manager's Content tab: the content packs installed on the server,
+ * then the rulesets a table edits.
  *
- * A ruleset belongs to a campaign — everyone there reads it, the GM edits it —
- * or to the server, which every game can use. This is what lets two games in
- * the same system allow different content, so the list leads with which
- * campaign each one is for.
+ * A pack is read-only and usable by every character as soon as it is
+ * installed. A ruleset is content you edit - homebrew, house rules, a pack's
+ * entries you have changed - and belongs to a campaign (everyone there reads
+ * it, the GM edits it) or to the server, which every game can use. That is
+ * what lets two games in the same system allow different content, so the list
+ * leads with which campaign each one is for.
  *
- * Rendered inside the sheet manager's Rulesets tab, so it draws no page
- * chrome of its own — no page padding, no page heading. Managing sheets and
- * managing the content those sheets draw on are one job, and splitting them
- * across a modal and a route made the user hunt for half of it.
+ * Rendered inside the sheet manager, so it draws no page chrome of its own.
  */
 export default function RulesetsPanel() {
   const { t } = useTranslation()
@@ -58,7 +61,6 @@ export default function RulesetsPanel() {
   const [newSchema, setNewSchema] = useState('')
   const [newCampaign, setNewCampaign] = useState('')
 
-  const [browsingPacks, setBrowsingPacks] = useState(false)
   const [pasting, setPasting] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [pasteTarget, setPasteTarget] = useState('')
@@ -196,6 +198,9 @@ export default function RulesetsPanel() {
 
   if (loading) return <Spinner />
 
+  const sheetName = (schemaId) =>
+    schemas.find((schema) => schema.schema_id === schemaId)?.name || schemaId
+
   // --- one ruleset, opened ------------------------------------------------
   if (open) {
     const current = rulesets.find((row) => row.id === open.id) || open
@@ -208,7 +213,7 @@ export default function RulesetsPanel() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{current.name}</h3>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {current.campaign_name || t('rulesets.serverWide')} · {current.schema_id}
+              {current.campaign_name || t('rulesets.serverWide')} · {sheetName(current.schema_id)}
             </div>
           </div>
           {current.editable ? (
@@ -253,7 +258,7 @@ export default function RulesetsPanel() {
             <button
               onClick={() => setEditing({ contentType: addingType })}
               disabled={!addingType}
-              style={addingType ? goldBtn : { ...ghostBtn, opacity: 0.55 }}
+              style={addingType ? goldBtn : disabledBtn}
             >
               <LuPlus size={14} />
               {t('rulesets.newEntry')}
@@ -268,7 +273,7 @@ export default function RulesetsPanel() {
         ) : null}
 
         {entries.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>{t('rulesets.noEntries')}</p>
+          <p style={emptyState}>{t('rulesets.noEntries')}</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
             {entries.map((entry) => (
@@ -323,231 +328,225 @@ export default function RulesetsPanel() {
   }
 
   // --- the list -----------------------------------------------------------
+  const anyEditable = rulesets.some((row) => row.editable)
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button
-          onClick={() => setCreating((value) => !value)}
-          disabled={!schemas.length}
-          title={schemas.length ? undefined : t('rulesets.needSheetFirst')}
-          style={schemas.length ? goldBtn : { ...ghostBtn, opacity: 0.55 }}
-        >
-          <LuPlus size={14} />
-          {t('rulesets.create')}
-        </button>
-        <button onClick={() => setBrowsingPacks(true)} style={ghostBtn}>
-          <LuStore size={14} />
-          {t('contentPacks.browse')}
-        </button>
-        <button
-          onClick={() => setPasting((value) => !value)}
-          disabled={!rulesets.some((row) => row.editable)}
-          title={rulesets.some((row) => row.editable) ? undefined : t('rulesets.needRulesetFirst')}
-          style={rulesets.some((row) => row.editable) ? ghostBtn : { ...ghostBtn, opacity: 0.55 }}
-        >
-          <LuClipboardPaste size={14} />
-          {t('rulesets.importDocument')}
-        </button>
-      </div>
+      <InstalledPacks schemas={schemas} onChanged={load} />
 
-      <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0 }}>{t('rulesets.help')}</p>
-
-      {error ? (
-        <div role="alert" style={{ color: 'var(--danger)', marginBottom: 16 }}>
-          {error}
-        </div>
-      ) : null}
-
-      {creating ? (
-        <form
-          onSubmit={create}
-          style={{
-            ...card,
-            marginBottom: 20,
-            display: 'flex',
-            gap: 12,
-            flexWrap: 'wrap',
-            alignItems: 'flex-end',
-          }}
-        >
-          <div style={{ flex: '1 1 180px' }}>
-            <label htmlFor="rs-name" style={fieldLabel}>
-              {t('rulesets.name')}
-            </label>
-            <input
-              id="rs-name"
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              style={fieldInput}
-              required
-            />
-          </div>
-          <div style={{ flex: '1 1 160px' }}>
-            <label htmlFor="rs-schema" style={fieldLabel}>
-              {t('characters.system')}
-            </label>
-            <select
-              id="rs-schema"
-              value={newSchema}
-              onChange={(event) => setNewSchema(event.target.value)}
-              style={fieldInput}
-              required
-            >
-              <option value="">—</option>
-              {schemas.map((schema) => (
-                <option key={schema.schema_id} value={schema.schema_id}>
-                  {schema.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ flex: '1 1 160px' }}>
-            <label htmlFor="rs-campaign" style={fieldLabel}>
-              {t('rulesets.forCampaign')}
-            </label>
-            <select
-              id="rs-campaign"
-              value={newCampaign}
-              onChange={(event) => setNewCampaign(event.target.value)}
-              style={fieldInput}
-            >
-              <option value="">{t('rulesets.serverWide')}</option>
-              {campaigns.map((campaign) => (
-                <option key={campaign.id} value={campaign.id}>
-                  {campaign.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="submit" style={goldBtn}>
+      <section aria-labelledby="rulesets-heading">
+        <div style={sectionBar}>
+          <h3 id="rulesets-heading" style={sectionTitle}>
+            {t('rulesets.title')}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setPasting((value) => !value)}
+            disabled={!anyEditable}
+            title={anyEditable ? undefined : t('rulesets.needRulesetFirst')}
+            aria-expanded={pasting}
+            style={anyEditable ? ghostBtn : disabledBtn}
+          >
+            <LuClipboardPaste size={14} aria-hidden="true" />
+            {t('rulesets.importDocument')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating((value) => !value)}
+            disabled={!schemas.length}
+            title={schemas.length ? undefined : t('rulesets.needSheetFirst')}
+            aria-expanded={creating}
+            style={schemas.length ? goldBtn : disabledBtn}
+          >
+            <LuPlus size={14} aria-hidden="true" />
             {t('rulesets.create')}
           </button>
-        </form>
-      ) : null}
+        </div>
+        <p style={{ ...helpText, margin: '0 0 12px' }}>{t('rulesets.help')}</p>
 
-      {pasting ? (
-        <form
-          onSubmit={importDocument}
-          style={{ ...card, marginBottom: 20, display: 'grid', gap: 12 }}
-        >
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: '1 1 200px' }}>
-              <label htmlFor="rs-target" style={fieldLabel}>
-                {t('rulesets.importInto')}
+        {error ? (
+          <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>
+            {error}
+          </div>
+        ) : null}
+
+        {creating ? (
+          <form
+            onSubmit={create}
+            style={{
+              ...card,
+              marginBottom: 20,
+              display: 'flex',
+              gap: 12,
+              flexWrap: 'wrap',
+              alignItems: 'flex-end',
+            }}
+          >
+            <div style={{ flex: '1 1 180px' }}>
+              <label htmlFor="rs-name" style={fieldLabel}>
+                {t('rulesets.name')}
+              </label>
+              <input
+                id="rs-name"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                style={fieldInput}
+                required
+              />
+            </div>
+            <div style={{ flex: '1 1 160px' }}>
+              <label htmlFor="rs-schema" style={fieldLabel}>
+                {t('characters.system')}
               </label>
               <select
-                id="rs-target"
-                value={pasteTarget}
-                onChange={(event) => setPasteTarget(event.target.value)}
+                id="rs-schema"
+                value={newSchema}
+                onChange={(event) => setNewSchema(event.target.value)}
                 style={fieldInput}
                 required
               >
                 <option value="">—</option>
-                {rulesets
-                  .filter((row) => row.editable)
-                  .map((row) => (
-                    <option key={row.id} value={row.id}>
-                      {row.name} ({row.campaign_name || t('rulesets.serverWide')})
-                    </option>
-                  ))}
+                {schemas.map((schema) => (
+                  <option key={schema.schema_id} value={schema.schema_id}>
+                    {schema.name}
+                  </option>
+                ))}
               </select>
             </div>
-            <div style={{ flex: '1 1 140px' }}>
-              <label htmlFor="rs-conflict" style={fieldLabel}>
-                {t('rulesets.onConflict')}
+            <div style={{ flex: '1 1 160px' }}>
+              <label htmlFor="rs-campaign" style={fieldLabel}>
+                {t('rulesets.forCampaign')}
               </label>
               <select
-                id="rs-conflict"
-                value={pasteConflict}
-                onChange={(event) => setPasteConflict(event.target.value)}
+                id="rs-campaign"
+                value={newCampaign}
+                onChange={(event) => setNewCampaign(event.target.value)}
                 style={fieldInput}
               >
-                <option value="skip">{t('rulesets.conflictSkip')}</option>
-                <option value="rename">{t('rulesets.conflictRename')}</option>
-                <option value="overwrite">{t('rulesets.conflictOverwrite')}</option>
+                <option value="">{t('rulesets.serverWide')}</option>
+                {campaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </option>
+                ))}
               </select>
             </div>
-          </div>
-          <div>
-            <label htmlFor="rs-document" style={fieldLabel}>
-              {t('rulesets.document')}
-            </label>
-            <textarea
-              id="rs-document"
-              value={pasteText}
-              onChange={(event) => setPasteText(event.target.value)}
-              rows={10}
-              required
-              spellCheck={false}
-              style={codeArea}
-            />
-            <p style={helpText}>{t('rulesets.documentHelp')}</p>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={!pasteText.trim() || !pasteTarget} style={goldBtn}>
-              {t('rulesets.import')}
+            <button type="submit" style={goldBtn}>
+              {t('rulesets.create')}
             </button>
-            <button type="button" onClick={() => setPasting(false)} style={ghostBtn}>
-              {t('common.cancel')}
-            </button>
-          </div>
-        </form>
-      ) : null}
+          </form>
+        ) : null}
 
-      {browsingPacks ? (
-        <PackCatalogue
-          onInstalled={load}
-          onClose={() => {
-            setBrowsingPacks(false)
-            // The installable-packs list is fetched when a ruleset is opened,
-            // and browsing happens from the list view - so opening one after
-            // this picks up the new pack without anything further here. This
-            // refresh is for the ruleset list itself.
-            load()
-          }}
-        />
-      ) : null}
-
-      {rulesets.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>{t('rulesets.empty')}</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
-          {rulesets.map((ruleset) => (
-            <li
-              key={ruleset.id}
-              style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}
-            >
-              <button
-                onClick={() => setOpen(ruleset)}
-                style={{
-                  flex: 1,
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  font: 'inherit',
-                  minWidth: 0,
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>{ruleset.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {ruleset.campaign_name || t('rulesets.serverWide')} · {ruleset.schema_id} ·{' '}
-                  {t('rulesets.entryCount', { count: ruleset.entry_count })}
-                </div>
+        {pasting ? (
+          <form
+            onSubmit={importDocument}
+            style={{ ...card, marginBottom: 20, display: 'grid', gap: 12 }}
+          >
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label htmlFor="rs-target" style={fieldLabel}>
+                  {t('rulesets.importInto')}
+                </label>
+                <select
+                  id="rs-target"
+                  value={pasteTarget}
+                  onChange={(event) => setPasteTarget(event.target.value)}
+                  style={fieldInput}
+                  required
+                >
+                  <option value="">—</option>
+                  {rulesets
+                    .filter((row) => row.editable)
+                    .map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.name} ({row.campaign_name || t('rulesets.serverWide')})
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div style={{ flex: '1 1 140px' }}>
+                <label htmlFor="rs-conflict" style={fieldLabel}>
+                  {t('rulesets.onConflict')}
+                </label>
+                <select
+                  id="rs-conflict"
+                  value={pasteConflict}
+                  onChange={(event) => setPasteConflict(event.target.value)}
+                  style={fieldInput}
+                >
+                  <option value="skip">{t('rulesets.conflictSkip')}</option>
+                  <option value="rename">{t('rulesets.conflictRename')}</option>
+                  <option value="overwrite">{t('rulesets.conflictOverwrite')}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="rs-document" style={fieldLabel}>
+                {t('rulesets.document')}
+              </label>
+              <textarea
+                id="rs-document"
+                value={pasteText}
+                onChange={(event) => setPasteText(event.target.value)}
+                rows={10}
+                required
+                spellCheck={false}
+                style={codeArea}
+              />
+              <p style={helpText}>{t('rulesets.documentHelp')}</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" disabled={!pasteText.trim() || !pasteTarget} style={goldBtn}>
+                {t('rulesets.import')}
               </button>
-              <a
-                href={`/api/rulesets/${ruleset.id}/export`}
-                aria-label={t('rulesets.export')}
-                title={t('rulesets.export')}
-                style={{ ...iconBtn, color: 'var(--text-muted)' }}
+              <button type="button" onClick={() => setPasting(false)} style={ghostBtn}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {rulesets.length === 0 ? (
+          <p style={emptyState}>{t('rulesets.empty')}</p>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+            {rulesets.map((ruleset) => (
+              <li
+                key={ruleset.id}
+                style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}
               >
-                <LuDownload size={15} />
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+                <button
+                  onClick={() => setOpen(ruleset)}
+                  style={{
+                    flex: 1,
+                    textAlign: 'left',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{ruleset.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {ruleset.campaign_name || t('rulesets.serverWide')} ·{' '}
+                    {sheetName(ruleset.schema_id)} ·{' '}
+                    {t('rulesets.entryCount', { count: ruleset.entry_count })}
+                  </div>
+                </button>
+                <a
+                  href={`/api/rulesets/${ruleset.id}/export`}
+                  aria-label={t('rulesets.export')}
+                  title={t('rulesets.export')}
+                  style={{ ...iconBtn, color: 'var(--text-muted)' }}
+                >
+                  <LuDownload size={15} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

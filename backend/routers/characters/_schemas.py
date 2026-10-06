@@ -134,6 +134,8 @@ class CharacterSummary(BaseModel):
     # party read the sheet; editing stays with the owner.
     campaign_id: Optional[str] = None
     portrait_path: Optional[str] = None
+    # Changes with the image, for cache-busting the portrait's URL.
+    portrait_version: Optional[int] = None
     # False when the caller is reading a party member's sheet rather than
     # their own.
     owned: bool = True
@@ -214,6 +216,7 @@ class CharacterImport(BaseModel):
 
 class PortraitResponse(BaseModel):
     portrait_path: str
+    portrait_version: Optional[int] = None
 
 
 class CharacterDeletedResponse(BaseModel):

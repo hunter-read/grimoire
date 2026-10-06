@@ -156,3 +156,24 @@ class TestSkillPoints:
 
     def test_a_new_investigator_has_nothing_to_warn_about(self, coc):
         assert _warnings(coc) == []
+
+
+class TestModernEraAdditions:
+    """The modern-era sheet's skills, current Luck, and the fellow investigators list."""
+
+    def test_modern_skills_start_at_their_bases(self, coc):
+        context = _context(coc)
+        assert context["sk_computer_use"] == 5
+        assert context["sk_electronics"] == 1
+
+    def test_modern_skills_count_against_skill_points(self, coc):
+        computed = _computed(coc, sk_computer_use=45, sk_electronics=21,
+                             occupation_skills=["Computer Use"])
+        # 40 points of Computer Use are occupation; 20 of Electronics personal.
+        assert computed["occupation_points_spent"] == 40
+        assert computed["personal_points_spent"] == 20
+
+    def test_current_luck_starts_at_starting_luck(self, coc):
+        assert _context(coc, luck=60)["luck_current"] == 60
+        computed = _computed(coc, luck=60, luck_current=40)
+        assert (computed["luck_half"], computed["luck_fifth"]) == (20, 8)

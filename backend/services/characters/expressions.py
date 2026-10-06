@@ -278,7 +278,9 @@ def _resolved(value: Any, entries: Any) -> list[dict]:
         if not isinstance(item, dict):
             continue
         if item.get("_inline"):
-            out.append(item)
+            # A freeform entry's per-entry notes count as much as a picked
+            # one's - a custom item's quantity, a homebrew spell marked prepared.
+            out.append({**item, **(item.get("_per") or {})})
             continue
         entry = table.get(str(item.get("_ref")))
         if isinstance(entry, dict):
@@ -319,6 +321,26 @@ def _fn_has_ref(value: Any, entry_id: Any) -> bool:
     )
 
 
+def _fn_sum_qty(value: Any, column: Any, qty: Any = "qty", entries: Any = None) -> Any:
+    """Total of a column times each row's quantity - carried weight, cargo mass.
+
+    Reads a `list` field's rows, or the entries a `content_list` picks (with the
+    character's per-entry quantity on top). A row whose quantity is blank counts
+    once, since an item listed without a count is one item; a quantity of 0
+    counts as none.
+    """
+    key, qty_key = str(column), str(qty)
+    rows = value if isinstance(value, list) else []
+    if any(isinstance(row, dict) and ("_ref" in row or row.get("_inline")) for row in rows):
+        rows = _resolved(rows, entries)
+    total: Union[int, float] = 0
+    for row in _rows(rows):
+        count = row.get(qty_key)
+        multiplier = 1 if count is None or str(count).strip() == "" else _to_number(count)
+        total += _to_number(row.get(key)) * multiplier
+    return total
+
+
 def _fn_count_refs(value: Any, prop: Any = None, expected: Any = True,
                    entries: Any = None) -> int:
     """How many references there are, or how many match a property."""
@@ -353,12 +375,13 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "sum_refs": _fn_sum_refs,
     "has_ref": _fn_has_ref,
     "count_refs": _fn_count_refs,
+    "sum_qty": _fn_sum_qty,
 }
 
 #: Functions that read resolved catalog entries. `_eval_node` passes the table
 #: to these as a keyword, so a schema author never writes it and the function's
 #: own parameter defaults still apply.
-_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs"})
+_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs", "sum_qty"})
 
 
 def _truthy(value: Any) -> bool:

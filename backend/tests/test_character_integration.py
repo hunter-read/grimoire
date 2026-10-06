@@ -232,6 +232,27 @@ class TestPortraits:
             f"/api/characters/{created['id']}/portrait", headers=admin_headers
         ).status_code == 404
 
+    def test_a_replaced_portrait_gets_a_new_version(self, client, admin_headers, both_schemas):
+        """The image is cached for minutes, so the client puts the version in
+        its URL - a replacement must change it, and the character must say so."""
+        created = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "Versioned"},
+            headers=admin_headers,
+        ).json()
+        assert created["portrait_version"] is None
+        url = f"/api/characters/{created['id']}/portrait"
+        first = client.post(url, files={"file": ("a.png", _png(), "image/png")},
+                            headers=admin_headers).json()["portrait_version"]
+        second = client.post(url, files={"file": ("b.png", _png(), "image/png")},
+                             headers=admin_headers).json()["portrait_version"]
+        assert first and second and second != first
+        listed = client.get("/api/characters", headers=admin_headers).json()["characters"]
+        assert [c["portrait_version"] for c in listed if c["id"] == created["id"]] == [second]
+        client.delete(url, headers=admin_headers)
+        detail = client.get(f"/api/characters/{created['id']}", headers=admin_headers).json()
+        assert detail["portrait_version"] is None
+
     def test_rejects_a_file_that_is_not_an_image(self, client, admin_headers, both_schemas):
         created = client.post(
             "/api/characters",

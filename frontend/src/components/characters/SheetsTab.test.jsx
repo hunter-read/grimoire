@@ -44,7 +44,7 @@ describe('SheetsTab', () => {
     renderTab()
     expect(screen.getByText('D&D 5e')).toBeInTheDocument()
     // Provenance decides whether uninstalling can be undone by browsing.
-    expect(screen.getByText(/from the catalogue/i)).toBeInTheDocument()
+    expect(screen.getByText(/from the catalog(ue)?/i)).toBeInTheDocument()
     expect(screen.getByText(/2 characters/i)).toBeInTheDocument()
   })
 

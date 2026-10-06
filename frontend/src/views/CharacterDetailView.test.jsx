@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import CharacterDetailView from './CharacterDetailView'
@@ -19,7 +19,7 @@ vi.mock('../api', () => ({
     update: (...a) => mockUpdate(...a),
     export: (...a) => mockExport(...a),
     uploadPortrait: (...a) => mockUploadPortrait(...a),
-    portraitUrl: (id) => `/api/characters/${id}/portrait`,
+    portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
   },
 }))
 
@@ -120,7 +120,7 @@ describe('CharacterDetailView', () => {
   it('navigates back to the list', async () => {
     renderView()
     await screen.findByLabelText('Strength')
-    await userEvent.click(screen.getByLabelText('Back'))
+    await userEvent.click(screen.getByLabelText('Back to characters'))
     expect(mockNavigate).toHaveBeenCalledWith('/characters')
   })
 
@@ -143,21 +143,41 @@ describe('CharacterDetailView', () => {
   })
 
   describe('portraits and export', () => {
-    it('uploads a portrait', async () => {
-      mockUploadPortrait.mockResolvedValue({ portrait_path: 'c1.png' })
+    it('adds art in the header, without pushing the sheet down', async () => {
+      mockUploadPortrait.mockResolvedValue({ portrait_path: 'c1.png', portrait_version: 7 })
       renderView()
-      const input = await screen.findByLabelText(/Set a portrait/i)
+      await screen.findByLabelText('Strength')
+      const header = screen.getByRole('banner')
       const file = new File(['x'], 'p.png', { type: 'image/png' })
-      await userEvent.upload(input, file)
+      await userEvent.upload(within(header).getByLabelText('Add art', { selector: 'input' }), file)
       await waitFor(() => expect(mockUploadPortrait).toHaveBeenCalledWith('c1', file))
+      const image = await within(header).findByAltText('Portrait of Vex')
+      expect(image).toHaveAttribute('src', '/api/characters/c1/portrait?v=7')
     })
 
     it('surfaces a portrait failure', async () => {
       mockUploadPortrait.mockRejectedValue(new Error('too big'))
       renderView()
-      const input = await screen.findByLabelText(/Set a portrait/i)
-      await userEvent.upload(input, new File(['x'], 'p.png', { type: 'image/png' }))
+      await screen.findByLabelText('Strength')
+      await userEvent.upload(
+        screen.getByLabelText('Add art', { selector: 'input' }),
+        new File(['x'], 'p.png', { type: 'image/png' })
+      )
       expect(await screen.findByRole('alert')).toHaveTextContent('too big')
+    })
+
+    it('shows a party member\u2019s character read-only', async () => {
+      mockGet.mockResolvedValue({ ...CHARACTER, owned: false })
+      renderView()
+      expect(await screen.findByRole('heading', { name: 'Vex' })).toBeInTheDocument()
+      expect(screen.getByText(/read only/i)).toBeInTheDocument()
+      expect(screen.queryByLabelText('Add art', { selector: 'input' })).not.toBeInTheDocument()
+    })
+
+    it('says the sheet the character is built on', async () => {
+      renderView()
+      await screen.findByLabelText('Strength')
+      expect(within(screen.getByRole('banner')).getByText('D&D 5e')).toBeInTheDocument()
     })
 
     it('exports the character as a file', async () => {

@@ -38,10 +38,14 @@ export const ghostBtn = {
 
 // A disabled action stays legible rather than vanishing: "New character" is
 // disabled until a sheet is installed, and the tooltip explaining that is only
-// useful if the button can still be seen and hovered.
+// useful if the button can be read. Fading it with opacity took its text below
+// a readable contrast, so it keeps full-strength muted text and says
+// "unavailable" with a recessed background and a dashed edge instead.
 export const disabledBtn = {
   ...ghostBtn,
-  opacity: 0.55,
+  background: 'var(--bg-deep)',
+  borderStyle: 'dashed',
+  color: 'var(--text-muted)',
   cursor: 'not-allowed',
 }
 
@@ -93,6 +97,28 @@ export const sectionHeading = {
   color: 'var(--text-muted)',
   borderBottom: '1px solid var(--border)',
   paddingBottom: 6,
+}
+
+// A section's title and its actions on one line, over one rule - the content
+// tab's "Content packs" and "Rulesets" headings.
+export const sectionBar = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  flexWrap: 'wrap',
+  paddingBottom: 8,
+  marginBottom: 8,
+  borderBottom: '1px solid var(--border)',
+}
+
+export const sectionTitle = {
+  flex: 1,
+  margin: 0,
+  fontSize: 13,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  color: 'var(--text-dim)',
 }
 
 // --- the sheet & ruleset manager ------------------------------------------
@@ -172,6 +198,20 @@ export const codeArea = {
 
 export const helpText = {
   margin: '4px 0 0',
-  fontSize: 11,
+  fontSize: 12,
+  lineHeight: 1.45,
   color: 'var(--text-muted)',
+}
+
+// A list with nothing in it yet: the same size and colour as the help text
+// around it, in a dashed panel so it reads as a place things will go.
+export const emptyState = {
+  margin: 0,
+  padding: '18px 16px',
+  border: '1px dashed var(--border)',
+  borderRadius: 10,
+  fontSize: 13,
+  lineHeight: 1.5,
+  color: 'var(--text-muted)',
+  textAlign: 'center',
 }

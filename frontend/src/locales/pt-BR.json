@@ -3160,7 +3160,23 @@
     "noValuesMatch": "Sem resultados.",
     "chooseEntry": "Escolher {{label}}",
     "showEntry": "Mostrar {{name}}",
-    "hideEntry": "Ocultar {{name}}"
+    "hideEntry": "Ocultar {{name}}",
+    "newCharacterHelp": "Escolha a ficha em que este personagem se baseia. Você pode renomeá-lo quando quiser.",
+    "sheet": "Ficha",
+    "campaignOptional": "Campanha (opcional)",
+    "noCampaign": "Nenhuma campanha",
+    "campaignHelp": "Todos na campanha podem ler a ficha deste personagem. Só você pode editá-la.",
+    "creating": "Criando…",
+    "emptyTitle": "Nenhum personagem ainda",
+    "open": "Abrir {{name}}",
+    "deleteNamed": "Excluir {{name}}",
+    "contentTab": "Conteúdo",
+    "addPortrait": "Adicionar imagem",
+    "changePortrait": "Trocar imagem",
+    "removePortrait": "Remover imagem",
+    "confirmRemovePortrait": "Remover a imagem de \"{{name}}\"?",
+    "backToList": "Voltar aos personagens",
+    "readOnlyParty": "Personagem de um membro do grupo - somente leitura"
   },
   "contentPacks": {
     "title": "Pacotes de conteúdo",
@@ -3180,7 +3196,10 @@
     "update": "Atualizar para v{{version}}",
     "reinstall": "Reinstalar",
     "uninstall": "Desinstalar {{name}}",
-    "confirmUninstall": "Desinstalar \"{{name}}\" deste servidor? Os personagens mantêm as referências e as mostram como não instaladas até que volte. Os conjuntos de regras que o importaram mantêm sua própria cópia."
+    "confirmUninstall": "Desinstalar \"{{name}}\" deste servidor? Os personagens mantêm as referências e as mostram como não instaladas até que volte. Os conjuntos de regras que o importaram mantêm sua própria cópia.",
+    "installedHelp": "Instalados para todos neste servidor. Qualquer personagem numa ficha compatível pode usar o conteúdo de um pacote na hora.",
+    "emptyInstalled": "Nenhum pacote de conteúdo instalado ainda. Navegue pelos pacotes de conteúdo para adicionar um.",
+    "forSheet": "Para {{sheet}}"
   },
   "rulesets": {
     "title": "Conjuntos de regras",
@@ -3189,8 +3208,8 @@
     "forCampaign": "Para a campanha",
     "serverWide": "Todos neste servidor",
     "readOnly": "Apenas leitura",
-    "help": "Um conjunto de regras é o conteúdo com que uma mesa joga. O de uma campanha é partilhado com todos os seus membros; o do servidor vale em todos os jogos.",
-    "empty": "Ainda não há conjuntos. Crie um para uma campanha ou importe um pacote.",
+    "help": "Seu próprio conteúdo: material caseiro, regras da casa ou entradas de um pacote que você alterou. Um conjunto de regras pertence a uma campanha, compartilhado com todos daquela mesa, ou ao servidor inteiro.",
+    "empty": "Nenhum conjunto de regras ainda. Crie um para adicionar material caseiro ou alterar as entradas de um pacote.",
     "needSheetFirst": "Instale primeiro uma ficha",
     "loadFailed": "Não foi possível carregar os conjuntos.",
     "entryCount": "{{count}} entrada",

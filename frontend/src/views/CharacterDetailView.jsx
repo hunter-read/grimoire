@@ -6,8 +6,8 @@ import {
   LuTriangleAlert,
   LuCheck,
   LuDownload,
-  LuImage,
   LuListTree,
+  LuEye,
 } from 'react-icons/lu'
 import { characters as charactersApi, content as contentApi } from '../api'
 import Spinner from '../components/Spinner'
@@ -17,6 +17,7 @@ import AllValuesDialog from '../components/characters/AllValuesDialog'
 import { planPick, applyChoice } from '../components/characters/onPick'
 import { OVERRIDES_KEY } from '../components/characters/expressions'
 import RawCharacterData from '../components/characters/RawCharacterData'
+import CharacterPortrait from '../components/characters/CharacterPortrait'
 import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 
 // Edits are saved on a short debounce rather than on a Save button: a sheet is
@@ -44,7 +45,6 @@ export default function CharacterDetailView() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
-  const [portraitKey, setPortraitKey] = useState(0)
 
   // Choices a pick asked for - "choose 2 skills" - shown one at a time.
   const [choices, setChoices] = useState([])
@@ -229,19 +229,6 @@ export default function CharacterDetailView() {
     setChoices(rest)
   }
 
-  const uploadPortrait = async (file) => {
-    if (!file) return
-    try {
-      await charactersApi.uploadPortrait(characterId, file)
-      // The URL does not change when the image does, so a cache-busting token
-      // is what makes the new portrait actually appear.
-      setPortraitKey(Date.now())
-      setError('')
-    } catch (e) {
-      setError(e.message)
-    }
-  }
-
   const exportCharacter = async () => {
     try {
       const payload = await charactersApi.export(characterId)
@@ -280,73 +267,115 @@ export default function CharacterDetailView() {
     )
   }
 
+  const sheetName = document?.name || character.schema_name || character.schema_ref
+  const actionBtn = { ...ghostBtn, padding: 8 }
+
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+    <div className="fade-in" style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
         <button
+          type="button"
           onClick={() => navigate('/characters')}
-          aria-label={t('common.back')}
+          aria-label={t('characters.backToList')}
+          title={t('characters.backToList')}
           style={iconBtn}
         >
           <LuArrowLeft size={18} />
         </button>
-        <input
-          value={character.name || ''}
-          onChange={(e) => setCharacter((prev) => ({ ...prev, name: e.target.value }))}
-          onBlur={(e) => rename(e.target.value)}
-          aria-label={t('characters.name')}
-          style={{
-            flex: 1,
-            fontSize: 20,
-            fontWeight: 600,
-            background: 'none',
-            border: 'none',
-            borderBottom: '1px solid transparent',
-            color: 'var(--text)',
-            padding: '2px 0',
-          }}
+        <CharacterPortrait
+          character={character}
+          readOnly={readOnly}
+          onChanged={(patch) => setCharacter((prev) => ({ ...prev, ...patch }))}
+          onError={setError}
         />
-        <label
-          title={t('characters.setPortrait')}
-          style={{ ...ghostBtn, padding: '6px 10px', cursor: 'pointer' }}
-        >
-          <LuImage size={14} />
-          <input
-            type="file"
-            accept="image/*"
-            aria-label={t('characters.setPortrait')}
-            onChange={(e) => uploadPortrait(e.target.files?.[0])}
-            style={{ display: 'none' }}
-          />
-        </label>
-        {document ? (
-          <button
-            onClick={() => setShowingAll(true)}
-            aria-label={t('characters.allValues')}
-            title={t('characters.allValues')}
-            style={{ ...ghostBtn, padding: '6px 10px' }}
+        <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+          {readOnly ? (
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>
+              {character.name || t('characters.untitled')}
+            </h1>
+          ) : (
+            <input
+              value={character.name || ''}
+              placeholder={t('characters.untitled')}
+              onChange={(e) => setCharacter((prev) => ({ ...prev, name: e.target.value }))}
+              onBlur={(e) => rename(e.target.value)}
+              aria-label={t('characters.name')}
+              style={{
+                width: '100%',
+                fontSize: 22,
+                fontWeight: 600,
+                background: 'none',
+                border: 'none',
+                borderBottom: '1px solid transparent',
+                borderRadius: 0,
+                color: 'var(--text)',
+                padding: '2px 0',
+              }}
+            />
+          )}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              fontSize: 13,
+              color: 'var(--text-muted)',
+              marginTop: 2,
+            }}
           >
-            <LuListTree size={14} />
-          </button>
-        ) : null}
-        <button
-          onClick={exportCharacter}
-          aria-label={t('characters.export')}
-          title={t('characters.export')}
-          style={{ ...ghostBtn, padding: '6px 10px' }}
+            <span>{sheetName}</span>
+            {readOnly ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                · <LuEye size={13} aria-hidden="true" /> {t('characters.readOnlyParty')}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <span
+          role="status"
+          aria-live="polite"
+          style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 64, textAlign: 'right' }}
         >
-          <LuDownload size={14} />
-        </button>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 60 }}>
           {saving ? (
             t('characters.saving')
           ) : savedAt ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <LuCheck size={12} />
+              <LuCheck size={13} aria-hidden="true" />
               {t('characters.saved')}
             </span>
           ) : null}
         </span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {document ? (
+            <button
+              type="button"
+              onClick={() => setShowingAll(true)}
+              aria-label={t('characters.allValues')}
+              title={t('characters.allValues')}
+              style={actionBtn}
+            >
+              <LuListTree size={16} />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={exportCharacter}
+            aria-label={t('characters.export')}
+            title={t('characters.export')}
+            style={actionBtn}
+          >
+            <LuDownload size={16} />
+          </button>
+        </div>
       </header>
 
       {error ? (
@@ -372,24 +401,6 @@ export default function CharacterDetailView() {
           <LuTriangleAlert size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div>{t('characters.schemaMissingHelp', { schema: character.schema_ref })}</div>
         </div>
-      ) : null}
-
-      {character.portrait_path || portraitKey ? (
-        <img
-          src={`${charactersApi.portraitUrl(characterId)}?v=${portraitKey}`}
-          alt={t('characters.portraitOf', { name: character.name || '' })}
-          onError={(event) => {
-            event.currentTarget.style.display = 'none'
-          }}
-          style={{
-            width: 120,
-            height: 120,
-            objectFit: 'cover',
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            marginBottom: 16,
-          }}
-        />
       ) : null}
 
       {document ? (

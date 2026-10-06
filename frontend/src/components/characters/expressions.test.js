@@ -337,6 +337,43 @@ describe('catalog functions', () => {
     expect(evaluate("sum_refs(klass, 'level')", context)).toBe(3)
     expect(evaluate('count_refs(nothing)', context)).toBe(0)
   })
+  it('reads a freeform entry’s own per-entry notes', () => {
+    const withNotes = {
+      ...context,
+      spells: [...context.spells, { _inline: true, name: 'Homebrew', _per: { prepared: true } }],
+    }
+    expect(evaluate("count_refs(spells, 'prepared')", withNotes)).toBe(2)
+  })
+})
+
+describe('sum_qty', () => {
+  it.each([
+    // 2 x 3 + 1 x 5 + a blank quantity counting once: 4.
+    ["sum_qty(kit, 'mass')", 15],
+    // A quantity column of another name; the row without one counts once.
+    ["sum_qty(kit, 'mass', 'count')", 16],
+    ["sum_qty(nothing, 'mass')", 0],
+  ])('%s evaluates to %s', (formula, expected) => {
+    const kit = [
+      { mass: 3, qty: 2, count: 1 },
+      { mass: 5, qty: 1, count: 0 },
+      { mass: 4, qty: '', count: 1.5 },
+      { mass: 7, qty: 0 },
+    ]
+    expect(evaluate(formula, { kit })).toBe(expected)
+  })
+
+  it('reads picked entries with the character’s quantity on top', () => {
+    const context = {
+      gear: [
+        { _ref: 'rope', _per: { qty: 2 } },
+        { _ref: 'torch' },
+        { _inline: true, name: 'Idol', weight: 3, _per: { qty: 2 } },
+      ],
+      _entries: { rope: { weight: 5 }, torch: { weight: 1 } },
+    }
+    expect(evaluate("sum_qty(gear, 'weight')", context)).toBe(17)
+  })
 })
 
 describe('overriding computed values', () => {

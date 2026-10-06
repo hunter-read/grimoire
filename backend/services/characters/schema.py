@@ -87,8 +87,11 @@ _ID_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 _DISPLAY_TOKENS = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-MAX_FIELDS = 500
-MAX_COMPUTED = 500
+#: Bounds on a sheet's size. Traveller is the yardstick: a check DM for each of
+#: some 130 skills against six characteristics is about a thousand computed
+#: values, and the 512 KiB document cap still bounds what a payload can carry.
+MAX_FIELDS = 1000
+MAX_COMPUTED = 1500
 #: A computed value may depend on others, so evaluation is iterative. This caps
 #: the passes — deeper than any real sheet, and it makes a cyclic schema
 #: terminate rather than spin.
@@ -618,12 +621,19 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
 # --- character evaluation ------------------------------------------------
 
 
-def coerce_value(definition: dict, value: Any) -> Any:
+def coerce_value(
+    definition: dict, value: Any, content_types: Optional[dict] = None
+) -> Any:
     """Coerce a submitted value to its field's type.
 
     Out-of-range numbers are clamped rather than rejected: the bound is there to
     guide, and refusing to save a character because a temporary buff put a score
     at 21 would lose the player's work.
+
+    ``content_types`` is the sheet's content type table. A freeform catalog entry
+    keeps the properties its content type declares - a custom trait's
+    description, a custom item's weight - which the field's own definition does
+    not know about.
     """
     field_type = (definition or {}).get("type", "text")
 
@@ -666,12 +676,12 @@ def coerce_value(definition: dict, value: Any) -> Any:
         return _coerce_rows(definition, value)
 
     if field_type == "content_ref":
-        return _coerce_ref(definition, value)
+        return _coerce_ref(definition, value, content_types)
 
     if field_type == "content_list":
         if not isinstance(value, list):
             return []
-        refs = [_coerce_ref(definition, item) for item in value[:MAX_ROWS]]
+        refs = [_coerce_ref(definition, item, content_types) for item in value[:MAX_ROWS]]
         return [ref for ref in refs if ref]
 
     return "" if value is None else str(value)
@@ -684,7 +694,7 @@ def coerce_value(definition: dict, value: Any) -> Any:
 _REF_KEYS = ("_ref", "_source", "_per", "_inline")
 
 
-def _coerce_ref(definition: dict, value: Any) -> Any:
+def _coerce_ref(definition: dict, value: Any, content_types: Optional[dict] = None) -> Any:
     """Coerce one catalog reference.
 
     A reference is stored, never a copy of the entry: an erratum or a ruleset
@@ -700,11 +710,18 @@ def _coerce_ref(definition: dict, value: Any) -> Any:
         return None
 
     if value.get("_inline"):
-        # Freeform: keep the declared per-entry fields plus a display name, and
-        # drop anything else, exactly as a list row is rebuilt from its columns.
+        # Freeform: keep a display name, the properties its content type
+        # declares - the same form the sheet offers for it - and the declared
+        # per-entry fields, and drop anything else, exactly as a list row is
+        # rebuilt from its columns.
         inline: dict[str, Any] = {"_inline": True}
         name = value.get("name")
         inline["name"] = "" if name is None else str(name)
+        type_definition = (content_types or {}).get(definition.get("content_type"))
+        properties = (type_definition or {}).get("fields") or {}
+        for key, declared in properties.items():
+            if key != "name" and key in value and isinstance(declared, dict):
+                inline[key] = coerce_value(declared, value[key])
         inline.update(_coerce_per_entry(definition, value.get("_per")))
         per = inline.pop("_per", None)
         if per:

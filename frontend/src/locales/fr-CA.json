@@ -3160,7 +3160,23 @@
     "noValuesMatch": "Aucun résultat.",
     "chooseEntry": "Choisir {{label}}",
     "showEntry": "Afficher {{name}}",
-    "hideEntry": "Masquer {{name}}"
+    "hideEntry": "Masquer {{name}}",
+    "newCharacterHelp": "Choisissez la feuille sur laquelle repose ce personnage. Vous pourrez le renommer en tout temps.",
+    "sheet": "Feuille",
+    "campaignOptional": "Campagne (facultatif)",
+    "noCampaign": "Aucune campagne",
+    "campaignHelp": "Tous les membres de la campagne peuvent lire la feuille de ce personnage. Vous seul pouvez la modifier.",
+    "creating": "Création…",
+    "emptyTitle": "Aucun personnage pour le moment",
+    "open": "Ouvrir {{name}}",
+    "deleteNamed": "Supprimer {{name}}",
+    "contentTab": "Contenu",
+    "addPortrait": "Ajouter une illustration",
+    "changePortrait": "Changer l'illustration",
+    "removePortrait": "Retirer l'illustration",
+    "confirmRemovePortrait": "Retirer l'illustration de « {{name}} » ?",
+    "backToList": "Retour aux personnages",
+    "readOnlyParty": "Personnage d'un membre du groupe - lecture seule"
   },
   "contentPacks": {
     "title": "Packs de contenu",
@@ -3180,7 +3196,10 @@
     "update": "Mettre à jour vers v{{version}}",
     "reinstall": "Réinstaller",
     "uninstall": "Désinstaller {{name}}",
-    "confirmUninstall": "Désinstaller « {{name}} » de ce serveur ? Les personnages gardent leurs références et les affichent comme non installées jusqu'à son retour. Les jeux de règles qui l'ont importé gardent leur propre copie."
+    "confirmUninstall": "Désinstaller « {{name}} » de ce serveur ? Les personnages gardent leurs références et les affichent comme non installées jusqu'à son retour. Les jeux de règles qui l'ont importé gardent leur propre copie.",
+    "installedHelp": "Installés pour tout le monde sur ce serveur. Tout personnage sur une feuille correspondante peut utiliser le contenu d'un paquet immédiatement.",
+    "emptyInstalled": "Aucun paquet de contenu installé pour le moment. Parcourez les paquets de contenu pour en ajouter un.",
+    "forSheet": "Pour {{sheet}}"
   },
   "rulesets": {
     "title": "Recueils de règles",
@@ -3189,8 +3208,8 @@
     "forCampaign": "Pour la campagne",
     "serverWide": "Tout le monde sur ce serveur",
     "readOnly": "Lecture seule",
-    "help": "Un recueil est le contenu avec lequel une table joue. Celui d'une campagne est partagé avec tous ses membres ; celui du serveur vaut pour toutes les parties.",
-    "empty": "Aucun recueil. Créez-en un pour une campagne, ou importez-y un pack de contenu.",
+    "help": "Votre propre contenu : créations maison, règles maison ou entrées d'un paquet que vous avez modifiées. Un recueil de règles appartient à une campagne, partagé avec toute la table, ou à tout le serveur.",
+    "empty": "Aucun recueil de règles pour le moment. Créez-en un pour ajouter vos créations ou modifier les entrées d'un paquet.",
     "needSheetFirst": "Installez d'abord une fiche",
     "loadFailed": "Impossible de charger les recueils.",
     "entryCount": "{{count}} entrée",

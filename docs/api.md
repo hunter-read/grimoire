@@ -1796,8 +1796,14 @@ rather than stored as sent:
 `character_count`, and on detail `document`.
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
-`schema_missing`, `campaign_id`, `portrait_path`, `owned`, `created_at`,
-`updated_at`, and on detail `data`, `computed`, `validators`, and `entries`.
+`schema_missing`, `campaign_id`, `portrait_path`, `portrait_version`, `owned`,
+`created_at`, `updated_at`, and on detail `data`, `computed`, `validators`, and
+`entries`.
+
+`portrait_version` changes whenever the portrait does (it is `null` without
+one), and the portrait upload returns it too. Pass it as `?v=` on the portrait's
+URL: the image is cached for five minutes, so the same URL would keep serving
+the old art after a replacement.
 
 #### Campaign scoping
 
@@ -1950,6 +1956,7 @@ name would resolve against the character before the function saw it):
 |---|---|
 | `count_where(list, 'col')` | How many rows have that column truthy (or equal to a third argument) |
 | `sum_where(list, 'col')` | Total of that column, optionally filtered: `sum_where(kit, 'qty', 'equipped', true)` |
+| `sum_qty(list, 'col')` | Total of that column times each row's `qty` (or a named third column): `sum_qty(gear, 'mass')`. A blank quantity counts once. Also reads a catalog list, with each entry's per-entry quantity |
 | `any_where(list, 'col')` | Whether any row matches |
 | `column(list, 'col')` | Every value of one column, for `sum()`/`min()`/`max()` |
 | `contains(value, x)` | Whether a multiselect holds `x`, or text contains it |
@@ -2118,7 +2125,9 @@ coerced like any other.
 `_source` records which pack an entry came from, because two packs for one
 system may each define `fireball`. `_inline` is the freeform escape hatch that
 keeps the catalog optional: with `allow_freeform`, a player can type an entry
-instead of picking one, and never open the browser at all.
+instead of picking one, and never open the browser at all. A freeform entry keeps
+the properties its content type declares - a homebrew spell's level and
+description - coerced to their types; anything undeclared is dropped.
 
 A character detail response carries `entries` - the catalog entries its
 references point at, resolved in one query - so rendering the sheet costs no
@@ -2137,8 +2146,9 @@ supplied behind the scenes, so an author never writes it:
 | `has_ref(list, 'entry-id')` | Whether the list holds that entry |
 | `count_refs(list)` / `count_refs(list, 'prop', value)` | How many references there are, or how many match |
 
-The character's `_per` notes are layered over the catalog entry, so
-`count_refs(spells, 'prepared')` reads what the player set. Before the catalog
+The character's `_per` notes are layered over the catalog entry - and over a
+freeform entry's own values - so `count_refs(spells, 'prepared')` reads what the
+player set. Before the catalog
 has resolved, these return 0 rather than failing - a sheet renders while its
 entries are still loading.
 

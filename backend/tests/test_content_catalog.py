@@ -363,6 +363,27 @@ class TestCharacterReferences:
         assert spells[2] == {"_inline": True, "name": "My Cantrip"}
         assert created["data"]["signature"] == {"_ref": "wish", "_source": "srd"}
 
+    def test_a_custom_entry_keeps_what_its_content_type_declares(
+        self, client, admin_headers, catalog
+    ):
+        """The sheet offers a custom entry its content type's own form; saving
+        must not throw that away, or a homebrew spell loses its level on reload."""
+        created = client.post(
+            "/api/characters",
+            json={
+                "schema_ref": "catalog-demo",
+                "name": "Vex",
+                "data": {
+                    "spells": [
+                        {"_inline": True, "name": "Homebrew", "level": "2", "sneaky": "x"},
+                    ],
+                },
+            },
+            headers=admin_headers,
+        ).json()
+        assert created["data"]["spells"] == [{"_inline": True, "name": "Homebrew", "level": 2}]
+        assert created["computed"]["spell_levels"] == 2
+
     def test_computed_values_read_referenced_entries(self, client, admin_headers, catalog):
         created = client.post(
             "/api/characters",

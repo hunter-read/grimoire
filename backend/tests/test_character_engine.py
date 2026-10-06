@@ -734,6 +734,50 @@ class TestListExpressions:
         assert svc.evaluate("count_where(kit, 'equipped')", {"kit": "nonsense"}) == 0
 
 
+class TestSumQty:
+    """Mirrors the frontend's sum_qty cases: the two evaluators must agree."""
+
+    KIT = [
+        {"mass": 3, "qty": 2, "count": 1},
+        {"mass": 5, "qty": 1, "count": 0},
+        {"mass": 4, "qty": "", "count": 1.5},
+        {"mass": 7, "qty": 0},
+    ]
+
+    @pytest.mark.parametrize(
+        "formula,expected",
+        [
+            # 2 x 3 + 1 x 5 + a blank quantity counting once: 4.
+            ("sum_qty(kit, 'mass')", 15),
+            ("sum_qty(kit, 'mass', 'count')", 16),
+            ("sum_qty(nothing, 'mass')", 0),
+        ],
+    )
+    def test_weights_each_row_by_its_quantity(self, formula, expected):
+        assert svc.evaluate(formula, {"kit": self.KIT}) == expected
+
+    def test_reads_picked_entries_with_the_characters_quantity(self):
+        context = {
+            "gear": [
+                {"_ref": "rope", "_per": {"qty": 2}},
+                {"_ref": "torch"},
+                {"_inline": True, "name": "Idol", "weight": 3, "_per": {"qty": 2}},
+            ],
+            "_entries": {"rope": {"weight": 5}, "torch": {"weight": 1}},
+        }
+        assert svc.evaluate("sum_qty(gear, 'weight')", context) == 17
+
+    def test_a_freeform_entrys_own_notes_are_read(self):
+        context = {
+            "spells": [
+                {"_ref": "shield", "_per": {"prepared": True}},
+                {"_inline": True, "name": "Homebrew", "_per": {"prepared": True}},
+            ],
+            "_entries": {"shield": {"level": 1}},
+        }
+        assert svc.evaluate("count_refs(spells, 'prepared')", context) == 2
+
+
 # --- derived defaults and picks ----------------------------------------------
 
 from backend.services.characters.schema import _build_context  # noqa: E402

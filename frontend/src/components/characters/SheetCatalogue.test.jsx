@@ -117,7 +117,7 @@ describe('SheetCatalogue', () => {
   it('filters by name, system or description', async () => {
     renderCatalogue()
     await screen.findByText('Cairn')
-    await userEvent.type(screen.getByLabelText(/Search the catalogue/i), 'dungeons')
+    await userEvent.type(screen.getByLabelText(/Search the catalog(ue)?/i), 'dungeons')
     expect(screen.getByText('D&D 5e (2024)')).toBeInTheDocument()
     expect(screen.queryByText('Cairn')).not.toBeInTheDocument()
   })
@@ -214,7 +214,7 @@ describe('SheetCatalogue', () => {
       })
       renderCatalogue()
       await screen.findAllByText('Cairn')
-      expect(screen.getByText(/From 2 catalogues/i)).toBeInTheDocument()
+      expect(screen.getByText(/From 2 catalog(ue)?s/i)).toBeInTheDocument()
     })
   })
 })

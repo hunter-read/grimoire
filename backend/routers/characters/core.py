@@ -11,13 +11,14 @@ fetching and then checking, so there is no path where a row belonging to someone
 else is loaded at all.
 """
 import logging
+import os
 from typing import Any, Optional
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
-from ...config import get_db
+from ...config import CHARACTER_PORTRAIT_DIR, get_db
 from ...models import Character, CharacterSchema, ContentEntry, Ruleset, RulesetEntry
 from ...services.characters import rulesets as rs
 from ...services import characters as svc
@@ -294,6 +295,15 @@ def _resolved_entries(db: Session, document: dict, data: dict, user_id: str) -> 
     return resolved
 
 
+def _portrait_version(portrait_path: Optional[str]) -> Optional[int]:
+    if not portrait_path:
+        return None
+    try:
+        return int(os.stat(os.path.join(CHARACTER_PORTRAIT_DIR, portrait_path)).st_mtime_ns)
+    except OSError:
+        return None
+
+
 def _serialize_character(
     row: Character,
     schema: Optional[CharacterSchema],
@@ -311,6 +321,10 @@ def _serialize_character(
         "schema_missing": schema is None,
         "campaign_id": row.campaign_id,
         "portrait_path": row.portrait_path,
+        # Changes whenever the image does, so the client can put it in the
+        # portrait's URL: the image is cached for minutes, and the same URL
+        # would keep showing the old art after a replacement.
+        "portrait_version": _portrait_version(row.portrait_path),
         # False when reading a party member's sheet: readable, not editable.
         "owned": viewer_id is None or row.user_id == viewer_id,
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -514,8 +528,9 @@ def _coerce_all(document: dict, submitted: dict) -> dict:
     arbitrary JSON into the row.
     """
     fields = document.get("fields") or {}
+    content_types = document.get("content_types") or {}
     cleaned = {
-        name: svc.coerce_value(fields[name], value)
+        name: svc.coerce_value(fields[name], value, content_types)
         for name, value in submitted.items()
         if name in fields
     }

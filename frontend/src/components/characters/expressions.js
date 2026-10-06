@@ -188,6 +188,25 @@ const FUNCTIONS = {
     return resolveRefs(value, entries).filter((entry) => equal(entry[key], expected)).length
   },
 
+  // Total of a column times each row's quantity - carried weight, cargo mass.
+  // Reads a `list` field's rows, or the entries a `content_list` picks with the
+  // character's per-entry quantity on top. A blank quantity counts once, since
+  // an item listed without a count is one item; a quantity of 0 counts as none.
+  sum_qty: (value, column, qty = 'qty', entries = undefined) => {
+    const key = String(column)
+    const qtyKey = String(qty)
+    let rows = Array.isArray(value) ? value : []
+    if (rows.some((row) => row && typeof row === 'object' && ('_ref' in row || row._inline))) {
+      rows = resolveRefs(rows, entries)
+    }
+    return listRows(rows).reduce((total, row) => {
+      const count = row[qtyKey]
+      const multiplier =
+        count === null || count === undefined || String(count).trim() === '' ? 1 : toNumber(count)
+      return total + toNumber(row[key]) * multiplier
+    }, 0)
+  },
+
   // Whether a multiselect (or any list) holds a value, or text contains it.
   contains: (haystack, needle) => {
     if (Array.isArray(haystack)) return haystack.some((item) => equal(item, needle))
@@ -213,7 +232,7 @@ function flatten(values) {
 // `count_refs(spells, 'prepared')` reads what the player set.
 // Functions that read resolved catalog entries, and the position the entry
 // table occupies in each one's parameter list.
-const ENTRY_AWARE = { ref: 3, sum_refs: 3, count_refs: 4 }
+const ENTRY_AWARE = { ref: 3, sum_refs: 3, count_refs: 4, sum_qty: 4 }
 
 function resolveRefs(value, entries) {
   const items = Array.isArray(value) ? value : [value]
@@ -222,7 +241,9 @@ function resolveRefs(value, entries) {
   for (const item of items) {
     if (!item || typeof item !== 'object') continue
     if (item._inline) {
-      out.push(item)
+      // A freeform entry's per-entry notes count as much as a picked one's - a
+      // custom item's quantity, a homebrew spell marked prepared.
+      out.push({ ...item, ...(item._per || {}) })
       continue
     }
     const entry = table[String(item._ref)]

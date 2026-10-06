@@ -111,7 +111,7 @@ describe('PackCatalogue', () => {
       errors: [{ url: 'https://down.test/content-packs/index.json', error: '404' }],
     })
     renderCatalogue()
-    expect(await screen.findByLabelText(/Catalogue problems/i)).toBeInTheDocument()
+    expect(await screen.findByLabelText(/Catalog(ue)? problems/i)).toBeInTheDocument()
   })
 
   it('surfaces an install failure', async () => {

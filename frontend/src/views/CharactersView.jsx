@@ -1,35 +1,30 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuUsers, LuPlus, LuTrash2, LuTriangleAlert, LuFileUp, LuSettings } from 'react-icons/lu'
+import { LuUsers, LuPlus, LuFileUp, LuSettings } from 'react-icons/lu'
 import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
 import SheetManager from '../components/characters/SheetManager'
-import {
-  goldBtn,
-  ghostBtn,
-  disabledBtn,
-  iconBtn,
-  fieldInput,
-  fieldLabel,
-  card,
-} from '../components/characters/characterStyles'
+import NewCharacterDialog from '../components/characters/NewCharacterDialog'
+import CharacterCard from '../components/characters/CharacterCard'
+import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/characterStyles'
 
 /**
  * The character list — every character this user has, across every system.
  *
  * Sits under Campaigns in the sidebar and is visible to guests, who are exactly
  * the people most likely to want a character sheet: a guest account exists to
- * play in one campaign. Campaign-scoped party views come in Phase 5 (#133);
- * this is the personal list.
+ * play in one campaign. Laid out like the Campaigns page, with each character
+ * a card showing their art.
  */
 export default function CharactersView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  // `?manage=rulesets` opens the manager straight onto that tab, which is where
-  // the old /characters/rulesets route now lands.
+  // `?manage=rulesets` opens the manager straight onto its content tab, which
+  // is where the old /characters/rulesets route now lands.
   const [searchParams, setSearchParams] = useSearchParams()
   const manageParam = searchParams.get('manage')
+  const importRef = useRef(null)
 
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState([])
@@ -37,11 +32,8 @@ export default function CharactersView() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [managing, setManaging] = useState(Boolean(manageParam))
-  const [newName, setNewName] = useState('')
-  const [newSchema, setNewSchema] = useState('')
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const [list, schemaList] = await Promise.all([
         charactersApi.list(),
@@ -61,20 +53,10 @@ export default function CharactersView() {
     load()
   }, [load])
 
-  const create = async (e) => {
-    e.preventDefault()
-    if (!newSchema) return
-    try {
-      const created = await charactersApi.create({
-        schema_ref: newSchema,
-        name: newName.trim() || t('characters.untitled'),
-      })
-      setCreating(false)
-      setNewName('')
-      navigate(`/characters/${created.id}`)
-    } catch (err) {
-      setError(err.message)
-    }
+  const create = async (body) => {
+    const created = await charactersApi.create(body)
+    setCreating(false)
+    navigate(`/characters/${created.id}`)
   }
 
   const importCharacter = async (file) => {
@@ -86,191 +68,158 @@ export default function CharactersView() {
     } catch (e) {
       // A bad file and a rejected import both land here; the message says which.
       setError(e instanceof SyntaxError ? t('characters.importInvalidJson') : e.message)
+    } finally {
+      // Cleared, so choosing the same file again after fixing it still fires.
+      if (importRef.current) importRef.current.value = ''
     }
   }
 
-  const remove = async (id, name) => {
+  const remove = async (character) => {
+    const name = character.name || t('characters.untitled')
     if (!window.confirm(t('characters.confirmDelete', { name }))) return
     try {
-      await charactersApi.remove(id)
-      setCharacters((prev) => prev.filter((c) => c.id !== id))
+      await charactersApi.remove(character.id)
+      setCharacters((prev) => prev.filter((c) => c.id !== character.id))
     } catch (err) {
       setError(err.message)
     }
   }
 
-  if (loading) return <Spinner />
+  const canCreate = schemas.length > 0
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
+    <div className="fade-in" style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 12,
-          marginBottom: 24,
+          marginBottom: 28,
           flexWrap: 'wrap',
         }}
       >
-        <LuUsers size={22} color="var(--gold)" style={{ flexShrink: 0 }} />
-        <h1 style={{ margin: 0, fontSize: 22, flex: 1 }}>{t('characters.title')}</h1>
-
-        {/* Two groups, separated by a rule: setup on the left, then the
-            actions that make a character. Five equal-weight ghost buttons in a
-            row gave no clue which one to reach for. */}
-        <button onClick={() => setManaging(true)} style={ghostBtn}>
-          <LuSettings size={14} />
-          {t('characters.manageSheets')}
-        </button>
-        <span
-          aria-hidden="true"
-          style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)', margin: '0 2px' }}
-        />
-        <label title={t('characters.importCharacter')} style={{ ...ghostBtn, cursor: 'pointer' }}>
-          <LuFileUp size={14} />
-          {t('characters.importCharacter')}
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 22,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <LuUsers size={20} color="var(--gold)" aria-hidden="true" style={{ flexShrink: 0 }} />
+          {t('characters.title')}
+        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setManaging(true)} style={ghostBtn}>
+            <LuSettings size={14} aria-hidden="true" />
+            {t('characters.manageSheets')}
+          </button>
+          <button type="button" onClick={() => importRef.current?.click()} style={ghostBtn}>
+            <LuFileUp size={14} aria-hidden="true" />
+            {t('characters.importCharacter')}
+          </button>
           <input
+            ref={importRef}
             type="file"
             accept="application/json,.json,.yaml,.yml"
             aria-label={t('characters.importCharacter')}
             onChange={(e) => importCharacter(e.target.files?.[0])}
             style={{ display: 'none' }}
           />
-        </label>
-        <button
-          onClick={() => setCreating((v) => !v)}
-          disabled={!schemas.length}
-          title={schemas.length ? undefined : t('characters.needSchemaFirst')}
-          style={schemas.length ? goldBtn : disabledBtn}
-        >
-          <LuPlus size={14} />
-          {t('characters.newCharacter')}
-        </button>
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            disabled={!canCreate}
+            title={canCreate ? undefined : t('characters.needSchemaFirst')}
+            style={canCreate ? goldBtn : disabledBtn}
+          >
+            <LuPlus size={14} aria-hidden="true" />
+            {t('characters.newCharacter')}
+          </button>
+        </div>
       </header>
 
       {error ? (
-        <div role="alert" style={{ color: 'var(--danger)', marginBottom: 16 }}>
+        <div
+          role="alert"
+          style={{
+            color: 'var(--danger)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--danger)',
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 20,
+          }}
+        >
           {error}
         </div>
       ) : null}
 
-      {creating ? (
-        <form
-          onSubmit={create}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+          <Spinner size={28} />
+        </div>
+      ) : characters.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 16px', color: 'var(--text-muted)' }}>
+          <LuUsers size={40} aria-hidden="true" style={{ marginBottom: 16, opacity: 0.4 }} />
+          <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8, color: 'var(--text-dim)' }}>
+            {t('characters.emptyTitle')}
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 20 }}>
+            {canCreate ? t('characters.emptyNoCharacters') : t('characters.emptyBrowseFirst')}
+          </div>
+          <button
+            type="button"
+            onClick={() => (canCreate ? setCreating(true) : setManaging(true))}
+            style={goldBtn}
+          >
+            {canCreate ? (
+              <>
+                <LuPlus size={14} aria-hidden="true" />
+                {t('characters.newCharacter')}
+              </>
+            ) : (
+              <>
+                <LuSettings size={14} aria-hidden="true" />
+                {t('characters.manageSheets')}
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <ul
+          aria-label={t('characters.title')}
           style={{
-            ...card,
-            marginBottom: 24,
-            display: 'flex',
-            gap: 12,
-            flexWrap: 'wrap',
-            alignItems: 'flex-end',
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+            gap: 16,
           }}
         >
-          <div style={{ flex: '1 1 200px' }}>
-            <label htmlFor="new-name" style={fieldLabel}>
-              {t('characters.name')}
-            </label>
-            <input
-              id="new-name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              style={fieldInput}
-            />
-          </div>
-          <div style={{ flex: '1 1 200px' }}>
-            <label htmlFor="new-schema" style={fieldLabel}>
-              {t('characters.system')}
-            </label>
-            <select
-              id="new-schema"
-              value={newSchema}
-              onChange={(e) => setNewSchema(e.target.value)}
-              style={fieldInput}
-              required
-            >
-              <option value="">—</option>
-              {schemas.map((s) => (
-                <option key={s.schema_id} value={s.schema_id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="submit" style={goldBtn}>
-            {t('characters.create')}
-          </button>
-        </form>
-      ) : null}
-
-      {characters.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>
-          {schemas.length ? t('characters.emptyNoCharacters') : t('characters.emptyBrowseFirst')}
-        </p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
           {characters.map((character) => (
-            <li
-              key={character.id}
-              style={{
-                ...card,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 16px',
-              }}
-            >
-              <button
-                onClick={() => navigate(`/characters/${character.id}`)}
-                style={{
-                  flex: 1,
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  font: 'inherit',
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>{character.name || t('characters.untitled')}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {character.schema_missing ? (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        color: 'var(--warning)',
-                      }}
-                    >
-                      <LuTriangleAlert size={12} />
-                      {t('characters.schemaMissing', { schema: character.schema_ref })}
-                    </span>
-                  ) : (
-                    <>
-                      {character.schema_name || character.schema_ref}
-                      {character.owned === false ? ` · ${t('characters.partyMember')}` : ''}
-                    </>
-                  )}
-                </div>
-              </button>
-              <button
-                onClick={() => remove(character.id, character.name)}
-                aria-label={t('characters.delete')}
-                title={t('characters.delete')}
-                style={iconBtn}
-              >
-                <LuTrash2 size={16} />
-              </button>
-            </li>
+            <CharacterCard key={character.id} character={character} onDelete={remove} />
           ))}
         </ul>
       )}
+
+      {creating ? (
+        <NewCharacterDialog
+          schemas={schemas}
+          onCreate={create}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
 
       {managing ? (
         <SheetManager
           schemas={schemas}
           onChanged={load}
-          initialTab={manageParam === 'rulesets' ? 'rulesets' : 'sheets'}
+          initialTab={manageParam === 'rulesets' ? 'content' : 'sheets'}
           onClose={() => {
             setManaging(false)
             // Drop the param so closing and reopening does not jump back to
@@ -278,49 +227,6 @@ export default function CharactersView() {
             if (manageParam) setSearchParams({}, { replace: true })
           }}
         />
-      ) : null}
-
-      {schemas.length > 0 ? (
-        <section style={{ marginTop: 40 }}>
-          <h2 style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
-            {t('characters.installedSheets')}
-          </h2>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
-            {schemas.map((schema) => (
-              <li
-                key={schema.schema_id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  fontSize: 13,
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  {schema.name}
-                  {schema.version ? ` · v${schema.version}` : ''}
-                  {schema.character_count
-                    ? ` · ${t('characters.usedByCount', { count: schema.character_count })}`
-                    : ''}
-                </span>
-                <button
-                  onClick={async () => {
-                    if (!window.confirm(t('characters.confirmRemoveSchema', { name: schema.name })))
-                      return
-                    await charactersApi.deleteSchema(schema.schema_id)
-                    load()
-                  }}
-                  aria-label={t('characters.removeSchema')}
-                  title={t('characters.removeSchema')}
-                  style={iconBtn}
-                >
-                  <LuTrash2 size={14} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
       ) : null}
     </div>
   )

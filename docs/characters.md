@@ -5,38 +5,47 @@ describing its fields, the values derived from them, and how it is drawn. There
 is no game-specific code in Grimoire, so the same engine renders D&D, Draw
 Steel, Pathfinder, Cairn or a system you invent this evening.
 
-**Characters** live under Campaigns in the sidebar. Sheets and **rulesets** — the
-content your tables play with — are both managed from **Manage sheets** there,
-since the two only mean anything together.
+**Characters** live under Campaigns in the sidebar, each shown as a card with
+its art. Sheets and the content your tables play with - **content packs** and
+**rulesets** - are both managed from **Manage sheets** there, since the two only
+mean anything together.
 
 ## Sheets that ship today
 
-The community repository carries five, each under the licence its game is
+The community repository carries ten, each under the licence its game is
 published with:
 
 | System | Layout |
 | --- | --- |
 | Dungeons & Dragons 5e (2024) | Custom |
-| Draw Steel | Custom |
+| Draw Steel | Custom, after the printed sheet |
 | Pathfinder 2e | Custom |
+| Pathfinder 1e | Custom, after the 2009 sheet |
+| Call of Cthulhu 7th Edition | Custom |
+| Traveller (Mongoose 2nd Edition) | Custom, after J. Brannen's spreadsheet |
+| Cosmere RPG (Mistborn) | Custom |
+| Dungeon Crawler Carl | Custom, after the printed sheet |
 | Cairn | Default |
 | Basic Fantasy RPG | Default |
 
-A *custom* sheet is laid out to resemble its published original. A *default*
+A *custom* sheet follows its published original's content and order - in
+Grimoire's own styling where the publisher's fan policy reserves its look. A *default*
 sheet is drawn in plain sections from the same field definitions — perfectly
 usable, and all a rules-light game needs.
 
 Each derives the arithmetic its system actually uses: D&D scales proficiency
 into saves and passive Perception, Pathfinder adds your level to a check only
 once you are trained, Draw Steel works out winded and recovery values from your
-stamina, and Basic Fantasy derives the ability bonus table.
+stamina, Traveller gives every skill a check DM against each characteristic, and
+Basic Fantasy derives the ability bonus table.
 
 ## Installing a sheet
 
 **Characters → Manage sheets** is the one place for this. It opens on **Sheets**,
 which lists what you have installed and offers two ways to add more, and has a
-**Rulesets** tab beside it for the content those sheets draw from - the two are
-one job, so they sit behind one button.
+**Content** tab beside it for the content those sheets draw from - the installed
+content packs, then your rulesets. The two are one job, so they sit behind one
+button.
 
 - **Browse sheets** lists what the community catalogue offers, with each sheet's
   licence and credit shown before you install anything.
@@ -74,7 +83,8 @@ property filter.
 
 ## Building a character
 
-Pick a system, give the character a name, and fill in the sheet. The name you
+**New character** opens a dialog: give the character a name, pick the sheet it
+is built on, and optionally the campaign it is played in. Then fill in the sheet. The name you
 give fills the sheet's own name field, and renaming either one renames both.
 Edits save as you type, so there is no Save button to forget.
 
@@ -84,7 +94,9 @@ Edits save as you type, so there is no Save button to forget.
   prepared than your maximum allows, say. They never block saving: a sheet
   mid-edit is routinely invalid, and losing your work over a state you are on
   your way out of would be worse than the warning.
-- **Portraits** upload from the sheet's header.
+- **Art** sits in the sheet's header: click the thumbnail to add or change it,
+  and the small cross beside it to remove it. The art shows on the character's
+  card in the Characters list too.
 - **Picked entries open.** Click a feat or a spell on the sheet to read the
   whole entry.
 - **Sheets can have pages.** The D&D 5e sheet follows the printed one: the
@@ -190,7 +202,10 @@ different content:
 - A ruleset **for the server** is available in every game. Only an admin can
   create one, which is what core rules usually want.
 
-**Characters → Manage sheets → Rulesets** is where you manage them.
+**Characters → Manage sheets → Content** is where you manage them, below the
+content packs installed on the server. A content pack is read-only and usable by
+every character on its sheet as soon as it is installed; a ruleset is content you
+can edit.
 
 ### Getting content into one
 
@@ -250,7 +265,7 @@ called out rather than quietly leaving its sheets out of the list.
 ## Installing content packs (admin)
 
 Packs are server-wide, so installing one needs an admin. The usual way is
-**Characters → Manage sheets → Rulesets → Browse content packs**, which lists
+**Characters → Manage sheets → Content → Browse content packs**, which lists
 what the community catalogue offers. An installed pack there can be
 **reinstalled**, **updated** when the catalogue has a newer version, or
 **uninstalled**. Uninstalling also sits beside each pack under **Settings →

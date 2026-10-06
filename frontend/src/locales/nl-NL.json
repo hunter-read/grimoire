@@ -3160,7 +3160,23 @@
     "noValuesMatch": "Niets gevonden.",
     "chooseEntry": "{{label}} kiezen",
     "showEntry": "{{name}} tonen",
-    "hideEntry": "{{name}} verbergen"
+    "hideEntry": "{{name}} verbergen",
+    "newCharacterHelp": "Kies het blad waarop dit personage is gebaseerd. Je kunt het altijd hernoemen.",
+    "sheet": "Blad",
+    "campaignOptional": "Campagne (optioneel)",
+    "noCampaign": "Geen campagne",
+    "campaignHelp": "Iedereen in de campagne kan het blad van dit personage lezen. Alleen jij kunt het bewerken.",
+    "creating": "Bezig met aanmaken…",
+    "emptyTitle": "Nog geen personages",
+    "open": "{{name}} openen",
+    "deleteNamed": "{{name}} verwijderen",
+    "contentTab": "Inhoud",
+    "addPortrait": "Afbeelding toevoegen",
+    "changePortrait": "Afbeelding wijzigen",
+    "removePortrait": "Afbeelding verwijderen",
+    "confirmRemovePortrait": "De afbeelding van \"{{name}}\" verwijderen?",
+    "backToList": "Terug naar personages",
+    "readOnlyParty": "Personage van een groepslid - alleen lezen"
   },
   "contentPacks": {
     "title": "Inhoudspakketten",
@@ -3180,7 +3196,10 @@
     "update": "Bijwerken naar v{{version}}",
     "reinstall": "Opnieuw installeren",
     "uninstall": "{{name}} verwijderen",
-    "confirmUninstall": "\"{{name}}\" van deze server verwijderen? Personages behouden hun verwijzingen en tonen ze als niet geïnstalleerd tot het terugkomt. Regelsets die het importeerden houden hun eigen kopie."
+    "confirmUninstall": "\"{{name}}\" van deze server verwijderen? Personages behouden hun verwijzingen en tonen ze als niet geïnstalleerd tot het terugkomt. Regelsets die het importeerden houden hun eigen kopie.",
+    "installedHelp": "Geïnstalleerd voor iedereen op deze server. Elk personage op een passend blad kan de inhoud van een pakket meteen gebruiken.",
+    "emptyInstalled": "Nog geen inhoudspakketten geïnstalleerd. Blader door de inhoudspakketten om er een toe te voegen.",
+    "forSheet": "Voor {{sheet}}"
   },
   "rulesets": {
     "title": "Regelsets",
@@ -3189,8 +3208,8 @@
     "forCampaign": "Voor campagne",
     "serverWide": "Iedereen op deze server",
     "readOnly": "Alleen lezen",
-    "help": "Een regelset is de inhoud waarmee een tafel speelt. Die van een campagne wordt met iedereen daar gedeeld; die van de server geldt in elk spel.",
-    "empty": "Nog geen regelsets. Maak er een voor een campagne of importeer er een pakket in.",
+    "help": "Je eigen inhoud - zelfgemaakt materiaal, huisregels of items uit een pakket die je hebt aangepast. Een regelset hoort bij één campagne, gedeeld met iedereen aan die tafel, of bij de hele server.",
+    "empty": "Nog geen regelsets. Maak er een om zelfgemaakt materiaal toe te voegen of items uit een pakket aan te passen.",
     "needSheetFirst": "Installeer eerst een blad",
     "loadFailed": "Kon regelsets niet laden.",
     "entryCount": "{{count}} item",

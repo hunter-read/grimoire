@@ -3160,7 +3160,23 @@
     "noValuesMatch": "Inga träffar.",
     "chooseEntry": "Välj {{label}}",
     "showEntry": "Visa {{name}}",
-    "hideEntry": "Dölj {{name}}"
+    "hideEntry": "Dölj {{name}}",
+    "newCharacterHelp": "Välj formuläret som rollpersonen bygger på. Du kan byta namn när du vill.",
+    "sheet": "Formulär",
+    "campaignOptional": "Kampanj (valfritt)",
+    "noCampaign": "Ingen kampanj",
+    "campaignHelp": "Alla i kampanjen kan läsa rollpersonens formulär. Bara du kan redigera det.",
+    "creating": "Skapar…",
+    "emptyTitle": "Inga rollpersoner än",
+    "open": "Öppna {{name}}",
+    "deleteNamed": "Ta bort {{name}}",
+    "contentTab": "Innehåll",
+    "addPortrait": "Lägg till bild",
+    "changePortrait": "Byt bild",
+    "removePortrait": "Ta bort bild",
+    "confirmRemovePortrait": "Ta bort bilden för \"{{name}}\"?",
+    "backToList": "Tillbaka till rollpersoner",
+    "readOnlyParty": "En gruppmedlems rollperson - skrivskyddad"
   },
   "rulesets": {
     "title": "Regeluppsättningar",
@@ -3169,8 +3185,8 @@
     "forCampaign": "För kampanj",
     "serverWide": "Alla på den här servern",
     "readOnly": "Skrivskyddad",
-    "help": "En regeluppsättning är innehållet ett bord spelar med. En som tillhör en kampanj delas med alla vid det bordet; en för servern är tillgänglig i varje spel.",
-    "empty": "Inga regeluppsättningar än. Skapa en för en kampanj, eller importera ett innehållspaket till den.",
+    "help": "Ditt eget innehåll - hemmabygge, husregler eller ett pakets poster som du har ändrat. En regeluppsättning hör till en kampanj och delas med alla vid bordet, eller till hela servern.",
+    "empty": "Inga regeluppsättningar än. Skapa en för att lägga till hemmabygge eller ändra ett pakets poster.",
     "needSheetFirst": "Installera ett rollformulär först",
     "loadFailed": "Kunde inte läsa in regeluppsättningar.",
     "entryCount": "{{count}} post",
@@ -3200,7 +3216,7 @@
     "needRulesetFirst": "Skapa först en regeluppsättning att importera till"
   },
   "contentPacks": {
-    "title": "Innehållspaket för rollpersoner",
+    "title": "Innehållspaket",
     "reload": "Läs om från disk",
     "reloading": "Läser om…",
     "help": "Paket installeras genom att lägga en katalog i mappen character-content i din datakatalog. Läs om efter att du lagt till eller ändrat ett.",
@@ -3217,6 +3233,9 @@
     "update": "Uppdatera till v{{version}}",
     "reinstall": "Installera om",
     "uninstall": "Avinstallera {{name}}",
-    "confirmUninstall": "Avinstallera \"{{name}}\" från den här servern? Rollpersoner behåller sina referenser och visar dem som ej installerade tills det kommer tillbaka. Regeluppsättningar som importerade det behåller sin egen kopia."
+    "confirmUninstall": "Avinstallera \"{{name}}\" från den här servern? Rollpersoner behåller sina referenser och visar dem som ej installerade tills det kommer tillbaka. Regeluppsättningar som importerade det behåller sin egen kopia.",
+    "installedHelp": "Installerade för alla på servern. Varje rollperson med ett matchande formulär kan använda ett pakets innehåll direkt.",
+    "emptyInstalled": "Inga innehållspaket installerade än. Bläddra bland innehållspaketen för att lägga till ett.",
+    "forSheet": "För {{sheet}}"
   }
 }

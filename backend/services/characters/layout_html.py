@@ -134,7 +134,9 @@ _VOID_TAGS: frozenset = frozenset({"br", "hr", "img"})
 #: Bounds. A sheet is a page, not a document tree — these are far above any
 #: real layout and exist so a hostile template cannot exhaust the parser.
 MAX_HTML_BYTES = 256 * 1024
-MAX_NODES = 4000
+# A skills table for a game with a hundred-odd skills, each with a DM per
+# characteristic, is several thousand elements on its own.
+MAX_NODES = 8000
 MAX_DEPTH = 64
 
 

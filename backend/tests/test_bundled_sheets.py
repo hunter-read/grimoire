@@ -97,10 +97,11 @@ class TestBundledSheets:
 
 
 def test_at_least_the_shipped_systems_are_present():
-    """Phase 6 committed to five systems; Call of Cthulhu is the sixth."""
+    """Phase 6 committed to five systems; the rest followed."""
     names = {os.path.basename(param.values[0]).removesuffix(".json") for param in _sheets()}
     assert {"dnd-5e-2024", "draw-steel", "pathfinder-2e", "cairn", "basic-fantasy",
-            "call-of-cthulhu-7e"} <= names
+            "call-of-cthulhu-7e", "traveller-2e", "cosmere-rpg", "dungeon-crawler-carl",
+            "pathfinder-1e"} <= names
 
 
 # --- the 5e sheet against the 5e SRD pack ------------------------------------
@@ -401,6 +402,63 @@ class TestDnd5eSpellSlots:
         """A Wizard 3 / Paladin 4 is caster level 5 - the player sets it."""
         context, _ = _sheet(dnd, klass={"_ref": "wizard"}, level=7, caster_level=5)
         assert [context[f"slots_{n}_total"] for n in (1, 2, 3)] == [4, 3, 2]
+
+
+class TestDnd5eEquipmentAndFeatures:
+    """The catalogue beyond the character-creation choices: gear, magic items, features."""
+
+    def test_the_pack_holds_every_srd_spell(self, dnd):
+        _, entries = dnd
+        assert sum(1 for e in entries.values() if "school" in e) == 339
+
+    def test_carried_weight_counts_quantity(self, dnd):
+        # Chain mail 55 lb, two daggers at 1 lb, and a custom 3 lb idol.
+        _, computed = _sheet(
+            dnd,
+            equipment=[
+                {"_ref": "chain-mail"},
+                {"_ref": "dagger", "_per": {"qty": 2}},
+                {"_inline": True, "name": "Idol", "weight": 3},
+            ],
+        )
+        assert computed["carried_weight"] == 60
+
+    def test_weapons_carry_their_damage_and_mastery(self, dnd):
+        _, entries = dnd
+        assert entries["longsword"]["damage"] == "1d8 Slashing"
+        assert entries["longsword"]["mastery"] == "Sap"
+        assert entries["chain-mail"]["strength"] == 13
+
+    def test_a_fourth_attuned_item_warns(self, dnd):
+        document, entries = dnd
+        items = [{"_ref": e, "_per": {"attuned": True}} for e in (
+            "magic-amulet-of-health", "magic-cloak-of-protection", "magic-ring-of-protection",
+        )]
+        assert not [r for r in svc.run_validators(document, {"magic_items": items}, entries)
+                    if "attuned" in r["message"]]
+        items.append({"_ref": "magic-bracers-of-defense", "_per": {"attuned": True}})
+        warnings = svc.run_validators(document, {"magic_items": items}, entries)
+        assert any("attuned" in r["message"] for r in warnings)
+
+    def test_every_magic_item_id_the_test_uses_is_real(self, dnd):
+        _, entries = dnd
+        for entry_id in ("magic-amulet-of-health", "magic-cloak-of-protection",
+                         "magic-ring-of-protection", "magic-bracers-of-defense",
+                         "magic-weapon-1-2-or-3"):
+            assert entry_id in entries
+
+    def test_a_class_grants_its_level_one_features(self, dnd):
+        document, entries = dnd
+        rule = document["fields"]["klass"]["on_pick"][-1]
+        assert rule["grant"] == "features"
+        for klass in (e for e in entries.values() if "hit_die" in e):
+            ids = [i.strip() for i in klass["feature_ids"].split(",")]
+            names = [n.strip() for n in klass["feature_names"].split(",")]
+            assert ids and len(ids) == len(names), klass["name"]
+            for feature_id, name in zip(ids, names):
+                assert entries[feature_id]["name"] == name
+                assert entries[feature_id]["class"] == klass["name"]
+                assert entries[feature_id]["level"] == 1
 
 
 class TestSrdPackIsSrdOnly:

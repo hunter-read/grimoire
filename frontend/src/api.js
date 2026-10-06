@@ -657,7 +657,10 @@ export const characters = {
   export: (id) => api.get(`/characters/${id}/export`),
   import: (payload, importEntries = true) =>
     api.post('/characters/import', { payload, import_entries: importEntries }),
-  portraitUrl: (id) => `/api/characters/${id}/portrait`,
+  // `v` is the character's `portrait_version`, which changes with the image:
+  // portraits are cached for minutes, so the same URL would keep showing the
+  // old art after a replacement.
+  portraitUrl: (id, v) => mediaUrl(`/characters/${id}/portrait`, v ? { v } : {}),
   uploadPortrait: (id, file) => api.upload(`/characters/${id}/portrait`, file),
   deletePortrait: (id) => api.delete(`/characters/${id}/portrait`),
 }

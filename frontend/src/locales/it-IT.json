@@ -3160,7 +3160,23 @@
     "noValuesMatch": "Nessun risultato.",
     "chooseEntry": "Scegli {{label}}",
     "showEntry": "Mostra {{name}}",
-    "hideEntry": "Nascondi {{name}}"
+    "hideEntry": "Nascondi {{name}}",
+    "newCharacterHelp": "Scegli la scheda su cui si basa questo personaggio. Puoi rinominarlo quando vuoi.",
+    "sheet": "Scheda",
+    "campaignOptional": "Campagna (facoltativa)",
+    "noCampaign": "Nessuna campagna",
+    "campaignHelp": "Tutti nella campagna possono leggere la scheda di questo personaggio. Solo tu puoi modificarla.",
+    "creating": "Creazione…",
+    "emptyTitle": "Ancora nessun personaggio",
+    "open": "Apri {{name}}",
+    "deleteNamed": "Elimina {{name}}",
+    "contentTab": "Contenuti",
+    "addPortrait": "Aggiungi immagine",
+    "changePortrait": "Cambia immagine",
+    "removePortrait": "Rimuovi immagine",
+    "confirmRemovePortrait": "Rimuovere l'immagine di «{{name}}»?",
+    "backToList": "Torna ai personaggi",
+    "readOnlyParty": "Personaggio di un membro del gruppo - sola lettura"
   },
   "contentPacks": {
     "title": "Pacchetti di contenuti",
@@ -3180,7 +3196,10 @@
     "update": "Aggiorna a v{{version}}",
     "reinstall": "Reinstalla",
     "uninstall": "Disinstalla {{name}}",
-    "confirmUninstall": "Disinstallare \"{{name}}\" da questo server? I personaggi mantengono i riferimenti e li mostrano come non installati finché non torna. I set di regole che lo hanno importato mantengono la propria copia."
+    "confirmUninstall": "Disinstallare \"{{name}}\" da questo server? I personaggi mantengono i riferimenti e li mostrano come non installati finché non torna. I set di regole che lo hanno importato mantengono la propria copia.",
+    "installedHelp": "Installati per tutti su questo server. Ogni personaggio con una scheda compatibile può usare subito i contenuti di un pacchetto.",
+    "emptyInstalled": "Ancora nessun pacchetto di contenuti installato. Sfoglia i pacchetti di contenuti per aggiungerne uno.",
+    "forSheet": "Per {{sheet}}"
   },
   "rulesets": {
     "title": "Raccolte di regole",
@@ -3189,8 +3208,8 @@
     "forCampaign": "Per la campagna",
     "serverWide": "Tutti su questo server",
     "readOnly": "Sola lettura",
-    "help": "Una raccolta è il contenuto con cui gioca un tavolo. Quella di una campagna è condivisa con tutti i suoi membri; quella del server vale in ogni partita.",
-    "empty": "Nessuna raccolta. Creane una per una campagna o importaci un pacchetto.",
+    "help": "I tuoi contenuti: materiale fatto in casa, regole della casa o voci di un pacchetto che hai modificato. Una raccolta di regole appartiene a una campagna, condivisa con tutto il tavolo, o all'intero server.",
+    "empty": "Ancora nessuna raccolta di regole. Creane una per aggiungere materiale tuo o modificare le voci di un pacchetto.",
     "needSheetFirst": "Installa prima una scheda",
     "loadFailed": "Impossibile caricare le raccolte.",
     "entryCount": "{{count}} voce",

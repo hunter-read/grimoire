@@ -41,7 +41,7 @@ rules want to be.
 Seven new tables and nothing to backfill. Idempotent.
 
 Revision ID: 9d3f6a2c8e51
-Revises: c4e8a2f6d913
+Revises: 7d2e9b4f1a63
 Create Date: 2026-09-24 00:00:00.000000+00:00
 
 """
@@ -54,7 +54,7 @@ from sqlalchemy import inspect, text
 
 # revision identifiers, used by Alembic.
 revision: str = "9d3f6a2c8e51"
-down_revision: Union[str, None] = "c4e8a2f6d913"
+down_revision: Union[str, None] = "7d2e9b4f1a63"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
