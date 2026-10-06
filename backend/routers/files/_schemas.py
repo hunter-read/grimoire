@@ -171,11 +171,14 @@ class ScaffoldRequest(BaseModel):
 
 class UploadResponse(BaseModel):
     """Where an uploaded file landed. `name` may differ from what was sent when
-    the conflict policy suffixed it."""
+    the conflict policy suffixed it. `record_id` and `replaced` are set when
+    `on_conflict=replace` overwrote an indexed book, which keeps its id."""
 
     path: str
     name: str
     size: int
+    record_id: Optional[str] = None
+    replaced: bool = False
 
 
 class ScaffoldResponse(BaseModel):

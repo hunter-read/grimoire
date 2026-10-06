@@ -2106,8 +2106,10 @@ sidecars and marker files, so a client counting rows would disagree with the
 check the delete itself performs.
 
 **`POST /api/files/upload`** - multipart form: `file`, `destination`,
-`relative_dir` (optional), `on_conflict` (default `rename`). Returns
-`{path, name, size}`.
+`relative_dir` (optional), `on_conflict` (`rename` (default), `skip`, or
+`replace`). Returns `{path, name, size, record_id, replaced}`; `record_id` is
+`null` and `replaced` is `false` unless the upload replaced a book. Any other
+`on_conflict` value is a `400`.
 
 **One file per request, by design.** A batch endpoint would make a 200-file
 import succeed or fail as a unit, leaving no way to say which files landed or to
@@ -2128,11 +2130,47 @@ root are refused. The supplied filename is reduced to its final component, so a
 path smuggled through the multipart body cannot escape the destination, and
 hidden files are rejected outright - a dotfile upload could otherwise write a
 container marker and reclassify a shelf. Single files are capped at 8 GB
-(`413` past that), and an upload never overwrites: a name clash is suffixed.
+(`413` past that), and an upload never overwrites unless asked to with
+`on_conflict=replace`: by default a name clash is suffixed (`rename`), and
+`skip` refuses it with `409`.
 
 `relative_dir` carries the sub-path from a folder upload (the browser's
 `webkitRelativePath` minus the file name) so a dropped folder keeps its
 structure; it is validated against the library root like any other path.
+
+**Replacing a book's file (`on_conflict=replace`).** Overwrites the file of a
+book that is already indexed and keeps its record, so the same id keeps its tags,
+metadata edits, variant links, favorites, bookmarks, and campaign links. Use it
+for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
+
+- The upload must land on the exact path of an indexed book under `books/`
+  (`destination` + `relative_dir` + the file's name). Anything else - a loose
+  file, a name with nothing there, a map or token - is refused with `409`, so a
+  mistyped name never adds a second copy instead. A `relative_dir` that does not
+  exist is a `404`.
+- Refused with `409` while a library scan, re-index, or OCR run is in progress.
+  The OCR worker resumes from a page checkpoint, and changing the file under it
+  would mix the two files' text.
+- The new bytes are written under a temporary name and swapped in with one
+  rename, so a failed or aborted upload leaves the original file intact.
+- Everything read from the old file is rebuilt, because the new one may differ by
+  a word or by every page. Before the response returns: the content hash, size,
+  and mtime, page count, and cover thumbnail are re-read, and the cached page
+  renders are dropped. Page URLs carry the content hash, so clients stop using
+  the old renders. A missing book is marked present again.
+- For a format with searchable text (PDF, EPUB, DjVu, `.txt`/`.md`/`.rtf`), the
+  old search rows and the OCR checkpoint are cleared and the text is re-read in
+  the background, as `POST /api/books/:id/rescan` does: from the text layer if
+  the new file has one, or queued for OCR if it is image-only. Progress shows on
+  `GET /api/scan-status`. If that background run cannot start, the next scan
+  indexes the book. The book's `ocr_dpi` override is kept.
+- Nothing you wrote is touched: title, description, authors, tags, and the rest
+  of the metadata stay as they are, and sidecar `.opf` metadata is not
+  re-applied. Bookmarks keep their page numbers, so a bookmark can point at a
+  different passage, or past the end, if the new file's pages shifted.
+- If the re-read fails, the response still reports the saved file. The next
+  scan sees the changed size and mtime and rebuilds the book, as it does for any
+  file replaced on disk.
 
 **`POST /api/files/folder/scaffold`** - `{path}`. Creates the standard category
 folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,

@@ -495,7 +495,7 @@ def trigger_ocr_queue():
         heartbeat.set()
 
 
-def rescan_single_book(book_id: str) -> None:
+def rescan_single_book(book_id: str, refresh_file: bool = True) -> None:
     """Re-read one book from disk and rebuild its index (background task).
 
     The per-book counterpart to run_rescan_sync: refreshes page count/thumbnail,
@@ -504,6 +504,10 @@ def rescan_single_book(book_id: str) -> None:
     this no-ops rather than fighting it for the DB/scan-status (that scan will
     re-read changed files on its own; the user can also re-trigger once it
     finishes). Progress is observable via GET /scan-status.
+
+    ``refresh_file=False`` only indexes the text, for a caller that has already
+    re-read the file and reset the index (an upload with ``on_conflict=replace``,
+    issue #497) — hashing a large file twice buys nothing.
     """
     if scan_in_progress():
         logger.info("A library scan is already running - skipping this single-book re-index.")
@@ -522,7 +526,10 @@ def rescan_single_book(book_id: str) -> None:
                 return
             logger.info(f"Re-reading '{book.title or book.filename}' from disk…")
             try:
-                reindex_single_book(book, DATA_PATH, db, should_stop=is_stop_requested)
+                if refresh_file:
+                    reindex_single_book(book, DATA_PATH, db, should_stop=is_stop_requested)
+                else:
+                    index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
             except Exception as e:
                 logger.error(f"Re-index failed for '{book.title or book.filename}': {e}")
                 db.rollback()

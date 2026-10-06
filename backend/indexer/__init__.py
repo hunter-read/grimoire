@@ -152,7 +152,9 @@ from .metadata import (  # noqa: E402,F401
 # --- Full-text indexing --------------------------------------------------------
 from .text_index import (  # noqa: E402,F401
     index_book_text,
+    refresh_book_file,
     reindex_single_book,
+    reset_book_index,
 )
 
 # --- Library scan --------------------------------------------------------------

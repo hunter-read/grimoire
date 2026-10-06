@@ -116,6 +116,12 @@ export default function ReaderView() {
     api.get(`/books/${bookId}`).then((b) => {
       setBook(b)
       setTotalPages(b.page_count || 0)
+      // The saved page can be past the end when the file was replaced by a
+      // shorter one (issue #497) - open on its last page instead of a blank one.
+      if (b.page_count > 0) {
+        setCurrentPage((p) => Math.min(p, b.page_count))
+        setPageInput((v) => (parseInt(v) > b.page_count ? String(b.page_count) : v))
+      }
       saveRecentBook(b)
     })
   }, [bookId])

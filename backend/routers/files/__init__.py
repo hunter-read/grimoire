@@ -107,7 +107,10 @@ router.add_api_route(
     summary="Upload a single file into a library folder",
     description=(
         "Multipart upload of one file. Send files individually so progress can be "
-        "reported per file and failures retried in isolation."
+        "reported per file and failures retried in isolation. `on_conflict` is "
+        "`rename` (default), `skip`, or `replace`, which overwrites an indexed "
+        "book's file and keeps its record (409 when the path is not an indexed "
+        "book, or while a scan or OCR run is in progress)."
     ),
     response_model=UploadResponse,
 )

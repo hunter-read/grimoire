@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlalchemy.orm import Session
+
 from ...config import logger
 from ...indexer.thumbnails import archive_ext
 from ...indexer.models3d import MODEL_EXTS
@@ -24,6 +26,7 @@ from ...indexer.constants import (
 from .constants import _UPLOAD_CHUNK, LibraryFSError
 from .moves import _dest_for
 from .paths import assert_writable, collection_of, safe_join, to_relative
+from ...models import Book
 
 def allowed_upload_exts(destination: Path) -> set[str]:
     """The file extensions worth uploading into ``destination``.
@@ -111,25 +114,97 @@ def save_upload(
     is fully written, so an interrupted upload never leaves a truncated file for
     the scanner to index as a real book.
     """
-    dest_dir = safe_join(destination, must_exist=True)
-    if not dest_dir.is_dir():
-        raise LibraryFSError("Destination is not a folder", code="invalid")
-
-    if relative_dir:
-        # Re-validated against the library root rather than trusted: this comes
-        # from the browser, and a folder upload is the one place a client sends
-        # a whole path.
-        dest_dir = safe_join(f"{to_relative(dest_dir)}/{relative_dir}")
-        if not dest_dir.exists():
-            try:
-                dest_dir.mkdir(parents=True, exist_ok=True)
-            except OSError as e:
-                raise LibraryFSError(f"Could not create {relative_dir}: {e}", code="io_error") from e
-
+    dest_dir = _upload_dir(destination, relative_dir, create=True)
     assert_writable(dest_dir)
     name = validate_upload_name(filename, dest_dir)
     target = _dest_for(dest_dir, name, on_conflict=on_conflict)
+    written = _stream_into(target, stream, max_bytes)
+    logger.info("Uploaded %s (%d bytes)", to_relative(target), written)
+    return {"path": to_relative(target), "name": target.name, "size": written}
 
+
+def replace_upload(
+    db: Session,
+    destination: str,
+    filename: str,
+    stream: Any,
+    *,
+    relative_dir: str = "",
+    max_bytes: Optional[int] = None,
+) -> dict:
+    """Overwrite an indexed book's file with an upload, keeping its record (#497).
+
+    The one upload that is allowed to overwrite, and only a file Grimoire already
+    tracks as a book: everything the user attached to it — tags, metadata edits,
+    variant links, bookmarks, favorites, campaign links — is keyed by the row's
+    id, and the row is keyed by path, so writing the new bytes to the same path
+    keeps all of it. A path holding no indexed book is refused rather than
+    treated as a plain upload, so a mistyped name cannot silently add a second
+    copy of a book the caller meant to correct.
+
+    Only the file is written here. Re-reading it (hash, pages, cover, search
+    text) is the caller's job, because the caller owns the scan-status guard and
+    the background queue the text indexing runs on.
+
+    The new bytes land under a temporary name and replace the old file in one
+    rename, so an interrupted upload leaves the original intact.
+    """
+    dest_dir = _upload_dir(destination, relative_dir, create=False)
+    name = validate_upload_name(filename, dest_dir)
+    target = dest_dir / name
+    if target.is_dir():
+        raise LibraryFSError(f"'{name}' is a folder, not a file", code="invalid")
+    book = (
+        db.query(Book).filter(Book.relative_path == to_relative(target)).first()
+        if collection_of(target) == "books"
+        else None
+    )
+    if book is None:
+        raise LibraryFSError(
+            f"There is no indexed book named '{name}' there to replace", code="conflict"
+        )
+    assert_writable(dest_dir)
+    written = _stream_into(target, stream, max_bytes)
+    logger.info("Replaced %s with an upload (%d bytes)", to_relative(target), written)
+    return {
+        "path": to_relative(target),
+        "name": target.name,
+        "size": written,
+        "record_id": book.id,
+        "replaced": True,
+    }
+
+
+def _upload_dir(destination: str, relative_dir: str, *, create: bool) -> Path:
+    """Resolve the folder an upload lands in, creating a folder upload's tree."""
+    dest_dir = safe_join(destination, must_exist=True)
+    if not dest_dir.is_dir():
+        raise LibraryFSError("Destination is not a folder", code="invalid")
+    if not relative_dir:
+        return dest_dir
+
+    # Re-validated against the library root rather than trusted: this comes
+    # from the browser, and a folder upload is the one place a client sends
+    # a whole path.
+    dest_dir = safe_join(f"{to_relative(dest_dir)}/{relative_dir}")
+    if not dest_dir.exists():
+        if not create:
+            # A replace targets an existing book, so its folder must exist too.
+            raise LibraryFSError(f"{relative_dir} does not exist", code="not_found")
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise LibraryFSError(f"Could not create {relative_dir}: {e}", code="io_error") from e
+    return dest_dir
+
+
+def _stream_into(target: Path, stream: Any, max_bytes: Optional[int]) -> int:
+    """Write ``stream`` to ``target`` via a temporary file; return bytes written.
+
+    The temporary file is promoted with ``os.replace``, which is atomic on one
+    filesystem, so ``target`` holds either its old contents or the complete new
+    ones — never a truncated mix the scanner could index.
+    """
     tmp = target.with_name(f".{target.name}.part")
     written = 0
     try:
@@ -158,9 +233,7 @@ def save_upload(
         if getattr(e, "errno", None) == 28:
             raise LibraryFSError("The disk is full", code="io_error") from e
         raise LibraryFSError(f"Could not save the file: {e}", code="io_error") from e
-
-    logger.info("Uploaded %s (%d bytes)", to_relative(target), written)
-    return {"path": to_relative(target), "name": target.name, "size": written}
+    return written
 
 
 def _cleanup_partial(tmp: Path) -> None:

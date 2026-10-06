@@ -11,6 +11,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Added
 
 - Rescan and File manager buttons on every Settings tab, with scan progress and a stop button
+- Upload with `on_conflict=replace` to swap in a corrected file for a book and keep its tags, metadata, bookmarks, and favorites (#497)
 
 ### Changed
 
@@ -27,6 +28,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Copying a blank character sheet is limited to sheets the member can open
 - A scan stuck at "running" after a restart or crash can be cleared with **Stop** (#524)
 - A PDF's table of contents still shows when one bookmark points past the last page
+- A book whose file got shorter opens on its last page instead of a page that no longer exists
 
 ## [1.7.3] - 2026-10-01
 

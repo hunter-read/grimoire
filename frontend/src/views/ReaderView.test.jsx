@@ -318,6 +318,25 @@ describe('ReaderView — spread mode (integration)', () => {
     expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(0)
   })
 
+  it('opens on the last page when the saved page is past the end of the book', async () => {
+    // The file was replaced by a shorter one since the page was saved (#497).
+    localStorage.setItem('grimoire:book:book-1', JSON.stringify({ page: 250 }))
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    expect(screen.getByLabelText('Current page number')).toHaveValue('100')
+  })
+
+  it('keeps a saved page that is still inside the book', async () => {
+    localStorage.setItem('grimoire:book:book-1', JSON.stringify({ page: 42 }))
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    expect(screen.getByLabelText('Current page number')).toHaveValue('42')
+  })
+
   it('restores spreadOffset from localStorage on mount', async () => {
     localStorage.setItem(
       'grimoire:book:book-1',

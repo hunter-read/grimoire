@@ -14,12 +14,15 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
-from ...config import get_db, logger
+from ...config import DATA_PATH, get_db, logger
+from ...indexer import refresh_book_file, reset_book_index
 from ...indexer.constants import SINGLETON_CONTAINER_KINDS
+from ...indexer.formats import can_index
+from ...models import Book
 from ...services import library_fs as fs
 from ._schemas import (
     BrowseEntry,
@@ -402,12 +405,19 @@ def scaffold_categories(
         raise _http(e) from e
 
 
+# How a name clash is resolved on upload. ``replace`` is the only one that
+# overwrites, and only an indexed book (issue #497).
+UPLOAD_CONFLICT_POLICIES = ("rename", "skip", "replace")
+
+
 def upload_file(
+    background_tasks: BackgroundTasks,
     destination: str = Form(...),
     relative_dir: str = Form(""),
     on_conflict: str = Form("rename"),
     file: UploadFile = File(...),
     _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
     """Upload one file into a library folder.
 
@@ -422,8 +432,18 @@ def upload_file(
     other path. The default conflict policy is ``rename`` rather than ``skip``:
     an upload is an explicit "add this", so landing it under a suffixed name is
     friendlier than discarding it — and it still never overwrites.
+
+    ``replace`` is the exception: it overwrites an indexed book's file and keeps
+    the book's record — see ``_replace_book``.
     """
     try:
+        if on_conflict not in UPLOAD_CONFLICT_POLICIES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"on_conflict must be one of: {', '.join(UPLOAD_CONFLICT_POLICIES)}",
+            )
+        if on_conflict == "replace":
+            return _replace_book(db, background_tasks, destination, relative_dir, file)
         return fs.save_upload(
             destination,
             file.filename or "",
@@ -436,3 +456,71 @@ def upload_file(
         raise _http(e) from e
     finally:
         file.file.close()
+
+
+def _replace_book(
+    db: Session,
+    background_tasks: BackgroundTasks,
+    destination: str,
+    relative_dir: str,
+    file: UploadFile,
+) -> dict:
+    """Overwrite a book's file with the upload and re-read it, keeping its id.
+
+    Nothing read from the old file is trusted afterwards: the new one may differ
+    by a corrected typo or by every page, so the hash, size, page count, cover,
+    page renders, search text and OCR checkpoint are all rebuilt. Nothing the
+    user wrote is touched — title, tags, description and the rest of the
+    metadata stay as they are, and bookmarks and favorites stay on the same id.
+
+    Refused while a scan, re-index or OCR run is going. The OCR worker resumes
+    from a page checkpoint on its own copy of the row; swapping the file under
+    it would splice the new file's pages onto the old file's text and then write
+    the stale checkpoint back over the reset.
+
+    The cheap re-read happens here, before responding, so the content hash
+    changes (and with it every page URL) before anyone can load a page of the
+    new file under the old file's cache key. Search text and OCR can take far
+    longer and run in the background, with progress on ``GET /api/scan-status``.
+    """
+    from ..library._helpers import rescan_single_book, scan_in_progress
+
+    if scan_in_progress():
+        raise HTTPException(
+            status_code=409,
+            detail="A library scan or OCR run is in progress - replace the file once it finishes",
+        )
+
+    result = fs.replace_upload(
+        db,
+        destination,
+        file.filename or "",
+        file.file,
+        relative_dir=relative_dir,
+        max_bytes=MAX_UPLOAD_BYTES,
+    )
+    book = db.get(Book, result["record_id"])
+    if book is None:  # pragma: no cover - deleted between the write and here
+        return result
+    try:
+        book.is_missing = False
+        book.scan_failed = False
+        refresh_book_file(book, DATA_PATH, db)
+        if can_index(book.mime_type):
+            # Commits the refresh above along with the reset.
+            reset_book_index(book, db)
+            background_tasks.add_task(rescan_single_book, book.id, refresh_file=False)
+        else:
+            db.commit()
+    except Exception as e:
+        # The new file is already in place. A later scan sees its new size and
+        # mtime and rebuilds the book the way it does any file replaced on disk.
+        db.rollback()
+        logger.error("Could not re-read replaced book %s: %s", result["path"], e)
+    finally:
+        # The cached (path, hash) lookup may have been refilled with the old hash
+        # by a request that landed during the re-read.
+        from ..books._helpers import _invalidate_book_cache
+
+        _invalidate_book_cache()
+    return result

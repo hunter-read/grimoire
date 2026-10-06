@@ -199,33 +199,30 @@ def _index_text_document(book: Book, session: Session) -> bool:
     return True
 
 
-def reindex_single_book(
+def refresh_book_file(
     book: Book,
     data_path: str,
     session: Session,
     should_stop: Optional[Callable[[], bool]] = None,
 ) -> None:
-    """Re-read one book from disk and rebuild its search index in place.
+    """Re-read what a book's record knows about its file: size, hash, pages, cover.
 
-    Unlike a re-OCR (which only applies to image-only PDFs), this handles any
-    PDF the user has edited externally: it refreshes the page count and cover
-    thumbnail if the file's structure changed, clears the old FTS rows, and
-    re-extracts text.  A text-layer PDF is re-indexed from its text layer; a
-    file that has become image-only is handed to the deferred-OCR queue by
-    ``index_book_text`` just as a fresh scan would.
+    The format-agnostic half of a per-book rescan, for when the bytes under a
+    known path changed — a file replaced in place, by hand or by an upload with
+    ``on_conflict=replace`` (issue #497). It works for every book format, so a
+    replaced comic or image gets a fresh cover and page count too. It touches
+    nothing the user edits (title, tags, description), and leaves the search
+    index alone; ``reindex_single_book`` adds that for indexable formats.
 
-    Caller is responsible for triggering the OCR-queue drain afterwards (the
-    book may be left ``ocr_pending``).  Only PDFs are re-indexable; other types
-    return without change.
+    Commits nothing itself — the caller decides when the row is written.
     """
-    if not can_index(book.mime_type):
-        return
-
-    # Drop everything rendered from the previous bytes first. This is the whole
-    # point of the endpoint for a user who replaced a file in place: without it
-    # the page count and thumbnail below would be rebuilt while the cached page
-    # renders (and the open document handle) still served the old file.
+    # Drop everything rendered from the previous bytes first. Without it the page
+    # count and thumbnail below would be rebuilt while the cached page renders
+    # (and the open document handle) still served the old file.
     from ..services.content_cache import invalidate_book_content
+    from .constants import _COMIC_ARCHIVE_EXTS, IMAGE_EXTS
+    from .formats import can_thumbnail, has_page_count
+    from .thumbnails import archive_ext
 
     invalidate_book_content(book.id, book.filepath, db=session)
 
@@ -242,25 +239,71 @@ def reindex_single_book(
         if signature is not None:
             apply_signature(book, signature[0], signature[1], None)
 
+    # The same format rules a scan registers a book by (``_register_book``).
+    arc_ext = archive_ext(book.filepath)
+    ext = os.path.splitext(book.filepath)[1].lower()
+    is_comic = arc_ext in _COMIC_ARCHIVE_EXTS
+
     # Refresh page count — the file may have gained or lost pages since last scan.
-    try:
-        book.page_count = indexer._book_page_count(book.filepath)
-    except Exception as e:
-        logger.warning(f"Re-index: could not read page count for '{book.filename}': {e}")
+    if ext in IMAGE_EXTS:
+        book.page_count = 1
+    elif has_page_count(ext) or is_comic:
+        try:
+            book.page_count = indexer._book_page_count(book.filepath)
+        except Exception as e:
+            logger.warning(f"Re-index: could not read page count for '{book.filename}': {e}")
 
     # Regenerate the cover thumbnail from the (possibly changed) first page.
-    thumb_path = os.path.join(
-        data_path,
-        "thumbnails",
-        "books",
-        f"{slugify(book.title)}_{hashlib.md5(book.filepath.encode()).hexdigest()[:8]}.webp",
-    )
-    if indexer.generate_thumbnail(book.filepath, thumb_path, should_stop=should_stop):
-        book.has_thumbnail = True
+    if ext in IMAGE_EXTS or can_thumbnail(ext) or is_comic:
+        thumb_path = os.path.join(
+            data_path,
+            "thumbnails",
+            "books",
+            f"{slugify(book.title)}_{hashlib.md5(book.filepath.encode()).hexdigest()[:8]}.webp",
+        )
+        if indexer.generate_thumbnail(book.filepath, thumb_path, should_stop=should_stop):
+            book.has_thumbnail = True
 
-    # Drop the old search rows so the re-index starts from a clean slate, and
-    # reset the index flags so index_book_text re-processes the book (it early-
-    # returns on already-indexed books).
+
+def reindex_single_book(
+    book: Book,
+    data_path: str,
+    session: Session,
+    should_stop: Optional[Callable[[], bool]] = None,
+) -> None:
+    """Re-read one book from disk and rebuild its search index in place.
+
+    Unlike a re-OCR (which only applies to image-only PDFs), this handles any
+    PDF the user has edited externally: it refreshes the page count and cover
+    thumbnail if the file's structure changed (``refresh_book_file``), clears
+    the old FTS rows, and re-extracts text.  A text-layer PDF is re-indexed from
+    its text layer; a file that has become image-only is handed to the
+    deferred-OCR queue by ``index_book_text`` just as a fresh scan would.
+
+    Caller is responsible for triggering the OCR-queue drain afterwards (the
+    book may be left ``ocr_pending``).  Only indexable formats are re-indexed;
+    other types return without change.
+    """
+    if not can_index(book.mime_type):
+        return
+
+    refresh_book_file(book, data_path, session, should_stop=should_stop)
+    reset_book_index(book, session)
+    index_book_text(book, data_path, session, should_stop=should_stop)
+
+
+def reset_book_index(book: Book, session: Session) -> None:
+    """Drop a book's search rows and mark its text as not yet read, then commit.
+
+    Called when the bytes changed, so nothing read from the old file survives:
+    the text may differ by a corrected typo or by every page. The OCR checkpoint
+    goes too — resuming at the old ``ocr_pages_done`` would skip the new file's
+    first pages and splice the old file's text onto the rest. The per-book
+    ``ocr_dpi`` override is kept, since it is a choice about the book, not the file.
+
+    Leaves the book where every scan looks for outstanding work (``indexed``
+    false), so if nothing indexes it now, the next scan does.
+    """
     session.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book.id})
     book.indexed = False
     book.index_failed = False
@@ -269,5 +312,3 @@ def reindex_single_book(
     book.ocr_pages_done = 0
     book.ocr_pages_skipped = 0
     _commit(session, f"reset index for '{book.filepath}'")
-
-    index_book_text(book, data_path, session, should_stop=should_stop)
