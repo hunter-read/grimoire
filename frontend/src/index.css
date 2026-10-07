@@ -571,6 +571,12 @@ a:focus-visible {
 .wiki-markdown li > input[type='checkbox'] {
   margin-right: 6px;
 }
+/* The global reset also zeroes paragraph margins, which runs a note's
+   paragraphs together; space them, minus the last so a GM-secret block
+   doesn't gain a gap at its foot. */
+.wiki-markdown p:not(:last-child) {
+  margin-bottom: 0.75em;
+}
 /* Loose lists wrap each item's content in <p>; keep those tight. */
 .wiki-markdown li > p {
   margin: 0;

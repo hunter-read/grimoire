@@ -9,6 +9,7 @@ import LazyImg from '../LazyImg'
 import { isModifiedClick } from '../CardLink'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
+import { rehypeInlineSecrets, standsAlone } from './wikiSecrets'
 
 // We avoid a custom remark tokenizer by rewriting [[...]] tokens into ordinary
 // markdown links with a private href scheme, then interpreting that scheme in a
@@ -26,8 +27,8 @@ const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
 
 // ||GM-only text||. Only the owner ever receives a body still containing these
 // (the backend strips them entirely for everyone else — no text, no marker), so
-// rendering them as a tinted "GM only" span just helps the owner see what players
-// won't. The match spans newlines so a secret can wrap several lines/paragraphs.
+// rendering them tinted just helps the owner see what players won't. The match
+// spans newlines so a secret can wrap several lines/paragraphs.
 const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
 
 // Decode a percent-encoded target, tolerating malformed input (a stray "%" would
@@ -62,12 +63,13 @@ function rewriteLinks(text) {
   })
 }
 
-// Split a body into ordered segments, isolating multiline ||GM secrets|| so they
-// can be wrapped in a tinted block. A single-line secret can't be split out —
-// doing so would break its paragraph in two — so it's left in the surrounding
-// text segment as a private grimoire-secret: link (rendered as an inline tinted
-// span). Only a secret that spans newlines (which has no inline markdown form)
-// becomes its own block segment. Each segment's markdown is otherwise unchanged.
+// Split a body into ordered segments, isolating block ||GM secrets|| so they can
+// be wrapped in a tinted block. A secret that spans newlines, or sits alone on
+// its line (a whole paragraph of GM notes), becomes its own block segment. A
+// secret inside running text can't be split out — doing so would break its
+// paragraph in two — so it stays in the surrounding segment with its pipes
+// escaped, for rehypeInlineSecrets to wrap. Its inner markdown is untouched, so
+// [[links]] and formatting inside still work.
 function splitSecrets(body) {
   const src = body || ''
   const segments = []
@@ -84,15 +86,14 @@ function splitSecrets(body) {
   while ((m = SECRET_RE.exec(src)) !== null) {
     buf += src.slice(last, m.index)
     const inner = m[1]
-    if (/[\r\n]/.test(inner)) {
+    if (/[\r\n]/.test(inner) || standsAlone(src, m.index, m.index + m[0].length)) {
       // Block secret: flush the inline run, then emit the secret on its own with
       // its inner markdown intact for a separate render pass.
       flush()
       segments.push({ block: true, text: rewriteLinks(inner) })
     } else {
-      // Inline secret: fold into the running text as a tinted link so it stays in
-      // the flow of the paragraph it lives in.
-      buf += `[${escapeLinkText(inner)}](grimoire-secret:)`
+      // Inline secret: keep it in the flow of the paragraph it lives in.
+      buf += `\\|\\|${inner}\\|\\|`
     }
     last = m.index + m[0].length
   }
@@ -144,27 +145,28 @@ export default function WikiMarkdown({
 
   const components = useMemo(
     () => ({
+      // Inline secrets, which rehypeInlineSecrets wraps in a <mark>.
+      mark({ children }) {
+        return (
+          <span
+            title={t('wiki.secretHint')}
+            style={{
+              // A low-alpha gold tint (not the solid --gold-dim) so it reads as
+              // a highlight without washing out gold headings or white body text.
+              // The rule and padding stay on the first line only when the span
+              // wraps, rather than repeating down the left edge.
+              background: 'rgba(201, 168, 76, 0.16)',
+              boxShadow: 'inset 2px 0 0 var(--gold)',
+              color: 'inherit',
+              borderRadius: 3,
+              padding: '0 4px',
+            }}
+          >
+            {children}
+          </span>
+        )
+      },
       a({ href, children, ...props }) {
-        if (href?.startsWith('grimoire-secret:')) {
-          return (
-            <span
-              title={t('wiki.secretHint')}
-              style={{
-                // A low-alpha gold tint (not the solid --gold-dim) so it reads as
-                // a highlight without washing out gold headings or white body text.
-                background: 'rgba(201, 168, 76, 0.16)',
-                boxShadow: 'inset 2px 0 0 var(--gold)',
-                color: 'inherit',
-                borderRadius: 3,
-                padding: '0 4px',
-                boxDecorationBreak: 'clone',
-                WebkitBoxDecorationBreak: 'clone',
-              }}
-            >
-              {children}
-            </span>
-          )
-        }
         if (href?.startsWith('grimoire-wiki:')) {
           // We percent-encode the target when rewriting, and react-markdown
           // additionally encodes non-ASCII (e.g. "breitfuß" -> "breitfu%C3%9F"),
@@ -341,6 +343,7 @@ export default function WikiMarkdown({
   const renderMarkdown = (text) => (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeInlineSecrets]}
       components={components}
       // Preserve our private grimoire-wiki:/grimoire-embed: schemes, which
       // react-markdown's default urlTransform would otherwise strip.

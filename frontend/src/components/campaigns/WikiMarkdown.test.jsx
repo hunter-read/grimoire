@@ -164,6 +164,47 @@ describe('WikiMarkdown', () => {
     expect(screen.getByText('hidden').tagName).toBe('SPAN')
   })
 
+  it('keeps a [[wiki link]] inside an inline secret working', () => {
+    const onOpenPage = vi.fn()
+    const { container } = renderMd({
+      body: 'Ask about ||**GM:** [[The Castle]] — its vault|| later.',
+      pages: [CASTLE],
+      onOpenPage,
+    })
+    // The link resolves instead of leaking its [[brackets]], inside the secret.
+    const link = screen.getByRole('button', { name: 'The Castle' })
+    expect(link.closest('span[title]')).toBeTruthy()
+    expect(screen.getByText('GM:').tagName).toBe('STRONG')
+    expect(container.textContent).not.toMatch(/\[|\]|\|/)
+    expect(container.querySelectorAll('p').length).toBe(1)
+    fireEvent.click(link)
+    expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
+  })
+
+  it('renders a secret alone on its line as a block with links inside', () => {
+    const { container } = renderMd({
+      body: 'Intro.\n\n||**GM:** [[The Castle]] is a ruin. **Not yet.**||\n\nOutro.',
+      pages: [CASTLE],
+    })
+    const block = screen.getByText('GM:').closest('div[title]')
+    expect(block).toBeTruthy()
+    expect(block.textContent).toBe('GM: The Castle is a ruin. Not yet.')
+    expect(screen.getByRole('button', { name: 'The Castle' })).toBeTruthy()
+    expect(container.querySelectorAll('p').length).toBe(3)
+    expect(container.textContent).not.toMatch(/\||\[/)
+  })
+
+  it('keeps an inline secret inside a GFM table cell', () => {
+    const { container } = renderMd({ body: '| A | B |\n|---|---|\n| ||hid|| | x |' })
+    expect(container.querySelectorAll('td').length).toBe(2)
+    expect(screen.getByText('hid').tagName).toBe('SPAN')
+  })
+
+  it('leaves pipes inside inline code alone', () => {
+    renderMd({ body: 'Use `a || b` here.' })
+    expect(screen.getByText('a || b').tagName).toBe('CODE')
+  })
+
   it('resolves a pinned [[Title:id-...]] to that page, not the title match', () => {
     // The colliding page is unreachable by title alone; the id gets there.
     const onOpenPage = vi.fn()
