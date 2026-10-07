@@ -1,28 +1,43 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import VirtualGrid, { columnsFor } from './VirtualGrid'
+import VirtualGrid from './VirtualGrid'
+import { columnsFor } from './VirtualGridRows'
 
 // jsdom reports every element as zero-sized and never scrolls, so the real
 // virtualizer would render no rows. These tests cover the parts that do not
 // need layout: the column arithmetic, the row assignment it drives, and that
 // only the rows the virtualizer asks for are rendered.
 let virtualRows
+// Every scroll element the virtualizer was constructed with, in order. A null
+// in here is the bug: see the scroll-jump test below.
+let scrollElementsSeen = []
+// What the virtualizer was told its starting offset is. 0 while the page is
+// scrolled elsewhere means it will yank the page to the top on attach.
+let initialOffsetsSeen = []
 
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: (opts) => ({
-    options: { scrollMargin: 0 },
-    getTotalSize: () => virtualRows.length * 240,
-    getVirtualItems: () =>
-      virtualRows
-        .filter((i) => i < opts.count)
-        .map((index) => ({ index, key: index, start: index * 240 })),
-    measure: () => {},
-    measureElement: () => {},
-  }),
+  useVirtualizer: (opts) => {
+    scrollElementsSeen.push(opts.getScrollElement())
+    initialOffsetsSeen.push(
+      typeof opts.initialOffset === 'function' ? opts.initialOffset() : opts.initialOffset
+    )
+    return {
+      options: { scrollMargin: 0 },
+      getTotalSize: () => virtualRows.length * 240,
+      getVirtualItems: () =>
+        virtualRows
+          .filter((i) => i < opts.count)
+          .map((index) => ({ index, key: index, start: index * 240 })),
+      measure: () => {},
+      measureElement: () => {},
+    }
+  },
 }))
 
 beforeEach(() => {
   virtualRows = [0, 1, 2]
+  scrollElementsSeen = []
+  initialOffsetsSeen = []
   global.ResizeObserver = class {
     observe() {}
     disconnect() {}
@@ -100,5 +115,59 @@ describe('VirtualGrid', () => {
   it('asks for no rows when there are no items', () => {
     render(<VirtualGrid items={[]} renderItem={renderItem} minColumn={130} gap={12} />)
     expect(screen.queryByTestId('cell')).not.toBeInTheDocument()
+  })
+})
+
+describe('scroll offset seeding (issue #531: expanding a folder jumped to the top)', () => {
+  // A scrollable ancestor, the way <main> is in AppShell.
+  const inScroller = (ui) => render(<div style={{ overflowY: 'auto' }}>{ui}</div>)
+
+  it('seeds the virtualizer with the live scroll position of the page', () => {
+    // The regression. A virtualizer attaches to its scroll element on the first
+    // _willUpdate and immediately re-applies the offset it believes it is at.
+    // That comes from getScrollOffset(), which seeds from options.initialOffset
+    // and defaults to 0 - so every grid that mounted asked the page to scroll
+    // to the top. Expanding a folder mounts a grid; collapsing only unmounts
+    // one, which is why the jump was one-way.
+    const scroller = document.createElement('div')
+    scroller.style.overflowY = 'auto'
+    document.body.appendChild(scroller)
+    Object.defineProperty(scroller, 'scrollTop', { value: 500, writable: true, configurable: true })
+
+    render(<VirtualGrid items={items(6)} renderItem={renderItem} minColumn={130} />, {
+      container: scroller,
+    })
+
+    expect(initialOffsetsSeen.at(-1)).toBe(500)
+  })
+
+  it('does not create the virtualizer before the scroll element is resolved', () => {
+    // The virtualizer reads initialOffset on its first render (through
+    // calculateRange) and caches it. Created too early it caches 0, then
+    // re-applies that 0 on attach - a scrollTo({top: 0}) on the whole page.
+    const scroller = document.createElement('div')
+    scroller.style.overflowY = 'auto'
+    document.body.appendChild(scroller)
+    Object.defineProperty(scroller, 'scrollTop', { value: 500, writable: true, configurable: true })
+
+    render(<VirtualGrid items={items(6)} renderItem={renderItem} minColumn={130} />, {
+      container: scroller,
+    })
+
+    // Every construction saw a real offset; none saw the premature 0.
+    expect(initialOffsetsSeen.length).toBeGreaterThan(0)
+    expect(initialOffsetsSeen).not.toContain(0)
+  })
+
+  it('falls back to 0 when there is no scrolling ancestor', () => {
+    // A page whose document scrolls has none. Seeding must not throw there, and
+    // 0 is the honest answer rather than a guess.
+    render(<VirtualGrid items={items(6)} renderItem={renderItem} minColumn={130} />)
+    expect(initialOffsetsSeen.at(-1)).toBe(0)
+  })
+
+  it('still renders its rows', () => {
+    inScroller(<VirtualGrid items={items(6)} renderItem={renderItem} minColumn={130} />)
+    expect(screen.getAllByTestId('cell').length).toBeGreaterThan(0)
   })
 })

@@ -22,6 +22,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A fully zoomed-out book page fits above the phone's bottom navigation bar (#520)
 - Game system headers show up to three links, with the rest in a "More" menu
 - A rescan shows as running on every rescan button at once
+- Expanding a folder in the map, token or audio galleries keeps your place instead of jumping to the top of the page
 - Clicking a tag in a system's book list opens the Tags page instead of the book
 - Guests see only what their campaign shares with them (#519)
 - Guest invite codes are visible only to the campaign's GM
