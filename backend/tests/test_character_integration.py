@@ -47,14 +47,17 @@ def both_schemas(client, admin_headers, gm_headers):
 
 @pytest.fixture
 def party(admin_id, gm_id):
-    """A campaign both accounts belong to."""
+    """A campaign both accounts belong to: the admin runs it, the GM has joined.
+
+    Shaped like the real thing - the owner has no member row of their own, and
+    an invitation the GM accepted reads "accepted".
+    """
     db = SessionLocal()
     try:
         campaign = Campaign(name="Phase 5 Table", owner_id=admin_id)
         db.add(campaign)
         db.flush()
-        db.add(CampaignMember(campaign_id=campaign.id, user_id=admin_id, status="joined"))
-        db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="joined"))
+        db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="accepted"))
         db.commit()
         return campaign.id
     finally:
@@ -75,7 +78,6 @@ def solo(admin_id):
         campaign = Campaign(name="Phase 5 Solo", owner_id=admin_id)
         db.add(campaign)
         db.flush()
-        db.add(CampaignMember(campaign_id=campaign.id, user_id=admin_id, status="joined"))
         db.commit()
         return campaign.id
     finally:
@@ -90,7 +92,6 @@ def gm_table(gm_id):
         campaign = Campaign(name="Phase 5 GM Table", owner_id=gm_id)
         db.add(campaign)
         db.flush()
-        db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="joined"))
         db.commit()
         return campaign.id
     finally:
@@ -156,7 +157,6 @@ class TestCampaignScoping:
             campaign = Campaign(name="Not Yours", owner_id=gm_id)
             db.add(campaign)
             db.flush()
-            db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="joined"))
             db.commit()
             other = campaign.id
         finally:
@@ -203,6 +203,151 @@ class TestCampaignScoping:
         assert client.get(
             f"/api/characters/{created['id']}", headers=gm_headers
         ).status_code == 404
+
+    def test_a_character_can_go_in_a_personal_campaign(
+        self, client, admin_headers, both_schemas, solo
+    ):
+        # A personal campaign has an owner and no member rows at all.
+        resp = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "My Notes PC", "campaign_id": solo},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["campaign_id"] == solo
+        assert resp.json()["campaign_name"] == "Phase 5 Solo"
+
+    def test_a_character_can_be_moved_into_a_personal_campaign(
+        self, client, admin_headers, both_schemas, solo
+    ):
+        created = client.post(
+            "/api/characters", json={"schema_ref": "p5-demo"}, headers=admin_headers
+        ).json()
+        resp = client.put(
+            f"/api/characters/{created['id']}",
+            json={"campaign_id": solo},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["campaign_id"] == solo
+
+    def test_the_campaign_owner_reads_their_players_sheets(
+        self, client, admin_headers, gm_headers, both_schemas, party
+    ):
+        # The admin owns the party; the GM is the player here.
+        created = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "Player PC", "campaign_id": party},
+            headers=gm_headers,
+        ).json()
+        resp = client.get(f"/api/characters/{created['id']}", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json()["owned"] is False
+
+    def test_an_unaccepted_invitation_is_not_a_seat_at_the_table(
+        self, client, admin_headers, admin_id, gm_headers, gm_id, both_schemas
+    ):
+        db = SessionLocal()
+        try:
+            campaign = Campaign(name="Invited", owner_id=gm_id)
+            db.add(campaign)
+            db.flush()
+            db.add(CampaignMember(campaign_id=campaign.id, user_id=admin_id, status="invited"))
+            db.commit()
+            invited_to = campaign.id
+        finally:
+            db.close()
+
+        resp = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "campaign_id": invited_to},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 403
+        # The owner is never refused their own campaign.
+        assert client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "campaign_id": invited_to},
+            headers=gm_headers,
+        ).status_code == 200
+
+    def test_a_campaign_that_does_not_exist_is_refused(
+        self, client, admin_headers, both_schemas
+    ):
+        resp = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "campaign_id": "no-such-campaign"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 403
+
+
+class TestSeveralCharactersPerCampaign:
+    def test_a_player_keeps_a_fallen_character_beside_the_new_one(
+        self, client, admin_headers, gm_headers, both_schemas, party
+    ):
+        first = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "Fallen", "campaign_id": party},
+            headers=gm_headers,
+        ).json()
+        assert first["status"] == "active"
+        marked = client.put(
+            f"/api/characters/{first['id']}",
+            json={"status": "dead"},
+            headers=gm_headers,
+        )
+        assert marked.status_code == 200
+        assert marked.json()["status"] == "dead"
+        client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "Successor", "campaign_id": party},
+            headers=gm_headers,
+        )
+
+        listed = client.get(
+            f"/api/characters?campaign_id={party}", headers=admin_headers
+        ).json()["characters"]
+        assert {c["name"]: c["status"] for c in listed} == {
+            "Fallen": "dead",
+            "Successor": "active",
+        }
+        assert {c["campaign_name"] for c in listed} == {"Phase 5 Table"}
+
+    def test_an_unknown_status_is_refused(self, client, admin_headers, both_schemas):
+        created = client.post(
+            "/api/characters", json={"schema_ref": "p5-demo"}, headers=admin_headers
+        ).json()
+        resp = client.put(
+            f"/api/characters/{created['id']}",
+            json={"status": "zombie"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_status_travels_with_an_export(self, client, admin_headers, both_schemas):
+        created = client.post(
+            "/api/characters", json={"schema_ref": "p5-demo"}, headers=admin_headers
+        ).json()
+        client.put(
+            f"/api/characters/{created['id']}",
+            json={"status": "retired"},
+            headers=admin_headers,
+        )
+        exported = client.get(
+            f"/api/characters/{created['id']}/export", headers=admin_headers
+        ).json()
+        assert exported["status"] == "retired"
+        imported = client.post(
+            "/api/characters/import", json={"payload": exported}, headers=admin_headers
+        ).json()
+        assert imported["status"] == "retired"
+        # A file with a status this instance does not know imports as active.
+        exported["status"] = "ascended"
+        again = client.post(
+            "/api/characters/import", json={"payload": exported}, headers=admin_headers
+        ).json()
+        assert again["status"] == "active"
 
 
 class TestPortraits:
@@ -447,6 +592,55 @@ class TestExportImport:
         # The reference survives but resolves to nothing.
         assert imported["data"]["spells"] == [{"_ref": "my-spell"}]
         assert imported["entries"] == {}
+
+    def test_imported_content_is_the_importers_alone(
+        self, client, admin_headers, gm_headers, both_schemas, solo
+    ):
+        created = self._with_entry(client, admin_headers, solo)
+        pack = client.get(
+            f"/api/characters/{created['id']}/export", headers=admin_headers
+        ).json()
+        client.post("/api/characters/import", json={"payload": pack}, headers=gm_headers)
+
+        mine = [
+            r
+            for r in client.get("/api/rulesets", headers=gm_headers).json()["rulesets"]
+            if r["personal"]
+        ]
+        assert len(mine) == 1
+        assert mine[0]["campaign_id"] is None
+        assert mine[0]["editable"] is True
+        ruleset_id = mine[0]["id"]
+
+        # Not a server ruleset: nobody else - an admin included - reaches it.
+        listed = client.get("/api/rulesets", headers=admin_headers).json()["rulesets"]
+        assert ruleset_id not in {r["id"] for r in listed}
+        assert client.get(f"/api/rulesets/{ruleset_id}", headers=admin_headers).status_code == 404
+        assert client.put(
+            f"/api/rulesets/{ruleset_id}", json={"name": "Taken"}, headers=admin_headers
+        ).status_code == 404
+
+    def test_a_party_still_reads_an_imported_characters_content(
+        self, client, admin_headers, gm_headers, both_schemas, solo, party
+    ):
+        created = self._with_entry(client, admin_headers, solo)
+        pack = client.get(
+            f"/api/characters/{created['id']}/export", headers=admin_headers
+        ).json()
+        imported = client.post(
+            "/api/characters/import", json={"payload": pack}, headers=gm_headers
+        ).json()
+        client.put(
+            f"/api/characters/{imported['id']}",
+            json={"campaign_id": party},
+            headers=gm_headers,
+        )
+        # The entries live in the GM's personal ruleset, which the admin cannot
+        # read - but a sheet resolves against its owner's content, so the party
+        # sees the character exactly as its player does.
+        seen = client.get(f"/api/characters/{imported['id']}", headers=admin_headers).json()
+        assert seen["computed"]["spell_levels"] == 4
+        assert seen["entries"]["my-spell"]["name"] == "My Spell"
 
     def test_rejects_a_file_naming_no_schema(self, client, admin_headers, both_schemas):
         resp = client.post(

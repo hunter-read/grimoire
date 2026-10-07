@@ -4,6 +4,7 @@ import { LuTrash2, LuTriangleAlert, LuUsers } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import CardLink from '../CardLink'
 import LazyImg from '../LazyImg'
+import { isActive, statusLabel } from './characterStatus'
 
 /**
  * One character in the list: their art, if they have any, above their name and
@@ -25,6 +26,9 @@ export default function CharacterCard({ character, onDelete }) {
     .map((word) => word[0]?.toUpperCase())
     .join('')
   const owned = character.owned !== false
+  // A retired or fallen character stays in the list beside whoever replaced
+  // them, faded so the one being played is the one that stands out.
+  const inactive = !isActive(character)
 
   return (
     <li
@@ -53,6 +57,8 @@ export default function CharacterCard({ character, onDelete }) {
           alignItems: 'center',
           justifyContent: 'center',
           pointerEvents: 'none',
+          filter: inactive ? 'grayscale(1)' : 'none',
+          opacity: inactive ? 0.6 : 1,
         }}
       >
         {character.portrait_path ? (
@@ -105,6 +111,22 @@ export default function CharacterCard({ character, onDelete }) {
               character.schema_name || character.schema_ref
             )}
           </div>
+          {character.campaign_name || inactive ? (
+            <div
+              style={{
+                fontSize: 12,
+                color: 'var(--text-dim)',
+                marginTop: 4,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {[character.campaign_name, inactive ? statusLabel(t, character.status) : null]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
+          ) : null}
           {!owned ? (
             <div
               style={{

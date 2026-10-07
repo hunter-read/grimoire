@@ -311,7 +311,10 @@ def _serialize_character(
     detail: bool = False,
     db: Optional[Session] = None,
     viewer_id: Optional[str] = None,
+    campaign_names: Optional[dict[str, str]] = None,
 ) -> dict:
+    if campaign_names is None:
+        campaign_names = helpers.campaign_names(db, [row.campaign_id]) if db else {}
     payload: dict[str, Any] = {
         "id": row.id,
         "name": row.name or "",
@@ -320,6 +323,8 @@ def _serialize_character(
         "system": (schema.system or "") if schema else "",
         "schema_missing": schema is None,
         "campaign_id": row.campaign_id,
+        "campaign_name": campaign_names.get(row.campaign_id or ""),
+        "status": helpers.character_status(row.status),
         "portrait_path": row.portrait_path,
         # Changes whenever the image does, so the client can put it in the
         # portrait's URL: the image is cached for minutes, and the same URL
@@ -374,9 +379,15 @@ def list_characters(
         row.schema_id: row
         for row in db.query(CharacterSchema).filter_by(user_id=current_user.id).all()
     }
+    names = helpers.campaign_names(db, (row.campaign_id for row in rows))
     return {
         "characters": [
-            _serialize_character(row, schemas.get(row.schema_ref), viewer_id=current_user.id)
+            _serialize_character(
+                row,
+                schemas.get(row.schema_ref),
+                viewer_id=current_user.id,
+                campaign_names=names,
+            )
             for row in rows
         ]
     }
@@ -470,6 +481,14 @@ def update_character(
         campaign_id = data.campaign_id or None
         helpers.assert_in_campaign(db, current_user.id, campaign_id)
         row.campaign_id = campaign_id
+
+    if data.status is not None:
+        if data.status not in helpers.CHARACTER_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Status must be one of: {', '.join(helpers.CHARACTER_STATUSES)}",
+            )
+        row.status = data.status
 
     merged: Optional[dict] = None
     if data.data is not None or data.unset:
@@ -677,6 +696,7 @@ def import_character(
         schema_ref=schema_id,
         name=str(payload.get("name") or "")[:200],
         data=_coerce_all(document, payload.get("data") or {}),
+        status=helpers.character_status(payload.get("status")),
     )
     db.add(row)
     db.commit()

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileText, LuCheck } from 'react-icons/lu'
-import { campaigns as campaignsApi } from '../../api'
 import CharacterDialog from './CharacterDialog'
+import useCharacterCampaigns from './useCharacterCampaigns'
 import { goldBtn, ghostBtn, disabledBtn, fieldInput, fieldLabel, helpText } from './characterStyles'
 
 /**
@@ -19,23 +19,9 @@ export default function NewCharacterDialog({ schemas, onCreate, onClose }) {
   const [name, setName] = useState('')
   const [schemaRef, setSchemaRef] = useState(schemas.length === 1 ? schemas[0].schema_id : '')
   const [campaignId, setCampaignId] = useState('')
-  const [campaigns, setCampaigns] = useState([])
+  const campaigns = useCharacterCampaigns()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    campaignsApi
-      .list()
-      .then((list) => {
-        if (!cancelled) setCampaigns(Array.isArray(list) ? list : list?.campaigns || [])
-      })
-      // The campaign is optional; a list that will not load just leaves it out.
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const submit = async (event) => {
     event.preventDefault()

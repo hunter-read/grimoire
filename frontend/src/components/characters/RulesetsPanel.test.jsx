@@ -89,6 +89,23 @@ describe('RulesetsPanel', () => {
     expect(screen.getByText(/Everyone on this server/)).toBeInTheDocument()
   })
 
+  it('labels a personal ruleset as reaching only its owner', async () => {
+    const imported = {
+      ...SERVER,
+      id: 'r3',
+      name: 'Imported content',
+      personal: true,
+      editable: true,
+      attribution: '',
+    }
+    mockList.mockResolvedValue({ rulesets: [imported] })
+    renderView()
+    await screen.findByText('Imported content')
+    // A personal ruleset has no campaign either, but it is not the server's.
+    expect(screen.getByText(/Only you/)).toBeInTheDocument()
+    expect(screen.queryByText(/Everyone on this server/)).not.toBeInTheDocument()
+  })
+
   it('creates a ruleset for a campaign', async () => {
     mockCreate.mockResolvedValue({ ...MINE, id: 'new' })
     renderView()

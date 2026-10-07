@@ -109,6 +109,12 @@ class Character(Base):
     # made for. Setting it lets the party see the sheet.
     campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
 
+    # Where the character stands in their story: "active", "retired" or
+    # "dead". A player whose character falls rolls a new one in the same
+    # campaign; the old sheet stays, marked, rather than being deleted to make
+    # room. Nothing limits a player to one character per campaign.
+    status = Column(String(20), nullable=False, default="active", server_default="active")
+
     # Filename under DATA_PATH/uploads/characters/, not a path: the directory is
     # ours to choose and storing one would make moving it a migration.
     portrait_path = Column(String(255), nullable=True)

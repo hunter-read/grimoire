@@ -13,6 +13,7 @@ const mockUpdate = vi.fn()
 const mockResolve = vi.fn()
 
 vi.mock('../api', () => ({
+  campaigns: { list: () => Promise.resolve([]) },
   characters: {
     get: (...a) => mockGet(...a),
     getSchema: (...a) => mockGetSchema(...a),

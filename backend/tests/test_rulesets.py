@@ -62,8 +62,7 @@ def gm_campaign(gm_id, player_id):
         campaign = Campaign(name="The GM's Table", owner_id=gm_id)
         db.add(campaign)
         db.flush()
-        db.add(CampaignMember(campaign_id=campaign.id, user_id=gm_id, status="joined"))
-        db.add(CampaignMember(campaign_id=campaign.id, user_id=player_id, status="joined"))
+        db.add(CampaignMember(campaign_id=campaign.id, user_id=player_id, status="accepted"))
         db.commit()
         return campaign.id
     finally:
@@ -155,7 +154,6 @@ class TestVisibility:
             other = Campaign(name="A Different Game", owner_id=gm_id)
             db.add(other)
             db.flush()
-            db.add(CampaignMember(campaign_id=other.id, user_id=gm_id, status="joined"))
             db.commit()
             other_id = other.id
         finally:

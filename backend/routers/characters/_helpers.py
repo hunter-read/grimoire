@@ -1,11 +1,11 @@
 """Shared helpers for the character endpoints: access, export, import."""
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from ...models import CampaignMember, Character, ContentEntry, Ruleset, RulesetEntry
+from ...models import Campaign, CampaignMember, Character, ContentEntry, Ruleset, RulesetEntry
 from ...services import characters as svc
 from ...services.characters import rulesets as rs
 
@@ -14,14 +14,14 @@ EXPORT_SCHEMA = "grimoire://character/v1"
 
 MAX_IMPORT_BYTES = 8 * 1024 * 1024
 
+#: Where a character stands in their story. "active" is the default; the others
+#: keep a sheet around once the character is no longer the one being played.
+CHARACTER_STATUSES = ("active", "retired", "dead")
 
-def campaign_ids_for(db: Session, user_id: str) -> list[str]:
-    rows = (
-        db.query(CampaignMember.campaign_id)
-        .filter(CampaignMember.user_id == user_id)
-        .all()
-    )
-    return [row[0] for row in rows]
+
+def character_status(value: Any) -> str:
+    """A status from the closed set; anything else reads as "active"."""
+    return value if value in CHARACTER_STATUSES else "active"
 
 
 def readable_filter(db: Session, user_id: str):
@@ -32,7 +32,7 @@ def readable_filter(db: Session, user_id: str):
     Writing stays with the owner, checked separately, because the sheet belongs
     to the person who wrote it.
     """
-    campaigns = campaign_ids_for(db, user_id)
+    campaigns = rs.campaign_ids_for(db, user_id)
     arms = [Character.user_id == user_id]
     if campaigns:
         arms.append(Character.campaign_id.in_(campaigns))
@@ -52,16 +52,29 @@ def readable_character_or_404(db: Session, character_id: str, user_id: str) -> C
 
 
 def assert_in_campaign(db: Session, user_id: str, campaign_id: Optional[str]) -> None:
-    """A character may only be placed in a campaign its owner belongs to."""
+    """A character may only be placed in a campaign its owner is at the table
+    for — one they own (a GM campaign or a personal one) or have joined."""
     if not campaign_id:
+        return
+    campaign = db.query(Campaign).filter_by(id=campaign_id).first()
+    if campaign and campaign.owner_id == user_id:
         return
     member = (
         db.query(CampaignMember)
-        .filter_by(campaign_id=campaign_id, user_id=user_id)
+        .filter_by(campaign_id=campaign_id, user_id=user_id, status="accepted")
         .first()
     )
-    if not member:
+    if not campaign or not member:
         raise HTTPException(status_code=403, detail="You are not in that campaign")
+
+
+def campaign_names(db: Session, campaign_ids: Iterable[Any]) -> dict[str, str]:
+    """Campaign id → name, for labelling characters without a query each."""
+    wanted = {cid for cid in campaign_ids if cid}
+    if not wanted:
+        return {}
+    rows = db.query(Campaign.id, Campaign.name).filter(Campaign.id.in_(wanted)).all()
+    return {row[0]: row[1] for row in rows}
 
 
 # --- export / import -----------------------------------------------------
@@ -120,6 +133,7 @@ def export_character(
     return {
         "$schema": EXPORT_SCHEMA,
         "name": character.name or "",
+        "status": character_status(character.status),
         "schema_id": character.schema_ref,
         "schema": schema_document or {},
         "data": data,
@@ -153,7 +167,6 @@ def import_embedded_entries(
     owner_id: str,
     schema_id: str,
     document: Optional[dict],
-    campaign_id: Optional[str] = None,
 ) -> int:
     """Recreate an exported file's embedded entries in a ruleset.
 
@@ -162,9 +175,10 @@ def import_embedded_entries(
     character — and fall back to the embedded copy only for what is genuinely
     missing.
 
-    The recreated entries go into a ruleset named after the import, scoped to
-    the campaign the character joined or, with none, left as a server ruleset
-    the importer can move later.
+    The recreated entries go into a **personal** ruleset named after the
+    import, which only the importer reads. Anywhere wider would publish the
+    file's content to people who never asked for it - and a server ruleset is
+    otherwise the admin's alone to create.
     """
     embedded = payload.get("entries")
     if not isinstance(embedded, dict) or not embedded:
@@ -211,7 +225,7 @@ def import_embedded_entries(
 
         if target is None:
             target = Ruleset(
-                campaign_id=campaign_id,
+                owner_id=owner_id,
                 schema_id=schema_id,
                 name=str(payload.get("name") or "Imported content")[:200],
                 description="Recreated from an imported character.",

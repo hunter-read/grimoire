@@ -133,6 +133,10 @@ class CharacterSummary(BaseModel):
     # The campaign this character is played in, if any. Setting it lets the
     # party read the sheet; editing stays with the owner.
     campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    # "active", "retired" or "dead". A player may have several characters in
+    # one campaign; the status is how a fallen one stays without being current.
+    status: str = "active"
     portrait_path: Optional[str] = None
     # Changes with the image, for cache-busting the portrait's URL.
     portrait_version: Optional[int] = None
@@ -185,8 +189,9 @@ class CharacterUpdate(BaseModel):
     # because a null there already means "cleared" mid-edit, and snapping a
     # half-typed number back to its default would fight the player.
     unset: list[str] = Field(default_factory=list, max_length=100)
-    # "" clears the campaign; a real id must be one the owner belongs to.
+    # "" clears the campaign; a real id must be one the owner owns or has joined.
     campaign_id: Optional[str] = None
+    status: Optional[str] = None
 
 
 class CharacterExport(BaseModel):
@@ -199,6 +204,7 @@ class CharacterExport(BaseModel):
 
     schema_marker: str = Field(default="", alias="$schema")
     name: str = ""
+    status: str = "active"
     schema_id: str = ""
     character_schema: dict[str, Any] = Field(default_factory=dict, alias="schema")
     data: dict[str, Any] = Field(default_factory=dict)

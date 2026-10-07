@@ -46,6 +46,12 @@ import {
  *
  * Rendered inside the sheet manager, so it draws no page chrome of its own.
  */
+// Where a ruleset reaches: its campaign, just its owner, or every game.
+function scopeLabel(t, ruleset) {
+  if (ruleset.personal) return t('rulesets.personal')
+  return ruleset.campaign_name || t('rulesets.serverWide')
+}
+
 export default function RulesetsPanel() {
   const { t } = useTranslation()
 
@@ -213,7 +219,7 @@ export default function RulesetsPanel() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{current.name}</h3>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {current.campaign_name || t('rulesets.serverWide')} · {sheetName(current.schema_id)}
+              {scopeLabel(t, current)} · {sheetName(current.schema_id)}
             </div>
           </div>
           {current.editable ? (
@@ -458,7 +464,7 @@ export default function RulesetsPanel() {
                     .filter((row) => row.editable)
                     .map((row) => (
                       <option key={row.id} value={row.id}>
-                        {row.name} ({row.campaign_name || t('rulesets.serverWide')})
+                        {row.name} ({scopeLabel(t, row)})
                       </option>
                     ))}
                 </select>
@@ -529,8 +535,7 @@ export default function RulesetsPanel() {
                 >
                   <div style={{ fontWeight: 600 }}>{ruleset.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {ruleset.campaign_name || t('rulesets.serverWide')} ·{' '}
-                    {sheetName(ruleset.schema_id)} ·{' '}
+                    {scopeLabel(t, ruleset)} · {sheetName(ruleset.schema_id)} ·{' '}
                     {t('rulesets.entryCount', { count: ruleset.entry_count })}
                   </div>
                 </button>

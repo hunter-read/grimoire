@@ -84,8 +84,9 @@ property filter.
 ## Building a character
 
 **New character** opens a dialog: give the character a name, pick the sheet it
-is built on, and optionally the campaign it is played in. Then fill in the sheet. The name you
-give fills the sheet's own name field, and renaming either one renames both.
+is built on, and optionally the campaign it is played in (see
+[Campaigns](#campaigns)). Then fill in the sheet. The name you give fills the
+sheet's own name field, and renaming either one renames both.
 Edits save as you type, so there is no Save button to forget.
 
 - **Derived values** recalculate live. A modifier updates the instant its score
@@ -201,6 +202,9 @@ different content:
   the campaign.
 - A ruleset **for the server** is available in every game. Only an admin can
   create one, which is what core rules usually want.
+- A **personal** ruleset, labelled *Only you*, is yours alone - nobody else can
+  read it, admins included. Importing a character makes one to hold the content
+  that came in the file (see [Sharing a character](#sharing-a-character)).
 
 **Characters → Manage sheets → Content** is where you manage them, below the
 content packs installed on the server. A content pack is read-only and usable by
@@ -236,6 +240,25 @@ Setting a character's campaign puts it on that table, and everyone in the
 campaign can read the sheet - which is the point, since a GM should be able to
 see what the party is playing. Editing stays with the player who wrote it.
 
+You can put a character in any campaign you are at the table for:
+
+- **One you run**, whether a GM campaign or a **personal campaign** you keep for
+  your own notes as a player.
+- **One you have joined.** An invitation you have not accepted yet does not
+  count, so it is not offered.
+
+Pick the campaign when you create the character, or change it later from the
+dropdown under the character's name in the sheet's header. Choosing **No
+campaign** takes the character off the table, and the sheet is private again.
+
+### More than one character in a campaign
+
+Characters die, retire and get replaced, so a player can have any number of
+characters in the same campaign. Rather than deleting the old one to make room,
+set its **status** - the second dropdown in the sheet's header - to **Retired**
+or **Dead**. It stays readable, with its art greyed out on the Characters page,
+listed after the characters still being played.
+
 ## Sharing a character
 
 **Export character** from the sheet's header writes a self-contained file:
@@ -245,7 +268,31 @@ was built from.
 
 Importing prefers what the receiving server already has and falls back to what
 is in the file, so a shared character picks up local corrections rather than
-freezing what the sender happened to have.
+freezing what the sender happened to have. The character's status comes with
+it; its campaign does not, since that belongs to the server it came from.
+
+Anything the file carries that your server lacks - a homebrew spell, say - is
+added to a new **personal** ruleset named after the import, so the sheet reads
+correctly without sharing that content with anyone else. Put the character in a
+campaign and the party still sees it whole: a sheet always reads its entries the
+way its owner does.
+
+## Writing your own sheet or content pack
+
+A sheet you write works exactly like a catalogue one: paste it under **Manage
+sheets → Paste a sheet** and it is installed for you. To share it, contribute it
+to the [community repository](https://github.com/grimoire-codex/community-add-ons):
+
+- [Adding a character sheet](https://github.com/grimoire-codex/community-add-ons/blob/main/character-sheets/README.md) -
+  a walkthrough, from the first field to the pull request.
+- [Character sheet reference](https://github.com/grimoire-codex/community-add-ons/blob/main/docs/character-sheets.md) -
+  every field type, formula function, layout directive, HTML tag and CSS
+  property a sheet can use.
+- [Adding a content pack](https://github.com/grimoire-codex/community-add-ons/blob/main/content-packs/README.md) -
+  the spells, classes and feats a sheet draws from, and the licensing they need.
+
+Content for one table rather than everyone is better as a
+[ruleset](#rulesets), which needs no pull request.
 
 ## Pointing at a different catalogue (admin)
 

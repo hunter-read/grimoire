@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from ...models import Campaign, CampaignMember, User
+from ...models import Campaign, CampaignMember, Ruleset, User
 from ...auth import CurrentUser
 from ...sessions import delete_user_sessions
 
@@ -23,6 +23,9 @@ _USER_SCOPED_TABLES = (
     "saved_filters",
     "wiki_page_shares",
     "campaign_resource_shares",
+    # The character builder: a user's characters and the sheets they installed.
+    "characters",
+    "character_schemas",
 )
 
 # Rows deleted with their user but never *moved* to another one. Access grants
@@ -39,6 +42,9 @@ _USER_DELETE_ONLY_TABLES = ("user_access_grants", "api_keys")
 _USER_ATTRIBUTION_COLUMNS = (
     ("wiki_pages", "created_by_id"),
     ("campaign_files", "uploaded_by_id"),
+    # A campaign or server ruleset serves a table, not its author. A personal
+    # one is owned through `owner_id` instead, handled below.
+    ("rulesets", "created_by_id"),
 )
 
 
@@ -49,6 +55,8 @@ _USER_SCOPED_UNIQUE = (
     ("campaign_members", "campaign_id"),
     ("wiki_page_shares", "page_id"),
     ("campaign_resource_shares", "resource_id"),
+    # One installed copy of each sheet per user; the target's copy wins.
+    ("character_schemas", "schema_id"),
 )
 
 
@@ -91,6 +99,11 @@ def reassign_user_data(db, source_id: str, target_id: str) -> int:
     # Campaigns the source owns move too, so a guest promoted mid-merge keeps them.
     for campaign in db.query(Campaign).filter_by(owner_id=source_id).all():
         campaign.owner_id = target_id
+    # So do personal rulesets: an imported character's content lives in one.
+    db.execute(
+        text("UPDATE rulesets SET owner_id = :tgt WHERE owner_id = :src"),
+        {"src": source_id, "tgt": target_id},
+    )
     return int(moved)
 
 
@@ -104,6 +117,13 @@ def purge_user_data(db, user_id: str) -> None:
     """
     for campaign in db.query(Campaign).filter_by(owner_id=user_id).all():
         db.delete(campaign)
+    # Personal rulesets reach nobody else, so they go with their owner (and
+    # their entries with them).
+    for ruleset in db.query(Ruleset).filter_by(owner_id=user_id).all():
+        db.delete(ruleset)
+    # Flushed now: nothing relates a ruleset to its owner in the ORM, so left
+    # pending these could be ordered after the user's own DELETE and fail it.
+    db.flush()
     for table in (*_USER_SCOPED_TABLES, *_USER_DELETE_ONLY_TABLES):
         db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
     for table, column in _USER_ATTRIBUTION_COLUMNS:

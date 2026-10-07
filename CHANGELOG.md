@@ -12,6 +12,16 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Rescan and File manager buttons on every Settings tab, with scan progress and a stop button
 - Upload with `on_conflict=replace` to swap in a corrected file for a book and keep its tags, metadata, bookmarks, and favorites (#497)
+- Character sheets: install a sheet for your game from the community catalogue, or paste your own, and build characters on it (#129)
+- Ten sheets in the catalogue: D&D 5e (2024), Draw Steel, Pathfinder 2e and 1e, Call of Cthulhu 7e, Traveller, Cosmere RPG, Dungeon Crawler Carl, Cairn, and Basic Fantasy
+- Sheets work out modifiers, saves and totals as you type, and any calculated value can be overridden
+- Picking a class, background or species fills in what it grants, and changing the pick takes it back off
+- Content packs add a searchable catalogue of spells, classes and feats; packs for the D&D 5e SRD, Draw Steel, and Pathfinder Player Core are available (#131)
+- Rulesets give each campaign its own content and house rules, edited by its GM
+- Put a character in a campaign you run, a personal campaign, or one you've joined, so the table can read the sheet
+- Keep several characters in one campaign, and mark one retired or dead instead of deleting it
+- Character art, and export or import of a character as a self-contained file
+- A guide and full reference for writing your own sheets and content packs, in the community add-ons repository
 
 ### Changed
 

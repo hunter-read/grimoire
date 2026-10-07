@@ -60,6 +60,24 @@ describe('CharactersView', () => {
     expect(screen.getAllByText(/D&D 5e/).length).toBeGreaterThan(0)
   })
 
+  it('keeps a fallen character beside their successor, after the one being played', async () => {
+    mockList.mockResolvedValue({
+      characters: [
+        { ...CHARACTER, id: 'c1', name: 'Fallen', status: 'dead', campaign_name: 'Strahd' },
+        { ...CHARACTER, id: 'c2', name: 'Successor', status: 'active', campaign_name: 'Strahd' },
+      ],
+    })
+    renderView()
+    await screen.findByText('Successor')
+    const cards = within(screen.getByRole('list', { name: 'Characters' })).getAllByRole('listitem')
+    expect(cards.map((card) => within(card).getByText(/Fallen|Successor/).textContent)).toEqual([
+      'Successor',
+      'Fallen',
+    ])
+    expect(within(cards[0]).getByText('Strahd')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('Strahd · Dead')).toBeInTheDocument()
+  })
+
   it('shows an empty state when there are no characters', async () => {
     mockList.mockResolvedValue({ characters: [] })
     renderView()

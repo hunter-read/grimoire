@@ -18,6 +18,7 @@ import { planPick, applyChoice } from '../components/characters/onPick'
 import { OVERRIDES_KEY } from '../components/characters/expressions'
 import RawCharacterData from '../components/characters/RawCharacterData'
 import CharacterPortrait from '../components/characters/CharacterPortrait'
+import CharacterPlacement from '../components/characters/CharacterPlacement'
 import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 
 // Edits are saved on a short debounce rather than on a Save button: a sheet is
@@ -333,6 +334,19 @@ export default function CharacterDetailView() {
             }}
           >
             <span>{sheetName}</span>
+            <CharacterPlacement
+              character={character}
+              readOnly={readOnly}
+              onChanged={(updated) =>
+                setCharacter((prev) => ({
+                  ...prev,
+                  campaign_id: updated.campaign_id,
+                  campaign_name: updated.campaign_name,
+                  status: updated.status,
+                }))
+              }
+              onError={setError}
+            />
             {readOnly ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 · <LuEye size={13} aria-hidden="true" /> {t('characters.readOnlyParty')}

@@ -67,6 +67,9 @@ def _serialize(
         "source_pack_id": ruleset.source_pack_id,
         "campaign_id": ruleset.campaign_id,
         "campaign_name": campaign_name,
+        # Only the owner can read a personal ruleset, so the flag alone says
+        # whose it is.
+        "personal": ruleset.owner_id is not None,
         "editable": editable,
         "entry_count": entry_count,
         "created_at": ruleset.created_at.isoformat() if ruleset.created_at else None,
@@ -80,7 +83,7 @@ def list_rulesets(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Every ruleset this user can read: the server's, plus their tables'."""
+    """Every ruleset this user can read: the server's, their tables', and their own."""
     query = db.query(Ruleset).filter(rs.readable_filter(db, current_user.id))
     if schema_id:
         query = query.filter(Ruleset.schema_id == schema_id)

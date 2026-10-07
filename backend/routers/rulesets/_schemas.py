@@ -17,9 +17,12 @@ class RulesetSummary(BaseModel):
     # Rendered verbatim: several open licences mandate exact wording.
     attribution: str = ""
     source_pack_id: Optional[str] = None
-    # Null for a server ruleset, which every game can use.
+    # Null for a server or personal ruleset.
     campaign_id: Optional[str] = None
     campaign_name: str = ""
+    # True for a ruleset only its owner reaches - where an imported
+    # character's content lands.
+    personal: bool = False
     # Whether the caller may change this ruleset, as opposed to only read it.
     editable: bool = False
     entry_count: int = 0

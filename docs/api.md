@@ -258,7 +258,7 @@ environment:
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
 | `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, or `email` (use `""` to clear the email). `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
-| `/api/users/:id/merge` | POST | admin | Fold one or more guest accounts into the account at `:id`, so someone invited to several campaigns ends up with a single login. Body: `{source_ids: [...]}` (non-empty, no duplicates, cannot contain `:id`). Moves each source's campaign memberships, notes, characters, and personal rows onto the target, then deletes the emptied sources and ends their sessions. Merged-in memberships have their invite code cleared - campaign access comes from the membership itself, so the person keeps every campaign and uses the surviving account's credentials. Rows that would collide (target is already in that campaign) are dropped in favour of the target's. Sources must be guests; the target may be a guest or a permanent user. Returns `{id, display_name, merged_ids, memberships_moved}`. 400 if a source isn't a guest or `:id` is among the sources, 404 if the target or any source is missing. |
+| `/api/users/:id/merge` | POST | admin | Fold one or more guest accounts into the account at `:id`, so someone invited to several campaigns ends up with a single login. Body: `{source_ids: [...]}` (non-empty, no duplicates, cannot contain `:id`). Moves each source's campaign memberships, notes, character-builder characters, installed sheets, personal rulesets, and other personal rows onto the target, then deletes the emptied sources and ends their sessions. Merged-in memberships have their invite code cleared - campaign access comes from the membership itself, so the person keeps every campaign and uses the surviving account's credentials. Rows that would collide (target is already in that campaign, or has that sheet installed) are dropped in favour of the target's. Sources must be guests; the target may be a guest or a permanent user. Returns `{id, display_name, merged_ids, memberships_moved}`. 400 if a source isn't a guest or `:id` is among the sources, 404 if the target or any source is missing. |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin). Also the way to remove a guest account, including one orphaned by its campaign's deletion (null `campaign_id`/`invited_by`). |
 | `/api/users/:id/access-grants` | GET | admin | List this user's library access grants. Each: `{id, user_id, scope_type, scope_id, scope_name, level}`. `scope_name` is `""` when the granted system/book has since been deleted. |
 | `/api/users/:id/access-grants` | POST | admin | Grant access to one restricted system or book. Body: `{scope_type: "system"\|"book", scope_id, level: "gm"\|"admin"}`. Only **GMs** may hold grants (400 otherwise) - admins already see everything and players cannot be granted past a restriction. Re-granting an existing scope updates its level rather than erroring. 404 if the target system/book does not exist. See [Access levels](#access-levels-issue-258). |
@@ -1743,10 +1743,10 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue |
 | `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document` |
 | `/api/characters/schemas/:schema_id` | DELETE | user | Uninstall a schema. Characters built on it are **kept** |
-| `/api/characters` | GET | user | The user's characters, newest first. `?schema_ref=` filters by schema |
-| `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?}`. 400 if that schema is not installed |
+| `/api/characters` | GET | user | The user's characters plus their parties', newest first. `?schema_ref=` filters by schema, `?campaign_id=` by campaign |
+| `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?, campaign_id?}`. 400 if that schema is not installed, 403 if the campaign is not one you own or have joined |
 | `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
-| `/api/characters/:id` | PUT | user | Update `name`, `data` and/or `unset`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
+| `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id` and/or `status`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
 | `/api/characters/:id` | DELETE | user | Delete a character |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
@@ -1796,9 +1796,14 @@ rather than stored as sent:
 `character_count`, and on detail `document`.
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
-`schema_missing`, `campaign_id`, `portrait_path`, `portrait_version`, `owned`,
-`created_at`, `updated_at`, and on detail `data`, `computed`, `validators`, and
-`entries`.
+`schema_missing`, `campaign_id`, `campaign_name`, `status`, `portrait_path`,
+`portrait_version`, `owned`, `created_at`, `updated_at`, and on detail `data`,
+`computed`, `validators`, and `entries`.
+
+`status` is `active` (the default), `retired` or `dead`. A player may have any
+number of characters in one campaign; when one falls they mark it rather than
+delete it, and roll the next. Any other value is a 400. `campaign_name` is the
+campaign's name, or `null` without one.
 
 `portrait_version` changes whenever the portrait does (it is `null` without
 one), and the portrait upload returns it too. Pass it as `?v=` on the portrait's
@@ -1811,8 +1816,14 @@ Setting `campaign_id` puts a character on a table, and every member of that
 campaign can then **read** the sheet — which is the point, since a GM should be
 able to see what their players are playing. Writing stays with the owner:
 `owned` is false when you are reading someone else's, and edits, deletes and
-portrait changes answer 404. A character may only be placed in a campaign its
-owner belongs to (403 otherwise), and `campaign_id: ""` takes it back out.
+portrait changes answer 404. `campaign_id: ""` takes a character back out.
+
+"At the table" means the campaign's **owner** or an **accepted** member. That
+covers a GM campaign (the GM reads every player's sheet), a player's personal
+campaign (which has no members at all), and a campaign you joined. A character
+may only be placed in such a campaign - 403 otherwise, including for one you
+have been invited to but not yet joined. Campaign rulesets are readable by the
+same people.
 
 A character with no campaign stays private to its owner. `GET /api/characters`
 returns your own plus your parties', and `?campaign_id=` narrows it to one
@@ -1827,7 +1838,7 @@ nor the ruleset still opens and still computes correctly.
 
 ```json
 { "$schema": "grimoire://character/v1",
-  "name": "Vex", "schema_id": "dnd-5e",
+  "name": "Vex", "status": "active", "schema_id": "dnd-5e",
   "schema": { "...the whole sheet definition..." },
   "data": { "spells": [ { "_ref": "my-spell" } ] },
   "entries": { "my-spell": { "content_type": "spell", "source": "ruleset",
@@ -1838,10 +1849,12 @@ Importing installs the schema if the importer does not have it, and recreates
 embedded entries in a ruleset named after the import — but **only what is
 missing**. An entry this instance already has, in a pack or in any ruleset the
 importer can read, wins over the embedded copy, so an erratum applied locally
-reaches an imported character. The new ruleset is scoped to the campaign the
-character joined, or left server-wide when it joined none. Pass
-`import_entries: false` to skip that and let the references read as missing
-instead.
+reaches an imported character. The new ruleset is **personal** - only the
+importer can read or edit it - so importing a character never publishes its
+content to anyone else. The character still reads correctly for a party it
+later joins, because a sheet resolves entries against its owner's content. Pass `import_entries: false` to skip that and
+let the references read as missing instead. The file's `status` is kept if it
+is one this instance knows, and read as `active` otherwise.
 
 Anyone who may read a character may export it, so a GM can archive a party
 member's sheet.
@@ -2184,12 +2197,16 @@ content, which is not something a per-user model can express:
 
 | Kind | `campaign_id` | Who reads it | Who edits it |
 |---|---|---|---|
-| **Campaign** | the campaign | everyone at that table, GM and players | the campaign owner, and admins |
+| **Campaign** | the campaign | everyone at that table: the campaign's owner and its accepted members | the campaign owner, and admins |
+| **Personal** | null (with an owner) | its owner only | its owner only - not even admins |
 | **Server** | null | everyone on the instance | admins |
 
 A campaign ruleset is deleted with its campaign — the content existed to serve
 that table. Creating a server ruleset requires admin; creating a campaign one
-requires owning the campaign.
+requires owning the campaign. A personal ruleset is not created through this
+endpoint: importing a character makes one, to hold the content embedded in the
+file. It is deleted with its owner's account, and moves with it when a guest is
+merged into another account.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -2216,7 +2233,8 @@ owner for a campaign ruleset, an admin for a server one. Everyone else gets 403.
 
 **Ruleset fields:** `id`, `schema_id`, `name`, `description`, `version`,
 `license`, `license_url`, `attribution`, `source_pack_id`, `campaign_id`,
-`campaign_name`, `editable`, `entry_count`, `created_at`, `updated_at`.
+`campaign_name`, `personal`, `editable`, `entry_count`, `created_at`,
+`updated_at`.
 
 **Entry fields:** `id`, `ruleset_id`, `content_type`, `entry_id`, `name`,
 `forked_from`, `editable`, and on detail `data`.

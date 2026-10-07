@@ -118,14 +118,16 @@ class Ruleset(Base):
     rendered by the same components; what differs is where it lives and who it
     reaches.
 
-    Two kinds, decided by ``campaign_id``:
+    Three kinds, decided by ``campaign_id`` and ``owner_id``:
 
     * **campaign** — owned by one campaign. Everyone at that table can read it,
       and the GM who owns the campaign can edit it. This is what makes "these
-      two games run the same system with different content" expressible:
-      a ruleset belongs to a table, not to the server and not to a person.
-    * **server** — ``campaign_id`` is null. Installed once by an admin and
-      available in every game, which is what core rules want to be.
+      two games run the same system with different content" expressible.
+    * **personal** — ``owner_id`` is set. Readable and editable by that one
+      user and nobody else. This is where an imported character's embedded
+      content lands: the importer needs it, and nobody else asked for it.
+    * **server** — both are null. Created by an admin and available in every
+      game, which is what core rules want to be.
 
     ``source_pack_id`` records the filesystem pack a ruleset was imported from,
     so an SRD imported into a campaign can be told from one typed by hand.
@@ -139,6 +141,11 @@ class Ruleset(Base):
     campaign_id = Column(
         String(36), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    # Set for a personal ruleset, which only this user reaches. Ownership,
+    # unlike ``created_by_id``, which is attribution: deleting the user deletes
+    # their personal rulesets, but a campaign or server ruleset they wrote
+    # survives them.
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     schema_id = Column(String(100), nullable=False, index=True)
 
     name = Column(String(200), nullable=False, default="")

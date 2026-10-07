@@ -9,15 +9,18 @@ What is different is **where it lives**:
 * a **campaign ruleset** belongs to one table. Everyone in the campaign reads
   it; the GM who owns the campaign edits it. That is what lets two games in the
   same system allow different content.
-* a **server ruleset** has no campaign and is available in every game, which is
-  what core rules want to be. Only an admin creates one.
+* a **personal ruleset** belongs to one user, who alone reads and edits it.
+  Importing a character puts the content embedded in its file here, so a
+  player's import never publishes anything to the rest of the server.
+* a **server ruleset** has neither a campaign nor an owner and is available in
+  every game, which is what core rules want to be. Only an admin creates one.
 
 The access rules live here and nowhere else, so there is one place to audit.
 """
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ...models import Campaign, CampaignMember, Ruleset, RulesetEntry
@@ -51,25 +54,35 @@ CONFLICT_MODES = ("skip", "overwrite", "rename")
 MAX_IMPORT_ENTRIES = 20000
 
 
-def _campaign_ids(db: Session, user_id: str) -> list[str]:
-    rows = (
-        db.query(CampaignMember.campaign_id)
-        .filter(CampaignMember.user_id == user_id)
-        .all()
+def campaign_ids_for(db: Session, user_id: str) -> list[str]:
+    """Every campaign this user is at the table for: owned, or joined.
+
+    Ownership counts on its own. A personal campaign has no member rows at all,
+    and a GM owns their campaign rather than being a member of it, so a
+    members-only lookup would lock both out of their own games. Invitations
+    that have not been accepted do not count.
+    """
+    owned = db.query(Campaign.id).filter(Campaign.owner_id == user_id)
+    joined = db.query(CampaignMember.campaign_id).filter(
+        CampaignMember.user_id == user_id, CampaignMember.status == "accepted"
     )
-    return [row[0] for row in rows]
+    return list({row[0] for row in owned.union(joined).all()})
 
 
 def readable_filter(db: Session, user_id: str) -> Any:
     """Every ruleset this user may read.
 
-    Server rulesets (no campaign) reach everyone — that is what makes them the
-    right home for core rules. A campaign ruleset reaches the people at that
-    table, checked by **membership** rather than by the campaign id merely
-    being set, so scoping content to a game does not publish it to the server.
+    Server rulesets (no campaign, no owner) reach everyone — that is what makes
+    them the right home for core rules. A campaign ruleset reaches the people at
+    that table (its owner and accepted members, see ``campaign_ids_for``) rather
+    than everyone who can see the campaign id, so scoping content to a game does
+    not publish it to the server. A personal ruleset reaches its owner alone.
     """
-    campaigns = _campaign_ids(db, user_id)
-    arms = [Ruleset.campaign_id.is_(None)]
+    campaigns = campaign_ids_for(db, user_id)
+    arms = [
+        and_(Ruleset.campaign_id.is_(None), Ruleset.owner_id.is_(None)),
+        Ruleset.owner_id == user_id,
+    ]
     if campaigns:
         arms.append(Ruleset.campaign_id.in_(campaigns))
     return or_(*arms)
@@ -78,10 +91,13 @@ def readable_filter(db: Session, user_id: str) -> Any:
 def can_edit(db: Session, ruleset: Ruleset, user_id: str, *, is_admin: bool) -> bool:
     """Whether this user may change a ruleset.
 
-    A server ruleset is the admin's; a campaign's belongs to whoever runs the
+    A personal ruleset is its owner's alone - an admin cannot even read one. A
+    server ruleset is the admin's; a campaign's belongs to whoever runs the
     campaign. Being *in* a game lets you read its content, never rewrite it —
     otherwise any player could edit the table's rules.
     """
+    if ruleset.owner_id is not None:
+        return ruleset.owner_id == user_id
     if ruleset.campaign_id is None:
         return is_admin
     if is_admin:

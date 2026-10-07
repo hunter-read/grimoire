@@ -7,6 +7,7 @@ import Spinner from '../components/Spinner'
 import SheetManager from '../components/characters/SheetManager'
 import NewCharacterDialog from '../components/characters/NewCharacterDialog'
 import CharacterCard from '../components/characters/CharacterCard'
+import { isActive } from '../components/characters/characterStatus'
 import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/characterStyles'
 
 /**
@@ -39,7 +40,10 @@ export default function CharactersView() {
         charactersApi.list(),
         charactersApi.listSchemas(),
       ])
-      setCharacters(list.characters || [])
+      // Characters still being played lead; retired and fallen ones follow,
+      // each group keeping the server's most-recently-edited order.
+      const all = list.characters || []
+      setCharacters([...all.filter(isActive), ...all.filter((c) => !isActive(c))])
       setSchemas(schemaList.schemas || [])
       setError('')
     } catch (e) {

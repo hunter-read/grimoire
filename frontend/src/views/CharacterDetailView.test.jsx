@@ -12,7 +12,10 @@ const mockNavigate = vi.fn()
 const mockExport = vi.fn()
 const mockUploadPortrait = vi.fn()
 
+const mockCampaigns = vi.fn()
+
 vi.mock('../api', () => ({
+  campaigns: { list: (...a) => mockCampaigns(...a) },
   characters: {
     get: (...a) => mockGet(...a),
     getSchema: (...a) => mockGetSchema(...a),
@@ -59,6 +62,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockResolvedValue(CHARACTER)
   mockGetSchema.mockResolvedValue({ document: DOCUMENT })
+  mockCampaigns.mockResolvedValue([{ id: 'camp1', name: 'My Notes' }])
   mockUpdate.mockImplementation((id, body) =>
     Promise.resolve({ ...CHARACTER, ...body, data: { ...CHARACTER.data, ...(body.data || {}) } })
   )
@@ -69,6 +73,16 @@ afterEach(() => {
 })
 
 describe('CharacterDetailView', () => {
+  it('moves a character into a campaign and marks them dead', async () => {
+    renderView()
+    await screen.findByRole('option', { name: 'My Notes' })
+    await userEvent.selectOptions(screen.getByLabelText('Campaign'), 'camp1')
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('c1', { campaign_id: 'camp1' }))
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'dead')
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('c1', { status: 'dead' }))
+    expect(screen.getByLabelText('Status')).toHaveValue('dead')
+  })
+
   it('renders the sheet from its schema', async () => {
     renderView()
     expect(await screen.findByLabelText('Strength')).toHaveValue(16)
