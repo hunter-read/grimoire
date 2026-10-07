@@ -12,6 +12,7 @@ import CardLink from '../CardLink'
 import LinkableTag from '../LinkableTag'
 import { displayLabel } from '../tagStyle'
 import BookActionsMenu from './BookActionsMenu'
+import RecentlyAddedBadge from '../RecentlyAddedBadge'
 
 // The list row's compact gold tag chip.
 const rowTagStyle = {
@@ -266,6 +267,7 @@ export default function BookRow({
               whiteSpace: 'nowrap',
             }}
           >
+            <RecentlyAddedBadge addedAt={book.added_at} />
             {book.title}
           </div>
           <div
@@ -438,6 +440,7 @@ export default function BookRow({
             whiteSpace: 'nowrap',
           }}
         >
+          <RecentlyAddedBadge addedAt={book.added_at} />
           {book.title}
         </div>
         <div

@@ -847,6 +847,33 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     expect(titles.indexOf('Zeta')).toBeLessThan(titles.indexOf('Alpha'))
   })
 
+  it('sorts by date added newest first and filters to recent books across categories', async () => {
+    const ago = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    api.get.mockResolvedValue(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'Ancient', category: 'core', added_at: ago(90) }),
+        makeBook({ id: 'b2', title: 'Fresh', category: 'core', added_at: ago(1) }),
+        makeBook({ id: 'b3', title: 'Hot Module', category: 'adventures', added_at: ago(2) }),
+        makeBook({ id: 'b4', title: 'Legacy', category: 'adventures', added_at: null }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Fresh')).toBeInTheDocument())
+    // Recent books carry the badge; older and undated ones do not.
+    expect(screen.getAllByRole('img', { name: 'New' })).toHaveLength(2)
+
+    await userEvent.selectOptions(screen.getByLabelText('Sort'), 'added_at')
+    const titles = screen.getAllByText(/^(Ancient|Fresh)$/).map((n) => n.textContent)
+    expect(titles).toEqual(['Fresh', 'Ancient'])
+
+    await openBookFilters()
+    await userEvent.click(screen.getByLabelText('Recently added (last 7 days)'))
+    await waitFor(() => expect(screen.queryByText('Ancient')).not.toBeInTheDocument())
+    expect(screen.queryByText('Legacy')).not.toBeInTheDocument()
+    expect(screen.getByText('Fresh')).toBeInTheDocument()
+    expect(screen.getByText('Hot Module')).toBeInTheDocument()
+  })
+
   it('saves a books filter preset via the modal', async () => {
     api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()

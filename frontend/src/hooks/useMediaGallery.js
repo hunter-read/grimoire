@@ -9,6 +9,7 @@ import { useFavorites } from '../context/FavoritesContext'
 // (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
 import { getEffectiveTags, getTopFolder, getSubPath } from '../components/media/mediaConfig'
 import { matchesTagQuery, queryTags, toggleQueryTag } from '../components/library/tagQuery'
+import { compareAddedAt, isRecentlyAdded } from '../utils/recentlyAdded'
 
 // Page size for the progressive load below. Large enough that a modest library
 // arrives in one request, small enough that the first paint is quick on a big one.
@@ -63,6 +64,8 @@ export default function useMediaGallery(config) {
   const activeFilters = sortFilter.filters || {}
   const filter = activeFilters.search || ''
   const favOnly = activeFilters.favorites === true
+  // Only items carrying the "new" badge (issue #199).
+  const recentOnly = activeFilters.recent === true
   // Falls back to the shared empty array rather than a fresh `[]`: this feeds the
   // `filtered` memo's dependencies, and a new identity per render would rebuild
   // the whole filtered set on every render.
@@ -354,13 +357,15 @@ export default function useMediaGallery(config) {
         // "untagged"/"tagged" sentinels alike — tests that combined set.
         const tagMatch = matchesTagQuery(tagQuery, d.effective)
         const favMatch = !favOnly || isFavorite(type, d.item.id)
-        return textMatch && tagMatch && favMatch
+        const recentMatch = !recentOnly || isRecentlyAdded(d.item.added_at)
+        return textMatch && tagMatch && favMatch && recentMatch
       })
       .map((d) => d.item)
-  }, [decorated, filter, tagQuery, favOnly, type, isFavorite])
+  }, [decorated, filter, tagQuery, favOnly, recentOnly, type, isFavorite])
 
   // Item comparator from the sort/order state. `name` sorts by filename; `size`
-  // by file size (audio also supports `duration` and `title`).
+  // by file size; `added_at` by date added, undated items last either way
+  // (audio also supports `duration` and `title`).
   const { sort = 'name', order = 'asc' } = sortFilter
   const dir = order === 'desc' ? -1 : 1
   // A shared collator: String.prototype.localeCompare builds one per call, which
@@ -372,6 +377,9 @@ export default function useMediaGallery(config) {
       title: (a, b) => collator.compare(a.title || a.filename || '', b.title || b.filename || ''),
       size: (a, b) => (a.file_size || 0) - (b.file_size || 0),
       duration: (a, b) => (a.duration || 0) - (b.duration || 0),
+    }
+    if (sort === 'added_at') {
+      return (arr) => [...arr].sort((a, b) => compareAddedAt(a, b, dir) || itemCmp.name(a, b))
     }
     const cmp = itemCmp[sort] || itemCmp.name
     return (arr) => [...arr].sort((a, b) => dir * cmp(a, b))

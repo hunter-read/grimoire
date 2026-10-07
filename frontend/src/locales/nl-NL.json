@@ -97,7 +97,8 @@
     "archiveNotViewable": "Dit is een archiefbestand en kan niet worden voorvertoond. Download het om de inhoud te openen.",
     "versions": "Versies",
     "clearSearch": "Zoekopdracht wissen",
-    "removeLink": "Link verwijderen"
+    "removeLink": "Link verwijderen",
+    "newBadge": "Nieuw"
   },
   "login": {
     "username": "Gebruikersnaam",
@@ -2677,7 +2678,9 @@
     "tagGroupRemove": "Groep {{n}} verwijderen",
     "sortProductCode": "Productcode",
     "filterProductCode": "Productcode",
-    "allProductCodes": "Alle productcodes"
+    "allProductCodes": "Alle productcodes",
+    "sortAddedAt": "Datum toegevoegd",
+    "filterRecent": "Recent toegevoegd (laatste {{days}} dagen)"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

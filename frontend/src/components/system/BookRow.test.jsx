@@ -566,3 +566,25 @@ describe('BookRow', () => {
     })
   })
 })
+
+describe('BookRow — new badge (issue #199)', () => {
+  beforeEach(() => {
+    FavCtx.useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite: vi.fn() })
+  })
+  const yesterday = () => new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  it('marks a recently added book in the list layout, reading "New" on hover', () => {
+    render(<BookRow book={makeBook({ added_at: yesterday() })} />)
+    expect(screen.getByTestId('recently-added-badge')).toHaveAttribute('title', 'New')
+  })
+
+  it('marks a recently added book on a card', () => {
+    render(<BookRow book={makeBook({ added_at: yesterday() })} card />)
+    expect(screen.getByRole('img', { name: 'New' })).toBeInTheDocument()
+  })
+
+  it('shows no badge for a book that predates tracking', () => {
+    render(<BookRow book={makeBook({ added_at: null })} card />)
+    expect(screen.queryByTestId('recently-added-badge')).not.toBeInTheDocument()
+  })
+})

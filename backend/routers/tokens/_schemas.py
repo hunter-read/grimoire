@@ -1,4 +1,5 @@
 """Pydantic schemas for the tokens API."""
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, field_validator
 
@@ -53,6 +54,9 @@ class TokenOut(VariantCountMixin):
     has_thumbnail: Optional[bool] = None
     is_explicit: bool
     is_missing: bool
+    # When this first appeared in the library (issue #199); null for a legacy
+    # row added before that was tracked.
+    added_at: Optional[datetime] = None
     is_archive: bool
 
 

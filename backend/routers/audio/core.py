@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import get_db
 from ...models import Audio, AudioFolder
+from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import _extract_embedded_art, _find_folder_artwork, archive_ext, archive_mime
@@ -45,6 +46,7 @@ def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
         "file_size": a.file_size,
         "is_missing": bool(a.is_missing),
         "is_archive": bool(archive_ext(a.filename)),
+        "added_at": utc_iso(a.added_at),
     }
 
 

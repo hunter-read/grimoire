@@ -28,7 +28,8 @@ import useIsMobile from '../../hooks/useIsMobile'
  * Other props:
  *  - state: { sort, order, filters: {...} }
  *  - onChange: (nextState) => void
- *  - sortOptions: [{ value, label }]
+ *  - sortOptions: [{ value, label, defaultOrder? }] - picking an option with a
+ *    `defaultOrder` also sets the order ("Date added" means newest first)
  *  - selectFilters / multiFilters / queryFilters / toggleFilters: filter
  *    definitions (rendered in the modal); `queryFilters` are the grouped
  *    AND/OR tag builders
@@ -60,7 +61,10 @@ export default function SortFilterBar({
   // still fits on a single line instead of wrapping into a tall block.
   const isMobile = useIsMobile()
   const filters = state.filters || {}
-  const setSort = (sort) => onChange({ ...state, sort })
+  const setSort = (sort) => {
+    const defaultOrder = sortOptions.find((o) => o.value === sort)?.defaultOrder
+    onChange({ ...state, sort, ...(defaultOrder ? { order: defaultOrder } : null) })
+  }
   const toggleOrder = () => onChange({ ...state, order: state.order === 'asc' ? 'desc' : 'asc' })
 
   const isActive = (v) => {

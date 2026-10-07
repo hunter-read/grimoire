@@ -49,6 +49,7 @@ import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import useLibraryChanged from '../hooks/useLibraryChanged'
+import { RECENTLY_ADDED_DAYS } from '../utils/recentlyAdded'
 
 const DEFAULT_BOOK_FILTER = { sort: 'title', order: 'asc', filters: {} }
 
@@ -358,6 +359,7 @@ export default function SystemDetailView() {
     { value: 'page_count', label: t('sortFilter.sortPageCount') },
     { value: 'size', label: t('sortFilter.sortSize') },
     { value: 'product_code', label: t('sortFilter.sortProductCode') },
+    { value: 'added_at', label: t('sortFilter.sortAddedAt'), defaultOrder: 'desc' },
   ]
   const bookGenreOptions = [...new Set((system.books || []).flatMap((b) => b.genres || []))]
     .sort((a, b) => a.localeCompare(b))
@@ -744,6 +746,11 @@ export default function SystemDetailView() {
             ]}
             toggleFilters={[
               { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
+              {
+                key: 'recent',
+                label: t('sortFilter.filterRecent', { days: RECENTLY_ADDED_DAYS }),
+                boolean: true,
+              },
               { key: 'explicit', label: t('sortFilter.filterExplicit') },
             ]}
             saved={savedBookFilters}

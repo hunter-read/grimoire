@@ -1,4 +1,5 @@
 """Pydantic schemas for the books API."""
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
@@ -162,6 +163,9 @@ class BookListItem(BaseModel):
     # How many other versions collapse into this entry; 0 for most books. Drives
     # the "has other versions" badge without a per-row query.
     variant_count: int = 0
+    # When the book first appeared in the library (issue #199). Null for a
+    # legacy row added before this was tracked.
+    added_at: Optional[datetime] = None
 
 
 class BookListResponse(BaseModel):
@@ -220,6 +224,8 @@ class BookDetail(BaseModel):
     # serving what the browser cached under the old ones (those are immutable for
     # a year). Null until the scanner has hashed the book.
     content_token: Optional[str] = None
+    # When the book first appeared in the library; null if never recorded.
+    added_at: Optional[datetime] = None
     # Variant grouping (issues #304, #306). `variant_main_id` is the entry that
     # represents this family in listings — this book itself unless it is a
     # variant. `variants` is the full sibling list, so the reader's picker needs

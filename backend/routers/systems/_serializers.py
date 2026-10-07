@@ -6,6 +6,7 @@ endpoint emit the same shape.
 from typing import Any
 
 from ...models import Book, GameSystem
+from ...models.base import utc_iso
 from .covers import has_cover_file
 
 
@@ -62,6 +63,9 @@ def serialize_book(
         "is_missing": bool(book.is_missing),
         "relative_path": book.relative_path,
         "variant_count": variant_count,
+        # When the book first appeared in the library (issue #199); null for a
+        # legacy row added before this was tracked.
+        "added_at": utc_iso(book.added_at),
     }
 
 

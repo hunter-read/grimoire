@@ -113,6 +113,49 @@ describe('useMediaGallery', () => {
     expect(result.current.flatItems.map((i) => i.filename)).toEqual(['fav.png'])
   })
 
+  describe('date added (issue #199)', () => {
+    const ago = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    const dated = () => [
+      item({ id: 'a', filename: 'legacy.png', added_at: null }),
+      item({ id: 'b', filename: 'old.png', added_at: ago(60) }),
+      item({ id: 'c', filename: 'new.png', added_at: ago(1) }),
+    ]
+
+    it('sorts newest first, undated last', async () => {
+      setup(dated())
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      act(() => result.current.setSortFilter({ sort: 'added_at', order: 'desc', filters: {} }))
+      expect(result.current.flatItems.map((i) => i.filename)).toEqual([
+        'new.png',
+        'old.png',
+        'legacy.png',
+      ])
+    })
+
+    it('keeps undated items last when ascending', async () => {
+      setup(dated())
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      act(() => result.current.setSortFilter({ sort: 'added_at', order: 'asc', filters: {} }))
+      expect(result.current.flatItems.map((i) => i.filename)).toEqual([
+        'old.png',
+        'new.png',
+        'legacy.png',
+      ])
+    })
+
+    it('filters to recently added items', async () => {
+      setup(dated())
+      const { result } = renderGallery()
+      await waitFor(() => expect(result.current.data).not.toBeNull())
+      act(() =>
+        result.current.setSortFilter((s) => ({ ...s, filters: { ...s.filters, recent: true } }))
+      )
+      expect(result.current.flatItems.map((i) => i.filename)).toEqual(['new.png'])
+    })
+  })
+
   it('toggles a tag filter and matches OR-style', async () => {
     setup([
       item({ id: 'a', filename: 'a.png', tags: ['forest'] }),

@@ -47,6 +47,13 @@ __all__ = ["router", "_invalidate_book_cache"]
 # shared into their campaign, and explicit books are gated on allow_explicit.
 router.add_api_route(
     "", list_books, methods=["GET"], summary="List books",
+    description=(
+        "Pages through the books the caller can see. `sort=added_at` lists newest "
+        "first (pass `order=asc` for oldest first) and `added_since` (ISO-8601, "
+        "UTC if no offset) keeps only books added at or after that moment - poll "
+        "with both to find new additions. Books added before dates were tracked "
+        "have a null `added_at`, sort last, and never match `added_since`."
+    ),
     dependencies=[Depends(require_not_guest)],
     response_model=BookListResponse,
 )

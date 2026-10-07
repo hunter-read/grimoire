@@ -6,9 +6,11 @@
 // `genre` is a single-select, matching the systems list's genre filter; `tags`
 // is the grouped AND/OR expression from ./tagQuery. `productCode` holds a code
 // prefix ("PZO") or a presence sentinel, and matches the start of the code.
+// `recent` keeps only books carrying the "new" badge (issue #199).
 
 import { firstValue, matchSpecial } from './specialFilters'
 import { matchesTagQuery } from './tagQuery'
+import { compareAddedAt, isRecentlyAdded } from '../../utils/recentlyAdded'
 
 const matchValue = (field, wanted) => {
   const w = String(wanted).toLowerCase()
@@ -33,7 +35,7 @@ export const productCodePrefix = (code) => (/^[A-Za-z]+/.exec(code || '')?.[0] |
 
 /**
  * Build a `book => boolean` predicate from the filter state.
- * @param filters { favorites, explicit, genres, tags, productCode }
+ * @param filters { favorites, explicit, genres, tags, productCode, recent }
  * @param opts { isFavorite: (id) => bool }
  */
 export function bookFilterPredicate(filters = {}, opts = {}) {
@@ -51,6 +53,7 @@ export function bookFilterPredicate(filters = {}, opts = {}) {
     if (filters.productCode && !matchSpecial(book.product_code, filters.productCode, matchPrefix))
       return false
     if (!matchesTagQuery(filters.tags, book.tags)) return false
+    if (filters.recent === true && !isRecentlyAdded(book.added_at)) return false
     return true
   }
 }
@@ -74,6 +77,11 @@ export function bookComparator(sort = 'title', order = 'asc') {
         a.title.localeCompare(b.title)
       )
     },
+  }
+  // Date added keeps undated books last whichever way it runs, so it applies
+  // the direction itself rather than having the result flipped.
+  if (sort === 'added_at') {
+    return (a, b) => compareAddedAt(a, b, dir) || a.title.localeCompare(b.title)
   }
   const fn = cmp[sort] || cmp.title
   return (a, b) => dir * fn(a, b)

@@ -69,6 +69,7 @@ from .constants import (
     MAP_IMAGE_EXTS,
     MEDIA_ARCHIVE_EXTS,
 )
+from .added_dates import first_import_done, mark_first_import_done
 from .hashing import (  # noqa: F401  (re-exported: patched as backend.indexer.scan.hash_file)
     apply_signature,
     changed_content,
@@ -224,6 +225,7 @@ def scan_library(
         should_stop=should_stop,
         stats=stats,
         totals=totals,
+        date_inserts=first_import_done(session),
     )
 
     ctx.emit_progress()
@@ -289,5 +291,13 @@ def scan_library(
     # system in the database.
     if scan_books and books_dir.exists():
         stats["removed_systems"] = _prune_vanished_systems(ctx)
+
+    # A complete walk of the whole library ends the undated first import
+    # (issue #199). A scoped or interrupted scan saw only part of it, so the
+    # rest of the import must stay undated too. Recorded on every full scan, not
+    # just the first, so an upgraded install (dated by migration 0040's backfill)
+    # pins the setting rather than relying on its dated rows surviving.
+    if scope_path is None:
+        mark_first_import_done(session)
 
     return stats

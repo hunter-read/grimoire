@@ -97,7 +97,8 @@
     "archiveNotViewable": "This is an archive file and cannot be previewed. Download it to open its contents.",
     "versions": "Versions",
     "clearSearch": "Clear search",
-    "removeLink": "Remove link"
+    "removeLink": "Remove link",
+    "newBadge": "New"
   },
   "login": {
     "username": "Username",
@@ -2677,7 +2678,9 @@
     "tagGroupRemove": "Remove group {{n}}",
     "sortProductCode": "Product code",
     "filterProductCode": "Product code",
-    "allProductCodes": "All product codes"
+    "allProductCodes": "All product codes",
+    "sortAddedAt": "Date added",
+    "filterRecent": "Recently added (last {{days}} days)"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

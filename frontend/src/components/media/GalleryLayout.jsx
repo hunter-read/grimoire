@@ -9,6 +9,7 @@ import ViewModeToggle from '../ViewModeToggle'
 import SortFilterBar from '../library/SortFilterBar'
 import SearchInput from '../library/SearchInput'
 import useTagLabels, { titleCaseTag } from '../../hooks/useTagLabels'
+import { RECENTLY_ADDED_DAYS } from '../../utils/recentlyAdded'
 
 /**
  * Page layout shared by the media gallery views (maps, tokens). Renders the
@@ -35,10 +36,16 @@ export default function GalleryLayout({
   const { i18n, icon: Icon, emptyKey, emptyFilterKey } = config
   const { bulkMode } = gallery.bulk
 
-  const sortOptions = (config.sortOptions || ['name', 'size']).map((key) => ({
-    value: key,
-    label: t(`sortFilter.sort${key.charAt(0).toUpperCase()}${key.slice(1)}`),
-  }))
+  // Every gallery can sort by date added (issue #199), newest first on pick.
+  // Snake-case keys map to camel-case labels: `added_at` -> `sortAddedAt`.
+  const sortOptions = [...(config.sortOptions || ['name', 'size']), 'added_at'].map((key) => {
+    const camel = key.replace(/_(\w)/g, (_, c) => c.toUpperCase())
+    return {
+      value: key,
+      label: t(`sortFilter.sort${camel.charAt(0).toUpperCase()}${camel.slice(1)}`),
+      ...(key === 'added_at' ? { defaultOrder: 'desc' } : null),
+    }
+  })
   // Tag filter options: values are the internal (lowercased) keys the gallery
   // matches on; labels use the shared-tag display casing when available, falling
   // back to Title Case for folder-only tags not in the shared-tag tables (#235).
@@ -131,6 +138,11 @@ export default function GalleryLayout({
           ]}
           toggleFilters={[
             { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
+            {
+              key: 'recent',
+              label: t('sortFilter.filterRecent', { days: RECENTLY_ADDED_DAYS }),
+              boolean: true,
+            },
           ]}
           saved={gallery.savedFilters.saved}
           onSavePreset={handleSavePreset}

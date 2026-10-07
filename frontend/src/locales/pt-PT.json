@@ -97,7 +97,8 @@
     "archiveNotViewable": "Este é um ficheiro de arquivo e não pode ser pré-visualizado. Descarregue-o para abrir o seu conteúdo.",
     "versions": "Versões",
     "clearSearch": "Limpar pesquisa",
-    "removeLink": "Remover ligação"
+    "removeLink": "Remover ligação",
+    "newBadge": "Novo"
   },
   "login": {
     "username": "Nome de utilizador",
@@ -2677,7 +2678,9 @@
     "tagGroupRemove": "Remover grupo {{n}}",
     "sortProductCode": "Código do produto",
     "filterProductCode": "Código do produto",
-    "allProductCodes": "Todos os códigos de produto"
+    "allProductCodes": "Todos os códigos de produto",
+    "sortAddedAt": "Data de adição",
+    "filterRecent": "Adicionados recentemente (últimos {{days}} dias)"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

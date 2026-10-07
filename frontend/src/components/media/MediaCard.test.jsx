@@ -364,3 +364,27 @@ describe('MediaCard — now playing (audio list rows)', () => {
     expect(row()).not.toHaveAttribute('aria-current')
   })
 })
+
+describe('MediaCard — new badge (issue #199)', () => {
+  const yesterday = () => new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  it('marks a recently added item in grid mode, reading "New" on hover', () => {
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ added_at: yesterday() })} />)
+    expect(screen.getByTestId('recently-added-badge')).toHaveAttribute('title', 'New')
+  })
+
+  it('marks a recently added item in list mode', () => {
+    render(
+      <MediaCard config={MEDIA_CONFIGS.audio} item={audioItem({ added_at: yesterday() })} list />
+    )
+    expect(screen.getByRole('img', { name: 'New' })).toBeInTheDocument()
+  })
+
+  it('shows no badge for an item added long ago or never dated', () => {
+    render(
+      <MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ added_at: '2020-01-01T00:00:00Z' })} />
+    )
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ id: 'm2', added_at: null })} />)
+    expect(screen.queryByTestId('recently-added-badge')).not.toBeInTheDocument()
+  })
+})

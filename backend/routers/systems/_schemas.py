@@ -1,4 +1,5 @@
 """Pydantic schemas for the systems API."""
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
@@ -186,6 +187,9 @@ class BookOut(VariantCountMixin, BaseModel):
     # Both wrapped in `bool(...)` by the serializer.
     is_explicit: bool
     is_missing: bool
+    # When the book first appeared in the library (issue #199) - drives the
+    # "new" badge and the date-added sort. Null for a legacy row.
+    added_at: Optional[datetime] = None
 
     # These columns are free-form JSON; normalize legacy shapes rather than
     # failing the response. See `_json_list_coercion`.

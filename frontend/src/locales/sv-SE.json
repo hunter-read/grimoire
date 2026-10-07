@@ -97,7 +97,8 @@
     "archiveNotViewable": "Det här är en arkivfil och kan inte förhandsgranskas. Ladda ner den för att granska innehållet.",
     "versions": "Versioner",
     "clearSearch": "Rensa sökning",
-    "removeLink": "Ta bort länk"
+    "removeLink": "Ta bort länk",
+    "newBadge": "Ny"
   },
   "login": {
     "username": "Användarnamn",
@@ -2677,7 +2678,9 @@
     "tagGroupRemove": "Ta bort grupp {{n}}",
     "sortProductCode": "Produktkod",
     "filterProductCode": "Produktkod",
-    "allProductCodes": "Alla produktkoder"
+    "allProductCodes": "Alla produktkoder",
+    "sortAddedAt": "Datum tillagd",
+    "filterRecent": "Nyligen tillagda (senaste {{days}} dagarna)"
   },
   "lookupSettings": {
     "genresTitle": "Genrer",

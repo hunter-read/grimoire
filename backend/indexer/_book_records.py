@@ -38,6 +38,7 @@ from .hashing import (
     hash_file,
     signature_matches,
 )
+from .added_dates import added_at_for_insert
 from .metadata import _apply_opf_to_book, _find_opf_meta
 from .thumbnails import archive_ext, archive_mime
 from ..models import Book, GameSystem
@@ -267,6 +268,7 @@ def _register_book(
         year=opf_meta.get("year"),
         isbn=opf_meta.get("isbn", ""),
         product_code=opf_meta.get("product_code", ""),
+        added_at=added_at_for_insert(ctx.date_inserts),
     )
 
     # Commit the book record first so that if a subsequent

@@ -152,6 +152,27 @@ describe('GalleryLayout', () => {
     expect(within(bar).getByRole('button', { name: /select/i })).toBeInTheDocument()
   })
 
+  it('offers a date-added sort that picks newest first', () => {
+    const gallery = makeGallery()
+    render(<GalleryLayout {...baseProps({ gallery })} />)
+    const select = screen.getByRole('combobox', { name: 'Sort' })
+    expect(within(select).getByRole('option', { name: 'Date added' })).toBeInTheDocument()
+    fireEvent.change(select, { target: { value: 'added_at' } })
+    expect(gallery.setSortFilter).toHaveBeenCalledWith(
+      expect.objectContaining({ sort: 'added_at', order: 'desc' })
+    )
+  })
+
+  it('offers a recently-added filter', () => {
+    const gallery = makeGallery()
+    render(<GalleryLayout {...baseProps({ gallery })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    fireEvent.click(screen.getByLabelText('Recently added (last 7 days)'))
+    expect(gallery.setSortFilter).toHaveBeenCalledWith(
+      expect.objectContaining({ filters: expect.objectContaining({ recent: true }) })
+    )
+  })
+
   it('enters bulk mode from the toolbar select button', () => {
     const gallery = makeGallery()
     render(<GalleryLayout {...baseProps({ gallery })} />)

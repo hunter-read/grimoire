@@ -1,4 +1,5 @@
 """Pydantic schemas for the maps API."""
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
@@ -69,6 +70,9 @@ class MapOut(VariantCountMixin):
     file_size: Optional[int] = None
     has_thumbnail: Optional[bool] = None
     is_missing: bool
+    # When this first appeared in the library (issue #199); null for a legacy
+    # row added before that was tracked.
+    added_at: Optional[datetime] = None
     is_archive: bool
 
 

@@ -97,7 +97,8 @@
     "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht in der Vorschau angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen.",
     "versions": "Versionen",
     "clearSearch": "Suche löschen",
-    "removeLink": "Link entfernen"
+    "removeLink": "Link entfernen",
+    "newBadge": "Neu"
   },
   "login": {
     "username": "Benutzername",
@@ -2677,7 +2678,9 @@
     "tagGroupRemove": "Gruppe {{n}} entfernen",
     "sortProductCode": "Produktcode",
     "filterProductCode": "Produktcode",
-    "allProductCodes": "Alle Produktcodes"
+    "allProductCodes": "Alle Produktcodes",
+    "sortAddedAt": "Hinzugefügt am",
+    "filterRecent": "Kürzlich hinzugefügt (letzte {{days}} Tage)"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

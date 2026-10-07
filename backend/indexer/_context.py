@@ -112,6 +112,10 @@ class _ScanContext:
     # A row absent from this set has no folder behind it any more — see
     # ``_prune_vanished_systems``.
     seen_system_ids: set = field(default_factory=set)
+    # False during the library's first import, whose items are left undated so
+    # a fresh install does not badge its whole library as new (issue #199).
+    # See ``added_dates``.
+    date_inserts: bool = True
 
     def stop_requested(self) -> bool:
         return bool(self.should_stop and self.should_stop())

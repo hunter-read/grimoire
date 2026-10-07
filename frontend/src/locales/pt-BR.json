@@ -97,7 +97,8 @@
     "archiveNotViewable": "Este é um arquivo compactado e não pode ser visualizado. Baixe-o para abrir seu conteúdo.",
     "versions": "Versões",
     "clearSearch": "Limpar pesquisa",
-    "removeLink": "Remover link"
+    "removeLink": "Remover link",
+    "newBadge": "Novo"
   },
   "login": {
     "username": "Nome de usuário",
@@ -2677,7 +2678,9 @@
     "tagGroupRemove": "Remover grupo {{n}}",
     "sortProductCode": "Código do produto",
     "filterProductCode": "Código do produto",
-    "allProductCodes": "Todos os códigos de produto"
+    "allProductCodes": "Todos os códigos de produto",
+    "sortAddedAt": "Data de adição",
+    "filterRecent": "Adicionados recentemente (últimos {{days}} dias)"
   },
   "lookupSettings": {
     "genresTitle": "Genres",

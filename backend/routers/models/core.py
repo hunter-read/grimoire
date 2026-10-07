@@ -18,6 +18,7 @@ from ...indexer.models3d import (
     viewer_oversized,
 )
 from ...models import Model3D, Model3DFolder
+from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
@@ -63,6 +64,7 @@ def list_models(
                 # Tri-state flattened to two booleans — see the note on Model3DOut.
                 "is_presupported": m.is_supported is True,
                 "is_unsupported": m.is_supported is False,
+                "added_at": utc_iso(m.added_at),
             }
             for m in rows
         ],
@@ -119,6 +121,7 @@ def get_model(
         "has_thumbnail": m.has_thumbnail,
         "is_explicit": bool(m.is_explicit),
         "is_missing": bool(m.is_missing),
+        "added_at": utc_iso(m.added_at),
         "is_archive": is_archive,
         "is_supported": m.is_supported,
         "is_presupported": m.is_supported is True,

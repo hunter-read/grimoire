@@ -23,6 +23,7 @@ from ...config import (
     logger,
 )
 from ...models import GenericMap, MapFolder
+from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
@@ -136,6 +137,7 @@ def list_maps(
                 "is_archive": bool(archive_ext(m.filename)),
                 "variant_count": vcounts.get(m.id, 0),
                 "variant_kinds": vkinds.get(m.id, []),
+                "added_at": utc_iso(m.added_at),
             }
             for m in maps
         ],

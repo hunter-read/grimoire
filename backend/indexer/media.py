@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from backend import indexer  # package namespace, for patch-sensitive calls
 from ._context import _ScanContext, _prune_dirs, _title_from_filename
 from ._subprocess import _run_with_timeout
+from .added_dates import added_at_for_insert
 from .constants import (
     AUDIO_EXTS,
     IMAGE_EXTS,
@@ -237,6 +238,7 @@ def _scan_media(
                 # Hashed once on insert so a later move of this file is
                 # recognised rather than read as a delete plus an add.
                 content_hash=hash_file(filepath, should_stop=ctx.should_stop),
+                added_at=added_at_for_insert(ctx.date_inserts),
             )
 
             if enrich is not None:
@@ -358,6 +360,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 artist=meta["artist"],
                 album=meta["album"],
                 has_artwork=has_artwork,
+                added_at=added_at_for_insert(ctx.date_inserts),
             )
 
             session.add(track)

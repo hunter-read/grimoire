@@ -1,4 +1,5 @@
 """Pydantic schemas for the audio API."""
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, field_validator
 
@@ -59,6 +60,9 @@ class AudioOut(VariantCountMixin):
     # `file_size` is `default=0`, not NOT NULL.
     file_size: Optional[int] = None
     is_missing: bool
+    # When this first appeared in the library (issue #199); null for a legacy
+    # row added before that was tracked.
+    added_at: Optional[datetime] = None
     is_archive: bool
 
 

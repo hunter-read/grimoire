@@ -48,6 +48,9 @@ class GenericMap(Base):
     has_thumbnail = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
+    # When this first appeared in the library - the "new" badge and date-added
+    # sort (issue #199). See ``Book.added_at`` for when it is NULL.
+    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
 
 
 class MapFolder(Base):
@@ -83,6 +86,9 @@ class Token(Base):
     has_thumbnail = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
+    # When this first appeared in the library - the "new" badge and date-added
+    # sort (issue #199). See ``Book.added_at`` for when it is NULL.
+    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
 
 
 class TokenFolder(Base):
@@ -127,6 +133,9 @@ class Audio(Base):
     variant_label = Column(String(120), default="")
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
+    # When this first appeared in the library - the "new" badge and date-added
+    # sort (issue #199). See ``Book.added_at`` for when it is NULL.
+    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
 
 
 class AudioFolder(Base):
@@ -182,6 +191,9 @@ class Model3D(Base):
     thumbnail_pending = Column(Boolean, default=False)
     is_missing = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
+    # When this first appeared in the library - the "new" badge and date-added
+    # sort (issue #199). See ``Book.added_at`` for when it is NULL.
+    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
 
 
 class Model3DFolder(Base):

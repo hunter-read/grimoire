@@ -12,6 +12,7 @@ import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import VariantBadge from './VariantBadge'
+import RecentlyAddedBadge from '../RecentlyAddedBadge'
 
 const CORNER_POS = {
   'bottom-left': { bottom: 6, left: 6 },
@@ -163,6 +164,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               fontWeight: isActiveTrack ? 600 : undefined,
             }}
           >
+            <RecentlyAddedBadge addedAt={item.added_at} />
             {item.filename}
           </div>
           <div
@@ -360,6 +362,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             whiteSpace: 'nowrap',
           }}
         >
+          <RecentlyAddedBadge addedAt={item.added_at} />
           {item.filename}
         </div>
         <div

@@ -9,6 +9,7 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
 const sortOptions = [
   { value: 'name', label: 'Name' },
   { value: 'page_count', label: 'Pages' },
+  { value: 'added_at', label: 'Date added', defaultOrder: 'desc' },
 ]
 const selectFilters = [
   {
@@ -68,6 +69,19 @@ describe('SortFilterBar', () => {
     render(<Harness />)
     await userEvent.selectOptions(screen.getByLabelText('sortFilter.sort'), 'page_count')
     expect(screen.getByTestId('state').textContent).toContain('"sort":"page_count"')
+  })
+
+  it("applies a sort option's default order when picked", async () => {
+    render(<Harness />)
+    await userEvent.selectOptions(screen.getByLabelText('sortFilter.sort'), 'added_at')
+    const state = JSON.parse(screen.getByTestId('state').textContent)
+    expect(state).toMatchObject({ sort: 'added_at', order: 'desc' })
+  })
+
+  it('keeps the current order for an option without a default', async () => {
+    render(<Harness initial={{ sort: 'name', order: 'desc', filters: {} }} />)
+    await userEvent.selectOptions(screen.getByLabelText('sortFilter.sort'), 'page_count')
+    expect(JSON.parse(screen.getByTestId('state').textContent).order).toBe('desc')
   })
 
   it('toggles sort order', async () => {

@@ -505,7 +505,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` |
+| `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset`, `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
 | `/api/books/:id` | GET | any | Book detail with game system |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
@@ -520,6 +520,17 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/page/:num/words` | GET | any | Word bounding boxes `{x0, y0, x1, y1, text}` for text overlay. Only rendered documents have page geometry; comics and text books return an empty overlay |
 
 **Book list response:** `{"total": int, "books": [...]}`
+
+**Date added (issue #199):** every book row - here, on `GET /api/books/:id`, and in
+`GET /api/systems/:id` - carries `added_at`, an ISO-8601 UTC timestamp of when the book
+first appeared in the library. A move or an in-place file replacement keeps the
+original date. It is `null` for books from the library's first import (so a fresh
+install does not flag its whole library as new) and for legacy rows with no date to
+backfill; such books sort last in either direction and never match `added_since`. To poll for new
+additions, request `sort=added_at&added_since=<last poll>` - `total` reflects the
+filter, so the result pages normally. A timestamp without an offset is read as UTC.
+The map, token, audio and 3D model list and detail rows carry `added_at` too (the map
+detail route does not); those galleries sort and filter on it client-side.
 
 **Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403 (404 from `GET /api/books/:id`, so its title is not disclosed). The `variants` list on `GET /api/books/:id` is trimmed for a guest to the variants they may read. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled - the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
 

@@ -174,3 +174,32 @@ describe('product code (issue #479)', () => {
     expect(sorted.map((b) => b.id)).toEqual(['p1', 'p2', 't', 'none', 'none2'])
   })
 })
+
+describe('date added (issue #199)', () => {
+  const day = 24 * 60 * 60 * 1000
+  const ago = (days) => new Date(Date.now() - days * day).toISOString()
+  const dated = [
+    { id: 'legacy', title: 'Aardvark', added_at: null },
+    { id: 'old', title: 'Old', added_at: ago(60) },
+    { id: 'new', title: 'New', added_at: ago(1) },
+    { id: 'twin', title: 'Bravo', added_at: null },
+  ]
+
+  it('the recent filter keeps only books added this week', () => {
+    expect(dated.filter(bookFilterPredicate({ recent: true })).map((b) => b.id)).toEqual(['new'])
+  })
+
+  it('no recent filter keeps every book', () => {
+    expect(dated.filter(bookFilterPredicate({})).length).toBe(4)
+  })
+
+  it('sorts newest first descending, undated last by title', () => {
+    const sorted = [...dated].sort(bookComparator('added_at', 'desc'))
+    expect(sorted.map((b) => b.id)).toEqual(['new', 'old', 'legacy', 'twin'])
+  })
+
+  it('keeps undated books last when ascending too', () => {
+    const sorted = [...dated].sort(bookComparator('added_at', 'asc'))
+    expect(sorted.map((b) => b.id)).toEqual(['old', 'new', 'legacy', 'twin'])
+  })
+})

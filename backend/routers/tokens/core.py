@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import Token, TokenFolder
+from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ..token_frames._helpers import frame_folder_paths
 from ...services.content_cache import content_token
@@ -66,6 +67,7 @@ def list_tokens(
                 "variant_count": vcounts.get(t.id, 0),
                 "variant_kinds": vkinds.get(t.id, []),
                 "is_archive": bool(archive_ext(t.filename)),
+                "added_at": utc_iso(t.added_at),
             }
             for t in tokens
         ],
@@ -137,6 +139,7 @@ def get_token(
         "is_explicit": bool(t.is_explicit),
         "is_missing": bool(t.is_missing),
         "is_archive": is_archive,
+        "added_at": utc_iso(t.added_at),
         "pixel_width": pixel_width,
         "pixel_height": pixel_height,
         "variant_parent_id": t.variant_parent_id,

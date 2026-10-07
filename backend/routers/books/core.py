@@ -2,7 +2,8 @@
 import glob
 import hashlib
 import os
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Literal, Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -19,6 +20,7 @@ from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
 from ...models import Book, GameSystem
+from ...models.base import utc_iso
 from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
@@ -50,11 +52,29 @@ def _refresh_sidecars(db: Session, book_ids: list[str]) -> None:
         sidecar_export.refresh_existing_safe(db, book)
 
 
+def _list_order(sort: str, order: Optional[str]) -> list:
+    """ORDER BY clauses for ``list_books``.
+
+    ``added_at`` defaults to newest first - the order a "what's new" poller
+    wants - and ``title`` to A-Z. Books with no recorded ``added_at`` sort last
+    in either direction rather than flipping to the top on ascending, and the
+    title tie-break keeps pagination stable across books added in one scan.
+    """
+    if sort == "added_at":
+        column = Book.added_at.asc() if order == "asc" else Book.added_at.desc()
+        return [Book.added_at.is_(None), column, Book.title, Book.id]
+    title = Book.title.desc() if order == "desc" else Book.title
+    return [title, Book.id]
+
+
 def list_books(
     system_id: Optional[str] = None,
     category: Optional[str] = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
+    sort: Literal["title", "added_at"] = "title",
+    order: Optional[Literal["asc", "desc"]] = None,
+    added_since: Optional[datetime] = None,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -74,8 +94,16 @@ def list_books(
         q = q.filter_by(category=category)
     if not can_see_explicit:
         q = q.filter(Book.is_explicit != True)
+    if added_since is not None:
+        # Stored datetimes are naive UTC, so compare against the same. A naive
+        # query value is taken to be UTC too. Books with no recorded date never
+        # match: "added since X" cannot be claimed for them (issue #199).
+        if added_since.tzinfo is not None:
+            added_since = added_since.astimezone(timezone.utc).replace(tzinfo=None)
+        q = q.filter(Book.added_at >= added_since)
     total = q.count()
-    books = q.order_by(Book.title).offset(offset).limit(limit).all()
+    q = q.order_by(*_list_order(sort, order))
+    books = q.offset(offset).limit(limit).all()
     # One grouped query for the whole page rather than one per row, so the
     # "has other versions" badge costs nothing per book.
     vcounts = variants.variant_counts(db, Book, [b.id for b in books])
@@ -107,6 +135,7 @@ def list_books(
                 "effective_access_level": effective_levels.get(b.id, ""),
                 "is_missing": bool(b.is_missing),
                 "variant_count": vcounts.get(b.id, 0),
+                "added_at": utc_iso(b.added_at),
             }
             for b in books
         ],
@@ -189,6 +218,7 @@ def get_book(
         "access_level": book.access_level,
         "effective_access_level": access_control.resolve_level(db, book),
         "content_token": content_token(book.content_hash, book.filepath),
+        "added_at": utc_iso(book.added_at),
         # The whole variant family, resolved from whichever end was requested, so
         # the reader's version picker renders without a second round trip. A book
         # with no variants gets its own single-entry family.
