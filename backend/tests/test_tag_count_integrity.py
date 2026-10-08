@@ -205,7 +205,7 @@ class TestFolderRowsFollowTheirFolder:
         db.close()
 
         before = _items(client, admin_headers, tag)
-        assert sum(len(g["items"]) for g in before["folders"]) == 1
+        assert sum(g["count"] for g in before["folders"]) == 1
 
         db = SessionLocal()
         fs.rename_path(db, f"maps/Battlemaps-{map_tree}/Swamps", "Marshes")
@@ -215,7 +215,7 @@ class TestFolderRowsFollowTheirFolder:
         # under the new path rather than the old one.
         after = _items(client, admin_headers, tag)
         assert [g["path"] for g in after["folders"]] == [f"Battlemaps-{map_tree}/Marshes"]
-        assert sum(len(g["items"]) for g in after["folders"]) == 1
+        assert sum(g["count"] for g in after["folders"]) == 1
 
     def test_deleting_a_folder_removes_its_folder_tags(self, map_tree):
         rel = f"Battlemaps-{map_tree}/Swamps"

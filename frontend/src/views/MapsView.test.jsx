@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import MapsView from './MapsView'
 import api from '../api'
+import { fakeMediaGet } from '../test/fakeBrowseApi'
 
 vi.mock('../api', () => ({
   default: {
@@ -129,12 +130,18 @@ describe('MapsView', () => {
     mockIsFavorite.mockReturnValue(false)
   })
 
+  // The server filters, groups and pages now (issue #221); the fake answers
+  // those endpoints over `maps`, with favourites from the mocked context.
   function setupMaps(maps) {
-    api.get.mockImplementation((url) => {
-      if (url.split('?')[0] === '/maps') return Promise.resolve(makeMapsResponse(maps))
-      if (url === '/map-folders') return Promise.resolve({ folders: [] })
-      return Promise.resolve({})
-    })
+    api.get.mockImplementation(
+      fakeMediaGet({
+        listUrl: '/maps',
+        collection: 'maps',
+        foldersUrl: '/map-folders',
+        items: maps,
+        isFavorite: (id) => mockIsFavorite('map', id),
+      })
+    )
   }
 
   it('renders map filenames after loading', async () => {
@@ -363,21 +370,11 @@ describe('MapsView', () => {
       expect(screen.queryByText('3 maps in your collection')).not.toBeInTheDocument()
     })
 
-    it('counts only the rows this user received, not the server total', async () => {
-      // A server-side total that exceeds the delivered rows (pagination, or a
-      // user who may not see everything) must never become the denominator.
-      api.get.mockImplementation((url) => {
-        if (url.split('?')[0] === '/maps')
-          return Promise.resolve({
-            maps: [
-              makeMap({ filename: 'dungeon.png', relative_path: 'maps/dungeon.png' }),
-              makeMap({ filename: 'cave.png', relative_path: 'maps/cave.png' }),
-            ],
-            total: 99,
-          })
-        if (url === '/map-folders') return Promise.resolve({ folders: [] })
-        return Promise.resolve({})
-      })
+    it('takes the denominator from the whole collection, not the filtered rows', async () => {
+      setupMaps([
+        makeMap({ filename: 'dungeon.png', relative_path: 'maps/dungeon.png' }),
+        makeMap({ filename: 'cave.png', relative_path: 'maps/cave.png' }),
+      ])
       renderView()
       await waitFor(() => expect(screen.getByText('2 maps in your collection')).toBeInTheDocument())
 
@@ -386,6 +383,8 @@ describe('MapsView', () => {
       await waitFor(() =>
         expect(screen.getByText('Displaying 1 of 2 maps in your collection')).toBeInTheDocument()
       )
+      // The filter went to the server rather than being applied to loaded rows.
+      expect(api.get).toHaveBeenCalledWith(expect.stringMatching(/^\/maps\/groups\?q=cave/))
     })
   })
 })

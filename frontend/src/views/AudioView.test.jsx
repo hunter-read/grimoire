@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import AudioView from './AudioView'
 import { SoundboardProvider, useSoundboard } from '../context/SoundboardContext'
 import api from '../api'
+import { fakeMediaGet } from '../test/fakeBrowseApi'
 
 vi.mock('../api', () => ({
   default: {
@@ -123,12 +124,18 @@ describe('AudioView', () => {
     mockIsFavorite.mockReturnValue(false)
   })
 
+  // The server filters, groups and pages now (issue #221); the fake answers
+  // those endpoints over `audio`, with favourites from the mocked context.
   function setupAudio(audio) {
-    api.get.mockImplementation((url) => {
-      if (url.split('?')[0] === '/audio') return Promise.resolve(makeResponse(audio))
-      if (url === '/audio-folders') return Promise.resolve({ folders: [] })
-      return Promise.resolve({})
-    })
+    api.get.mockImplementation(
+      fakeMediaGet({
+        listUrl: '/audio',
+        collection: 'audio',
+        foldersUrl: '/audio-folders',
+        items: audio,
+        isFavorite: (id) => mockIsFavorite('audio', id),
+      })
+    )
   }
 
   it('renders track filenames after loading', async () => {
@@ -166,7 +173,8 @@ describe('AudioView', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /add to soundboard/i }))
 
-    await waitFor(() => expect(board.pads.map((p) => p.id)).toEqual(['a1', 'a2']))
+    // In display order: the server sorts by name, so door.mp3 comes first.
+    await waitFor(() => expect(board.pads.map((p) => p.id)).toEqual(['a2', 'a1']))
     // The bulk action finishes by leaving select mode, like the other actions.
     expect(screen.queryByRole('button', { name: /add to soundboard/i })).toBeNull()
   })

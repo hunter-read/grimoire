@@ -1,44 +1,55 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import api, { bulk as bulkApi } from '../api'
 import useSessionState from './useSessionState'
 import useViewMode from './useViewMode'
 import useBulkSelection from './useBulkSelection'
 import useSavedFilters from './useSavedFilters'
 import useSortFilterState from './useSortFilterState'
-import { useFavorites } from '../context/FavoritesContext'
-// (getUserPrefs no longer needed — sort now comes from the shared sortFilter state)
-import { getEffectiveTags, getTopFolder, getSubPath } from '../components/media/mediaConfig'
-import { matchesTagQuery, queryTags, toggleQueryTag } from '../components/library/tagQuery'
-import { compareAddedAt, isRecentlyAdded } from '../utils/recentlyAdded'
+import usePagedLists from './usePagedLists'
+import useTagLabels from './useTagLabels'
+import { queryTags, toggleQueryTag } from '../components/library/tagQuery'
+import { browseKey, commonFilterParams, withQuery } from '../utils/browseParams'
 
-// Page size for the progressive load below. Large enough that a modest library
-// arrives in one request, small enough that the first paint is quick on a big one.
-const PAGE_SIZE = 500
+// The list key for the ungrouped gallery; folder lists are keyed by their path.
+export const FLAT = '\u0000flat'
 
-// How many pages are in flight at once while the rest of the library streams
-// in. Enough to keep the connection pool busy on a 10k library without firing
-// every remaining page at the server in one burst.
-const PAGE_CONCURRENCY = 4
+// The top-level group items sitting directly in the collection folder belong to.
+export const ROOT_FOLDER = '(Root)'
 
-// Stable empty array: a fresh `[]` per render would invalidate every useMemo
-// that depends on `items` before the first page lands.
+// Stable empty list, so memos depending on the flat items do not rebuild on
+// every render before the first page lands.
 const EMPTY_ITEMS = []
+
+// Largest page the server serves; used when a whole folder is needed at once
+// (queuing a folder of audio to play).
+const FULL_PAGE = 500
+
+/**
+ * A server folder path ("Pack/Sub/Deep") as the gallery's two-level grouping:
+ * `[top folder, path below it]`, with items at the collection root under
+ * `(Root)`. Mirrors getTopFolder/getSubPath in mediaConfig.js.
+ */
+export function splitFolder(path) {
+  if (!path) return [ROOT_FOLDER, '']
+  const cut = path.indexOf('/')
+  return cut === -1 ? [path, ''] : [path.slice(0, cut), path.slice(cut + 1)]
+}
 
 /**
  * All shared data, filtering, grouping, and bulk-edit logic for a media gallery
- * (maps, tokens, audio). Driven by a `config` entry from mediaConfig.js so the
- * MapsView / TokensView / AudioView reduce to thin wrappers around the returned
- * state.
+ * (maps, tokens, audio, models). Driven by a `config` entry from mediaConfig.js
+ * so the views reduce to thin wrappers around the returned state.
  *
- * Sort/filter flows through the shared SortFilterBar state (server-backed saved
- * presets, scope = config.collection). `filters` holds search/tags/favorites;
- * folder grouping is toggleable (flat list when off).
+ * The server does the filtering, sorting and grouping (issue #221). Grouped,
+ * the gallery draws its folders from `/groups` - each with a count - and a
+ * folder fetches its items a page at a time as it is opened and scrolled into
+ * view; ungrouped, one flat list pages in as the user scrolls. Nothing loads
+ * the whole collection, so a library of a few hundred thousand tokens opens as
+ * quickly as a small one.
  */
 export default function useMediaGallery(config) {
   const { type, collection, foldersUrl, listUrl, sessionKey } = config
-  const { isFavorite } = useFavorites()
 
-  const [data, setData] = useState(null)
   const [folderTags, setFolderTags] = useState({})
   // Folder paths whose images are token-editor frames, from the same endpoint.
   // Only the token gallery ever gets a non-empty set; other collections have no
@@ -46,33 +57,26 @@ export default function useMediaGallery(config) {
   const [frameFolders, setFrameFolders] = useState(() => new Set())
   const [grouped, setGrouped] = useSessionState(`${sessionKey}:grouped`, true)
   const [viewMode, cycleViewMode] = useViewMode(type)
-  // The grouping in force when the load started, for the page ordering below.
-  // A ref, not a dep: changing grouping later must not refetch.
-  const groupedAtLoadRef = useRef(grouped)
   const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set())
   const [editingFolder, setEditingFolder] = useState(null)
   const [bulkApplying, setBulkApplying] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadedCount, setLoadedCount] = useState(0)
+  // How many items the whole collection holds, unfiltered - the "y" of
+  // "Displaying x of y".
+  const [collectionTotal, setCollectionTotal] = useState(null)
+  const [groups, setGroups] = useState(null)
 
   const savedFilters = useSavedFilters(collection)
   // Persisted for the session so returning from a detail view keeps the filters
   // the user had, rather than snapping back to their saved default.
   const [sortFilter, setSortFilter] = useSortFilterState(`${sessionKey}:sortFilter`, savedFilters)
 
-  // Backward-compatible derived filter values from the unified state.
   const activeFilters = sortFilter.filters || {}
   const filter = activeFilters.search || ''
   const favOnly = activeFilters.favorites === true
-  // Only items carrying the "new" badge (issue #199).
-  const recentOnly = activeFilters.recent === true
-  // Falls back to the shared empty array rather than a fresh `[]`: this feeds the
-  // `filtered` memo's dependencies, and a new identity per render would rebuild
-  // the whole filtered set on every render.
-  const tagQuery = activeFilters.tags || EMPTY_ITEMS
+  const { sort = 'name', order = 'asc' } = sortFilter
   // The inline tag chips only know about real tags — the group structure and
   // the special sentinels are flattened away so they never render as a chip.
-  const selectedTags = new Set(queryTags(tagQuery).map((tg) => tg.toLowerCase()))
+  const selectedTags = new Set(queryTags(activeFilters.tags).map((tg) => tg.toLowerCase()))
   const setFilter = (v) =>
     setSortFilter((s) => ({ ...s, filters: { ...s.filters, search: v || undefined } }))
   const toggleTag = (tag) =>
@@ -83,92 +87,35 @@ export default function useMediaGallery(config) {
   const clearTags = () =>
     setSortFilter((s) => ({ ...s, filters: { ...s.filters, tags: undefined } }))
 
+  // What the server is asked for changes only with these; the folder counts do
+  // not depend on the order, so they have their own key.
+  const filterKey = browseKey(activeFilters)
+  const listKey = `${browseKey(activeFilters, sort, order)}|${grouped}`
+
+  // The filter options: every tag used on this collection (own or folder), with
+  // its display casing.
+  const tagLabels = useTagLabels(type)
+  const allTags = useMemo(() => Object.keys(tagLabels).sort(), [tagLabels])
+
   const bulk = useBulkSelection()
   const { selectedIds, selectedFolderPaths, count: totalSelected } = bulk
 
-  // Items helper — `data` holds the collection under config.collection. The
-  // empty fallback is a module-level constant rather than a fresh `[]`, so the
-  // memoised derived data below is not invalidated on every pre-load render.
-  const items = data ? data[collection] : EMPTY_ITEMS
-
   useEffect(() => {
-    // Loading a library of thousands of items in one request meant the view sat
-    // on a spinner until the last row arrived, and then parsed and laid out the
-    // whole set at once. Fetching in pages and appending lets the first page
-    // render almost immediately while the rest streams in behind it; filtering
-    // and grouping stay client-side over the accumulated set, so search and
-    // folder grouping still see the whole library once loading settles.
     let cancelled = false
-
-    // Pages are ordered the way this view will display them, so an arriving
-    // page appends below what is already on screen instead of scattering
-    // through it. Grouped shows folders in path order; ungrouped is one flat
-    // list sorted by filename, and paging that by path made later pages insert
-    // items throughout the alphabet — cards visibly popping in among the ones
-    // the user was already looking at.
-    //
-    // Read from a ref so toggling grouping does not refetch the library: the
-    // order only matters while pages are still arriving, and by then the whole
-    // set is client-side and sorted there anyway.
-    const sort = groupedAtLoadRef.current ? 'path' : 'name'
-
-    const fetchPage = async (offset) => {
-      const page = await api.get(`${listUrl}?limit=${PAGE_SIZE}&offset=${offset}&sort=${sort}`)
-      return { page, rows: page[collection] || [] }
-    }
-
-    const loadAll = async () => {
-      // The first page is fetched and committed on its own so the grid paints
-      // as soon as anything is available.
-      const { page: first, rows: firstRows } = await fetchPage(0)
-      if (cancelled) return
-      setData({ ...first, [collection]: firstRows })
-      setLoadedCount(firstRows.length)
-
-      // `total` is the server's count before pagination, so once the first page
-      // is in, the remaining offsets are all known. Fetching them sequentially
-      // meant a 10k library paid twenty round-trips end to end, each one
-      // re-rendering (and re-deriving) the whole accumulated set — so the list
-      // filled in visibly, unevenly, over several seconds. They go out together
-      // instead, in bounded batches so the browser's connection limit does the
-      // queueing rather than a burst of twenty parallel requests, and each batch
-      // lands in a single state update.
-      if (firstRows.length < PAGE_SIZE || firstRows.length >= first.total) {
-        if (!cancelled) setLoadingMore(false)
-        return
-      }
-
-      const offsets = []
-      for (let off = firstRows.length; off < first.total; off += PAGE_SIZE) offsets.push(off)
-
-      for (let i = 0; i < offsets.length; i += PAGE_CONCURRENCY) {
-        const batch = offsets.slice(i, i + PAGE_CONCURRENCY)
-        const results = await Promise.all(batch.map((off) => fetchPage(off)))
+    api
+      .get(foldersUrl)
+      .then((foldersData) => {
         if (cancelled) return
-        const rows = results.flatMap((r) => r.rows)
-        if (!rows.length) break
-        setData((prev) => ({
-          ...prev,
-          [collection]: [...(prev ? prev[collection] : []), ...rows],
-        }))
-        setLoadedCount((prev) => prev + rows.length)
-      }
-      if (!cancelled) setLoadingMore(false)
-    }
-
-    api.get(foldersUrl).then((foldersData) => {
-      if (cancelled) return
-      const ft = {}
-      for (const f of foldersData.folders) ft[f.path] = f.tags
-      setFolderTags(ft)
-      setFrameFolders(new Set(foldersData.frame_folders || []))
-    })
-
-    setLoadingMore(true)
-    loadAll().catch(() => {
-      if (!cancelled) setLoadingMore(false)
-    })
-
+        const ft = {}
+        for (const f of foldersData?.folders || []) ft[f.path] = f.tags
+        setFolderTags(ft)
+        setFrameFolders(new Set(foldersData?.frame_folders || []))
+      })
+      .catch(() => {})
+    api
+      .get(withQuery(listUrl, { limit: 1 }))
+      .then((page) => !cancelled && setCollectionTotal(page.total))
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -176,64 +123,101 @@ export default function useMediaGallery(config) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Default the collapsed state (everything collapsed) once, after the first
-  // page lands — deferring the whole grid's mount, which is what makes a large
-  // library render at all quickly. Later pages must not re-collapse folders the
-  // user has since opened, hence the one-shot ref.
-  const openedFolders = useRef(new Set())
-  const collapsedSeeded = useRef(false)
-  useEffect(() => {
-    if (collapsedSeeded.current || !data) return
-    collapsedSeeded.current = true
-    if (sessionStorage.getItem(sessionKey) !== null) return
-    const keys = new Set()
-    items.forEach((item) => {
-      const folder = getTopFolder(item)
-      const subPath = getSubPath(item)
-      keys.add(folder)
-      if (subPath) keys.add(`${folder}::${subPath}`)
-    })
-    setCollapsed(keys)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data])
+  // Read through a ref by the page fetcher, so it always uses the filters in
+  // force when it runs without making the paged lists depend on them.
+  const filtersRef = useRef(activeFilters)
+  filtersRef.current = activeFilters
 
-  // Folders discovered in later pages start collapsed too, so a folder never
-  // pops open mid-load and mounts hundreds of cards behind the user's back.
-  useEffect(() => {
-    if (!collapsedSeeded.current || !loadingMore) return
-    setCollapsed((prev) => {
-      let added = false
-      const next = new Set(prev)
-      for (const item of items) {
-        const folder = getTopFolder(item)
-        const subPath = getSubPath(item)
-        if (!next.has(folder) && !openedFolders.current.has(folder)) {
-          next.add(folder)
-          added = true
-        }
-        const key = subPath ? `${folder}::${subPath}` : null
-        if (key && !next.has(key) && !openedFolders.current.has(key)) {
-          next.add(key)
-          added = true
-        }
+  const fetchPage = useCallback(
+    (key, offset, limit) => {
+      const params = {
+        ...commonFilterParams(filtersRef.current),
+        sort,
+        order,
+        limit,
+        offset,
+        ...(key === FLAT ? {} : { folder: key }),
       }
-      return added ? next : prev
-    })
+      return api
+        .get(withQuery(listUrl, params))
+        .then((page) => ({ total: page?.total ?? 0, rows: page?.[collection] || [] }))
+    },
+    [listUrl, collection, sort, order]
+  )
+  const pages = usePagedLists(fetchPage, listKey)
+
+  // Every folder starts collapsed - including ones a new filter brings into
+  // view - so opening the gallery, or widening a search, never fires a request
+  // per folder. A returning visit keeps the open/closed state it left with.
+  //
+  // Applied in the same update that delivers the folders: done in an effect
+  // afterwards, the first render drew every folder open, mounting each one's
+  // loader and rescan control - over a thousand requests on a large library -
+  // before collapsing them a moment later.
+  const [hadStoredState] = useState(() => {
+    try {
+      return sessionStorage.getItem(sessionKey) !== null
+    } catch {
+      return false
+    }
+  })
+  const seenFolders = useRef(null)
+  const applyGroups = useCallback(
+    (body) => {
+      const keys = []
+      for (const g of body.groups) {
+        const [folder, sub] = splitFolder(g.path)
+        keys.push(folder)
+        if (sub) keys.push(`${folder}::${sub}`)
+      }
+      if (seenFolders.current === null) {
+        seenFolders.current = new Set(keys)
+        if (!hadStoredState) setCollapsed(new Set(keys))
+      } else {
+        const fresh = keys.filter((k) => !seenFolders.current.has(k))
+        fresh.forEach((k) => seenFolders.current.add(k))
+        if (fresh.length) setCollapsed((prev) => new Set([...prev, ...fresh]))
+      }
+      setGroups(body)
+    },
+    // setCollapsed is a session-state setter; the key it writes is fixed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, loadingMore])
+    [hadStoredState]
+  )
+
+  // The folder structure, with counts, for the grouped view. The previous
+  // result stays on screen while a new filter's arrives, so the gallery does
+  // not blank between keystrokes.
+  useEffect(() => {
+    if (!grouped) return undefined
+    let cancelled = false
+    api
+      .get(withQuery(`${listUrl}/groups`, commonFilterParams(filtersRef.current)))
+      .then(
+        (body) => !cancelled && applyGroups({ total: body?.total ?? 0, groups: body?.groups || [] })
+      )
+      .catch(() => !cancelled && applyGroups({ total: 0, groups: [] }))
+    return () => {
+      cancelled = true
+    }
+  }, [grouped, filterKey, listUrl, applyGroups])
+
+  const { ensure, loadMore, get: getList } = pages
+  const loadFolder = useCallback(
+    (key) => (getList(key) ? loadMore(key) : ensure(key)),
+    [getList, loadMore, ensure]
+  )
+
+  // Ungrouped, the one flat list loads its first page straight away.
+  useEffect(() => {
+    if (!grouped) ensure(FLAT)
+  }, [grouped, ensure, pages.lists])
 
   const toggleCollapse = (key) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-        // Remember the user opened this one, so the auto-collapse of folders
-        // arriving in later pages does not shut it again under them.
-        openedFolders.current.add(key)
-      } else {
-        next.add(key)
-        openedFolders.current.delete(key)
-      }
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
 
@@ -242,6 +226,16 @@ export default function useMediaGallery(config) {
     setFolderTags((prev) => ({ ...prev, [path]: tags }))
   }
 
+  // Every item loaded so far, across the open folders (or the flat list),
+  // de-duplicated - what bulk selection and edits act on.
+  const loadedItems = useMemo(() => {
+    const seen = new Map()
+    for (const list of Object.values(pages.lists)) {
+      for (const item of list.items) if (!seen.has(item.id)) seen.set(item.id, item)
+    }
+    return [...seen.values()]
+  }, [pages.lists])
+
   // Tag the whole selection in one request per kind (items, folders) rather than
   // one per item. The old fan-out raced on tag creation server-side and returned
   // intermittent 500s that left the button stuck on "Applying" (issue #270).
@@ -249,7 +243,7 @@ export default function useMediaGallery(config) {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
     setBulkApplying(true)
     try {
-      const ids = [...selectedIds].filter((id) => items.some((i) => i.id === id))
+      const ids = [...selectedIds]
       if (ids.length) await bulkApi.addTags(type, ids, newTags)
 
       const folders = [...selectedFolderPaths].map((path) => ({
@@ -264,14 +258,11 @@ export default function useMediaGallery(config) {
         }))
       }
 
-      setData((prev) => ({
-        ...prev,
-        [collection]: prev[collection].map((item) =>
-          selectedIds.has(item.id)
-            ? { ...item, tags: [...new Set([...(item.tags || []), ...newTags])] }
-            : item
-        ),
-      }))
+      pages.mapItems((item) =>
+        selectedIds.has(item.id)
+          ? { ...item, tags: [...new Set([...(item.tags || []), ...newTags])] }
+          : item
+      )
       // Selection is deliberately kept so tags can be applied one at a time to
       // the same batch, and a typo can be corrected without re-picking every
       // item (issue #256). The bar's input clears itself instead.
@@ -282,148 +273,82 @@ export default function useMediaGallery(config) {
     }
   }
 
-  const selectedObjects = () => items.filter((i) => selectedIds.has(i.id))
+  const selectedObjects = () => loadedItems.filter((i) => selectedIds.has(i.id))
 
   const applyEdits = (edited) =>
-    setData((prev) => ({
-      ...prev,
-      [collection]: prev[collection].map((i) => (edited[i.id] ? { ...i, ...edited[i.id] } : i)),
-    }))
+    pages.mapItems((i) => (edited[i.id] ? { ...i, ...edited[i.id] } : i))
 
-  // ----- Derived view data (only meaningful once `data` has loaded) -----
-
-  // On a large library (thousands of maps/tokens) the derived data below is the
-  // dominant cost of every render, and it used to be rebuilt on all of them —
-  // so a single keystroke in the search box re-split every item's path and
-  // re-walked its folder ancestry. Each stage is memoised on exactly what it
-  // reads, and the per-item values that never change with the filters (lowercased
-  // search haystack, effective tags, folder segments) are computed once here and
-  // reused by filtering, grouping, and the tag list.
-  // Decorating an item is pure in (item, folderTags), and appending a page
-  // leaves every already-decorated item's object identity untouched. Caching on
-  // that identity turns the streaming load from quadratic — each of ~20 pages
-  // re-deriving the whole accumulated set — into one pass per item for the whole
-  // load. The cache is dropped whenever folderTags changes, since that feeds
-  // every entry.
-  const decorateCache = useRef(new Map())
-  const decorateCacheKey = useRef(folderTags)
-  if (decorateCacheKey.current !== folderTags) {
-    decorateCacheKey.current = folderTags
-    decorateCache.current = new Map()
-  }
-
-  const decorated = useMemo(() => {
-    const cache = decorateCache.current
-    const next = items.map((item) => {
-      const hit = cache.get(item)
-      if (hit) return hit
-      const effective = getEffectiveTags(item, folderTags)
-      const topFolder = getTopFolder(item)
-      const subPath = getSubPath(item)
-      const entry = {
-        item,
-        topFolder,
-        subPath,
-        effective,
-        effectiveLower: effective.map((t) => t.toLowerCase()),
-        // NUL-joined: the separator must be something a search term can never
-        // contain, or a query could match across two adjacent fields.
-        haystack: [item.filename || '', topFolder, subPath, ...effective].join('\0').toLowerCase(),
+  // Every item of one folder, for actions that need them all at once (queuing
+  // a folder of audio). Fetched in full pages with the gallery's filters and
+  // order, independent of how much of the folder is on screen.
+  const fetchFolderItems = useCallback(
+    async (paths) => {
+      const out = []
+      for (const path of paths) {
+        for (let offset = 0; ; offset += FULL_PAGE) {
+          const params = {
+            ...commonFilterParams(filtersRef.current),
+            sort,
+            order,
+            folder: path,
+            limit: FULL_PAGE,
+            offset,
+          }
+          const page = await api.get(withQuery(listUrl, params))
+          const rows = page[collection] || []
+          out.push(...rows)
+          if (rows.length < FULL_PAGE || out.length >= page.total) break
+        }
       }
-      cache.set(item, entry)
-      return entry
-    })
-    // Items dropped from the list (a bulk edit replacing objects, a removal)
-    // would otherwise keep their cache entries alive for the view's lifetime.
-    if (cache.size > items.length) {
-      const live = new Set(items)
-      for (const key of cache.keys()) if (!live.has(key)) cache.delete(key)
-    }
-    return next
-  }, [items, folderTags])
-
-  const allTags = useMemo(
-    () => (data ? [...new Set(decorated.flatMap((d) => d.effectiveLower))].sort() : []),
-    [data, decorated]
+      return out
+    },
+    [listUrl, collection, sort, order]
   )
 
-  const filtered = useMemo(() => {
-    const q = filter.toLowerCase()
-    return decorated
-      .filter((d) => {
-        const textMatch = !filter || d.haystack.includes(q)
-        // An item's effective tags are its own plus those of every folder above
-        // it, so the whole expression — group membership and the
-        // "untagged"/"tagged" sentinels alike — tests that combined set.
-        const tagMatch = matchesTagQuery(tagQuery, d.effective)
-        const favMatch = !favOnly || isFavorite(type, d.item.id)
-        const recentMatch = !recentOnly || isRecentlyAdded(d.item.added_at)
-        return textMatch && tagMatch && favMatch && recentMatch
-      })
-      .map((d) => d.item)
-  }, [decorated, filter, tagQuery, favOnly, recentOnly, type, isFavorite])
+  // ----- Derived view data -----
 
-  // Item comparator from the sort/order state. `name` sorts by filename; `size`
-  // by file size; `added_at` by date added, undated items last either way
-  // (audio also supports `duration` and `title`).
-  const { sort = 'name', order = 'asc' } = sortFilter
   const dir = order === 'desc' ? -1 : 1
-  // A shared collator: String.prototype.localeCompare builds one per call, which
-  // is the single most expensive part of sorting thousands of items.
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true }), [])
-  const sortItems = useMemo(() => {
-    const itemCmp = {
-      name: (a, b) => collator.compare(a.filename || '', b.filename || ''),
-      title: (a, b) => collator.compare(a.title || a.filename || '', b.title || b.filename || ''),
-      size: (a, b) => (a.file_size || 0) - (b.file_size || 0),
-      duration: (a, b) => (a.duration || 0) - (b.duration || 0),
-    }
-    if (sort === 'added_at') {
-      return (arr) => [...arr].sort((a, b) => compareAddedAt(a, b, dir) || itemCmp.name(a, b))
-    }
-    const cmp = itemCmp[sort] || itemCmp.name
-    return (arr) => [...arr].sort((a, b) => dir * cmp(a, b))
-  }, [sort, dir, collator])
 
-  // Folders are ordered by name/order; items within a subfolder use the sort.
+  // `[[folder, { sub: { path, count, items, total, loading, hasMore } }]]`, the
+  // shape MediaFolderGroup renders: top-level folders in name order, each with
+  // the folders below it that hold items ('' for its own items).
   const folderEntries = useMemo(() => {
+    if (!groups) return []
     const byFolder = {}
-    filtered.forEach((item) => {
-      const folder = getTopFolder(item)
-      const subPath = getSubPath(item)
+    for (const g of groups.groups) {
+      const [folder, sub] = splitFolder(g.path)
+      const list = getList(g.path)
       if (!byFolder[folder]) byFolder[folder] = {}
-      if (!byFolder[folder][subPath]) byFolder[folder][subPath] = []
-      byFolder[folder][subPath].push(item)
-    })
-    return Object.entries(byFolder)
-      .map(([folder, subfolders]) => {
-        const sortedSubs = {}
-        for (const [sub, group] of Object.entries(subfolders)) sortedSubs[sub] = sortItems(group)
-        return [folder, sortedSubs]
-      })
-      .sort(([a], [b]) => dir * collator.compare(a, b))
-  }, [filtered, sortItems, dir, collator])
+      byFolder[folder][sub] = {
+        path: g.path,
+        count: g.count,
+        items: list ? list.items : [],
+        loading: list ? list.loading : false,
+        hasMore: list ? list.hasMore : true,
+        started: !!list,
+      }
+    }
+    return Object.entries(byFolder).sort(([a], [b]) => dir * collator.compare(a, b))
+  }, [groups, getList, dir, collator])
 
-  // Flat sorted item list (used when folder grouping is turned off).
-  const flatItems = useMemo(() => sortItems(filtered), [filtered, sortItems])
+  const flatList = getList(FLAT)
+  const flatItems = pages.lists[FLAT]?.items || EMPTY_ITEMS
 
-  // Subtitle counts. `totalCount` is every row the list endpoint returned for
-  // this user (not data.total, which is the server's pre-pagination count and
-  // can exceed what is actually on the page), so the "x of y" never advertises
-  // items the user did not receive. `filteredCount` is what the filters leave.
-  const totalCount = items.length
-  const filteredCount = filtered.length
-  // How much of the library has arrived so far, for callers that want to show
-  // progress while the remaining pages stream in.
-  const totalAvailable = data?.total ?? 0
+  // Subtitle counts: what the filters match, out of the whole collection.
+  const filteredCount = grouped ? (groups?.total ?? 0) : (flatList?.total ?? 0)
+  const totalCount = collectionTotal ?? filteredCount
 
   // Flat ordered list of visible ids, for shift-range selection. Matches the
-  // on-screen order: grouped → by folder; flat → the single sorted list.
+  // on-screen order: grouped → by folder; flat → the single sorted list. Only
+  // what has loaded can be in a range.
   const orderedIds = useMemo(
     () =>
       grouped
         ? folderEntries.flatMap(([, subfolders]) =>
-            Object.values(subfolders).flatMap((group) => group.map((i) => i.id))
+            Object.keys(subfolders)
+              .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
+              .flatMap((sub) => subfolders[sub].items.map((i) => i.id))
           )
         : flatItems.map((i) => i.id),
     [grouped, folderEntries, flatItems]
@@ -441,12 +366,17 @@ export default function useMediaGallery(config) {
     })
     return keys
   }, [folderEntries])
-  const noFolders = folderEntries.length === 0
+  const noFolders = grouped ? groups !== null && folderEntries.length === 0 : false
+  const noItems = grouped ? noFolders : flatList?.total === 0
   const allCollapsed = !noFolders && [...allKeys].every((k) => collapsed.has(k))
   const allExpanded = collapsed.size === 0
 
   const list = viewMode === 'list'
   const cardSize = viewMode === 'compact' ? 'compact' : 'comfortable'
+
+  // Something to draw: the folder list, or the flat list's first page.
+  const ready = grouped ? groups !== null : flatList?.total != null
+  const data = ready ? { total: filteredCount } : null
 
   return {
     // raw + status
@@ -467,6 +397,7 @@ export default function useMediaGallery(config) {
     clearTags,
     favOnly,
     allTags,
+    tagLabels,
     // view state
     viewMode,
     cycleViewMode,
@@ -480,16 +411,22 @@ export default function useMediaGallery(config) {
     saveFolderTags,
     // grouped + flat data
     folderEntries,
+    loadFolder,
+    fetchFolderItems,
     flatItems,
+    flatHasMore: flatList ? flatList.hasMore : false,
+    flatLoading: flatList ? flatList.loading : false,
+    loadMoreFlat: () => loadMore(FLAT),
     // subtitle counts
     totalCount,
     filteredCount,
-    totalAvailable,
-    loadingMore,
-    loadedCount,
+    // Kept for the views' subtitle: nothing streams in the background any more.
+    totalAvailable: totalCount,
+    loadingMore: false,
     // collapse-all affordances
     allKeys,
     noFolders,
+    noItems,
     allCollapsed,
     allExpanded,
     // bulk

@@ -56,3 +56,25 @@ beforeEach(() => {
   localStorageMock.clear()
   sessionStorageMock.clear()
 })
+
+// jsdom has no IntersectionObserver. The paged browse views load each page when
+// a LoadMoreSentinel scrolls into view (issue #221); in a layout-less test
+// every sentinel counts as on screen the moment it is observed, the way a short
+// list's end is in a real browser, so lists load in full. A test can replace
+// this global to drive the observer itself (see LogsTab.test.jsx).
+class VisibleIntersectionObserver {
+  constructor(callback) {
+    this.callback = callback
+  }
+  observe(target) {
+    queueMicrotask(() => this.callback?.([{ isIntersecting: true, target }], this))
+  }
+  unobserve() {}
+  disconnect() {
+    this.callback = null
+  }
+  takeRecords() {
+    return []
+  }
+}
+globalThis.IntersectionObserver = VisibleIntersectionObserver

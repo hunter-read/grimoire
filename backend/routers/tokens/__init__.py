@@ -2,9 +2,11 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._browse import FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     list_tokens,
+    list_token_groups,
     list_token_folders,
     update_token_folder,
     bulk_update_token_folders,
@@ -37,6 +39,20 @@ router.add_api_route(
     description="Returns a paginated list of tokens.",
     dependencies=[Depends(require_not_guest)],
     response_model=TokenListResponse,
+)
+# Declared ahead of "/tokens/{id}", which would otherwise take "groups" as an id.
+router.add_api_route(
+    "/tokens/groups",
+    list_token_groups,
+    methods=["GET"],
+    summary="Folders holding matching tokens",
+    description=(
+        "Every folder that holds tokens matching the filters, with how many. Takes "
+        "the same filters as the list; the gallery renders folders from this and "
+        "opens each with the list's `folder` parameter (issue #221)."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=FolderGroupsResponse,
 )
 router.add_api_route(
     "/token-folders",

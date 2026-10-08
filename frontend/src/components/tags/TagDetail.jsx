@@ -40,6 +40,10 @@ const TITLE_KEY_FOR_TYPE = {
  * directly-tagged items, with folder-derived tags nested beneath (so map/token/
  * audio folders sit under their main type heading). Rendered by TagsView; kept
  * in its own file to satisfy one-component-per-file.
+ *
+ * `detail` is the tag's summary - counts per type and the tagged folders with
+ * counts. The items arrive a page at a time through `pages` (the TagsView's
+ * paged lists) as each section and folder is opened (issue #221).
  */
 export default function TagDetail({
   detail,
@@ -52,23 +56,27 @@ export default function TagDetail({
   deleteTag,
   favorited,
   onToggleFavorite,
-  byType,
+  pages,
+  onLoad,
   onDownload,
 }) {
   const { t } = useTranslation()
-  const directCount = detail.items.length
-  const folderCount = (detail.folders || []).reduce((n, g) => n + g.items.length, 0)
+  // Counts come with the summary; the items themselves page in per section
+  // (issue #221).
+  const counts = detail.counts || {}
+  const folders = detail.folders || []
+  const directCount = Object.values(counts).reduce((n, c) => n + c, 0)
+  const folderCount = folders.reduce((n, g) => n + g.count, 0)
   const total = directCount + folderCount
   const sectionCount = TYPE_ORDER.filter(
-    (type) =>
-      byType(type).length > 0 || (detail.folders || []).some((g) => g.resource_type === type)
+    (type) => (counts[type] || 0) > 0 || folders.some((g) => g.resource_type === type)
   ).length
   const autoCollapse = shouldAutoCollapse(total, sectionCount)
   // Only offer the whole-tag download when the tag actually covers something
   // archivable: a tag used only on game systems has no files of its own.
   const hasDownloadable =
-    detail.items.some((i) => canDownloadTagType(i.item_type)) ||
-    (detail.folders || []).some((g) => canDownloadTagType(g.resource_type) && g.items.length > 0)
+    Object.keys(counts).some((type) => canDownloadTagType(type) && counts[type] > 0) ||
+    folders.some((g) => canDownloadTagType(g.resource_type) && g.count > 0)
 
   return (
     <>
@@ -218,17 +226,19 @@ export default function TagDetail({
         // type's folder groups nested beneath — so map folders sit under Maps,
         // tokens under Tokens, etc. Each folder group lists everything inside it.
         TYPE_ORDER.map((type) => {
-          const items = byType(type)
-          const folders = (detail.folders || []).filter((g) => g.resource_type === type)
-          if (items.length === 0 && folders.length === 0) return null
+          const count = counts[type] || 0
+          const typeFolders = folders.filter((g) => g.resource_type === type)
+          if (count === 0 && typeFolders.length === 0) return null
           const Card = CARD_FOR_TYPE[type]
           return (
             <TagTypeSection
               key={type}
               type={type}
               title={t(TITLE_KEY_FOR_TYPE[type])}
-              items={items}
-              folders={folders}
+              count={count}
+              folders={typeFolders}
+              pages={pages}
+              onLoad={onLoad}
               renderItem={(item, grid) => <Card key={item.item_id} item={item} grid={grid} />}
               tag={detail.internal}
               onDownload={onDownload}

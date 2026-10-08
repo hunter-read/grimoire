@@ -125,21 +125,31 @@ describe('GalleryLayout', () => {
   })
 
   it('renders the empty state when there are no folders', () => {
-    const gallery = makeGallery({ noFolders: true, folderEntries: [] })
+    const gallery = makeGallery({ noFolders: true, noItems: true, folderEntries: [] })
     render(<GalleryLayout {...baseProps({ gallery })} />)
     expect(screen.queryByTestId('folder-group')).not.toBeInTheDocument()
     expect(screen.getByText(/No maps found/i)).toBeInTheDocument()
   })
 
   it('shows a filtered empty message when a filter is active', () => {
-    const gallery = makeGallery({ noFolders: true, folderEntries: [], filter: 'goblin' })
+    const gallery = makeGallery({
+      noFolders: true,
+      noItems: true,
+      folderEntries: [],
+      filter: 'goblin',
+    })
     render(<GalleryLayout {...baseProps({ gallery })} />)
     expect(screen.queryByTestId('folder-group')).not.toBeInTheDocument()
     expect(screen.getByText(/No maps match your filter/i)).toBeInTheDocument()
   })
 
   it('shows the no-favourites message when favOnly is on and nothing matches', () => {
-    const gallery = makeGallery({ noFolders: true, folderEntries: [], favOnly: true })
+    const gallery = makeGallery({
+      noFolders: true,
+      noItems: true,
+      folderEntries: [],
+      favOnly: true,
+    })
     render(<GalleryLayout {...baseProps({ gallery })} />)
     expect(screen.getByText(/no favorites here yet/i)).toBeInTheDocument()
   })

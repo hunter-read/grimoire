@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SystemDetailView from './SystemDetailView'
 import api, { bulk } from '../api'
+import { fakeShelfGet } from '../test/fakeBrowseApi'
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,21 @@ function makeSystem(books = []) {
 // `restoreView` mimics arriving via the reader's back button, which is the only
 // way persisted search/sort/filter state is restored; the default is a fresh
 // navigation, which always starts clean.
+// The shelf is fetched in pieces now (issue #221): the summary, the filter
+// facets, the category/subfolder groups, and the books a page at a time. This
+// serves all of them from one system object, its `books` included; any other
+// URL (search, book folders, saved filters) falls through to `fallback`.
+function serveSystem(system, fallback = () => Promise.resolve({})) {
+  api.get.mockImplementation(
+    fakeShelfGet({
+      system,
+      books: system.books || [],
+      isFavorite: (id) => mockIsFavorite('book', id),
+      fallback,
+    })
+  )
+}
+
 function renderView({ restoreView = false } = {}) {
   return render(
     <MemoryRouter
@@ -186,7 +202,7 @@ describe('SystemDetailView — subfolder grouping', () => {
         makeBook({ title: 'PHB', relative_path: 'books/TestSystem/core/phb.pdf' }),
         makeBook({ title: 'DMG', relative_path: 'books/TestSystem/core/dmg.pdf' }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
@@ -206,7 +222,7 @@ describe('SystemDetailView — subfolder grouping', () => {
           relative_path: 'books/TestSystem/core/monsters/Bestiary 2.pdf',
         }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() =>
@@ -220,7 +236,7 @@ describe('SystemDetailView — subfolder grouping', () => {
         makeBook({ title: 'Bestiary 2', relative_path: 'books/TestSystem/core/monsters/b2.pdf' }),
         makeBook({ title: 'Bestiary 3', relative_path: 'books/TestSystem/core/monsters/b3.pdf' }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() => expect(screen.getByText('Bestiary 1')).toBeInTheDocument())
@@ -238,7 +254,7 @@ describe('SystemDetailView — subfolder grouping', () => {
           relative_path: 'books/TestSystem/core/monsters/Bestiary.pdf',
         }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() => expect(screen.getByText('Core Rulebook')).toBeInTheDocument())
@@ -259,7 +275,7 @@ describe('SystemDetailView — subfolder grouping', () => {
           relative_path: 'books/TestSystem/adventures/Curse of Strahd/cos.pdf',
         }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       // Each AP name should appear as a folder header button (aria-expanded)
@@ -282,7 +298,7 @@ describe('SystemDetailView — subfolder grouping', () => {
           relative_path: 'books/TestSystem/adventures/Big AP/ap.pdf',
         }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() =>
@@ -298,7 +314,7 @@ describe('SystemDetailView — subfolder grouping', () => {
           relative_path: 'books/TestSystem/core/monsters/bestiary.pdf',
         }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument())
@@ -316,10 +332,9 @@ describe('SystemDetailView — subfolder grouping', () => {
   describe('book folder tagging', () => {
     // Return folder tags for the /book-folders endpoint, the system otherwise.
     function mockWithFolders(books, folders = []) {
-      api.get.mockImplementation((url) => {
-        if (url.includes('/book-folders')) return Promise.resolve({ folders })
-        return Promise.resolve(makeSystem(books))
-      })
+      serveSystem(makeSystem(books), (url) =>
+        Promise.resolve(url.includes('/book-folders') ? { folders } : {})
+      )
     }
 
     it('loads and shows existing book-folder tags on the folder header', async () => {
@@ -354,7 +369,7 @@ describe('SystemDetailView — subfolder grouping', () => {
 
   describe('system header', () => {
     it('renders the system name', async () => {
-      api.get.mockResolvedValue(makeSystem())
+      serveSystem(makeSystem())
       renderView()
       await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
     })
@@ -366,14 +381,14 @@ describe('SystemDetailView — subfolder grouping', () => {
     })
 
     it('shows the system-metadata Edit button for a normal system', async () => {
-      api.get.mockResolvedValue(makeSystem())
+      serveSystem(makeSystem())
       renderView()
       await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
       expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument()
     })
 
     it('prettifies the name and hides Edit for a one-page collection', async () => {
-      api.get.mockResolvedValue({
+      serveSystem({
         ...makeSystem(),
         name: 'one-page-rpgs',
         is_one_page: true,
@@ -384,7 +399,7 @@ describe('SystemDetailView — subfolder grouping', () => {
     })
 
     it('hides Edit for a system-agnostic collection', async () => {
-      api.get.mockResolvedValue({
+      serveSystem({
         ...makeSystem(),
         name: 'system-agnostic',
         is_system_agnostic: true,
@@ -398,7 +413,7 @@ describe('SystemDetailView — subfolder grouping', () => {
   describe('category section collapse', () => {
     it('collapses a category section when its header is clicked', async () => {
       const books = [makeBook({ title: 'PHB', relative_path: 'books/TestSystem/core/phb.pdf' })]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
 
       await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
@@ -422,7 +437,7 @@ describe('SystemDetailView — subfolder grouping', () => {
           relative_path: 'books/TestSystem/adventure/cos.pdf',
         }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
       await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
       // Grouped by default: category headers exist, the switch is on.
@@ -444,7 +459,7 @@ describe('SystemDetailView — subfolder grouping', () => {
         makeBook({ id: 'b1', title: 'Zeta', category: 'core', page_count: 5 }),
         makeBook({ id: 'b2', title: 'Alpha', category: 'adventure', page_count: 500 }),
       ]
-      api.get.mockResolvedValue(makeSystem(books))
+      serveSystem(makeSystem(books))
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
@@ -458,7 +473,7 @@ describe('SystemDetailView — subfolder grouping', () => {
 
   describe('favorites filter', () => {
     it('shows the Favorites toggle in the filter modal', async () => {
-      api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+      serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
       renderView()
       await waitFor(() =>
         expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
@@ -470,7 +485,7 @@ describe('SystemDetailView — subfolder grouping', () => {
     it('favorites filter hides non-favorite books', async () => {
       const favBook = makeBook({ id: 'fav-book', title: 'Favorite Book' })
       const otherBook = makeBook({ id: 'other-book', title: 'Other Book' })
-      api.get.mockResolvedValue(makeSystem([favBook, otherBook]))
+      serveSystem(makeSystem([favBook, otherBook]))
       mockIsFavorite.mockImplementation((type, id) => type === 'book' && id === 'fav-book')
 
       renderView()
@@ -484,7 +499,7 @@ describe('SystemDetailView — subfolder grouping', () => {
     })
 
     it('shows no-favorites hint when filter active and nothing matches', async () => {
-      api.get.mockResolvedValue(makeSystem([makeBook({ title: 'Unfavorited' })]))
+      serveSystem(makeSystem([makeBook({ title: 'Unfavorited' })]))
       renderView()
       await waitFor(() => expect(screen.getByText('Unfavorited')).toBeInTheDocument())
 
@@ -501,7 +516,7 @@ describe('SystemDetailView — in-system search persistence', () => {
   const SESSION_KEY = 'grimoire:system:system-1:search-query'
 
   function setupSearchMock(resultTitle = 'Spell Compendium') {
-    api.get.mockImplementation((url) => {
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]), (url) => {
       if (url.includes('/search')) {
         return Promise.resolve({
           query: 'fireball',
@@ -520,7 +535,7 @@ describe('SystemDetailView — in-system search persistence', () => {
           tokens: [],
         })
       }
-      return Promise.resolve(makeSystem([makeBook({ title: 'PHB' })]))
+      return Promise.resolve({})
     })
   }
 
@@ -571,7 +586,7 @@ describe('SystemDetailView — in-system search persistence', () => {
 
   it('does not run a search on mount when the stored query is too short', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('x'))
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView({ restoreView: true })
 
     await waitFor(() => screen.getByText('PHB'))
@@ -582,29 +597,30 @@ describe('SystemDetailView — in-system search persistence', () => {
   it('shows books matching the query above the page results', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('fireball'))
     // System has a book whose title matches the query.
-    api.get.mockImplementation((url) => {
-      if (url.includes('/search')) {
-        return Promise.resolve({
-          query: 'fireball',
-          total: 1,
-          results: [
-            {
-              id: 'b1',
-              title: 'Spell Compendium',
-              game_system: 'Test System',
-              category: 'core',
-              page_number: 7,
-              snippet: 'A <mark>fireball</mark> spell.',
-            },
-          ],
-          maps: [],
-          tokens: [],
-        })
+    serveSystem(
+      makeSystem([makeBook({ id: 'fb', title: 'Fireball Grimoire' }), makeBook({ title: 'PHB' })]),
+      (url) => {
+        if (url.includes('/search')) {
+          return Promise.resolve({
+            query: 'fireball',
+            total: 1,
+            results: [
+              {
+                id: 'b1',
+                title: 'Spell Compendium',
+                game_system: 'Test System',
+                category: 'core',
+                page_number: 7,
+                snippet: 'A <mark>fireball</mark> spell.',
+              },
+            ],
+            maps: [],
+            tokens: [],
+          })
+        }
+        return Promise.resolve({})
       }
-      return Promise.resolve(
-        makeSystem([makeBook({ id: 'fb', title: 'Fireball Grimoire' }), makeBook({ title: 'PHB' })])
-      )
-    })
+    )
     renderView({ restoreView: true })
 
     // The matching book title appears (from the book grid, not the page hit).
@@ -618,7 +634,7 @@ describe('SystemDetailView — in-system search persistence', () => {
 
   it('shows no-results when neither a book nor a page matches', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('zzznomatch'))
-    api.get.mockImplementation((url) => {
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]), (url) => {
       if (url.includes('/search')) {
         return Promise.resolve({
           query: 'zzznomatch',
@@ -628,7 +644,7 @@ describe('SystemDetailView — in-system search persistence', () => {
           tokens: [],
         })
       }
-      return Promise.resolve(makeSystem([makeBook({ title: 'PHB' })]))
+      return Promise.resolve({})
     })
     renderView({ restoreView: true })
 
@@ -644,7 +660,7 @@ describe('SystemDetailView — sort/filter persistence', () => {
     vi.clearAllMocks()
     mockIsFavorite.mockReturnValue(false)
     sessionStorage.clear()
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
   })
 
   it('restores the stored sort/filter when returning to the view', async () => {
@@ -697,7 +713,7 @@ describe('SystemDetailView — book view mode', () => {
   })
 
   it('defaults books to list view and cycles list → card → compact via the toggle', async () => {
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -728,7 +744,7 @@ describe('SystemDetailView — book editor categories', () => {
       makeBook({ id: 'b3', title: 'Homebrew Doc', category: 'my-custom' }),
       makeBook({ id: 'b4', title: 'DMG', category: 'core' }), // duplicate slug
     ]
-    api.get.mockResolvedValue(makeSystem(books))
+    serveSystem(makeSystem(books))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -752,7 +768,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   it('renders publisher links and plain-text publishers in the header', async () => {
     const system = makeSystem([makeBook({ title: 'PHB' })])
     system.publishers = [{ name: 'WotC', url: 'https://wotc.com' }, { name: 'TSR' }]
-    api.get.mockResolvedValue(system)
+    serveSystem(system)
     renderView()
 
     await waitFor(() => expect(screen.getByText('Published by')).toBeInTheDocument())
@@ -761,7 +777,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('toggles a tag filter (from the modal) and hides books lacking that tag', async () => {
-    api.get.mockResolvedValue(
+    serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'Tagged', tags: ['spooky'] }),
         makeBook({ id: 'b2', title: 'Untagged', tags: [] }),
@@ -779,7 +795,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
 
   it('lists all system tags as filter options in the modal', async () => {
     const tags = Array.from({ length: 20 }, (_, i) => `tag-${String(i).padStart(2, '0')}`)
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB', tags })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB', tags })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -791,7 +807,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('filters books by genre from the modal', async () => {
-    api.get.mockResolvedValue(
+    serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'Fantasy Book', genres: ['Fantasy'] }),
         makeBook({ id: 'b2', title: 'Horror Book', genres: ['Horror'] }),
@@ -807,7 +823,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('builds a grouped tag filter: spooky AND (dungeon OR cave)', async () => {
-    api.get.mockResolvedValue(
+    serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'Spooky Cave', tags: ['spooky', 'cave'] }),
         makeBook({ id: 'b2', title: 'Spooky Field', tags: ['spooky', 'field'] }),
@@ -830,7 +846,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('re-sorts books when the sort control changes', async () => {
-    api.get.mockResolvedValue(
+    serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'Zeta', page_count: 5 }),
         makeBook({ id: 'b2', title: 'Alpha', page_count: 500 }),
@@ -849,7 +865,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
 
   it('sorts by date added newest first and filters to recent books across categories', async () => {
     const ago = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-    api.get.mockResolvedValue(
+    serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'Ancient', category: 'core', added_at: ago(90) }),
         makeBook({ id: 'b2', title: 'Fresh', category: 'core', added_at: ago(1) }),
@@ -863,8 +879,13 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     expect(screen.getAllByRole('img', { name: 'New' })).toHaveLength(2)
 
     await userEvent.selectOptions(screen.getByLabelText('Sort'), 'added_at')
-    const titles = screen.getAllByText(/^(Ancient|Fresh)$/).map((n) => n.textContent)
-    expect(titles).toEqual(['Fresh', 'Ancient'])
+    // The new order comes back from the server.
+    await waitFor(() =>
+      expect(screen.getAllByText(/^(Ancient|Fresh)$/).map((n) => n.textContent)).toEqual([
+        'Fresh',
+        'Ancient',
+      ])
+    )
 
     await openBookFilters()
     await userEvent.click(screen.getByLabelText('Recently added (last 7 days)'))
@@ -875,7 +896,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('saves a books filter preset via the modal', async () => {
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -891,35 +912,39 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('applies the default books preset on load', async () => {
-    api.get.mockImplementation((url) => {
-      if (url.includes('/saved-filters')) {
-        return Promise.resolve({
-          filters: [
-            {
-              id: 'd1',
-              scope: 'books',
-              name: 'Default',
-              is_default: true,
-              state: { sort: 'title', order: 'asc', filters: { explicit: true } },
-            },
-          ],
-        })
-      }
-      return Promise.resolve(
-        makeSystem([
-          makeBook({ id: 'b1', title: 'Clean', is_explicit: false }),
-          makeBook({ id: 'b2', title: 'Spicy', is_explicit: true }),
-        ])
-      )
-    })
+    serveSystem(
+      makeSystem([
+        makeBook({ id: 'b1', title: 'Clean', is_explicit: false }),
+        makeBook({ id: 'b2', title: 'Spicy', is_explicit: true }),
+      ]),
+      (url) =>
+        Promise.resolve(
+          url.includes('/saved-filters')
+            ? {
+                filters: [
+                  {
+                    id: 'd1',
+                    scope: 'books',
+                    name: 'Default',
+                    is_default: true,
+                    state: { sort: 'title', order: 'asc', filters: { explicit: true } },
+                  },
+                ],
+              }
+            : {}
+        )
+    )
     renderView()
     // The default filter (explicit only) is applied on load, hiding "Clean".
     await waitFor(() => expect(screen.getByText('Spicy')).toBeInTheDocument())
     expect(screen.queryByText('Clean')).not.toBeInTheDocument()
+    // The shelf was never fetched unfiltered first.
+    const bookCalls = api.get.mock.calls.map(([u]) => u).filter((u) => u.includes('/books?'))
+    expect(bookCalls.every((u) => u.includes('explicit=true'))).toBe(true)
   })
 
   it('applies bulk tags to the selected books', async () => {
-    api.get.mockResolvedValue(
+    serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'PHB', tags: ['old'] }),
         makeBook({ id: 'b2', title: 'DMG', tags: [] }),
@@ -947,7 +972,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('applies bulk edits from the bulk edit modal', async () => {
-    api.get.mockResolvedValue(makeSystem([makeBook({ id: 'b1', title: 'PHB', year: 2014 })]))
+    serveSystem(makeSystem([makeBook({ id: 'b1', title: 'PHB', year: 2014 })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -986,14 +1011,14 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('renders the container children as systems instead of a book list', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
     expect(screen.getByText('Lasers And Feelings')).toBeInTheDocument()
   })
 
   it('prettifies the container name in the heading', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     renderView()
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'One Page RPGs' })).toBeInTheDocument()
@@ -1001,7 +1026,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('child system card is a real link to the system route', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
     // SystemCard now uses a CardLink overlay (real anchor) instead of an onClick
@@ -1013,7 +1038,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   // Issue #500: the container grid carries the library toolbar, and a bulk tag
   // lands on the children shown without a refetch.
   it('bulk tags container children in place', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     bulk.addTags.mockResolvedValue({ tags: { c1: ['fresh'] } })
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
@@ -1033,7 +1058,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('navigates back to the library from a container', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
     await userEvent.click(screen.getByText('Back to Library'))
@@ -1043,7 +1068,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   // Issue #498: a container inside another container goes back to its parent,
   // not the library root.
   it('navigates back to the parent from a nested container', async () => {
-    api.get.mockResolvedValue(
+    serveSystem(
       makeContainer({
         name: '5e',
         is_one_page: false,
@@ -1063,7 +1088,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('counts the nested systems rather than books', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     renderView()
     await waitFor(() =>
       expect(screen.getByText('2 systems in this collection')).toBeInTheDocument()
@@ -1071,7 +1096,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('falls back to the normal book view when a container has no children yet', async () => {
-    api.get.mockResolvedValue({
+    serveSystem({
       ...makeSystem([makeBook({ title: 'Loose Book' })]),
       container_kind: 'parent',
       children: [],
@@ -1081,14 +1106,14 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('renders an ordinary system as a book list', async () => {
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
   })
   // Issue #296: the child-systems grid is driven by the "system" view-mode
   // preference, not the "book" one, so the two settings stay independent.
   it('cycles the container grid through the system view mode, not the book one', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
 
@@ -1105,7 +1130,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
 
   it('leaves the book view mode alone when the system view mode is set', async () => {
     sessionStorage.setItem('grimoire:view-mode:system', 'compact')
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -1114,7 +1139,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   })
 
   it('reflects a container cover upload without leaving the view', async () => {
-    api.get.mockResolvedValue(makeContainer())
+    serveSystem(makeContainer())
     api.upload.mockResolvedValue({ cover_image: 'system-1.png' })
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
@@ -1151,7 +1176,7 @@ describe('SystemDetailView — collapse and expand all categories', () => {
     ])
 
   it('hides every category body on collapse all, and restores it on expand all', async () => {
-    api.get.mockResolvedValue(twoCategories())
+    serveSystem(twoCategories())
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
     expect(screen.getByText('Strahd')).toBeInTheDocument()
@@ -1192,7 +1217,7 @@ describe('SystemDetailView — category depth for a system inside a container', 
     // Previously "5e" was read as the category folder, so each custom category
     // slug produced another top-level "5e" heading with the real category
     // nested beneath it as a subfolder.
-    api.get.mockResolvedValue(childSystem([childBook({ title: 'Monster Manual' })]))
+    serveSystem(childSystem([childBook({ title: 'Monster Manual' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('Monster Manual')).toBeInTheDocument())
 
@@ -1203,7 +1228,7 @@ describe('SystemDetailView — category depth for a system inside a container', 
   it('scopes a rescan to the system folder, not the whole container', async () => {
     // A scope of "books/Dungeons & Dragons" would re-scan every edition in the
     // container rather than just this one.
-    api.get.mockResolvedValue(childSystem([childBook({ title: 'Monster Manual' })]))
+    serveSystem(childSystem([childBook({ title: 'Monster Manual' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('Monster Manual')).toBeInTheDocument())
 
@@ -1213,7 +1238,7 @@ describe('SystemDetailView — category depth for a system inside a container', 
   })
 
   it('leaves a top-level system scoped to its own folder', async () => {
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -1230,7 +1255,7 @@ describe('SystemDetailView — back navigation from a nested system', () => {
   })
 
   it('returns to the parent system rather than the library root', async () => {
-    api.get.mockResolvedValue({
+    serveSystem({
       ...makeSystem([makeBook({ title: 'PHB' })]),
       parent_id: 'container-9',
       parent_name: 'Dungeons & Dragons',
@@ -1246,7 +1271,7 @@ describe('SystemDetailView — back navigation from a nested system', () => {
   })
 
   it('prettifies a one-page collection name in the back label', async () => {
-    api.get.mockResolvedValue({
+    serveSystem({
       ...makeSystem([makeBook({ title: 'Honey Heist' })]),
       parent_id: 'container-op',
       parent_name: 'one-page-rpgs',
@@ -1259,7 +1284,7 @@ describe('SystemDetailView — back navigation from a nested system', () => {
   })
 
   it('a top-level system still goes back to the library', async () => {
-    api.get.mockResolvedValue(makeSystem([makeBook({ title: 'PHB' })]))
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -1284,7 +1309,7 @@ describe('SystemDetailView variant promotion', () => {
     const after = [
       makeBook({ id: 'b2', title: 'PHB Starter', category: 'starter-set', variant_count: 1 }),
     ]
-    api.get.mockResolvedValue(makeSystem(before))
+    serveSystem(makeSystem(before))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -1293,7 +1318,7 @@ describe('SystemDetailView variant promotion', () => {
     await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
 
     // The promoted copy is the row that exists now.
-    api.get.mockResolvedValue(makeSystem(after))
+    serveSystem(makeSystem(after))
     const props = bookEditorProps.mock.calls.at(-1)[0]
     props.onVariantsChanged('b2')
 
@@ -1310,7 +1335,7 @@ describe('SystemDetailView variant promotion', () => {
 
   it('refetches without re-opening an editor for a non-promoting change', async () => {
     const books = [makeBook({ id: 'b1', title: 'PHB', category: 'core', variant_count: 1 })]
-    api.get.mockResolvedValue(makeSystem(books))
+    serveSystem(makeSystem(books))
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
@@ -1322,7 +1347,13 @@ describe('SystemDetailView variant promotion', () => {
     const props = bookEditorProps.mock.calls.at(-1)[0]
     // An unlink reports no new main id.
     props.onVariantsChanged(null)
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/systems/system-1'))
+    // The summary and the shelf's books both come back fresh.
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/systems/system-1?include_books=false')
+    )
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(expect.stringMatching(/^\/systems\/system-1\/books\?/))
+    )
   })
 })
 
@@ -1344,7 +1375,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
     ])
 
   it('keeps a small core open and collapses the other categories', async () => {
-    api.get.mockResolvedValue(longSystem(3))
+    serveSystem(longSystem(3))
     renderView()
     await waitFor(() => expect(screen.getByText('Core 0')).toBeInTheDocument())
     expect(screen.queryByText('Adventure 0')).not.toBeInTheDocument()
@@ -1360,7 +1391,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
   })
 
   it('collapses core too when it holds more than a few books', async () => {
-    api.get.mockResolvedValue(longSystem(6))
+    serveSystem(longSystem(6))
     renderView()
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /core rulebooks/i })).toBeInTheDocument()
@@ -1371,7 +1402,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
 
   it('opens the categories again when a filter narrows the list', async () => {
     mockIsFavorite.mockImplementation((type, id) => id === 'adv-4')
-    api.get.mockResolvedValue(longSystem(3))
+    serveSystem(longSystem(3))
     renderView()
     await waitFor(() => expect(screen.getByText('Core 0')).toBeInTheDocument())
     expect(screen.queryByText('Adventure 4')).not.toBeInTheDocument()

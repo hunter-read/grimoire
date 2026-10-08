@@ -36,7 +36,21 @@ beforeAll(async () => {
     removeListener: vi.fn(),
   })
   vi.resetModules()
-  MediaFolderGroup = (await import('./MediaFolderGroup')).default
+  const Real = (await import('./MediaFolderGroup')).default
+  // Folder groups now take server counts and lazily loaded items per folder
+  // (issue #221); these tests describe folders by their items, so adapt them.
+  MediaFolderGroup = ({ folder, subfolders, ...rest }) => (
+    <Real
+      folder={folder}
+      subfolders={Object.fromEntries(
+        Object.entries(subfolders).map(([sub, items]) => [
+          sub,
+          { path: sub ? `${folder}/${sub}` : folder, count: items.length, items, hasMore: false },
+        ])
+      )}
+      {...rest}
+    />
+  )
 })
 
 const baseProps = {

@@ -4,6 +4,7 @@ import {
   CORE_OPEN_MAX,
   shouldAutoCollapse,
   defaultCollapsedCategories,
+  defaultCollapsedFromCounts,
 } from './autoCollapse'
 
 const books = (category, n) => Array.from({ length: n }, () => ({ category }))
@@ -58,5 +59,23 @@ describe('defaultCollapsedCategories', () => {
 
   it('handles a system that has not loaded', () => {
     expect(defaultCollapsedCategories(undefined)).toEqual(new Set())
+  })
+})
+
+describe('defaultCollapsedFromCounts', () => {
+  it('collapses every category of a long shelf but a small core', () => {
+    expect(defaultCollapsedFromCounts({ core: 3, adventures: 30 })).toEqual(new Set(['adventures']))
+  })
+
+  it('collapses core too when it is large', () => {
+    expect(defaultCollapsedFromCounts({ core: 20, adventures: 30 })).toEqual(
+      new Set(['core', 'adventures'])
+    )
+  })
+
+  it('leaves a short shelf, or a single category, open', () => {
+    expect(defaultCollapsedFromCounts({ core: 3, adventures: 4 })).toEqual(new Set())
+    expect(defaultCollapsedFromCounts({ adventures: 300 })).toEqual(new Set())
+    expect(defaultCollapsedFromCounts()).toEqual(new Set())
   })
 })

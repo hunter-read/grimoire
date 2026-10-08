@@ -1,6 +1,6 @@
 """Pydantic schemas for the systems API."""
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, field_validator
 
@@ -268,8 +268,47 @@ class SystemSummary(BaseModel):
 class SystemDetail(SystemSummary):
     """`get_system` adds the system's books and, for a container, its children."""
 
+    # Empty when requested with `include_books=false`.
     books: list[BookOut]
     children: list[SystemSummary]
+    # The system's own folder, library-relative ("books/{System}"), for a
+    # rescan scoped to it; null for a system with no books.
+    scope_path: Optional[str] = None
+
+
+class SystemBooksPage(BaseModel):
+    """One page of a system's books matching the shelf filters (issue #221)."""
+
+    total: int
+    books: list[BookOut]
+
+
+class ShelfFolderGroup(BaseModel):
+    """One stored directory on the shelf holding matching books."""
+
+    category: str
+    # Subfolder below the category directory; "" for books directly in it.
+    path: str
+    # The directory, library-relative, for rescan scopes.
+    dir: str
+    count: int
+    # The active sort's value for the folder's first book (null for the title
+    # sort, where a folder sorts by its own name).
+    first: Optional[Union[int, float, str]] = None
+
+
+class ShelfGroupsResponse(BaseModel):
+    total: int
+    groups: list[ShelfFolderGroup]
+
+
+class ShelfFacetsResponse(BaseModel):
+    """The values the shelf's filter menus offer, over the whole visible shelf."""
+
+    categories: list[str]
+    genres: list[str]
+    product_code_prefixes: list[str]
+    tags: list[str]
 
 
 class BookFolderOut(BaseModel):

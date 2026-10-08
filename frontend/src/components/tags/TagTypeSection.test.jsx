@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import TagTypeSection from './TagTypeSection'
+import RealTagTypeSection from './TagTypeSection'
+import { tagDetailProps } from '../../test/fakeTagItems'
 
 // User-prefs persistence is exercised; keep it in-memory and simple.
 let prefs = {}
@@ -18,6 +19,23 @@ vi.mock('../../hooks/useViewMode', () => ({
 beforeEach(() => {
   prefs = {}
 })
+
+// A section takes its count and folders with counts now, and reads its items
+// from paged lists (issue #221). These tests describe a section by its items,
+// so this builds the paged form from them, fully loaded.
+function TagTypeSection({ type, items = [], folders = [], ...rest }) {
+  const paged = tagDetailProps({ items: items.map((i) => ({ item_type: type, ...i })), folders })
+  return (
+    <RealTagTypeSection
+      type={type}
+      count={paged.detail.counts[type] || 0}
+      folders={paged.detail.folders}
+      pages={paged.pages}
+      onLoad={() => {}}
+      {...rest}
+    />
+  )
+}
 
 const renderItem = (item) => (
   <div key={item.item_id} data-testid="item">
@@ -162,5 +180,25 @@ describe('TagTypeSection download (issue #401)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Maps/ }))
     expect(screen.getByTestId('item')).toBeInTheDocument()
     expect(prefs.tagsSectionCollapsed).toEqual({ map: false })
+  })
+})
+
+describe('TagTypeSection folder defaults', () => {
+  it('starts many large tagged folders closed', () => {
+    const big = (path) => ({
+      resource_type: 'token',
+      path,
+      items: Array.from({ length: 20 }, (_, i) => ({ item_id: `${path}-${i}` })),
+    })
+    render(
+      <TagTypeSection
+        type="token"
+        title="Tokens"
+        items={[]}
+        folders={[big('a'), big('b')]}
+        renderItem={renderItem}
+      />
+    )
+    expect(screen.queryAllByTestId('item')).toHaveLength(0)
   })
 })

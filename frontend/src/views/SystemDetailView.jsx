@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import useCollapsedSet from '../hooks/useCollapsedSet'
@@ -14,7 +14,6 @@ import BulkEditModal from '../components/BulkEditModal'
 import useBulkSelection from '../hooks/useBulkSelection'
 
 import { useAuth } from '../context/AuthContext'
-import { useFavorites } from '../context/FavoritesContext'
 import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
@@ -24,9 +23,11 @@ import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
 import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
-import { buildFolderTree, categoryDepth, orderedBooks } from '../components/system/folderTree'
+import { nodeKey, orderedNodeEntries } from '../components/system/shelfTree'
+import LoadMoreSentinel from '../components/LoadMoreSentinel'
+import useShelf, { FLAT } from '../hooks/useShelf'
+import { bookFilterParams, withQuery } from '../utils/browseParams'
 import { getFolderPlacement } from '../hooks/useUserPrefs'
-import { systemScope, groupScope } from '../components/system/rescanScope'
 import BulkToggleButton from '../components/BulkToggleButton'
 import CollapseExpandButtons from '../components/CollapseExpandButtons'
 import ToolbarButton from '../components/ToolbarButton'
@@ -35,16 +36,10 @@ import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import SortFilterBar from '../components/library/SortFilterBar'
-import {
-  bookFilterPredicate,
-  bookComparator,
-  productCodePrefix,
-} from '../components/library/applyBookSortFilter'
 import { queryTags } from '../components/library/tagQuery'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
-import { defaultCollapsedCategories } from '../utils/autoCollapse'
-import matchBooks from '../utils/matchBooks'
+import { defaultCollapsedFromCounts } from '../utils/autoCollapse'
 import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
@@ -58,12 +53,10 @@ export default function SystemDetailView() {
   const { systemId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { isFavorite } = useFavorites()
   const isEditor = user?.role === 'admin' || user?.role === 'gm'
   // Returning from the reader restores the search/sort/filter you left behind;
   // navigating here fresh always starts clean.
   const restoreView = useRestoredView()
-  const [system, setSystem] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editingBookId, setEditingBookId] = useState(null)
   // Book subcategory folder tags, keyed by BookFolder path
@@ -91,15 +84,23 @@ export default function SystemDetailView() {
     { restore: restoreView }
   )
   const [defaultApplied, setDefaultApplied] = useState(restoreView)
-  const bookMatchesFilters = bookFilterPredicate(bookFilter.filters || {}, {
-    isFavorite: (id) => isFavorite('book', id),
-  })
+
+  // The summary, filter options, category/subfolder tree and the books
+  // themselves all come from the server, the books a page at a time
+  // (issue #221) - a system can hold tens of thousands of them.
+  const shelfData = useShelf(systemId, { grouped, bookFilter, ready: defaultApplied })
+  const { system, setSystem, facets, shelf, pages, loadNode, loadedBooks, updateBooks } = shelfData
+
   // A long system starts with its categories collapsed (a small core stays
   // open) until the user opens or closes one; see autoCollapse.js. Counted on
-  // the filtered books, so narrowing the list opens the categories it leaves.
+  // the matching books, so narrowing the list opens the categories it leaves.
+  const categoryCounts = useMemo(
+    () => Object.fromEntries(Object.entries(shelf).map(([cat, node]) => [cat, node.count])),
+    [shelf]
+  )
   const [collapsedCats, setCollapsedCats] = useCollapsedSet(
     `grimoire:system:${systemId}:collapsed`,
-    defaultCollapsedCategories((system?.books || []).filter(bookMatchesFilters))
+    defaultCollapsedFromCounts(categoryCounts)
   )
   // Two independent view modes: the book list below uses the "book" preference,
   // while a container system's child-system grid uses the "system" one — the same
@@ -112,6 +113,10 @@ export default function SystemDetailView() {
     restoreView
   )
   const [downloadModal, setDownloadModal] = useState(null)
+  // Books whose title or metadata match the in-system search, shown above the
+  // page hits. Asked of the server with the shelf's filters, so they honour the
+  // same tag/favourite filters as the grid.
+  const [matchedBooks, setMatchedBooks] = useState([])
 
   // Bulk multiselect (books only)
   const bulk = useBulkSelection()
@@ -121,19 +126,6 @@ export default function SystemDetailView() {
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   // Shared-tag display labels for book tags (filter values match on internal key).
   const bookTagLabels = useTagLabels('book')
-
-  // Refetch rather than patch locally: promoting a variant changes *which*
-  // books are rows at all (the new main appears, the old one collapses into
-  // it), and the promoted copy may sit in a different category than the one it
-  // replaced - so there is no local edit that can express the result.
-  const reloadSystem = useCallback(
-    () => api.get(`/systems/${systemId}`).then(setSystem),
-    [systemId]
-  )
-
-  useEffect(() => {
-    reloadSystem()
-  }, [reloadSystem])
 
   // Load book subcategory folder tags for this system.
   useEffect(() => {
@@ -146,6 +138,26 @@ export default function SystemDetailView() {
       })
       .catch(() => setBookFolderTags({}))
   }, [systemId])
+
+  useEffect(() => {
+    if (!searchResults?.query) {
+      setMatchedBooks([])
+      return undefined
+    }
+    let cancelled = false
+    const params = {
+      ...bookFilterParams(bookFilter.filters || {}),
+      q: searchResults.query,
+      limit: 50,
+    }
+    api
+      .get(withQuery(`/systems/${systemId}/books`, params))
+      .then((r) => !cancelled && setMatchedBooks(r.books || []))
+      .catch(() => !cancelled && setMatchedBooks([]))
+    return () => {
+      cancelled = true
+    }
+  }, [searchResults, systemId, bookFilter.filters])
 
   const {
     saved: savedBookFilters,
@@ -166,18 +178,18 @@ export default function SystemDetailView() {
     // defaultApplied guard already makes this run exactly once.
   }, [bookFiltersLoaded, defaultApplied, defaultBookFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // A variant link changed. Refetch, then follow the promotion: the newly
+  // A variant link changed. Reload, then follow the promotion: the newly
   // promoted copy is the row that exists now, so the editor re-opens on it
   // rather than on an id that has just become a hidden variant. It may sit in a
   // different category than the book it replaced, which is exactly why this
   // cannot be a local patch.
+  const { reload } = shelfData
   const handleVariantsChanged = useCallback(
     (newMainId) => {
-      reloadSystem().then(() => {
-        if (newMainId) setEditingBookId(newMainId)
-      })
+      reload()
+      if (newMainId) setEditingBookId(newMainId)
     },
-    [reloadSystem]
+    [reload]
   )
 
   if (!system)
@@ -231,13 +243,11 @@ export default function SystemDetailView() {
   const isSpecialCollection = system.is_system_agnostic || system.is_one_page
   const canEditSystemMeta = isEditor && !isSpecialCollection
 
-  const allTags = [...new Set((system.books || []).flatMap((b) => b.tags || []))].sort()
-
-  // Distinct category slugs already in use across this system's books, so the
-  // book editor can offer them for consistent reuse alongside the defaults.
-  const existingCategories = [
-    ...new Set((system.books || []).map((b) => b.category).filter(Boolean)),
-  ].sort()
+  // Every tag, category, genre and product code on the shelf - for the editors'
+  // suggestions and the filter menus - from the server, since only some of the
+  // books are ever loaded.
+  const allTags = facets.tags
+  const existingCategories = facets.categories
 
   const bookFilters = bookFilter.filters || {}
   // Derived helpers kept for the card tag-chip toggles and empty-state copy.
@@ -249,8 +259,6 @@ export default function SystemDetailView() {
   const updateBookFilter = (next) => setBookFilter(next)
   const handleSaveBookPreset = (name, opts) => saveBookPreset(name, bookFilter, opts)
 
-  const comparator = bookComparator(bookFilter.sort, bookFilter.order)
-  const sortBooks = (books) => [...books].sort(comparator)
   // How folders are ordered against the books beside them: the active sort plus
   // the user's folder-placement preference (issue #448).
   const folderOrder = {
@@ -259,44 +267,34 @@ export default function SystemDetailView() {
     placement: getFolderPlacement(),
   }
 
-  // Books of a system nested in a container sit one folder deeper, so rescan
-  // scopes must account for the container segment. Bound here (where the system
-  // is known) so the scope helpers keep their plain `(books) => scope` shape.
-  const scopeDepth = categoryDepth(system)
-  const systemRescanScope = (books) => systemScope(books, scopeDepth)
-  const categoryRescanScope = (books) => groupScope(books, scopeDepth)
-
-  const categories = {}
-  ;(system.books || []).filter(bookMatchesFilters).forEach((book) => {
-    const cat = book.category || 'core'
-    if (!categories[cat]) categories[cat] = []
-    categories[cat].push(book)
-  })
-
-  const allCatKeys = Object.keys(categories)
+  const allCatKeys = Object.keys(shelf)
   const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
   const expandAll = () => setCollapsedCats(new Set())
 
   // Category render order (built-ins first, then any custom categories).
   const orderedCatKeys = [
     ...CATEGORY_ORDER,
-    ...allCatKeys.filter((c) => !CATEGORY_ORDER.includes(c)),
-  ].filter((cat) => categories[cat])
+    ...allCatKeys.filter((c) => !CATEGORY_ORDER.includes(c)).sort(),
+  ].filter((cat) => shelf[cat])
 
-  // All filtered books as a single sorted list (used by the flattened view).
-  const flatBooks = sortBooks((system.books || []).filter(bookMatchesFilters))
-
-  // Flat ordered list of visible book ids, for shift-range selection. Matches
-  // the on-screen order: grouped → by category; flat → the single sorted list.
+  // Loaded books in on-screen order, for shift-range selection: grouped → by
+  // category, walking each node as it is drawn; flat → the single sorted list.
+  // Only books that have loaded can fall inside a range.
+  const nodeBooks = (node) => {
+    const list = pages.get(nodeKey(node.category, node.path))
+    const books = list ? list.items : []
+    const hasMore = node.direct > 0 && (!list || list.hasMore)
+    return orderedNodeEntries(node, books, { ...folderOrder, hasMore }).flatMap((entry) =>
+      entry.type === 'book' ? [entry.book] : nodeBooks(entry.node)
+    )
+  }
   const orderedBookIds = grouped
-    ? orderedCatKeys.flatMap((cat) =>
-        orderedBooks(buildFolderTree(categories[cat], scopeDepth), folderOrder).map((b) => b.id)
-      )
-    : flatBooks.map((b) => b.id)
+    ? orderedCatKeys.flatMap((cat) => nodeBooks(shelf[cat]).map((b) => b.id))
+    : shelfData.flatBooks.map((b) => b.id)
   const toggleBookSelect = (id, mods = {}) =>
     bulk.toggleItem(id, { ...mods, orderedIds: orderedBookIds })
 
-  const selectedBookObjects = () => (system.books || []).filter((b) => selectedBookIds.has(b.id))
+  const selectedBookObjects = () => loadedBooks.filter((b) => selectedBookIds.has(b.id))
 
   // One request for the whole selection: the old per-book PATCH fan-out raced on
   // tag creation server-side and returned intermittent 500s (issue #270).
@@ -304,13 +302,10 @@ export default function SystemDetailView() {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
     setBulkApplying(true)
     try {
-      const ids = [...selectedBookIds].filter((id) => (system.books || []).some((b) => b.id === id))
+      const ids = [...selectedBookIds]
       if (!ids.length) return
       const { tags } = await bulkApi.addTags('book', ids, newTags)
-      setSystem((s) => ({
-        ...s,
-        books: s.books.map((b) => (tags?.[b.id] ? { ...b, tags: tags[b.id] } : b)),
-      }))
+      updateBooks((b) => (tags?.[b.id] ? { ...b, tags: tags[b.id] } : b))
       // Selection is deliberately kept so tags can be applied one at a time to
       // the same batch (issue #256).
     } finally {
@@ -318,18 +313,24 @@ export default function SystemDetailView() {
     }
   }
 
-  const applyBookEdits = (edited) =>
-    setSystem((s) => ({
-      ...s,
-      books: s.books.map((b) => (edited[b.id] ? { ...b, ...edited[b.id] } : b)),
-    }))
+  // An edit can move a book to another category or reorder it; the shelf is
+  // grouped and sorted by the server, so those are reloaded rather than patched.
+  const movesBook = (before, after) =>
+    !!before &&
+    Object.keys(after).some(
+      (k) =>
+        ['category', 'title', 'year', 'page_count', 'product_code'].includes(k) &&
+        after[k] !== before[k]
+    )
+
+  const applyBookEdits = (edited) => {
+    const moved = loadedBooks.some((b) => edited[b.id] && movesBook(b, edited[b.id]))
+    if (moved) reload()
+    else updateBooks((b) => (edited[b.id] ? { ...b, ...edited[b.id] } : b))
+  }
 
   // Shared handlers passed down to the category sections.
-  const saveBook = (bookId, updated) =>
-    setSystem((s) => ({
-      ...s,
-      books: s.books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)),
-    }))
+  const saveBook = (bookId, updated) => applyBookEdits({ [bookId]: updated })
 
   // Persist a book folder's tags and reflect them locally. ``path`` is the full
   // BookFolder path ("{systemId}/{category}/{subfolder…}").
@@ -361,17 +362,14 @@ export default function SystemDetailView() {
     { value: 'product_code', label: t('sortFilter.sortProductCode') },
     { value: 'added_at', label: t('sortFilter.sortAddedAt'), defaultOrder: 'desc' },
   ]
-  const bookGenreOptions = [...new Set((system.books || []).flatMap((b) => b.genres || []))]
-    .sort((a, b) => a.localeCompare(b))
-    .map((g) => ({ value: g, label: g }))
+  const bookGenreOptions = facets.genres.map((g) => ({ value: g, label: g }))
   // Product codes are unique per book, so the filter offers their publisher
   // prefixes ("PZO", "TSR") plus the has/has-no-code sentinels (issue #479).
-  const bookProductCodeOptions = [
-    ...new Set((system.books || []).map((b) => productCodePrefix(b.product_code)).filter(Boolean)),
-  ]
-    .sort((a, b) => a.localeCompare(b))
-    .map((p) => ({ value: p, label: `${p}…` }))
-  const bookTagOptions = allTags.map((tg) => ({
+  const bookProductCodeOptions = facets.product_code_prefixes.map((p) => ({
+    value: p,
+    label: `${p}…`,
+  }))
+  const bookTagOptions = [...new Set(allTags.map((tg) => tg.toLowerCase()))].map((tg) => ({
     value: tg,
     label: bookTagLabels[tg] || titleCaseTag(tg),
   }))
@@ -381,11 +379,6 @@ export default function SystemDetailView() {
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'
 
-  // When searching, surface books whose title/metadata match the query above the
-  // full-text page hits, honouring the same tag/favourite filters as the grid.
-  const matchedBooks = searchResults
-    ? matchBooks((system.books || []).filter(bookMatchesFilters), searchResults.query)
-    : []
   // Container for a list of books in the current view mode.
   const booksContainerStyle = list
     ? { display: 'flex', flexDirection: 'column', gap: 8 }
@@ -394,6 +387,9 @@ export default function SystemDetailView() {
         gridTemplateColumns: `repeat(auto-fill, minmax(${compact ? '140px' : '200px'}, 1fr))`,
         gap: compact ? 12 : 16,
       }
+
+  // Nothing matches the filters (or the shelf is empty).
+  const noBooks = shelfData.matchCount === 0
 
   return (
     <div
@@ -662,7 +658,7 @@ export default function SystemDetailView() {
                 />
                 {isEditor && (
                   <RescanButton
-                    scope={systemRescanScope(system.books)}
+                    scope={system.scope_path || null}
                     compact={false}
                     label={t('rescan.button.label')}
                   />
@@ -775,7 +771,9 @@ export default function SystemDetailView() {
             <SystemCategorySection
               key={cat}
               cat={cat}
-              books={sortBooks(categories[cat])}
+              node={shelf[cat]}
+              pages={pages}
+              onLoadNode={loadNode}
               folderOrder={folderOrder}
               system={system}
               isCollapsed={collapsedCats.has(cat)}
@@ -788,7 +786,6 @@ export default function SystemDetailView() {
               }
               collapsedSubfolders={collapsedSubfolders}
               onToggleSubfolder={toggleSubfolder}
-              groupScope={categoryRescanScope}
               bookFolderTags={bookFolderTags}
               editingFolderKey={editingFolderKey}
               onEditFolder={setEditingFolderKey}
@@ -812,9 +809,9 @@ export default function SystemDetailView() {
             />
           ))}
 
-        {!searchResults && !grouped && flatBooks.length > 0 && (
+        {!searchResults && !grouped && shelfData.flatBooks.length > 0 && (
           <div style={booksContainerStyle}>
-            {flatBooks.map((book) => (
+            {shelfData.flatBooks.map((book) => (
               <CategoryBookItem
                 key={book.id}
                 book={book}
@@ -837,7 +834,23 @@ export default function SystemDetailView() {
           </div>
         )}
 
-        {!searchResults && allCatKeys.length === 0 && (
+        {/* The flat list pages in as its end scrolls near (issue #221). */}
+        {!searchResults && !grouped && (
+          <>
+            {shelfData.flatLoading && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
+                <Spinner size={20} />
+              </div>
+            )}
+            <LoadMoreSentinel
+              active={shelfData.flatHasMore && !shelfData.flatLoading}
+              count={shelfData.flatBooks.length}
+              onVisible={shelfData.loadMoreFlat}
+            />
+          </>
+        )}
+
+        {!searchResults && noBooks && (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
             <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
             <p>{favOnly ? t('favorites.noFavoritesInView') : t('systemDetail.noBooks')}</p>

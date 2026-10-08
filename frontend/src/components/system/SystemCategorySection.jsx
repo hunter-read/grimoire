@@ -3,34 +3,29 @@ import { LuFileText, LuChevronDown, LuChevronRight, LuDownload } from 'react-ico
 import { CATEGORY_ICONS, CATEGORY_LABELS, categoryLabel } from '../../constants'
 import { toTitleCase } from '../../utils'
 import RescanButton from '../RescanButton'
-import BookFolderGroup from './BookFolderGroup'
-import CategoryBookItem from './CategoryBookItem'
-import { buildFolderTree, categoryDepth, entryRuns, orderedEntries } from './folderTree'
-
-/** The original (non-slugified) category folder name from a book's relative_path.
- *  Path structure: books/{SystemName}/{categoryDir}/.../book.pdf → parts[2], or
- *  one level deeper for a system nested in a container folder (see categoryDepth).
- *  Returns null when the book has no category folder (sits directly in the system dir). */
-function getCategoryFolderName(book, depth = 2) {
-  const parts = (book?.relative_path || '').replace(/\\/g, '/').split('/')
-  return parts.length > depth + 1 ? parts[depth] : null
-}
+import ShelfNodeBody from './ShelfNodeBody'
+import { categoryDepth } from './folderTree'
+import { categoryFolderName, nodeScope } from './shelfTree'
 
 /**
  * One collapsible category section within SystemDetailView: the category header
  * (icon, label, count, download, rescan) and its books, grouped by subfolder when
- * present. Extracted from SystemDetailView (issue #152); rendering is unchanged.
+ * present. Extracted from SystemDetailView (issue #152).
+ *
+ * The category is the root node of the server-built shelf tree (shelfTree.js):
+ * its count and subfolders come from `/book-groups`, and its books page in
+ * through ShelfNodeBody while it is open (issue #221).
  *
  * Props:
- *   cat, books           – category slug and its sorted book list
+ *   cat, node            – category slug and its shelf-tree root
+ *   pages, onLoadNode    – the shelf's paged lists and loader (useShelf)
  *   folderOrder          – { sort, order, placement } for ordering folders among
- *                          books (see folderTree's orderedEntries)
- *   system               – system object (for id/name in downloads + rescan scope)
+ *                          books (see shelfTree's orderedNodeEntries)
+ *   system               – system object (id/name for downloads, rescan scopes)
  *   isCollapsed          – whether this category is collapsed
  *   onToggleCat          – () => void
  *   collapsedSubfolders  – Set of collapsed subfolder keys
  *   onToggleSubfolder    – (key) => void
- *   groupScope           – (books) => rescan scope for the whole category
  *   editingBookId, setEditingBookId
  *   allTags, existingCategories
  *   card, compact, list  – view-mode flags
@@ -41,14 +36,15 @@ function getCategoryFolderName(book, depth = 2) {
  */
 export default function SystemCategorySection({
   cat,
-  books,
+  node,
+  pages,
+  onLoadNode,
   folderOrder,
   system,
   isCollapsed,
   onToggleCat,
   collapsedSubfolders,
   onToggleSubfolder,
-  groupScope,
   bookFolderTags,
   editingFolderKey,
   onEditFolder,
@@ -83,14 +79,14 @@ export default function SystemCategorySection({
   // shifts with the system rather than assuming the flat layout.
   const depth = categoryDepth(system)
   const isKnownCategory = !!CATEGORY_LABELS[cat] || i18n.exists(`categories.${cat}`)
-  const customLabel = getCategoryFolderName(books?.[0], depth) || toTitleCase(cat)
+  const customLabel = categoryFolderName(node, depth) || toTitleCase(cat)
   const catLabel = system?.is_one_page
     ? t('systemDetail.books')
     : isKnownCategory
       ? t(`categories.${cat}`, { defaultValue: categoryLabel(cat) })
       : customLabel
 
-  const bookItemProps = {
+  const itemProps = {
     card,
     compact,
     list,
@@ -106,77 +102,39 @@ export default function SystemCategorySection({
     onToggleBook,
     onVariantsChanged,
   }
-
-  // Build a nested folder tree from relative_path (supports arbitrary depth).
-  // Books sitting directly in the category dir collect at the tree root, and
-  // folders take their place among them the same way at every level.
-  const tree = buildFolderTree(books, depth)
-  const hasFolders = Object.keys(tree.folders).length > 0
-  const runs = entryRuns(orderedEntries(tree, folderOrder))
-
-  let body = null
-  if (!isCollapsed) {
-    if (!hasFolders) {
-      // No subfolders — render flat list
-      body = (
-        <div style={booksContainerStyle}>
-          {books.map((book) => (
-            <CategoryBookItem key={book.id} book={book} {...bookItemProps} />
-          ))}
-        </div>
-      )
-    } else {
-      body = (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {runs.map((run) =>
-            run.type === 'books' ? (
-              // A stretch of loose books (directly in the category dir).
-              <div
-                key={`books:${run.books[0].id}`}
-                style={{ ...booksContainerStyle, marginBottom: 4 }}
-              >
-                {run.books.map((book) => (
-                  <CategoryBookItem key={book.id} book={book} {...bookItemProps} />
-                ))}
-              </div>
-            ) : (
-              <BookFolderGroup
-                key={`folder:${run.name}`}
-                folder={run.name}
-                path={[run.name]}
-                node={run.node}
-                folderOrder={folderOrder}
-                systemId={system.id}
-                category={cat}
-                card={card}
-                compact={compact}
-                list={list}
-                booksContainerStyle={booksContainerStyle}
-                collapsed={collapsedSubfolders}
-                onToggle={onToggleSubfolder}
-                editingBookId={editingBookId}
-                setEditingBookId={setEditingBookId}
-                isEditor={isEditor}
-                onSaveBook={onSaveBook}
-                onDownload={onDownload}
-                bulkMode={bulkMode}
-                selectedBookIds={selectedBookIds}
-                onToggleBook={onToggleBook}
-                onVariantsChanged={onVariantsChanged}
-                allTags={allTags}
-                existingCategories={existingCategories}
-                systemGenres={systemGenres}
-                bookFolderTags={bookFolderTags}
-                editingFolderKey={editingFolderKey}
-                onEditFolder={onEditFolder}
-                onSaveBookFolderTags={onSaveBookFolderTags}
-              />
-            )
-          )}
-        </div>
-      )
-    }
+  const folderProps = {
+    pages,
+    onLoadNode,
+    folderOrder,
+    systemId: system.id,
+    collapsed: collapsedSubfolders,
+    onToggle: onToggleSubfolder,
+    isEditor,
+    onDownload,
+    booksContainerStyle,
+    itemProps,
+    categoryDepth: depth,
+    scopeFallback: system.scope_path || null,
+    bookFolderTags,
+    editingFolderKey,
+    onEditFolder,
+    onSaveBookFolderTags,
   }
+
+  const body = !isCollapsed && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <ShelfNodeBody
+        node={node}
+        pages={pages}
+        onLoadNode={onLoadNode}
+        folderOrder={folderOrder}
+        itemProps={itemProps}
+        folderProps={folderProps}
+        depth={0}
+        containerStyle={booksContainerStyle}
+      />
+    </div>
+  )
 
   return (
     <div style={{ marginBottom: 32 }}>
@@ -220,7 +178,7 @@ export default function SystemCategorySection({
               fontWeight: 400,
             }}
           >
-            ({books.length})
+            ({node.count})
           </span>
         </button>
         <button
@@ -247,7 +205,7 @@ export default function SystemCategorySection({
         >
           <LuDownload size={11} /> {t('systemDetail.download')}
         </button>
-        {isEditor && <RescanButton scope={groupScope(books)} />}
+        {isEditor && <RescanButton scope={nodeScope(node, depth, system.scope_path || null)} />}
       </div>
       {body}
     </div>

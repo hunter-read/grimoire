@@ -3,7 +3,8 @@
 Split out of the former single-module ``tag_service`` (issue #235). Media
 folders and book folders address their contents differently (see
 ``_FOLDER_SOURCES`` and ``_BOOK_RESOURCE_TYPE`` below), but both surface as tags
-on the items they contain.
+on the items they contain. Resolving a folder to those items lives in
+:mod:`._folder_scopes`.
 """
 from __future__ import annotations
 
@@ -11,18 +12,11 @@ from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
-from .. import variants
 from ...models.collections import MEDIA_SINGULARS, iter_specs
-from ...models import RESOURCE_TYPES, SHARED_CATEGORY, Book, BookFolder, Tag
+from ...models import RESOURCE_TYPES, SHARED_CATEGORY, BookFolder, Tag
 from ._catalog import (
-    default_display,
     get_or_create_tag,
     normalize_internal,
-)
-from ._paths import (
-    _book_folder_ancestor_paths,
-    _book_folder_display,
-    system_category_depths,
 )
 
 
@@ -145,19 +139,6 @@ def effective_category(stored: Optional[str], usage_types: Iterable[str]) -> str
     return stored or SHARED_CATEGORY
 
 
-def _ancestor_folder_paths(relative_path: str) -> set[str]:
-    """Every folder path (collection-relative) an item lives under.
-
-    ``relative_path`` is ``<collection>/<a>/<b>/<file>``; the item belongs to
-    folders ``a`` and ``a/b`` (folder table paths are collection-relative). This
-    mirrors the ``/<path>/`` containment used elsewhere but computed in Python so
-    the whole set can be resolved from one item scan (no per-folder LIKE query).
-    """
-    parts = (relative_path or "").replace("\\", "/").split("/")
-    segs = parts[1:-1]  # drop collection prefix and filename
-    return {"/".join(segs[: i + 1]) for i in range(len(segs))}
-
-
 def _catalog_display_map(db: Session, internals: set[str]) -> dict[str, str]:
     """Map internal keys → the ``Tag`` catalog's display casing, for keys present.
 
@@ -171,165 +152,6 @@ def _catalog_display_map(db: Session, internals: set[str]) -> dict[str, str]:
         t.internal: t.display
         for t in db.query(Tag).filter(Tag.internal.in_(internals)).all()
     }
-
-
-def folder_tags_in_use(
-    db: Session, resource_type: Optional[str] = None
-) -> dict[str, dict]:
-    """Folder-derived tags keyed by internal, with display + a de-duplicated set
-    of the item refs they cover.
-
-    Folder tags live as plain JSON on the ``*_folders`` tables and are not part of
-    the shared-tag tables, but the media galleries treat them as tags on the items
-    inside the folder. This resolves them the same way so the tags view can list
-    them and show their items. Scoped to ``resource_type`` when given.
-
-    Returns ``{internal: {"display": str, "refs": [{resource_type, resource_id}]}}``.
-    The display is the first-seen casing across folders. Resolves everything from
-    two bulk queries per type (all folders + all item id/paths) rather than a LIKE
-    per folder, so the tags listing stays fast as libraries grow.
-    """
-    out: dict[str, dict] = {}
-    for folder_model, item_model, rtype in _FOLDER_SOURCES:
-        if resource_type is not None and rtype != resource_type:
-            continue
-
-        # folder path -> its tag list (skip untagged folders).
-        folder_tags: dict[str, list] = {
-            f.path: f.tags for f in db.query(folder_model).all() if f.tags
-        }
-        if not folder_tags:
-            continue
-
-        # For each item, attach its folders' tags via the item's ancestor paths.
-        item_q = db.query(item_model.id, item_model.relative_path).filter(
-            variants.parent_filter(item_model)
-        )
-        for item_id, rel in item_q.all():
-            ancestors = _ancestor_folder_paths(rel)
-            if not ancestors:
-                continue
-            for path in ancestors & folder_tags.keys():
-                for raw in folder_tags[path]:
-                    internal = normalize_internal(raw)
-                    if not internal:
-                        continue
-                    entry = out.setdefault(
-                        internal, {"display": default_display(raw) or internal, "refs": {}}
-                    )
-                    entry["refs"][(rtype, item_id)] = {
-                        "resource_type": rtype,
-                        "resource_id": item_id,
-                    }
-
-    # Book subcategory folders (distinct addressing — see _BOOK_RESOURCE_TYPE).
-    if resource_type is None or resource_type == _BOOK_RESOURCE_TYPE:
-        book_folder_tags = {f.path: f.tags for f in db.query(BookFolder).all() if f.tags}
-        if book_folder_tags:
-            depths = system_category_depths(db)
-            books = (
-                db.query(Book.id, Book.game_system_id, Book.category, Book.relative_path)
-                .filter(variants.parent_filter(Book))
-                .all()
-            )
-            for book_id, sys_id, category, rel in books:
-                ancestors = _book_folder_ancestor_paths(
-                    sys_id or "", category or "", rel, depths.get(sys_id or "", 2)
-                )
-                for path in ancestors & book_folder_tags.keys():
-                    for raw in book_folder_tags[path]:
-                        internal = normalize_internal(raw)
-                        if not internal:
-                            continue
-                        entry = out.setdefault(
-                            internal, {"display": default_display(raw) or internal, "refs": {}}
-                        )
-                        entry["refs"][(_BOOK_RESOURCE_TYPE, book_id)] = {
-                            "resource_type": _BOOK_RESOURCE_TYPE,
-                            "resource_id": book_id,
-                        }
-
-    # The catalog is authoritative for display casing (a rename updates the Tag
-    # row); fall back to the JSON-derived default for keys with no Tag row yet.
-    catalog = _catalog_display_map(db, set(out.keys()))
-    return {
-        internal: {
-            "display": catalog.get(internal, v["display"]),
-            "refs": list(v["refs"].values()),
-        }
-        for internal, v in out.items()
-    }
-
-
-def folders_for_tag(
-    db: Session, internal: str, *, resource_type: Optional[str] = None
-) -> list[dict]:
-    """Folders carrying the given tag, each with the item refs they contain.
-
-    Used by the tags view to show a folder tag as a folder group (like the media
-    pages) listing everything inside the folder — even items that don't carry the
-    tag themselves. Returns
-    ``[{resource_type, path, items: [{resource_type, resource_id}]}]``, sorted by
-    (resource_type, path).
-    """
-    key = normalize_internal(internal)
-    result: list[dict] = []
-    for folder_model, item_model, rtype in _FOLDER_SOURCES:
-        if resource_type is not None and rtype != resource_type:
-            continue
-        # Folders whose tags include this key.
-        paths = [
-            f.path
-            for f in db.query(folder_model).all()
-            if any(normalize_internal(raw) == key for raw in (f.tags or []))
-        ]
-        if not paths:
-            continue
-        path_set = set(paths)
-        # Bucket items into the matching folders via their ancestor paths.
-        buckets: dict[str, list] = {p: [] for p in paths}
-        item_q = db.query(item_model.id, item_model.relative_path).filter(
-            variants.parent_filter(item_model)
-        )
-        for item_id, rel in item_q.all():
-            for p in _ancestor_folder_paths(rel) & path_set:
-                buckets[p].append({"resource_type": rtype, "resource_id": item_id})
-        for p in paths:
-            result.append({"resource_type": rtype, "path": p, "items": buckets[p]})
-
-    # Book subcategory folders (distinct addressing — see _BOOK_RESOURCE_TYPE).
-    if resource_type is None or resource_type == _BOOK_RESOURCE_TYPE:
-        book_paths = [
-            f.path
-            for f in db.query(BookFolder).all()
-            if any(normalize_internal(raw) == key for raw in (f.tags or []))
-        ]
-        if book_paths:
-            path_set = set(book_paths)
-            buckets = {p: [] for p in book_paths}
-            depths = system_category_depths(db)
-            books = (
-                db.query(Book.id, Book.game_system_id, Book.category, Book.relative_path)
-                .filter(variants.parent_filter(Book))
-                .all()
-            )
-            for book_id, sys_id, category, rel in books:
-                ancestors = _book_folder_ancestor_paths(
-                    sys_id or "", category or "", rel, depths.get(sys_id or "", 2)
-                )
-                for p in ancestors & path_set:
-                    buckets[p].append(
-                        {"resource_type": _BOOK_RESOURCE_TYPE, "resource_id": book_id}
-                    )
-            for p in book_paths:
-                # Show only the subfolder hierarchy (drop the system_id/category
-                # prefix), so the folder title reads like the media pages.
-                display_path = "/".join(p.split("/")[2:]) or _book_folder_display(p)
-                result.append(
-                    {"resource_type": _BOOK_RESOURCE_TYPE, "path": display_path, "items": buckets[p]}
-                )
-    result.sort(key=lambda f: (f["resource_type"], f["path"].lower()))
-    return result
 
 
 def remove_tag_from_folders(db: Session, internal: str) -> int:

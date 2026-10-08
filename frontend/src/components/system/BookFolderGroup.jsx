@@ -1,16 +1,9 @@
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
 import { toTitleCase } from '../../utils'
-import CategoryBookItem from './CategoryBookItem'
 import RescanButton from '../RescanButton'
 import FolderTagRow from '../media/FolderTagRow'
-import { countBooks, allBooks, entryRuns, orderedEntries } from './folderTree'
-
-/** The library-root-relative folder a group of books shares (relative_path minus filename). */
-function folderScope(books) {
-  const ref = (books || []).find((b) => b.relative_path)
-  if (!ref) return null
-  return ref.relative_path.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
-}
+import ShelfNodeBody from './ShelfNodeBody'
+import { nodeScope } from './shelfTree'
 
 /**
  * Renders a single subfolder group within a book category section, recursing into
@@ -25,54 +18,47 @@ function folderScope(books) {
  * (persisted via /systems/{id}/book-folders). Collapse state is keyed by the full
  * folder path so each level toggles independently.
  *
- * Props (besides those documented on SystemCategorySection):
- *   folder            – this folder's display name (last path segment)
- *   path              – segments from the category dir, e.g. ["monsters","spelljammer"]
- *   node              – folder-tree node: { books: [], folders: { name -> node } }
+ * The folder is a node of the server-built shelf tree (shelfTree.js): its count
+ * comes from the server, and its books page in through ShelfNodeBody once it is
+ * open (issue #221).
+ *
+ * Props:
+ *   node              – shelfTree node ({ category, name, path, count, … })
  *   depth             – nesting depth (0 = category's direct subfolder)
- *   folderOrder       – { sort, order, placement } for ordering subfolders among
- *                       books (see folderTree's orderedEntries)
+ *   pages, onLoadNode – the shelf's paged lists and loader (useShelf)
+ *   folderOrder       – { sort, order, placement } for ordering subfolders among books
+ *   categoryDepth     – index of the category dir in a book path (rescan scopes)
+ *   scopeFallback     – the system's own folder, when a scope cannot be narrower
+ *   itemProps         – passed through to every CategoryBookItem
  *   bookFolderTags    – { fullPath -> string[] } tag map
  *   editingFolderKey  – full path of the folder currently being tag-edited
  *   onEditFolder      – (fullPath | null) => void
  *   onSaveBookFolderTags – (fullPath, tags) => void
  */
 export default function BookFolderGroup({
-  folder,
-  path,
   node,
   depth = 0,
+  pages,
+  onLoadNode,
   folderOrder,
   systemId,
-  category,
   collapsed,
   onToggle,
-  editingBookId,
-  setEditingBookId,
   isEditor,
-  onSaveBook,
   onDownload,
-  bulkMode,
-  selectedBookIds,
-  onToggleBook,
-  onVariantsChanged,
-  card,
-  compact,
-  list,
   booksContainerStyle,
-  allTags = [],
-  existingCategories = [],
-  systemGenres = [],
+  itemProps,
+  categoryDepth = 2,
+  scopeFallback = null,
   bookFolderTags = {},
   editingFolderKey = null,
   onEditFolder,
   onSaveBookFolderTags,
 }) {
-  const folderPath = path.join('/')
+  const { category, name: folder, path: folderPath } = node
   const toggleKey = `${category}::${folderPath}`
   const isCollapsed = collapsed.has(toggleKey)
-  const total = countBooks(node)
-  const runs = entryRuns(orderedEntries(node, folderOrder))
+  const total = node.count
   const containerStyle = booksContainerStyle || {
     display: 'flex',
     flexDirection: 'column',
@@ -86,27 +72,18 @@ export default function BookFolderGroup({
 
   // Shared props threaded down to nested BookFolderGroup instances.
   const childProps = {
+    pages,
+    onLoadNode,
     folderOrder,
     systemId,
-    category,
     collapsed,
     onToggle,
-    editingBookId,
-    setEditingBookId,
     isEditor,
-    onSaveBook,
     onDownload,
-    onVariantsChanged,
-    bulkMode,
-    selectedBookIds,
-    onToggleBook,
-    card,
-    compact,
-    list,
     booksContainerStyle,
-    allTags,
-    existingCategories,
-    systemGenres,
+    itemProps,
+    categoryDepth,
+    scopeFallback,
     bookFolderTags,
     editingFolderKey,
     onEditFolder,
@@ -191,7 +168,7 @@ export default function BookFolderGroup({
       >
         <LuDownload size={11} /> Download
       </button>
-      {isEditor && <RescanButton scope={folderScope(allBooks(node))} />}
+      {isEditor && <RescanButton scope={nodeScope(node, categoryDepth, scopeFallback)} />}
     </div>
   )
 
@@ -204,44 +181,16 @@ export default function BookFolderGroup({
         gap: 4,
       }}
     >
-      {runs.map((run) =>
-        run.type === 'folder' ? (
-          <BookFolderGroup
-            key={`folder:${run.name}`}
-            folder={run.name}
-            path={[...path, run.name]}
-            node={run.node}
-            depth={depth + 1}
-            {...childProps}
-          />
-        ) : (
-          <div key={`books:${run.books[0].id}`} style={containerStyle}>
-            {run.books.map((book) => (
-              // Same row+editor+details block as the ungrouped layouts. Sharing
-              // CategoryBookItem is what keeps a book in a subfolder from
-              // silently losing the "View details" action.
-              <CategoryBookItem
-                key={book.id}
-                book={book}
-                card={card}
-                compact={compact}
-                list={list}
-                editingBookId={editingBookId}
-                setEditingBookId={setEditingBookId}
-                allTags={allTags}
-                existingCategories={existingCategories}
-                systemGenres={systemGenres}
-                isEditor={isEditor}
-                onSaveBook={onSaveBook}
-                bulkMode={bulkMode}
-                selectedBookIds={selectedBookIds}
-                onToggleBook={onToggleBook}
-                onVariantsChanged={onVariantsChanged}
-              />
-            ))}
-          </div>
-        )
-      )}
+      <ShelfNodeBody
+        node={node}
+        pages={pages}
+        onLoadNode={onLoadNode}
+        folderOrder={folderOrder}
+        itemProps={itemProps}
+        folderProps={childProps}
+        depth={depth + 1}
+        containerStyle={containerStyle}
+      />
     </div>
   )
 

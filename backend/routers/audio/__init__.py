@@ -2,9 +2,11 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._browse import FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     list_audio,
+    list_audio_groups,
     list_audio_folders,
     update_audio_folder,
     bulk_update_audio_folders,
@@ -44,6 +46,20 @@ router.add_api_route(
     description="Returns a paginated list of audio tracks.",
     dependencies=[Depends(require_not_guest)],
     response_model=AudioListResponse,
+)
+# Declared ahead of "/audio/{id}", which would otherwise take "groups" as an id.
+router.add_api_route(
+    "/audio/groups",
+    list_audio_groups,
+    methods=["GET"],
+    summary="Folders holding matching audio tracks",
+    description=(
+        "Every folder that holds audio tracks matching the filters, with how many. Takes "
+        "the same filters as the list; the gallery renders folders from this and "
+        "opens each with the list's `folder` parameter (issue #221)."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=FolderGroupsResponse,
 )
 router.add_api_route(
     "/audio-folders",

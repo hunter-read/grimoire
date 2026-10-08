@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import useMediaGallery from './useMediaGallery'
-import api, { bulk } from '../api'
+import useMediaGallery, { FLAT, ROOT_FOLDER, splitFolder } from './useMediaGallery'
+import api, { bulk, tags as tagsApi } from '../api'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
-import { FILTER_NONE } from '../components/library/specialFilters'
+import { fakeMediaGet } from '../test/fakeBrowseApi'
 
 vi.mock('../api', () => ({
   default: {
@@ -19,19 +19,16 @@ vi.mock('../api', () => ({
     update: vi.fn(() => Promise.resolve({ updated: [], errors: [] })),
     setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
+  tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
 }))
 
-const mockIsFavorite = vi.fn(() => false)
 vi.mock('../context/FavoritesContext', () => ({
-  useFavorites: () => ({ isFavorite: mockIsFavorite }),
+  useFavorites: () => ({ isFavorite: () => false }),
 }))
 
-// Deterministic session state (start expanded / grouped true). Real useState
-// underneath, because the sort/filter state now lives here too and a no-op
-// setter would silently swallow every filter change under test.
-//
-// `groupedDefault` lets a test start ungrouped, which changes how the hook pages
-// the library (see the ordering tests).
+// Deterministic session state with real useState underneath (the sort/filter
+// state lives here too, and a no-op setter would swallow every change).
+// `groupedDefault` lets a test start ungrouped.
 let groupedDefault = true
 vi.mock('./useSessionState', () => ({
   default: (key, init) => {
@@ -52,244 +49,257 @@ const item = (over) => ({
   ...over,
 })
 
-function setup(items, savedFilters = [], folders = []) {
-  api.get.mockImplementation((url) => {
-    if (url.split('?')[0] === '/maps') return Promise.resolve({ maps: items, total: items.length })
-    if (url === '/map-folders') return Promise.resolve({ folders })
-    if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: savedFilters })
-    return Promise.resolve({})
+// The server filters, groups and pages (issue #221); the fake answers those
+// endpoints over `items`. Saved filters come from their own endpoint.
+function setup(items, { savedFilters = [], folders = [], isFavorite } = {}) {
+  const fake = fakeMediaGet({
+    listUrl: '/maps',
+    collection: 'maps',
+    foldersUrl: '/map-folders',
+    items,
+    folders,
+    isFavorite,
+    fallback: (url) =>
+      Promise.resolve(url.startsWith('/saved-filters') ? { filters: savedFilters } : {}),
   })
+  api.get.mockImplementation(fake)
 }
 
-// The hook distinguishes arriving fresh from returning via the back button, so
-// it needs a router. These render as a fresh arrival (no restoreView flag),
-// which is when the saved default preset applies.
 const renderGallery = () =>
   renderHook(() => useMediaGallery(config), {
     wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
   })
 
+// Every URL the hook asked for, with the given path.
+const calls = (path) =>
+  api.get.mock.calls.map(([url]) => url).filter((url) => url.split('?')[0] === path)
+
+const params = (url) => Object.fromEntries(new URLSearchParams(url.split('?')[1] || ''))
+
 beforeEach(() => {
   vi.clearAllMocks()
-  mockIsFavorite.mockReturnValue(false)
+  groupedDefault = true
 })
 
-describe('useMediaGallery', () => {
-  it('loads items and exposes them grouped and flat', async () => {
-    setup([item({ id: 'a', filename: 'beta.png' }), item({ id: 'b', filename: 'alpha.png' })])
+describe('splitFolder', () => {
+  it('splits a folder path into the top folder and the rest', () => {
+    expect(splitFolder('Pack/Sub/Deep')).toEqual(['Pack', 'Sub/Deep'])
+    expect(splitFolder('Pack')).toEqual(['Pack', ''])
+    expect(splitFolder('')).toEqual([ROOT_FOLDER, ''])
+  })
+})
+
+describe('useMediaGallery (grouped)', () => {
+  const library = [
+    item({ id: 'a', filename: 'a.png', relative_path: 'maps/Caves/a.png' }),
+    item({ id: 'b', filename: 'b.png', relative_path: 'maps/Caves/Deep/b.png' }),
+    item({ id: 'c', filename: 'c.png', relative_path: 'maps/c.png' }),
+  ]
+
+  it('draws folders from the server groups, with counts', async () => {
+    setup(library)
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    // Flat list sorted by filename ascending (default sort).
-    expect(result.current.flatItems.map((i) => i.filename)).toEqual(['alpha.png', 'beta.png'])
+    const entries = Object.fromEntries(result.current.folderEntries)
+    expect(Object.keys(entries)).toEqual(['(Root)', 'Caves'])
+    expect(entries.Caves[''].count).toBe(1)
+    expect(entries.Caves.Deep.count).toBe(1)
+    expect(result.current.filteredCount).toBe(3)
   })
 
-  it('sorts by size descending when set', async () => {
-    setup([
-      item({ id: 'a', filename: 'small.png', file_size: 10 }),
-      item({ id: 'b', filename: 'big.png', file_size: 500 }),
-    ])
+  it('starts every folder collapsed and loads nothing until one opens', async () => {
+    setup(library)
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    act(() => result.current.setSortFilter({ sort: 'size', order: 'desc', filters: {} }))
-    expect(result.current.flatItems.map((i) => i.filename)).toEqual(['big.png', 'small.png'])
+    await waitFor(() => expect(result.current.collapsed.has('Caves')).toBe(true))
+    expect(result.current.collapsed.has('Caves::Deep')).toBe(true)
+    expect(calls('/maps').filter((u) => 'folder' in params(u))).toEqual([])
   })
 
-  it('filters by the search text (via setFilter)', async () => {
-    setup([item({ id: 'a', filename: 'dragon.png' }), item({ id: 'b', filename: 'goblin.png' })])
+  it('never draws a folder open before collapsing it', async () => {
+    // Drawing every folder open for even one render mounts each one's loader -
+    // a request per folder on a large library.
+    setup(library)
+    const openFolders = []
+    const { result } = renderHook(
+      () => {
+        const g = useMediaGallery(config)
+        for (const [folder] of g.folderEntries)
+          if (!g.collapsed.has(folder)) openFolders.push(folder)
+        return g
+      },
+      { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> }
+    )
+    await waitFor(() => expect(result.current.folderEntries.length).toBe(2))
+    expect(openFolders).toEqual([])
+  })
+
+  it('loads a folder a page at a time when asked', async () => {
+    setup(library)
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    act(() => result.current.setFilter('dragon'))
-    expect(result.current.flatItems.map((i) => i.filename)).toEqual(['dragon.png'])
+    act(() => result.current.loadFolder('Caves/Deep'))
+    await waitFor(() => {
+      const entry = Object.fromEntries(result.current.folderEntries).Caves.Deep
+      expect(entry.items.map((i) => i.id)).toEqual(['b'])
+      expect(entry.hasMore).toBe(false)
+    })
+    const request = calls('/maps').find((u) => params(u).folder === 'Caves/Deep')
+    expect(params(request)).toMatchObject({ sort: 'name', order: 'asc', offset: '0' })
   })
 
-  it('filters by favorites', async () => {
-    mockIsFavorite.mockImplementation((type, id) => id === 'a')
-    setup([item({ id: 'a', filename: 'fav.png' }), item({ id: 'b', filename: 'other.png' })])
+  it('keeps a folder the user opened open when the filters change', async () => {
+    setup(library)
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.collapsed.has('Caves')).toBe(true))
+    act(() => result.current.toggleCollapse('Caves'))
+    expect(result.current.collapsed.has('Caves')).toBe(false)
+    act(() => result.current.setFilter('a'))
+    await waitFor(() => expect(calls('/maps/groups').some((u) => params(u).q === 'a')).toBe(true))
+    expect(result.current.collapsed.has('Caves')).toBe(false)
+    act(() => result.current.toggleCollapse('Caves'))
+    expect(result.current.collapsed.has('Caves')).toBe(true)
+  })
+
+  it('sends the filters to the server', async () => {
+    setup(library)
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() =>
-      result.current.setSortFilter((s) => ({ ...s, filters: { ...s.filters, favorites: true } }))
+      result.current.setSortFilter((s) => ({
+        ...s,
+        filters: { search: 'cave', tags: ['forest'], favorites: true, recent: true },
+      }))
     )
-    expect(result.current.flatItems.map((i) => i.filename)).toEqual(['fav.png'])
+    await waitFor(() => expect(calls('/maps/groups').length).toBeGreaterThan(1))
+    const last = params(calls('/maps/groups').at(-1))
+    expect(last.q).toBe('cave')
+    expect(JSON.parse(last.tags)).toEqual([{ mode: 'include', tags: ['forest'] }])
+    expect(last.favorites).toBe('true')
+    expect(Date.parse(last.added_since)).toBeLessThan(Date.now())
   })
 
-  describe('date added (issue #199)', () => {
-    const ago = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-    const dated = () => [
-      item({ id: 'a', filename: 'legacy.png', added_at: null }),
-      item({ id: 'b', filename: 'old.png', added_at: ago(60) }),
-      item({ id: 'c', filename: 'new.png', added_at: ago(1) }),
-    ]
-
-    it('sorts newest first, undated last', async () => {
-      setup(dated())
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      act(() => result.current.setSortFilter({ sort: 'added_at', order: 'desc', filters: {} }))
-      expect(result.current.flatItems.map((i) => i.filename)).toEqual([
-        'new.png',
-        'old.png',
-        'legacy.png',
-      ])
-    })
-
-    it('keeps undated items last when ascending', async () => {
-      setup(dated())
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      act(() => result.current.setSortFilter({ sort: 'added_at', order: 'asc', filters: {} }))
-      expect(result.current.flatItems.map((i) => i.filename)).toEqual([
-        'old.png',
-        'new.png',
-        'legacy.png',
-      ])
-    })
-
-    it('filters to recently added items', async () => {
-      setup(dated())
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      act(() =>
-        result.current.setSortFilter((s) => ({ ...s, filters: { ...s.filters, recent: true } }))
-      )
-      expect(result.current.flatItems.map((i) => i.filename)).toEqual(['new.png'])
-    })
+  it('reports the whole collection as the total and the matches as filtered', async () => {
+    setup(library)
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.totalCount).toBe(3))
+    act(() => result.current.setFilter('c.png'))
+    await waitFor(() => expect(result.current.filteredCount).toBe(1))
+    expect(result.current.totalCount).toBe(3)
   })
 
-  it('toggles a tag filter and matches OR-style', async () => {
+  it('fetches every page of a folder for a whole-folder action', async () => {
+    const many = Array.from({ length: 3 }, (_, i) =>
+      item({ id: `t${i}`, filename: `t${i}.png`, relative_path: `maps/Big/t${i}.png` })
+    )
+    setup(many)
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    let rows
+    await act(async () => {
+      rows = await result.current.fetchFolderItems(['Big'])
+    })
+    expect(rows.map((r) => r.id)).toEqual(['t0', 't1', 't2'])
+  })
+
+  it('offers every tag used on the collection as a filter option', async () => {
+    tagsApi.list.mockResolvedValueOnce({
+      tags: [
+        { internal: 'forest', display: 'Forest' },
+        { internal: 'cave', display: 'Cave' },
+      ],
+    })
+    setup(library)
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.allTags).toEqual(['cave', 'forest']))
+    expect(tagsApi.list).toHaveBeenCalledWith('map')
+    expect(result.current.tagLabels.forest).toBe('Forest')
+  })
+
+  it('selects a range across loaded folders in display order', async () => {
+    setup(library)
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    act(() => result.current.loadFolder('Caves'))
+    act(() => result.current.loadFolder('Caves/Deep'))
+    await waitFor(() =>
+      expect(Object.fromEntries(result.current.folderEntries).Caves.Deep.items).toHaveLength(1)
+    )
+    act(() => result.current.bulk.enter())
+    act(() => result.current.toggleSelect('a'))
+    act(() => result.current.toggleSelect('b', { shift: true }))
+    expect([...result.current.selectedIds].sort()).toEqual(['a', 'b'])
+  })
+})
+
+describe('useMediaGallery (flat)', () => {
+  beforeEach(() => {
+    groupedDefault = false
+  })
+
+  it('loads the flat list and pages on', async () => {
+    setup([item({ id: 'a', filename: 'beta.png' }), item({ id: 'b', filename: 'alpha.png' })])
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['b', 'a']))
+    expect(result.current.flatHasMore).toBe(false)
+    expect(result.current.noItems).toBe(false)
+    const first = params(calls('/maps').find((u) => params(u).offset === '0'))
+    expect(first.folder).toBeUndefined()
+    // Nothing more to load: a further request is not sent.
+    const before = calls('/maps').length
+    act(() => result.current.loadMoreFlat())
+    expect(calls('/maps').length).toBe(before)
+  })
+
+  it('resorts on the server when the sort changes', async () => {
     setup([
-      item({ id: 'a', filename: 'a.png', tags: ['forest'] }),
-      item({ id: 'b', filename: 'b.png', tags: ['cave'] }),
+      item({ id: 'small', filename: 's.png', file_size: 1 }),
+      item({ id: 'big', filename: 'b.png', file_size: 9 }),
     ])
     const { result } = renderGallery()
-    await waitFor(() => expect(result.current.data).not.toBeNull())
-    act(() => result.current.toggleTag('forest'))
-    expect(result.current.flatItems.map((i) => i.id)).toEqual(['a'])
-    expect(result.current.selectedTags.has('forest')).toBe(true)
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(2))
+    act(() => result.current.setSortFilter((s) => ({ ...s, sort: 'size', order: 'desc' })))
+    await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['big', 'small']))
   })
 
-  it('applies the default saved preset on load', async () => {
-    setup(
-      [item({ id: 'a', filename: 'x.png' })],
-      [
-        {
-          id: 'd',
-          scope: 'maps',
-          name: 'Def',
-          is_default: true,
-          state: { sort: 'size', order: 'desc', filters: {} },
-        },
-      ]
-    )
+  it('reports an empty result', async () => {
+    setup([])
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    await waitFor(() => expect(result.current.sortFilter.sort).toBe('size'))
+    expect(result.current.noItems).toBe(true)
   })
 
-  it('clears tags and toggles grouping helpers', async () => {
-    setup([item({ id: 'a', filename: 'a.png', tags: ['forest'] })])
+  it('patches loaded items via applyEdits and returns selectedObjects', async () => {
+    setup([item({ id: 'a', filename: 'a.png' })])
     const { result } = renderGallery()
-    await waitFor(() => expect(result.current.data).not.toBeNull())
-    act(() => result.current.toggleTag('forest'))
-    expect(result.current.selectedTags.size).toBe(1)
-    act(() => result.current.clearTags())
-    expect(result.current.selectedTags.size).toBe(0)
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(1))
+    act(() => result.current.applyEdits({ a: { filename: 'renamed.png' } }))
+    expect(result.current.flatItems[0].filename).toBe('renamed.png')
+    act(() => result.current.toggleSelect('a'))
+    expect(result.current.selectedObjects().map((i) => i.id)).toEqual(['a'])
   })
 
-  it('collects allTags (lowercased) from items', async () => {
-    setup([
-      item({ id: 'a', filename: 'a.png', tags: ['Forest', 'CAVE'] }),
-      item({ id: 'b', filename: 'b.png', tags: ['forest'] }),
-    ])
-    const { result } = renderGallery()
-    await waitFor(() => expect(result.current.data).not.toBeNull())
-    expect(result.current.allTags).toEqual(['cave', 'forest'])
-  })
-
-  // A folder tag applies to everything beneath the folder, however deeply
-  // nested. Previously only an item whose immediate folder carried the tag
-  // picked it up, so a tag on "Fall Of Blackbottom" missed the maps sitting in
-  // "Fall Of Blackbottom/Alleyways".
-  describe('folder tags inherited by nested items', () => {
-    const nested = () =>
-      item({
-        id: 'n',
-        filename: 'map1.png',
-        relative_path: 'maps/Fall Of Blackbottom/Alleyways/map1.png',
-      })
-    const parentTagged = [{ path: 'Fall Of Blackbottom', tags: ['Urban'] }]
-
-    it('includes an ancestor folder tag in allTags', async () => {
-      setup([nested()], [], parentTagged)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      expect(result.current.allTags).toEqual(['urban'])
-    })
-
-    it('matches a nested item when filtering by an ancestor folder tag', async () => {
-      setup([nested(), item({ id: 'o', filename: 'other.png' })], [], parentTagged)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-
-      act(() => result.current.toggleTag('urban'))
-
-      await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['n']))
-    })
-
-    it('matches a nested item when searching text against an ancestor folder tag', async () => {
-      setup([nested(), item({ id: 'o', filename: 'other.png' })], [], parentTagged)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-
-      act(() => result.current.setFilter('urba'))
-
-      await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['n']))
-    })
-
-    // The "no tags" sentinel tests the effective set, so an item that inherits
-    // a tag from an ancestor folder is not untagged.
-    it('counts a nested item as tagged for the "no tags" sentinel', async () => {
-      setup([nested()], [], parentTagged)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-
-      act(() => result.current.toggleTag(FILTER_NONE))
-
-      await waitFor(() => expect(result.current.flatItems).toEqual([]))
-    })
-
-    it('does not leak a folder tag to items outside that folder', async () => {
-      setup([nested(), item({ id: 'o', filename: 'other.png' })], [], parentTagged)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-
-      act(() => result.current.toggleTag('urban'))
-
-      await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).not.toContain('o'))
-    })
-  })
-
-  // Issue #270: tagging a selection sends ONE request, not one per item — the
-  // per-item fan-out raced on tag creation server-side and returned 500s.
-  it('applies bulk tags to the whole selection in a single request', async () => {
+  it('applies bulk tags to items and folders in one request each', async () => {
     setup([item({ id: 'a', filename: 'a.png' }), item({ id: 'b', filename: 'b.png' })])
     const { result } = renderGallery()
-    await waitFor(() => expect(result.current.data).not.toBeNull())
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(2))
     act(() => result.current.toggleSelect('a'))
     act(() => result.current.toggleSelect('b'))
+    act(() => result.current.bulk.toggleFolder('Caves', []))
     await act(async () => {
       await result.current.applyBulkTags(['new'])
     })
-    expect(bulk.addTags).toHaveBeenCalledTimes(1)
     expect(bulk.addTags).toHaveBeenCalledWith('map', ['a', 'b'], ['new'])
-    expect(api.patch).not.toHaveBeenCalled()
+    expect(bulk.setFolderTags).toHaveBeenCalledWith('map', [{ path: 'Caves', tags: ['new'] }])
+    expect(result.current.flatItems.every((i) => i.tags.includes('new'))).toBe(true)
+    expect(result.current.folderTags.Caves).toEqual(['new'])
   })
 
   it('releases the applying flag when the bulk request fails', async () => {
     bulk.addTags.mockRejectedValueOnce(new Error('Internal Server Error'))
     setup([item({ id: 'a', filename: 'a.png' })])
     const { result } = renderGallery()
-    await waitFor(() => expect(result.current.data).not.toBeNull())
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(1))
     act(() => result.current.toggleSelect('a'))
     await act(async () => {
       await result.current.applyBulkTags(['new']).catch(() => {})
@@ -297,193 +307,67 @@ describe('useMediaGallery', () => {
     // Without the finally, the bar stayed stuck on "Applying" forever (#270).
     expect(result.current.bulkApplying).toBe(false)
   })
+})
+
+describe('useMediaGallery (shared state)', () => {
+  it('applies the default saved preset on load', async () => {
+    setup([item({ id: 'a', filename: 'x.png' })], {
+      savedFilters: [
+        {
+          id: 'd',
+          scope: 'maps',
+          name: 'Def',
+          is_default: true,
+          state: { sort: 'size', order: 'desc', filters: {} },
+        },
+      ],
+    })
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.sortFilter.sort).toBe('size'))
+  })
+
+  it('toggles and clears tag chips', async () => {
+    setup([item({ id: 'a', filename: 'a.png', tags: ['forest'] })])
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    act(() => result.current.toggleTag('forest'))
+    expect(result.current.selectedTags.size).toBe(1)
+    act(() => result.current.toggleTag('forest'))
+    expect(result.current.selectedTags.size).toBe(0)
+    act(() => result.current.toggleTag('forest'))
+    act(() => result.current.clearTags())
+    expect(result.current.selectedTags.size).toBe(0)
+  })
 
   it('saves a folder tag list via PATCH', async () => {
     setup([item({ id: 'a', filename: 'a.png' })])
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     await act(async () => {
-      await result.current.saveFolderTags('maps/dungeons', ['spooky'])
+      await result.current.saveFolderTags('dungeons', ['spooky'])
     })
-    expect(api.patch).toHaveBeenCalledWith('/map-folders', {
-      path: 'maps/dungeons',
-      tags: ['spooky'],
-    })
+    expect(api.patch).toHaveBeenCalledWith('/map-folders', { path: 'dungeons', tags: ['spooky'] })
+    expect(result.current.folderTags.dungeons).toEqual(['spooky'])
   })
 
-  it('patches local copies via applyEdits and returns selectedObjects', async () => {
+  it('switches between grouped and flat lists', async () => {
     setup([item({ id: 'a', filename: 'a.png' })])
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    act(() => result.current.applyEdits({ a: { filename: 'renamed.png' } }))
-    expect(result.current.flatItems[0].filename).toBe('renamed.png')
-    act(() => result.current.toggleSelect('a'))
-    expect(result.current.selectedObjects().map((i) => i.id)).toEqual(['a'])
+    act(() => result.current.setGrouped(false))
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(1))
+    expect(calls('/maps').some((u) => !('folder' in params(u)) && params(u).limit !== '1')).toBe(
+      true
+    )
+    expect(FLAT).toBeTruthy()
   })
 
-  describe('progressive loading', () => {
-    // A single request for a library of thousands of items left the view on a
-    // spinner until the last row arrived; pages are fetched and appended so the
-    // first one paints early.
-    const pagedSetup = (total, pageSize = 500) => {
-      const all = Array.from({ length: total }, (_, i) =>
-        item({ id: `m${i}`, filename: `m${i}.png` })
-      )
-      api.get.mockImplementation((url) => {
-        const [path, qs] = url.split('?')
-        if (path === '/maps') {
-          const params = new URLSearchParams(qs)
-          const offset = Number(params.get('offset') || 0)
-          const limit = Number(params.get('limit') || pageSize)
-          return Promise.resolve({ maps: all.slice(offset, offset + limit), total })
-        }
-        if (url === '/map-folders') return Promise.resolve({ folders: [] })
-        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
-        return Promise.resolve({})
-      })
-      return all
-    }
-
-    it('pages in path order while grouping is on', async () => {
-      // Grouped, the gallery renders folders in path order, so a page has to be
-      // a contiguous run of folders or later pages insert rows above what is
-      // already on screen.
-      pagedSetup(10)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
-      expect(listCalls[0][0]).toContain('sort=path')
-    })
-
-    it('pages in filename order while grouping is off', async () => {
-      // Ungrouped the gallery is one flat list sorted by filename, so paging by
-      // path scattered each arriving page through the alphabet and the cards
-      // visibly popped in among the ones already on screen.
-      groupedDefault = false
-      try {
-        pagedSetup(10)
-        const { result } = renderGallery()
-        await waitFor(() => expect(result.current.data).not.toBeNull())
-        const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
-        expect(listCalls[0][0]).toContain('sort=name')
-      } finally {
-        groupedDefault = true
-      }
-    })
-
-    it('requests a bounded page rather than the whole library', async () => {
-      pagedSetup(10)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
-      expect(listCalls[0][0]).toContain('limit=')
-      expect(listCalls[0][0]).toContain('offset=0')
-    })
-
-    it('accumulates every page so filtering still sees the whole library', async () => {
-      // The hook keeps paging while a full page comes back, so this needs to
-      // straddle the real page size — just over it, to prove the append path
-      // without making the suite sort thousands of rows.
-      const total = 501
-      pagedSetup(total)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.loadingMore).toBe(false))
-      const listCalls = api.get.mock.calls.filter(([u]) => u.split('?')[0] === '/maps')
-      expect(listCalls.length).toBe(2)
-      expect(listCalls[1][0]).toContain('offset=500')
-      // Every row is present exactly once — an append bug would duplicate or drop.
-      expect(result.current.totalCount).toBe(total)
-      expect(new Set(result.current.flatItems.map((i) => i.id)).size).toBe(total)
-    })
-
-    it('stops paging when a short page arrives, even if total disagrees', async () => {
-      // A rescan can shrink the library mid-load; without the short-page check
-      // the loop would keep asking for pages that never come.
-      api.get.mockImplementation((url) => {
-        const path = url.split('?')[0]
-        if (path === '/maps')
-          return Promise.resolve({ maps: [item({ id: 'a', filename: 'a.png' })], total: 9999 })
-        if (url === '/map-folders') return Promise.resolve({ folders: [] })
-        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
-        return Promise.resolve({})
-      })
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.loadingMore).toBe(false), { timeout: 3000 })
-      expect(result.current.totalCount).toBe(1)
-    })
-
-    it('fetches the pages after the first concurrently', async () => {
-      // Sequentially, a 10k library paid twenty round-trips end to end and the
-      // grid filled in unevenly over seconds. Once the first page reports the
-      // total, every remaining offset is known and they go out together.
-      const total = 2001
-      let inFlight = 0
-      let peak = 0
-      const all = Array.from({ length: total }, (_, i) =>
-        item({ id: `m${i}`, filename: `m${i}.png` })
-      )
-      api.get.mockImplementation((url) => {
-        const [path, qs] = url.split('?')
-        if (path === '/maps') {
-          const params = new URLSearchParams(qs)
-          const offset = Number(params.get('offset') || 0)
-          inFlight += 1
-          peak = Math.max(peak, inFlight)
-          return new Promise((resolve) =>
-            setTimeout(() => {
-              inFlight -= 1
-              resolve({ maps: all.slice(offset, offset + 500), total })
-            }, 5)
-          )
-        }
-        if (url === '/map-folders') return Promise.resolve({ folders: [] })
-        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
-        return Promise.resolve({})
-      })
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.loadingMore).toBe(false), { timeout: 3000 })
-      // The first page is alone (its total is what schedules the rest); the four
-      // remaining pages overlap.
-      expect(peak).toBeGreaterThan(1)
-      expect(result.current.totalCount).toBe(total)
-      expect(new Set(result.current.flatItems.map((i) => i.id)).size).toBe(total)
-    })
-
-    it('exposes the server total while pages are still arriving', async () => {
-      // What lets the header show the collection's real size instead of a count
-      // that climbs a page at a time.
-      pagedSetup(1200)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      expect(result.current.totalAvailable).toBe(1200)
-      await waitFor(() => expect(result.current.loadingMore).toBe(false))
-      expect(result.current.loadedCount).toBe(1200)
-    })
-
-    it('reuses decorated rows across appends instead of re-deriving them', async () => {
-      // Re-decorating the whole accumulated set on every page made the streaming
-      // load quadratic. Already-seen items keep their object identity, so the
-      // cache must hand back the very same decorated entry.
-      pagedSetup(1001)
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.data).not.toBeNull())
-      const firstItem = result.current.flatItems[0]
-      await waitFor(() => expect(result.current.loadingMore).toBe(false))
-      // Same underlying object after two more pages appended.
-      expect(result.current.flatItems[0]).toBe(firstItem)
-      expect(result.current.totalCount).toBe(1001)
-    })
-
-    it('clears the loading flag when a page request fails', async () => {
-      api.get.mockImplementation((url) => {
-        const path = url.split('?')[0]
-        if (path === '/maps') return Promise.reject(new Error('boom'))
-        if (url === '/map-folders') return Promise.resolve({ folders: [] })
-        if (url.startsWith('/saved-filters')) return Promise.resolve({ filters: [] })
-        return Promise.resolve({})
-      })
-      const { result } = renderGallery()
-      await waitFor(() => expect(result.current.loadingMore).toBe(false))
-    })
+  it('survives a failing groups request', async () => {
+    api.get.mockImplementation((url) =>
+      url.startsWith('/maps/groups') ? Promise.reject(new Error('boom')) : Promise.resolve({})
+    )
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    expect(result.current.noFolders).toBe(true)
   })
 })

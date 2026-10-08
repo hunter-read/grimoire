@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TagDetail from './TagDetail'
+import { tagDetailProps } from '../../test/fakeTagItems'
 
 let prefs = {}
 vi.mock('../../hooks/useUserPrefs', () => ({
@@ -50,11 +51,14 @@ const detailWith = (over = {}) => ({
 })
 
 function renderDetail(over = {}, props = {}) {
-  const detail = detailWith(over)
-  const byType = (type) => detail.items.filter((i) => i.item_type === type)
+  // TagDetail takes a summary plus paged lists now (issue #221); the tests
+  // describe the whole tag, so build both from that.
+  const paged = tagDetailProps(detailWith(over))
   return render(
     <TagDetail
-      detail={detail}
+      detail={paged.detail}
+      pages={paged.pages}
+      onLoad={paged.onLoad}
       isEditor={false}
       renaming={false}
       renameValue=""
@@ -64,7 +68,6 @@ function renderDetail(over = {}, props = {}) {
       deleteTag={() => {}}
       favorited={false}
       onToggleFavorite={() => {}}
-      byType={byType}
       {...props}
     />
   )

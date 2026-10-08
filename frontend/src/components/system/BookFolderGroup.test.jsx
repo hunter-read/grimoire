@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
-import BookFolderGroup from './BookFolderGroup'
+import RealBookFolderGroup from './BookFolderGroup'
+import { shelfNodeFromTree } from '../../test/shelfFixtures'
 import * as FavCtx from '../../context/FavoritesContext'
 import * as api from '../../api'
 
@@ -32,6 +33,47 @@ vi.mock('./BookEditor', () => ({
 vi.mock('../RescanButton', () => ({
   default: () => <div data-testid="rescan-button" />,
 }))
+
+// The props every book row takes, which the folder group now receives bundled.
+const ITEM_PROPS = [
+  'card',
+  'compact',
+  'list',
+  'editingBookId',
+  'setEditingBookId',
+  'allTags',
+  'existingCategories',
+  'systemGenres',
+  'isEditor',
+  'onSaveBook',
+  'bulkMode',
+  'selectedBookIds',
+  'onToggleBook',
+  'onVariantsChanged',
+]
+
+// A folder group now renders a node of the server-built shelf and reads its
+// books from the shelf's paged lists (issue #221). These tests describe a folder
+// by its contents, so this builds both from that, every node fully loaded.
+function BookFolderGroup({ folder, path, node, category, folderOrder, ...rest }) {
+  const built = shelfNodeFromTree(node, {
+    category,
+    name: folder,
+    path: path.join('/'),
+    ...(folderOrder || {}),
+  })
+  const itemProps = Object.fromEntries(ITEM_PROPS.filter((k) => k in rest).map((k) => [k, rest[k]]))
+  return (
+    <RealBookFolderGroup
+      node={built.node}
+      pages={built.pages}
+      onLoadNode={() => {}}
+      folderOrder={folderOrder}
+      itemProps={itemProps}
+      {...rest}
+    />
+  )
+}
 
 function makeBook(overrides = {}) {
   return {

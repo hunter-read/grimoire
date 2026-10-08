@@ -151,19 +151,37 @@ TaggedItem = Annotated[
 
 
 class TaggedFolder(BaseModel):
-    """A media folder carrying the tag, rendered with everything inside it."""
+    """A folder carrying the tag, with how many items it holds.
+
+    The items come a page at a time from ``/tags/{internal}/folder-items``,
+    addressed by ``key`` (the folder record's own path; ``path`` is for display).
+    """
 
     resource_type: str
     path: str
-    items: list[TaggedItem]
+    key: str
+    count: int
 
 
 class TagItemsResponse(BaseModel):
+    """A tag's summary plus one page of the items carrying it directly."""
+
     internal: str
     display: str
     category: str
+    # Directly-tagged items per resource type, visible to the caller.
+    counts: dict[str, int]
+    # Sum of ``counts`` - what ``offset`` pages through.
+    total: int
     items: list[TaggedItem]
     folders: list[TaggedFolder]
+
+
+class TagFolderItemsResponse(BaseModel):
+    """One page of the items inside a tagged folder."""
+
+    total: int
+    items: list[TaggedItem]
 
 
 class TagCreatedResponse(BaseModel):

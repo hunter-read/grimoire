@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import TokensView from './TokensView'
 import api from '../api'
+import { fakeMediaGet } from '../test/fakeBrowseApi'
 
 vi.mock('../api', () => ({
   default: {
@@ -129,12 +130,18 @@ describe('TokensView', () => {
     mockIsFavorite.mockReturnValue(false)
   })
 
+  // The server filters, groups and pages now (issue #221); the fake answers
+  // those endpoints over `tokens`, with favourites from the mocked context.
   function setupTokens(tokens) {
-    api.get.mockImplementation((url) => {
-      if (url.split('?')[0] === '/tokens') return Promise.resolve(makeTokensResponse(tokens))
-      if (url === '/token-folders') return Promise.resolve({ folders: [] })
-      return Promise.resolve({})
-    })
+    api.get.mockImplementation(
+      fakeMediaGet({
+        listUrl: '/tokens',
+        collection: 'tokens',
+        foldersUrl: '/token-folders',
+        items: tokens,
+        isFavorite: (id) => mockIsFavorite('token', id),
+      })
+    )
   }
 
   it('renders token filenames after loading', async () => {

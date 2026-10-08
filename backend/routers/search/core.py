@@ -10,7 +10,7 @@ from ...config import get_db
 from ...models import Book, GameSystem
 from ...services import access_control
 from ._books import search_book_metadata
-from ._query import FIELD_ALIASES, parse_query
+from ...services.search_query import FIELD_ALIASES, parse_query
 from ._helpers import (
     _search_models,
     SNIPPET_SQL,

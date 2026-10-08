@@ -65,9 +65,6 @@ export default function MapDetailView() {
     detailPath: mapDetailPath,
     navigate,
     get: api.get,
-    // Maps narrow by folder in SQL, so a huge gallery does not materialise
-    // every row to find one folder's neighbours.
-    serverFiltered: true,
   })
 
   const { imageStyle } = useImageGestures({

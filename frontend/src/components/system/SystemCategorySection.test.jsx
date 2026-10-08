@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import SystemCategorySection from './SystemCategorySection'
+import RealSystemCategorySection from './SystemCategorySection'
+import { shelfFromBooks } from '../../test/shelfFixtures'
 
 vi.mock('../RescanButton', () => ({ default: () => <div data-testid="rescan" /> }))
 
@@ -12,16 +13,52 @@ vi.mock('./CategoryBookItem', () => ({
 vi.mock('./BookFolderGroup', () => ({
   // Expose the immediate child folder names + path so tests can assert that a
   // nested tree (not a flattened key) is built for the top-level group.
-  default: ({ folder, path, node }) => (
+  default: ({ node }) => (
     <div
       data-testid="folder-group"
-      data-path={(path || []).join('/')}
+      data-path={node.path}
       data-children={Object.keys(node?.folders || {}).join(',')}
     >
-      {folder}
+      {node.name}
     </div>
   ),
 }))
+
+// A category section now renders the root of the server-built shelf and reads
+// books from the shelf's paged lists (issue #221). These tests describe a
+// category by its books, so this builds both from them, fully loaded.
+function SystemCategorySection({ books, cat, system, folderOrder, ...rest }) {
+  const depth = Number.isInteger(system?.category_depth)
+    ? system.category_depth
+    : system?.parent_id
+      ? 3
+      : 2
+  const { shelf, pages } = shelfFromBooks(
+    books.map((b) => ({ ...b, category: b.category || cat })),
+    { depth, ...(folderOrder || {}) }
+  )
+  const node = shelf[cat] || {
+    category: cat,
+    name: '',
+    path: '',
+    direct: 0,
+    count: 0,
+    dirs: [],
+    first: null,
+    folders: {},
+  }
+  return (
+    <RealSystemCategorySection
+      cat={cat}
+      node={node}
+      pages={pages}
+      onLoadNode={() => {}}
+      system={system}
+      folderOrder={folderOrder}
+      {...rest}
+    />
+  )
+}
 
 const system = { id: 'sys1', name: 'D&D 5e' }
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from ...auth import require_not_guest
 from ._schemas import (
     TagCreatedResponse,
+    TagFolderItemsResponse,
     TagItemsResponse,
     TagRenamedResponse,
     TagsResponse,
@@ -13,9 +14,9 @@ from .core import (
     delete_tag,
     list_tags,
     merge_tag,
-    tag_items,
     update_tag_display,
 )
+from .items import tag_folder_items, tag_items
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
@@ -27,10 +28,10 @@ router = APIRouter(prefix="/tags", tags=["tags"])
 # such a tag cannot be viewed, renamed, or deleted. `:path` matches across
 # slashes, keeping those tags reachable so they can be cleaned up.
 #
-# `:path` is greedy, but the `/items` and `/merge` suffix routes are still
-# matched: Starlette tries routes in declaration order, and `/items` is declared
-# first, while `/merge` is the only POST here (the greedy routes are PATCH and
-# DELETE), so neither is swallowed.
+# `:path` is greedy, but the `/items`, `/folder-items` and `/merge` suffix
+# routes are still matched: Starlette tries routes in declaration order, and the
+# two GETs are declared first, while `/merge` is the only POST here (the greedy
+# routes are PATCH and DELETE), so none is swallowed.
 
 # Reading tags is library browsing: the vocabulary and, through `/items`, every
 # item carrying a tag. Guests are limited to their campaign, so both reads are
@@ -56,7 +57,21 @@ router.add_api_route(
     tag_items,
     methods=["GET"],
     summary="Items carrying a tag",
+    description=(
+        "Per-type counts and the folders carrying the tag, plus a page of the items "
+        "carrying it directly (`limit`/`offset`, optionally one `resource_type`). A "
+        "folder's contents come from `/folder-items` (issue #221)."
+    ),
     response_model=TagItemsResponse,
+    dependencies=[Depends(require_not_guest)],
+)
+router.add_api_route(
+    "/{internal:path}/folder-items",
+    tag_folder_items,
+    methods=["GET"],
+    summary="Items inside a tagged folder",
+    description="A page of everything inside one folder carrying the tag.",
+    response_model=TagFolderItemsResponse,
     dependencies=[Depends(require_not_guest)],
 )
 router.add_api_route(

@@ -15,10 +15,12 @@ from ...models import Token, TokenFolder
 from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ..token_frames._helpers import frame_folder_paths
+from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
+from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access, guest_visible_variants
 from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
@@ -31,23 +33,16 @@ router = APIRouter()
 def list_tokens(
     limit: int = Query(100000),
     offset: int = 0,
-    sort: str = Query("path", pattern="^(path|name)$"),
+    params: MediaBrowse = Depends(media_browse_params),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    can_see_explicit = _allow_explicit(db, current_user.id)
-    q = variants.parents_only(db.query(Token), Token)
-    if not can_see_explicit:
-        q = q.filter(Token.is_explicit != True)
-    total = q.count()
-    # `path` (the default) makes a page a contiguous run of folders in display
-    # order, which is what the grouped gallery renders — see list_maps. The
-    # ungrouped gallery sorts by filename instead, so paging by path would
-    # scatter each arriving page across the whole alphabet and visibly reshuffle
-    # what the user is already looking at; it asks for `name` to be paged in the
-    # order it displays.
-    order = Token.filename if sort == "name" else Token.relative_path
-    tokens = q.order_by(order).offset(offset).limit(limit).all()
+    # Filtering, ordering and the folder scope all run in SQL (issue #221); see
+    # services/browse/media.py.
+    browser = MediaBrowser(
+        db, "token", current_user.id, hide_explicit=not _allow_explicit(db, current_user.id)
+    )
+    total, tokens = browser.page(params, limit, offset)
     token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
     vcounts = variants.variant_counts(db, Token, [t.id for t in tokens])
     vkinds = variants.variant_kinds(db, Token, [t.id for t in tokens])
@@ -72,6 +67,19 @@ def list_tokens(
             for t in tokens
         ],
     }
+
+
+def list_token_groups(
+    params: MediaBrowse = Depends(media_browse_params),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Every folder holding tokens that match the filters, with how many."""
+    browser = MediaBrowser(
+        db, "token", current_user.id, hide_explicit=not _allow_explicit(db, current_user.id)
+    )
+    total, groups = browser.groups(params)
+    return {"total": total, "groups": groups}
 
 
 def list_token_folders(db: Session = Depends(get_db)):

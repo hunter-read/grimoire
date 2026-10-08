@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import TagsView from './TagsView'
+import { pagedFolderItems, pagedTagItems } from '../test/fakeTagItems'
 
 // --- Mocks -----------------------------------------------------------------
 
@@ -14,7 +15,11 @@ const mockRemove = vi.fn()
 vi.mock('../api', () => ({
   tags: {
     list: (...a) => mockList(...a),
-    items: (...a) => mockItems(...a),
+    // The view pages a tag's items now (issue #221). `mockItems` still
+    // describes the whole tag; these answer the paged requests from it.
+    items: (internal, type, opts) => pagedTagItems(mockItems(internal), type, opts),
+    folderItems: (internal, type, folder, opts) =>
+      pagedFolderItems(mockItems(internal), type, folder, opts),
     rename: (...a) => mockRename(...a),
     remove: (...a) => mockRemove(...a),
   },

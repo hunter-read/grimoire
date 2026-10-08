@@ -21,12 +21,22 @@ export function shouldAutoCollapse(count, groupCount = Infinity) {
  * books. Every category collapses on a long page, except a small core.
  */
 export function defaultCollapsedCategories(books) {
-  const counts = new Map()
+  const counts = {}
   for (const b of books || []) {
     const cat = b.category || 'core'
-    counts.set(cat, (counts.get(cat) || 0) + 1)
+    counts[cat] = (counts[cat] || 0) + 1
   }
-  if (!shouldAutoCollapse((books || []).length, counts.size)) return new Set()
-  const keepCore = (counts.get('core') || 0) <= CORE_OPEN_MAX
-  return new Set([...counts.keys()].filter((cat) => !(keepCore && cat === 'core')))
+  return defaultCollapsedFromCounts(counts)
+}
+
+/**
+ * `defaultCollapsedCategories` from per-category counts rather than the books
+ * themselves - what a paged shelf has before any book loads (issue #221).
+ */
+export function defaultCollapsedFromCounts(counts = {}) {
+  const cats = Object.keys(counts)
+  const total = cats.reduce((n, c) => n + counts[c], 0)
+  if (!shouldAutoCollapse(total, cats.length)) return new Set()
+  const keepCore = (counts.core || 0) <= CORE_OPEN_MAX
+  return new Set(cats.filter((cat) => !(keepCore && cat === 'core')))
 }

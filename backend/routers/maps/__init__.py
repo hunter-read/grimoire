@@ -2,12 +2,14 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._browse import FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     export_map_uvtt,
     get_map_authoring,
     update_map_authoring,
     list_maps,
+    list_map_groups,
     list_map_folders,
     update_map_folder,
     bulk_update_map_folders,
@@ -46,6 +48,20 @@ router.add_api_route(
     description="Returns a paginated list of maps. Filter by `map_type` or `folder`.",
     dependencies=[Depends(require_not_guest)],
     response_model=MapListResponse,
+)
+# Declared ahead of "/maps/{id}", which would otherwise take "groups" as an id.
+router.add_api_route(
+    "/maps/groups",
+    list_map_groups,
+    methods=["GET"],
+    summary="Folders holding matching maps",
+    description=(
+        "Every folder that holds maps matching the filters, with how many. Takes "
+        "the same filters as the list; the gallery renders folders from this and "
+        "opens each with the list's `folder` parameter (issue #221)."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=FolderGroupsResponse,
 )
 router.add_api_route(
     "/map-folders",

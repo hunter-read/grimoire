@@ -804,3 +804,91 @@ class TestTagValueValidation:
 
     def test_dedupe_tags_still_dedupes_ordinary_values(self):
         assert tag_service.dedupe_tags(["Forest", "forest", " Cave "]) == ["Forest", "Cave"]
+
+
+class TestFolderTagCounts:
+    """``folder_tag_counts`` counts from one GROUP BY per collection (issue #221)."""
+
+    def _map(self, db, rel):
+        from backend.models import GenericMap
+
+        db.add(GenericMap(filename=rel.rsplit("/", 1)[-1], filepath=f"/x/{rel}", relative_path=rel))
+        db.commit()
+
+    def test_nested_tagged_folders_count_each_item_once(self):
+        from backend.models import MapFolder
+
+        db = _session()
+        self._map(db, "maps/Swamps/a.png")
+        self._map(db, "maps/Swamps/Deep/b.png")
+        self._map(db, "maps/Swampsville/c.png")  # shares a name prefix, not a subtree
+        db.add(MapFolder(path="Swamps", tags=["Wet"]))
+        db.add(MapFolder(path="Swamps/Deep", tags=["Wet"]))
+        db.commit()
+        counts = tag_service.folder_tag_counts(db)
+        assert counts["wet"]["count"] == 2
+        assert counts["wet"]["by_type"] == {"map": 2}
+        assert counts["wet"]["types"] == {"map"}
+
+    def test_book_folders_count_below_their_category_folder(self):
+        from backend.models import Book, BookFolder
+
+        db = _session()
+        for name, sub in (("a", "curse"), ("b", "curse/deep"), ("c", "other")):
+            db.add(
+                Book(
+                    title=name,
+                    filename=f"{name}.pdf",
+                    filepath=f"/x/{name}.pdf",
+                    relative_path=f"books/Sys/Adventures/{sub}/{name}.pdf",
+                    game_system_id="sys1",
+                    category="adventures",
+                )
+            )
+        db.add(BookFolder(path="sys1/adventures/curse", tags=["Gothic"]))
+        db.commit()
+        assert tag_service.folder_tag_counts(db)["gothic"]["count"] == 2
+
+    def test_a_tag_on_empty_folders_is_left_out(self):
+        from backend.models import MapFolder
+
+        db = _session()
+        db.add(MapFolder(path="Nowhere", tags=["Lonely"]))
+        db.commit()
+        assert "lonely" not in tag_service.folder_tag_counts(db)
+
+
+class TestLiveResolution:
+    """The live-link helpers' edge cases (issues #445, #221)."""
+
+    def test_an_unknown_resource_type_has_no_live_rows_or_links(self):
+        from backend.services.tag_service._queries import live_links
+
+        db = _session()
+        assert tag_service.live_resource_ids(db, "widget") == set()
+        assert live_links(db, "widget") is None
+        assert tag_service.live_link_counts(db, "widget") == {}
+
+    def test_live_resource_ids_can_include_variant_children(self):
+        from backend.models import GenericMap, GameSystem
+
+        db = _session()
+        db.add(GenericMap(id="p", filename="p.png", filepath="/x/p", relative_path="maps/p.png"))
+        db.add(
+            GenericMap(
+                id="c",
+                filename="c.png",
+                filepath="/x/c",
+                relative_path="maps/c.png",
+                variant_parent_id="p",
+            )
+        )
+        db.add(GameSystem(id="s", name="S", slug="s"))
+        db.commit()
+        assert tag_service.live_resource_ids(db, "map") == {"p"}
+        assert tag_service.live_resource_ids(db, "map", parents_only=False) == {"p", "c"}
+        assert tag_service.live_resource_ids(db, "system") == {"s"}
+
+    def test_resources_for_an_unknown_tag_is_empty(self):
+        db = _session()
+        assert tag_service.resources_for_tag(db, "never-made") == []

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuFolder, LuDownload } from 'react-icons/lu'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
 import { toTitleCase } from '../../utils'
+import LoadMoreSentinel from '../LoadMoreSentinel'
+import Spinner from '../Spinner'
 import { tagZipBtnStyle, canDownloadTagType } from './tagDownload'
 
 const PREFS_KEY = 'tagsFolderCollapsed'
@@ -22,7 +24,10 @@ const folderTitle = (path) => path.split('/').map(toTitleCase).join(' / ')
 export default function TagFolderGroup({
   resourceType,
   path,
-  items,
+  count = 0,
+  list,
+  onLoad = () => {},
+  defaultCollapsed = false,
   containerStyle,
   renderItem,
   tag,
@@ -30,9 +35,17 @@ export default function TagFolderGroup({
 }) {
   const { t } = useTranslation()
   const key = `${resourceType}:${path}`
-  const [collapsed, setCollapsed] = useState(() => Boolean(getUserPrefs()[PREFS_KEY]?.[key]))
+  // The user's own choice for this folder wins; until they make one, it follows
+  // the section's default.
+  const [collapsed, setCollapsed] = useState(
+    () => getUserPrefs()[PREFS_KEY]?.[key] ?? defaultCollapsed
+  )
   const title = folderTitle(path)
-  const downloadable = onDownload && canDownloadTagType(resourceType) && items.length > 0
+  const downloadable = onDownload && canDownloadTagType(resourceType) && count > 0
+  // The folder's contents page in once it is open (issue #221).
+  const items = list ? list.items : []
+  const hasMore = count > 0 && (!list || list.hasMore)
+  const loading = !!list?.loading
 
   const toggle = () => {
     const next = !collapsed
@@ -92,7 +105,23 @@ export default function TagFolderGroup({
           </button>
         )}
       </div>
-      {!collapsed && <div style={containerStyle}>{items.map((item) => renderItem(item))}</div>}
+      {!collapsed && (
+        <>
+          <div style={containerStyle}>{items.map((item) => renderItem(item))}</div>
+          {loading && (
+            <div style={{ padding: 12, display: 'flex', justifyContent: 'center' }}>
+              <Spinner size={18} />
+            </div>
+          )}
+          {count > 0 && (
+            <LoadMoreSentinel
+              active={hasMore && !loading}
+              count={items.length}
+              onVisible={onLoad}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }

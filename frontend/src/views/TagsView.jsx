@@ -11,6 +11,7 @@ import {
   LuChevronDown,
 } from 'react-icons/lu'
 import { tags as tagsApi } from '../api'
+import usePagedLists from '../hooks/usePagedLists'
 import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
@@ -86,8 +87,10 @@ export default function TagsView() {
     }
     setDetailLoading(true)
     setRenaming(false)
+    // The summary alone: per-type counts and the tagged folders. Each section
+    // pages in its own items as it is opened (issue #221).
     tagsApi
-      .items(activeTag)
+      .items(activeTag, undefined, { limit: 0 })
       .then((r) => setDetail(r))
       .catch(() => setDetail(null))
       .finally(() => setDetailLoading(false))
@@ -185,7 +188,24 @@ export default function TagsView() {
     })
   }
 
-  const byType = (type) => (detail?.items || []).filter((i) => i.item_type === type)
+  // One paged list per type section and per tagged folder, dropped whenever a
+  // different tag is selected.
+  const fetchTagPage = useCallback(
+    (key, offset, limit) => {
+      const [kind, type, folder] = key.split('\u0000')
+      const request =
+        kind === 'type'
+          ? tagsApi.items(activeTag, type, { limit, offset })
+          : tagsApi.folderItems(activeTag, type, folder, { limit, offset })
+      return request.then((r) => ({ total: r.total, rows: r.items || [] }))
+    },
+    [activeTag]
+  )
+  const tagPages = usePagedLists(fetchTagPage, activeTag || '')
+  const loadTagList = useCallback(
+    (key) => (tagPages.get(key) ? tagPages.loadMore(key) : tagPages.ensure(key)),
+    [tagPages]
+  )
 
   if (allTags === null) {
     return (
@@ -489,7 +509,8 @@ export default function TagsView() {
                   onToggleFavorite={() =>
                     toggleTagFavorite({ internal: detail.internal, is_favorite: false })
                   }
-                  byType={byType}
+                  pages={tagPages}
+                  onLoad={loadTagList}
                   onDownload={setDownloadModal}
                 />
               )}

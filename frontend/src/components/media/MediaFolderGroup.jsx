@@ -6,7 +6,9 @@ import VirtualGrid from './VirtualGrid'
 import FolderTagRow from './FolderTagRow'
 import FramesBadge from './FramesBadge'
 import FolderCheckbox from '../FolderCheckbox'
+import LoadMoreSentinel from '../LoadMoreSentinel'
 import RescanButton from '../RescanButton'
+import Spinner from '../Spinner'
 import { toTitleCase } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -25,10 +27,23 @@ const zipBtnStyle = {
   cursor: 'pointer',
 }
 
+// Audio queued from a folder: playable tracks only, in the shape the player takes.
+const toTracks = (items) =>
+  items
+    .filter((i) => !i.is_missing)
+    .map((i) => ({ id: i.id, title: i.title || i.filename, artwork: i.has_artwork }))
+
 /**
  * Renders a top-level folder group and its subfolders for a media gallery.
  * Type-specific concerns (icon, grid sizing, endpoints, i18n keys) come from
  * `config` (see mediaConfig.js), so a single component serves maps, tokens, etc.
+ *
+ * `subfolders` maps each folder below this one (or '' for its own items) to
+ * `{ path, count, items, loading, hasMore }`: counts come from the server and
+ * items arrive a page at a time (issue #221). An open folder asks for its next
+ * page through `onLoadFolder(path)` when its end scrolls near; whatever has
+ * loaded is what selection acts on, while downloads and rescans work on the
+ * folder itself server-side.
  */
 export default function MediaFolderGroup({
   config,
@@ -50,6 +65,8 @@ export default function MediaFolderGroup({
   list = false,
   canTag = true,
   onDownload,
+  onLoadFolder = () => {},
+  onFetchFolderItems,
 }) {
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
@@ -61,8 +78,16 @@ export default function MediaFolderGroup({
   const isFrameFolder = (path) => !!frameFolders && frameFolders.has(path)
 
   const isCollapsed = collapsed.has(folder)
-  const allInGroup = Object.values(subfolders).flat()
-  const total = allInGroup.length
+  const groupsBelow = Object.values(subfolders)
+  // Loaded items only - the folder may hold more than has been paged in.
+  const allInGroup = groupsBelow.flatMap((g) => g.items)
+  const total = groupsBelow.reduce((n, g) => n + g.count, 0)
+  // Queue a folder to play: every track, fetched in full rather than only the
+  // page that happens to be loaded.
+  const playFolder = async (paths) => {
+    if (!onFetchFolderItems) return
+    playQueue(toTracks(await onFetchFolderItems(paths)))
+  }
   const isAudio = !!config.audioFileUrl
   const topLevelTags = folderTags[folder] ?? []
 
@@ -163,10 +188,7 @@ export default function MediaFolderGroup({
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                const tracks = allInGroup
-                  .filter((i) => !i.is_missing)
-                  .map((i) => ({ id: i.id, title: i.title || i.filename, artwork: i.has_artwork }))
-                playQueue(tracks)
+                playFolder(groupsBelow.map((g) => g.path))
               }}
               style={zipBtnStyle}
               title={t('audio.playFolder', { folder })}
@@ -236,7 +258,8 @@ export default function MediaFolderGroup({
               />
             </div>
           )}
-          {subfolderEntries.map(([subPath, subItems]) => {
+          {subfolderEntries.map(([subPath, sub]) => {
+            const subItems = sub.items
             const folderPath = subPath ? `${folder}/${subPath}` : folder
             const tags = folderTags[folderPath] ?? []
             const editKey = `${folder}::${subPath}`
@@ -311,7 +334,7 @@ export default function MediaFolderGroup({
                           {subPath.split('/').map(toTitleCase).join(' / ')}
                         </span>
                         <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
-                          ({subItems.length})
+                          ({sub.count})
                         </span>
                         {isFrameFolder(folderPath) && (
                           <FramesBadge label={t('tokens.framesFolder')} />
@@ -332,14 +355,7 @@ export default function MediaFolderGroup({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                const tracks = subItems
-                                  .filter((i) => !i.is_missing)
-                                  .map((i) => ({
-                                    id: i.id,
-                                    title: i.title || i.filename,
-                                    artwork: i.has_artwork,
-                                  }))
-                                playQueue(tracks)
+                                playFolder([sub.path])
                               }}
                               style={zipBtnStyle}
                               title={t('audio.playFolder', { folder: subPath })}
@@ -410,23 +426,35 @@ export default function MediaFolderGroup({
                 )}
 
                 {!isSubCollapsed && (
-                  <VirtualGrid
-                    items={subItems}
-                    minColumn={parseInt(config.gridMin[cardSize], 10)}
-                    gap={list ? 8 : config.gridGap}
-                    list={list}
-                    renderItem={(item) => (
-                      <MediaCard
-                        key={item.id}
-                        config={config}
-                        item={item}
-                        bulkMode={bulkMode}
-                        selected={selectedIds?.has(item.id)}
-                        onToggle={(mods) => onToggleItem(item.id, mods)}
-                        list={list}
-                      />
+                  <>
+                    <VirtualGrid
+                      items={subItems}
+                      minColumn={parseInt(config.gridMin[cardSize], 10)}
+                      gap={list ? 8 : config.gridGap}
+                      list={list}
+                      renderItem={(item) => (
+                        <MediaCard
+                          key={item.id}
+                          config={config}
+                          item={item}
+                          bulkMode={bulkMode}
+                          selected={selectedIds?.has(item.id)}
+                          onToggle={(mods) => onToggleItem(item.id, mods)}
+                          list={list}
+                        />
+                      )}
+                    />
+                    {sub.loading && (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
+                        <Spinner size={18} />
+                      </div>
                     )}
-                  />
+                    <LoadMoreSentinel
+                      active={sub.hasMore && !sub.loading}
+                      count={subItems.length}
+                      onVisible={() => onLoadFolder(sub.path)}
+                    />
+                  </>
                 )}
               </div>
             )

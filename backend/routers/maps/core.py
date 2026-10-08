@@ -6,10 +6,9 @@ import io
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import or_, true
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
@@ -25,10 +24,12 @@ from ...config import (
 from ...models import GenericMap, MapFolder
 from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
+from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
+from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access, guest_visible_variants
 from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
@@ -56,68 +57,21 @@ def _folder_path(relative_path: str) -> str:
     return "/".join(Path(relative_path.replace("\\", "/")).parts[1:-1])
 
 
-def _folder_prefix_filter(model: Any, folder: str) -> Any:
-    """SQL clause narrowing to rows whose relative_path could sit in ``folder``.
-
-    A relative_path is ``<system>/<folder…>/<file>``, so a row in ``folder`` has
-    it somewhere after the first segment. This is a cheap superset — it also
-    admits deeper descendants and any folder whose name merely starts with the
-    same text — which is why callers keep the exact :func:`_folder_path` check.
-    The empty (root) folder has no prefix to match on, so it is not narrowed.
-
-    ``escape="!"`` keeps a literal %, _ or ! in a real folder name from acting as
-    a LIKE wildcard. A backslash is not escaped and the escape character is not
-    one: :func:`_folder_path` normalises separators, so the folder string itself
-    never contains a backslash — only the stored path does, which is why the
-    Windows-separator variant is matched separately.
-    """
-    if not folder:
-        return true()
-    escaped = folder.replace("!", "!!").replace("%", "!%").replace("_", "!_")
-    win = escaped.replace("/", "\\")
-    return or_(
-        model.relative_path.like(f"%/{escaped}/%", escape="!"),
-        model.relative_path.like(f"%\\{win}\\%", escape="!"),
-    )
-
-
 def list_maps(
     map_type: Optional[str] = None,
-    folder: Optional[str] = None,
     limit: int = Query(100000),
     offset: int = 0,
-    sort: str = Query("path", pattern="^(path|name)$"),
+    params: MediaBrowse = Depends(media_browse_params),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Applied before the folder branch below — a variant must never reach the
-    # list (issues #304, #306).
-    q = variants.parents_only(db.query(GenericMap), GenericMap)
+    # Filtering, ordering and the folder scope all run in SQL (issue #221); see
+    # services/browse/media.py. Variants never reach the list (issues #304,
+    # #306) - the browser restricts to variant parents first.
     if map_type:
-        q = q.filter_by(map_type=map_type)
-    # Ordered by path by default, not filename: the gallery groups by folder and
-    # sorts the folders by name, so ordering the query this way makes the first
-    # page the first folders as they will actually be displayed. Paging by
-    # filename instead scattered each page across the whole tree, and every
-    # later page then inserted rows *above* what the user was already looking at.
-    #
-    # With grouping turned off the gallery sorts by filename, so there the same
-    # argument runs the other way and the caller asks for `name`.
-    q = q.order_by(GenericMap.filename if sort == "name" else GenericMap.relative_path)
-    if folder is not None:
-        # Folder is derived from relative_path rather than stored as a column, so
-        # it cannot be compared directly. Narrowing on the path prefix in SQL
-        # first means only that folder's subtree is materialised, instead of the
-        # whole table (which on a large library was the cost of opening a
-        # folder); the exact per-row check below still decides membership, since
-        # the prefix also matches deeper descendants and sibling folders sharing
-        # a name prefix.
-        q = q.filter(_folder_prefix_filter(GenericMap, folder))
-        filtered = [m for m in q.all() if _folder_path(m.relative_path) == folder]
-        total = len(filtered)
-        maps = filtered[offset : offset + limit]
-    else:
-        total = q.count()
-        maps = q.offset(offset).limit(limit).all()
+        params.extra.append(GenericMap.map_type == map_type)
+    browser = MediaBrowser(db, "map", current_user.id, hide_explicit=False)
+    total, maps = browser.page(params, limit, offset)
     map_tags = tag_service.display_tags_for_resources(db, "map", [m.id for m in maps])
     vcounts = variants.variant_counts(db, GenericMap, [m.id for m in maps])
     vkinds = variants.variant_kinds(db, GenericMap, [m.id for m in maps])
@@ -142,6 +96,19 @@ def list_maps(
             for m in maps
         ],
     }
+
+
+def list_map_groups(
+    params: MediaBrowse = Depends(media_browse_params),
+    map_type: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Every folder holding maps that match the filters, with how many."""
+    if map_type:
+        params.extra.append(GenericMap.map_type == map_type)
+    total, groups = MediaBrowser(db, "map", current_user.id, hide_explicit=False).groups(params)
+    return {"total": total, "groups": groups}
 
 
 def list_map_folders(db: Session = Depends(get_db)):

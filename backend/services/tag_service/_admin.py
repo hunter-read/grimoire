@@ -17,7 +17,8 @@ from ._catalog import (
     get_or_create_tag,
     normalize_internal,
 )
-from ._folders import _FOLDER_SOURCES, folder_tags_in_use, folder_types_for_tag
+from ._folder_scopes import folder_tag_counts
+from ._folders import _FOLDER_SOURCES, folder_types_for_tag
 from ._queries import live_link_counts
 
 
@@ -49,7 +50,7 @@ def tags_meta_for_internals(db: Session, internals: list[str]) -> dict[str, dict
                 link_counts[internal] = count
 
     # Folder-derived coverage for the same keys.
-    folder = folder_tags_in_use(db)
+    folder = folder_tag_counts(db)
 
     out: dict[str, dict] = {}
     for key in keys:
@@ -59,7 +60,7 @@ def tags_meta_for_internals(db: Session, internals: list[str]) -> dict[str, dict
             display = shared[key]["display"]
         if key in folder:
             display = display or folder[key]["display"]
-            count += len(folder[key]["refs"])  # upper bound; folder ∪ shared rarely overlap
+            count += folder[key]["count"]  # upper bound; folder ∪ shared rarely overlap
         if display is not None:
             out[key] = {"internal": key, "display": display, "count": count}
     return out

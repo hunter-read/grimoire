@@ -17,8 +17,11 @@ from ...models import (
     TokenFolder,
 )
 from ...services import tag_service, variants
-from ._query import MEDIA_FIELDS, ParsedQuery
+from ...services.search_query import MEDIA_FIELDS, ParsedQuery
 
+
+# Most results a media section of the search returns.
+MEDIA_RESULT_LIMIT = 50
 
 def _ids_matching_tag(db, resource_type: str, term: str) -> set:
     """Ids of resources of ``resource_type`` whose shared tag matches ``term``.
@@ -205,44 +208,55 @@ def _media_clauses(db, model, resource_type: str, terms: dict, extra_fields: dic
     return clauses
 
 
-def _folder_matches(db, model, folder_model, terms: dict, seen: set) -> list:
+def _escape_like(text: str) -> str:
+    """``text`` with LIKE's wildcards (and the ``!`` escape) taken literally."""
+    return text.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+
+
+def _folder_matches(
+    db, model, folder_model, terms: dict, seen: set, limit: int = MEDIA_RESULT_LIMIT
+) -> list:
     """Rows living under a folder whose path or tags match the query.
 
     Only applies to the filename-ish terms: a folder has no artist, and matching
     ``artist:`` against a folder path would be a coincidence, not a result.
+
+    One query for every matching folder at once, on the stored ``folder_path``
+    and stopped at ``limit`` (issue #221). This used to load every item of each
+    matching folder in turn - thousands of full rows for a search that shows
+    fifty - which was most of a library-wide search on a large token library.
     """
     words = terms.get("free_any", []) + terms.get("filename", []) + terms.get("free", [])
     words += terms.get("tag", [])
-    if not words:
+    if not words or limit <= 0:
         return []
-    extra = []
+    paths: set[str] = set()
     for word in words:
         like = f"%{word}%"
-        folders = (
-            db.query(folder_model)
-            .filter(
-                or_(
-                    folder_model.path.ilike(like),
-                    cast(folder_model.tags, String).ilike(like),
-                )
+        for (path,) in db.query(folder_model.path).filter(
+            or_(
+                folder_model.path.ilike(like),
+                cast(folder_model.tags, String).ilike(like),
             )
-            .all()
-        )
-        for folder in folders:
-            # Folder paths are stored relative to the collection dir (e.g. "Swamps"),
-            # while relative_path keeps the collection prefix ("maps/Swamps/...").
-            for row in (
-                db.query(model)
-                .filter(
-                    model.relative_path.ilike(f"%/{folder.path}/%"),
-                    variants.parent_filter(model),
-                )
-                .all()
-            ):
-                if row.id not in seen:
-                    seen.add(row.id)
-                    extra.append(row)
-    return extra
+        ):
+            paths.add(path)
+    if not paths:
+        return []
+    # Folder records are collection-relative ("Swamps") while folder_path keeps
+    # the collection prefix ("maps/Swamps/Bog/"); anything at or below the
+    # folder has "/Swamps/" inside its folder_path.
+    under = or_(
+        *[
+            model.folder_path.like(f"%/{_escape_like(p.strip('/'))}/%", escape="!")
+            for p in sorted(paths)
+        ]
+    )
+    q = db.query(model).filter(under, variants.parent_filter(model))
+    if seen:
+        q = q.filter(~model.id.in_(seen))
+    rows = q.limit(limit).all()
+    seen.update(row.id for row in rows)
+    return rows
 
 
 def _search_media(
@@ -274,13 +288,13 @@ def _search_media(
     direct = (
         db.query(model)
         .filter(*clauses, variants.parent_filter(model))
-        .limit(50)
+        .limit(MEDIA_RESULT_LIMIT)
         .all()
     )
     seen = {row.id for row in direct}
-    extra = _folder_matches(db, model, folder_model, terms, seen)
+    extra = _folder_matches(db, model, folder_model, terms, seen, limit=MEDIA_RESULT_LIMIT - len(direct))
 
-    results = (direct + extra)[:50]
+    results = (direct + extra)[:MEDIA_RESULT_LIMIT]
     tags = tag_service.display_tags_for_resources(db, resource_type, [r.id for r in results])
     return [serialize(row, tags.get(row.id, [])) for row in results]
 

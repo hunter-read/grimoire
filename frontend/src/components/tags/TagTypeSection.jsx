@@ -5,9 +5,18 @@ import { getDefaultViewMode } from '../../hooks/useViewMode'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
 import { gridStyle, ROW_LIST_STYLE } from '../favorites/favoriteStyles'
 import TagFolderGroup from './TagFolderGroup'
+import LoadMoreSentinel from '../LoadMoreSentinel'
+import Spinner from '../Spinner'
 import { tagZipBtnStyle, canDownloadTagType } from './tagDownload'
+import { shouldAutoCollapse } from '../../utils/autoCollapse'
 
 const PREFS_KEY = 'tagsSectionCollapsed'
+
+/** The paged-list key for one type's directly-tagged items. */
+export const typeListKey = (type) => `type\u0000${type}`
+
+/** The paged-list key for one tagged folder's contents. */
+export const folderListKey = (type, key) => `folder\u0000${type}\u0000${key}`
 
 /**
  * One collapsible section on the tags detail pane for a single resource type
@@ -23,8 +32,10 @@ const PREFS_KEY = 'tagsSectionCollapsed'
 export default function TagTypeSection({
   type,
   title,
-  items,
+  count = 0,
   folders,
+  pages,
+  onLoad,
   renderItem,
   tag,
   onDownload,
@@ -36,9 +47,21 @@ export default function TagTypeSection({
   const mode = getDefaultViewMode(type)
   const grid = mode !== 'list'
   const containerStyle = grid ? gridStyle(mode) : ROW_LIST_STYLE
-  const hasFolderItems = folders.some((g) => g.items.length > 0)
-  const downloadable =
-    onDownload && canDownloadTagType(type) && (items.length > 0 || hasFolderItems)
+  const hasFolderItems = folders.some((g) => g.count > 0)
+  // Many large tagged folders start closed, like long sections do: each open
+  // folder loads its first page as it comes into view, and a tag on dozens of
+  // folders would otherwise ask for all of them at once (issue #221).
+  const foldersCollapsed = shouldAutoCollapse(
+    folders.reduce((n, g) => n + g.count, 0),
+    folders.length
+  )
+  const downloadable = onDownload && canDownloadTagType(type) && (count > 0 || hasFolderItems)
+  // The directly-tagged items load a page at a time once the section is open.
+  const listKey = typeListKey(type)
+  const itemList = pages.get(listKey)
+  const items = itemList ? itemList.items : []
+  const hasMore = count > 0 && (!itemList || itemList.hasMore)
+  const loading = !!itemList?.loading
 
   const toggle = () => {
     const next = !collapsed
@@ -103,12 +126,27 @@ export default function TagTypeSection({
           {items.length > 0 && (
             <div style={containerStyle}>{items.map((item) => renderItem(item, grid))}</div>
           )}
+          {loading && (
+            <div style={{ padding: 12, display: 'flex', justifyContent: 'center' }}>
+              <Spinner size={18} />
+            </div>
+          )}
+          {count > 0 && (
+            <LoadMoreSentinel
+              active={hasMore && !loading}
+              count={items.length}
+              onVisible={() => onLoad(listKey)}
+            />
+          )}
           {folders.map((g) => (
             <TagFolderGroup
               key={`${g.resource_type}:${g.path}`}
               resourceType={g.resource_type}
               path={g.path}
-              items={g.items}
+              count={g.count}
+              list={pages.get(folderListKey(g.resource_type, g.key))}
+              onLoad={() => onLoad(folderListKey(g.resource_type, g.key))}
+              defaultCollapsed={foldersCollapsed}
               containerStyle={containerStyle}
               renderItem={(item) => renderItem(item, grid)}
               tag={tag}

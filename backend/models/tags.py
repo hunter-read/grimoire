@@ -55,4 +55,8 @@ class ResourceTag(Base):
         Index("ix_resource_tags_resource", "resource_type", "resource_id"),
         # Fast lookup of "all resources for this tag".
         Index("ix_resource_tags_tag", "tag_id"),
+        # Per-type tag lookups, covering (issue #221): counting a type's live
+        # links per tag, and a tag filter's "items of this type carrying one of
+        # these tags", both read only this index.
+        Index("ix_resource_tags_type_tag", "resource_type", "tag_id", "resource_id"),
     )

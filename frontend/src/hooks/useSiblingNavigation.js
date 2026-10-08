@@ -25,8 +25,9 @@ export function folderPathOf(item) {
  * @param {Function} opts.navigate    react-router navigate
  * @param {Function} opts.get         api.get
  * @param {boolean}  [opts.serverFiltered] pass the folder as a `folder` query
- *   param rather than filtering client-side. Only for collections whose endpoint
- *   narrows in SQL (maps), where pulling every row would not scale.
+ *   param rather than filtering client-side. Every media list endpoint narrows
+ *   by folder in SQL now (issue #221), so this is the default; fetching the
+ *   whole collection to find one folder's neighbours does not scale.
  */
 export default function useSiblingNavigation({
   item,
@@ -36,7 +37,7 @@ export default function useSiblingNavigation({
   detailPath,
   navigate,
   get,
-  serverFiltered = false,
+  serverFiltered = true,
 }) {
   const [siblings, setSiblings] = useState([])
   const loadedFolder = useRef(null)

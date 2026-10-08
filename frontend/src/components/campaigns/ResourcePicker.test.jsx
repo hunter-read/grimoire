@@ -9,7 +9,8 @@ vi.mock('../../api', () => ({
   campaigns: { searchResources: vi.fn() },
   tags: {
     list: vi.fn(() => Promise.resolve({ tags: [] })),
-    items: vi.fn(() => Promise.resolve({ items: [] })),
+    // Every item carrying a tag, across all pages (issue #221).
+    allItems: vi.fn(() => Promise.resolve([])),
   },
 }))
 
@@ -170,33 +171,25 @@ describe('ResourcePicker', () => {
     })
 
     it('adds every campaign-addable resource carrying the chosen tag', async () => {
-      tags.items.mockResolvedValue({
-        internal: 'strahd',
-        display: 'Strahd',
-        items: [
-          { item_type: 'book', item_id: 'b2' },
-          { item_type: 'map', item_id: 'm1' },
-          // A system is not a campaign resource and must be skipped.
-          { item_type: 'system', item_id: 's9' },
-        ],
-      })
+      tags.allItems.mockResolvedValue([
+        { item_type: 'book', item_id: 'b2' },
+        { item_type: 'map', item_id: 'm1' },
+        // A system is not a campaign resource and must be skipped.
+        { item_type: 'system', item_id: 's9' },
+      ])
       render(<Harness />)
       const select = await screen.findByLabelText(/add all with tag/i)
       await userEvent.selectOptions(select, 'strahd')
       await userEvent.click(screen.getByRole('button', { name: 'Add' }))
       // Two addable resources land in the selection (the system is skipped).
       expect(await screen.findByText('Selected (2)')).toBeInTheDocument()
-      expect(tags.items).toHaveBeenCalledWith('strahd')
+      expect(tags.allItems).toHaveBeenCalledWith('strahd')
       // The book's real name is enriched from the loaded resource set.
       expect(screen.getByText('Curse of Strahd')).toBeInTheDocument()
     })
 
     it('does not duplicate a resource already selected', async () => {
-      tags.items.mockResolvedValue({
-        internal: 'strahd',
-        display: 'Strahd',
-        items: [{ item_type: 'map', item_id: 'm1' }],
-      })
+      tags.allItems.mockResolvedValue([{ item_type: 'map', item_id: 'm1' }])
       render(
         <Harness
           initial={[
@@ -209,7 +202,7 @@ describe('ResourcePicker', () => {
       await userEvent.selectOptions(select, 'strahd')
       await userEvent.click(screen.getByRole('button', { name: 'Add' }))
       // Still exactly one selected map (no duplicate).
-      await waitFor(() => expect(tags.items).toHaveBeenCalled())
+      await waitFor(() => expect(tags.allItems).toHaveBeenCalled())
       expect(screen.getByText('Selected (1)')).toBeInTheDocument()
     })
   })

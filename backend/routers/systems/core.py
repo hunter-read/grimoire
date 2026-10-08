@@ -144,6 +144,13 @@ def get_system(
     explicit: Optional[bool] = Query(None),
     genre: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    include_books: bool = Query(
+        True,
+        description=(
+            "Include every book in the response. The detail view passes false and "
+            "pages the shelf through `/books` and `/book-groups` instead (issue #221)."
+        ),
+    ),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -172,6 +179,37 @@ def get_system(
     if not can_see_explicit:
         book_q = book_q.filter(Book.is_explicit != True)
     book_q = access_control.visible_books(db, book_q, user)
+
+    # Container folders hold systems rather than (only) books — return those
+    # children so the detail view can render them as systems (issues #261/#262).
+    children = _serialize_children(db, system, can_see_explicit)
+    system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
+
+    if not include_books:
+        # Summary only: counts and the cover from SQL rather than from loading
+        # every row, which is the point of asking for no books.
+        count, pages = book_q.with_entities(
+            func.count(Book.id), func.coalesce(func.sum(Book.page_count), 0)
+        ).one()
+        cover_book_id = system.cover_book_id
+        if not cover_book_id and not system.container_kind:
+            with_thumb = book_q.filter(Book.has_thumbnail == True)  # noqa: E712
+            auto = with_thumb.filter(Book.category == "core").with_entities(Book.id).first()
+            auto = auto or with_thumb.with_entities(Book.id).first()
+            cover_book_id = auto[0] if auto else None
+        summary = serialize_system_summary(
+            system,
+            book_count=int(count or 0),
+            total_page_count=int(pages or 0),
+            cover_book_id=cover_book_id,
+            tags=system_tags,
+            child_count=len(children),
+        )
+        summary["books"] = []
+        summary["children"] = children
+        summary["scope_path"] = _scope_path(db, system, summary["category_depth"])
+        return summary
+
     books = book_q.all()
 
     # Cover resolution ignores the sort/filter args (must be stable). Containers
@@ -193,11 +231,6 @@ def get_system(
         books = [b for b in books if _has_value(b.genres, genre)]
     books = _sort_books(books, book_sort, book_order)
 
-    # Container folders hold systems rather than (only) books — return those
-    # children so the detail view can render them as systems (issues #261/#262).
-    children = _serialize_children(db, system, can_see_explicit)
-
-    system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
     book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
     # One grouped query for the page, matching the /books list endpoint: without
     # this every row reports no other versions and the whole version UI (badge,
@@ -216,7 +249,26 @@ def get_system(
         for b in books
     ]
     summary["children"] = children
+    summary["scope_path"] = _scope_path(db, system, summary["category_depth"])
     return summary
+
+
+def _scope_path(db: Session, system: GameSystem, depth: int) -> Optional[str]:
+    """The system's own folder, library-relative (``books/{System}``), for rescans.
+
+    Read off any one of its books' paths - the first ``depth`` segments - since
+    the system row does not store it. ``None`` for a system with no books, or
+    whose books sit shallower than its own folder.
+    """
+    row = (
+        db.query(Book.folder_path)
+        .filter(Book.game_system_id == system.id, Book.folder_path.isnot(None))
+        .first()
+    )
+    if not row or not row[0]:
+        return None
+    parts = row[0].rstrip("/").split("/")
+    return "/".join(parts[:depth]) if len(parts) >= depth else None
 
 
 def _serialize_children(

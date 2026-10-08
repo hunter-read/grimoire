@@ -1,7 +1,42 @@
 """Media models — generic maps, tokens, audio, and 3D models, plus their folder tag tables."""
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, JSON, String, Text
 
 from .base import Base, _utcnow, _uuid
+
+
+def _browse_indexes(table: str, *, explicit: bool = False) -> tuple:
+    """The indexes paged browsing reads (issue #221), one set per media table.
+
+    Every browse index leads with ``variant_parent_id`` because every browse
+    query filters to variant parents (``IS NULL`` is index-usable).
+
+    ``folder`` and ``name`` are *covering* for the gallery's filters: besides
+    their sort columns they carry everything a search or tag filter tests per
+    row (the filename, the id that tag links and favorites join on, and the
+    explicit flag where the table has one). A filter that matches rarely then
+    scans an index a third the size of the table and never fetches a row it
+    rejects; without the extra columns SQLite walked the index and fetched every
+    row to test it, which took 300-400ms on 187k tokens. ``folder`` serves
+    grouping by folder, "under this tagged folder", and one folder's items in
+    name order; ``name`` the flat list and the filtered scans. ``added`` and
+    ``size`` back the other flat sorts, so a deep page is an index walk rather
+    than a sort of the whole table. ``live`` is the odd one out, keyed on
+    ``id``.
+    """
+    covered = ["filename", "id", *(["is_explicit"] if explicit else [])]
+    return (
+        Index(
+            f"ix_{table}_browse_folder", "variant_parent_id", "folder_path", "sort_name", *covered
+        ),
+        Index(
+            f"ix_{table}_browse_name", "variant_parent_id", "sort_name", "folder_path", *covered
+        ),
+        Index(f"ix_{table}_browse_added", "variant_parent_id", "added_at", "sort_name"),
+        Index(f"ix_{table}_browse_size", "variant_parent_id", "file_size", "sort_name"),
+        # "Is this id a live parent?" answered from the index alone, for the
+        # per-tag link counts (see tag_service.live_links).
+        Index(f"ix_{table}_live", "id", "variant_parent_id"),
+    )
 
 
 class GenericMap(Base):
@@ -51,6 +86,12 @@ class GenericMap(Base):
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
     added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    # Natural-order filename key and the item's directory, kept in step by
+    # models/browse.py for paged browsing (issue #221).
+    sort_name = Column(String(600), nullable=True)
+    folder_path = Column(String(1000), nullable=True)
+
+    __table_args__ = _browse_indexes("generic_maps")
 
 
 class MapFolder(Base):
@@ -89,6 +130,12 @@ class Token(Base):
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
     added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    # Natural-order filename key and the item's directory, kept in step by
+    # models/browse.py for paged browsing (issue #221).
+    sort_name = Column(String(600), nullable=True)
+    folder_path = Column(String(1000), nullable=True)
+
+    __table_args__ = _browse_indexes("tokens", explicit=True)
 
 
 class TokenFolder(Base):
@@ -136,6 +183,12 @@ class Audio(Base):
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
     added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    # Natural-order filename key and the item's directory, kept in step by
+    # models/browse.py for paged browsing (issue #221).
+    sort_name = Column(String(600), nullable=True)
+    folder_path = Column(String(1000), nullable=True)
+
+    __table_args__ = _browse_indexes("audio")
 
 
 class AudioFolder(Base):
@@ -194,6 +247,12 @@ class Model3D(Base):
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
     added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    # Natural-order filename key and the item's directory, kept in step by
+    # models/browse.py for paged browsing (issue #221).
+    sort_name = Column(String(600), nullable=True)
+    folder_path = Column(String(1000), nullable=True)
+
+    __table_args__ = _browse_indexes("models_3d", explicit=True)
 
 
 class Model3DFolder(Base):

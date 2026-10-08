@@ -19,6 +19,7 @@ from .covers import (
     set_system_cover_from_source,
     upload_system_cover,
 )
+from .books import list_system_book_facets, list_system_book_groups, list_system_books
 from .metadata import fetch_metadata, list_metadata_sources, search_metadata
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .._metadata_lookup import (
@@ -29,7 +30,10 @@ from .._metadata_lookup import (
 from ._schemas import (
     BookFoldersResponse,
     BookFolderOut,
+    ShelfFacetsResponse,
+    ShelfGroupsResponse,
     StatusResponse,
+    SystemBooksPage,
     SystemCoverResponse,
     SystemDetail,
     SystemSummary,
@@ -64,6 +68,39 @@ router.add_api_route(
     ),
     dependencies=[Depends(require_not_guest)],
     response_model=SystemDetail,
+)
+router.add_api_route(
+    "/{system_id}/books",
+    list_system_books,
+    methods=["GET"],
+    summary="A page of a system's books",
+    description=(
+        "Books matching the shelf filters, sorted and paged. With `category` (and "
+        "optionally `folder`) it lists one folder of the grouped shelf (issue #221)."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=SystemBooksPage,
+)
+router.add_api_route(
+    "/{system_id}/book-groups",
+    list_system_book_groups,
+    methods=["GET"],
+    summary="Folders on a system's shelf",
+    description=(
+        "Every category and subfolder holding books that match the shelf filters, "
+        "with counts - the grouped shelf is drawn from this."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=ShelfGroupsResponse,
+)
+router.add_api_route(
+    "/{system_id}/book-facets",
+    list_system_book_facets,
+    methods=["GET"],
+    summary="Filter options for a system's shelf",
+    description="The tags, genres, product-code prefixes and categories on the shelf.",
+    dependencies=[Depends(require_not_guest)],
+    response_model=ShelfFacetsResponse,
 )
 router.add_api_route(
     "/{system_id}/book-folders",

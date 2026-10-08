@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import TagFolderGroup from './TagFolderGroup'
+import RealTagFolderGroup from './TagFolderGroup'
 
 let prefs = {}
 vi.mock('../../hooks/useUserPrefs', () => ({
@@ -21,6 +21,18 @@ const renderItem = (item) => (
   </div>
 )
 const containerStyle = { display: 'grid' }
+
+// A folder group takes its count and a paged list now (issue #221); these tests
+// describe it by its items, so this hands those over fully loaded.
+function TagFolderGroup({ items = [], ...rest }) {
+  return (
+    <RealTagFolderGroup
+      count={items.length}
+      list={{ items, total: items.length, hasMore: false, loading: false }}
+      {...rest}
+    />
+  )
+}
 
 describe('TagFolderGroup', () => {
   it('title-cases each path segment and renders its items', () => {
@@ -140,5 +152,21 @@ describe('TagFolderGroup download (issue #401)', () => {
       />
     )
     expect(screen.queryByTitle('Download Woods')).not.toBeInTheDocument()
+  })
+})
+
+describe('TagFolderGroup default collapse', () => {
+  it('starts closed when the section says so, until the user chooses', () => {
+    render(
+      <TagFolderGroup
+        resourceType="map"
+        path="woods"
+        items={[{ item_id: 'm1' }]}
+        containerStyle={{}}
+        renderItem={(i) => <div key={i.item_id}>{i.item_id}</div>}
+        defaultCollapsed
+      />
+    )
+    expect(screen.queryByText('m1')).not.toBeInTheDocument()
   })
 })

@@ -430,7 +430,10 @@ must be non-empty (`422` otherwise).
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool), `parent_id` (list one container's children), `include_children` (bool; flat list including nested systems) |
-| `/api/systems/:id` | GET | any | System detail + full book list, plus `children` (the nested systems when this is a container). Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books |
+| `/api/systems/:id` | GET | any | System detail + full book list, plus `children` (the nested systems when this is a container) and `scope_path` (the system's own folder, `books/{System}`, for a scoped rescan; `null` with no books). Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books. `include_books=false` returns the summary alone (`books: []`, counts and cover computed in SQL) - what the detail view asks for, paging the shelf through the three routes below |
+| `/api/systems/:id/books` | GET | any (not guest) | One page of the system's books matching the [shelf filters](#browsing-a-systems-shelf). Query: the filters, plus `category` and `folder` (one folder of the grouped shelf; `""` is the category's own directory, and `folder` needs `category`), `sort` (`title`\|`year`\|`page_count`\|`size`\|`product_code`\|`added_at`), `order`, `limit` (max 500), `offset`. Returns `{total, books}` |
+| `/api/systems/:id/book-groups` | GET | any (not guest) | Every category and subfolder holding matching books: `{total, groups: [{category, path, dir, count, first}]}`. `path` is the subfolder below the category directory (`""` for books directly in it), `dir` the library directory (for rescan scopes), `first` the active sort's value for the folder's first book (`null` for the title sort) |
+| `/api/systems/:id/book-facets` | GET | any (not guest) | The filter menus' options over every book the caller may see: `{categories, genres, product_code_prefixes, tags}` |
 | `/api/systems/:id` | PATCH | gm/admin | Update metadata (see fields below) |
 | `/api/systems/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}`. A name clash fails only that item |
 | `/api/systems/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
@@ -654,7 +657,8 @@ books-only and are not indexed here.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, `folder` (exact folder path; `""` for top level), `sort` (`path` default, or `name`) |
+| `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, and the [browse parameters](#browsing-the-media-collections) |
+| `/api/maps/groups` | GET | any (not guest) | Folders holding matching maps, with counts. Query: `map_type` and the browse filters |
 | `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_archive`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
 **Changing a book's category moves its file.** The folder a book sits in is what
 the next rescan reads, so recording a new category without moving the file would
@@ -830,7 +834,8 @@ all is stored as `null`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/tokens` | GET | any | Paginated token list (items include `is_archive`). Query: `limit`, `offset`, `tag`, `sort` (`path` default, or `name`) |
+| `/api/tokens` | GET | any | Paginated token list (items include `is_archive`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) |
+| `/api/tokens/groups` | GET | any (not guest) | Folders holding matching tokens, with counts. Query: the browse filters |
 | `/api/tokens/:id` | GET | any | Token detail incl. `is_archive` (`pixel_width`/`pixel_height` are `null` for archives) |
 | `/api/tokens/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit` |
 | `/api/tokens/:id/file` | GET | any | Download the token image, or the archive (served with the archive's MIME type) |
@@ -893,7 +898,8 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`. Items include `duration`, `title`, `artist`, `album`, `has_artwork`, `is_archive` |
+| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) (`sort` also takes `title` and `duration`). Items include `duration`, `title`, `artist`, `album`, `has_artwork`, `is_archive` |
+| `/api/audio/groups` | GET | any (not guest) | Folders holding matching tracks, with counts. Query: the browse filters |
 | `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
 | `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
@@ -923,7 +929,8 @@ unknown) so a UI badge cannot misreport an unclassified model.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/models` | GET | any | Paginated model list (collection key `models`). Query: `limit`, `offset`. Items include `triangle_count`, `is_presupported`, `is_unsupported`, `is_archive` |
+| `/api/models` | GET | any | Paginated model list (collection key `models`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections). Items include `triangle_count`, `is_presupported`, `is_unsupported`, `is_archive` |
+| `/api/models/groups` | GET | any (not guest) | Folders holding matching models, with counts. Query: the browse filters |
 | `/api/models/:id` | GET | any | Model detail incl. `folder_path`, `folder_tags`, `is_supported`, `viewer_loader`, `viewer_available`, `viewer_oversized` |
 | `/api/models/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit`, `is_supported` |
 | `/api/models/:id/file` | GET | any | Download the mesh file (served with the format's MIME type), or the archive |
@@ -945,14 +952,38 @@ anyway behind a warning that it may be slow or unresponsive; when it is `false`
 alongside a `false` `viewer_available`, no loader exists for the format and a
 download is the only option.
 
-**Page ordering on the media list routes:** `GET /api/maps` and `/api/tokens` take
-a `sort` of `path` (the default) or `name`; `/api/audio` and `/api/models` are
-always filename-ordered. The galleries load a library in pages and append each
-one as it lands, so a page has to arrive in the order the view displays it.
-Grouped by folder, that is path order - each page is then a contiguous run of
-folders. With grouping off the view is one flat list sorted by filename, and
-paging by path instead scatters every arriving page across the whole alphabet,
-inserting cards among the ones already on screen.
+#### Browsing the media collections
+
+The map, token, audio and model galleries filter, sort and group on the server
+and fetch a page at a time (issue #221), so a library of a few hundred thousand
+files opens as quickly as a small one. Each list route and its `/groups`
+companion take the same filters, so a folder's count always matches what
+listing that folder returns:
+
+| Parameter | Meaning |
+|-----------|---------|
+| `q` | Search text: the name, the folder path, and the item's tags (its own and every folder's above it). Accepts the [search page's `field:value` prefixes](#field-scoped-search) - `tag:`, `title:`/`filename:`, and `artist:`/`album:` on audio. A book-only field (`author:`, `year:`...) matches nothing |
+| `tags` | The tag filter as JSON: a list of `{mode: "include"\|"exclude", tags: [...]}` groups - tags OR'd within a group, groups AND'd - or a flat list of tags that must all match. A folder's tags count for everything beneath it. `__grim:none__` / `__grim:any__` match items with no tags / at least one. Malformed JSON is a 400 |
+| `favorites` | `true` for the caller's favourites only |
+| `added_since` | Only items added at or after this ISO time; undated items never match |
+| `folder` | Only items directly in this folder, collection-relative (`""` for the collection root). Omit for the whole collection |
+| `sort` | `path` (folder order, the default), `name` (natural order: "Map 2" before "Map 10"), `size`, `added_at` (undated items last either way); audio also `title` and `duration`. Any other value is a 422 |
+| `order` | `asc` or `desc` |
+
+`GET /api/<collection>/groups` returns `{total, groups: [{path, count}]}`: every
+folder holding matching items, collection-relative (`""` for the root). The
+gallery draws its folders from this and opens each with the list route's
+`folder` parameter; ungrouped, it pages the flat list instead.
+
+#### Browsing a system's shelf
+
+`GET /api/systems/:id/books` and `/book-groups` take the shelf's filters:
+`q` (title, filename or product code, plus the `field:value` prefixes such as
+`author:`, `year:`, `tag:`, `code:`), `tags` (as above, matching the book's own
+tags), `favorites`, `added_since`, `explicit` (bool), `genre` (a genre or a
+presence sentinel) and `product_code` (a code prefix such as `PZO`, or a
+sentinel). Books the caller may not open are left out of pages and counts
+alike.
 
 **Access control on media by-id routes:** As with books, the library-browse list routes (`GET /api/maps`, `/api/tokens`, `/api/audio`, `/api/models` and their `*-folders`) are blocked for guests, but the by-id routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/artwork`) are reachable by any authenticated user and enforce access themselves. A guest may only read a map/token/audio/model item **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); otherwise the route returns 403. The `variants` list on each detail route is trimmed for a guest to the variants shared with them. An explicit token returns 403 for a non-guest who has `allow_explicit` disabled, on the file/thumbnail routes as well as `GET /api/tokens/:id`. An item deliberately shared into a guest's campaign is served regardless of its explicit flag.
 
@@ -981,7 +1012,8 @@ with `tags`); these endpoints manage the shared tag catalog and browse items by 
 |----------|--------|------|-------------|
 | `/api/tags` | GET | any (not guest) | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
 | `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}`. A `value` containing `/` or `\` is refused with a 422 (see **Tag names** below) |
-| `/api/tags/:internal/items` | GET | any (not guest) | Items carrying the tag: `items` (directly tagged, enriched like favorites) plus `folders` (folder-derived - each `{resource_type, path, items}` lists the whole folder's contents; book folders show only their subfolder path). Query `resource_type=` filters by type. Explicit items are hidden from users who can't see them |
+| `/api/tags/:internal/items` | GET | any (not guest) | A tag's summary plus one page of the items carrying it directly: `counts` (directly-tagged items per type), `total`, `items` (a page, in type order then name order, enriched like favorites), and `folders` - every folder carrying the tag as `{resource_type, path, key, count}` (book folders show only their subfolder path). Query: `resource_type` (one type's counts, folders and page), `limit` (default 100, max 500; `0` for the summary alone), `offset`. Counts and pages leave out explicit items for users who can't see them, and books or systems the caller may not open |
+| `/api/tags/:internal/folder-items` | GET | any (not guest) | A page of everything inside one tagged folder, in name order: `{total, items}`. Query: `resource_type`, `folder` (the group's `key`), `limit`, `offset`. 404 when that folder does not carry the tag |
 | `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists - no 404). Body: `{display}`. A `display` containing `/` or `\` is refused with a 422 |
 | `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}`. `into` is refused with a 422 if it contains `/` or `\`; the **source** `:internal` may contain one, so merging is a way out of such a tag |
 | `/api/tags/:internal` | DELETE | gm/admin | Delete a tag and unlink it from every resource |

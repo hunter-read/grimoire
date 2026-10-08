@@ -380,12 +380,35 @@ export const opds = {
 export const tags = {
   // in_use_by scopes the list to tags used on a resource type (with counts).
   list: (inUseBy) => api.get(`/tags${inUseBy ? `?in_use_by=${encodeURIComponent(inUseBy)}` : ''}`),
-  items: (internal, resourceType) =>
-    api.get(
-      `/tags/${encodeURIComponent(internal)}/items${
-        resourceType ? `?resource_type=${encodeURIComponent(resourceType)}` : ''
-      }`
-    ),
+  // A tag's per-type counts and folders, plus a page of the items carrying it
+  // directly (issue #221). `limit: 0` is the summary alone.
+  items: (internal, resourceType, { limit, offset } = {}) => {
+    const qs = new URLSearchParams()
+    if (resourceType) qs.set('resource_type', resourceType)
+    if (limit !== undefined) qs.set('limit', String(limit))
+    if (offset) qs.set('offset', String(offset))
+    const query = qs.toString()
+    return api.get(`/tags/${encodeURIComponent(internal)}/items${query ? `?${query}` : ''}`)
+  },
+  // A page of everything inside one tagged folder (`folder` is the group's `key`).
+  folderItems: (internal, resourceType, folder, { limit = 100, offset = 0 } = {}) => {
+    const qs = new URLSearchParams({
+      resource_type: resourceType,
+      folder,
+      limit: String(limit),
+      offset: String(offset),
+    })
+    return api.get(`/tags/${encodeURIComponent(internal)}/folder-items?${qs.toString()}`)
+  },
+  // Every item carrying the tag directly, across all pages.
+  allItems: async (internal) => {
+    const out = []
+    for (let offset = 0; ; offset += 500) {
+      const page = await tags.items(internal, undefined, { limit: 500, offset })
+      out.push(...(page.items || []))
+      if (!page.items?.length || out.length >= page.total) return out
+    }
+  },
   create: (value, display) => api.post('/tags', { value, display }),
   rename: (internal, display) => api.patch(`/tags/${encodeURIComponent(internal)}`, { display }),
   merge: (internal, into) => api.post(`/tags/${encodeURIComponent(internal)}/merge`, { into }),

@@ -317,9 +317,17 @@ class TestFolderTags:
         resp = client.get(f"/api/tags/{label.lower()}/items", headers=admin_headers)
         assert resp.status_code == 200
         data = resp.json()
-        # Folder-derived items appear as a folder group, listing the folder's items.
-        folder_items = [i for g in data["folders"] for i in g["items"]]
-        assert any(i["item_id"] == m.id for i in folder_items)
+        # Folder-derived items appear as a folder group with a count; its items
+        # come a page at a time from /folder-items (issue #221).
+        (group,) = data["folders"]
+        assert group["count"] == 1
+        page = client.get(
+            f"/api/tags/{label.lower()}/folder-items",
+            params={"resource_type": "map", "folder": group["key"]},
+            headers=admin_headers,
+        ).json()
+        assert page["total"] == 1
+        assert [i["item_id"] for i in page["items"]] == [m.id]
 
     def test_folder_only_tag_not_404(self, client, admin_headers):
         # A tag that exists only as a folder tag still resolves (no 404).

@@ -102,7 +102,8 @@ export default function ResourcePicker({
     if (!internal || tagAdding) return
     setTagAdding(true)
     try {
-      const { items } = await tagsApi.items(internal)
+      // Every page, not just the first: a broad tag can carry hundreds of items.
+      const items = await tagsApi.allItems(internal)
       const byKey = new Map((all || []).map((r) => [resourceKey(r), r]))
       setSelected((prev) => {
         const have = new Set(prev.map(resourceKey))

@@ -10,8 +10,10 @@ from ...config import get_db
 from ...models import Audio, AudioFolder
 from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
+from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import _extract_embedded_art, _find_folder_artwork, archive_ext, archive_mime
+from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access, guest_visible_variants
 from ._schemas import AudioBulkUpdate, AudioUpdate, FolderTagsUpdate
@@ -53,11 +55,14 @@ def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
 def list_audio(
     limit: int = Query(100000),
     offset: int = 0,
+    params: MediaBrowse = Depends(media_browse_params),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    q = variants.parents_only(db.query(Audio), Audio)
-    total = q.count()
-    tracks = q.order_by(Audio.filename).offset(offset).limit(limit).all()
+    # Filtering, ordering and the folder scope all run in SQL (issue #221); see
+    # services/browse/media.py.
+    browser = MediaBrowser(db, "audio", current_user.id, hide_explicit=False)
+    total, tracks = browser.page(params, limit, offset)
     audio_tags = tag_service.display_tags_for_resources(db, "audio", [a.id for a in tracks])
     vcounts = variants.variant_counts(db, Audio, [a.id for a in tracks])
     vkinds = variants.variant_kinds(db, Audio, [a.id for a in tracks])
@@ -72,6 +77,17 @@ def list_audio(
             for a in tracks
         ],
     }
+
+
+def list_audio_groups(
+    params: MediaBrowse = Depends(media_browse_params),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Every folder holding tracks that match the filters, with how many."""
+    browser = MediaBrowser(db, "audio", current_user.id, hide_explicit=False)
+    total, groups = browser.groups(params)
+    return {"total": total, "groups": groups}
 
 
 def list_audio_folders(db: Session = Depends(get_db)):

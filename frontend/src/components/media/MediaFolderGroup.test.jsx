@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MediaFolderGroup from './MediaFolderGroup'
+import RealMediaFolderGroup from './MediaFolderGroup'
 import { MEDIA_CONFIGS } from './mediaConfig'
 
 const playQueue = vi.fn()
@@ -33,6 +33,28 @@ vi.mock('./FolderTagRow', () => ({
       </button>
     ),
 }))
+
+// A folder group now carries server counts and lazily loaded items per folder
+// (issue #221). These tests describe a folder by its items, so this adapts that
+// to the new shape: every folder fully loaded, and whole-folder fetches (Play)
+// answered from the same items.
+function MediaFolderGroup({ folder, subfolders, ...rest }) {
+  const groups = Object.fromEntries(
+    Object.entries(subfolders).map(([sub, items]) => [
+      sub,
+      { path: sub ? `${folder}/${sub}` : folder, count: items.length, items, hasMore: false },
+    ])
+  )
+  const byPath = Object.fromEntries(Object.values(groups).map((g) => [g.path, g.items]))
+  return (
+    <RealMediaFolderGroup
+      folder={folder}
+      subfolders={groups}
+      onFetchFolderItems={async (paths) => paths.flatMap((p) => byPath[p] || [])}
+      {...rest}
+    />
+  )
+}
 
 const baseProps = (over = {}) => ({
   collapsed: new Set(),
@@ -335,5 +357,63 @@ describe('MediaFolderGroup — frame folders', () => {
       />
     )
     expect(screen.queryByText('Frames')).not.toBeInTheDocument()
+  })
+})
+
+describe('MediaFolderGroup — paged folders (issue #221)', () => {
+  it('shows the server count and asks for the next page of an open folder', async () => {
+    const onLoadFolder = vi.fn()
+    render(
+      <RealMediaFolderGroup
+        config={MEDIA_CONFIGS.map}
+        folder="Caves"
+        subfolders={{
+          '': { path: 'Caves', count: 40, items: [{ id: 'm1', filename: 'm.png' }], hasMore: true },
+        }}
+        onLoadFolder={onLoadFolder}
+        {...baseProps()}
+      />
+    )
+    expect(screen.getByText('m.png')).toBeInTheDocument()
+    // The header counts the whole folder, not the page that has loaded.
+    expect(screen.getByText(/40/)).toBeInTheDocument()
+    // The sentinel is on screen in a layout-less test, so the next page is asked for.
+    await vi.waitFor(() => expect(onLoadFolder).toHaveBeenCalledWith('Caves'))
+  })
+
+  it('shows a spinner while a page loads, and asks for nothing more', async () => {
+    const onLoadFolder = vi.fn()
+    render(
+      <RealMediaFolderGroup
+        config={MEDIA_CONFIGS.map}
+        folder="Caves"
+        subfolders={{ '': { path: 'Caves', count: 3, items: [], hasMore: true, loading: true } }}
+        onLoadFolder={onLoadFolder}
+        {...baseProps()}
+      />
+    )
+    expect(document.querySelector('svg')).toBeInTheDocument()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(onLoadFolder).not.toHaveBeenCalled()
+  })
+
+  it('plays a whole folder, fetched in full rather than the loaded page', async () => {
+    playQueue.mockClear()
+    const onFetchFolderItems = vi.fn(async () => audioItems)
+    render(
+      <RealMediaFolderGroup
+        config={MEDIA_CONFIGS.audio}
+        folder="Ambient"
+        subfolders={{
+          '': { path: 'Ambient', count: 3, items: [], hasMore: true },
+          Rain: { path: 'Ambient/Rain', count: 2, items: [], hasMore: true },
+        }}
+        onFetchFolderItems={onFetchFolderItems}
+        {...baseProps({ collapsed: new Set(['Ambient']) })}
+      />
+    )
+    await userEvent.click(screen.getByTitle(/play ambient/i))
+    expect(onFetchFolderItems).toHaveBeenCalledWith(['Ambient', 'Ambient/Rain'])
+    expect(playQueue.mock.calls.at(-1)[0].map((t) => t.id)).toEqual(['a1', 'a2'])
   })
 })

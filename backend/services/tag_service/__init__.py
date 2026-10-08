@@ -13,8 +13,9 @@ This was one module until it outgrew a single file; it is now split by concern:
   get-or-creating ``Tag`` rows.
 - :mod:`._resources` - the ``ResourceTag`` link table: tags on one item or a
   batch of items.
-- :mod:`._folders` - media-folder and book-folder tags, and the items they
-  imply tags on.
+- :mod:`._folders` - media-folder and book-folder tags: registering them and
+  resolving their display.
+- :mod:`._folder_scopes` - the items a folder tag covers, resolved in SQL.
 - :mod:`._queries` - cross-resource queries: liveness filtering, usage counts.
 - :mod:`._admin` - Tags-page management: metadata, rename/merge, pruning.
 
@@ -37,13 +38,19 @@ from ._catalog import (
     tag_dict,
     validate_tag_value,
 )
+from ._folder_scopes import (
+    FolderResolver,
+    folder_groups_for_tag,
+    folder_tag_counts,
+    folder_tags_in_use,
+    folders_for_tag,
+    tagged_folders,
+)
 from ._folders import (
     _FOLDER_SOURCES as _FOLDER_SOURCES,
     effective_category,
     folder_display_tags,
-    folder_tags_in_use,
     folder_types_for_tag,
-    folders_for_tag,
     register_folder_tags,
     remove_tag_from_folders,
     upsert_folder_tags,
@@ -54,7 +61,6 @@ from ._paths import (
     system_category_depths,
 )
 from ._queries import (
-    filter_live_refs,
     live_link_counts,
     live_resource_ids,
     resources_for_tag,
@@ -71,6 +77,7 @@ from ._resources import (
 )
 
 __all__ = [
+    "FolderResolver",
     "TAG_FORBIDDEN_CHARS",
     "add_resource_tags",
     "dedupe_tags",
@@ -78,8 +85,9 @@ __all__ = [
     "display_tags_for_resource",
     "display_tags_for_resources",
     "effective_category",
-    "filter_live_refs",
     "folder_display_tags",
+    "folder_groups_for_tag",
+    "folder_tag_counts",
     "folder_tags_in_use",
     "folder_types_for_tag",
     "folders_for_tag",
@@ -100,6 +108,7 @@ __all__ = [
     "tags_for_resource",
     "tags_for_resources",
     "tags_in_use",
+    "tagged_folders",
     "tags_meta_for_internals",
     "upsert_folder_tags",
     "validate_tag_value",

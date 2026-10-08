@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
+from .._browse import FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
 from ._schemas import (
     FolderTagsOut,
@@ -17,6 +18,7 @@ from .core import (
     get_model,
     list_model_folders,
     list_models,
+    list_model_groups,
     serve_model_file,
     serve_model_thumbnail,
     update_model,
@@ -37,6 +39,20 @@ router.add_api_route(
     description="Returns a paginated list of 3D models.",
     dependencies=[Depends(require_not_guest)],
     response_model=Model3DListResponse,
+)
+# Declared ahead of "/models/{id}", which would otherwise take "groups" as an id.
+router.add_api_route(
+    "/models/groups",
+    list_model_groups,
+    methods=["GET"],
+    summary="Folders holding matching 3D models",
+    description=(
+        "Every folder that holds 3D models matching the filters, with how many. Takes "
+        "the same filters as the list; the gallery renders folders from this and "
+        "opens each with the list's `folder` parameter (issue #221)."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=FolderGroupsResponse,
 )
 router.add_api_route(
     "/model-folders",

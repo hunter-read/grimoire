@@ -1,8 +1,8 @@
 """Tags API endpoint handlers (issue #235).
 
 The tags page and cross-resource tag features read from the shared-tag tables via
-``tag_service``. Listing and per-tag item views are readable by any authenticated
-user (explicit items are filtered per-user); mutations require gm/admin.
+``tag_service``. Listing is readable by any authenticated user; mutations require
+gm/admin. The per-tag item views live in :mod:`.items`.
 """
 from typing import Optional
 
@@ -13,7 +13,6 @@ from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
 from ...models import RESOURCE_TYPES, Favorite, ResourceTag, Tag
 from ...services import tag_service
-from ._helpers import can_see_explicit, enrich_tagged_items
 from ._schemas import TagCreate, TagDisplayUpdate, TagMerge
 
 
@@ -31,15 +30,19 @@ def _merge_folder_tags(db: Session, shared: list[dict], in_use_by: Optional[str]
     # Resolve folder tags across all types (unscoped), so a tag's effective
     # category reflects every type it appears on even when the listing itself is
     # scoped to one page.
-    folder = tag_service.folder_tags_in_use(db)
+    folder = tag_service.folder_tag_counts(db)
     folder_types: dict[str, set[str]] = {
-        internal: {r["resource_type"] for r in info["refs"]}
-        for internal, info in folder.items()
+        internal: info["types"] for internal, info in folder.items()
     }
-    # Folder refs to fold into counts respect the page scope (in_use_by).
-    scoped_folder = (
-        folder if in_use_by is None else tag_service.folder_tags_in_use(db, in_use_by)
-    )
+    # Folder counts to fold in respect the page scope (in_use_by): the same
+    # pass, narrowed to that type's share rather than counted again.
+    scoped_folder = folder
+    if in_use_by is not None:
+        scoped_folder = {
+            internal: {**info, "count": info["by_type"][in_use_by]}
+            for internal, info in folder.items()
+            if info["by_type"].get(in_use_by)
+        }
 
     by_internal = {t["internal"]: dict(t) for t in shared}
     for entry in by_internal.values():
@@ -47,7 +50,7 @@ def _merge_folder_tags(db: Session, shared: list[dict], in_use_by: Optional[str]
             entry.get("category"), folder_types.get(entry["internal"], set())
         )
         if entry["internal"] in scoped_folder:
-            entry["count"] += len(scoped_folder[entry["internal"]]["refs"])
+            entry["count"] += scoped_folder[entry["internal"]]["count"]
     for internal, info in scoped_folder.items():
         if internal in by_internal:
             continue
@@ -57,7 +60,7 @@ def _merge_folder_tags(db: Session, shared: list[dict], in_use_by: Optional[str]
             "internal": internal,
             "display": info["display"],
             "category": tag_service.effective_category(None, folder_types.get(internal, set())),
-            "count": len(info["refs"]),
+            "count": info["count"],
         }
     return sorted(by_internal.values(), key=lambda t: t["display"].lower())
 
@@ -107,71 +110,6 @@ def list_tags(
     for tg in merged:
         tg["is_favorite"] = tg["internal"] in fav
     return {"tags": merged}
-
-
-def tag_items(
-    internal: str,
-    resource_type: Optional[str] = Query(
-        None, description="Restrict returned items to this resource type."
-    ),
-    user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Every item carrying the given tag, enriched like the favorites view.
-
-    Includes items that carry the tag directly (shared tag) and items that
-    inherit it from a folder tag (``tags.json``/folder tagging).
-    """
-    if resource_type is not None and resource_type not in RESOURCE_TYPES:
-        raise HTTPException(
-            400, f"resource_type must be one of: {', '.join(sorted(RESOURCE_TYPES))}"
-        )
-    key = tag_service.normalize_internal(internal)
-    tag = db.query(Tag).filter(Tag.internal == key).first()
-    see_explicit = can_see_explicit(db, user.id)
-
-    # Directly-tagged items (shared tag). Folder-derived items are shown as folder
-    # groups below rather than mixed into the flat item list.
-    direct_refs = tag_service.resources_for_tag(db, internal, resource_type=resource_type)
-
-    # Folders carrying the tag, each rendered with everything inside (issue #235
-    # follow-up: show the folder like the media pages do).
-    folder_groups = tag_service.folders_for_tag(db, key, resource_type=resource_type)
-
-    if tag is None and not folder_groups and not direct_refs:
-        raise HTTPException(404, "Tag not found")
-
-    display = tag.display if tag is not None else key
-    if display == key:
-        # Folder-only tag: use the folder's display casing when available.
-        fmeta = tag_service.folder_tags_in_use(db, resource_type).get(key)
-        if fmeta:
-            display = fmeta["display"]
-
-    # Effective category: reconcile the stored category (direct usage) with every
-    # media-folder type the tag appears on (folder tags never promote the stored
-    # row), so e.g. a book tag also on a map folder resolves to shared.
-    folder_types = {g["resource_type"] for g in tag_service.folders_for_tag(db, key)}
-    category = tag_service.effective_category(
-        tag.category if tag is not None else None, folder_types
-    )
-
-    items = enrich_tagged_items(db, direct_refs, see_explicit=see_explicit)
-    folders = [
-        {
-            "resource_type": g["resource_type"],
-            "path": g["path"],
-            "items": enrich_tagged_items(db, g["items"], see_explicit=see_explicit),
-        }
-        for g in folder_groups
-    ]
-    return {
-        "internal": key,
-        "display": display,
-        "category": category,
-        "items": items,
-        "folders": folders,
-    }
 
 
 def create_tag(

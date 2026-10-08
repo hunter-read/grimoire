@@ -212,6 +212,10 @@ class TestAddedAtMigration:
         with engine.begin() as conn:
             for table in self._TABLES:
                 conn.execute(text(f"DROP INDEX ix_{table}_added_at"))
+                # A later revision (0041) indexes added_at for the date sort;
+                # the rewind must drop that too before the column can go. The
+                # upgrade back to head recreates it.
+                conn.execute(text(f"DROP INDEX IF EXISTS ix_{table}_browse_added"))
                 conn.execute(text(f"ALTER TABLE {table} DROP COLUMN added_at"))
             for rid, created in (("dated", "2025-03-04 05:06:07.000000"), ("undated", None)):
                 params = {

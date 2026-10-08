@@ -1,20 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import VirtualGridRows from './VirtualGridRows'
-
-/**
- * The nearest ancestor that actually scrolls, or null for the viewport.
- *
- * The app scrolls inside `<main>` rather than the document (see AppShell), so
- * the virtualizer has to watch that element: measuring against the window would
- * compare rows to a box that never scrolls.
- */
-function scrollParent(el) {
-  for (let node = el?.parentElement; node; node = node.parentElement) {
-    const { overflowY } = getComputedStyle(node)
-    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return node
-  }
-  return null
-}
+import scrollParent from '../../utils/scrollParent'
 
 /**
  * A windowed grid: only the rows near the viewport are mounted, and the rest of

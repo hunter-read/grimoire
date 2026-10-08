@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import text
 
 from backend.config import SessionLocal
-from backend.routers.search._query import parse_query, to_fts_query, year_bounds
+from backend.services.search_query import parse_query, to_fts_query, year_bounds
 from backend.tests.conftest import make_book, make_game_system, make_map
 
 

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ModelsView from './ModelsView'
 import api from '../api'
+import { fakeMediaGet } from '../test/fakeBrowseApi'
 
 vi.mock('../api', () => ({
   default: {
@@ -129,12 +130,18 @@ describe('ModelsView', () => {
     mockIsFavorite.mockReturnValue(false)
   })
 
+  // The server filters, groups and pages now (issue #221); the fake answers
+  // those endpoints over `models`, with favourites from the mocked context.
   function setupModels(models) {
-    api.get.mockImplementation((url) => {
-      if (url.split('?')[0] === '/models') return Promise.resolve(makeModelsResponse(models))
-      if (url === '/model-folders') return Promise.resolve({ folders: [] })
-      return Promise.resolve({})
-    })
+    api.get.mockImplementation(
+      fakeMediaGet({
+        listUrl: '/models',
+        collection: 'models',
+        foldersUrl: '/model-folders',
+        items: models,
+        isFavorite: (id) => mockIsFavorite('model', id),
+      })
+    )
   }
 
   it('renders model filenames after loading', async () => {

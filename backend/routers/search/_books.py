@@ -8,7 +8,7 @@ product code) rather than the text inside it.
 The two run side by side on every unscoped search: a bare query matches titles
 *and* page text, and title matches are returned separately so the client can pin
 them above the page hits. A ``field:`` filter suppresses the text half entirely
-(see ``_query.ParsedQuery.content_query``).
+(see ``services.search_query.ParsedQuery.content_query``).
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from ...models import Book, GameSystem, ResourceTag, Tag
 from ...services import access_control, tag_service, variants
-from ._query import BOOK_FIELDS, ParsedQuery, year_bounds
+from ...services.search_query import BOOK_FIELDS, ParsedQuery, year_bounds
 
 # Ceiling on title-match rows. Generous relative to what a person reads, but
 # bounded so a one-letter filter (``language:e``) cannot select the library.
