@@ -6,6 +6,7 @@ migration 0041 backfills them. These pin the derivations, that every write path
 keeps them in step, and that the upgrade fills an existing library.
 """
 import os
+import re
 import tempfile
 
 from alembic import command
@@ -206,11 +207,19 @@ class TestQueryPlans:
             db, b.query(p).order_by(*b.order_by(p))
         )
 
-    def test_live_link_count_checks_the_live_index(self):
+    def test_live_link_count_looks_each_link_up_by_id(self):
+        # The plan that took 1.3s scanned the whole token table and probed the
+        # links. Walking the links and checking each one by id is the shape
+        # that matters; which id index answers the check (the covering
+        # ix_tokens_live, or the primary-key index) is the planner's call and
+        # varies between SQLite versions on an empty test database.
         from backend.models import ResourceTag
         from backend.services.tag_service._queries import live_links
         from sqlalchemy import func
 
         db = self._db()
         q = live_links(db, "token").with_entities(ResourceTag.tag_id, func.count())
-        assert "ix_tokens_live" in self._plan(db, q.group_by(ResourceTag.tag_id))
+        plan = self._plan(db, q.group_by(ResourceTag.tag_id))
+        assert "ix_resource_tags_type_tag" in plan
+        assert re.search(r"SEARCH tokens (EXISTS )?USING (COVERING )?INDEX \w+ \(id=", plan), plan
+        assert "SCAN tokens" not in plan
